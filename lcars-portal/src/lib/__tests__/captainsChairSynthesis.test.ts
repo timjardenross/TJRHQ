@@ -14,8 +14,9 @@ function baseInputs(overrides: Partial<CommandStatusInputs> = {}): CommandStatus
     interruptNow: 0,
     emergencyCount: 0,
     emergencyWorstTier: null,
-    systemsFailedCount: 0,
-    systemsUnknown: false,
+    hqPosture: 'normal',
+    hqSummary: null,
+    hqUnavailable: false,
     ...overrides,
   };
 }
@@ -96,6 +97,35 @@ describe('deriveCommandStatus', () => {
       const result = deriveCommandStatus({ ...noCheckin, emergencyWorstTier: 'emergency_warning', emergencyCount: 1 });
       expect(result.interpretation).toMatch(/something in the environment needs attention/i);
     });
+  });
+
+  // Command-Experience vNext: HQ health comes from the already-interpreted
+  // CaptainChairSummary posture (hqStatusInterpreter.ts), not a raw failed-
+  // job count — DEGRADED needs no response, only ATTENTION does (mission
+  // §9.7: "HQ degraded... No action required yet" vs "HQ NEEDS YOU").
+  describe('HQ Status posture', () => {
+    it('does not treat a merely degraded HQ as an environment concern', () => {
+      const result = deriveCommandStatus(baseInputs({ hqPosture: 'degraded', hqSummary: 'Morning Brief source coverage is incomplete.' }));
+      expect(result.interpretation).toMatch(/both stable/i);
+      expect(result.hasEnvironmentConcern).toBe(false);
+    });
+
+    it('treats HQ ATTENTION as a genuine environment concern', () => {
+      const result = deriveCommandStatus(baseInputs({ hqPosture: 'attention', hqSummary: 'Google Calendar authentication expired.' }));
+      expect(result.interpretation).toMatch(/Capacity is fine/i);
+      expect(result.environmentLine).toMatch(/Google Calendar authentication expired/);
+      expect(result.hasEnvironmentConcern).toBe(true);
+    });
+  });
+
+  it('exposes personal/environment concern flags for the Command State layer to reuse', () => {
+    const quiet = deriveCommandStatus(baseInputs());
+    expect(quiet.hasPersonalConcern).toBe(false);
+    expect(quiet.hasEnvironmentConcern).toBe(false);
+
+    const constrained = deriveCommandStatus(baseInputs({ posture: 'PROTECT', availableCapacity: 'orange' }));
+    expect(constrained.hasPersonalConcern).toBe(true);
+    expect(constrained.hasEnvironmentConcern).toBe(false);
   });
 
   it('distinguishes an unknown interrupt count from a real zero', () => {

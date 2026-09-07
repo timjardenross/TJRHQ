@@ -54,6 +54,7 @@ import {
 import {
   RankBadge,
   discard,
+  sendBackToResearch,
   CaptureStageBody,
   ResearchStageBody,
   ContentPrepStageBody,
@@ -79,7 +80,31 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
   const [pendingDiscard, setPendingDiscard] = useState(false);
   const [discarding, setDiscarding] = useState(false);
   const discardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sendingBack, setSendingBack] = useState(false);
+  const [sendBackMsg, setSendBackMsg] = useState('');
   const accent = STAGE_ACCENT[item.stage];
+
+  // Unlike discard (archived, off the board — see the grace-window comment
+  // above), sending back to Research is a normal forward-compatible workflow
+  // move like officer_submitted/captain_approved elsewhere in this workbench,
+  // so it fires directly with no undo window.
+  async function handleSendBack() {
+    setSendingBack(true);
+    setSendBackMsg('');
+    try {
+      const res = await sendBackToResearch(item.id);
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error);
+      }
+      setOpen(false);
+      onChanged();
+    } catch (e) {
+      setSendBackMsg(e instanceof Error ? e.message : 'Error sending back to research');
+    } finally {
+      setSendingBack(false);
+    }
+  }
 
   useEffect(() => () => { if (discardTimer.current) clearTimeout(discardTimer.current); }, []);
 
@@ -147,7 +172,13 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
         {item.stage === 'content_prep' && <ContentPrepStageBody item={item} onChanged={onChanged} />}
         {item.stage === 'proofing' && <ProofingStageBody item={item} onChanged={onChanged} />}
 
-        <div className="mt-4 border-t border-wb-line pt-3">
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-wb-line pt-3">
+          {(item.stage === 'content_prep' || item.stage === 'proofing') && !pendingDiscard && (
+            <button type="button" onClick={handleSendBack} disabled={sendingBack}
+              className="text-[12px] text-wb-ink2 hover:underline disabled:opacity-60" aria-label={`Send "${item.title}" back to Research`}>
+              {sendingBack ? 'Sending back…' : '← Send Back to Research'}
+            </button>
+          )}
           {!pendingDiscard ? (
             <button type="button" onClick={startDiscard}
               className="text-[12px] text-wb-crit-on hover:underline" aria-label={`Discard "${item.title}"`}>
@@ -164,6 +195,7 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
             </div>
           )}
         </div>
+        {sendBackMsg && <p className="mt-1 text-[12px] text-wb-crit-on" role="status" aria-live="polite">{sendBackMsg}</p>}
       </Modal>
     </>
   );

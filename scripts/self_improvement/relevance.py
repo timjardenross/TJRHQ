@@ -32,6 +32,13 @@ class RelevanceVerdict:
     is_duplicate: bool
     duplicate_of: Optional[str] = None
     duplicate_disposition: Optional[str] = None  # decision recorded on the prior record
+    # Set (not is_duplicate) when a prior record for this fingerprint
+    # exists and was successfully reconsidered — the caller must UPDATE
+    # this opportunity_id rather than create_new() a fresh one, or a
+    # candidate rediscovered every cycle without ever being promoted would
+    # pile up one "discovered" card per cycle forever instead of one
+    # single card that just keeps refreshing.
+    reconsider_of: Optional[str] = None
 
 
 class RelevanceGate:
@@ -64,11 +71,25 @@ class RelevanceGate:
             return False, None
 
         state = existing.get("lifecycle_state")
-        if state not in ("watching", "rejected"):
-            # Already discovered/investigating/proposed/approved/implementing/
-            # verifying/learned — it's already tracked, never resurface as a
-            # brand-new discovery. Only "watching" (premature) and
-            # "rejected" (not useful, at the time) get reconsidered below.
+        # 2026-09-06: "discovered" and "investigating" used to fall through
+        # to the blanket block below, permanently — found live via a real
+        # "Get more evidence" click and a real capacity-limited "discovered"
+        # candidate, neither of which anything ever revisited. Both are
+        # non-terminal, non-decisions: "discovered" just didn't fit this
+        # cycle's shortlist/investigation cap, and "investigating" via
+        # more_evidence is a human saying "not enough to decide yet" — the
+        # same kind of deferral "watching" already models correctly, not a
+        # rejection. Fixed by giving each its own honest reconsideration
+        # rule rather than silently freezing them forever.
+        if state == "discovered":
+            # No human decision was ever made — purely a capacity limit
+            # (max_shortlist/max_investigations_per_cycle). Nothing to wait
+            # out or need to beat; let it compete again next cycle.
+            return False, existing
+        if state not in ("watching", "rejected", "investigating"):
+            # proposed/approved/implementing/verifying/learned — an active
+            # decision is in flight or already made; never resurface as a
+            # brand-new discovery underneath it.
             return True, existing
 
         reconsider_days = self.config.get("dedup_reconsideration_days", 21)
@@ -84,7 +105,7 @@ class RelevanceGate:
 
         if state == "rejected" and not meaningfully_better:
             return True, existing
-        if state == "watching" and age_days < reconsider_days and not meaningfully_better:
+        if state in ("watching", "investigating") and age_days < reconsider_days and not meaningfully_better:
             return True, existing
 
         return False, existing
@@ -107,15 +128,16 @@ class RelevanceGate:
         score = self.score_candidate(candidate)
         min_investigate = self.config.get("min_relevance_score_to_investigate", 0.5)
         min_surface = self.config.get("min_relevance_score_to_surface", 0.65)
+        reconsider_of = existing.get("opportunity_id") if existing else None
 
         if not candidate.get("why_relevant"):
             reasons.append("No why_relevant evidence — cannot pass relevance gate on popularity/novelty alone")
-            return RelevanceVerdict(False, False, score, reasons, False)
+            return RelevanceVerdict(False, False, score, reasons, False, reconsider_of=reconsider_of)
 
         passes_investigate = score >= min_investigate
         passes_surface = score >= min_surface
         reasons.append(f"score={score} (investigate>={min_investigate}, surface>={min_surface})")
-        return RelevanceVerdict(passes_investigate, passes_surface, score, reasons, False)
+        return RelevanceVerdict(passes_investigate, passes_surface, score, reasons, False, reconsider_of=reconsider_of)
 
 
 def shortlist(candidates: list[dict[str, Any]], gate: RelevanceGate, max_shortlist: int) -> list[tuple[dict[str, Any], RelevanceVerdict]]:

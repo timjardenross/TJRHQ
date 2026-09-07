@@ -136,6 +136,14 @@ export interface Opportunity {
   created_at: string;
   updated_at: string;
   run_id: string | null;
+  // Read-only join of auto_remediation.py's own outcome log (2026-09-06) —
+  // present only once that engine has actually acted on this opportunity's
+  // source_finding_id; absent for anything not yet touched, or with no
+  // source_finding_id at all.
+  remediation_status?: 'succeeded' | 'failed';
+  remediation_message?: string;
+  remediation_pr_url?: string | null;
+  remediation_at?: string;
 }
 
 export type OpportunityDecisionType =
@@ -145,7 +153,8 @@ export type OpportunityDecisionType =
   | 'approve_improvement'
   | 'create_mission'
   | 'more_evidence'
-  | 'reject';
+  | 'reject'
+  | 'mark_implemented';
 
 export interface EvolutionSummary {
   run_id: string | null;

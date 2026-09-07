@@ -1,0 +1,30 @@
+{
+  "run_id": "2026-09-06-091414",
+  "timestamp": "2026-09-06T09:15:04.569698+00:00",
+  "dry_run": false,
+  "investigated_count": 24,
+  "cleared_relevance_gate_count": 0,
+  "duplicate_count": 4,
+  "shortlisted_count": 0,
+  "deep_investigated_count": 0,
+  "worth_considering_count": 0,
+  "nothing_worth_changing": true,
+  "highest_value_opportunity": null,
+  "pending_decisions_count": 3,
+  "duration_ms": 50283,
+  "outcomes_completed_count": 0,
+  "regressions_count": 0,
+  "latest_material_learning": null,
+  "implementations_confirmed_count": 0,
+  "cycle_status": "ok",
+  "freshness": "2026-09-06T09:15:04.569698+00:00",
+  "cost_accounting": {
+    "internal_candidates_checked": 4,
+    "watchlist_topics_total": 8,
+    "watchlist_topics_resolved_before_research": 0,
+    "external_searches_made": 8,
+    "external_candidates_found": 20,
+    "investigation_model_calls": 0,
+    "investigation_template_fallbacks": 0
+  }
+}

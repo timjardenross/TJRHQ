@@ -1,0 +1,3781 @@
+{
+  "captured_item_links": [],
+  "captured_item_text": [],
+  "command_memory": [
+    {
+      "action": "git_commit",
+      "details": null,
+      "duration_ms": null,
+      "error": null,
+      "id": "78f2c3e8-e7b1-472e-9c09-c069584c7942",
+      "mission_id": "slack-20260611174815",
+      "result": "success",
+      "timestamp": "2026-06-11T07:49:17.890521",
+      "tool_used": "github_ops"
+    },
+    {
+      "action": "git_commit",
+      "details": null,
+      "duration_ms": null,
+      "error": null,
+      "id": "eba5e3f5-5257-4b18-98c8-5a8fbf7795fb",
+      "mission_id": "slack-20260611175431",
+      "result": "success",
+      "timestamp": "2026-06-11T07:55:18.215543",
+      "tool_used": "github_ops"
+    },
+    {
+      "action": "git_commit",
+      "details": null,
+      "duration_ms": null,
+      "error": null,
+      "id": "92986317-2bfe-4b68-a839-4af752ef2cd1",
+      "mission_id": "slack-20260611175456",
+      "result": "success",
+      "timestamp": "2026-06-11T07:55:35.797246",
+      "tool_used": "github_ops"
+    },
+    {
+      "action": "git_commit",
+      "details": null,
+      "duration_ms": null,
+      "error": null,
+      "id": "d8305443-0413-4ec0-b8e3-97baf4611b73",
+      "mission_id": "slack-20260611175516",
+      "result": "success",
+      "timestamp": "2026-06-11T07:56:10.698447",
+      "tool_used": "github_ops"
+    }
+  ],
+  "decision_outcomes": [
+    {
+      "accuracy_score": 1,
+      "actionability_score": 0.8,
+      "clarity_score": 0.9,
+      "created_at": "2026-06-08T11:26:05.85348",
+      "decision_id": "279f9b6a-ac3a-47e4-a8f1-f9769f6d7694",
+      "evaluation_date": "2026-06-08T11:26:05.85348",
+      "evaluator": "Captain TJR",
+      "id": 1,
+      "lessons_learned": null,
+      "mission_id": "MSN-0001",
+      "outcome_notes": "Test outcome for validation",
+      "outcome_status": "success",
+      "quality_score": 3.5,
+      "retrospective_notes": null,
+      "timeliness_score": 0.8,
+      "updated_at": "2026-06-08T11:26:05.85348"
+    },
+    {
+      "accuracy_score": 1,
+      "actionability_score": 0.8,
+      "clarity_score": 0.9,
+      "created_at": "2026-06-08T11:26:25.189029",
+      "decision_id": "279f9b6a-ac3a-47e4-a8f1-f9769f6d7694",
+      "evaluation_date": "2026-06-06T00:00:00",
+      "evaluator": "Captain TJR",
+      "id": 2,
+      "lessons_learned": null,
+      "mission_id": "MSN-0012",
+      "outcome_notes": "Slack discovery and backlog command layer completed on schedule.",
+      "outcome_status": "success",
+      "quality_score": 3.5,
+      "retrospective_notes": "Clear decision, good timing, successful outcome.",
+      "timeliness_score": 0.8,
+      "updated_at": "2026-06-08T11:26:25.189029"
+    },
+    {
+      "accuracy_score": 1,
+      "actionability_score": 0.7,
+      "clarity_score": 0.8,
+      "created_at": "2026-06-08T11:26:25.189029",
+      "decision_id": "279f9b6a-ac3a-47e4-a8f1-f9769f6d7694",
+      "evaluation_date": "2026-06-05T00:00:00",
+      "evaluator": "Captain TJR",
+      "id": 3,
+      "lessons_learned": null,
+      "mission_id": "MSN-0011",
+      "outcome_notes": "Supabase integration decision proved sound. Architecture clean.",
+      "outcome_status": "success",
+      "quality_score": 3.3,
+      "retrospective_notes": "Well-reasoned technical decision.",
+      "timeliness_score": 0.8,
+      "updated_at": "2026-06-08T11:26:25.189029"
+    },
+    {
+      "accuracy_score": 0.5,
+      "actionability_score": 0.9,
+      "clarity_score": 0.7,
+      "created_at": "2026-06-08T11:26:25.189029",
+      "decision_id": "279f9b6a-ac3a-47e4-a8f1-f9769f6d7694",
+      "evaluation_date": "2026-06-04T00:00:00",
+      "evaluator": "Captain TJR",
+      "id": 4,
+      "lessons_learned": null,
+      "mission_id": "MSN-0010A",
+      "outcome_notes": "Dual Commander evaluation started but needed scope refinement. Partial success.",
+      "outcome_status": "partial",
+      "quality_score": 2.8,
+      "retrospective_notes": "Needed iteration but directionally correct.",
+      "timeliness_score": 0.7,
+      "updated_at": "2026-06-08T11:26:25.189029"
+    },
+    {
+      "accuracy_score": 0,
+      "actionability_score": 0.3,
+      "clarity_score": 0.4,
+      "created_at": "2026-06-08T11:26:25.189029",
+      "decision_id": "279f9b6a-ac3a-47e4-a8f1-f9769f6d7694",
+      "evaluation_date": "2026-06-03T00:00:00",
+      "evaluator": "Captain TJR",
+      "id": 5,
+      "lessons_learned": null,
+      "mission_id": "MSN-0009",
+      "outcome_notes": "Initial Slack bot attempt was premature. Later reworked successfully.",
+      "outcome_status": "failed",
+      "quality_score": 1.5,
+      "retrospective_notes": "Timing was off; learned from failure.",
+      "timeliness_score": 0.2,
+      "updated_at": "2026-06-08T11:26:25.189029"
+    },
+    {
+      "accuracy_score": 1,
+      "actionability_score": 0.9,
+      "clarity_score": 0.9,
+      "created_at": "2026-06-08T11:26:25.189029",
+      "decision_id": "279f9b6a-ac3a-47e4-a8f1-f9769f6d7694",
+      "evaluation_date": "2026-06-02T00:00:00",
+      "evaluator": "Captain TJR",
+      "id": 6,
+      "lessons_learned": null,
+      "mission_id": "MSN-0008",
+      "outcome_notes": "Knowledge ingestion strategy was correct. Clean execution.",
+      "outcome_status": "success",
+      "quality_score": 3.7,
+      "retrospective_notes": "Best-in-class decision quality and execution.",
+      "timeliness_score": 0.9,
+      "updated_at": "2026-06-08T11:26:25.189029"
+    }
+  ],
+  "feedback_signals": [],
+  "provider_quality_history": [],
+  "quality_anomalies": [],
+  "quality_forecasts": [],
+  "quality_scores": [],
+  "research_input_archived_2026": [],
+  "temporal_entities_archived_2026": [
+    {
+      "entity_id": "ent-74a90b85fe41a796",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:29:50.922289+00:00",
+      "id": 1,
+      "last_updated_at": "2026-06-21T05:50:55.186909+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-062950-922289-bc3eac",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-0ce4c4dc8d4fc3e8",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:29:50.922289+00:00",
+      "id": 2,
+      "last_updated_at": "2026-06-21T05:50:55.186909+00:00",
+      "metadata": {},
+      "name": "USS-TJR-MSN-0009B",
+      "summary": "Mission USS-TJR-MSN-0009B"
+    },
+    {
+      "entity_id": "ent-7cabeaaf0ad794eb",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:29:50.929395+00:00",
+      "id": 5,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-062950-929395-07ccc5",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-e8892d3352cdadcd",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:29:50.943766+00:00",
+      "id": 6,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-062950-943766-657790",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-e8a76a8c4229c7fa",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:29:50.955184+00:00",
+      "id": 7,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-062950-955184-e092c1",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-96371db39e3b2b31",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:29:50.956852+00:00",
+      "id": 8,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-062950-956852-c9de96",
+      "summary": "Should we test this?"
+    },
+    {
+      "entity_id": "ent-539c428194a3626b",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:29:56.711747+00:00",
+      "id": 9,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-062956-711747-9db95d",
+      "summary": "How should we build Voice Core?"
+    },
+    {
+      "entity_id": "ent-4d161d06ceb0499e",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:29:56.711747+00:00",
+      "id": 10,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "USS-TJR-MSN-0008A",
+      "summary": "Mission USS-TJR-MSN-0008A"
+    },
+    {
+      "entity_id": "ent-76219a8d306c102b",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:29:56.775685+00:00",
+      "id": 11,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-062956-775685-5b7a03",
+      "summary": "Should we build Voice Core next?"
+    },
+    {
+      "entity_id": "ent-88286ccc1e8581b2",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:29:56.775685+00:00",
+      "id": 12,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "USS-TJR-MSN-0008B",
+      "summary": "Mission USS-TJR-MSN-0008B"
+    },
+    {
+      "entity_id": "ent-24af37ce433a820f",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:29:56.837856+00:00",
+      "id": 13,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-062956-837856-7097cf",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-bd6ac756ccd20598",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:29:56.837856+00:00",
+      "id": 14,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "USS-TJR-MSN-0010A",
+      "summary": "Mission USS-TJR-MSN-0010A"
+    },
+    {
+      "entity_id": "ent-b448995d8fa29f2d",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:29:56.845505+00:00",
+      "id": 15,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-062956-845505-b5efa6",
+      "summary": "How should we build Voice Core?"
+    },
+    {
+      "entity_id": "ent-2e453d5122e95f26",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:29:56.845505+00:00",
+      "id": 16,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "USS-TJR-MSN-0010A-control",
+      "summary": "Mission USS-TJR-MSN-0010A-control"
+    },
+    {
+      "entity_id": "ent-0f9b29a5a7df2dc7",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:29:56.852703+00:00",
+      "id": 17,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-062956-852703-b51e67",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-74cb4999b2f243ba",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:29:56.909127+00:00",
+      "id": 18,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-062956-909127-7a68c8",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-2d4512b8f94a3e80",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:29:56.909127+00:00",
+      "id": 19,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "USS-TJR-MSN-0009A",
+      "summary": "Mission USS-TJR-MSN-0009A"
+    },
+    {
+      "entity_id": "ent-b56075ea3d10c1da",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:29:56.915764+00:00",
+      "id": 20,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-062956-915764-b92ac8",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-238ccf2b672a2540",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:29:56.927102+00:00",
+      "id": 21,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-062956-927102-d4e16f",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-28bea3b71996b493",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:29:56.941988+00:00",
+      "id": 22,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-062956-941988-e8c1aa",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-882eca6d63da359a",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:30:04.411865+00:00",
+      "id": 23,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-063004-411865-0c9dff",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-9f5dae8f5e72d710",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:26.769072+00:00",
+      "id": 24,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065626-769072-3b74d1",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-8c8c78430d3aff0c",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:56:26.769072+00:00",
+      "id": 25,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "USS-TJR-MSN-0010",
+      "summary": "Mission USS-TJR-MSN-0010"
+    },
+    {
+      "entity_id": "ent-3bb9518a2c8e29b3",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:26.778402+00:00",
+      "id": 26,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065626-778402-2aa96d",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-1d73a57a20c56d2b",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:26.834083+00:00",
+      "id": 27,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065626-834083-3e1f2e",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-75dade89f1bea8d3",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:26.856009+00:00",
+      "id": 28,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065626-856009-825b48",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-47b4b6837f63a8cf",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:31.191302+00:00",
+      "id": 29,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065631-191302-4a5a1f",
+      "summary": "How should we build Voice Core?"
+    },
+    {
+      "entity_id": "ent-8317a9caad649666",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:31.312778+00:00",
+      "id": 31,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065631-312778-173d48",
+      "summary": "Should we build Voice Core next?"
+    },
+    {
+      "entity_id": "ent-cba1faf9647c5bca",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:31.395301+00:00",
+      "id": 33,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065631-395301-8801e1",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-be411c4c836a8759",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:31.40627+00:00",
+      "id": 35,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065631-406270-074e7f",
+      "summary": "How should we build Voice Core?"
+    },
+    {
+      "entity_id": "ent-302f6e5587d86b98",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:31.415922+00:00",
+      "id": 37,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065631-415922-fc6e48",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-e70b1f2a1f720969",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:31.481961+00:00",
+      "id": 38,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065631-481961-603f21",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-408acc98be049602",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:31.49067+00:00",
+      "id": 39,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065631-490670-4c4490",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-50a5e99d3e38508e",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:31.509437+00:00",
+      "id": 40,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065631-509437-c9ef1d",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-70c40c130034ff79",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:31.528096+00:00",
+      "id": 41,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065631-528096-f410e9",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-4beb9126cb4a1e20",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:31.606624+00:00",
+      "id": 42,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065631-606624-e52192",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-5b51f0907bf22a91",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:31.620851+00:00",
+      "id": 43,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065631-620851-16ff4b",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-65afad569bfb2722",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:31.64718+00:00",
+      "id": 44,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065631-647180-0f6556",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-0170761e286cd15c",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:31.664015+00:00",
+      "id": 45,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065631-664015-666915",
+      "summary": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+    },
+    {
+      "entity_id": "ent-03fb7c195229d4c6",
+      "entity_type": "decision",
+      "first_seen_at": "2026-06-06T06:56:31.674555+00:00",
+      "id": 46,
+      "last_updated_at": "2026-06-21T05:52:16.937234+00:00",
+      "metadata": {},
+      "name": "DEC-20260606-065631-674555-9bcc0f",
+      "summary": "Should we test this?"
+    },
+    {
+      "entity_id": "ent-d0e5df65dc04fca8",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:56:26.804418+00:00",
+      "id": 47,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft"
+      },
+      "name": "MIS-20260606-065626-804418-9fc157",
+      "summary": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+    },
+    {
+      "entity_id": "ent-bee5269a2a458b27",
+      "entity_type": "specialist",
+      "first_seen_at": "2026-06-06T06:56:26.804418+00:00",
+      "id": 48,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {},
+      "name": "Chief Engineer",
+      "summary": "Specialist: Chief Engineer"
+    },
+    {
+      "entity_id": "ent-9fc80f06b27524b1",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:56:26.805858+00:00",
+      "id": 49,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft"
+      },
+      "name": "MIS-20260606-065626-805858-08be91",
+      "summary": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+    },
+    {
+      "entity_id": "ent-0a1d16e706cd8c91",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:56:26.807354+00:00",
+      "id": 50,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft"
+      },
+      "name": "MIS-20260606-065626-807354-be9b6f",
+      "summary": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+    },
+    {
+      "entity_id": "ent-4d4a6153a158c717",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:56:26.808344+00:00",
+      "id": 51,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft"
+      },
+      "name": "MIS-20260606-065626-808344-6e8e45",
+      "summary": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+    },
+    {
+      "entity_id": "ent-c3ef39df7df86e2e",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:56:26.810357+00:00",
+      "id": 52,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft"
+      },
+      "name": "MIS-20260606-065626-810357-29ce9d",
+      "summary": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+    },
+    {
+      "entity_id": "ent-0b29ee43757c5664",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:56:26.825598+00:00",
+      "id": 53,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft"
+      },
+      "name": "MIS-20260606-065626-825598-8368f1",
+      "summary": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+    },
+    {
+      "entity_id": "ent-c5719f876f5886fa",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:56:26.826569+00:00",
+      "id": 54,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft"
+      },
+      "name": "MIS-20260606-065626-826569-a75f10",
+      "summary": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+    },
+    {
+      "entity_id": "ent-fc3136639b1d1c29",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:56:26.827249+00:00",
+      "id": 55,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft"
+      },
+      "name": "MIS-20260606-065626-827249-43a01e",
+      "summary": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+    },
+    {
+      "entity_id": "ent-e791b23685b60ac6",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:56:26.82794+00:00",
+      "id": 56,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft"
+      },
+      "name": "MIS-20260606-065626-827940-b7d9b5",
+      "summary": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+    },
+    {
+      "entity_id": "ent-eb6256f6eec1fdf7",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-06T06:56:26.870443+00:00",
+      "id": 57,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Ready"
+      },
+      "name": "MIS-20260606-065626-870443-afbf20",
+      "summary": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+    },
+    {
+      "entity_id": "ent-350b5c36dd50aae0",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 58,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "APPROVED"
+      },
+      "name": "ADR-001",
+      "summary": "GitHub as System of Record"
+    },
+    {
+      "entity_id": "ent-c1744e837ae2a2ec",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 59,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "APPROVED"
+      },
+      "name": "ADR-002",
+      "summary": "Mission Control to GitHub Execution Model"
+    },
+    {
+      "entity_id": "ent-d846d3297795f5cc",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 60,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "APPROVED"
+      },
+      "name": "ADR-003",
+      "summary": "Tailscale Private Network Architecture"
+    },
+    {
+      "entity_id": "ent-3ceb68efbeaaed83",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 61,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "APPROVED"
+      },
+      "name": "ADR-004",
+      "summary": "USS TJR Knowledge Architecture"
+    },
+    {
+      "entity_id": "ent-799620420c459654",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 62,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "APPROVED"
+      },
+      "name": "ADR-005",
+      "summary": "Notion Operational Workspace Boundaries"
+    },
+    {
+      "entity_id": "ent-6b48d3e733eea6b9",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 63,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "APPROVED"
+      },
+      "name": "ADR-006",
+      "summary": "Supabase Memory Layer Architecture"
+    },
+    {
+      "entity_id": "ent-07b78bcf25f39e4f",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 64,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-ADR-INDEX",
+      "summary": "ADR-INDEX"
+    },
+    {
+      "entity_id": "ent-c263189424d4086d",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 65,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-007",
+      "summary": "ADR-007-Source-Data-Contract-Validation"
+    },
+    {
+      "entity_id": "ent-4f44b0e78a002e9d",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 66,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-008",
+      "summary": "ADR-008-Knowledge-as-Strategic-Capability"
+    },
+    {
+      "entity_id": "ent-34893e6177876b52",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 67,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-009",
+      "summary": "ADR-009-Supabase-as-Operational-Data-Layer"
+    },
+    {
+      "entity_id": "ent-132a36a5c35b99f1",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 68,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-010",
+      "summary": "ADR-010-Mission-Closure-Requires-Outcome-Capture"
+    },
+    {
+      "entity_id": "ent-d0cfc8ac3476bd02",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 69,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-012",
+      "summary": "ADR-012-ADR0001-Lifecycle-as-Canonical-Workflow"
+    },
+    {
+      "entity_id": "ent-67166bc4988c9131",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 70,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-013",
+      "summary": "ADR-013-Number-One-as-Operational-Orchestrator"
+    },
+    {
+      "entity_id": "ent-46639de7e445eee9",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 71,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-014",
+      "summary": "ADR-014-Proactive-Intelligence-Architecture"
+    },
+    {
+      "entity_id": "ent-7ca931781173fcec",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 72,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-015",
+      "summary": "ADR-015-Lessons-Learned-as-Structured-Data"
+    },
+    {
+      "entity_id": "ent-c3f0092c48143f51",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 73,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-016",
+      "summary": "ADR-016-Working-Memory-and-Long-Term-Memory-Separation"
+    },
+    {
+      "entity_id": "ent-0d72d3e6a11d40fb",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 74,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-017",
+      "summary": "ADR-017-API-First-Integration-Strategy"
+    },
+    {
+      "entity_id": "ent-847423f5c1cab3fa",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 75,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-018",
+      "summary": "ADR-018-Health-Intelligence-as-First-Class-Domain"
+    },
+    {
+      "entity_id": "ent-fc15e7b499d93e80",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 76,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-019",
+      "summary": "ADR-019-Single-Source-of-Truth-Architecture"
+    },
+    {
+      "entity_id": "ent-fd374fb74290845b",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 77,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-020",
+      "summary": "ADR-020-Capability-Reuse-Before-Capability-Creation"
+    },
+    {
+      "entity_id": "ent-6a9aaa113481eea1",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 78,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-021",
+      "summary": "ADR-021-Governance-Lifecycle-Operational"
+    },
+    {
+      "entity_id": "ent-c65225ff0d221d36",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 79,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-022",
+      "summary": "ADR-022-Local-First-AI-Architecture"
+    },
+    {
+      "entity_id": "ent-6be13fb74d9e1541",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 80,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-023",
+      "summary": "ADR-023-Department-Colour-Standard"
+    },
+    {
+      "entity_id": "ent-da25b20cecd650f6",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 81,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-024",
+      "summary": "ADR-024-Deprecation-Protocol"
+    },
+    {
+      "entity_id": "ent-8033707d6578300c",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 82,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-025",
+      "summary": "ADR-025-Secrets-Management-Model"
+    },
+    {
+      "entity_id": "ent-3cdda04122b487f5",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 83,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-026",
+      "summary": "ADR-026-Missions-DB-Lifecycle"
+    },
+    {
+      "entity_id": "ent-9ead7c0ea3b4e62d",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 84,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-027",
+      "summary": "ADR-027-Module-Registration-Taxonomy"
+    },
+    {
+      "entity_id": "ent-3402bc8552789749",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 85,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-028",
+      "summary": "ADR-028-Duplicate-Consolidation-Protocol"
+    },
+    {
+      "entity_id": "ent-1cfbecd04f06f398",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 86,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-029",
+      "summary": "ADR-029-Runtime-Asset-Lifecycle"
+    },
+    {
+      "entity_id": "ent-13d612e275ca92d4",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 87,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-030",
+      "summary": "ADR-030-Engineering-Router-Execution-Model"
+    },
+    {
+      "entity_id": "ent-21d5462040c009e6",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 88,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-031",
+      "summary": "ADR-031-Agent-Orchestration-Standardisation"
+    },
+    {
+      "entity_id": "ent-8a48fe68a860c794",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 89,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-ADR-HEALTH-001-Health-Data-Architecture",
+      "summary": "ADR-HEALTH-001-Health-Data-Architecture"
+    },
+    {
+      "entity_id": "ent-2ec3209d5ee92e60",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 90,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-ADR-HEALTH-002-Sprint-C-Intelligence-Architecture",
+      "summary": "ADR-HEALTH-002-Sprint-C-Intelligence-Architecture"
+    },
+    {
+      "entity_id": "ent-98a644c3d2708c9c",
+      "entity_type": "adr",
+      "first_seen_at": "2026-06-06T00:00:00+00:00",
+      "id": 91,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "UNKNOWN"
+      },
+      "name": "ADR-ADR-NAMESPACE-MAPPING",
+      "summary": "ADR-NAMESPACE-MAPPING"
+    },
+    {
+      "entity_id": "ent-81494d53d403cf7e",
+      "entity_type": "mission",
+      "first_seen_at": "2026-06-21T00:00:00+00:00",
+      "id": 92,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {
+        "status": "Completed"
+      },
+      "name": "MSN-OSS-001",
+      "summary": "Open Source Capability Harvest"
+    },
+    {
+      "entity_id": "ent-7a142d45366ccd77",
+      "entity_type": "capability",
+      "first_seen_at": "2026-06-21T00:00:00+00:00",
+      "id": 93,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {},
+      "name": "Temporal Memory Layer",
+      "summary": "Graphiti-inspired bi-temporal knowledge store on Supabase"
+    },
+    {
+      "entity_id": "ent-875bd14d4739cf65",
+      "entity_type": "capability",
+      "first_seen_at": "2026-06-21T00:00:00+00:00",
+      "id": 94,
+      "last_updated_at": "2026-06-21T05:53:18.863282+00:00",
+      "metadata": {},
+      "name": "CodeGraph Engineering Intelligence",
+      "summary": "codebase-memory-mcp + Python AST enricher for architecture-aware prompts"
+    }
+  ],
+  "temporal_episodes_archived_2026": [
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009B",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-86d7aa7eddbee0d2",
+      "id": 1,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009B",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-062950-922289-bc3eac",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:29:50.922289+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009B",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-da1629b75f931068",
+      "id": 2,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009B",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-062950-929395-07ccc5",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:29:50.929395+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009B",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-bbb90164b86c1261",
+      "id": 3,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009B",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-062950-943766-657790",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:29:50.943766+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009B",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-baa4bd26f8fdd050",
+      "id": 4,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009B",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-062950-955184-e092c1",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:29:50.955184+00:00"
+    },
+    {
+      "content": "Decision: Should we test this? Rec: ",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-05346220a7c92f10",
+      "id": 5,
+      "metadata": {
+        "mission_id": "",
+        "mode": "strategic",
+        "question": "Should we test this?"
+      },
+      "source_id": "DEC-20260606-062950-956852-c9de96",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:29:50.956852+00:00"
+    },
+    {
+      "content": "Decision: How should we build Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0008A",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-c2a5d3bda97128bc",
+      "id": 6,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0008A",
+        "mode": "strategic",
+        "question": "How should we build Voice Core?"
+      },
+      "source_id": "DEC-20260606-062956-711747-9db95d",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:29:56.711747+00:00"
+    },
+    {
+      "content": "Decision: Should we build Voice Core next? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0008B",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-3380ec5a4d5081ef",
+      "id": 7,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0008B",
+        "mode": "strategic",
+        "question": "Should we build Voice Core next?"
+      },
+      "source_id": "DEC-20260606-062956-775685-5b7a03",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:29:56.775685+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0010A",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-b41deb30688bbd8f",
+      "id": 8,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0010A",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-062956-837856-7097cf",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:29:56.837856+00:00"
+    },
+    {
+      "content": "Decision: How should we build Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0010A-control",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-6b1791bdd25f5928",
+      "id": 9,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0010A-control",
+        "mode": "strategic",
+        "question": "How should we build Voice Core?"
+      },
+      "source_id": "DEC-20260606-062956-845505-b5efa6",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:29:56.845505+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0010A",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-29bd329e57912400",
+      "id": 10,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0010A",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-062956-852703-b51e67",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:29:56.852703+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009A",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-ee07b0bdd9fe927a",
+      "id": 11,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009A",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-062956-909127-7a68c8",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:29:56.909127+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009A",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-0b7dbee2e82357ec",
+      "id": 12,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009A",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-062956-915764-b92ac8",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:29:56.915764+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009A",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-a4746c0353bc1202",
+      "id": 13,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009A",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-062956-927102-d4e16f",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:29:56.927102+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009A",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-3440b7be64645270",
+      "id": 14,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009A",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-062956-941988-e8c1aa",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:29:56.941988+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-b0800efa9eddf1da",
+      "id": 15,
+      "metadata": {
+        "mission_id": "",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-063004-411865-0c9dff",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:30:04.411865+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0010",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-cec492219c0692b5",
+      "id": 16,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0010",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-065626-769072-3b74d1",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:26.769072+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: ",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-b18a2858a7c859d4",
+      "id": 17,
+      "metadata": {
+        "mission_id": "",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-065626-778402-2aa96d",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:26.778402+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0010",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-61d4bd3583c0520c",
+      "id": 18,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0010",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-065626-834083-3e1f2e",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:26.834083+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0010",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-90cbc019e7a13063",
+      "id": 19,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0010",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-065626-856009-825b48",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:26.856009+00:00"
+    },
+    {
+      "content": "Decision: How should we build Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0008A",
+      "created_at": "2026-06-21T05:56:08.545237+00:00",
+      "episode_id": "ep-9ef266bdca17231c",
+      "id": 20,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0008A",
+        "mode": "strategic",
+        "question": "How should we build Voice Core?"
+      },
+      "source_id": "DEC-20260606-065631-191302-4a5a1f",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:31.191302+00:00"
+    },
+    {
+      "content": "Decision: Should we build Voice Core next? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0008B",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-2cf985fabcbbde61",
+      "id": 21,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0008B",
+        "mode": "strategic",
+        "question": "Should we build Voice Core next?"
+      },
+      "source_id": "DEC-20260606-065631-312778-173d48",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:31.312778+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0010A",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-93c49d0cc4b75c64",
+      "id": 22,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0010A",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-065631-395301-8801e1",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:31.395301+00:00"
+    },
+    {
+      "content": "Decision: How should we build Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0010A-control",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-b00373b56c37f97c",
+      "id": 23,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0010A-control",
+        "mode": "strategic",
+        "question": "How should we build Voice Core?"
+      },
+      "source_id": "DEC-20260606-065631-406270-074e7f",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:31.40627+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0010A",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-04b86018ba31ad95",
+      "id": 24,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0010A",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-065631-415922-fc6e48",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:31.415922+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009A",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-e32d81365b7cf663",
+      "id": 25,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009A",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-065631-481961-603f21",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:31.481961+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009A",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-b744363b59846747",
+      "id": 26,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009A",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-065631-490670-4c4490",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:31.49067+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009A",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-098685d4db622835",
+      "id": 27,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009A",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-065631-509437-c9ef1d",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:31.509437+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009A",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-43b37d8a9be3f3ea",
+      "id": 28,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009A",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-065631-528096-f410e9",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:31.528096+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009B",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-5b880f98a9d7382e",
+      "id": 29,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009B",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-065631-606624-e52192",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:31.606624+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009B",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-55eceefe1c4771e3",
+      "id": 30,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009B",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-065631-620851-16ff4b",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:31.620851+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009B",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-a7bed260a080068a",
+      "id": 31,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009B",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-065631-647180-0f6556",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:31.64718+00:00"
+    },
+    {
+      "content": "Decision: Should USS TJR prioritise Slack specialist collaboration over Voice Core? Rec: Recommended Action: Build the smallest end-to-end path first: architecture, impl Mission: USS-TJR-MSN-0009B",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-694b6ee466217a67",
+      "id": 32,
+      "metadata": {
+        "mission_id": "USS-TJR-MSN-0009B",
+        "mode": "strategic",
+        "question": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?"
+      },
+      "source_id": "DEC-20260606-065631-664015-666915",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:31.664015+00:00"
+    },
+    {
+      "content": "Decision: Should we test this? Rec: ",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-fca2ef75b9508dd2",
+      "id": 33,
+      "metadata": {
+        "mission_id": "",
+        "mode": "strategic",
+        "question": "Should we test this?"
+      },
+      "source_id": "DEC-20260606-065631-674555-9bcc0f",
+      "source_type": "decision",
+      "valid_at": "2026-06-06T06:56:31.674555+00:00"
+    },
+    {
+      "content": "Mission: Implement Slack Runtime \u2014 USS TJR Crew Collaboration Status: Draft Lead: Chief Engineer",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-0382545f925b792c",
+      "id": 34,
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft",
+        "title": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+      },
+      "source_id": "MIS-20260606-065626-804418-9fc157",
+      "source_type": "mission",
+      "valid_at": "2026-06-06T06:56:26.804418+00:00"
+    },
+    {
+      "content": "Mission: Implement Slack Runtime \u2014 USS TJR Crew Collaboration Status: Draft Lead: Chief Engineer",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-acaac1789904f9ba",
+      "id": 35,
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft",
+        "title": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+      },
+      "source_id": "MIS-20260606-065626-805858-08be91",
+      "source_type": "mission",
+      "valid_at": "2026-06-06T06:56:26.805858+00:00"
+    },
+    {
+      "content": "Mission: Implement Slack Runtime \u2014 USS TJR Crew Collaboration Status: Draft Lead: Chief Engineer",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-d5d58d958c3bc214",
+      "id": 36,
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft",
+        "title": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+      },
+      "source_id": "MIS-20260606-065626-807354-be9b6f",
+      "source_type": "mission",
+      "valid_at": "2026-06-06T06:56:26.807354+00:00"
+    },
+    {
+      "content": "Mission: Implement Slack Runtime \u2014 USS TJR Crew Collaboration Status: Draft Lead: Chief Engineer",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-c423fd64ec489530",
+      "id": 37,
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft",
+        "title": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+      },
+      "source_id": "MIS-20260606-065626-808344-6e8e45",
+      "source_type": "mission",
+      "valid_at": "2026-06-06T06:56:26.808344+00:00"
+    },
+    {
+      "content": "Mission: Implement Slack Runtime \u2014 USS TJR Crew Collaboration Status: Draft Lead: Chief Engineer",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-70dff8d7fbb94897",
+      "id": 38,
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft",
+        "title": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+      },
+      "source_id": "MIS-20260606-065626-810357-29ce9d",
+      "source_type": "mission",
+      "valid_at": "2026-06-06T06:56:26.810357+00:00"
+    },
+    {
+      "content": "Mission: Implement Slack Runtime \u2014 USS TJR Crew Collaboration Status: Draft Lead: Chief Engineer",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-f584897f848b4822",
+      "id": 39,
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft",
+        "title": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+      },
+      "source_id": "MIS-20260606-065626-825598-8368f1",
+      "source_type": "mission",
+      "valid_at": "2026-06-06T06:56:26.825598+00:00"
+    },
+    {
+      "content": "Mission: Implement Slack Runtime \u2014 USS TJR Crew Collaboration Status: Draft Lead: Chief Engineer",
+      "created_at": "2026-06-21T05:59:24.696086+00:00",
+      "episode_id": "ep-391b6c81434350a0",
+      "id": 40,
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft",
+        "title": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+      },
+      "source_id": "MIS-20260606-065626-826569-a75f10",
+      "source_type": "mission",
+      "valid_at": "2026-06-06T06:56:26.826569+00:00"
+    },
+    {
+      "content": "Mission: Implement Slack Runtime \u2014 USS TJR Crew Collaboration Status: Draft Lead: Chief Engineer",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-d1bd8ef8ea3528df",
+      "id": 41,
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft",
+        "title": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+      },
+      "source_id": "MIS-20260606-065626-827249-43a01e",
+      "source_type": "mission",
+      "valid_at": "2026-06-06T06:56:26.827249+00:00"
+    },
+    {
+      "content": "Mission: Implement Slack Runtime \u2014 USS TJR Crew Collaboration Status: Draft Lead: Chief Engineer",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-837506f039869d8c",
+      "id": 42,
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Draft",
+        "title": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+      },
+      "source_id": "MIS-20260606-065626-827940-b7d9b5",
+      "source_type": "mission",
+      "valid_at": "2026-06-06T06:56:26.82794+00:00"
+    },
+    {
+      "content": "Mission: Implement Slack Runtime \u2014 USS TJR Crew Collaboration Status: Ready Lead: Chief Engineer",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-15fe627abbcbfe15",
+      "id": 43,
+      "metadata": {
+        "lead": "Chief Engineer",
+        "status": "Ready",
+        "title": "Implement Slack Runtime \u2014 USS TJR Crew Collaboration"
+      },
+      "source_id": "MIS-20260606-065626-870443-afbf20",
+      "source_type": "mission",
+      "valid_at": "2026-06-06T06:56:26.870443+00:00"
+    },
+    {
+      "content": "ADR ADR-001: GitHub as System of Record Status: APPROVED",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-687a98a9911687bc",
+      "id": 44,
+      "metadata": {
+        "filename": "ADR-001-GitHub-System-of-Record.txt",
+        "status": "APPROVED",
+        "title": "GitHub as System of Record"
+      },
+      "source_id": "ADR-001",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-002: Mission Control to GitHub Execution Model Status: APPROVED",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-0c594bffa40cebec",
+      "id": 45,
+      "metadata": {
+        "filename": "ADR-002-Mission-Control-GitHub-Execution-Model.txt",
+        "status": "APPROVED",
+        "title": "Mission Control to GitHub Execution Model"
+      },
+      "source_id": "ADR-002",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-003: Tailscale Private Network Architecture Status: APPROVED",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-3e24ca2749431c65",
+      "id": 46,
+      "metadata": {
+        "filename": "ADR-003-Tailscale-Private-Network-Architecture.txt",
+        "status": "APPROVED",
+        "title": "Tailscale Private Network Architecture"
+      },
+      "source_id": "ADR-003",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-004: USS TJR Knowledge Architecture Status: APPROVED",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-71f3f39efd94af14",
+      "id": 47,
+      "metadata": {
+        "filename": "ADR-004-Knowledge-Architecture.txt",
+        "status": "APPROVED",
+        "title": "USS TJR Knowledge Architecture"
+      },
+      "source_id": "ADR-004",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-005: Notion Operational Workspace Boundaries Status: APPROVED",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-6b0322315e27be42",
+      "id": 48,
+      "metadata": {
+        "filename": "ADR-005-Notion-Operational-Workspace-Boundaries.txt",
+        "status": "APPROVED",
+        "title": "Notion Operational Workspace Boundaries"
+      },
+      "source_id": "ADR-005",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-006: Supabase Memory Layer Architecture Status: APPROVED",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-624e0eef33283bc5",
+      "id": 49,
+      "metadata": {
+        "filename": "ADR-006-Supabase-Memory-Layer-Architecture.txt",
+        "status": "APPROVED",
+        "title": "Supabase Memory Layer Architecture"
+      },
+      "source_id": "ADR-006",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-ADR-INDEX: ADR-INDEX Status: UNKNOWN",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-5ab0d9beb3e385c4",
+      "id": 50,
+      "metadata": {
+        "filename": "ADR-INDEX.txt",
+        "status": "UNKNOWN",
+        "title": "ADR-INDEX"
+      },
+      "source_id": "ADR-ADR-INDEX",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-007: ADR-007-Source-Data-Contract-Validation Status: UNKNOWN",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-d66c20efca8e2e3e",
+      "id": 51,
+      "metadata": {
+        "filename": "ADR-007-Source-Data-Contract-Validation.md",
+        "status": "UNKNOWN",
+        "title": "ADR-007-Source-Data-Contract-Validation"
+      },
+      "source_id": "ADR-007",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-008: ADR-008-Knowledge-as-Strategic-Capability Status: UNKNOWN",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-a06e29be25fa3965",
+      "id": 52,
+      "metadata": {
+        "filename": "ADR-008-Knowledge-as-Strategic-Capability.md",
+        "status": "UNKNOWN",
+        "title": "ADR-008-Knowledge-as-Strategic-Capability"
+      },
+      "source_id": "ADR-008",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-009: ADR-009-Supabase-as-Operational-Data-Layer Status: UNKNOWN",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-ef93b9394cb6b8f6",
+      "id": 53,
+      "metadata": {
+        "filename": "ADR-009-Supabase-as-Operational-Data-Layer.md",
+        "status": "UNKNOWN",
+        "title": "ADR-009-Supabase-as-Operational-Data-Layer"
+      },
+      "source_id": "ADR-009",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-010: ADR-010-Mission-Closure-Requires-Outcome-Capture Status: UNKNOWN",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-30c296cc7a95d025",
+      "id": 54,
+      "metadata": {
+        "filename": "ADR-010-Mission-Closure-Requires-Outcome-Capture.md",
+        "status": "UNKNOWN",
+        "title": "ADR-010-Mission-Closure-Requires-Outcome-Capture"
+      },
+      "source_id": "ADR-010",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-012: ADR-012-ADR0001-Lifecycle-as-Canonical-Workflow Status: UNKNOWN",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-d1b3fd955f07a69d",
+      "id": 55,
+      "metadata": {
+        "filename": "ADR-012-ADR0001-Lifecycle-as-Canonical-Workflow.md",
+        "status": "UNKNOWN",
+        "title": "ADR-012-ADR0001-Lifecycle-as-Canonical-Workflow"
+      },
+      "source_id": "ADR-012",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-013: ADR-013-Number-One-as-Operational-Orchestrator Status: UNKNOWN",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-43c30553f54e94c3",
+      "id": 56,
+      "metadata": {
+        "filename": "ADR-013-Number-One-as-Operational-Orchestrator.md",
+        "status": "UNKNOWN",
+        "title": "ADR-013-Number-One-as-Operational-Orchestrator"
+      },
+      "source_id": "ADR-013",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-014: ADR-014-Proactive-Intelligence-Architecture Status: UNKNOWN",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-e3488436b61e5ed4",
+      "id": 57,
+      "metadata": {
+        "filename": "ADR-014-Proactive-Intelligence-Architecture.md",
+        "status": "UNKNOWN",
+        "title": "ADR-014-Proactive-Intelligence-Architecture"
+      },
+      "source_id": "ADR-014",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-015: ADR-015-Lessons-Learned-as-Structured-Data Status: UNKNOWN",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-fe51161bd112639f",
+      "id": 58,
+      "metadata": {
+        "filename": "ADR-015-Lessons-Learned-as-Structured-Data.md",
+        "status": "UNKNOWN",
+        "title": "ADR-015-Lessons-Learned-as-Structured-Data"
+      },
+      "source_id": "ADR-015",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-016: ADR-016-Working-Memory-and-Long-Term-Memory-Separation Status: UNKNOWN",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-9ba7443a7f93ad69",
+      "id": 59,
+      "metadata": {
+        "filename": "ADR-016-Working-Memory-and-Long-Term-Memory-Separation.md",
+        "status": "UNKNOWN",
+        "title": "ADR-016-Working-Memory-and-Long-Term-Memory-Separation"
+      },
+      "source_id": "ADR-016",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-017: ADR-017-API-First-Integration-Strategy Status: UNKNOWN",
+      "created_at": "2026-06-21T05:59:56.360464+00:00",
+      "episode_id": "ep-ed9e468f1422d446",
+      "id": 60,
+      "metadata": {
+        "filename": "ADR-017-API-First-Integration-Strategy.md",
+        "status": "UNKNOWN",
+        "title": "ADR-017-API-First-Integration-Strategy"
+      },
+      "source_id": "ADR-017",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-018: ADR-018-Health-Intelligence-as-First-Class-Domain Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-ad76f1d8693eb4ce",
+      "id": 61,
+      "metadata": {
+        "filename": "ADR-018-Health-Intelligence-as-First-Class-Domain.md",
+        "status": "UNKNOWN",
+        "title": "ADR-018-Health-Intelligence-as-First-Class-Domain"
+      },
+      "source_id": "ADR-018",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-019: ADR-019-Single-Source-of-Truth-Architecture Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-ca14b2e17e63d093",
+      "id": 62,
+      "metadata": {
+        "filename": "ADR-019-Single-Source-of-Truth-Architecture.md",
+        "status": "UNKNOWN",
+        "title": "ADR-019-Single-Source-of-Truth-Architecture"
+      },
+      "source_id": "ADR-019",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-020: ADR-020-Capability-Reuse-Before-Capability-Creation Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-4c4c0630d609829a",
+      "id": 63,
+      "metadata": {
+        "filename": "ADR-020-Capability-Reuse-Before-Capability-Creation.md",
+        "status": "UNKNOWN",
+        "title": "ADR-020-Capability-Reuse-Before-Capability-Creation"
+      },
+      "source_id": "ADR-020",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-021: ADR-021-Governance-Lifecycle-Operational Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-98f34b3e7b97ba01",
+      "id": 64,
+      "metadata": {
+        "filename": "ADR-021-Governance-Lifecycle-Operational.md",
+        "status": "UNKNOWN",
+        "title": "ADR-021-Governance-Lifecycle-Operational"
+      },
+      "source_id": "ADR-021",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-022: ADR-022-Local-First-AI-Architecture Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-e3bb12e003745cda",
+      "id": 65,
+      "metadata": {
+        "filename": "ADR-022-Local-First-AI-Architecture.md",
+        "status": "UNKNOWN",
+        "title": "ADR-022-Local-First-AI-Architecture"
+      },
+      "source_id": "ADR-022",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-023: ADR-023-Department-Colour-Standard Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-12b7314eb00b1da8",
+      "id": 66,
+      "metadata": {
+        "filename": "ADR-023-Department-Colour-Standard.md",
+        "status": "UNKNOWN",
+        "title": "ADR-023-Department-Colour-Standard"
+      },
+      "source_id": "ADR-023",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-024: ADR-024-Deprecation-Protocol Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-7d48a7d7238333e7",
+      "id": 67,
+      "metadata": {
+        "filename": "ADR-024-Deprecation-Protocol.md",
+        "status": "UNKNOWN",
+        "title": "ADR-024-Deprecation-Protocol"
+      },
+      "source_id": "ADR-024",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-025: ADR-025-Secrets-Management-Model Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-98fe980854fa69d1",
+      "id": 68,
+      "metadata": {
+        "filename": "ADR-025-Secrets-Management-Model.md",
+        "status": "UNKNOWN",
+        "title": "ADR-025-Secrets-Management-Model"
+      },
+      "source_id": "ADR-025",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-026: ADR-026-Missions-DB-Lifecycle Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-4b1a40f8525e54ce",
+      "id": 69,
+      "metadata": {
+        "filename": "ADR-026-Missions-DB-Lifecycle.md",
+        "status": "UNKNOWN",
+        "title": "ADR-026-Missions-DB-Lifecycle"
+      },
+      "source_id": "ADR-026",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-027: ADR-027-Module-Registration-Taxonomy Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-1800d5144a4f36db",
+      "id": 70,
+      "metadata": {
+        "filename": "ADR-027-Module-Registration-Taxonomy.md",
+        "status": "UNKNOWN",
+        "title": "ADR-027-Module-Registration-Taxonomy"
+      },
+      "source_id": "ADR-027",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-028: ADR-028-Duplicate-Consolidation-Protocol Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-64df94b1680d4d5a",
+      "id": 71,
+      "metadata": {
+        "filename": "ADR-028-Duplicate-Consolidation-Protocol.md",
+        "status": "UNKNOWN",
+        "title": "ADR-028-Duplicate-Consolidation-Protocol"
+      },
+      "source_id": "ADR-028",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-029: ADR-029-Runtime-Asset-Lifecycle Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-a6b2741ad136602c",
+      "id": 72,
+      "metadata": {
+        "filename": "ADR-029-Runtime-Asset-Lifecycle.md",
+        "status": "UNKNOWN",
+        "title": "ADR-029-Runtime-Asset-Lifecycle"
+      },
+      "source_id": "ADR-029",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-030: ADR-030-Engineering-Router-Execution-Model Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-f34823ccd43d65c4",
+      "id": 73,
+      "metadata": {
+        "filename": "ADR-030-Engineering-Router-Execution-Model.md",
+        "status": "UNKNOWN",
+        "title": "ADR-030-Engineering-Router-Execution-Model"
+      },
+      "source_id": "ADR-030",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-031: ADR-031-Agent-Orchestration-Standardisation Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-41027bbf944cc2a2",
+      "id": 74,
+      "metadata": {
+        "filename": "ADR-031-Agent-Orchestration-Standardisation.md",
+        "status": "UNKNOWN",
+        "title": "ADR-031-Agent-Orchestration-Standardisation"
+      },
+      "source_id": "ADR-031",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-ADR-HEALTH-001-Health-Data-Architecture: ADR-HEALTH-001-Health-Data-Architecture Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-0f32bfdbdd9f6efa",
+      "id": 75,
+      "metadata": {
+        "filename": "ADR-HEALTH-001-Health-Data-Architecture.md",
+        "status": "UNKNOWN",
+        "title": "ADR-HEALTH-001-Health-Data-Architecture"
+      },
+      "source_id": "ADR-ADR-HEALTH-001-Health-Data-Architecture",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-ADR-HEALTH-002-Sprint-C-Intelligence-Architecture: ADR-HEALTH-002-Sprint-C-Intelligence-Architecture Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-093cdb1ca4f2ad10",
+      "id": 76,
+      "metadata": {
+        "filename": "ADR-HEALTH-002-Sprint-C-Intelligence-Architecture.md",
+        "status": "UNKNOWN",
+        "title": "ADR-HEALTH-002-Sprint-C-Intelligence-Architecture"
+      },
+      "source_id": "ADR-ADR-HEALTH-002-Sprint-C-Intelligence-Architecture",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "ADR ADR-ADR-NAMESPACE-MAPPING: ADR-NAMESPACE-MAPPING Status: UNKNOWN",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-5f57e9f80e5833a4",
+      "id": 77,
+      "metadata": {
+        "filename": "ADR-NAMESPACE-MAPPING.md",
+        "status": "UNKNOWN",
+        "title": "ADR-NAMESPACE-MAPPING"
+      },
+      "source_id": "ADR-ADR-NAMESPACE-MAPPING",
+      "source_type": "adr",
+      "valid_at": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "content": "OSS-001 Open Source Capability Harvest completed. Adopted CodeGraph MCP for engineering intelligence. Piloting Graphiti temporal memory on Supabase. n8n templates adopted for automation.",
+      "created_at": "2026-06-21T06:00:24.552868+00:00",
+      "episode_id": "ep-883c10dea3f348ec",
+      "id": 78,
+      "metadata": {
+        "missions_spawned": [
+          "MSN-OSS-002",
+          "MSN-OSS-003",
+          "MSN-OSS-004"
+        ],
+        "outcome": "COMPLETE"
+      },
+      "source_id": "MSN-OSS-001",
+      "source_type": "mission",
+      "valid_at": "2026-06-21T00:00:00+00:00"
+    }
+  ],
+  "temporal_facts_archived_2026": [
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-54fd53195ccae4e3",
+      "fact_text": "DEC-20260606-062950-922289-bc3eac decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 1,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-86d7aa7eddbee0d2",
+      "subject_entity_id": "ent-74a90b85fe41a796",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:50.922289+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-51d17861bab5beac",
+      "fact_text": "DEC-20260606-062950-922289-bc3eac contributed to USS-TJR-MSN-0009B",
+      "id": 2,
+      "object_entity_id": "ent-0ce4c4dc8d4fc3e8",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-86d7aa7eddbee0d2",
+      "subject_entity_id": "ent-74a90b85fe41a796",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:50.922289+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-836feae6f18b691e",
+      "fact_text": "DEC-20260606-062950-929395-07ccc5 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 3,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-da1629b75f931068",
+      "subject_entity_id": "ent-7cabeaaf0ad794eb",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:50.929395+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-e6a04c89f2761381",
+      "fact_text": "DEC-20260606-062950-929395-07ccc5 contributed to USS-TJR-MSN-0009B",
+      "id": 4,
+      "object_entity_id": "ent-0ce4c4dc8d4fc3e8",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-da1629b75f931068",
+      "subject_entity_id": "ent-7cabeaaf0ad794eb",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:50.929395+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-2ffefc1727b2de75",
+      "fact_text": "DEC-20260606-062950-943766-657790 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 5,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-bbb90164b86c1261",
+      "subject_entity_id": "ent-e8892d3352cdadcd",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:50.943766+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-8cb9b90e930e14dd",
+      "fact_text": "DEC-20260606-062950-943766-657790 contributed to USS-TJR-MSN-0009B",
+      "id": 6,
+      "object_entity_id": "ent-0ce4c4dc8d4fc3e8",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-bbb90164b86c1261",
+      "subject_entity_id": "ent-e8892d3352cdadcd",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:50.943766+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-6c01567232eb9cc3",
+      "fact_text": "DEC-20260606-062950-955184-e092c1 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 7,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-baa4bd26f8fdd050",
+      "subject_entity_id": "ent-e8a76a8c4229c7fa",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:50.955184+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-cf01065b9d9b9397",
+      "fact_text": "DEC-20260606-062950-955184-e092c1 contributed to USS-TJR-MSN-0009B",
+      "id": 8,
+      "object_entity_id": "ent-0ce4c4dc8d4fc3e8",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-baa4bd26f8fdd050",
+      "subject_entity_id": "ent-e8a76a8c4229c7fa",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:50.955184+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-3ca20f64ef02974f",
+      "fact_text": "DEC-20260606-062950-956852-c9de96 decided: Should we test this?",
+      "id": 9,
+      "object_entity_id": null,
+      "object_value": "Should we test this?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-05346220a7c92f10",
+      "subject_entity_id": "ent-96371db39e3b2b31",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:50.956852+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-e310830be0757654",
+      "fact_text": "DEC-20260606-062956-711747-9db95d decided: How should we build Voice Core?",
+      "id": 10,
+      "object_entity_id": null,
+      "object_value": "How should we build Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-c2a5d3bda97128bc",
+      "subject_entity_id": "ent-539c428194a3626b",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.711747+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-329e026edc12aea4",
+      "fact_text": "DEC-20260606-062956-711747-9db95d contributed to USS-TJR-MSN-0008A",
+      "id": 11,
+      "object_entity_id": "ent-4d161d06ceb0499e",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-c2a5d3bda97128bc",
+      "subject_entity_id": "ent-539c428194a3626b",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.711747+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-8bc9c1a80f4b666a",
+      "fact_text": "DEC-20260606-062956-775685-5b7a03 decided: Should we build Voice Core next?",
+      "id": 12,
+      "object_entity_id": null,
+      "object_value": "Should we build Voice Core next?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-3380ec5a4d5081ef",
+      "subject_entity_id": "ent-76219a8d306c102b",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.775685+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-c2f4753c4872a535",
+      "fact_text": "DEC-20260606-062956-775685-5b7a03 contributed to USS-TJR-MSN-0008B",
+      "id": 13,
+      "object_entity_id": "ent-88286ccc1e8581b2",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-3380ec5a4d5081ef",
+      "subject_entity_id": "ent-76219a8d306c102b",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.775685+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-c23f1aa3aa8a96e4",
+      "fact_text": "DEC-20260606-062956-837856-7097cf decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 14,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-b41deb30688bbd8f",
+      "subject_entity_id": "ent-24af37ce433a820f",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.837856+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-bfc648bdb9d5b122",
+      "fact_text": "DEC-20260606-062956-837856-7097cf contributed to USS-TJR-MSN-0010A",
+      "id": 15,
+      "object_entity_id": "ent-bd6ac756ccd20598",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-b41deb30688bbd8f",
+      "subject_entity_id": "ent-24af37ce433a820f",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.837856+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-b944c67247c7b48a",
+      "fact_text": "DEC-20260606-062956-845505-b5efa6 decided: How should we build Voice Core?",
+      "id": 16,
+      "object_entity_id": null,
+      "object_value": "How should we build Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-6b1791bdd25f5928",
+      "subject_entity_id": "ent-b448995d8fa29f2d",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.845505+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-ae4e5a1a9c287f5a",
+      "fact_text": "DEC-20260606-062956-845505-b5efa6 contributed to USS-TJR-MSN-0010A-control",
+      "id": 17,
+      "object_entity_id": "ent-2e453d5122e95f26",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-6b1791bdd25f5928",
+      "subject_entity_id": "ent-b448995d8fa29f2d",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.845505+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-510b88af02e6fb46",
+      "fact_text": "DEC-20260606-062956-852703-b51e67 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 18,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-29bd329e57912400",
+      "subject_entity_id": "ent-0f9b29a5a7df2dc7",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.852703+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-785de23e1d073550",
+      "fact_text": "DEC-20260606-062956-852703-b51e67 contributed to USS-TJR-MSN-0010A",
+      "id": 19,
+      "object_entity_id": "ent-bd6ac756ccd20598",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-29bd329e57912400",
+      "subject_entity_id": "ent-0f9b29a5a7df2dc7",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.852703+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:01:23.371902+00:00",
+      "fact_id": "fact-21c4c4b2999565f9",
+      "fact_text": "DEC-20260606-062956-909127-7a68c8 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 20,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-ee07b0bdd9fe927a",
+      "subject_entity_id": "ent-74cb4999b2f243ba",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.909127+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-329b4f023bc72895",
+      "fact_text": "DEC-20260606-062956-909127-7a68c8 contributed to USS-TJR-MSN-0009A",
+      "id": 21,
+      "object_entity_id": "ent-2d4512b8f94a3e80",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-ee07b0bdd9fe927a",
+      "subject_entity_id": "ent-74cb4999b2f243ba",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.909127+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-db6885bedfad7deb",
+      "fact_text": "DEC-20260606-062956-915764-b92ac8 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 22,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-0b7dbee2e82357ec",
+      "subject_entity_id": "ent-b56075ea3d10c1da",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.915764+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-e9bdffb2a2b7a422",
+      "fact_text": "DEC-20260606-062956-915764-b92ac8 contributed to USS-TJR-MSN-0009A",
+      "id": 23,
+      "object_entity_id": "ent-2d4512b8f94a3e80",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-0b7dbee2e82357ec",
+      "subject_entity_id": "ent-b56075ea3d10c1da",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.915764+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-eb14140d970db40a",
+      "fact_text": "DEC-20260606-062956-927102-d4e16f decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 24,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-a4746c0353bc1202",
+      "subject_entity_id": "ent-238ccf2b672a2540",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.927102+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-79743e432f3445ee",
+      "fact_text": "DEC-20260606-062956-927102-d4e16f contributed to USS-TJR-MSN-0009A",
+      "id": 25,
+      "object_entity_id": "ent-2d4512b8f94a3e80",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-a4746c0353bc1202",
+      "subject_entity_id": "ent-238ccf2b672a2540",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.927102+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-77e8946b90553923",
+      "fact_text": "DEC-20260606-062956-941988-e8c1aa decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 26,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-3440b7be64645270",
+      "subject_entity_id": "ent-28bea3b71996b493",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.941988+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-f60cd109ce60cc2e",
+      "fact_text": "DEC-20260606-062956-941988-e8c1aa contributed to USS-TJR-MSN-0009A",
+      "id": 27,
+      "object_entity_id": "ent-2d4512b8f94a3e80",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-3440b7be64645270",
+      "subject_entity_id": "ent-28bea3b71996b493",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:29:56.941988+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-fc0fee09d9909f54",
+      "fact_text": "DEC-20260606-063004-411865-0c9dff decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 28,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-b0800efa9eddf1da",
+      "subject_entity_id": "ent-882eca6d63da359a",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:30:04.411865+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-6e683dfa10613a87",
+      "fact_text": "DEC-20260606-065626-769072-3b74d1 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 29,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-cec492219c0692b5",
+      "subject_entity_id": "ent-9f5dae8f5e72d710",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.769072+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-40b31f05fbf18b0c",
+      "fact_text": "DEC-20260606-065626-769072-3b74d1 contributed to USS-TJR-MSN-0010",
+      "id": 30,
+      "object_entity_id": "ent-8c8c78430d3aff0c",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-cec492219c0692b5",
+      "subject_entity_id": "ent-9f5dae8f5e72d710",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.769072+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-89f2d28d25a360a4",
+      "fact_text": "DEC-20260606-065626-778402-2aa96d decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 31,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-b18a2858a7c859d4",
+      "subject_entity_id": "ent-3bb9518a2c8e29b3",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.778402+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-6dbd8f6f58a5aa29",
+      "fact_text": "DEC-20260606-065626-834083-3e1f2e decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 32,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-61d4bd3583c0520c",
+      "subject_entity_id": "ent-1d73a57a20c56d2b",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.834083+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-9e1f1054da1fe795",
+      "fact_text": "DEC-20260606-065626-834083-3e1f2e was reviewed by Captain",
+      "id": 33,
+      "object_entity_id": null,
+      "object_value": "reviewed",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-61d4bd3583c0520c",
+      "subject_entity_id": "ent-1d73a57a20c56d2b",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.834083+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-4f61cde2804186de",
+      "fact_text": "DEC-20260606-065626-834083-3e1f2e contributed to USS-TJR-MSN-0010",
+      "id": 34,
+      "object_entity_id": "ent-8c8c78430d3aff0c",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-61d4bd3583c0520c",
+      "subject_entity_id": "ent-1d73a57a20c56d2b",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.834083+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-25dd4e6086bf1ac2",
+      "fact_text": "DEC-20260606-065626-856009-825b48 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 35,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-90cbc019e7a13063",
+      "subject_entity_id": "ent-75dade89f1bea8d3",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.856009+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-483d769c56dc1975",
+      "fact_text": "DEC-20260606-065626-856009-825b48 contributed to USS-TJR-MSN-0010",
+      "id": 36,
+      "object_entity_id": "ent-8c8c78430d3aff0c",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-90cbc019e7a13063",
+      "subject_entity_id": "ent-75dade89f1bea8d3",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.856009+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-d62d5dfaabb1d848",
+      "fact_text": "DEC-20260606-065631-191302-4a5a1f decided: How should we build Voice Core?",
+      "id": 37,
+      "object_entity_id": null,
+      "object_value": "How should we build Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-9ef266bdca17231c",
+      "subject_entity_id": "ent-47b4b6837f63a8cf",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.191302+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-1c2d19c6fa6e5bb7",
+      "fact_text": "DEC-20260606-065631-191302-4a5a1f contributed to USS-TJR-MSN-0008A",
+      "id": 38,
+      "object_entity_id": "ent-4d161d06ceb0499e",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-9ef266bdca17231c",
+      "subject_entity_id": "ent-47b4b6837f63a8cf",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.191302+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-d7131d6cc9785a0b",
+      "fact_text": "DEC-20260606-065631-312778-173d48 decided: Should we build Voice Core next?",
+      "id": 39,
+      "object_entity_id": null,
+      "object_value": "Should we build Voice Core next?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-2cf985fabcbbde61",
+      "subject_entity_id": "ent-8317a9caad649666",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.312778+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:04.326158+00:00",
+      "fact_id": "fact-0773f5d12d5ca1ed",
+      "fact_text": "DEC-20260606-065631-312778-173d48 contributed to USS-TJR-MSN-0008B",
+      "id": 40,
+      "object_entity_id": "ent-88286ccc1e8581b2",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-2cf985fabcbbde61",
+      "subject_entity_id": "ent-8317a9caad649666",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.312778+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-04051ae32660f086",
+      "fact_text": "DEC-20260606-065631-395301-8801e1 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 41,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-93c49d0cc4b75c64",
+      "subject_entity_id": "ent-cba1faf9647c5bca",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.395301+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-9b085225a3a8e2fd",
+      "fact_text": "DEC-20260606-065631-395301-8801e1 contributed to USS-TJR-MSN-0010A",
+      "id": 42,
+      "object_entity_id": "ent-bd6ac756ccd20598",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-93c49d0cc4b75c64",
+      "subject_entity_id": "ent-cba1faf9647c5bca",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.395301+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-0aefc7ca0d3207fc",
+      "fact_text": "DEC-20260606-065631-406270-074e7f decided: How should we build Voice Core?",
+      "id": 43,
+      "object_entity_id": null,
+      "object_value": "How should we build Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-b00373b56c37f97c",
+      "subject_entity_id": "ent-be411c4c836a8759",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.40627+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-c755ac87f0081b78",
+      "fact_text": "DEC-20260606-065631-406270-074e7f contributed to USS-TJR-MSN-0010A-control",
+      "id": 44,
+      "object_entity_id": "ent-2e453d5122e95f26",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-b00373b56c37f97c",
+      "subject_entity_id": "ent-be411c4c836a8759",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.40627+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-6e36b3004218cd8f",
+      "fact_text": "DEC-20260606-065631-415922-fc6e48 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 45,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-04b86018ba31ad95",
+      "subject_entity_id": "ent-302f6e5587d86b98",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.415922+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-53b62a8922d0bf32",
+      "fact_text": "DEC-20260606-065631-415922-fc6e48 contributed to USS-TJR-MSN-0010A",
+      "id": 46,
+      "object_entity_id": "ent-bd6ac756ccd20598",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-04b86018ba31ad95",
+      "subject_entity_id": "ent-302f6e5587d86b98",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.415922+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-d5bfc0067b747d64",
+      "fact_text": "DEC-20260606-065631-481961-603f21 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 47,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-e32d81365b7cf663",
+      "subject_entity_id": "ent-e70b1f2a1f720969",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.481961+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-f9fcf9e855fb67d5",
+      "fact_text": "DEC-20260606-065631-481961-603f21 contributed to USS-TJR-MSN-0009A",
+      "id": 48,
+      "object_entity_id": "ent-2d4512b8f94a3e80",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-e32d81365b7cf663",
+      "subject_entity_id": "ent-e70b1f2a1f720969",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.481961+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-aa96e2aa269d913f",
+      "fact_text": "DEC-20260606-065631-490670-4c4490 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 49,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-b744363b59846747",
+      "subject_entity_id": "ent-408acc98be049602",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.49067+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-62f3c1b6c11c6a3b",
+      "fact_text": "DEC-20260606-065631-490670-4c4490 contributed to USS-TJR-MSN-0009A",
+      "id": 50,
+      "object_entity_id": "ent-2d4512b8f94a3e80",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-b744363b59846747",
+      "subject_entity_id": "ent-408acc98be049602",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.49067+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-a1c080207508ab3f",
+      "fact_text": "DEC-20260606-065631-509437-c9ef1d decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 51,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-098685d4db622835",
+      "subject_entity_id": "ent-50a5e99d3e38508e",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.509437+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-e4ce05f3e2c3cf11",
+      "fact_text": "DEC-20260606-065631-509437-c9ef1d contributed to USS-TJR-MSN-0009A",
+      "id": 52,
+      "object_entity_id": "ent-2d4512b8f94a3e80",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-098685d4db622835",
+      "subject_entity_id": "ent-50a5e99d3e38508e",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.509437+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-fe0c5bb45f496b07",
+      "fact_text": "DEC-20260606-065631-528096-f410e9 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 53,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-43b37d8a9be3f3ea",
+      "subject_entity_id": "ent-70c40c130034ff79",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.528096+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-7c34e03f744e8f14",
+      "fact_text": "DEC-20260606-065631-528096-f410e9 contributed to USS-TJR-MSN-0009A",
+      "id": 54,
+      "object_entity_id": "ent-2d4512b8f94a3e80",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-43b37d8a9be3f3ea",
+      "subject_entity_id": "ent-70c40c130034ff79",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.528096+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-6f2629b164fd66c2",
+      "fact_text": "DEC-20260606-065631-606624-e52192 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 55,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-5b880f98a9d7382e",
+      "subject_entity_id": "ent-4beb9126cb4a1e20",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.606624+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-effd597fd07fec39",
+      "fact_text": "DEC-20260606-065631-606624-e52192 contributed to USS-TJR-MSN-0009B",
+      "id": 56,
+      "object_entity_id": "ent-0ce4c4dc8d4fc3e8",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-5b880f98a9d7382e",
+      "subject_entity_id": "ent-4beb9126cb4a1e20",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.606624+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-02e8e3b183db4449",
+      "fact_text": "DEC-20260606-065631-620851-16ff4b decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 57,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-55eceefe1c4771e3",
+      "subject_entity_id": "ent-5b51f0907bf22a91",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.620851+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-bf80fe634fb17e6f",
+      "fact_text": "DEC-20260606-065631-620851-16ff4b contributed to USS-TJR-MSN-0009B",
+      "id": 58,
+      "object_entity_id": "ent-0ce4c4dc8d4fc3e8",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-55eceefe1c4771e3",
+      "subject_entity_id": "ent-5b51f0907bf22a91",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.620851+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-e750aa035ee47537",
+      "fact_text": "ADR ADR-010 (ADR-010-Mission-Closure-Requires-Outcome-Capture) has status UNKNOWN",
+      "id": 93,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-30c296cc7a95d025",
+      "subject_entity_id": "ent-132a36a5c35b99f1",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-a5f170a135986ac0",
+      "fact_text": "DEC-20260606-065631-647180-0f6556 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 59,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-a7bed260a080068a",
+      "subject_entity_id": "ent-65afad569bfb2722",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.64718+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:02:43.532489+00:00",
+      "fact_id": "fact-2e33d90231ea7b39",
+      "fact_text": "DEC-20260606-065631-647180-0f6556 contributed to USS-TJR-MSN-0009B",
+      "id": 60,
+      "object_entity_id": "ent-0ce4c4dc8d4fc3e8",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-a7bed260a080068a",
+      "subject_entity_id": "ent-65afad569bfb2722",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.64718+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-8dc003c130d21a4d",
+      "fact_text": "DEC-20260606-065631-664015-666915 decided: Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "id": 61,
+      "object_entity_id": null,
+      "object_value": "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-694b6ee466217a67",
+      "subject_entity_id": "ent-0170761e286cd15c",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.664015+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-bff1f8e792fa101c",
+      "fact_text": "DEC-20260606-065631-664015-666915 contributed to USS-TJR-MSN-0009B",
+      "id": 62,
+      "object_entity_id": "ent-0ce4c4dc8d4fc3e8",
+      "object_value": null,
+      "predicate": "CONTRIBUTED_TO",
+      "source_episode_id": "ep-694b6ee466217a67",
+      "subject_entity_id": "ent-0170761e286cd15c",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.664015+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-c9db30694e2b4841",
+      "fact_text": "DEC-20260606-065631-674555-9bcc0f decided: Should we test this?",
+      "id": 63,
+      "object_entity_id": null,
+      "object_value": "Should we test this?",
+      "predicate": "DECIDED",
+      "source_episode_id": "ep-fca2ef75b9508dd2",
+      "subject_entity_id": "ent-03fb7c195229d4c6",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:31.674555+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-a67783bdb0da767c",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration has status Draft",
+      "id": 64,
+      "object_entity_id": null,
+      "object_value": "Draft",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-0382545f925b792c",
+      "subject_entity_id": "ent-d0e5df65dc04fca8",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.804418+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-5715be02a1b04262",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration assigned to Chief Engineer",
+      "id": 65,
+      "object_entity_id": "ent-bee5269a2a458b27",
+      "object_value": null,
+      "predicate": "ASSIGNED_TO",
+      "source_episode_id": "ep-0382545f925b792c",
+      "subject_entity_id": "ent-d0e5df65dc04fca8",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.804418+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-4769c199f23db715",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration has status Draft",
+      "id": 66,
+      "object_entity_id": null,
+      "object_value": "Draft",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-acaac1789904f9ba",
+      "subject_entity_id": "ent-9fc80f06b27524b1",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.805858+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-84ad409d6f17335d",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration assigned to Chief Engineer",
+      "id": 67,
+      "object_entity_id": "ent-bee5269a2a458b27",
+      "object_value": null,
+      "predicate": "ASSIGNED_TO",
+      "source_episode_id": "ep-acaac1789904f9ba",
+      "subject_entity_id": "ent-9fc80f06b27524b1",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.805858+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-39a2ab842aaa2d34",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration has status Draft",
+      "id": 68,
+      "object_entity_id": null,
+      "object_value": "Draft",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-d5d58d958c3bc214",
+      "subject_entity_id": "ent-0a1d16e706cd8c91",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.807354+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-4b62c23745df4b2f",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration assigned to Chief Engineer",
+      "id": 69,
+      "object_entity_id": "ent-bee5269a2a458b27",
+      "object_value": null,
+      "predicate": "ASSIGNED_TO",
+      "source_episode_id": "ep-d5d58d958c3bc214",
+      "subject_entity_id": "ent-0a1d16e706cd8c91",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.807354+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-45054496bebca03d",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration has status Draft",
+      "id": 70,
+      "object_entity_id": null,
+      "object_value": "Draft",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-c423fd64ec489530",
+      "subject_entity_id": "ent-4d4a6153a158c717",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.808344+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-52c890927256c339",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration assigned to Chief Engineer",
+      "id": 71,
+      "object_entity_id": "ent-bee5269a2a458b27",
+      "object_value": null,
+      "predicate": "ASSIGNED_TO",
+      "source_episode_id": "ep-c423fd64ec489530",
+      "subject_entity_id": "ent-4d4a6153a158c717",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.808344+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-a00900520bab847f",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration has status Draft",
+      "id": 72,
+      "object_entity_id": null,
+      "object_value": "Draft",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-70dff8d7fbb94897",
+      "subject_entity_id": "ent-c3ef39df7df86e2e",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.810357+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-1d8c7fa0b5f158d8",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration assigned to Chief Engineer",
+      "id": 73,
+      "object_entity_id": "ent-bee5269a2a458b27",
+      "object_value": null,
+      "predicate": "ASSIGNED_TO",
+      "source_episode_id": "ep-70dff8d7fbb94897",
+      "subject_entity_id": "ent-c3ef39df7df86e2e",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.810357+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-a85a16a81091fee0",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration has status Draft",
+      "id": 74,
+      "object_entity_id": null,
+      "object_value": "Draft",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-f584897f848b4822",
+      "subject_entity_id": "ent-0b29ee43757c5664",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.825598+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-3884dfc23a7b8ed9",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration assigned to Chief Engineer",
+      "id": 75,
+      "object_entity_id": "ent-bee5269a2a458b27",
+      "object_value": null,
+      "predicate": "ASSIGNED_TO",
+      "source_episode_id": "ep-f584897f848b4822",
+      "subject_entity_id": "ent-0b29ee43757c5664",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.825598+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-bab8cc2305adb193",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration has status Draft",
+      "id": 76,
+      "object_entity_id": null,
+      "object_value": "Draft",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-391b6c81434350a0",
+      "subject_entity_id": "ent-c5719f876f5886fa",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.826569+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-e6b19b1d4871adab",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration assigned to Chief Engineer",
+      "id": 77,
+      "object_entity_id": "ent-bee5269a2a458b27",
+      "object_value": null,
+      "predicate": "ASSIGNED_TO",
+      "source_episode_id": "ep-391b6c81434350a0",
+      "subject_entity_id": "ent-c5719f876f5886fa",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.826569+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-965e1b8a4aed089d",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration has status Draft",
+      "id": 78,
+      "object_entity_id": null,
+      "object_value": "Draft",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-d1bd8ef8ea3528df",
+      "subject_entity_id": "ent-fc3136639b1d1c29",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.827249+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-e1bbf4d5abe389bb",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration assigned to Chief Engineer",
+      "id": 79,
+      "object_entity_id": "ent-bee5269a2a458b27",
+      "object_value": null,
+      "predicate": "ASSIGNED_TO",
+      "source_episode_id": "ep-d1bd8ef8ea3528df",
+      "subject_entity_id": "ent-fc3136639b1d1c29",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.827249+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:19.869006+00:00",
+      "fact_id": "fact-ff93d2453c79855e",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration has status Draft",
+      "id": 80,
+      "object_entity_id": null,
+      "object_value": "Draft",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-837506f039869d8c",
+      "subject_entity_id": "ent-e791b23685b60ac6",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.82794+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-95219cf630ad72e2",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration assigned to Chief Engineer",
+      "id": 81,
+      "object_entity_id": "ent-bee5269a2a458b27",
+      "object_value": null,
+      "predicate": "ASSIGNED_TO",
+      "source_episode_id": "ep-837506f039869d8c",
+      "subject_entity_id": "ent-e791b23685b60ac6",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.82794+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-44c000e0d0e93e25",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration has status Ready",
+      "id": 82,
+      "object_entity_id": null,
+      "object_value": "Ready",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-15fe627abbcbfe15",
+      "subject_entity_id": "ent-eb6256f6eec1fdf7",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.870443+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-2e7b27d1de58618c",
+      "fact_text": "Mission Implement Slack Runtime \u2014 USS TJR Crew Collaboration assigned to Chief Engineer",
+      "id": 83,
+      "object_entity_id": "ent-bee5269a2a458b27",
+      "object_value": null,
+      "predicate": "ASSIGNED_TO",
+      "source_episode_id": "ep-15fe627abbcbfe15",
+      "subject_entity_id": "ent-eb6256f6eec1fdf7",
+      "valid_end": null,
+      "valid_start": "2026-06-06T06:56:26.870443+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-4bd656870da3e2d8",
+      "fact_text": "ADR ADR-001 (GitHub as System of Record) has status APPROVED",
+      "id": 84,
+      "object_entity_id": null,
+      "object_value": "APPROVED",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-687a98a9911687bc",
+      "subject_entity_id": "ent-350b5c36dd50aae0",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-bb2e60bbee67e204",
+      "fact_text": "ADR ADR-002 (Mission Control to GitHub Execution Model) has status APPROVED",
+      "id": 85,
+      "object_entity_id": null,
+      "object_value": "APPROVED",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-0c594bffa40cebec",
+      "subject_entity_id": "ent-c1744e837ae2a2ec",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-07fd2886a194b8d3",
+      "fact_text": "ADR ADR-003 (Tailscale Private Network Architecture) has status APPROVED",
+      "id": 86,
+      "object_entity_id": null,
+      "object_value": "APPROVED",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-3e24ca2749431c65",
+      "subject_entity_id": "ent-d846d3297795f5cc",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-70dcd4231f51f928",
+      "fact_text": "ADR ADR-004 (USS TJR Knowledge Architecture) has status APPROVED",
+      "id": 87,
+      "object_entity_id": null,
+      "object_value": "APPROVED",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-71f3f39efd94af14",
+      "subject_entity_id": "ent-3ceb68efbeaaed83",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-1debcdbb6c50072e",
+      "fact_text": "ADR ADR-005 (Notion Operational Workspace Boundaries) has status APPROVED",
+      "id": 88,
+      "object_entity_id": null,
+      "object_value": "APPROVED",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-6b0322315e27be42",
+      "subject_entity_id": "ent-799620420c459654",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-461a24944580d33b",
+      "fact_text": "ADR ADR-006 (Supabase Memory Layer Architecture) has status APPROVED",
+      "id": 89,
+      "object_entity_id": null,
+      "object_value": "APPROVED",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-624e0eef33283bc5",
+      "subject_entity_id": "ent-6b48d3e733eea6b9",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-3c065fbb3f1b67a3",
+      "fact_text": "ADR ADR-ADR-INDEX (ADR-INDEX) has status UNKNOWN",
+      "id": 90,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-5ab0d9beb3e385c4",
+      "subject_entity_id": "ent-07b78bcf25f39e4f",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-d33bd95b916f0513",
+      "fact_text": "ADR ADR-008 (ADR-008-Knowledge-as-Strategic-Capability) has status UNKNOWN",
+      "id": 91,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-a06e29be25fa3965",
+      "subject_entity_id": "ent-4f44b0e78a002e9d",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-e132b107fbef0def",
+      "fact_text": "ADR ADR-009 (ADR-009-Supabase-as-Operational-Data-Layer) has status UNKNOWN",
+      "id": 92,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-ef93b9394cb6b8f6",
+      "subject_entity_id": "ent-34893e6177876b52",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-edc1f0ab4b0a5933",
+      "fact_text": "ADR ADR-012 (ADR-012-ADR0001-Lifecycle-as-Canonical-Workflow) has status UNKNOWN",
+      "id": 94,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-d1b3fd955f07a69d",
+      "subject_entity_id": "ent-d0cfc8ac3476bd02",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-c2118f3430a3d6e9",
+      "fact_text": "ADR ADR-013 (ADR-013-Number-One-as-Operational-Orchestrator) has status UNKNOWN",
+      "id": 95,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-43c30553f54e94c3",
+      "subject_entity_id": "ent-67166bc4988c9131",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-bfd6af19ec053381",
+      "fact_text": "ADR ADR-014 (ADR-014-Proactive-Intelligence-Architecture) has status UNKNOWN",
+      "id": 96,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-e3488436b61e5ed4",
+      "subject_entity_id": "ent-46639de7e445eee9",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-0fd1dc3eca2c2017",
+      "fact_text": "ADR ADR-015 (ADR-015-Lessons-Learned-as-Structured-Data) has status UNKNOWN",
+      "id": 97,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-fe51161bd112639f",
+      "subject_entity_id": "ent-7ca931781173fcec",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-ed6c8d03b6c89d40",
+      "fact_text": "ADR ADR-016 (ADR-016-Working-Memory-and-Long-Term-Memory-Separation) has status UNKNOWN",
+      "id": 98,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-9ba7443a7f93ad69",
+      "subject_entity_id": "ent-c3f0092c48143f51",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:03:59.750329+00:00",
+      "fact_id": "fact-a3cf0aea60cbcc4e",
+      "fact_text": "ADR ADR-017 (ADR-017-API-First-Integration-Strategy) has status UNKNOWN",
+      "id": 99,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-ed9e468f1422d446",
+      "subject_entity_id": "ent-0d72d3e6a11d40fb",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-b0171287c0432ee7",
+      "fact_text": "ADR ADR-018 (ADR-018-Health-Intelligence-as-First-Class-Domain) has status UNKNOWN",
+      "id": 100,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-ad76f1d8693eb4ce",
+      "subject_entity_id": "ent-847423f5c1cab3fa",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-da2ab4430beed404",
+      "fact_text": "ADR ADR-019 (ADR-019-Single-Source-of-Truth-Architecture) has status UNKNOWN",
+      "id": 101,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-ca14b2e17e63d093",
+      "subject_entity_id": "ent-fc15e7b499d93e80",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-70b9633a306a87c1",
+      "fact_text": "ADR ADR-020 (ADR-020-Capability-Reuse-Before-Capability-Creation) has status UNKNOWN",
+      "id": 102,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-4c4c0630d609829a",
+      "subject_entity_id": "ent-fd374fb74290845b",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-6c70af149489d029",
+      "fact_text": "ADR ADR-021 (ADR-021-Governance-Lifecycle-Operational) has status UNKNOWN",
+      "id": 103,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-98f34b3e7b97ba01",
+      "subject_entity_id": "ent-6a9aaa113481eea1",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-2986a31251ad2fe7",
+      "fact_text": "ADR ADR-022 (ADR-022-Local-First-AI-Architecture) has status UNKNOWN",
+      "id": 104,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-e3bb12e003745cda",
+      "subject_entity_id": "ent-c65225ff0d221d36",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-8cd6e3f6f282466e",
+      "fact_text": "ADR ADR-023 (ADR-023-Department-Colour-Standard) has status UNKNOWN",
+      "id": 105,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-12b7314eb00b1da8",
+      "subject_entity_id": "ent-6be13fb74d9e1541",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-8e5731960e7cccc0",
+      "fact_text": "ADR ADR-024 (ADR-024-Deprecation-Protocol) has status UNKNOWN",
+      "id": 106,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-7d48a7d7238333e7",
+      "subject_entity_id": "ent-da25b20cecd650f6",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-3c5e34a3cc1fc739",
+      "fact_text": "ADR ADR-025 (ADR-025-Secrets-Management-Model) has status UNKNOWN",
+      "id": 107,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-98fe980854fa69d1",
+      "subject_entity_id": "ent-8033707d6578300c",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-f9130072300cf28f",
+      "fact_text": "ADR ADR-026 (ADR-026-Missions-DB-Lifecycle) has status UNKNOWN",
+      "id": 108,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-4b1a40f8525e54ce",
+      "subject_entity_id": "ent-3cdda04122b487f5",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-1ec4443f5fd897b0",
+      "fact_text": "ADR ADR-027 (ADR-027-Module-Registration-Taxonomy) has status UNKNOWN",
+      "id": 109,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-1800d5144a4f36db",
+      "subject_entity_id": "ent-9ead7c0ea3b4e62d",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-15ae89b7ff390046",
+      "fact_text": "ADR ADR-028 (ADR-028-Duplicate-Consolidation-Protocol) has status UNKNOWN",
+      "id": 110,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-64df94b1680d4d5a",
+      "subject_entity_id": "ent-3402bc8552789749",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-e2f9369286563755",
+      "fact_text": "ADR ADR-029 (ADR-029-Runtime-Asset-Lifecycle) has status UNKNOWN",
+      "id": 111,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-a6b2741ad136602c",
+      "subject_entity_id": "ent-1cfbecd04f06f398",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-ac7c44b780080fea",
+      "fact_text": "ADR ADR-030 (ADR-030-Engineering-Router-Execution-Model) has status UNKNOWN",
+      "id": 112,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-f34823ccd43d65c4",
+      "subject_entity_id": "ent-13d612e275ca92d4",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-7d1ce80f494460c6",
+      "fact_text": "ADR ADR-031 (ADR-031-Agent-Orchestration-Standardisation) has status UNKNOWN",
+      "id": 113,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-41027bbf944cc2a2",
+      "subject_entity_id": "ent-21d5462040c009e6",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-731604d8cb2fafdc",
+      "fact_text": "ADR ADR-ADR-HEALTH-001-Health-Data-Architecture (ADR-HEALTH-001-Health-Data-Architecture) has status UNKNOWN",
+      "id": 114,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-0f32bfdbdd9f6efa",
+      "subject_entity_id": "ent-8a48fe68a860c794",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-c430362a63e4c4bd",
+      "fact_text": "ADR ADR-ADR-HEALTH-002-Sprint-C-Intelligence-Architecture (ADR-HEALTH-002-Sprint-C-Intelligence-Architecture) has status UNKNOWN",
+      "id": 115,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-093cdb1ca4f2ad10",
+      "subject_entity_id": "ent-2ec3209d5ee92e60",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-7042859c1462cb3e",
+      "fact_text": "ADR ADR-ADR-NAMESPACE-MAPPING (ADR-NAMESPACE-MAPPING) has status UNKNOWN",
+      "id": 116,
+      "object_entity_id": null,
+      "object_value": "UNKNOWN",
+      "predicate": "HAS_STATUS",
+      "source_episode_id": "ep-5f57e9f80e5833a4",
+      "subject_entity_id": "ent-98a644c3d2708c9c",
+      "valid_end": null,
+      "valid_start": "2026-06-06T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-f85b02217fffcd6e",
+      "fact_text": "OSS-001 led to Temporal Memory Layer pilot",
+      "id": 117,
+      "object_entity_id": "ent-7a142d45366ccd77",
+      "object_value": null,
+      "predicate": "LED_TO",
+      "source_episode_id": "ep-883c10dea3f348ec",
+      "subject_entity_id": "ent-81494d53d403cf7e",
+      "valid_end": null,
+      "valid_start": "2026-06-21T00:00:00+00:00"
+    },
+    {
+      "created_at": "2026-06-21T06:04:42.160703+00:00",
+      "fact_id": "fact-71f00def74b1b09c",
+      "fact_text": "OSS-001 led to CodeGraph Engineering Intelligence activation",
+      "id": 118,
+      "object_entity_id": "ent-875bd14d4739cf65",
+      "object_value": null,
+      "predicate": "LED_TO",
+      "source_episode_id": "ep-883c10dea3f348ec",
+      "subject_entity_id": "ent-81494d53d403cf7e",
+      "valid_end": null,
+      "valid_start": "2026-06-21T00:00:00+00:00"
+    }
+  ]
+}

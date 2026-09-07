@@ -1,221 +1,81 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
 import { TodaysBriefPanel } from '@/components/TodaysBriefPanel';
 import { useAlerts } from '@/lib/useAlerts';
-import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
-import { fetchCaptureAnalytics, fetchInboxCaptures } from '@/lib/capture';
 import {
   RISK_STATE_TONE,
   SYSTEM_POSTURE_STATE_TONE,
   useHumanSystemsContext,
+  useHqStatusSummary,
   useOperationalRisk,
   useEmergencyAlerts,
-  useAgentHealth,
   useTodaysBriefing,
   useCalendarToday,
   useCalendarUpcoming,
   useReminders,
+  useAttentionCounts,
+  useEvolutionSignal,
+  useNotebookReadyCount,
 } from '@/lib/captainsChairData';
-import { deriveCommandStatus, sortNeedsYou, type NeedsYouItem } from '@/lib/captainsChairSynthesis';
+import { deriveCommandStatus, sortNeedsYou } from '@/lib/captainsChairSynthesis';
+import { deriveCommandPosture, buildNeedsYouItems, deriveIntelligenceHeadline } from '@/lib/commandState';
 import { CommandStatus } from './_components/CommandStatus';
 import { NeedsYou } from './_components/NeedsYou';
-import { Situation } from './_components/Situation';
+import { Intelligence } from './_components/Intelligence';
+import { Capacity } from './_components/Capacity';
+import { SystemStatus } from './_components/SystemStatus';
+import { HqEvolution } from './_components/HqEvolution';
 import { Ahead } from './_components/Ahead';
 import { CaptainsLog } from './_components/CaptainsLog';
 
-// MSN-0364 Captain's Chair redesign (2026-09-05): re-anchors this page
-// around POSTURE -> ATTENTION -> SITUATION -> AHEAD -> BRIEF -> CAPTURE
-// instead of a stack of dashboard widgets. See knowledge/missions/
-// MSN-0364-captains-chair-redesign.md for the full scoping/audit that
-// preceded this — key corrections there worth knowing before touching
-// this file again:
+// Command-Experience vNext (Phase 2, 2026-09-06) — re-anchors this page
+// around the mission's target information architecture: TODAY -> NEEDS YOU
+// -> INTELLIGENCE -> AHEAD -> CAPACITY -> HQ EVOLUTION -> SYSTEM STATUS
+// (docs/architecture/COMMAND-EXPERIENCE.md). Supersedes MSN-0364's POSTURE
+// -> ATTENTION -> SITUATION -> AHEAD -> BRIEF -> CAPTURE anchor — Situation
+// (the old Personal/Environment/Systems fold) is retired in favour of three
+// dedicated sections (Intelligence, Capacity, System Status) that each
+// consume exactly one canonical, already-interpreted contract instead of
+// re-curating raw OSINT/health/job signals on this page. See
+// docs/architecture/COMMAND-EXPERIENCE.md for the full domain-owner map.
 //
-// - Command Status's interpretation sentence is TEMPLATE-based
-//   (captainsChairSynthesis.ts), not LLM-generated — must render
-//   instantly, zero network dependency, unlike Captain's Brief below it.
-// - Command-Experience correctness repair (P0, 2026-09-06): this page used
-//   to read posture/capacity from useROSData() (the retired get_recovery_
-//   posture() RPC, `?? mockPosture` fallback) — a day with no check-in
-//   rendered a fabricated STABLE/MODERATE sentence. It now reads
-//   useHumanSystemsContext() (/api/human-systems/context), the same
-//   canonical assessed-context.ts boundary Ready Room and Weekly Review
-//   already consume. No mock fallback exists on this path — "no check-in
-//   today" surfaces honestly as posture UNKNOWN.
+// Notes worth knowing before touching this file again:
+// - Today's headline is the command-level posture (commandState.ts's
+//   deriveCommandPosture()), not Human Systems' own posture band — Human
+//   Systems contributes to it, it does not become it (mission §6).
+// - Needs You is built once by commandState.ts's buildNeedsYouItems() so
+//   LifeOS can render the identical list — no second copy of this logic.
+// - System Status reads the canonical HQ Status summary
+//   (hqStatusInterpreter.ts's buildCaptainChairSummary(), via
+//   useHqStatusSummary()) — never a raw failed-job count.
 // - /api/captain-brief (useTodaysBriefing) is a known-fragile source
-//   (external context-service process, documented prior silent-breakage
-//   on Vercel) — its confidence/priorities/warnings/recommendations
-//   fields are intentionally NOT rendered anywhere on this page any more
-//   (Captain-locked decision: removed, not demoted). Only interruptNow is
-//   still read from it, since that's the one field with no other source —
-//   treated as unknown (not zero) on fetch failure, same as before.
+//   (external context-service process, documented prior silent-breakage on
+//   Vercel) — its confidence/priorities/recommendations fields are still
+//   not rendered on this page (Captain-locked decision, unchanged);
+//   interruptNow and warnings feed the Intelligence headline and Needs You.
 // - Captain's Notebook's full officer-review/routing workflow
 //   (intelligence_notes) is untouched — Captain's Log here is a thin
 //   capture box in front of it, not a replacement.
-//
-// Previous executive-summary redesign (2026-08-22) already cut Mission
-// Overview/Board, Captain's Timeline, Since Last Session, Engineering
-// Queue, and several mock ROS sub-panels from this page — see git history
-// on this file for that context; none of it is being reconsidered here.
-
-// ── Needs You + Situation: live counts from across the platform ────────────
-
-interface AttentionCounts {
-  contentAwaitingPublish: number | null;
-  capturePending: number | null;
-  wellnessRiskFlags: number | null;
-  oldestContentAwaitingPublish: string | null;
-  oldestCapturePending: string | null;
-}
-
-interface TopOsintSignal { title: string; risk_rating: string; canonical_url: string | null; }
-interface TopHealthSignal { title: string; severity: string; }
-
-interface SignalSnapshot {
-  topOsintSignal: TopOsintSignal | null;
-  topHealthSignal: TopHealthSignal | null;
-}
-
-function useAttentionCounts(): { data: AttentionCounts; snapshot: SignalSnapshot; loading: boolean; errors: string[] } {
-  const [data, setData] = useState<AttentionCounts>({
-    contentAwaitingPublish: null,
-    capturePending: null,
-    wellnessRiskFlags: null,
-    oldestContentAwaitingPublish: null,
-    oldestCapturePending: null,
-  });
-  const [snapshot, setSnapshot] = useState<SignalSnapshot>({
-    topOsintSignal: null,
-    topHealthSignal: null,
-  });
-  const [loading, setLoading] = useState(true);
-  const [errors, setErrors] = useState<string[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const errs: string[] = [];
-
-      const content = await fetch('/api/content-workbench')
-        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-        .catch((e) => { console.error('[CaptainsChair] content pipeline count failed:', e); errs.push('Content pipeline'); return null; });
-
-      const capture = await fetchCaptureAnalytics();
-      if (capture === null) { console.error('[CaptainsChair] capture pending count failed'); errs.push('Capture pending'); }
-
-      const oldestCapture = await fetchInboxCaptures({ statusFilter: 'pending', limit: 50 })
-        .then((rows) => rows.length > 0 ? rows[rows.length - 1] : null)
-        .catch((e) => { console.error('[CaptainsChair] oldest pending capture failed:', e); return null; });
-
-      const wellness = await fetch('/api/human-systems?domain=recovery')
-        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-        .catch((e) => { console.error('[CaptainsChair] wellness risk flags failed:', e); errs.push('Wellness signals'); return null; });
-
-      const osintAttention = await fetch('/api/intelligence-workbench/attention-count')
-        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-        .catch((e) => { console.error('[CaptainsChair] top OSINT signal failed:', e); errs.push('OSINT signal'); return null; });
-
-      const healthOsint = await fetch('/api/health-osint/attention-count')
-        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-        .catch((e) => { console.error('[CaptainsChair] top health OSINT signal failed:', e); errs.push('Health OSINT signal'); return null; });
-
-      if (cancelled) return;
-
-      const items: { status: string; captain_focus?: boolean; title?: string; created_at?: string }[] =
-        Array.isArray(content?.items) ? content.items : [];
-      const readyToPublish = items.filter((i) => i.status === 'ready_to_publish');
-      const oldestContentItem = readyToPublish.length > 0
-        ? [...readyToPublish].sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))[0]
-        : null;
-
-      setData({
-        contentAwaitingPublish: content ? readyToPublish.length : null,
-        capturePending: capture ? capture.pending : null,
-        wellnessRiskFlags: wellness ? (wellness.wellness?.risk_flags?.length ?? 0) : null,
-        oldestContentAwaitingPublish: oldestContentItem?.title ?? null,
-        oldestCapturePending: oldestCapture ? (oldestCapture.title || oldestCapture.raw_text?.slice(0, 60) || null) : null,
-      });
-      setSnapshot({
-        topOsintSignal: osintAttention ? (osintAttention.top ?? null) : null,
-        topHealthSignal: healthOsint ? (healthOsint.top ?? null) : null,
-      });
-      setErrors(errs);
-      setLoading(false);
-    }
-    load();
-    return () => { cancelled = true; };
-  }, []);
-
-  return { data, snapshot, loading, errors };
-}
-
-/** HQ Evolution's small morning signal (spec §37) — a count + the
- * highest-value opportunity, never the full Discover/Investigate/Improve/
- * Learned surface. Reuses the same summary endpoint the HQ Evolution page
- * itself uses for morning compression. */
-function useEvolutionSignal(): { pendingCount: number | null; highestValueTitle: string | null; error: string | null } {
-  const [pendingCount, setPendingCount] = useState<number | null>(null);
-  const [highestValueTitle, setHighestValueTitle] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/self-improvement/evolution-summary')
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then((body) => {
-        if (cancelled) return;
-        setPendingCount(body.pending_decisions_count ?? 0);
-        setHighestValueTitle(body.highest_value_opportunity?.title ?? null);
-      })
-      .catch((e) => { if (!cancelled) { console.error('[CaptainsChair] HQ Evolution summary failed:', e); setError('HQ Evolution'); } });
-    return () => { cancelled = true; };
-  }, []);
-
-  return { pendingCount, highestValueTitle, error };
-}
-
-/** Minimal slice of the old NotebookCard's fetch — just the ready-for-
- * routing count, since Captain's Log (compact capture box) replaces the
- * rest of that card's surface. Full detail is one click away. */
-function useNotebookReadyCount(): { readyCount: number | null; error: string | null } {
-  const [readyCount, setReadyCount] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const supabase = createSupabaseBrowserClient();
-    supabase
-      .from('intelligence_notes')
-      .select('status')
-      .eq('status', 'READY_FOR_ROUTING')
-      .then(({ data, error: fetchError }) => {
-        if (cancelled) return;
-        if (fetchError) { setError(fetchError.message); return; }
-        setReadyCount(data?.length ?? 0);
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  return { readyCount, error };
-}
 
 export default function CaptainsChairWorkbench() {
   const { context: humanSystems, loading: humanSystemsLoading, error: humanSystemsError } = useHumanSystemsContext();
   const { alerts: liveAlerts } = useAlerts();
   const { data: opRisk, loading: opRiskLoading, error: opRiskError } = useOperationalRisk();
-  const { stats: briefingStats, error: briefingError } = useTodaysBriefing();
-  const { data: attention, snapshot, loading: attentionLoading, errors: attentionErrors } = useAttentionCounts();
+  const { stats: briefingStats, loading: briefingLoading, error: briefingError } = useTodaysBriefing();
+  const { data: attention, loading: attentionLoading, errors: attentionErrors } = useAttentionCounts();
   const { data: emergency, loading: emergencyLoading, error: emergencyError } = useEmergencyAlerts();
-  const { data: agentHealth, loading: agentHealthLoading, error: agentHealthError } = useAgentHealth();
+  const { data: hqStatus, loading: hqStatusLoading, error: hqStatusError } = useHqStatusSummary();
   const { events: calendarEvents, status: calendarStatus, loading: calendarLoading } = useCalendarToday();
   const { events: upcoming, status: upcomingStatus, loading: upcomingLoading } = useCalendarUpcoming(2);
   const { tasks: reminders, loading: remindersLoading } = useReminders();
   const { readyCount: notebookReadyCount } = useNotebookReadyCount();
   const { pendingCount: evolutionPendingCount, highestValueTitle: evolutionHighestValueTitle } = useEvolutionSignal();
 
-  const commandStatusLoading = humanSystemsLoading || opRiskLoading || emergencyLoading || agentHealthLoading;
+  const commandStatusLoading = humanSystemsLoading || opRiskLoading || briefingLoading || emergencyLoading || hqStatusLoading;
   const hasCheckinToday = humanSystems?.has_checkin_today ?? false;
+  const hqPostureLower = (hqStatus?.posture ?? 'UNKNOWN').toLowerCase() as 'normal' | 'degraded' | 'attention' | 'unknown';
+
   const commandStatus = deriveCommandStatus({
     posture: humanSystems?.posture ?? 'UNKNOWN',
     postureMessage: humanSystems?.posture_message ?? 'No capacity check-in recorded for today yet.',
@@ -228,8 +88,49 @@ export default function CaptainsChairWorkbench() {
     interruptNow: briefingError ? null : (briefingStats?.interruptNow ?? 0),
     emergencyCount: emergency?.count ?? 0,
     emergencyWorstTier: emergency?.worstTier ?? null,
-    systemsFailedCount: agentHealth?.failedCount ?? 0,
-    systemsUnknown: agentHealthError !== null,
+    hqPosture: hqPostureLower,
+    hqSummary: hqStatus?.summary ?? null,
+    hqUnavailable: hqStatusError !== null,
+  });
+
+  // ── Needs You: one curated list, shared with LifeOS via commandState.ts ──
+  const needsYouItems = buildNeedsYouItems({
+    emergency,
+    briefingError: briefingError !== null,
+    interruptNow: briefingError ? null : (briefingStats?.interruptNow ?? 0),
+    contentAwaitingPublish: attention.contentAwaitingPublish,
+    oldestContentAwaitingPublish: attention.oldestContentAwaitingPublish,
+    wellnessRiskFlags: attention.wellnessRiskFlags,
+    notebookReadyCount,
+    capturePending: attention.capturePending,
+    oldestCapturePending: attention.oldestCapturePending,
+    evolutionPendingCount,
+    evolutionHighestValueTitle,
+    hqPosture: hqStatus?.posture ?? null,
+    hqAttentionItems: hqStatus?.attentionItems ?? [],
+    criticalAlerts: liveAlerts.filter((a) => a.severity === 'critical').map((a) => ({ id: a.id, title: a.title, detail: a.detail, href: a.href })),
+  });
+  const sortedNeedsYou = sortNeedsYou(needsYouItems);
+  const needsYouErrors = [...attentionErrors, ...(emergencyError ? ['Emergency alerts'] : []), ...(hqStatusError ? ['System status'] : [])];
+
+  // ── Today: the command-level "what kind of day is this" posture ────────
+  const commandPosture = deriveCommandPosture({
+    hasEnvironmentConcern: commandStatus.hasEnvironmentConcern,
+    needsYouCount: sortedNeedsYou.length,
+    humanSystemsUnavailable: humanSystemsError !== null,
+    hasCheckinToday,
+    humanSystemsPosture: humanSystems?.posture ?? 'UNKNOWN',
+    meaningfulCommitmentsToday: calendarStatus === 'ok' ? calendarEvents.length : 0,
+  });
+
+  // ── Intelligence: one canonical headline ────────────────────────────────
+  const intelligenceHeadline = deriveIntelligenceHeadline({
+    briefingError: briefingError !== null,
+    briefingWarningsCount: briefingStats?.warnings ?? 0,
+    operationalRisk: (opRisk?.overallRisk as 'GREEN' | 'AMBER' | 'RED' | null) ?? null,
+    operationalRiskUnknown: opRiskError !== null,
+    emergencyWorstTier: emergency?.worstTier ?? null,
+    emergencyHeadline: emergency?.worstHeadline ?? null,
   });
 
   const capacityTone = humanSystemsLoading
@@ -245,107 +146,28 @@ export default function CaptainsChairWorkbench() {
       tone: capacityTone,
       href: '/human-systems-workbench',
     },
-    { label: 'Interrupts', value: briefingError ? 'Unknown' : `${briefingStats?.interruptNow ?? 0}`, tone: briefingError ? 'unknown' as const : (briefingStats?.interruptNow ?? 0) > 0 ? 'crit' as const : 'ok' as const, href: '/captains-brief-workbench' },
+    { label: 'Interrupts', value: briefingLoading ? '…' : briefingError ? 'Unknown' : `${briefingStats?.interruptNow ?? 0}`, tone: briefingError ? 'unknown' as const : (briefingStats?.interruptNow ?? 0) > 0 ? 'crit' as const : 'ok' as const, href: '/captains-brief-workbench' },
     { label: 'Alerts', value: emergencyLoading ? '…' : emergencyError ? 'Unknown' : emergency?.count ? `${emergency.count} Active` : 'Clear', tone: emergencyError ? 'unknown' as const : emergency?.worstTier === 'emergency_warning' ? 'crit' as const : emergency?.worstTier === 'watch_and_act' ? 'warn' as const : 'ok' as const, href: '/emergency-alert-hub-workbench' },
-    { label: 'Systems', value: agentHealthLoading ? '…' : agentHealthError ? 'Unknown' : agentHealth?.failedCount ? `${agentHealth.failedCount} Failing` : 'Nominal', tone: agentHealthError ? 'unknown' as const : (agentHealth?.failedCount ?? 0) > 0 ? 'crit' as const : 'ok' as const, href: '/agent-status-workbench' },
+    { label: 'HQ', value: hqStatusLoading ? '…' : hqStatusError ? 'Unknown' : (hqStatus?.posture ?? 'Unknown'), tone: hqStatusError ? 'unknown' as const : hqStatus?.posture === 'ATTENTION' ? 'crit' as const : hqStatus?.posture === 'NORMAL' ? 'ok' as const : hqStatus?.posture === 'DEGRADED' ? 'warn' as const : 'unknown' as const, href: '/agent-status-workbench' },
     { label: 'Risk', value: opRiskLoading ? '…' : opRiskError ? 'Unknown' : (opRisk?.overallRisk ?? 'No data'), tone: opRiskError ? ('unknown' as const) : opRisk?.overallRisk ? (RISK_STATE_TONE[opRisk.overallRisk] ?? 'unknown') : 'unknown', href: '/intelligence-workbench' },
   ];
-
-  // ── Needs You: real human-gate items only, priority-sorted ──────────────
-  const needsYouItems: NeedsYouItem[] = [];
-  if (emergency?.worstTier === 'emergency_warning') {
-    needsYouItems.push({
-      id: 'emergency', kind: 'safety',
-      title: emergency.worstHeadline ?? 'Active emergency warning',
-      detail: `${emergency.count} active alert${emergency.count === 1 ? '' : 's'} at emergency tier.`,
-      href: '/emergency-alert-hub-workbench', actionLabel: 'Review',
-    });
-  }
-  if (!briefingError && (briefingStats?.interruptNow ?? 0) > 0) {
-    needsYouItems.push({
-      id: 'interrupt', kind: 'time_critical',
-      title: `${briefingStats!.interruptNow} item${briefingStats!.interruptNow === 1 ? '' : 's'} flagged to interrupt now`,
-      detail: 'The Attention Engine flagged this as needing you right now.',
-      href: '/captains-brief-workbench', actionLabel: 'Review',
-    });
-  }
-  if ((attention.contentAwaitingPublish ?? 0) > 0) {
-    needsYouItems.push({
-      id: 'content-publish', kind: 'approval',
-      title: attention.oldestContentAwaitingPublish ?? 'Content ready to publish',
-      detail: `${attention.contentAwaitingPublish} item${attention.contentAwaitingPublish === 1 ? '' : 's'} QA'd and ready for your publish decision.`,
-      href: '/content-workbench', actionLabel: 'Publish / Schedule',
-    });
-  }
-  if ((attention.wellnessRiskFlags ?? 0) > 0) {
-    needsYouItems.push({
-      id: 'wellness', kind: 'review',
-      title: 'Nervous-system load remains elevated',
-      detail: `${attention.wellnessRiskFlags} wellness risk flag${attention.wellnessRiskFlags === 1 ? '' : 's'} raised.`,
-      href: '/human-systems-workbench', actionLabel: 'Review',
-    });
-  }
-  if (notebookReadyCount !== null && notebookReadyCount > 0) {
-    needsYouItems.push({
-      id: 'notebook', kind: 'review',
-      title: `${notebookReadyCount} note${notebookReadyCount === 1 ? '' : 's'} ready for routing`,
-      detail: 'Captured in the Log, reviewed, waiting on your routing decision.',
-      href: '/captains-chair-workbench/notebook', actionLabel: 'Review',
-    });
-  }
-  if ((attention.capturePending ?? 0) > 0) {
-    needsYouItems.push({
-      id: 'capture-triage', kind: 'triage',
-      title: attention.oldestCapturePending ?? 'Captures waiting on triage',
-      detail: `${attention.capturePending} item${attention.capturePending === 1 ? '' : 's'} waiting.`,
-      href: '/capture-workbench', actionLabel: 'Review',
-    });
-  }
-  if ((evolutionPendingCount ?? 0) > 0) {
-    needsYouItems.push({
-      id: 'hq-evolution', kind: 'review',
-      title: evolutionHighestValueTitle ?? 'HQ Evolution has opportunities worth considering',
-      detail: `${evolutionPendingCount} opportunit${evolutionPendingCount === 1 ? 'y' : 'ies'} from overnight research ${evolutionPendingCount === 1 ? 'needs' : 'need'} your decision.`,
-      href: '/self-improvement-findings', actionLabel: 'Review',
-    });
-  }
-  for (const alert of liveAlerts.filter((a) => a.severity === 'critical').slice(0, 2)) {
-    needsYouItems.push({
-      id: `alert-${alert.id}`, kind: 'time_critical',
-      title: alert.title, detail: alert.detail, href: alert.href, actionLabel: 'Review',
-    });
-  }
-  const needsYouErrors = [...attentionErrors, ...(emergencyError ? ['Emergency alerts'] : []), ...(agentHealthError ? ['Systems'] : [])];
 
   return (
     <WorkbenchShell
       title="Captain's Chair"
       eyebrow="Executive command surface"
-      tagline="USS TJR · Captain's Chair · Posture, attention, situation, ahead, synthesis, capture"
+      tagline="USS TJR · Captain's Chair · Today, Needs You, intelligence, ahead, capacity, evolution, status"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       wide
     >
       <div className="space-y-4">
-        <CommandStatus status={commandStatus} loading={commandStatusLoading} signals={signalChips} />
+        <CommandStatus posture={commandPosture} status={commandStatus} loading={commandStatusLoading} signals={signalChips} />
+
+        <NeedsYou items={sortedNeedsYou} loading={attentionLoading} errors={needsYouErrors} />
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <NeedsYou items={sortNeedsYou(needsYouItems)} loading={attentionLoading} errors={needsYouErrors} />
-          <Situation
-            loading={attentionLoading || humanSystemsLoading}
-            data={{
-              availableCapacity: humanSystems?.available_capacity ?? 'unknown',
-              posture: humanSystems?.posture ?? 'UNKNOWN',
-              postureMessage: humanSystems?.posture_message ?? null,
-              hasCheckinToday,
-              topHealthSignal: snapshot.topHealthSignal,
-              emergencyCount: emergency?.count ?? 0,
-              emergencyWorstHeadline: emergency?.worstHeadline ?? null,
-              emergencyTone: emergency?.worstTier === 'emergency_warning' ? 'crit' : emergency?.worstTier === 'watch_and_act' ? 'warn' : 'ok',
-              topOsintSignal: snapshot.topOsintSignal,
-              agentFailedCount: agentHealth?.failedCount ?? 0,
-              agentWorstLabel: agentHealth?.worstLabel ?? null,
-            }}
-          />
+          <Intelligence headline={intelligenceHeadline} loading={opRiskLoading || briefingLoading || emergencyLoading} />
+          <Capacity context={humanSystems} loading={humanSystemsLoading} unavailable={humanSystemsError !== null} />
         </div>
 
         <Ahead
@@ -358,6 +180,10 @@ export default function CaptainsChairWorkbench() {
           reminders={reminders}
           remindersLoading={remindersLoading}
         />
+
+        <HqEvolution pendingCount={evolutionPendingCount} highestValueTitle={evolutionHighestValueTitle} />
+
+        <SystemStatus data={hqStatus} loading={hqStatusLoading} error={hqStatusError} />
 
         <TodaysBriefPanel />
 

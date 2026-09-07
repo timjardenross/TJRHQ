@@ -18,8 +18,17 @@
 // already returns UNKNOWN with an honest message, so "no check-in today"
 // propagates as UNKNOWN here rather than needing a second mock-detection
 // path.
+//
+// Command-Experience vNext (Phase 2): HQ health is now taken as the
+// already-interpreted CaptainChairSummary posture (NORMAL/DEGRADED/
+// ATTENTION/UNKNOWN, hqStatusInterpreter.ts's buildCaptainChairSummary())
+// instead of a raw failed-job count re-derived from /api/agent-status. Only
+// ATTENTION counts as an environment concern — DEGRADED is HQ's own
+// business and needs no response (mission §9.7/§10: "System Status is
+// normally tiny," a degraded HQ is "no action required yet").
 
 import type { SystemPostureBand } from '@/app/human-systems-workbench/_components/types';
+import type { HQPosture } from './hqStatusInterpreter';
 
 /** Mirrors assessed-context.ts's `available_capacity` field. */
 export type AvailableCapacity = 'green' | 'orange' | 'red' | 'unknown';
@@ -43,8 +52,12 @@ export interface CommandStatusInputs {
   interruptNow: number | null;
   emergencyCount: number;
   emergencyWorstTier: 'emergency_warning' | 'watch_and_act' | null;
-  systemsFailedCount: number;
-  systemsUnknown: boolean;
+  /** Canonical HQ Status posture (hqStatusInterpreter.ts), not a raw job
+   *  count — see module header. */
+  hqPosture: HQPosture;
+  hqSummary: string | null;
+  /** True only when the HQ Status overview fetch itself failed. */
+  hqUnavailable: boolean;
 }
 
 export interface CommandStatusResult {
@@ -58,6 +71,11 @@ export interface CommandStatusResult {
   /** True when something needs urgent attention regardless of posture —
    *  Needs You should never be empty when this is true. */
   hasUrgentException: boolean;
+  /** Exposed so the Command State layer (commandState.ts) can compose the
+   *  top-level "what kind of day is this" posture without re-deriving
+   *  personal/environment concern itself — see that module's header. */
+  hasPersonalConcern: boolean;
+  hasEnvironmentConcern: boolean;
 }
 
 const POSTURE_LABEL: Record<SystemPostureBand, string> = {
@@ -85,7 +103,7 @@ function environmentConcern(inputs: CommandStatusInputs): boolean {
     inputs.escalateCount > 0 ||
     inputs.emergencyWorstTier === 'emergency_warning' ||
     (inputs.interruptNow ?? 0) > 0 ||
-    inputs.systemsFailedCount > 0
+    inputs.hqPosture === 'attention'
   );
 }
 
@@ -106,10 +124,10 @@ function environmentLineFor(inputs: CommandStatusInputs): string {
   if (inputs.operationalRisk === 'RED') parts.push('operational risk RED');
   else if (inputs.escalateCount > 0) parts.push(`${inputs.escalateCount} threat${inputs.escalateCount === 1 ? '' : 's'} at escalate`);
   if ((inputs.interruptNow ?? 0) > 0) parts.push(`${inputs.interruptNow} item${inputs.interruptNow === 1 ? '' : 's'} flagged to interrupt now`);
-  if (inputs.systemsFailedCount > 0) parts.push(`${inputs.systemsFailedCount} system${inputs.systemsFailedCount === 1 ? '' : 's'} failing`);
+  if (inputs.hqPosture === 'attention') parts.push(inputs.hqSummary ?? 'HQ needs your attention');
 
   if (parts.length === 0) {
-    return inputs.systemsUnknown || inputs.operationalRiskUnknown
+    return inputs.hqUnavailable || inputs.hqPosture === 'unknown' || inputs.operationalRiskUnknown
       ? 'Mostly stable — some sources unavailable, see Situation for detail.'
       : 'Stable — no emergency alerts, no elevated risk, systems nominal.';
   }
@@ -162,6 +180,8 @@ export function deriveCommandStatus(inputs: CommandStatusInputs): CommandStatusR
         ? 'Unknown — no check-in today'
         : POSTURE_LABEL[posture],
     hasUrgentException: inputs.emergencyWorstTier === 'emergency_warning' || (inputs.interruptNow ?? 0) > 0,
+    hasPersonalConcern: hasPersonal,
+    hasEnvironmentConcern: hasEnvironment,
   };
 }
 
