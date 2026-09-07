@@ -1399,6 +1399,10 @@ def _google_tasks_sync_job() -> None:
     secret = os.environ.get("BOT_API_SECRET", "")
     if not portal_url or not secret:
         log.info("Google Tasks sync skipped — LCARS_PORTAL_URL/BOT_API_SECRET not configured")
+        _record_heartbeat(
+            "google_tasks_sync", "skipped",
+            detail="LCARS_PORTAL_URL/BOT_API_SECRET not configured",
+        )
         return
 
     log.info("Google Tasks sync job triggered")
