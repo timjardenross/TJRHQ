@@ -91,6 +91,12 @@ export async function POST(request: NextRequest) {
         mission_id,
         title,
         status,
+        // missions.repo is NOT NULL with no column default (confirmed against
+        // the live schema) — single-repo platform, so there's only one
+        // correct value. Every other in-repo mission-insert example targets
+        // an older, different missions schema (no repo column at all) and
+        // isn't a valid reference for this table's current shape.
+        repo: 'timjardenross/TJRHQ',
         ...(priority    !== null && { priority }),
         ...(created_by  !== null && { created_by }),
         ...(description !== null && { description }),
