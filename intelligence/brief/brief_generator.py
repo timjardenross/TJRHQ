@@ -14,6 +14,9 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from intelligence.brief import external_domains, morning_cycle
+from intelligence.brief.comparison import compute_comparison
+from intelligence.brief.domain_picture import compute_domain_picture
 from intelligence.brief.llm_provider import LLMProvider
 from intelligence.classification.classifier import classify
 from intelligence.classification.filter import apply_filter
@@ -57,14 +60,37 @@ class BriefGenerator:
         log.info("Starting brief generation: period=%d days, trigger=%s",
                  period_days, self.trigger_type)
 
+        # ── 0. Morning cycle readiness (informational only — never blocks or
+        # waits here; the scheduler's own poll job decides WHEN to call
+        # generate(), this just records what it found so the brief can be
+        # honest about its own coverage). Never allowed to break generation.
+        try:
+            cycle_status = morning_cycle.get_status()
+        except Exception as exc:
+            log.warning("Morning cycle status check failed (non-fatal): %s", exc)
+            cycle_status = None
+
         # ── 1. Collection ─────────────────────────────────────────────────────
         items, health_records = collect_all(sources=sources)
         sources_checked   = len(health_records)
         sources_available = sum(1 for h in health_records if h.status in ("ok", "degraded"))
         sources_failed    = sum(1 for h in health_records if h.status == "failed")
         sources_stale     = sum(1 for h in health_records if h.status in ("stale", "degraded"))
+        missing_sources    = [h.source_name for h in health_records if h.status == "failed"]
+        latest_included_at = max((i.collected_at for i in items), default=None)
 
         log.info("Collected %d items from %d sources", len(items), sources_checked)
+
+        # ── 1b. External domains (BRIEFS_CANONICAL_UPLIFT.md §4.1) ─────────────
+        # Already-assessed Health OSINT / Emergency Alert Hub output only —
+        # read via a data-boundary contract (intelligence_store.py), never
+        # importing either pipeline's ingestion/curation code. Each call
+        # distinguishes "queried, found nothing" from "could not query"
+        # (Section 30) — a fetch failure marks that domain unavailable in
+        # coverage rather than silently looking like a quiet morning.
+        health_result = external_domains.fetch_health_signals()
+        emergency_result = external_domains.fetch_emergency_alerts()
+        external_signals = health_result.signals + emergency_result.signals
 
         # ── 2. Classify ───────────────────────────────────────────────────────
         classified: list[ClassifiedEvent] = []
@@ -122,7 +148,7 @@ class BriefGenerator:
                 persisted_ids.append(eid)
 
         # ── 6. Determine overall risk ─────────────────────────────────────────
-        overall_risk = self._compute_risk(top5)
+        overall_risk = self._compute_risk(top5, external_signals)
 
         # ── 7. Build BriefEvent snapshots ─────────────────────────────────────
         brief_events = [self._to_brief_event(e) for e in top5]
@@ -135,9 +161,9 @@ class BriefGenerator:
 
         # ── 8. Generate narrative (LLM, may fail) ─────────────────────────────
         (executive_snapshot, emerging_themes, forward_watch,
-         cps230_implications, bottom_line, llm_used, provider_used) = \
+         cps230_implications, bottom_line, known_unknowns, llm_used, provider_used) = \
             self._generate_narrative(top5, brief_events, period_start, period_end,
-                                     sources_available, sources_failed)
+                                     sources_available, sources_failed, external_signals)
 
         # ── 8b. QA Validation Officer — non-blocking sanity check ─────────────
         # 2026-08-22: real LLM check for forced/mismatched framing (the bug
@@ -160,6 +186,71 @@ class BriefGenerator:
                     log.info("[risk-challenge] %s", risk_note)
             except Exception as exc:
                 log.warning("[risk-challenge] check errored: %s", exc)
+
+        # ── 8c. Coverage / comparison / domain picture (Sections 6, 11-13) ─────
+        # Deterministic post-processing — no re-reasoning, no invented
+        # history (Section 26). Never allowed to break brief generation.
+        import dataclasses
+        top_events_dicts = [dataclasses.asdict(be) for be in brief_events]
+        external_signal_dicts = [s.to_dict() for s in external_signals]
+
+        # External-domain freshness folds into the same overall
+        # latest_included_at the coverage note quotes (Section 27) — it
+        # should reflect the freshest included data across every domain,
+        # not just OSINT.
+        external_timestamps = [s.assessed_at for s in external_signals if s.assessed_at]
+        latest_overall = latest_included_at.isoformat() if latest_included_at else None
+        if external_timestamps:
+            newest_external = max(external_timestamps)
+            if latest_overall is None or newest_external > latest_overall:
+                latest_overall = newest_external
+
+        # Each external domain counts as one more "source" in the same
+        # expected/completed/failed tally OSINT sources already use — a
+        # Health OSINT or Emergency Alert Hub outage is disclosed exactly
+        # like an OSINT source outage (BRIEFS_CANONICAL_UPLIFT.md §4.1).
+        domain_results = {"health": health_result, "emergency": emergency_result}
+        domains_meta = {
+            name: {"available": r.available, "count": len(r.signals), "error": r.error}
+            for name, r in domain_results.items()
+        }
+        external_failed = [name for name, r in domain_results.items() if not r.available]
+        _DOMAIN_DISPLAY_NAME = {"health": "Health OSINT", "emergency": "Emergency Alert Hub"}
+
+        coverage: dict = {
+            "expected": sources_checked + len(domain_results),
+            "completed": sources_available + sum(1 for r in domain_results.values() if r.available),
+            "failed": sources_failed + len(external_failed),
+            "stale": sources_stale,
+            "missing_sources": (missing_sources + [_DOMAIN_DISPLAY_NAME[n] for n in external_failed])[:10],
+            "latest_included_at": latest_overall,
+            "domains": domains_meta,
+        }
+        if cycle_status is not None:
+            coverage.update(cycle_status.to_dict())
+            coverage["degraded"] = bool(cycle_status.degraded or sources_failed > 0 or external_failed)
+        else:
+            coverage["degraded"] = bool(sources_failed > 0 or external_failed)
+
+        try:
+            prior_brief = store.load_latest_brief()
+        except Exception as exc:
+            log.warning("Could not fetch prior brief for comparison (non-fatal): %s", exc)
+            prior_brief = None
+        comparison = None
+        try:
+            prior_top_events = (prior_brief or {}).get("top_events")
+            comparison = compute_comparison(top_events_dicts, prior_top_events)
+        except Exception as exc:
+            log.warning("Prior-brief comparison failed (non-fatal): %s", exc)
+
+        domain_picture = None
+        try:
+            domain_picture = compute_domain_picture(top_events_dicts, external_signal_dicts)
+        except Exception as exc:
+            log.warning("Domain picture computation failed (non-fatal): %s", exc)
+
+        morning_cycle_id = cycle_status.cycle_id if cycle_status is not None else morning_cycle.cycle_id_for()
 
         # ── 9. Assemble brief ─────────────────────────────────────────────────
         brief_id = str(uuid.uuid4())
@@ -191,6 +282,11 @@ class BriefGenerator:
             provider_used=provider_used,
             confidence=confidence,
             trigger_type=self.trigger_type,
+            morning_cycle_id=morning_cycle_id,
+            coverage=coverage,
+            comparison=comparison,
+            domain_picture=domain_picture,
+            known_unknowns=known_unknowns,
         )
 
         # ── 10. Persist brief and link events ────────────────────────────────
@@ -199,8 +295,10 @@ class BriefGenerator:
             store.link_events_to_brief(persisted_ids[:events_included], saved_id)
 
         log.info(
-            "Brief %s generated: risk=%s, events=%d, narrative=%s, provider=%s",
-            brief_id[:8], overall_risk, events_included, llm_used, provider_used
+            "Brief %s generated: risk=%s, events=%d, narrative=%s, provider=%s, "
+            "cycle=%s, coverage_degraded=%s",
+            brief_id[:8], overall_risk, events_included, llm_used, provider_used,
+            morning_cycle_id, coverage.get("degraded"),
         )
         return brief
 
@@ -215,16 +313,25 @@ class BriefGenerator:
             return "AMBER"
         return "GREEN"
 
-    def _compute_risk(self, top: list[RankedEvent]) -> str:
-        if not top:
+    def _compute_risk(self, top: list[RankedEvent], external_signals: Optional[list] = None) -> str:
+        external_signals = external_signals or []
+        if not top and not external_signals:
             return "UNKNOWN"
-        high_count = sum(1 for e in top if e.customer_impact == "high" or e.banking_relevance == "high")
-        if high_count >= 2 or any(e.cps230_relevance and e.customer_impact == "high" for e in top):
-            aggregate = "RED"
-        elif high_count >= 1 or any(e.customer_impact == "medium" for e in top):
-            aggregate = "AMBER"
+
+        if top:
+            high_count = sum(1 for e in top if e.customer_impact == "high" or e.banking_relevance == "high")
+            if high_count >= 2 or any(e.cps230_relevance and e.customer_impact == "high" for e in top):
+                aggregate = "RED"
+            elif high_count >= 1 or any(e.customer_impact == "medium" for e in top):
+                aggregate = "AMBER"
+            else:
+                aggregate = "GREEN"
+            worst_event = max((self._event_risk_rating(e) for e in top), key=self._RISK_ORDER.get)
         else:
+            # No OSINT events today, but an external domain has assessed
+            # signals — do not fall back to UNKNOWN and hide them.
             aggregate = "GREEN"
+            worst_event = "GREEN"
 
         # Floor at the worst individual event rating — the aggregate escalation
         # rules above require 2+ high-severity events to reach RED, which let a
@@ -234,9 +341,16 @@ class BriefGenerator:
         # that as a mismatch — a brief must never rate itself below its own
         # worst included event. Confirmed live: this was the single biggest
         # driver of "0 passed" every nightly QA run since 2026-06-20.
-        worst_event = max((self._event_risk_rating(e) for e in top), key=self._RISK_ORDER.get)
-        if self._RISK_ORDER[worst_event] > self._RISK_ORDER[aggregate]:
-            return worst_event
+        #
+        # BRIEFS_CANONICAL_UPLIFT.md §4.1: the same invariant extends across
+        # domains — an active Emergency Warning or a severe/critical Health
+        # OSINT signal must not be hidden by an otherwise-calm OSINT picture.
+        worst_external = max(
+            (s.risk_rating for s in external_signals), key=self._RISK_ORDER.get, default="GREEN"
+        )
+        worst = max([worst_event, worst_external], key=self._RISK_ORDER.get)
+        if self._RISK_ORDER[worst] > self._RISK_ORDER[aggregate]:
+            return worst
         return aggregate
 
     def _to_brief_event(self, event: RankedEvent) -> BriefEvent:
@@ -368,19 +482,41 @@ class BriefGenerator:
         period_end: datetime,
         sources_available: int,
         sources_failed: int,
+        external_signals: Optional[list] = None,
     ) -> tuple:
         """
-        Generate LLM narrative sections. Returns 7-tuple:
-        (snapshot, themes, forward_watch, cps230, bottom_line, llm_used, provider)
-        All sections default to None (not fabricated placeholders) if LLM unavailable.
+        Generate LLM narrative sections. Returns 8-tuple:
+        (snapshot, themes, forward_watch, cps230, bottom_line, known_unknowns,
+        llm_used, provider). All sections default to None (not fabricated
+        placeholders) if LLM unavailable.
+
+        external_signals (BRIEFS_CANONICAL_UPLIFT.md §4.1): already-assessed
+        Health OSINT / Emergency Alert Hub items
+        (intelligence.brief.external_domains.ExternalDomainSignal). Folded
+        into this SAME single synthesis call — not a second LLM call — so
+        the resulting executive_snapshot/bottom_line can be genuinely
+        cross-domain rather than OSINT-only, while still going through the
+        one bounded interpretive step this generator has always had.
         """
-        if not top:
-            return None, None, None, None, None, False, None
+        external_signals = external_signals or []
+        if not top and not external_signals:
+            return None, None, None, None, None, None, False, None
 
         event_summaries = "\n".join([
             f"- [{e.risk_rating}] {e.title} ({e.event_type}, {e.location}): {e.summary}"
             for e in brief_events
-        ])
+        ]) or "(none collected this period)"
+
+        # Preserves official emergency wording verbatim (Section 30: no
+        # hidden replacement of official emergency wording) — the LLM sees
+        # the exact source severity label alongside our internal mapping,
+        # and is explicitly told not to paraphrase it.
+        external_summaries = "\n".join([
+            f"- [{s.risk_rating}] ({s.domain}"
+            + (f", official severity: {s.official_severity_label}" if s.official_severity_label else "")
+            + f") {s.title}" + (f": {s.summary}" if s.summary else "")
+            for s in external_signals
+        ]) or "(none)"
 
         # 2026-08-22: generalized from a forced "Operational Resilience
         # Intelligence Brief" framing to a plain educational daily-digest
@@ -398,21 +534,32 @@ Sources available: {sources_available} ({sources_failed} failed)
 TOP EVENTS THIS PERIOD:
 {event_summaries}
 
+OTHER DOMAINS ASSESSED THIS MORNING (Health OSINT / Emergency Alert Hub — already curated by their own pipeline, not raw feeds):
+{external_summaries}
+
 Respond with a JSON object containing exactly these keys:
 {{
-  "executive_snapshot": "<2-3 sentence overall summary of the period — must explicitly name or closely paraphrase at least one of the TOP EVENTS titles above, not a generic summary. Explain why it matters, not just what happened>",
+  "executive_snapshot": "<2-3 sentence overall summary of the period — must explicitly name or closely paraphrase at least one item from TOP EVENTS or OTHER DOMAINS above, not a generic summary. Explain why it matters, not just what happened>",
   "emerging_themes": ["<theme 1>", "<theme 2>", "<theme 3>"],
   "forward_watch": ["<upcoming item to watch 1>", "<upcoming item to watch 2>"],
   "cps230_implications": ["<operational-resilience/regulatory implication, ONLY if these events actually touch Australian banking/CPS230 — empty list otherwise, do not force one>"],
-  "bottom_line": "<one paragraph, what Captain TJR should know today>"
+  "bottom_line": "<one paragraph, what Captain TJR should know today>",
+  "known_unknowns": ["<a genuine evidence gap or uncertainty about one of the items above — e.g. unconfirmed reports, missing timestamps, conflicting sources. Empty list if there is nothing genuinely uncertain — do not invent a gap to fill this>"]
 }}
 
-Only use information from the TOP EVENTS provided. Do not invent incidents."""
+Only use information from TOP EVENTS and OTHER DOMAINS above. Do not invent incidents.
+When forming executive_snapshot/bottom_line, consider whether an item in OTHER DOMAINS is
+materially connected to a TOP EVENT (e.g. severe weather plus infrastructure fragility, or a
+health/safety signal relevant to a TOP EVENT) — genuine cross-domain synthesis, not a forced
+connection. Preserve domain boundaries: do not collapse unrelated signals into one false
+narrative just because they appear in the same brief. Never paraphrase or soften an official
+emergency alert severity label (Emergency Warning / Watch and Act / Advice) — quote it exactly
+as given if you reference it."""
 
         raw, provider = self.llm.generate(prompt)
 
         if not raw:
-            return None, None, None, None, None, False, None
+            return None, None, None, None, None, None, False, None
 
         try:
             import re, json
@@ -432,9 +579,10 @@ Only use information from the TOP EVENTS provided. Do not invent incidents."""
                 data.get("forward_watch"),
                 data.get("cps230_implications"),
                 data.get("bottom_line"),
+                data.get("known_unknowns"),
                 True,
                 provider,
             )
         except Exception as exc:
             log.warning("Failed to parse LLM JSON response: %s\nRaw: %s", exc, raw[:200])
-            return None, None, None, None, None, True, provider
+            return None, None, None, None, None, None, True, provider

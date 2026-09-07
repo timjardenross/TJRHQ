@@ -654,6 +654,62 @@ def _get(path: str) -> list:
         return []
 
 
+def _get_strict(path: str, timeout: int = 10) -> list:
+    """Like _get(), but raises instead of swallowing a failure into [].
+    Some callers must distinguish "queried, found nothing" from "could not
+    query" — Section 30 of BRIEFS_CANONICAL_UPLIFT.md: no missing coverage
+    may be interpreted as nothing happened. Mirrors captains_brief.py's
+    _sb_request()."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise RuntimeError("Supabase not configured (SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY unset)")
+    url = f"{SUPABASE_URL}/rest/v1/{path}"
+    req = urllib.request.Request(url, headers=_headers(), method="GET")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read())
+
+
+# ─── External domain assessed-output reads (BRIEFS_CANONICAL_UPLIFT.md §4.1) ──
+#
+# Pure data-boundary reads for Briefs' cross-domain synthesis — each reads
+# ONLY the domain's own already-assessed/curated rows, never importing that
+# domain's ingestion/curation/scraper code (which would pull in LLM
+# provider clients, Firecrawl/BrightData clients, government-feed scraper
+# adapters, and an email sender — none of which Briefs needs to read data).
+# Both raise on a genuine fetch failure (see _get_strict) rather than
+# returning []; intelligence/brief/external_domains.py is what converts a
+# raised exception into a disclosed "domain unavailable" coverage state.
+
+def load_assessed_health_signals(since_iso: str, limit: int = 10) -> list[dict]:
+    """Already-curated Health OSINT signals only (suppressed=false, set by
+    tools/health-osint/health_signal_curation.py on publish — NOT imported
+    here). Same read contract intelligence/captains_brief.py::
+    _get_weekly_health_signals already uses cross-module."""
+    return _get_strict(
+        "health_signals?suppressed=eq.false"
+        f"&collected_at=gte.{since_iso}"
+        "&order=rank_score.desc"
+        f"&limit={limit}"
+        "&select=signal_id,title,description,signal_type,health_domain,severity,"
+        "confidence_level,rank_score,collected_at,published_at,"
+        "health_source_registry(source_name)"
+    )
+
+
+def load_active_emergency_alerts(limit: int = 10) -> list[dict]:
+    """Already-assessed, currently-active emergency alerts only
+    (is_active=true — a first-class lifecycle column, migration 0174; NOT
+    a raw feed poll). Same read contract emergency_alert_summary.py's own
+    digest already uses; no import of intelligence/emergency_alerts.py or
+    its scraper adapters."""
+    return _get_strict(
+        "alerts?is_active=eq.true"
+        "&order=last_seen_at.desc"
+        f"&limit={limit}"
+        "&select=id,jurisdiction,alert_type,severity,status,headline,location,"
+        "issued_at,last_seen_at,canonical_url"
+    )
+
+
 # ─── Source Registry ──────────────────────────────────────────────────────────
 
 def load_source_registry() -> list[SourceRecord]:
@@ -1191,6 +1247,13 @@ def save_brief(brief: ResilienceBrief) -> Optional[str]:
         # workflow module itself is left in place, just unused by this path.
         "approval_status": "PUBLISHED",
         "published_at": brief.generated_at.isoformat(),
+        # Briefs canonical uplift (BRIEFS_CANONICAL_UPLIFT.md) — additive
+        # columns, all optional; None is stored as-is (not fabricated).
+        "morning_cycle_id": brief.morning_cycle_id,
+        "coverage": brief.coverage,
+        "comparison": brief.comparison,
+        "domain_picture": brief.domain_picture,
+        "known_unknowns": brief.known_unknowns,
     }
     result = _post("intelligence_briefs", row)
     if result:
@@ -1220,6 +1283,14 @@ def save_brief(brief: ResilienceBrief) -> Optional[str]:
 def load_latest_brief() -> Optional[dict]:
     rows = _get("intelligence_briefs?order=generated_at.desc&limit=1")
     return rows[0] if rows else None
+
+
+def brief_exists_for_cycle(morning_cycle_id: str) -> bool:
+    """Idempotency check for the readiness-polling scheduler job
+    (intelligence/scheduler.py) — has today's morning cycle already
+    produced a brief, across any of the poll's several fires?"""
+    rows = _get(f"intelligence_briefs?morning_cycle_id=eq.{morning_cycle_id}&limit=1&select=brief_id")
+    return len(rows) > 0
 
 
 def load_brief_archive(limit: int = 20, offset: int = 0) -> list[dict]:
