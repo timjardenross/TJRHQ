@@ -34,7 +34,12 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
     const { error: updateErr } = await sb
       .from('health_signals')
-      .update({ suppressed: false, auto_ingest_reviewed: true })
+      .update({
+        suppressed: false,
+        auto_ingest_reviewed: true,
+        disposition: 'BRIEF',
+        disposition_reason: 'human_published',
+      })
       .eq('signal_id', params.id);
     if (updateErr) throw updateErr;
 

@@ -1,0 +1,76 @@
+{
+  "findings": [
+    {
+      "category": "config_drift",
+      "title": "Duplicate self-improvement policy configuration formats",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Both JSON and YAML variants of self_improvement_policy exist simultaneously in the config directory",
+          "location": "config/self_improvement_policy.json"
+        },
+        {
+          "type": "file_exists",
+          "observation": "YAML policy file coexists alongside JSON equivalent, risking divergence",
+          "location": "config/self_improvement_policy.yaml"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "consolidate",
+        "description": "Standardize on a single policy format (JSON or YAML) and remove the redundant configuration file"
+      },
+      "expected_benefit": "Eliminates potential configuration divergence and establishes an unambiguous single source of truth",
+      "finding_id": "FND-001",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: config_drift; Evidence strength: None; Confidence: 0.95; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "model_catalogue_drift",
+      "title": "Unrouted models present in local Ollama inventory",
+      "evidence": [
+        {
+          "type": "service_status",
+          "observation": "Models qwen3.5:9b, qwen3.5:4b, qwen3.5:2b, and gemma4:12b are pulled and available in Ollama but not referenced in router_status routing_policy",
+          "location": "http://localhost:11434"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Evaluate unassigned models for active task routing assignments or purge them to reclaim disk storage"
+      },
+      "expected_benefit": "Reduces disk resource consumption or incorporates newer model weights into active routing pipelines",
+      "finding_id": "FND-002",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: model_catalogue_drift; Evidence strength: None; Confidence: 0.90; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    },
+    {
+      "category": "governance_violation",
+      "title": "Virtual environment artifacts included in repository filesystem audits",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Third-party dependency documentation and YAML configurations from core/infrastructure/vm-processing/.venv and platform-runtime/.venv are tracked or traversed in audit scans",
+          "location": "core/infrastructure/vm-processing/.venv"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Update audit scanner exclusion patterns and ensure .venv directories are ignored by repository tooling"
+      },
+      "expected_benefit": "Prevents third-party vendor files from polluting audit metrics, document counts, and configuration discovery",
+      "finding_id": "FND-003",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: governance_violation; Evidence strength: None; Confidence: 0.95; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong)"
+    }
+  ],
+  "errors": []
+}

@@ -6,8 +6,36 @@ A suppressed event is persisted to Supabase with suppressed=True so that
 the suppression decision is auditable. It is never silently dropped.
 """
 
+import json
+import logging
 import re
+from pathlib import Path
+
 from intelligence.models import ClassifiedEvent
+
+logger = logging.getLogger(__name__)
+
+_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "osint_intelligence_missions.json"
+
+
+def _load_systemic_override_keywords() -> list[str]:
+    """OSINT Ingestion Quality & Relevance Mission, Phase 4: additive-only
+    extension of the non-AU-earthquake escape hatch below, reading
+    config/osint_intelligence_missions.json's technical.systemic_value_override
+    list (mission §6/§8/§29 — geographic distance alone must not suppress a
+    genuinely systemic event). Union'd with the existing hard-coded keyword
+    list, never replacing it — this can only let more items through, never
+    suppress something that currently passes. Falls back to an empty list
+    (i.e. no change in behavior) if the config is missing/malformed."""
+    try:
+        data = json.loads(_CONFIG_PATH.read_text())
+        return [kw.lower() for kw in data["technical"]["systemic_value_override"]["keywords"]]
+    except Exception:
+        logger.exception("Failed to load systemic_value_override from %s — using existing keywords only", _CONFIG_PATH)
+        return []
+
+
+_CONFIG_SYSTEMIC_OVERRIDE_KEYWORDS = _load_systemic_override_keywords()
 
 # ─── Suppression rules ────────────────────────────────────────────────────────
 
@@ -179,7 +207,7 @@ def should_suppress(event: ClassifiedEvent) -> tuple[bool, str]:
                 "banking", "critical infrastructure", "undersea cable", "submarine cable",
                 "telecommunications", "telecom", "power grid", "financial", "stock exchange",
                 "payment system", "data centre", "data center", "infrastructure", "cable break"
-            ])
+            ]) or any(kw in title_lower for kw in _CONFIG_SYSTEMIC_OVERRIDE_KEYWORDS)
             if not has_op_keywords:
                 return True, "non_au_earthquake_suppressed"
 
@@ -221,7 +249,9 @@ def should_suppress(event: ClassifiedEvent) -> tuple[bool, str]:
     # generic _MIN_OP_RELEVANCE floor instead — they're the world-news
     # content the daily digest is meant to carry, not noise.
     if event.source_category in _OR_SPECIFIC_MEDIA_CATEGORIES and event.source_priority >= 4:
-        if not any(sig in title_lower for sig in _MEDIA_OR_SIGNALS):
+        if not any(sig in title_lower for sig in _MEDIA_OR_SIGNALS) and not any(
+            sig in title_lower for sig in _CONFIG_SYSTEMIC_OVERRIDE_KEYWORDS
+        ):
             return True, "media_no_or_signal"
         # Fleet Engineering Review 2026-08-11: a title-level keyword match
         # alone was letting any media item through once one OR-signal word

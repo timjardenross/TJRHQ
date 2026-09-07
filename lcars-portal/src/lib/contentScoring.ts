@@ -247,6 +247,14 @@ export interface CaptureScore {
   captainFocus: boolean;
   suggestedAngle: string;
   rankScore: number; // 0-100, same scale as content_signals.rank_score
+  /** MSN-0363: plain-language reasons behind rankScore, derived from the
+   * real weighted terms below (pillarFit/strategic/recency/cross/quality) —
+   * not fabricated sub-scores. Ordered by contribution, highest first. See
+   * brief §7: "do not invent dimensions the backend does not actually
+   * calculate." recency/cross are always the same for a fresh manual
+   * capture (1.0 / 0 respectively) so they're never reported as a
+   * distinguishing reason — they'd be noise, not insight, every time. */
+  reasons: string[];
 }
 
 /**
@@ -287,6 +295,28 @@ export function scoreCapture(text: string): CaptureScore {
   const raw = pillarFit * 0.3 + strategic * 0.25 + recency * 0.2 + cross * 0.15 + quality * 0.1;
   const rankScore = Math.round(raw * 100 * 10000) / 10000;
 
+  // MSN-0363: plain-language reasons, ranked by each term's actual
+  // contribution to `raw` (weight * value) — the same terms rankScore
+  // itself is built from, just narrated instead of hidden. recency/cross
+  // omitted from the reason list on purpose (see CaptureScore's comment).
+  const reasonCandidates: Array<{ contribution: number; text: string }> = [
+    {
+      contribution: pillarFit * 0.3,
+      text: pillarFit >= 0.7 ? 'Strong pillar fit' : pillarFit >= 0.4 ? 'Moderate pillar fit' : 'Weak pillar fit',
+    },
+    {
+      contribution: strategic * 0.25,
+      text: captainFocus ? 'Captain Focus keyword match' : strategic >= 0.4 ? 'Reasonable strategic relevance' : 'Lower strategic relevance',
+    },
+    {
+      contribution: quality * 0.1,
+      text: quality >= 0.7 ? 'Content reads as substantive' : 'Content is thin — may need more detail before drafting',
+    },
+  ];
+  const reasons = reasonCandidates
+    .sort((a, b) => b.contribution - a.contribution)
+    .map((r) => r.text);
+
   return {
     pillarKey: pillar.key,
     pillarName: pillar.name,
@@ -294,5 +324,6 @@ export function scoreCapture(text: string): CaptureScore {
     captainFocus,
     suggestedAngle,
     rankScore,
+    reasons,
   };
 }

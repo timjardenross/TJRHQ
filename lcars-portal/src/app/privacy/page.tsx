@@ -8,7 +8,7 @@ import type { Metadata } from 'next';
 // middleware.ts via PUBLIC_ROUTE_ALLOWLIST.
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | TJR HQ',
+  title: { absolute: 'Privacy Policy | TJR HQ' },
   robots: { index: false, follow: false },
 };
 

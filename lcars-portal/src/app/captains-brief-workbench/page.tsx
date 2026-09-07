@@ -94,7 +94,7 @@ function Workbench() {
   );
 
   return (
-    <WorkbenchShell
+    <WorkbenchShell wide
       title="Captain’s Brief"
       eyebrow={EYEBROW[domain]}
       tagline="USS TJR · Captain’s Brief · assembled on request — reports the signals received, not an all-clear"

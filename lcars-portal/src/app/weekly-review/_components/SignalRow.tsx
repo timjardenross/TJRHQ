@@ -18,7 +18,10 @@ const DOT_CLASS: Record<Signal['tone'], string> = {
 // floor when the item becomes a Ready Room task.
 const TONE_URGENCY: Record<Signal['tone'], number> = { crit: 5, warn: 4, ok: 2, neutral: 3 };
 
-function ItemRow({
+// Exported 2026-09-05 (Weekly Review synthesis mission) so CarryForward.tsx
+// can reuse the exact same "→ Ready Room" createTask() action for signal
+// items it surfaces, instead of a second action implementation.
+export function ItemRow({
   id, title, href, meta, sourceLabel, signalLabel, tone,
 }: {
   id: string; title: string; href?: string; meta?: string;

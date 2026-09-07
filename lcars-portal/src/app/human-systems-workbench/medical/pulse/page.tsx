@@ -56,7 +56,7 @@ export default function RecoveryPulsePage() {
       title="Recovery Pulse"
       eyebrow="Health Tracking"
       tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
-      back={{ href: '/human-systems-workbench?domain=medical', label: 'Medical' }}
+      back={{ href: '/human-systems-workbench', label: 'Human Systems' }}
     >
       <div className="flex flex-col gap-4">
         <Card title="Manual pulse logging has been retired">

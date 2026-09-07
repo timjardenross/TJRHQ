@@ -1,11 +1,12 @@
 'use client';
 
-// Phase D — Officer Advisors. Ported from the legacy Advisory Council
-// ConsultMode. Reuses every endpoint unchanged: streaming POST /api/ai/chat
-// and POST /api/xo, POST /api/advisory-sessions (persist). The MSN-0352
-// governance path (backend ActionResult[] → ProposalBlock, never model prose)
-// is preserved verbatim. UI reskinned 2026-08-23 to match PerspectivesView
-// (single-column, horizontal group chips + officer pills, response cards).
+// Officer Advisors — the 18-role roster, retired from Advisory's primary
+// nav (mission §9: it doesn't map cleanly to Ask's actual specialist
+// registry) and now mounted as an "Advanced" disclosure inside ThinkView
+// instead. Endpoints unchanged: streaming POST /api/ai/chat and POST
+// /api/xo, POST /api/advisory-sessions (persist, mode:'consult'). The
+// MSN-0352 governance path (backend ActionResult[] → ProposalBlock, never
+// model prose) is preserved verbatim.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -267,7 +268,7 @@ export function ConsultView() {
         {isOffline && (
           <div className="rounded-md border border-wb-line bg-wb-bg px-4 py-6 text-center">
             <p className="text-sm text-wb-ink2">{activeAdvisor.label} is offline (AI model not configured).</p>
-            <p className="mt-1 text-xs text-wb-ink/60">Use the <span className="font-semibold text-wb-sage-deep">Board</span> tab for advisory via the intelligence runtime.</p>
+            <p className="mt-1 text-xs text-wb-ink/60">Use <span className="font-semibold text-wb-sage-deep">Think</span> for advisory via the intelligence runtime.</p>
           </div>
         )}
       </div>

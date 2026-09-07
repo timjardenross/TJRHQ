@@ -1,0 +1,63 @@
+{
+  "findings": [
+    {
+      "category": "security_gap",
+      "title": "Uncommitted authentication environment file in repository workspace",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Authentication credentials file 'platform-runtime/.infisical-auth.env' is present as an uncommitted file in the repository tree",
+          "location": "platform-runtime/.infisical-auth.env"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "high",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Add .infisical-auth.env to .gitignore and verify no secrets or auth tokens are staged or committed"
+      },
+      "expected_benefit": "Prevents accidental exposure of Infisical authentication tokens and repository credential leakage"
+    },
+    {
+      "category": "config_drift",
+      "title": "Duplicate self-improvement policy configurations in JSON and YAML formats",
+      "evidence": [
+        {
+          "type": "duplicate_file",
+          "observation": "Both JSON and YAML variants of the self-improvement policy exist simultaneously in config/",
+          "location": "config/self_improvement_policy.json"
+        },
+        {
+          "type": "duplicate_file",
+          "observation": "Both JSON and YAML variants of the self-improvement policy exist simultaneously in config/",
+          "location": "config/self_improvement_policy.yaml"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "consolidate",
+        "description": "Designate either JSON or YAML as canonical for self_improvement_policy and remove the redundant configuration file"
+      },
+      "expected_benefit": "Eliminates potential configuration ambiguity and prevents divergence between policy definitions"
+    },
+    {
+      "category": "model_catalogue_drift",
+      "title": "Available Ollama models unused in active routing policy",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "Models qwen3.5:9b, qwen3.5:4b, qwen3.5:2b, and gemma4:12b are downloaded in Ollama available_models but not mapped to any configured task_type",
+          "location": "model_router_audit.router_status.available_models"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Evaluate and assign available Qwen 3.5 and Gemma 4 models to relevant tasks, or prune unused local models to reclaim disk storage"
+      },
+      "expected_benefit": "Ensures local compute resources reflect active routing policy and prevents unnecessary storage overhead"
+    }
+  ]
+}

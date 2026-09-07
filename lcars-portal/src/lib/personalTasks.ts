@@ -95,6 +95,7 @@ export interface PersonalTask {
   deferral_count: number;
   blocker_category: string | null;
   follow_through_paused: boolean;
+  pinned_today: boolean;
 }
 
 const TASK_SELECT = [
@@ -102,7 +103,7 @@ const TASK_SELECT = [
   'work_state', 'due_date', 'waiting_on', 'micro_action', 'mvp_note', 'stop_point',
   'restart_cue', 'source_capture_id', 'created_at', 'started_at', 'completed_at', 'updated_at',
   'follow_through_mode', 'next_review_at', 'snoozed_until', 'nudge_count', 'deferral_count',
-  'blocker_category', 'follow_through_paused',
+  'blocker_category', 'follow_through_paused', 'pinned_today',
 ].join(', ');
 
 // ── Read ──────────────────────────────────────────────────────────────────────
@@ -131,6 +132,17 @@ export async function fetchTasks(opts?: { includeCompleted?: boolean; limit?: nu
   }
 }
 
+export async function getTask(id: string): Promise<PersonalTask | null> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { data, error } = await supabase.from('personal_tasks').select(TASK_SELECT).eq('id', id).maybeSingle();
+    if (error || !data) return null;
+    return (data as unknown) as PersonalTask;
+  } catch {
+    return null;
+  }
+}
+
 export interface TaskCounts {
   now: number;
   upcoming: number;
@@ -153,6 +165,193 @@ export function countByBucket(tasks: PersonalTask[]): TaskCounts {
   const counts: TaskCounts = { now: 0, upcoming: 0, waiting: 0 };
   for (const t of tasks) counts[attendBucket(t)]++;
   return counts;
+}
+
+/** True if a task is deferred out of Today via "Not today" — reuses
+ * snoozed_until (already exists for follow-through snoozing) rather than a
+ * new column; a task is only "not snoozed" once the date has passed. */
+export function isSnoozedToday(task: PersonalTask): boolean {
+  return !!task.snoozed_until && new Date(task.snoozed_until).getTime() > Date.now();
+}
+
+/** Deterministic Today ranking (spec §7) — overdue/due-soon, then urgent,
+ * then in-progress/restartable, then oldest open, capped at 3 (or a lower
+ * capacityLimit). Deliberately simple/inspectable — no opaque AI ranking.
+ *
+ * Human Execution Loop mission (brief §13/§45/§56): Human Systems context
+ * may shrink capacityLimit on a constrained day, but a task the Captain has
+ * explicitly acted on — pinned it (pinned_today), or already started it
+ * (work_state === 'in_progress', at least as explicit a signal as a pin
+ * click) — is never dropped by that shrink. These "kept" tasks are included
+ * first and don't count against the cap, which only governs how many
+ * *additional*, algorithm-ranked tasks join them. Human Systems informs the
+ * cap; it never removes a decision the Captain already made. */
+export function rankToday(tasks: PersonalTask[], opts?: { capacityLimit?: number }): PersonalTask[] {
+  const cap = opts?.capacityLimit ?? 3;
+  const eligible = tasks.filter((t) => t.work_state !== 'blocked' && !isSnoozedToday(t));
+  const kept = eligible.filter((t) => t.pinned_today || t.work_state === 'in_progress');
+  const unpinned = eligible.filter((t) => !t.pinned_today && t.work_state !== 'in_progress');
+
+  const score = (t: PersonalTask): number => {
+    if (t.due_date) {
+      const daysOut = (new Date(t.due_date).getTime() - Date.now()) / 86_400_000;
+      if (daysOut <= 0) return 0; // overdue
+      if (daysOut <= 2) return 1; // due soon
+    }
+    if (t.urgency >= 4) return 2; // urgent
+    if ((t.work_state === 'paused' || t.work_state === 'in_progress') && t.restart_cue) return 3; // restartable
+    return 4; // everything else, oldest first
+  };
+
+  const sortByScore = (rows: PersonalTask[]) =>
+    [...rows].sort((a, b) => {
+      const diff = score(a) - score(b);
+      if (diff !== 0) return diff;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+
+  const ranked = sortByScore(unpinned).slice(0, Math.max(0, cap - kept.length));
+  return [...sortByScore(kept), ...ranked];
+}
+
+/** Explicit user selection for Today (brief §13) — set/unset independent
+ * of ranking or capacity context. Never set automatically by HQ. */
+export async function setPinnedToday(id: string, pinned: boolean): Promise<TaskResult> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase
+      .from('personal_tasks')
+      .update({ pinned_today: pinned, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, id };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed to update task.' };
+  }
+}
+
+/** "Pick up where you left off" candidates — paused/blocked-with-restart-cue
+ * items, surfaced separately from (and ahead of) the ranked Today list. */
+export function pickUpItems(tasks: PersonalTask[]): PersonalTask[] {
+  return tasks.filter((t) => t.work_state === 'paused' && t.restart_cue && !isSnoozedToday(t));
+}
+
+/** Sets snoozed_until to the end of today (local) — "Not today": keeps the
+ * task open and valid, just off today's attention set until it's reconsidered. */
+export async function deferNotToday(id: string): Promise<TaskResult> {
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase
+      .from('personal_tasks')
+      .update({ snoozed_until: end.toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, id };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed to update task.' };
+  }
+}
+
+/** Behavioural status sentence (spec §8) — machine workload ≠ human
+ * workload, so this never just echoes raw counts. */
+export function buildStatusSentence(opts: {
+  todayCount: number; waitingCount: number; capacityLow?: boolean; hasCheckinToday?: boolean;
+}): string {
+  const { todayCount, waitingCount, capacityLow, hasCheckinToday } = opts;
+  // Graceful degradation (brief §42/§43) — no fresh check-in is not treated
+  // as a constrained day, just an honest note that today's list is
+  // task-context only, so it isn't presented with false confidence.
+  const noCheckinNote = hasCheckinToday === false ? " No recent capacity check-in — today's list is based on task context only." : '';
+  if (capacityLow && todayCount > 0) {
+    return `Capacity looks limited today. Let's keep today small. ${todayCount} thing${todayCount === 1 ? '' : 's'} worth doing.`;
+  }
+  if (todayCount === 0) {
+    return (waitingCount > 0
+      ? `Nothing needs you right now. ${waitingCount} thing${waitingCount === 1 ? ' is' : 's are'} waiting on someone else.`
+      : 'Nothing needs you right now.') + noCheckinNote;
+  }
+  if (todayCount === 1) return `One thing needs you today. Everything else can wait.${noCheckinNote}`;
+  return `Nothing urgent. ${todayCount} things are worth doing today.${noCheckinNote}`;
+}
+
+/** "Turn into a Mission" (spec §26) — calls the canonical, already-live
+ * mission creation gate. Never automatic — only invoked on explicit user
+ * click, per spec's "do not automatically create a Mission". */
+export async function promoteToMission(task: Pick<PersonalTask, 'title' | 'context'>): Promise<TaskResult & { mission_id?: string }> {
+  try {
+    const resp = await fetch('/api/missions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: task.title, description: task.context ?? undefined }),
+    });
+    const json = await resp.json();
+    if (!resp.ok) return { ok: false, error: json?.error ?? 'Failed to create mission.' };
+    return { ok: true, mission_id: json?.mission?.mission_id ?? json?.mission_id };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed to create mission.' };
+  }
+}
+
+export type ReadyRoomPosture = 'ENGAGE' | 'STEADY' | 'PROTECT' | 'RESET' | 'RECOVER' | 'UNKNOWN';
+
+export interface ReadyRoomContext {
+  posture: ReadyRoomPosture;
+  /** How many algorithm-ranked (non-pinned) tasks rankToday() should admit
+   * into Today. Never below 1 and never so high it dumps the backlog on a
+   * strong day (brief §45) — Human Systems informs this number, it never
+   * decides whether a specific task appears (that's rankToday + pinning). */
+  capacityLimit: number;
+  hasCheckinToday: boolean;
+  freshnessStatus: 'fresh' | 'stale' | 'none';
+}
+
+/** How much a given NOW posture should shrink today's capacity cap. Human
+ * Systems informs the size of the list; it never decides which tasks are
+ * on it (brief §7) — this is the only place that mapping happens, so it's
+ * easy to audit against "PROTECT reduces recommended attention load" and
+ * "higher capacity does not expose the full backlog" (brief §55). */
+export function capacityLimitForPosture(posture: ReadyRoomPosture): number {
+  switch (posture) {
+    case 'RECOVER':
+      return 1;
+    case 'PROTECT':
+    case 'RESET':
+      return 2;
+    case 'ENGAGE':
+    case 'STEADY':
+      return 3;
+    // UNKNOWN (no/stale check-in) defaults to the same cap as a steady day
+    // — absence of evidence is not evidence of constraint (brief §43).
+    default:
+      return 3;
+  }
+}
+
+/** Thin read of Human Systems' small assessed-context boundary (brief §6/
+ * §39) — Ready Room never queries capacity_checkins or re-derives posture
+ * itself. Fails safe to an UNKNOWN/default-cap context so a read error
+ * never hides urgent items or blocks the page — Ready Room does not make
+ * medical decisions, Human Systems only ever informs it (brief §7). */
+export async function getReadyRoomContext(): Promise<ReadyRoomContext> {
+  const fallback: ReadyRoomContext = {
+    posture: 'UNKNOWN', capacityLimit: 3, hasCheckinToday: false, freshnessStatus: 'none',
+  };
+  try {
+    const resp = await fetch('/api/human-systems/context');
+    if (!resp.ok) return fallback;
+    const json = await resp.json();
+    const posture: ReadyRoomPosture = json?.posture ?? 'UNKNOWN';
+    return {
+      posture,
+      capacityLimit: capacityLimitForPosture(posture),
+      hasCheckinToday: json?.has_checkin_today ?? false,
+      freshnessStatus: json?.freshness?.status ?? 'none',
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 // ── Write ─────────────────────────────────────────────────────────────────────
@@ -282,15 +481,27 @@ export interface DecomposeResult {
   error?: string;
 }
 
+export type DecomposeMode = 'first' | 'smaller' | 'another';
+
 /** Calls /api/ready-room/decompose (proxies Model Router). Never throws —
  * a failed/unreachable provider chain returns { action: null } so the UI
- * can fall back to "write your own first step" rather than block. */
-export async function decomposeTask(taskText: string): Promise<DecomposeResult> {
+ * can fall back to "write your own first step" rather than block.
+ * `mode` drives "Make it smaller" / "Try another" without creating a new
+ * task or losing the original goal — see spec §17/§18. `previousAction` is
+ * passed along so the router can vary its answer instead of repeating it. */
+export async function decomposeTask(
+  taskText: string,
+  opts?: { mode?: DecomposeMode; previousAction?: string },
+): Promise<DecomposeResult> {
   try {
     const resp = await fetch('/api/ready-room/decompose', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ task: taskText }),
+      body: JSON.stringify({
+        task: taskText,
+        mode: opts?.mode ?? 'first',
+        previous_action: opts?.previousAction,
+      }),
     });
     const json = await resp.json();
     return { action: json?.action ?? null, error: json?.error };

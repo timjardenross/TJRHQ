@@ -257,7 +257,17 @@ def _float(val: str | None) -> float | None:
 # ── Submission handler ────────────────────────────────────────────────────────
 
 def handle_recovery_pulse_submit(values: dict, user_id: str, client: Any) -> None:
-    """Write pulse to recovery_pulses and DM confirmation to user."""
+    """Write pulse to recovery_pulses and DM confirmation to user.
+
+    UNREACHABLE as of 2026-08-10 (Captain directive — manual capture
+    retirement): platform-runtime/app.py no longer imports this function or
+    build_recovery_pulse_modal() — the /recovery-pulse Slack command it once
+    backed now replies with a static retirement message instead of opening
+    the modal that would call this. Left in place (not deleted) only because
+    nothing currently calls it; not migrated to capacity_checkins because
+    there is no live caller to migrate. See recovery_confidence_today-audit
+    2026-09-06.
+    """
     today = today_brisbane_iso()
 
     pulse_type = _extract(values, "pulse_type") or _suggested_pulse_type()
@@ -335,23 +345,35 @@ def handle_recovery_pulse_submit(values: dict, user_id: str, client: Any) -> Non
 
 
 def _get_confidence_line(db: Any, today: str) -> str | None:
-    """Fetch today's confidence summary for the DM footer."""
+    """Fetch today's capacity check-in summary for the DM footer.
+
+    recovery_confidence_today (a view over the retired recovery_pulses
+    table) stopped receiving real writes 2026-08-21 — capacity_checkins is
+    the sole capture path since the 2026-08-22 MY CAPACITY TODAY migration
+    (see core/infrastructure/supabase/migrations/0150, 0181). This now reads
+    capacity_checkins_today instead, the same live view
+    lcars-portal/src/lib/useRecoveryConfidence.ts was fixed to read this
+    session. No fixed daily pulse quota exists under the free-form
+    check-in model, so this reports the real check-in count + latest
+    capacity reading rather than fabricating the old 4-pulse percentage.
+    """
     if not db or not db.is_enabled():
         return None
     try:
-        result = db.raw_client.table("recovery_confidence_today").select(
-            "recovery_confidence,pulses_completed,pulses_missing,confidence_label"
+        result = db.raw_client.table("capacity_checkins_today").select(
+            "checkins_today,checkin_label,latest_capacity_state"
         ).execute()
         if result.data:
             row = result.data[0]
-            pct = row.get("recovery_confidence", 0)
-            done = row.get("pulses_completed", 0)
-            missing = row.get("pulses_missing", 4)
-            bar_filled = int(pct / 10)
-            bar = "█" * bar_filled + "░" * (10 - bar_filled)
-            return f"*Recovery confidence today:* `{bar}` {pct}%  ({done}/4 pulses · {missing} remaining)"
+            checkins = row.get("checkins_today", 0) or 0
+            label = row.get("checkin_label") or (
+                "No check-in today" if checkins == 0 else f"{checkins} check-in(s) today"
+            )
+            state = row.get("latest_capacity_state")
+            state_line = f"  ·  latest capacity: {state}" if state else ""
+            return f"*Capacity check-ins today:* {label}{state_line}"
     except Exception as exc:
-        log.debug("[recovery-pulse] confidence fetch failed: %s", exc)
+        log.debug("[recovery-pulse] capacity check-in fetch failed: %s", exc)
     return None
 
 

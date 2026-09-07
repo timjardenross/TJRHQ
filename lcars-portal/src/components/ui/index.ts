@@ -23,6 +23,10 @@ export { RiskPill, riskClass } from './RiskPill';
 
 export { WorkbenchShell } from './WorkbenchShell';
 
+export { Sidebar } from './Sidebar';
+export { ThemeSelector } from './ThemeSelector';
+export { WorkbenchCard } from './WorkbenchCard';
+
 export { DomainToggle } from './DomainToggle';
 export type { DomainToggleOption } from './DomainToggle';
 

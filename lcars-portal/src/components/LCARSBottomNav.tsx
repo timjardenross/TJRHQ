@@ -29,7 +29,7 @@ export function LCARSBottomNav() {
   return (
     <nav
       aria-label="Quick access"
-      className="mt-4 hidden overflow-hidden rounded-2xl border border-[#d9e1f0] bg-white/92 lg:flex"
+      className="mt-4 hidden overflow-hidden rounded-2xl border border-[#d9e1f0] bg-white/92 xl:flex"
     >
       {BOTTOM_TABS.map((tab) => {
         const active = pathname === tab.href;

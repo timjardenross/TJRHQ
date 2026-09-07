@@ -147,6 +147,56 @@ export function decisionToTone(decision: 'approved' | 'rejected' | 'more_evidenc
   }
 }
 
+/** HQ Evolution's Opportunity.lifecycle_state (self-improvement-findings). */
+export function lifecycleStateToTone(state: string): StateTone {
+  switch (state) {
+    case 'proposed': return 'warn';       // needs a human decision
+    case 'approved': return 'ok';
+    case 'implementing': return 'info';
+    case 'verifying': return 'info';
+    case 'learned': return 'ok';
+    case 'watching': return 'info';
+    case 'rejected': return 'unknown';
+    case 'investigating': return 'info';
+    case 'resolved_before_research': return 'unknown';
+    case 'discovered':
+    default: return 'unknown';
+  }
+}
+
+/** HQ Evolution's Opportunity.value ('low'|'medium'|'high'|null). */
+export function valueToTone(value: string | null | undefined): StateTone {
+  switch (value) {
+    case 'high': return 'ok';
+    case 'medium': return 'warn';
+    case 'low': return 'unknown';
+    default: return 'unknown';
+  }
+}
+
+/** HQ Evolution's Opportunity.risk_level, set by PolicyEngine (not the model). */
+export function opportunityRiskToTone(risk: string | null | undefined): StateTone {
+  switch (risk) {
+    case 'critical': return 'crit';
+    case 'high': return 'warn';
+    case 'medium': return 'warn';
+    case 'low': return 'ok';
+    default: return 'unknown';
+  }
+}
+
+/** HQ Evolution V2's Opportunity.outcome.outcome_result. */
+export function outcomeResultToTone(result: string | null | undefined): StateTone {
+  switch (result) {
+    case 'improved': return 'ok';
+    case 'no_material_change': return 'unknown';
+    case 'regressed': return 'crit';
+    case 'inconclusive': return 'warn';
+    case 'not_yet_ready': return 'info';
+    default: return 'unknown';
+  }
+}
+
 /** alerts.ts's AlertSeverity ('critical'|'high'|'warning'). */
 export function alertSeverityToTone(severity: 'critical' | 'high' | 'warning'): StateTone {
   switch (severity) {

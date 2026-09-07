@@ -8,9 +8,14 @@ Runs on http://localhost:8892
 
 import json
 import logging
+import re
+import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Flask, render_template, jsonify, request
+
+from opportunity_store import OpportunityStore
+import outcome_contract as outcome_contract_module
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("dashboard")
@@ -33,6 +38,8 @@ REPO_ROOT = Path(__file__).parent.parent.parent
 DATA_ROOT = REPO_ROOT / "data" / "self-improvement"
 RUNS_DIR = DATA_ROOT / "runs"
 DECISIONS_FILE = DATA_ROOT / "review" / "decisions.jsonl"
+REMEDIATION_RESULTS_FILE = DATA_ROOT / "review" / "remediation_results.jsonl"
+_PR_URL_RE = re.compile(r"https?://\S+")
 
 log.info(f"DATA_ROOT: {DATA_ROOT}")
 log.info(f"RUNS_DIR exists: {RUNS_DIR.exists()}")
@@ -100,6 +107,49 @@ def load_decisions():
         log.error(f"Failed to load decisions: {exc}")
 
     return decisions
+
+
+def load_remediation_results():
+    """Latest auto_remediation.py outcome per finding_id (its append-only
+    remediation_results.jsonl — last entry per finding_id wins, same
+    last-write-wins convention as load_decisions() above)."""
+    if not REMEDIATION_RESULTS_FILE.exists():
+        return {}
+
+    results = {}
+    try:
+        with open(REMEDIATION_RESULTS_FILE) as f:
+            for line in f:
+                if line.strip():
+                    r = json.loads(line)
+                    finding_id = r.get("finding_id")
+                    if finding_id:
+                        results[finding_id] = r
+    except Exception as exc:
+        log.error(f"Failed to load remediation results: {exc}")
+
+    return results
+
+
+def _attach_remediation_status(opportunities, remediation_results):
+    """Read-only join of auto_remediation.py's own outcome log onto each
+    opportunity via source_finding_id, so an opportunity you approved that
+    quietly got a draft PR opened (or failed) is visible on the same page
+    where you made the decision — previously this only ever surfaced in
+    Number One's separate advisory queue, never back on HQ Evolution's own
+    UI. Never mutates the opportunity store itself."""
+    for opp in opportunities:
+        fid = opp.get("source_finding_id")
+        result = remediation_results.get(fid) if fid else None
+        if not result:
+            continue
+        message = result.get("message", "")
+        url_match = _PR_URL_RE.search(message)
+        opp["remediation_status"] = "succeeded" if result.get("success") else "failed"
+        opp["remediation_message"] = message
+        opp["remediation_pr_url"] = url_match.group(0) if url_match else None
+        opp["remediation_at"] = result.get("timestamp")
+    return opportunities
 
 
 def save_decision(finding_id, decision, reasoning=""):
@@ -187,6 +237,303 @@ def api_decide():
         return jsonify({"success": True, "finding_id": finding_id, "decision": decision})
     else:
         return jsonify({"error": "Failed to save decision"}), 500
+
+
+# ── HQ Evolution routes (additive — the routes above are the preserved,
+# unmodified legacy self-improvement findings/decide pipeline) ────────────
+
+opportunity_store = OpportunityStore(DATA_ROOT)
+
+# Section 26/30/32/33: what each Discover/Investigate/Improve button is
+# allowed to do to an opportunity's lifecycle_state. The LLM never chooses
+# this mapping — it's fixed here, decided by which button the human clicked.
+DECISION_TRANSITIONS = {
+    "turn_into_improvement": {"lifecycle_state": "proposed"},
+    "keep_watching": {"lifecycle_state": "watching"},
+    "not_useful": {"lifecycle_state": "rejected"},
+    "approve_improvement": {"lifecycle_state": "approved"},
+    "create_mission": {"lifecycle_state": "implementing"},
+    "more_evidence": {"lifecycle_state": "investigating"},
+    "reject": {"lifecycle_state": "rejected"},
+    # V2: a human asserting that an approved change has actually been
+    # applied outside the two automated signals (legacy bounded remediation,
+    # Mission status) — e.g. a manually-applied config/maintenance change.
+    # This is the load-bearing bridge that starts the observation window
+    # for opportunities with no automated implementation signal; it is
+    # still a human decision, not something HQ infers on its own.
+    "mark_implemented": {"lifecycle_state": "verifying"},
+}
+
+
+@app.route("/api/opportunities")
+def api_opportunities():
+    """List current opportunities, optionally filtered by lifecycle_state
+    (?state=discovered,investigating,proposed,...) — comma-separated."""
+    state_filter = request.args.get("state")
+    states = set(s.strip() for s in state_filter.split(",")) if state_filter else None
+
+    opportunities = opportunity_store.all_current()
+    if states:
+        opportunities = [o for o in opportunities if o.get("lifecycle_state") in states]
+    opportunities.sort(key=lambda o: o.get("updated_at") or "", reverse=True)
+    opportunities = _attach_remediation_status(opportunities, load_remediation_results())
+
+    return jsonify({"opportunities": opportunities, "total": len(opportunities)})
+
+
+@app.route("/api/opportunity/<opportunity_id>")
+def api_opportunity(opportunity_id):
+    """Get a specific opportunity's current state (folded from its full
+    append-only history)."""
+    opp = opportunity_store.get(opportunity_id)
+    if not opp:
+        return jsonify({"error": "Opportunity not found"}), 404
+    _attach_remediation_status([opp], load_remediation_results())
+    return jsonify(opp)
+
+
+@app.route("/api/opportunity/decide", methods=["POST"])
+def api_opportunity_decide():
+    """Record a human decision against an opportunity (section 30: the
+    human gate). decision_type picks the lifecycle transition; reasoning is
+    optional free text captured against whichever field that transition
+    uses (rejection_reason / watch_reason / missing_evidence)."""
+    data = request.json or {}
+    opportunity_id = data.get("opportunity_id")
+    decision_type = data.get("decision_type")
+    reasoning = data.get("reasoning", "")
+    mission_id = data.get("mission_id")
+
+    if not opportunity_id or not decision_type:
+        return jsonify({"error": "Missing opportunity_id or decision_type"}), 400
+    if decision_type not in DECISION_TRANSITIONS:
+        return jsonify({"error": f"Invalid decision_type. Must be one of: {sorted(DECISION_TRANSITIONS)}"}), 400
+
+    existing = opportunity_store.get(opportunity_id)
+    if not existing:
+        return jsonify({"error": "Opportunity not found"}), 404
+
+    # Section 25: capability/product_improvement/architecture opportunities
+    # are Mission-only — the API itself refuses a direct "approve_improvement"
+    # (bounded-remediation) approval for them, matching PolicyEngine's own
+    # manual_only classification for these change classes.
+    mission_only = {"capability", "product_improvement", "architecture"}
+    if decision_type == "approve_improvement" and existing.get("change_class") in mission_only:
+        return jsonify({
+            "error": f"'{existing.get('change_class')}' opportunities are Mission-only — use create_mission instead",
+        }), 400
+    if decision_type == "create_mission" and not mission_id:
+        return jsonify({"error": "create_mission requires mission_id (create the Mission via the canonical /api/missions endpoint first)"}), 400
+    if decision_type == "mark_implemented" and existing.get("lifecycle_state") not in ("approved", "implementing"):
+        return jsonify({"error": f"mark_implemented requires the opportunity to be 'approved' or 'implementing' (currently '{existing.get('lifecycle_state')}')"}), 400
+    if decision_type == "mark_implemented" and not existing.get("outcome_contract"):
+        return jsonify({"error": "No outcome contract on this opportunity — approve_improvement or create_mission must run first"}), 400
+
+    changes = dict(DECISION_TRANSITIONS[decision_type])
+    if decision_type in ("reject", "not_useful"):
+        changes["rejection_reason"] = reasoning or "Rejected — no reason given"
+    elif decision_type == "keep_watching":
+        changes["watch_reason"] = reasoning or "Promising but premature"
+    elif decision_type == "more_evidence":
+        missing = list(existing.get("missing_evidence") or [])
+        if reasoning:
+            missing.append(reasoning)
+        changes["missing_evidence"] = missing
+    elif decision_type == "create_mission":
+        changes["mission_id"] = mission_id
+
+    # V2 section 5-6: build the Outcome Contract once, at approval time,
+    # before implementation — never rebuilt afterward. Both approval paths
+    # (bounded remediation and Mission handoff) get a contract; only the
+    # evidence-collection specifics differ per implementation_source at
+    # evaluation time (outcome_evaluation.py). Guarded on "no contract yet"
+    # rather than just decision_type so a duplicate/replayed approve call
+    # can never retrospectively rewrite the original baseline to fit
+    # whatever has happened since — the whole point of a contract.
+    if decision_type in ("approve_improvement", "create_mission") and not existing.get("outcome_contract"):
+        try:
+            changes["outcome_contract"] = outcome_contract_module.build_outcome_contract(existing, REPO_ROOT)
+        except Exception as exc:
+            log.warning(f"Failed to build outcome contract for {opportunity_id}: {exc}")
+
+    # Bridge to the existing, unmodified bounded-remediation engine (spec
+    # diagram: "HUMAN DECISION -> bounded remediation (existing engine)").
+    # AutoRemediationExecutor (auto_remediation.py, run by the separate
+    # self-improving-system.service) only ever reads decisions.jsonl by
+    # finding_id — it has no knowledge of the Opportunity store at all.
+    # Without this, "Approve improvement" recorded the decision on the
+    # Opportunity but never actually authorised anything to execute; found
+    # live when two real approvals sat with no remediation triggered.
+    # Only opportunities with a source_finding_id came from a legacy
+    # classified finding this engine can act on — internally-discovered-
+    # only or externally-discovered opportunities have nothing to bridge to.
+    if decision_type == "approve_improvement" and existing.get("source_finding_id"):
+        save_decision(existing["source_finding_id"], "approved", reasoning or "Approved via HQ Evolution")
+
+    # V2: a human directly asserting implementation happened — start the
+    # observation window immediately rather than waiting for the next
+    # overnight cycle to detect it (there is nothing to detect; only the
+    # human knows this happened outside the automated pathways).
+    if decision_type == "mark_implemented":
+        # Timezone-aware (+00:00), matching outcome_contract.py/
+        # outcome_evaluation.py's convention — is_observation_window_
+        # satisfied() computes a timedelta against datetime.now(timezone.utc),
+        # which requires an offset-aware string here or the comparison raises.
+        now_iso = datetime.now(timezone.utc).isoformat()
+        changes["outcome"] = {
+            **(existing.get("outcome") or {}),
+            "implementation_success": True,
+            "implementation_source": "manual",
+            "implementation_verified_at": now_iso,
+        }
+        changes["outcome_contract"] = {
+            **(existing.get("outcome_contract") or {}),
+            "observation_started_at": now_iso,
+            "evaluation_status": "observing",
+        }
+
+    updated = opportunity_store.update(opportunity_id, **changes)
+    if not updated:
+        return jsonify({"error": "Failed to update opportunity"}), 500
+
+    log.info(f"Opportunity decision: {opportunity_id} -> {decision_type} ({changes.get('lifecycle_state')})")
+    return jsonify({"success": True, "opportunity": updated.to_dict()})
+
+
+@app.route("/api/evolution-summary")
+def api_evolution_summary():
+    """Section 15/20/37: the morning-compression + Captain's Chair summary.
+    Combines the last overnight cycle's numbers (evolution_summary.json,
+    written by evolution_orchestrator.py) with a live pending-decision
+    count, since decisions can happen between cycles."""
+    summary_file = DATA_ROOT / "review" / "evolution_summary.json"
+    cycle_summary = {}
+    if summary_file.exists():
+        try:
+            with open(summary_file) as f:
+                cycle_summary = json.load(f)
+        except Exception as exc:
+            log.warning(f"Failed to read evolution_summary.json: {exc}")
+
+    current = opportunity_store.all_current()
+    pending_decisions_count = sum(1 for o in current if o.get("lifecycle_state") == "proposed")
+    any_verification_failure = any(
+        o.get("lifecycle_state") == "verifying" and o.get("outcome", {}).get("implementation_success") is False
+        for o in current
+    )
+
+    # V2 section 25: worth_considering_count (this cycle's surfaced
+    # shortlist) stays distinct from pending_decisions_count (the whole
+    # undecided backlog) — and both stay distinct from the outcome-learning
+    # fields below, which describe what was LEARNED, not what needs a
+    # decision. Regressions surfaced here are evidence, not a second queue.
+    #
+    # 2026-09-06: outcomes_completed_count/regressions_count used to prefer
+    # cycle_summary's own (narrower — one cycle's worth) value over these
+    # live totals via dict.get(key, live_value) — harmless while no real
+    # evolution_summary.json existed in this checkout, but the moment one
+    # does (e.g. a committed production snapshot), dict.get only falls back
+    # to the live value when the KEY IS ABSENT, not when its value is 0, so
+    # a stale cycle-time count would permanently shadow the true, always-
+    # accurate running total computed fresh from the store every request —
+    # found via a real evolution_summary.json landing in this repo's own
+    # data/self-improvement/ tree. Same live-total treatment as
+    # pending_decisions_count above now applies to both.
+    outcomes_completed_count = sum(
+        1 for o in current
+        if o.get("lifecycle_state") == "learned" and o.get("outcome", {}).get("outcome_result") is not None
+    )
+    regressions_count = sum(
+        1 for o in current
+        if o.get("lifecycle_state") == "learned" and o.get("outcome", {}).get("outcome_result") == "regressed"
+    )
+
+    return jsonify({
+        "run_id": cycle_summary.get("run_id"),
+        "timestamp": cycle_summary.get("timestamp"),
+        "investigated_count": cycle_summary.get("investigated_count", 0),
+        "worth_considering_count": cycle_summary.get("worth_considering_count", 0),
+        "nothing_worth_changing": cycle_summary.get("nothing_worth_changing", pending_decisions_count == 0),
+        "highest_value_opportunity": cycle_summary.get("highest_value_opportunity"),
+        "pending_decisions_count": pending_decisions_count,
+        "any_verification_failure": any_verification_failure,
+        "has_run_yet": bool(cycle_summary),
+        "outcomes_completed_count": outcomes_completed_count,
+        "regressions_count": regressions_count,
+        "latest_material_learning": cycle_summary.get("latest_material_learning"),
+        "cycle_status": cycle_summary.get("cycle_status", "unknown" if not cycle_summary else "ok"),
+        "freshness": cycle_summary.get("freshness", cycle_summary.get("timestamp")),
+    })
+
+
+MISSION_DISPATCH_LOG_FILE = DATA_ROOT / "review" / "mission_dispatch_log.jsonl"
+
+
+def load_mission_dispatch_log():
+    """Latest core/engineering/mission_dispatch.py outcome per mission_id
+    (its append-only mission_dispatch_log.jsonl — last entry per mission_id
+    wins, same convention as load_decisions()/load_remediation_results())."""
+    if not MISSION_DISPATCH_LOG_FILE.exists():
+        return {}
+
+    entries = {}
+    try:
+        with open(MISSION_DISPATCH_LOG_FILE) as f:
+            for line in f:
+                if line.strip():
+                    r = json.loads(line)
+                    mission_id = r.get("mission_id")
+                    if mission_id:
+                        entries[mission_id] = r
+    except Exception as exc:
+        log.error(f"Failed to load mission dispatch log: {exc}")
+
+    return entries
+
+
+@app.route("/api/mission-dispatch-status")
+def api_mission_dispatch_status():
+    """Read-only surfacing of mission_dispatch.py's own outcome log.
+
+    mission_dispatch.py opens a draft PR but never writes back to Supabase,
+    so a Mission's status there (e.g. "Approved for Engineering") can keep
+    reading that way indefinitely even after a PR has already been opened
+    for it — this endpoint is how the frontend tells those two apart
+    without conflating "not yet dispatched" with "dispatched, PR pending
+    your merge"."""
+    entries = load_mission_dispatch_log()
+    for entry in entries.values():
+        message = entry.get("message", "")
+        url_match = _PR_URL_RE.search(message)
+        entry["pr_url"] = url_match.group(0) if url_match else None
+    return jsonify({"dispatches": entries})
+
+
+@app.route("/api/engineering-handoffs")
+def api_engineering_handoffs():
+    """Read-only surfacing of engineering handoffs awaiting the Captain's
+    review/merge, for a Captain-facing queue page (2026-09-06: previously
+    this data — title, priority, draft-PR link, batch status — only ever
+    fed Number One's advisory work queue with no dedicated UI anywhere in
+    the platform; the Captain had to leave to GitHub.com with nothing but a
+    bare handoff ID to find the right PR).
+
+    Reuses core/coordination/engineering_handoff_reader.py's parsing
+    wholesale (that module already normalises each ENG-HANDOFF-*.md file
+    into a mission-dict with a live PR URL, lifecycle status, and priority)
+    — this route adds no new logic, just an HTTP window onto data that
+    already existed. Lazy import + broad except so a missing/broken
+    reader module degrades to an empty list rather than 500ing the whole
+    dashboard, matching this file's other defensive routes."""
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    try:
+        from core.coordination.engineering_handoff_reader import load_engineering_handoffs
+        handoffs = load_engineering_handoffs()
+    except Exception as exc:
+        log.error(f"Failed to load engineering handoffs: {exc}")
+        return jsonify({"handoffs": [], "error": str(exc)}), 503
+    return jsonify({"handoffs": handoffs})
 
 
 @app.route("/api/status")

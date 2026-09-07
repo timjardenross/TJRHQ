@@ -19,7 +19,7 @@ import { MemoryView } from './_components/MemoryView';
 
 function Workbench() {
   return (
-    <WorkbenchShell title="Knowledge Workbench" eyebrow="Command Memory"
+    <WorkbenchShell wide title="Knowledge Workbench" eyebrow="Command Memory"
       tagline="USS TJR · Knowledge · Memory · Organisational decisions"
       back={{ href: '/workbenches', label: 'Workbenches' }}>
       <MemoryView />

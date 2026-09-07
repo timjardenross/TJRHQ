@@ -126,27 +126,50 @@ _STATUS_DEFAULTS = RecoveryStatus(
 
 
 def get_recovery_status(supabase_client: Any | None = None) -> RecoveryStatus:
-    """Fetch today's recovery confidence from Supabase view."""
+    """Fetch today's recovery status from Supabase.
+
+    recovery_confidence_today (a view over the retired recovery_pulses
+    table) has had zero real writes since 2026-08-21 — capacity_checkins is
+    the sole capture path since the 2026-08-22 MY CAPACITY TODAY migration
+    (core/infrastructure/supabase/migrations/0150, 0181 retired the old
+    domain). Reads capacity_checkins_today instead, the same live view
+    lcars-portal/src/lib/useRecoveryConfidence.ts was fixed to read this
+    session. No fixed daily pulse quota or 4-slot morning/midday/evening
+    model exists under the free-form check-in model, so those fields are
+    honestly collapsed rather than kept as fabricated precision:
+    pulses_completed is the real check-in count (no /3 quota),
+    morning_done means "checked in today at all", midday_done maps to the
+    real has_midday_checkin column, evening_done has no live equivalent and
+    stays False. Fields with no live equivalent (latest_energy,
+    latest_body_signals, latest_readiness) are left None rather than
+    guessed — same convention as the TS hook above.
+    """
     client = supabase_client or _get_supabase_client()
     if client is None:
         return _STATUS_DEFAULTS
     try:
-        result = client.table("recovery_confidence_today").select("*").execute()
+        result = client.table("capacity_checkins_today").select("*").execute()
         if result.data:
             row = result.data[0]
+            checkins = row.get("checkins_today", 0) or 0
+            has_midday = bool(row.get("has_midday_checkin", False))
             return RecoveryStatus(
-                recovery_confidence=row.get("recovery_confidence", 0),
-                pulses_completed=row.get("pulses_completed", 0),
-                pulses_missing=row.get("pulses_missing", 3),
-                morning_done=row.get("morning_done", False),
-                midday_done=row.get("midday_done", False),
-                evening_done=row.get("evening_done", False),
-                confidence_label=row.get("confidence_label", "Unknown"),
-                latest_energy=row.get("latest_energy"),
-                latest_nervous_system=row.get("latest_nervous_system"),
-                latest_body_signals=row.get("latest_body_signals"),
-                latest_readiness=row.get("latest_readiness"),
-                last_pulse_at=row.get("last_pulse_at"),
+                # Kept on a 0-100 scale for downstream compatibility
+                # (escalation_level, the LLM system-prompt bar) — real
+                # binary signal (checked in today or not), not the old
+                # weighted formula, whose inputs no longer exist.
+                recovery_confidence=100 if checkins > 0 else 0,
+                pulses_completed=checkins,
+                pulses_missing=0,
+                morning_done=checkins > 0,
+                midday_done=has_midday,
+                evening_done=False,
+                confidence_label=row.get("checkin_label", "Unknown"),
+                latest_energy=None,
+                latest_nervous_system=row.get("latest_regulation_state"),
+                latest_body_signals=None,
+                latest_readiness=None,
+                last_pulse_at=row.get("last_checkin_at"),
             )
     except Exception as exc:
         log.error("[recovery-dispatcher] get_recovery_status failed: %s", exc)

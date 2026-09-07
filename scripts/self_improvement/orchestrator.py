@@ -22,6 +22,7 @@ from router_client import ModelRouterClient
 from policy import PolicyEngine
 from decision_processor import DecisionProcessor
 from auto_remediation import AutoRemediationExecutor
+from internal_discovery import confidence_to_evidence_strength
 
 # 3-workbench council follow-up 2026-08-29 (self-improvement-findings):
 # this daily systemd timer (self-improving-system.timer, running since
@@ -106,11 +107,24 @@ class SelfImprovementOrchestrator:
         # The model's schema also never asks for finding_id, but
         # decision_processor.py and auto_remediation.py both key off it -
         # assign one here so decisions persist against something stable.
+        #
+        # 2026-09-06: the model's schema likewise never asks for
+        # evidence_strength, so policy.py's _determine_automation_eligibility()
+        # read finding.get("evidence_strength", "weak") and always got the
+        # "weak" default - silently downgrading every finding whose category
+        # requires more than "weak" evidence to needs_more_evidence, no
+        # matter how high the model's own confidence was (confirmed live:
+        # confidence 0.95/0.92 findings both downgraded). Backfilling it
+        # from confidence, via the same mapping internal_discovery.py
+        # already uses for the same finding shape, matches what that module
+        # already assumes is present and lets policy.py's real category
+        # rules (e.g. needs_signoff) actually take effect.
         log.info("\nPhase 3: Classifying findings...")
         classified_findings = []
         errors = []
         for i, finding in enumerate(findings):
             finding.setdefault("finding_id", f"FND-{i + 1:03d}")
+            finding.setdefault("evidence_strength", confidence_to_evidence_strength(finding.get("confidence", 0.0)))
             try:
                 classified_findings.append(self.policy.classify_finding(finding))
             except Exception as exc:

@@ -73,6 +73,26 @@ class RSSAdapter(BaseSourceAdapter):
             url = entry.get("link") or entry.get("id") or feed.feed.get("link") or self.source.url
             published = self._parse_date(entry)
 
+            # 2026-09-04: CISA's combined "all.xml" advisory feed (used by
+            # the "CISA Alerts" source) mixes general cybersecurity
+            # advisories with ICS-specific vendor bulletins
+            # (cisa.gov/news-events/ics-advisories/*) — bare industrial
+            # product names ("Rockwell Automation ArmorStart LT", "IXON VPN
+            # Client") with no context. This platform has no ICS/OT
+            # footprint anywhere (confirmed §2.2, LifeOS Wall Tablet scope
+            # doc), so every one of these was noise, not signal — and the
+            # classifier's geography substring-matching bug (see
+            # classifier.py's _GEOGRAPHY_AU list matching "wa" inside
+            # "Water", "sa" inside boilerplate, etc.) was additionally
+            # mistagging them geography=AU and inflating
+            # operational_relevance to the 1.00 cap, which is what pushed
+            # them to Telegram as if they were real Captain-relevant
+            # alerts. Filtered generically by URL path, not scoped to one
+            # source_id, since any RSS feed surfacing this same CISA path
+            # is equally irrelevant here.
+            if url and "/ics-advisories/" in url.lower():
+                continue
+
             items.append(self._make_item(
                 raw_title=title,
                 raw_summary=summary,

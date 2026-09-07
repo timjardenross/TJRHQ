@@ -339,8 +339,28 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
             event_type = etype
 
     # ── Geography ─────────────────────────────────────────────────────────────
-    au_hits    = sum(1 for kw in _GEOGRAPHY_AU   if kw in text)
-    apac_hits  = sum(1 for kw in _GEOGRAPHY_APAC if kw in text)
+    # 2026-09-04: short state-abbreviation keywords ("wa", "sa", "act",
+    # "nt") were matched with plain substring `kw in text`, which matches
+    # inside completely unrelated words — "wa" inside "Water"/"software"/
+    # "malware"/"firmware", "sa" inside "USA"/"necessary", "act" inside
+    # "impact"/"contact"/"exact". Confirmed live: a CISA advisory for a
+    # Netherlands-HQ'd vendor ("IXON VPN Client", worldwide deployment, zero
+    # AU content) was tagged geography=AU purely because its CISA
+    # boilerplate mentions "Water and Wastewater" — the false AU tag then
+    # added +0.15 to operational_relevance, part of why it capped at 1.00
+    # and got pushed to Telegram as if genuinely AU/Captain-relevant. Short
+    # (<=4 char) keywords now require a whole-word match against the
+    # already-tokenized `words` set; longer/multi-word phrases
+    # ("australia", "new south wales") keep substring matching since they
+    # can't collide this way.
+    au_hits = sum(
+        1 for kw in _GEOGRAPHY_AU
+        if (kw in words if len(kw) <= 4 else kw in text)
+    )
+    apac_hits = sum(
+        1 for kw in _GEOGRAPHY_APAC
+        if (kw in words if len(kw) <= 4 else kw in text)
+    )
     if au_hits > 0:
         geography = "AU"
     elif apac_hits > 0:

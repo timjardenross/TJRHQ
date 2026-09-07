@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
   }
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
+  const missionIdsParam = searchParams.get('mission_id');
   const limitParam = parseInt(searchParams.get('limit') ?? '25', 10);
   const limit = Number.isFinite(limitParam) ? Math.min(Math.max(1, limitParam), 100) : 25;
 
@@ -30,7 +31,13 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (status) {
+    if (missionIdsParam) {
+      // Looking up specific missions by id (e.g. HQ Evolution polling
+      // status for opportunities it handed off) — return them regardless
+      // of Closed/Archived, since the caller asked for these exact ids.
+      const ids = missionIdsParam.split(',').map((id) => id.trim()).filter(Boolean).slice(0, 100);
+      query = query.in('mission_id', ids);
+    } else if (status) {
       query = query.eq('status', status);
     } else {
       query = query.not('status', 'in', `(${CLOSED_STATUSES.map(s => `"${s}"`).join(',')})`);

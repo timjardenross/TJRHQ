@@ -1,0 +1,254 @@
+'use client';
+
+// Outcomes (renamed from Close Out, mission §13-14) — "Help HQ learn what
+// actually happened." Reads GET /api/advisory/loops (open ADV-*.json
+// records, unchanged). Closes via POST /api/advisory { action: "outcome",
+// advisoryId, outcome, note } — "Worked well"/"Partly"/"Didn't work" map
+// straight onto the existing success/partial/failure values; the note is
+// the same free-text field, now framed as "What did HQ miss?"
+//
+// "What HQ has learned" is new: it reads the existing, unit-testable
+// calibration engine (core/advisory/calibration.py::calibration_report(),
+// via action:"calibration") and shows a pattern ONLY when sufficient_data is
+// true — never fabricated, never inferred from a handful of outcomes.
+// Recording an outcome grants no authority; it only feeds calibration.
+
+import { useCallback, useEffect, useState } from 'react';
+import { Panel } from './shared';
+import { stateToneClasses } from '@/lib/departments';
+
+interface Loop {
+  advisory_id: string;
+  recorded_at: string;
+  question: string;
+  recommendation: string;
+  outcome: string | null;
+  confidence_band?: string | null;
+  decision_mode?: string;
+}
+
+interface OfficerRankEntry { officer: string; accuracy: number | null; samples: number }
+interface CalibrationReport {
+  total_outcomes: number;
+  overall_accuracy: number | null;
+  officer_ranking: OfficerRankEntry[];
+  confidence_alignment?: { aligned: boolean | null; by_band?: Record<string, { samples: number; success_rate: number | null }> };
+  sufficient_data: boolean;
+}
+
+type OutcomeValue = 'success' | 'partial' | 'failure';
+
+// Migrated onto the canonical stateToneClasses tone system (2026-08-29 —
+// this was the "7th vocabulary" logged in the UI-Layer-Debt handoff's
+// severity-vocab-sprawl finding) instead of its own hand-rolled style
+// strings: success/partial/failure map onto ok/warn/crit exactly.
+const OUTCOME_OPTS: { value: OutcomeValue; label: string; tone: 'ok' | 'warn' | 'crit' }[] = [
+  { value: 'success',  label: '✓ Worked well', tone: 'ok' },
+  { value: 'partial',  label: '~ Partly',       tone: 'warn' },
+  { value: 'failure',  label: '✗ Didn’t work', tone: 'crit' },
+];
+
+// Written as literal strings (not composed from stateToneClasses' return
+// value with a template-literal `hover:` prefix) so Tailwind's content
+// scanner — which matches literal text, not runtime string concatenation —
+// actually generates these hover variants. See departments.ts's own
+// safelist comment for the same constraint on the base classes.
+const OUTCOME_HOVER_BG: Record<'ok' | 'warn' | 'crit', string> = {
+  ok: 'hover:bg-state-ok/15',
+  warn: 'hover:bg-state-warn/15',
+  crit: 'hover:bg-state-crit/15',
+};
+
+function fmt(iso: string) {
+  try { return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }); }
+  catch { return iso; }
+}
+
+function WhatHqHasLearned() {
+  const [report, setReport] = useState<CalibrationReport | null>(null);
+  const [showEvidence, setShowEvidence] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/advisory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'calibration' }) })
+      .then((r) => r.json())
+      .then((d: { result?: CalibrationReport }) => setReport(d.result ?? (d as unknown as CalibrationReport)))
+      .catch(() => { /* calibration is best-effort */ });
+  }, []);
+
+  if (!report || !report.sufficient_data) return null;
+  const top = report.officer_ranking.find((o) => o.samples >= 3 && o.accuracy !== null);
+  if (!top) return null;
+
+  return (
+    <div className="space-y-2 rounded-md border border-wb-sage-deep/30 bg-wb-sage-deep/5 px-4 py-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-wb-sage-deep">What HQ has learned</p>
+      <p className="text-sm text-wb-ink">
+        {top.officer} has tracked well across recorded outcomes ({Math.round((top.accuracy ?? 0) * 100)}% success).
+      </p>
+      <p className="text-[11px] text-wb-ink2">{top.samples} recorded outcomes support this pattern — treat it as a useful pattern, not a rule.</p>
+      <button onClick={() => setShowEvidence((v) => !v)}
+        className="text-[10px] uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
+        {showEvidence ? '▲ Hide evidence' : '▼ See evidence'}
+      </button>
+      {showEvidence && (
+        <ul className="space-y-1 border-t border-wb-sage-deep/20 pt-2">
+          {report.officer_ranking.filter((o) => o.samples >= 1).slice(0, 8).map((o) => (
+            <li key={o.officer} className="flex justify-between text-[11px] text-wb-ink/80">
+              <span>{o.officer}</span>
+              <span className="text-wb-ink2">{o.accuracy !== null ? `${Math.round(o.accuracy * 100)}%` : '—'} ({o.samples})</span>
+            </li>
+          ))}
+          <li className="pt-1 text-[10px] text-wb-ink2">Overall accuracy: {report.overall_accuracy !== null ? `${Math.round((report.overall_accuracy ?? 0) * 100)}%` : '—'} across {report.total_outcomes} recorded outcomes.</li>
+        </ul>
+      )}
+    </div>
+  );
+}
+
+export function OutcomesView() {
+  const [loops, setLoops] = useState<Loop[]>([]);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [closing, setClosing] = useState<Record<string, boolean>>({});
+  const [closed, setClosed] = useState<Set<string>>(new Set());
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch('/api/advisory/loops')
+      .then((r) => r.json())
+      .then((d: { loops?: Loop[]; error?: string }) => {
+        if (d.error) setApiError(d.error);
+        setLoops(d.loops ?? []);
+        setLoading(false);
+      })
+      .catch((e: Error) => { setApiError(e.message); setLoading(false); });
+  }, []);
+
+  const close = useCallback(async (id: string, outcome: OutcomeValue) => {
+    setClosing((prev) => ({ ...prev, [id]: true }));
+    setErrors((prev) => { const n = { ...prev }; delete n[id]; return n; });
+    try {
+      const res = await fetch('/api/advisory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'outcome', advisoryId: id, outcome, note: notes[id] ?? '' }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string; result?: { ok?: boolean; message?: string } };
+      const ok = data.ok ?? data.result?.ok ?? res.ok;
+      if (ok) {
+        setClosed((prev) => new Set([...prev, id]));
+      } else {
+        setErrors((prev) => ({ ...prev, [id]: data.error ?? data.result?.message ?? 'Failed to record outcome' }));
+      }
+    } catch (err) {
+      setErrors((prev) => ({ ...prev, [id]: (err as Error).message }));
+    } finally {
+      setClosing((prev) => ({ ...prev, [id]: false }));
+    }
+  }, [notes]);
+
+  const visible = loops.filter((l) => !closed.has(l.advisory_id));
+  const closedCount = closed.size;
+
+  if (loading) {
+    return (
+      <Panel title="Outcomes">
+        <p className="text-sm text-wb-ink2">Loading…</p>
+      </Panel>
+    );
+  }
+
+  return (
+    <Panel title="Outcomes">
+      <div className="space-y-4">
+        <p className="text-sm text-wb-ink">Help HQ learn what actually happened.</p>
+
+        <WhatHqHasLearned />
+
+        {closedCount > 0 && (
+          <div className="rounded-md border border-wb-sage-deep/40 bg-wb-sage-deep/5 px-4 py-2.5">
+            <p className="text-xs text-wb-sage-deep">
+              {closedCount} outcome{closedCount !== 1 ? 's' : ''} recorded this session.
+            </p>
+          </div>
+        )}
+
+        {apiError && (
+          <div className="rounded-md border border-wb-crit/40 bg-wb-crit/5 px-4 py-3">
+            <p className="text-xs text-wb-crit-on">API error: {apiError}</p>
+          </div>
+        )}
+
+        <p className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Advice awaiting an outcome</p>
+
+        {visible.length === 0 && (
+          <div className="rounded-md border border-wb-line bg-wb-bg px-4 py-10 text-center">
+            <p className="text-sm text-wb-ink2">
+              {loops.length === 0 ? 'No advice is waiting on an outcome — everything has one recorded.' : 'All open advice has an outcome recorded.'}
+            </p>
+          </div>
+        )}
+
+        {visible.map((loop) => {
+          const isClosing = !!closing[loop.advisory_id];
+          return (
+            <div key={loop.advisory_id} className="rounded-md border border-wb-line bg-wb-surface">
+              <div className="border-b border-wb-line px-4 py-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-mono text-[10px] text-wb-ink2">{loop.advisory_id}</p>
+                  <p className="text-[10px] text-wb-ink2">{fmt(loop.recorded_at)}</p>
+                </div>
+              </div>
+              <div className="space-y-3 px-4 py-3">
+                <div>
+                  <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Question asked</p>
+                  <p className="text-sm text-wb-ink">{loop.question}</p>
+                </div>
+                {loop.recommendation && (
+                  <div>
+                    <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Recommendation given</p>
+                    <p className="line-clamp-3 text-sm text-wb-ink/80">{loop.recommendation}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="mb-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">What did HQ miss? (optional)</p>
+                  <input
+                    type="text"
+                    value={notes[loop.advisory_id] ?? ''}
+                    onChange={(e) => setNotes((prev) => ({ ...prev, [loop.advisory_id]: e.target.value }))}
+                    placeholder="What actually happened?"
+                    disabled={isClosing}
+                    className="w-full rounded-md border border-wb-line bg-wb-bg px-3 py-1.5 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-50"
+                  />
+                </div>
+                {errors[loop.advisory_id] && (
+                  <p className="text-xs text-wb-crit-on">{errors[loop.advisory_id]}</p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {OUTCOME_OPTS.map(({ value, label, tone }) => {
+                    const t = stateToneClasses(tone);
+                    return (
+                      <button
+                        key={value}
+                        onClick={() => close(loop.advisory_id, value)}
+                        disabled={isClosing}
+                        className={`rounded-md border px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-40 ${t.border} ${t.on} ${OUTCOME_HOVER_BG[tone]}`}
+                      >
+                        {isClosing ? '…' : label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        <p className="text-[10px] text-wb-ink2">
+          {visible.length} awaiting an outcome · Recording improves advisory calibration. This grants no authority — you decide what happens next.
+        </p>
+      </div>
+    </Panel>
+  );
+}

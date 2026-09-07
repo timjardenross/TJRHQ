@@ -5,7 +5,7 @@ import type { Metadata } from 'next';
 // context).
 
 export const metadata: Metadata = {
-  title: 'Terms of Use | TJR HQ',
+  title: { absolute: 'Terms of Use | TJR HQ' },
   robots: { index: false, follow: false },
 };
 

@@ -25,13 +25,13 @@ intelligence, then work pipelines, then the archive, then platform-ops last.
 | `/ready-room` | Ready Room | Life admin and task decomposition in one place — what needs attention now, what is waiting on someone else, and a tiny first step for anything overwhelming. |
 | `/intelligence-workbench` | Technical OSINT Workbench | Cyber, infrastructure, and regulatory signal intelligence — source reliability, confidence scoring, and threat escalation. |
 | `/health-osint` | Health OSINT Workbench | Clinical trial and performance-research intelligence — source reliability, study confidence, and safety escalation. |
-| `/emergency-alert-hub-workbench` | Emergency Alert Hub | Tier 1 official AU emergency alerts only — NSW/VIC/QLD/SA/ACT live feeds, jurisdiction and severity filters, per-source crawl health. |
+| `/emergency-alert-hub-workbench` | Emergency Alerts | Official Australian emergency information, prioritised by what may require attention now. |
 | `/human-systems-workbench` | Human Systems Workbench | Recovery posture, medical tracking, and physical readiness in one collection — live from the recovery-pulse signal. |
 | `/content-workbench` | Content Workbench | Capture, research, draft, proof, and publish comms content end-to-end, plus a Portfolio of everything published — one QA-gated pipeline. |
 | `/advisory-workbench` | Advisory Workbench | Consult officer advisors, convene the strategic Board, and hear distinguished perspectives — one advisory brain across surfaces. |
 | `/briefs` | Briefs | The intelligence brief archive — every synthesized brief across every domain, filterable by review/publish status. |
-| `/agent-status-workbench` | Agent & Job Status | Scheduler job health, agent run history, and failure triage across all automated platform tasks. |
-| `/self-improvement-findings` | Self-Improvement Findings | Review and decide on findings the platform has proposed about itself — approve, reject, or request more evidence. |
+| `/agent-status-workbench` | HQ Status | Is HQ working properly? Interpreted platform health across capabilities, automations, sources, and machinery — not just a wall of job rows. |
+| `/self-improvement-findings` | HQ Evolution | Continuous improvement for TJR HQ — overnight discovery, research and investigation of new capabilities, open-source opportunities, cost reductions, reliability improvements and better ways for HQ to work. |
 
 ## Real routes deliberately NOT in the master list
 
