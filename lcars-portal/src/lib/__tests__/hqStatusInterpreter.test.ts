@@ -133,6 +133,28 @@ describe('computePosture — criticality drives posture, not failure count', () 
     ];
     expect(computePosture(computeCapabilities(jobs))).toBe('attention');
   });
+
+  it('a critical job\'s first failed attempt (confirmed isolated — prior heartbeat was ok) stays DEGRADED, not ATTENTION: self-recovering machine failures do not automatically become human ATTENTION', () => {
+    const jobs = [job({ domainKey: 'a', capability: 'cap1', criticality: 'critical', status: 'failed', isIsolatedFailure: true })];
+    const [cap] = computeCapabilities(jobs);
+    expect(cap.tone).toBe('degraded');
+    expect(computePosture(computeCapabilities(jobs))).toBe('degraded');
+  });
+
+  it('a critical job failing with NO confirmed isolation (unknown prior history) still escalates to ATTENTION — ambiguity never suppresses a genuine attention signal', () => {
+    const jobs = [job({ domainKey: 'a', capability: 'cap1', criticality: 'critical', status: 'failed', isIsolatedFailure: false })];
+    expect(computePosture(computeCapabilities(jobs))).toBe('attention');
+  });
+
+  it('a critical job failing on two consecutive attempts (isolated flag cleared once persistence is confirmed) escalates to ATTENTION', () => {
+    // Simulates the second consecutive failure: fetchIsolatedFailureFlags
+    // would now find the immediately-preceding heartbeat was also 'failed',
+    // so isIsolatedFailure is false — this is no longer self-recovering.
+    const jobs = [job({ domainKey: 'a', capability: 'cap1', criticality: 'critical', status: 'failed', isIsolatedFailure: false })];
+    const [cap] = computeCapabilities(jobs);
+    expect(cap.tone).toBe('unavailable');
+    expect(computePosture(computeCapabilities(jobs))).toBe('attention');
+  });
 });
 
 describe('interpretHQStatus — impact-first narrative and no manufactured urgency', () => {

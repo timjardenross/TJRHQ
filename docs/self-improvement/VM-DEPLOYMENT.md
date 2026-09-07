@@ -56,8 +56,9 @@ jq . /tmp/usstjros-findings/review/cycle_summary.json
 
 ## Scheduled Runs — Already Enabled
 
-`self-improving-system.timer` fires daily 07:00 Melbourne local (±5 min
-randomized delay). To (re)install after a fresh clone:
+`self-improving-system.timer` fires daily 04:30 Melbourne local (±5 min
+randomized delay — moved from 07:00 by HQ V1 Integration QA §23). To
+(re)install after a fresh clone:
 
 ```bash
 sudo cp deploy/self-improving-system.service /etc/systemd/system/

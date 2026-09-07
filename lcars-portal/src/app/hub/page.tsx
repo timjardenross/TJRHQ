@@ -89,6 +89,7 @@ export default function LifeOSHub() {
     interruptNow: briefingError ? null : (briefingStats?.interruptNow ?? 0),
     emergencyCount: emergency?.count ?? 0,
     emergencyWorstTier: emergency?.worstTier ?? null,
+    emergencyFreshness: emergency?.freshness ?? 'stale',
     hqPosture: hqPostureLower,
     hqSummary: hqStatus?.summary ?? null,
     hqUnavailable: hqStatusError !== null,
@@ -196,6 +197,14 @@ export default function LifeOSHub() {
                 {commandPosture.headline} TODAY
               </p>
               <p className="mx-auto mt-2 max-w-md text-sm text-wb-ink/80">{commandPosture.explanation}</p>
+              {/* HQ V1 Integration QA §24: "Stable/Steady" must never
+                  silently mean "we stopped checking alerts a while ago" —
+                  surface the stale collection check rather than hide it. */}
+              {emergency?.freshness === 'stale' && (
+                <p className="mx-auto mt-1 max-w-md text-xs text-wb-ink2">
+                  Emergency alert check is overdue — may not reflect the latest alerts.
+                </p>
+              )}
             </>
           )}
         </div>

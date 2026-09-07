@@ -20,6 +20,7 @@ Endpoints:
     POST /api/model/self-improvement-mission   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/hq-evolution-investigate   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/hq-evolution-evaluate-outcome  gemini-flash-latest  (cloud, GEMINI_API_KEY)
+    POST /api/model/health-signal-curation     gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/adhd-decompose      gemma3:4b      keep_alive 2m   (Ready Room workbench)
     GET  /api/model/status              Ollama status + loaded models
     GET  /api/model/recent-calls        Last N calls from log
@@ -221,6 +222,12 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # evidence), not a re-run of the original investigation — same timeout
     # class as hq-evolution-investigate.
     "hq-evolution-evaluate-outcome": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300},
+    # HQ V1 Integration QA §28 fix: tools/health-osint/health_signal_curation.py
+    # previously called core/llm/provider_chain.py directly, bypassing this
+    # router entirely (the one confirmed Model Router bypass found in that
+    # audit). Single-signal classification prompt, same bounded shape as
+    # hq-evolution-investigate — same timeout class.
+    "health-signal-curation": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 60},
     # Ready Room workbench (Life Admin + Task Decomposition), tier-0 target
     # for intelligence.adhd.task_decomposition.TaskDecomposer._model_router.
     # Do NOT have this route call decompose_task() itself — that function
@@ -624,6 +631,7 @@ class RouterHandler(BaseHTTPRequestHandler):
             "/api/model/self-improvement-mission": "self-improvement-mission",
             "/api/model/hq-evolution-investigate": "hq-evolution-investigate",
             "/api/model/hq-evolution-evaluate-outcome": "hq-evolution-evaluate-outcome",
+            "/api/model/health-signal-curation": "health-signal-curation",
         }
         task_type = route_map.get(path)
         if task_type is None:

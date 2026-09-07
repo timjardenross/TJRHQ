@@ -128,29 +128,42 @@ repo-wide grep for `record_heartbeat`/`record_heartbeat_ok`/
 
 No further drift found after this pass.
 
-## 5. Cadence / staleness — Phase A only, deliberately
+## 5. Cadence / staleness — resolved (HQ V1 Integration QA)
 
 `domain_registry.expected_cadence_minutes` + `grace_period_minutes` do exist
-and, via the older `domain_heartbeat_latest` view, could support a computed
-`is_stale` verdict. This uplift does **not** wire that in, for two reasons:
+and, via the pre-existing `domain_heartbeat_latest` view (migration 0071,
+the original verification-engine design), already compute an `is_stale`
+verdict. This uplift originally did **not** wire that in, for two reasons:
 
 1. **Coverage gap.** Cross-checking `domain_registry` against
-   `SCHEDULER_JOBS` shows most, but not provably all, of the 44 registry
-   entries have a matching `domain_registry` row with real cadence data —
-   several were added to `SCHEDULER_JOBS` across many migrations
-   (0071/0072/0083/0171/0172/0174/0176/0177/0180/0181/0188) and a silent gap
-   would mean some jobs get a computed verdict and others don't, which is
-   worse than consistent labels.
-2. **Cron-edge-case risk.** The mission spec itself (§13, §41) explicitly
-   prefers "Schedule known, freshness verdict unavailable" over an
-   automated stale/fresh boolean unless DST, weekly/monthly edges, and
-   restart-timing are all proven safe — none of that proving work was done
-   here.
+   `SCHEDULER_JOBS` showed most, but not provably all, registry entries had
+   a matching `domain_registry` row with real cadence data.
+2. **Cron-edge-case risk.** Preferring "schedule known, freshness verdict
+   unavailable" over an automated stale/fresh boolean unless DST,
+   weekly/monthly edges, and restart-timing were all proven safe.
 
-So this uplift keeps `cadenceLabel` (a human-readable string, e.g.
-"Weekly · Fri 16:30") exactly as Phase 3 left it, shown alongside computed
-status rather than replacing it. Wiring real cadence math is Phase B,
-tracked as **FUTURE**.
+**Resolved by the HQ V1 Integration QA mission:**
+
+1. The exhaustive registry-drift audit that mission ran found and fixed the
+   only 3 remaining gaps (`hq_evolution_cycle`, `google_tasks_sync`,
+   `episodic_memory_decay` — migrations 0192/0193), closing reason #1.
+2. Reason #2 is sidestepped entirely rather than solved by proof: no new
+   cadence math was written. `fetchStaleOkDomainKeys()`
+   (`lib/agentStatusJobs.ts`) reads the *already-computed* `is_stale`
+   column from `domain_heartbeat_latest` — a mature view that has been
+   computing this exact DST/weekly/monthly-safe verdict against
+   `expected_cadence_minutes`/`grace_period_minutes` since migration 0071,
+   independent of and predating this workbench. A job currently reporting
+   `'ok'` that the view flags `is_stale` is downgraded to `'unknown'`
+   (never fabricated as `'failed'` — the job may simply have stopped
+   heartbeating, which is exactly the "missing data, not known-bad data"
+   case) before reaching `computeCapabilities()`. `'failed'`/`'unknown'`
+   jobs need no such check — they already correctly aren't `'healthy'`.
+
+`cadenceLabel` is unchanged and still shown verbatim (a human-readable
+string, e.g. "Weekly · Fri 16:30") — this is a status-value fix, not a
+label replacement. See `lib/__tests__/agentStatusJobs.staleOk.test.ts` for
+the regression coverage.
 
 ## 6. The interpreter (`lib/hqStatusInterpreter.ts`)
 
@@ -219,38 +232,39 @@ Precedence, most severe first:
 never raw failure volume. Seventeen failing supporting jobs contribute
 `0` to this count and leave HQ `normal`; see the interpreter tests.
 
-### Known V1 limitation: ATTENTION does not yet distinguish a fresh failure from a persistent one
+### Resolved (HQ V1 Integration QA): ATTENTION now distinguishes a fresh failure from a persistent one
 
 Mission §25-26 draws a line between a **system issue** ("HQ knows about it
 and will retry/recover automatically" — no human task) and something that
 **needs attention** ("cannot recover automatically or materially blocks a
-capability"). The current rule collapses that distinction for critical
-capabilities: a critical job's *single* latest `failed` heartbeat produces
+capability"). Previously the rule collapsed that distinction for critical
+capabilities: a critical job's *single* latest `failed` heartbeat produced
 `unavailable` → `ATTENTION` immediately, even if that job retries every few
 minutes and would self-heal before a human ever looks — e.g. a lone,
-transient `core_events` blip reads identically to `core_events` being stuck
+transient `core_events` blip read identically to `core_events` being stuck
 down for hours. `domain_heartbeats_latest` only exposes the single most
-recent attempt per domain, which isn't enough to tell "just failed once" from
-"failed N times in a row"; the raw `domain_heartbeats` event log (already
-read by History, §7) has what's needed to add a failure-streak check, but
-wiring that into the interpreter is a real signal-source change, not a
-one-line fix, and was deliberately **not** done in the same pass as this
-audit to avoid scope creep into "further features/redesign." Not fixed here,
-and deliberately not spun off as an independent fast-follow either (see
-Ownership below): for now, treat a single-cycle `ATTENTION` on a capability
-with a short cadence (e.g. `core_events`, every 30s) with more skepticism
-than one on a slow-cadence capability (e.g. `captains_daily_briefs`, hours
-between runs), where a single failure is much more likely to be real.
+recent attempt per domain, which wasn't enough to tell "just failed once"
+from "failed N times in a row."
 
-**Ownership of the fix**: explicitly carried into the planned HQ V1
-Integration QA & Contract Validation mission, which already scopes
-ATTENTION/"needs user attention" semantics, heartbeat/scheduler
-consistency, and failure→retry→recovery behaviour as part of validating
-HQ Status as a trustworthy command-layer contract. That mission is the
-right place to inspect the raw `domain_heartbeats` history (as History
-already does) and determine the smallest correct persistence/failure-streak
-interpretation — not this uplift, and not a standalone fast-follow raised
-independently of that audit.
+**Fix (HQ V1 Integration QA, this mission):** `fetchAgentStatusEntries()`
+(`lib/agentStatusJobs.ts`) now checks, only for critical jobs that are
+*currently* `failed` (the common healthy-HQ case adds zero extra queries),
+whether the immediately preceding heartbeat for that same `domain_key` was
+`ok` — a bounded, per-domain read of the raw `domain_heartbeats` event log
+(the same table/shape History already reads; see `fetchIsolatedFailureFlags`).
+If so, the failure is marked `isIsolatedFailure: true` and
+`computeCapabilities()` (`lib/hqStatusInterpreter.ts`) holds the capability
+at `degraded` for that cycle instead of escalating to `unavailable` —
+letting a job that fails once and recovers on its own next scheduled run
+self-heal without ever crossing into `ATTENTION`. Two consecutive failures
+(or a missing/errored history query) still escalate to `unavailable` →
+`ATTENTION` exactly as before: the default is fail-safe (escalate), and only
+a *positively confirmed* isolated first attempt relaxes it. This is
+deliberately narrow — a two-row persistence check, not general cadence math
+— per the "do not add cadence math unless a correctness defect makes it
+necessary" instruction. See `lib/__tests__/hqStatusInterpreter.test.ts` and
+`lib/__tests__/agentStatusJobs.isolatedFailure.test.ts` for the regression
+coverage.
 
 ## 7. What each tab owns
 

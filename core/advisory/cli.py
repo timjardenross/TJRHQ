@@ -68,7 +68,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="USS TJR Advisory Runtime")
     parser.add_argument("--action", default="advice", choices=[
         "advice", "challenge", "lessons", "evidence",
-        "metrics", "calibration", "advisory-health", "outcome",
+        "metrics", "calibration", "advisory-health", "outcome", "loops",
         "temporal", "episodic", "patterns", "signals", "timeline", "proactive",
         "operating-picture", "wellness", "strategic", "forecast", "daily-brief",
         "data-quality",
@@ -142,6 +142,9 @@ def main() -> int:
                                           decision_taken=args.decision, feedback=args.note)
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return 0 if result.get("ok") else 1
+    if args.action == "loops":
+        open_loops = [r for r in _outcomes.load_records() if not r.get("outcome")]
+        return emit({"loops": open_loops}) or 0
 
     # -- question-bearing actions --------------------------------------------
     if not args.question:

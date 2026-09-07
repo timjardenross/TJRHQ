@@ -27,6 +27,7 @@ const SENSITIVITY_OPTIONS: DocumentSensitivity[] = ['standard', 'sensitive', 're
 const STATUS_OPTIONS: ProcessingStatus[] = [
   'received', 'extracted', 'ocr_required', 'ocr_complete',
   'classified', 'summarised', 'embedded', 'failed', 'awaiting_review', 'excluded',
+  'retry_pending', 'retrying', 'permanently_failed',
 ];
 
 // MSN-0334: useSearchParams() requires a Suspense boundary in the App Router

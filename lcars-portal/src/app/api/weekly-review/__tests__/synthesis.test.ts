@@ -33,7 +33,7 @@ function baseSections(readyRoom: WorkbenchSection): WorkbenchSection[] {
     readyRoom,
     { key: 'advisory', title: 'Advisory', href: '/advisory-workbench', signals: [] },
     { key: 'briefs', title: 'Briefs', href: '/briefs', signals: [] },
-    { key: 'agent-status', title: 'Agent & Job Status', href: '/agent-status-workbench', signals: [sig('stale', 0, 'warn'), sig('never', 0, 'crit'), sig('repeated', 0, 'crit')] },
+    { key: 'agent-status', title: 'HQ Status', href: '/agent-status-workbench', signals: [sig('stale', 0, 'warn'), sig('never', 0, 'crit'), sig('repeated', 0, 'crit')] },
   ];
 }
 

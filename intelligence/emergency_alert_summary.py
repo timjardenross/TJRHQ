@@ -125,6 +125,28 @@ def _build_prompt(alerts: list[dict]) -> str:
     return f"Current active alerts ({len(alerts)} total):\n\n" + "\n".join(lines)
 
 
+def _verbatim_urgent_section(alerts: list[dict]) -> str:
+    """HQ V1 Integration QA §7/§9: the hourly digest's LLM prose is asked
+    not to invent facts, but is not required to preserve official
+    headline/jurisdiction wording verbatim — a real paraphrasing risk for
+    the safety-critical tiers specifically. Appends the raw, unedited
+    official fields for every watch_and_act/emergency_warning alert
+    regardless of what the summary prose says, so official wording always
+    survives even if the LLM's paraphrase doesn't. No-op (empty string)
+    when nothing urgent is active — the common case, so this never adds
+    noise to a routine Advice-only digest."""
+    urgent = [a for a in alerts if a["severity"] in _URGENT_TIERS]
+    if not urgent:
+        return ""
+    rows = "".join(
+        f"<li><strong>[{a['severity'].upper()}] {a['jurisdiction']}</strong> — {a['headline']}"
+        + (f" ({a['location']})" if a.get("location") else "")
+        + "</li>"
+        for a in urgent
+    )
+    return f"<hr><p><strong>Official alert wording (verbatim):</strong></p><ul>{rows}</ul>"
+
+
 def _generate_summary(alerts: list[dict]) -> tuple[str, str] | None:
     prompt = _build_prompt(alerts)
     try:
@@ -180,6 +202,7 @@ def run() -> dict:
     summary_text, provider = result
     subject = f"Emergency Alert Hub — hourly summary ({len(alerts)} active)"
     html = "<p>" + summary_text.replace("\n\n", "</p><p>").replace("\n", "<br>") + "</p>"
+    html += _verbatim_urgent_section(alerts)
 
     sent = send_email(to=_EMAIL_TO, subject=subject, html=html)
     now_iso = None

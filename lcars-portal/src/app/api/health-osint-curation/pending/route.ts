@@ -35,7 +35,12 @@ export async function GET() {
       `)
       .eq('auto_ingested', true)
       .eq('auto_ingest_reviewed', false)
-      .order('collected_at', { ascending: false })
+      // Oldest first, matching health_signal_curation.py's own oldest-first
+      // processing order — if the backlog ever exceeds this cap, it's the
+      // newest (least overdue) rows that fall off the human queue, not the
+      // most-overdue ones the engine keeps re-classifying into ESCALATE
+      // every cycle while nobody ever sees them.
+      .order('collected_at', { ascending: true })
       .limit(500);
     if (error) throw error;
 

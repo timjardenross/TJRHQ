@@ -1,10 +1,11 @@
 // GET /api/briefs — full intelligence_briefs archive, independent of any
-// one domain workbench. Briefs synthesize across domains (see
-// brief_generator.py); nesting their only listing under
-// /intelligence-workbench (OSINT-branded) was the actual gap — this is
-// that list. /briefs/[id] (see /api/briefs/[id]) is now the canonical
-// detail view; /intelligence-workbench/brief/[id] stays live for its
-// legacy QA/Publish/approval actions — see BRIEFS_CANONICAL_UPLIFT.md §3.
+// one domain workbench. brief_generator.py collects OSINT/world-news
+// sources only (not literally cross-domain — HQ V1 Integration QA §7);
+// nesting the only listing under /intelligence-workbench (OSINT-branded)
+// was the actual gap this route closes — this is that list. /briefs/[id]
+// (see /api/briefs/[id]) is now the canonical detail view;
+// /intelligence-workbench/brief/[id] stays live for its legacy
+// QA/Publish/approval actions — see BRIEFS_CANONICAL_UPLIFT.md §3.
 //
 // 2026-09 Briefs canonical uplift: select widened to include the new
 // content-model columns (top_events, comparison, coverage, domain_picture,

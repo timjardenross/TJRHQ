@@ -52,8 +52,13 @@ function OvercommitmentWarning({ posture, activeCount }: { posture: RecoveryPost
 }
 
 export default function MissionWorkbenchPage() {
-  const { posture: livePosture } = useROSData();
-  const currentPosture = livePosture.posture ?? 'UNKNOWN';
+  const { posture: livePosture, isLive: isPostureLive } = useROSData();
+  // Fall back to UNKNOWN (the most conservative band — only P3 missions show
+  // as "suitable today", no overcommitment threshold is defined for it)
+  // rather than silently using useROSData()'s mock STABLE posture when there
+  // is no real check-in data. A capacity-gating decision must never present
+  // fabricated data as if it were a real, current posture reading.
+  const currentPosture = isPostureLive ? (livePosture.posture ?? 'UNKNOWN') : 'UNKNOWN';
 
   const [filter, setFilter] = useState<'all' | 'today'>('all');
   const [liveMissions, setLiveMissions] = useState<Mission[]>([]);

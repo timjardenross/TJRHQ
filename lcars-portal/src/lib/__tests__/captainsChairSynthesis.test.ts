@@ -14,6 +14,7 @@ function baseInputs(overrides: Partial<CommandStatusInputs> = {}): CommandStatus
     interruptNow: 0,
     emergencyCount: 0,
     emergencyWorstTier: null,
+    emergencyFreshness: 'fresh',
     hqPosture: 'normal',
     hqSummary: null,
     hqUnavailable: false,
@@ -115,6 +116,29 @@ describe('deriveCommandStatus', () => {
       expect(result.interpretation).toMatch(/Capacity is fine/i);
       expect(result.environmentLine).toMatch(/Google Calendar authentication expired/);
       expect(result.hasEnvironmentConcern).toBe(true);
+    });
+  });
+
+  // HQ V1 Integration QA §24: "Stable"/"Clear" must never silently mean "we
+  // stopped checking a while ago" — a stale Emergency Alert Hub collection
+  // cycle surfaces as a caveat on environmentLine, without escalating
+  // severity (a stale check is not itself a confirmed emergency).
+  describe('Emergency alert freshness', () => {
+    it('appends a staleness caveat to an otherwise-stable environment line', () => {
+      const result = deriveCommandStatus(baseInputs({ emergencyFreshness: 'stale' }));
+      expect(result.environmentLine).toMatch(/check is overdue/i);
+      expect(result.hasEnvironmentConcern).toBe(false);
+    });
+
+    it('appends the same caveat even when other environment concerns are active', () => {
+      const result = deriveCommandStatus(baseInputs({ operationalRisk: 'RED', emergencyFreshness: 'stale' }));
+      expect(result.environmentLine).toMatch(/operational risk RED/);
+      expect(result.environmentLine).toMatch(/check is overdue/i);
+    });
+
+    it('says nothing extra when the check is fresh', () => {
+      const result = deriveCommandStatus(baseInputs({ emergencyFreshness: 'fresh' }));
+      expect(result.environmentLine).not.toMatch(/overdue/i);
     });
   });
 

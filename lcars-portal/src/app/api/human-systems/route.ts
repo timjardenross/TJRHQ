@@ -936,9 +936,11 @@ async function buildMedical(sb: any, ctx: Ctx, kpis: Kpis): Promise<Payload> {
 // (3-workbench council item 2/5) — human-systems-workbench/readiness/*,
 // the only caller of this branch, was deleted in the same pass. It was a
 // never-linked, unfinished reskin: the live, mobile-primary readiness
-// experience is (app)/physical-readiness/* (linked from MobileCommandBar's
-// TABS, its own separate API at /api/physical-readiness/complete),
-// unaffected by this removal.
+// experience is physical-readiness/* (linked from MobileCommandBar's
+// TABS), unaffected by this removal. (Its own session-completion API,
+// api/physical-readiness/complete, was itself retired later — see
+// workbench integration audit findings — once the check-in/session flow
+// it served was pulled back to a read-only history/library viewer.)
 
 export async function GET(req: NextRequest) {
   const session = await requireSession();

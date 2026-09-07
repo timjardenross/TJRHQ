@@ -20,6 +20,8 @@ type Brief = {
   approval_audit: Record<string, { status?: string; approved_by?: string }> | null;
   executive_snapshot: string | null; bottom_line: string | null;
   period_start: string | null; period_end: string | null; signal_ids: string[] | null;
+  sources_checked: number | null; sources_available: number | null;
+  sources_failed: number | null; sources_stale: number | null;
 };
 type Signal = {
   event_id: string; raw_title: string; raw_summary: string | null;
@@ -100,6 +102,18 @@ export default function BriefReview({ params }: { params: { id: string } }) {
               {brief.period_start} → {brief.period_end} · {signals.length} signals
             </p>
             <p className="text-sm">{brief.executive_snapshot ?? brief.bottom_line ?? '—'}</p>
+            {/* HQ V1 Integration QA §7 fix: sources_failed/sources_stale were
+                computed at generation time but never shown here — the one
+                screen with a human approval gate had no coverage/freshness
+                signal for the reviewer. Only rendered when there's
+                something to flag, so a fully-clean brief stays uncluttered. */}
+            {((brief.sources_failed ?? 0) > 0 || (brief.sources_stale ?? 0) > 0) && (
+              <p className="mt-1 text-[12px] text-wb-warn-on">
+                Coverage: {brief.sources_checked ?? '—'} of {brief.sources_available ?? '—'} sources checked
+                {(brief.sources_failed ?? 0) > 0 ? ` · ${brief.sources_failed} failed` : ''}
+                {(brief.sources_stale ?? 0) > 0 ? ` · ${brief.sources_stale} stale` : ''} — this brief may be missing recent signals.
+              </p>
+            )}
             {/* gate progress */}
             <div className="mt-5 flex flex-wrap items-center gap-1.5 text-[12px]">
               {GATE_FLOW.map((g, i) => (
