@@ -22,6 +22,7 @@ import { createSupabaseServerClient, requireSession } from '@/lib/supabase-serve
 import type { Signal, SignalItem, SystemSummary, WorkbenchSection } from '@/lib/weeklyReview';
 import { buildSynthesis, flattenSignalCounts } from './synthesis';
 import { getAssessedContext } from '@/app/api/human-systems/assessed-context';
+import { errorDetail } from '@/lib/errorDetail';
 
 type SB = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -377,7 +378,7 @@ export async function GET() {
 
     return NextResponse.json({ summary, workbenches, synthesis, signalCounts, priorWeek });
   } catch (err) {
-    return NextResponse.json({ error: 'Failed to build weekly review', detail: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to build weekly review', detail: errorDetail(err) }, { status: 500 });
   }
 }
 
@@ -419,6 +420,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ error: 'Failed to complete review', detail: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to complete review', detail: errorDetail(err) }, { status: 500 });
   }
 }

@@ -14,6 +14,7 @@
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/supabase-server';
 import { callAdvisoryAction } from '@/lib/advisoryRuntime';
+import { errorDetail } from '@/lib/errorDetail';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,7 +46,7 @@ export async function GET() {
     records.sort((a, b) => b.recorded_at.localeCompare(a.recorded_at));
     return NextResponse.json({ loops: records });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Failed to load loops', detail }, { status: 502 });
   }
 }

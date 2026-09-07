@@ -1,0 +1,20 @@
+[Unit]
+Description=Run Mission Engineering Auto-Dispatch every 15 minutes
+Documentation=file:///opt/starship-endeavour/core/engineering/mission_dispatch.py
+Requires=mission-engineering-dispatch.service
+
+[Timer]
+# Same cadence convention as verification-engine.timer (OnBootSec +
+# OnUnitActiveSec) rather than a fixed OnCalendar slot — a Mission can be
+# approved for engineering at any time of day, and idempotent dispatch
+# tracking (mission_dispatch_log.jsonl) makes a short interval safe: a
+# Mission is dispatched exactly once regardless of how often this fires.
+# 15 minutes keeps the Captain from waiting on a slow overnight-only slot
+# while staying well clear of sync-one's 180s-per-Mission budget even if
+# several Missions are approved back to back.
+OnBootSec=2min
+OnUnitActiveSec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

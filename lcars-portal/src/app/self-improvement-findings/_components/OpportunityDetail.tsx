@@ -46,7 +46,23 @@ function observationWindowText(window: { type: string; count: number } | undefin
 /** Section 22: investigation / evaluation detail, progressively disclosed
  * (raw provenance behind a <details>, section 22/47). Section 26: a
  * Mission-only banner for capability/product_improvement/architecture. */
-export function OpportunityDetail({ opportunity, actions }: { opportunity: Opportunity; actions?: ReactNode }) {
+export function OpportunityDetail({
+  opportunity, actions, missionStatus, missionDispatch,
+}: {
+  opportunity: Opportunity;
+  actions?: ReactNode;
+  /** Live status of the Mission this opportunity was handed off to, when
+   * known — e.g. "Approved for Engineering", "Awaiting XO Approval". The
+   * Mission system's own staged-approval ladder, surfaced here rather than
+   * requiring the Captain to go look it up elsewhere. */
+  missionStatus?: string | null;
+  /** core/engineering/mission_dispatch.py's own outcome for this Mission,
+   * when it has actually dispatched one — mission_dispatch.py never writes
+   * back to Supabase, so missionStatus above can keep reading e.g.
+   * "Approved for Engineering" long after a draft PR was already opened;
+   * this is how that gets told apart from "not yet dispatched" at all. */
+  missionDispatch?: { success: boolean; message: string; pr_url: string | null } | null;
+}) {
   const inv = opportunity.investigation || {};
   const isMissionOnly = MISSION_ONLY_CLASSES.includes(opportunity.change_class);
   const contract = opportunity.outcome_contract && 'expected_benefit' in opportunity.outcome_contract
@@ -65,6 +81,9 @@ export function OpportunityDetail({ opportunity, actions }: { opportunity: Oppor
         <Badge status={toneToStatus(lifecycleStateToTone(opportunity.lifecycle_state))}>
           {opportunity.lifecycle_state.replace('_', ' ')}
         </Badge>
+        {opportunity.mission_id && (
+          <Badge status="info">Mission {opportunity.mission_id}: {missionStatus ?? 'loading…'}</Badge>
+        )}
         {opportunity.value && <Badge status={toneToStatus(valueToTone(opportunity.value))}>Value: {opportunity.value}</Badge>}
         {opportunity.risk_level && (
           <Badge status={toneToStatus(opportunityRiskToTone(opportunity.risk_level))}>Risk: {opportunity.risk_level}</Badge>
@@ -256,6 +275,57 @@ export function OpportunityDetail({ opportunity, actions }: { opportunity: Oppor
           </div>
           {outcome.improvement_success_note && (
             <div className="mt-1 text-xs text-wb-ink2">{outcome.improvement_success_note}</div>
+          )}
+        </Field>
+      )}
+
+      {opportunity.remediation_status && (
+        <Field label="Auto-remediation">
+          {/* 2026-09-07: HandoffPRStrategy reports success=true even when NO
+              PR was opened (an existing-file edit deferred to manual review,
+              or no_files_written) — success only ever meant "the coding
+              attempt didn't error," never "a PR exists". Must gate on the
+              real pr_url, not remediation_status alone, or this falsely
+              tells the Captain a PR is waiting to merge when there is none —
+              confirmed live on several real opportunities. */}
+          {opportunity.remediation_status === 'succeeded' ? (
+            opportunity.remediation_pr_url ? (
+              <div>
+                Draft PR opened for review:{' '}
+                <a href={opportunity.remediation_pr_url} target="_blank" rel="noreferrer" className="underline break-all">
+                  {opportunity.remediation_pr_url}
+                </a>
+                . Review and merge it like any other PR — HQ never merges this itself.
+              </div>
+            ) : (
+              <div>{opportunity.remediation_message}</div>
+            )
+          ) : (
+            <div className="text-wb-crit-on">Attempt failed: {opportunity.remediation_message}</div>
+          )}
+          {opportunity.remediation_at && (
+            <div className="mt-1 text-xs text-wb-ink2">{new Date(opportunity.remediation_at).toLocaleString()}</div>
+          )}
+        </Field>
+      )}
+
+      {opportunity.mission_id && missionDispatch && (
+        <Field label="Engineering dispatch">
+          {missionDispatch.success ? (
+            <div>
+              Auto-dispatched to engineering
+              {missionDispatch.pr_url && (
+                <>
+                  :{' '}
+                  <a href={missionDispatch.pr_url} target="_blank" rel="noreferrer" className="underline break-all">
+                    {missionDispatch.pr_url}
+                  </a>
+                </>
+              )}
+              . This may not yet be reflected in the Mission status above — review and merge like any other PR.
+            </div>
+          ) : (
+            <div className="text-wb-crit-on">Dispatch attempt failed: {missionDispatch.message}</div>
           )}
         </Field>
       )}

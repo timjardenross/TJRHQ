@@ -114,7 +114,6 @@ export const SCHEDULER_JOBS: ReadonlyArray<{
   { domainKey: 'knowledge_freshness', label: 'Knowledge Freshness (Wed)', domain: 'intelligence', cadenceLabel: 'Weekly · Wed 09:00', capability: 'weekly_review', criticality: 'supporting' },
   { domainKey: 'decision_outcome_reminder', label: 'Decision Outcome Reminder (Wed)', domain: 'intelligence', cadenceLabel: 'Weekly · Wed 09:15', capability: 'weekly_review', criticality: 'supporting' },
   { domainKey: 'forgotten_decisions', label: 'Forgotten Decisions (Mon+Thu)', domain: 'intelligence', cadenceLabel: '2x/week · Mon+Thu 09:30', capability: 'weekly_review', criticality: 'supporting' },
-  { domainKey: 'shakedown_digest', label: 'Shakedown Digest (RETIRED 2026-08-27)', domain: 'platform', cadenceLabel: 'Retired — was Daily · 20:00', capability: 'platform_core', criticality: 'background', retired: true },
   { domainKey: 'monthly_lessons_digest', label: 'Monthly Lessons Digest', domain: 'intelligence', cadenceLabel: 'Monthly · 1st 08:00', capability: 'weekly_review', criticality: 'background' },
   { domainKey: 'ko_monthly_brief', label: 'KO Monthly Brief', domain: 'intelligence', cadenceLabel: 'Monthly · 1st 08:30', capability: 'weekly_review', criticality: 'background' },
   { domainKey: 'mission_registry_sync', label: 'Mission Registry Sync', domain: 'platform', cadenceLabel: 'Daily · 06:45', capability: 'platform_core', criticality: 'supporting' },
@@ -176,15 +175,6 @@ export const SCHEDULER_JOBS: ReadonlyArray<{
   // intelligence/emergency_alert_summary.py; sibling to the feed-poll jobs
   // above but a derived hourly digest, not a raw feed itself.
   { domainKey: 'emergency_alert_hourly_summary', label: 'Emergency Alert Hub — Hourly Summary Email', domain: 'emergency-alerts', cadenceLabel: 'Hourly', capability: 'emergency_monitoring', criticality: 'important' },
-  // human_systems_scheduler.py ─────────────────────────────────────────────
-  // Confirmed 2026-08-25: NOT actually live — its only invoker,
-  // start_in_process(), is called solely from platform-runtime/app.py,
-  // which exists only in a backup directory, not the live repo; its sole
-  // live trigger, starfleet-slack-bot.service, has been disabled since
-  // 2026-07-07. Kept in this list (rather than removed) so "Disabled" here
-  // accurately signals it, instead of silently dropping the row or
-  // misreporting it as a broken/unknown live job.
-  { domainKey: 'human_systems', label: 'Human Systems Scheduler', domain: 'human-systems', cadenceLabel: 'Disabled since 2026-07-07 — see comment', capability: 'human_systems', criticality: 'background', disabled: true },
   { domainKey: 'capacity_checkins', label: 'Capacity Check-ins', domain: 'human-systems', cadenceLabel: 'On capture (Telegram/portal/Command Centre)', capability: 'human_systems', criticality: 'background' },
   // Platform domains (heartbeats from TS or verification side) ─────────────
   { domainKey: 'knowledge_library', label: 'Knowledge Library', domain: 'platform', cadenceLabel: 'Hourly', capability: 'platform_core', criticality: 'important' },

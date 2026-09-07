@@ -149,3 +149,12 @@ class ResilienceBrief:
     provider_used: Optional[str]
     confidence: float
     trigger_type: str         # scheduled | on_demand | test
+
+    # Briefs canonical uplift (BRIEFS_CANONICAL_UPLIFT.md) — all optional,
+    # None on a brief generated before this uplift or when the underlying
+    # computation had nothing to report (e.g. no prior brief to compare to).
+    morning_cycle_id: Optional[str] = None   # AEST date 'YYYY-MM-DD' of this morning's collection cycle
+    coverage: Optional[dict] = None          # structured collection coverage / degraded-cutoff record
+    comparison: Optional[dict] = None        # deterministic vs-prior-brief diff (new/escalated/improved/...)
+    domain_picture: Optional[dict] = None    # deterministic domain grouping of top_events
+    known_unknowns: Optional[list] = None    # LLM-identified evidence gaps, if any

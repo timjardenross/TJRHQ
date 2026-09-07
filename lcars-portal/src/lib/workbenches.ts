@@ -38,6 +38,7 @@ import {
   Archive as ArchiveIcon,
   Activity,
   Lightbulb,
+  GitPullRequest,
 } from 'lucide-react';
 
 export interface WorkbenchEntry {
@@ -140,5 +141,20 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     title: 'HQ Evolution',
     description: 'Continuous improvement for TJR HQ — overnight discovery, research and investigation of new capabilities, open-source opportunities, cost reductions, reliability improvements and better ways for HQ to work.',
     icon: Lightbulb,
+  },
+  {
+    // Added 2026-09-06 — previously this data (approved engineering
+    // handoffs, live PR links, batch status) only ever fed Number One's
+    // advisory work queue with no dedicated page anywhere in the platform;
+    // the Captain had to leave for GitHub.com with nothing but a bare
+    // handoff ID to find the right PR. Read-only: every action here opens
+    // GitHub's own review view rather than approving/merging in-platform
+    // (see engineering-handoffs/page.tsx's own header comment for why).
+    // Named distinctly from /engineering-queue, a deliberate redirect stub
+    // for a different, removed feature — see that route's own page.tsx.
+    href: '/engineering-handoffs',
+    title: 'Engineering Handoffs',
+    description: 'Approved engineering handoffs awaiting triage, delivery, or your review — with a direct link to every draft PR so nothing sits waiting on a bare ID.',
+    icon: GitPullRequest,
   },
 ];

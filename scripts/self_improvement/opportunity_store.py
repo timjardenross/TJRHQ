@@ -250,10 +250,25 @@ class OpportunityStore:
         return self.latest_by_id().get(opportunity_id)
 
     def find_by_fingerprint(self, fingerprint: str) -> Optional[dict[str, Any]]:
-        for rec in self.all_current():
-            if rec.get("fingerprint") == fingerprint:
-                return rec
-        return None
+        """The most-recently-updated record with this fingerprint.
+
+        2026-09-06: was "the first match iteration happens to reach" —
+        harmless while a fingerprint could only ever belong to exactly one
+        opportunity_id, but relevance.py's dedup reconsideration (watching/
+        rejected/discovered/investigating) creates a NEW opportunity_id
+        each time a candidate is reconsidered rather than updating the old
+        one in place, so two+ records can legitimately share a fingerprint.
+        `all_current()`'s order is dict-insertion order (oldest first), so
+        the old "first match" behavior would keep returning a stale,
+        possibly long-superseded record — e.g. still "rejected" — forever,
+        even after a newer reconsideration created a fresh "discovered"
+        one, silently defeating reconsideration for anything rediscovered
+        a second time. updated_at is ISO 8601 UTC, so a plain string max()
+        is a correct chronological comparison."""
+        matches = [rec for rec in self.all_current() if rec.get("fingerprint") == fingerprint]
+        if not matches:
+            return None
+        return max(matches, key=lambda rec: rec.get("updated_at") or "")
 
     def append(self, opportunity: Opportunity) -> Opportunity:
         """Persist a new opportunity or a new state for an existing one.

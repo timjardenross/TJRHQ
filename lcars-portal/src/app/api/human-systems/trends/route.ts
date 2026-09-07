@@ -26,6 +26,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { SUMMARY_SYSTEM_PROMPT, buildSummaryPrompt, type TrendDayRow } from './summary';
+import { fetchTrendRows } from './data';
+
+export type { TrendDayRow } from './summary';
 
 const MAX_WINDOW_DAYS = 90;
 
@@ -35,14 +39,12 @@ const MAX_WINDOW_DAYS = 90;
 // Python. Summarizes the last 30 days regardless of the page's own window
 // toggle — a stable "how have things been trending" read, not something
 // that changes every time the Captain clicks 7d/30d/90d.
-const SUMMARY_SYSTEM_PROMPT =
-  'You are summarizing 30 days of Captain TJR\'s own capacity/regulation/recovery ' +
-  'check-in data for the Captain to read at the top of the Trends page. Plain ' +
-  'language, 2-3 short sentences, no medical claims or diagnosis — describe the ' +
-  'pattern in the data (improving, worsening, stable, volatile) and name which ' +
-  'field(s) are driving it. Never invent a value not present in the data. If ' +
-  'there is too little data to say anything meaningful, say so plainly instead ' +
-  'of guessing.';
+//
+// buildSummaryPrompt/computeSummaryStats and the system prompt itself live
+// in ./summary.ts, not here — Next.js's route-export validation only
+// allows a route.ts to export the recognized handler/config names, so the
+// functions needed for unit testing can't be exported straight from this
+// file (see summary.ts's own docstring).
 
 async function callGemini(prompt: string): Promise<string | null> {
   const key = process.env.GEMINI_API_KEY;
@@ -94,30 +96,24 @@ async function callMistral(prompt: string): Promise<string | null> {
   return data?.choices?.[0]?.message?.content?.trim() || null;
 }
 
-function buildSummaryPrompt(trends: TrendDayRow[]): string {
-  const recorded = trends.filter((t) => Object.values(t).some((v, i) => i > 0 && v != null));
-  const lines = recorded.map((t) => {
-    const fields = [
-      t.capacity_state && `capacity=${t.capacity_state}`,
-      t.stimulation_state && `stimulation=${t.stimulation_state}`,
-      t.pain_state && `pain=${t.pain_state}`,
-      t.pain_score != null && `pain_score=${t.pain_score}`,
-      t.regulation_state && `regulation=${t.regulation_state}`,
-      t.executive_function && `executive_function=${t.executive_function}`,
-      t.compensation_load && `compensation_load=${t.compensation_load}`,
-      t.emotional_state && `emotional=${t.emotional_state}`,
-      t.social_state && `social=${t.social_state}`,
-      t.energy && `energy=${t.energy}`,
-      t.nervous_system_state && `nervous_system=${t.nervous_system_state}`,
-    ].filter(Boolean);
-    return `${t.log_date}: ${fields.join(', ')}`;
-  });
-  return `Last ${recorded.length} recorded day(s):\n${lines.join('\n')}`;
+function hasAnyField(t: TrendDayRow): boolean {
+  return Object.values(t).some((v, i) => i > 0 && v != null);
+}
+
+// Last 30 *calendar* days, not the last 30 rows with any data — trends is
+// sparse (only dates with a row in either source table get an entry at
+// all), so a plain array slice(-30) could silently reach back well past 30
+// calendar days whenever there are gap days in between. That would make
+// the page's own "(last 30 days)" heading inaccurate to whatever data
+// actually got fed to the model.
+function last30CalendarDays(trends: TrendDayRow[]): TrendDayRow[] {
+  const cutoff = daysAgo(29);
+  return trends.filter((t) => t.log_date >= cutoff);
 }
 
 async function generateSummary(trends: TrendDayRow[]): Promise<string | null> {
-  const windowed = trends.slice(-30);
-  const recordedCount = windowed.filter((t) => Object.values(t).some((v, i) => i > 0 && v != null)).length;
+  const windowed = last30CalendarDays(trends);
+  const recordedCount = windowed.filter(hasAnyField).length;
   if (recordedCount < 2) return null;
   const prompt = buildSummaryPrompt(windowed);
   try {
@@ -138,32 +134,6 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-// analytics_health_daily.energy is COALESCE(captains_log_entries.energy,
-// health_daily_logs.energy) (migration 0017) — both writers are already
-// retired (Captain's Log 2026-08-10; health_daily_logs replaced by
-// capacity_checkins the same day). Captain confirmed 2026-08-27: nothing
-// captures fresh data for that field anymore, so backfill from
-// capacity_checkins.capacity_state — the live signal, same mapping the
-// main /api/human-systems route's energyFromCapacityState() already uses.
-function energyFromCapacityState(state: string | null): string | null {
-  return ({ green: 'High', orange: 'Moderate', red: 'Low' } as Record<string, string>)[state ?? ''] ?? null;
-}
-
-export interface TrendDayRow {
-  log_date: string;
-  energy: string | null;
-  nervous_system_state: string | null;
-  capacity_state: string | null;
-  stimulation_state: string | null;
-  pain_state: string | null;
-  pain_score: number | null;
-  regulation_state: string | null;
-  executive_function: string | null;
-  compensation_load: string | null;
-  emotional_state: string | null;
-  social_state: string | null;
-}
-
 export async function GET(request: NextRequest) {
   const session = await requireSession();
   if (!session) {
@@ -182,59 +152,8 @@ export async function GET(request: NextRequest) {
     // displayed value while the real most-recent reading (2026-08-21) sat
     // buried. The main /api/human-systems route has always applied this
     // same .lte('log_date', today()) upper bound (see its buildMedical());
-    // this route just never had it. Added to both queries.
-    const [{ data: dailyRows, error: dailyErr }, { data: checkinRows, error: checkinErr }] = await Promise.all([
-      sb.from('analytics_health_daily')
-        .select('log_date,energy,nervous_system_state')
-        .gte('log_date', since)
-        .lte('log_date', until)
-        .order('log_date', { ascending: true }),
-      sb.from('capacity_checkins')
-        .select('log_date,captured_at,capacity_state,stimulation_state,pain_state,pain_score,regulation_state,executive_function,compensation_load,emotional_state,social_state')
-        .eq('checkin_type', 'capacity')
-        .gte('log_date', since)
-        .lte('log_date', until)
-        .order('captured_at', { ascending: true }),
-    ]);
-    if (dailyErr) throw dailyErr;
-    if (checkinErr) throw checkinErr;
-
-    const byDate = new Map<string, TrendDayRow>();
-    for (const r of (dailyRows ?? []) as any[]) {
-      byDate.set(r.log_date, {
-        log_date: r.log_date,
-        energy: r.energy ?? null,
-        nervous_system_state: r.nervous_system_state ?? null,
-        capacity_state: null, stimulation_state: null, pain_state: null, pain_score: null,
-        regulation_state: null, executive_function: null, compensation_load: null,
-        emotional_state: null, social_state: null,
-      });
-    }
-    // Last write per log_date wins (ascending captured_at order), same
-    // priority rule the main route's own backfill already uses.
-    for (const r of (checkinRows ?? []) as any[]) {
-      const existing = byDate.get(r.log_date) ?? {
-        log_date: r.log_date, energy: null, nervous_system_state: null,
-        capacity_state: null, stimulation_state: null, pain_state: null, pain_score: null,
-        regulation_state: null, executive_function: null, compensation_load: null,
-        emotional_state: null, social_state: null,
-      };
-      byDate.set(r.log_date, {
-        ...existing,
-        energy: existing.energy ?? energyFromCapacityState(r.capacity_state),
-        capacity_state: r.capacity_state ?? existing.capacity_state,
-        stimulation_state: r.stimulation_state ?? existing.stimulation_state,
-        pain_state: r.pain_state ?? existing.pain_state,
-        pain_score: r.pain_score ?? existing.pain_score,
-        regulation_state: r.regulation_state ?? existing.regulation_state,
-        executive_function: r.executive_function ?? existing.executive_function,
-        compensation_load: r.compensation_load ?? existing.compensation_load,
-        emotional_state: r.emotional_state ?? existing.emotional_state,
-        social_state: r.social_state ?? existing.social_state,
-      });
-    }
-
-    const trends = Array.from(byDate.values()).sort((a, b) => a.log_date.localeCompare(b.log_date));
+    // this route just never had it. Applied via fetchTrendRows's until bound.
+    const trends = await fetchTrendRows(sb, since, until);
     const summary = await generateSummary(trends);
     return NextResponse.json({ trends, window_days: MAX_WINDOW_DAYS, summary });
   } catch (err) {

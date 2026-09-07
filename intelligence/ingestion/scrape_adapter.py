@@ -134,7 +134,15 @@ class ScrapeAdapter(BaseSourceAdapter):
         explicit _FIRECRAWL_FALLBACK_SOURCE_NAMES allowlist above — every
         other ScrapeAdapter-driven source still fails loud on a 403, exactly
         as before this change, so this never silently changes behaviour or
-        cost for the ~15+ other sources this adapter class already serves."""
+        cost for the ~15+ other sources this adapter class already serves.
+
+        On a read timeout (distinct from a 403 — the connection succeeds but
+        the server is just slow), retries once with a doubled timeout before
+        failing. ASD Publications (asd.gov.au) has timed out on every single
+        check for 5+ consecutive days at the default HTTP_TIMEOUT_SECONDS
+        (15s) — a slow government server, not a page-shape or auth problem —
+        so a bare retry at a longer timeout is the safe fix; no fallback
+        fetch path or Firecrawl spend involved."""
         req = urllib.request.Request(
             url,
             headers={
@@ -143,19 +151,33 @@ class ScrapeAdapter(BaseSourceAdapter):
             },
         )
         try:
-            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:
-                charset = "utf-8"
-                content_type = resp.headers.get("Content-Type", "")
-                if "charset=" in content_type:
-                    charset = content_type.split("charset=")[-1].split(";")[0].strip()
-                return resp.read().decode(charset, errors="replace")
+            return self._do_fetch(req, HTTP_TIMEOUT_SECONDS)
         except urllib.error.HTTPError as exc:
             if exc.code == 403 and self.source.source_name in _FIRECRAWL_FALLBACK_SOURCE_NAMES:
                 log.info("[%s] plain fetch 403'd — falling back to Firecrawl", self.source.source_name)
                 return firecrawl_client.fetch_html(url)
             raise RuntimeError(f"HTTP {exc.code} from {url}") from exc
+        except TimeoutError as exc:
+            retry_timeout = HTTP_TIMEOUT_SECONDS * 2
+            log.info(
+                "[%s] plain fetch timed out after %ds — retrying once at %ds",
+                self.source.source_name, HTTP_TIMEOUT_SECONDS, retry_timeout,
+            )
+            try:
+                return self._do_fetch(req, retry_timeout)
+            except Exception as exc2:
+                raise RuntimeError(f"Scrape fetch failed after retry: {exc2}") from exc2
         except Exception as exc:
             raise RuntimeError(f"Scrape fetch failed: {exc}") from exc
+
+    @staticmethod
+    def _do_fetch(req: urllib.request.Request, timeout: int) -> str:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            charset = "utf-8"
+            content_type = resp.headers.get("Content-Type", "")
+            if "charset=" in content_type:
+                charset = content_type.split("charset=")[-1].split(";")[0].strip()
+            return resp.read().decode(charset, errors="replace")
 
     def _extract_items(self, soup) -> list[IntelligenceItem]:
         from bs4 import BeautifulSoup

@@ -3,6 +3,7 @@ import { createSupabaseServerClient, requireSession } from '@/lib/supabase-serve
 import { createSupabaseServiceRoleClient } from '@/lib/supabase-service-role';
 import { publishMissionEventServerSide } from '@/lib/core-events';
 import { recordHeartbeatServerSide } from '@/lib/heartbeat';
+import { errorDetail } from '@/lib/errorDetail';
 
 // MSN-0305: governed, audited status update — replaces the Mission Detail
 // page's prior direct browser-side Supabase write. Preserves the existing
@@ -130,7 +131,7 @@ export async function PATCH(
       source,
     });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Mission update failed', detail }, { status: 500 });
   }
 }
@@ -167,7 +168,7 @@ export async function GET(
 
     return NextResponse.json({ mission: data });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json(
       { error: 'Failed to fetch mission', detail },
       { status: 500 },

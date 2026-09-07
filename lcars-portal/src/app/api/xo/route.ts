@@ -3,6 +3,7 @@ import { getRoleById } from '@/lib/ai-roles';
 import { buildShipContext } from '@/lib/ai-context';
 import { parseAndProposeActions } from '@/lib/ai-actions';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
+import { errorDetail } from '@/lib/errorDetail';
 
 /**
  * XO Chat endpoint (MSN-IOS-001 WP4).
@@ -168,7 +169,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: isTimeout ? 'XO timed out (60s).' : 'Failed to reach the XO model.',
-        detail: err instanceof Error ? err.message : String(err),
+        detail: errorDetail(err),
       },
       { status: isTimeout ? 504 : 502 },
     );

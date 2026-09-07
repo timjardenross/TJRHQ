@@ -13,6 +13,7 @@
 // excluded — 0 real rows for all three).
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { WorkbenchShell, Card } from '@/components/ui';
 import { Sparkline } from '../_components/Sparkline';
 import {
@@ -223,6 +224,20 @@ export default function TrendsPage() {
     FIELDS.some((f) => t[f.key] != null)
   ).length;
 
+  // The summary always covers a fixed last-30-calendar-days window
+  // regardless of the tile toggle above (see route.ts) — recorded here
+  // separately so the "not enough data" fallback can say how many of
+  // those 30 days actually have something recorded, instead of a bare
+  // "not enough data yet" with no way to tell if that means 0 or 12.
+  const last30Cutoff = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 29);
+    return d.toISOString().slice(0, 10);
+  })();
+  const last30Recorded = trends
+    ? trends.filter((t) => t.log_date >= last30Cutoff && FIELDS.some((f) => t[f.key] != null)).length
+    : 0;
+
   return (
     <WorkbenchShell
       title="Human Systems — Trends"
@@ -248,7 +263,7 @@ export default function TrendsPage() {
           <p className="mt-1 text-[13px] text-wb-ink">
             {summaryLoading
               ? 'Generating summary…'
-              : summary ?? 'Not enough recorded days yet for a summary.'}
+              : summary ?? `Not enough recorded days yet for a summary — only ${last30Recorded} of the last 30 days have anything recorded.`}
           </p>
           <p className="mt-2 text-[11px] text-wb-ink2">
             Built only from what was actually recorded — never a value it doesn&rsquo;t have.
@@ -272,12 +287,17 @@ export default function TrendsPage() {
                   </button>
                 ))}
               </div>
-              <button
-                onClick={() => window.print()}
+              {/* Points at the dedicated 14-day Clinician Report page
+               *  (2026-09-07) rather than window.print()-ing this dashboard
+               *  directly — a psychologist doesn't need 11 sparkline tiles,
+               *  they need "what changed and what's worth discussing" in
+               *  plain language. See human-systems-workbench/report/page.tsx. */}
+              <Link
+                href="/human-systems-workbench/report"
                 className="rounded-md border border-wb-line px-3 py-1 text-[11px] font-medium text-wb-ink transition hover:border-wb-sage-deep"
               >
                 Download PDF
-              </button>
+              </Link>
             </div>
           </div>
         </Card>

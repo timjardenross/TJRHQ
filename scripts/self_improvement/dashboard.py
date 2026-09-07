@@ -8,6 +8,8 @@ Runs on http://localhost:8892
 
 import json
 import logging
+import re
+import sys
 from pathlib import Path
 from datetime import datetime, timezone
 from flask import Flask, render_template, jsonify, request
@@ -36,6 +38,8 @@ REPO_ROOT = Path(__file__).parent.parent.parent
 DATA_ROOT = REPO_ROOT / "data" / "self-improvement"
 RUNS_DIR = DATA_ROOT / "runs"
 DECISIONS_FILE = DATA_ROOT / "review" / "decisions.jsonl"
+REMEDIATION_RESULTS_FILE = DATA_ROOT / "review" / "remediation_results.jsonl"
+_PR_URL_RE = re.compile(r"https?://\S+")
 
 log.info(f"DATA_ROOT: {DATA_ROOT}")
 log.info(f"RUNS_DIR exists: {RUNS_DIR.exists()}")
@@ -103,6 +107,49 @@ def load_decisions():
         log.error(f"Failed to load decisions: {exc}")
 
     return decisions
+
+
+def load_remediation_results():
+    """Latest auto_remediation.py outcome per finding_id (its append-only
+    remediation_results.jsonl — last entry per finding_id wins, same
+    last-write-wins convention as load_decisions() above)."""
+    if not REMEDIATION_RESULTS_FILE.exists():
+        return {}
+
+    results = {}
+    try:
+        with open(REMEDIATION_RESULTS_FILE) as f:
+            for line in f:
+                if line.strip():
+                    r = json.loads(line)
+                    finding_id = r.get("finding_id")
+                    if finding_id:
+                        results[finding_id] = r
+    except Exception as exc:
+        log.error(f"Failed to load remediation results: {exc}")
+
+    return results
+
+
+def _attach_remediation_status(opportunities, remediation_results):
+    """Read-only join of auto_remediation.py's own outcome log onto each
+    opportunity via source_finding_id, so an opportunity you approved that
+    quietly got a draft PR opened (or failed) is visible on the same page
+    where you made the decision — previously this only ever surfaced in
+    Number One's separate advisory queue, never back on HQ Evolution's own
+    UI. Never mutates the opportunity store itself."""
+    for opp in opportunities:
+        fid = opp.get("source_finding_id")
+        result = remediation_results.get(fid) if fid else None
+        if not result:
+            continue
+        message = result.get("message", "")
+        url_match = _PR_URL_RE.search(message)
+        opp["remediation_status"] = "succeeded" if result.get("success") else "failed"
+        opp["remediation_message"] = message
+        opp["remediation_pr_url"] = url_match.group(0) if url_match else None
+        opp["remediation_at"] = result.get("timestamp")
+    return opportunities
 
 
 def save_decision(finding_id, decision, reasoning=""):
@@ -229,6 +276,7 @@ def api_opportunities():
     if states:
         opportunities = [o for o in opportunities if o.get("lifecycle_state") in states]
     opportunities.sort(key=lambda o: o.get("updated_at") or "", reverse=True)
+    opportunities = _attach_remediation_status(opportunities, load_remediation_results())
 
     return jsonify({"opportunities": opportunities, "total": len(opportunities)})
 
@@ -240,6 +288,7 @@ def api_opportunity(opportunity_id):
     opp = opportunity_store.get(opportunity_id)
     if not opp:
         return jsonify({"error": "Opportunity not found"}), 404
+    _attach_remediation_status([opp], load_remediation_results())
     return jsonify(opp)
 
 
@@ -307,6 +356,20 @@ def api_opportunity_decide():
         except Exception as exc:
             log.warning(f"Failed to build outcome contract for {opportunity_id}: {exc}")
 
+    # Bridge to the existing, unmodified bounded-remediation engine (spec
+    # diagram: "HUMAN DECISION -> bounded remediation (existing engine)").
+    # AutoRemediationExecutor (auto_remediation.py, run by the separate
+    # self-improving-system.service) only ever reads decisions.jsonl by
+    # finding_id — it has no knowledge of the Opportunity store at all.
+    # Without this, "Approve improvement" recorded the decision on the
+    # Opportunity but never actually authorised anything to execute; found
+    # live when two real approvals sat with no remediation triggered.
+    # Only opportunities with a source_finding_id came from a legacy
+    # classified finding this engine can act on — internally-discovered-
+    # only or externally-discovered opportunities have nothing to bridge to.
+    if decision_type == "approve_improvement" and existing.get("source_finding_id"):
+        save_decision(existing["source_finding_id"], "approved", reasoning or "Approved via HQ Evolution")
+
     # V2: a human directly asserting implementation happened — start the
     # observation window immediately rather than waiting for the next
     # overnight cycle to detect it (there is nothing to detect; only the
@@ -364,6 +427,22 @@ def api_evolution_summary():
     # undecided backlog) — and both stay distinct from the outcome-learning
     # fields below, which describe what was LEARNED, not what needs a
     # decision. Regressions surfaced here are evidence, not a second queue.
+    #
+    # 2026-09-06: outcomes_completed_count/regressions_count used to prefer
+    # cycle_summary's own (narrower — one cycle's worth) value over these
+    # live totals via dict.get(key, live_value) — harmless while no real
+    # evolution_summary.json existed in this checkout, but the moment one
+    # does (e.g. a committed production snapshot), dict.get only falls back
+    # to the live value when the KEY IS ABSENT, not when its value is 0, so
+    # a stale cycle-time count would permanently shadow the true, always-
+    # accurate running total computed fresh from the store every request —
+    # found via a real evolution_summary.json landing in this repo's own
+    # data/self-improvement/ tree. Same live-total treatment as
+    # pending_decisions_count above now applies to both.
+    outcomes_completed_count = sum(
+        1 for o in current
+        if o.get("lifecycle_state") == "learned" and o.get("outcome", {}).get("outcome_result") is not None
+    )
     regressions_count = sum(
         1 for o in current
         if o.get("lifecycle_state") == "learned" and o.get("outcome", {}).get("outcome_result") == "regressed"
@@ -379,12 +458,122 @@ def api_evolution_summary():
         "pending_decisions_count": pending_decisions_count,
         "any_verification_failure": any_verification_failure,
         "has_run_yet": bool(cycle_summary),
-        "outcomes_completed_count": cycle_summary.get("outcomes_completed_count", 0),
-        "regressions_count": cycle_summary.get("regressions_count", regressions_count),
+        "outcomes_completed_count": outcomes_completed_count,
+        "regressions_count": regressions_count,
         "latest_material_learning": cycle_summary.get("latest_material_learning"),
         "cycle_status": cycle_summary.get("cycle_status", "unknown" if not cycle_summary else "ok"),
         "freshness": cycle_summary.get("freshness", cycle_summary.get("timestamp")),
     })
+
+
+MISSION_DISPATCH_LOG_FILE = DATA_ROOT / "review" / "mission_dispatch_log.jsonl"
+
+
+def load_mission_dispatch_log():
+    """Latest core/engineering/mission_dispatch.py outcome per mission_id
+    (its append-only mission_dispatch_log.jsonl — last entry per mission_id
+    wins, same convention as load_decisions()/load_remediation_results())."""
+    if not MISSION_DISPATCH_LOG_FILE.exists():
+        return {}
+
+    entries = {}
+    try:
+        with open(MISSION_DISPATCH_LOG_FILE) as f:
+            for line in f:
+                if line.strip():
+                    r = json.loads(line)
+                    mission_id = r.get("mission_id")
+                    if mission_id:
+                        entries[mission_id] = r
+    except Exception as exc:
+        log.error(f"Failed to load mission dispatch log: {exc}")
+
+    return entries
+
+
+@app.route("/api/mission-dispatch-status")
+def api_mission_dispatch_status():
+    """Read-only surfacing of mission_dispatch.py's own outcome log.
+
+    mission_dispatch.py opens a draft PR but never writes back to Supabase,
+    so a Mission's status there (e.g. "Approved for Engineering") can keep
+    reading that way indefinitely even after a PR has already been opened
+    for it — this endpoint is how the frontend tells those two apart
+    without conflating "not yet dispatched" with "dispatched, PR pending
+    your merge"."""
+    entries = load_mission_dispatch_log()
+    for entry in entries.values():
+        message = entry.get("message", "")
+        url_match = _PR_URL_RE.search(message)
+        entry["pr_url"] = url_match.group(0) if url_match else None
+    return jsonify({"dispatches": entries})
+
+
+@app.route("/api/engineering-handoffs")
+def api_engineering_handoffs():
+    """Read-only surfacing of engineering handoffs awaiting the Captain's
+    review/merge, for a Captain-facing queue page (2026-09-06: previously
+    this data — title, priority, draft-PR link, batch status — only ever
+    fed Number One's advisory work queue with no dedicated UI anywhere in
+    the platform; the Captain had to leave to GitHub.com with nothing but a
+    bare handoff ID to find the right PR).
+
+    Reuses core/coordination/engineering_handoff_reader.py's parsing
+    wholesale (that module already normalises each ENG-HANDOFF-*.md file
+    into a mission-dict with a live PR URL, lifecycle status, and priority)
+    — this route adds no new logic, just an HTTP window onto data that
+    already existed. Lazy import + broad except so a missing/broken
+    reader module degrades to an empty list rather than 500ing the whole
+    dashboard, matching this file's other defensive routes.
+
+    ?include_completed=true (2026-09-07: the Captain wants the full 5-stage
+    lifecycle visible on the Engineering Handoffs page, not just outstanding
+    work) also returns Completed handoffs, which the reader excludes by
+    default for every other caller (Number One's advisory queue included)."""
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    include_completed = request.args.get("include_completed", "").strip().lower() in {"1", "true", "yes"}
+    try:
+        from core.coordination.engineering_handoff_reader import load_engineering_handoffs
+        handoffs = load_engineering_handoffs(include_completed=include_completed)
+    except Exception as exc:
+        log.error(f"Failed to load engineering handoffs: {exc}")
+        return jsonify({"handoffs": [], "error": str(exc)}), 503
+    return jsonify({"handoffs": handoffs})
+
+
+@app.route("/api/engineering-handoffs/artifact")
+def api_engineering_handoff_artifact():
+    """Serve the content of one batch_coding.py review artifact.
+
+    core.engineering.batch_coding writes a `.patch.md` here when a handoff's
+    diff couldn't be opened as a PR automatically (an existing-file edit
+    deferred to manual review, per the "only add new files automatically"
+    safety default). Until now the only way to read one was VM shell access
+    — the Engineering Handoffs page just printed the bare path as inert
+    text. `path` is locked to a file directly inside this one directory
+    (resolved against REPO_ROOT computed here, not at import time, so tests
+    can point REPO_ROOT at a scratch dir) to rule out path traversal.
+    """
+    artifacts_dir = (REPO_ROOT / "Missions" / "Engineering-Handoffs" / "artifacts").resolve()
+    rel_path = request.args.get("path", "")
+    if not rel_path:
+        return jsonify({"error": "missing 'path' query parameter"}), 400
+    try:
+        candidate = (REPO_ROOT / rel_path).resolve()
+    except (OSError, ValueError):
+        return jsonify({"error": "invalid path"}), 400
+    if candidate.parent != artifacts_dir or candidate.suffix != ".md":
+        return jsonify({"error": "path must point at a file directly inside "
+                                  "Missions/Engineering-Handoffs/artifacts/"}), 400
+    if not candidate.is_file():
+        return jsonify({"error": "artifact not found"}), 404
+    try:
+        content = candidate.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        log.error(f"Failed to read engineering handoff artifact {candidate}: {exc}")
+        return jsonify({"error": str(exc)}), 503
+    return jsonify({"path": rel_path, "content": content})
 
 
 @app.route("/api/status")

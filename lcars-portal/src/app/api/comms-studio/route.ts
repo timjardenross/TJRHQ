@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireSession } from '@/lib/supabase-server';
+import { errorDetail } from '@/lib/errorDetail';
 
 function serviceClient() {
   return createClient(
@@ -66,7 +67,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ id: data.id });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: detail }, { status: 500 });
   }
 }

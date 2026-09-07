@@ -56,7 +56,24 @@ MODEL_ROUTER_URL  = os.getenv("MODEL_ROUTER_URL", "http://localhost:8891")
 # concurrent requests max — see
 # .claude/skills/bot-reviews/fixes-2026-08-09/firecrawl-production-provisioning.md
 # for the real cost math and which sources are approved to use this path.
+#
+# 2026-09-06: added a 2nd Firecrawl account (FIRECRAWL_API_KEY_2) to double
+# the effective monthly quota. firecrawl_client.py round-robins between
+# whichever of the two keys are configured; external_fetch_budget.py's
+# "firecrawl" ceiling was raised to match (see that module).
 FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY", "")
+FIRECRAWL_API_KEY_2 = os.getenv("FIRECRAWL_API_KEY_2", "")
+
+# 2026-09-06: a second, independently-billed Firecrawl account, provisioned
+# specifically because the first account's 850/1,000 safe ceiling was being
+# exhausted mid-billing-cycle by Downdetector's telecom polling. Optional —
+# leave unset and firecrawl_client.py behaves exactly as before (single
+# account, refuses once its ceiling is hit). When set, firecrawl_client.py
+# automatically fails over to this key once the primary account's ceiling is
+# reached, rather than refusing the call outright. See
+# intelligence/ingestion/external_fetch_budget.py's "firecrawl_2" provider
+# entry for its own independent budget tracking.
+FIRECRAWL_API_KEY_2 = os.getenv("FIRECRAWL_API_KEY_2", "")
 
 # Mistral Agents — daily digest pipeline (2026-08-22: expanded from 3 stages
 # to use more of the 8 already-provisioned agents; see

@@ -540,34 +540,69 @@ def _launch_brief_regen_detached() -> None:
 
 
 async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/brief — shows the latest Captain's Brief digest now, and kicks off a
-    fresh regenerate in the background (takes ~15-25 min; run /brief again
-    after that to see it)."""
+    """/brief — Section 25 of BRIEFS_CANONICAL_UPLIFT.md: if today's
+    canonical brief already exists, just show it (no redundant regenerate).
+    If it doesn't exist yet and morning collection is still in progress,
+    say so honestly rather than blindly kicking off a ~15-25min regenerate
+    against an incomplete collection window. Otherwise (collection is done
+    or past its bounded cutoff, brief just hasn't run yet) kick off the
+    canonical generation path and say so."""
     global _brief_regen_started_at
     db = _get_supabase()
     if not db:
         await update.message.reply_text("⚠️ Supabase unavailable\\.", parse_mode="MarkdownV2")
         return
 
+    from intelligence.brief.morning_cycle import cycle_id_for, get_status as get_cycle_status
+
+    todays_cycle_id = cycle_id_for()
+    have_todays_brief = False
+    try:
+        latest = (
+            db.table("intelligence_briefs")
+            .select("morning_cycle_id")
+            .order("generated_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows = latest.data or []
+        have_todays_brief = bool(rows) and rows[0].get("morning_cycle_id") == todays_cycle_id
+    except Exception as exc:
+        log.warning("[brief] could not check today's cycle status: %s", exc)
+
     now_mono = time.monotonic()
     cooling_down = (
         _brief_regen_started_at is not None
         and (now_mono - _brief_regen_started_at) < _BRIEF_REGEN_COOLDOWN_SECONDS
     )
-    if cooling_down:
+
+    if have_todays_brief:
+        pass  # already generated for today's morning cycle — just show it below
+    elif cooling_down:
         await update.message.reply_text("⚙️ A regenerate was started recently and is likely still running — showing the latest available digest for now.")
     else:
         try:
-            _launch_brief_regen_detached()
-            _brief_regen_started_at = now_mono
+            cycle_status = get_cycle_status()
+        except Exception:
+            cycle_status = None
+
+        if cycle_status is not None and not cycle_status.ready:
             await update.message.reply_text(
-                "⚙️ Kicked off a fresh regenerate in the background (~15-25 min — full source "
-                "collection + LLM synthesis). Showing the latest available digest below now; "
-                "run /brief again once that's had time to land."
+                "⏳ This morning's intelligence collection is still in progress — showing "
+                "the latest available digest below for now; try /brief again shortly."
             )
-        except Exception as exc:
-            log.warning("[brief] failed to launch on-demand regenerate: %s", exc)
-            await update.message.reply_text("⚠️ Couldn't start a regenerate — showing the last available digest instead.")
+        else:
+            try:
+                _launch_brief_regen_detached()
+                _brief_regen_started_at = now_mono
+                await update.message.reply_text(
+                    "⚙️ Kicked off a fresh regenerate in the background (~15-25 min — full source "
+                    "collection + LLM synthesis). Showing the latest available digest below now; "
+                    "run /brief again once that's had time to land."
+                )
+            except Exception as exc:
+                log.warning("[brief] failed to launch on-demand regenerate: %s", exc)
+                await update.message.reply_text("⚠️ Couldn't start a regenerate — showing the last available digest instead.")
 
     try:
         res = (
@@ -575,6 +610,7 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             .select(
                 "brief_id,generated_at,period_start,period_end,overall_risk,"
                 "executive_snapshot,bottom_line,emerging_themes,forward_watch,"
+                "top_events,comparison,coverage,"
                 "events_included,events_evaluated,sources_checked,narrative_available"
             )
             .order("generated_at", desc=True)
@@ -618,6 +654,21 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if snap and snap != bottom:
             lines += ["<b>Snapshot</b>", snap[:500], ""]
 
+        # Same canonical selection Telegram's morning push and Captain's
+        # Chair render (BRIEFS_CANONICAL_UPLIFT.md Section 29) — this
+        # command must not show a different "what matters"/posture story.
+        from intelligence.brief.render import build_morning_intelligence_view
+        view = build_morning_intelligence_view(b, max_items=5)
+
+        if view["what_matters"]:
+            lines.append("<b>What Matters</b>")
+            for i, item in enumerate(view["what_matters"], 1):
+                item_line = f"  {i}. {item['title']}"
+                if item.get("so_what"):
+                    item_line += f" — {item['so_what']}"
+                lines.append(item_line[:220])
+            lines.append("")
+
         if themes:
             lines.append("<b>Emerging Themes</b>")
             for t in themes[:5]:
@@ -628,6 +679,20 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if fw:
             fw_text = fw if isinstance(fw, str) else json.dumps(fw)
             lines += ["<b>Forward Watch</b>", str(fw_text)[:300], ""]
+
+        if view["changed"]:
+            changed_bits = []
+            for label, key in (("New", "new"), ("Escalated", "escalated"), ("Improved", "improved")):
+                for title in view["changed"].get(key) or []:
+                    changed_bits.append(f"{label}: {title}")
+            if changed_bits:
+                lines.append("<b>Changed Since Yesterday</b>")
+                for bit in changed_bits[:5]:
+                    lines.append(f"  • {bit}"[:200])
+                lines.append("")
+
+        if view["coverage_note"]:
+            lines += [f"⚠️ <i>{view['coverage_note']}</i>", ""]
 
         ev_suppressed = ev_total - ev_in if ev_total and ev_in else None
         ev_line = f"Events: {ev_in} included"
