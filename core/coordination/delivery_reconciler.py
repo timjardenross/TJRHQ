@@ -136,6 +136,33 @@ def _parse_md(path: Path, keys: tuple[str, ...]) -> dict[str, str]:
     return out
 
 
+def _stamp_handoff(path: Path, updates: dict[str, str]) -> None:
+    """Update/insert `- Key: Value` header lines in a handoff file (idempotent).
+
+    Mirrors core/engineering/batch_coding.py's own `_stamp()` — kept as a
+    separate copy rather than a cross-module import so this reconciler's only
+    write path stays self-contained and doesn't reach into batch_coding's
+    private internals.
+    """
+    lines = path.read_text(encoding="utf-8").splitlines()
+    header_end = next((i for i, ln in enumerate(lines) if ln.strip().startswith("## ")), len(lines))
+    remaining = dict(updates)
+    for i in range(header_end):
+        s = lines[i].strip()
+        if s.startswith("- ") and ":" in s:
+            key = s[2:].split(":", 1)[0].strip()
+            for uk in list(remaining):
+                if key.lower() == uk.lower():
+                    lines[i] = f"- {uk}: {remaining.pop(uk)}"
+    if remaining:
+        insert_at = 0
+        for i in range(header_end):
+            if lines[i].strip().startswith("- "):
+                insert_at = i + 1
+        lines[insert_at:insert_at] = [f"- {k}: {v}" for k, v in remaining.items()]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 # --- classification -------------------------------------------------------
 
 def _pr_for(branch: str, pr_url: str, prs: dict[str, dict]) -> dict | None:
@@ -222,17 +249,32 @@ def reconcile(apply: bool = False) -> dict[str, Any]:
         for p in sorted(HANDOFF_DIR.glob("ENG-HANDOFF-*.md")):
             meta = _parse_md(p, ("Batch Status", "PR Branch", "PR URL"))
             branch, pr_url = meta.get("PR Branch", ""), meta.get("PR URL", "")
+            raw_status = meta.get("Batch Status", "")
             pr = _pr_for(branch, pr_url, prs)
             if pr:
                 bucket, evidence = _bucket_from_pr(pr), f"PR #{pr['number']} {pr['state']}"
-            elif meta.get("Batch Status", "").upper() == "DELIVERED":
+                # mechanical fix: engineering_handoff_reader.py (which feeds the
+                # Engineering Handoffs page and the Captain's review reminders)
+                # only ever trusts this file's own `Batch Status` stamp — it never
+                # checks GitHub itself. Left un-stamped, a handoff whose PR the
+                # Captain already merged keeps nagging as "Awaiting Review"
+                # forever. Stamp it the moment live GitHub state shows merged.
+                if pr["state"] == "merged" and raw_status.upper() != "MERGED":
+                    if apply:
+                        try:
+                            _stamp_handoff(p, {"Batch Status": "MERGED"})
+                            actions_taken.append(
+                                f"{p.stem}: Batch Status → MERGED (PR #{pr['number']} merged)")
+                        except OSError as exc:
+                            actions_taken.append(f"{p.stem}: FAILED to stamp MERGED ({exc})")
+            elif raw_status.upper() == "DELIVERED":
                 bucket, evidence = "AWAITING_REVIEW", "delivered, PR state unknown"
-            elif meta.get("Batch Status", "").upper() == "FAILED":
+            elif raw_status.upper() == "FAILED":
                 bucket, evidence = "REJECTED", "batch failed"
             else:
-                bucket, evidence = "IN_PROGRESS", meta.get("Batch Status", "pending")
+                bucket, evidence = "IN_PROGRESS", raw_status or "pending"
             items.append({"kind": "handoff", "id": p.stem, "title": "",
-                          "claimed": meta.get("Batch Status", "?"), "bucket": bucket, "evidence": evidence,
+                          "claimed": raw_status or "?", "bucket": bucket, "evidence": evidence,
                           "pr_url": pr_url})
 
     return {"items": items, "actions_taken": actions_taken, "github_error": gh_err,

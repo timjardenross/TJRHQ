@@ -536,6 +536,40 @@ def api_engineering_handoffs():
     return jsonify({"handoffs": handoffs})
 
 
+@app.route("/api/engineering-handoffs/artifact")
+def api_engineering_handoff_artifact():
+    """Serve the content of one batch_coding.py review artifact.
+
+    core.engineering.batch_coding writes a `.patch.md` here when a handoff's
+    diff couldn't be opened as a PR automatically (an existing-file edit
+    deferred to manual review, per the "only add new files automatically"
+    safety default). Until now the only way to read one was VM shell access
+    — the Engineering Handoffs page just printed the bare path as inert
+    text. `path` is locked to a file directly inside this one directory
+    (resolved against REPO_ROOT computed here, not at import time, so tests
+    can point REPO_ROOT at a scratch dir) to rule out path traversal.
+    """
+    artifacts_dir = (REPO_ROOT / "Missions" / "Engineering-Handoffs" / "artifacts").resolve()
+    rel_path = request.args.get("path", "")
+    if not rel_path:
+        return jsonify({"error": "missing 'path' query parameter"}), 400
+    try:
+        candidate = (REPO_ROOT / rel_path).resolve()
+    except (OSError, ValueError):
+        return jsonify({"error": "invalid path"}), 400
+    if candidate.parent != artifacts_dir or candidate.suffix != ".md":
+        return jsonify({"error": "path must point at a file directly inside "
+                                  "Missions/Engineering-Handoffs/artifacts/"}), 400
+    if not candidate.is_file():
+        return jsonify({"error": "artifact not found"}), 404
+    try:
+        content = candidate.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        log.error(f"Failed to read engineering handoff artifact {candidate}: {exc}")
+        return jsonify({"error": str(exc)}), 503
+    return jsonify({"path": rel_path, "content": content})
+
+
 @app.route("/api/status")
 def api_status():
     """Get system status."""

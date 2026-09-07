@@ -58,6 +58,71 @@ function displayTitle(title: string): string {
   return title.replace(/^\[ENG-HANDOFF\]\s*/, '');
 }
 
+function ArtifactViewer({ path }: { path: string }) {
+  const [open, setOpen] = useState(false);
+  const [content, setContent] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function toggle() {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    if (content !== null || error !== null) return; // already fetched
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/engineering-handoffs/artifact?path=${encodeURIComponent(path)}`, {
+        cache: 'no-store',
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error || 'bad upstream response');
+      setContent(body.content ?? '');
+    } catch (e: any) {
+      setError(e?.message || 'Could not load the artifact.');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={toggle}
+        className="inline-flex items-center gap-1.5 rounded-md border border-wb-line px-3 py-1.5
+          text-[12px] font-semibold text-wb-ink2 transition-colors hover:bg-wb-line/20
+          focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-line"
+      >
+        {open ? 'Hide artifact ↑' : 'View artifact →'}
+      </button>
+      {open && (
+        <div className="mt-2 rounded-md border border-wb-line bg-wb-surface-raised p-3">
+          {isLoading ? (
+            <p className="text-[12px] italic text-wb-ink2">Loading artifact…</p>
+          ) : error ? (
+            <p className="text-[12px] text-wb-crit-on">{error}</p>
+          ) : (
+            <>
+              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-wb-ink">
+                {content}
+              </pre>
+              <p className="mt-2 border-t border-wb-line pt-2 text-[11px] italic text-wb-ink2">
+                This edit touches an existing file, so it was deliberately held back from an
+                automatic PR (a whole-file rewrite can silently drop code) — it was never opened,
+                so there is nothing here to merge yet. To progress it: apply the change yourself
+                and open a normal PR, or hand this artifact to an engineering session to implement
+                properly with a real, reviewable diff.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HandoffCard({ handoff }: { handoff: Handoff }) {
   const { metadata } = handoff;
   const badgeStatus = STATUS_BADGE[metadata.engineering_status] ?? 'neutral';
@@ -89,9 +154,7 @@ function HandoffCard({ handoff }: { handoff: Handoff }) {
           Open draft PR →
         </a>
       ) : metadata.batch_artifact ? (
-        <p className="text-[11px] italic text-wb-ink2">
-          No PR yet — review artifact: {metadata.batch_artifact}
-        </p>
+        <ArtifactViewer path={metadata.batch_artifact} />
       ) : (
         <p className="text-[11px] italic text-wb-ink2">No PR or artifact yet.</p>
       )}
