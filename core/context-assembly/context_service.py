@@ -515,125 +515,72 @@ def _http_captain_brief() -> dict:
     }
 
 
-def _http_number_one_brief() -> dict:
-    """Assemble Number One Brief: priorities, blocker, risk, recommendation."""
-    corpus = _load_corpus()
-    packages = {}
-    for mid in corpus["missions"]:
-        try:
-            pkg = assemble_mission_context(mid, corpus)
-            if pkg:
-                packages[mid] = pkg
-        except Exception:
-            pass
-
-    TERMINAL = {"COMPLETED", "CANCELLED", "CLOSED", "ARCHIVED", "COMPLETE"}
-
-    def _score(m):
-        p_raw = (m.get("priority") or "P3").upper().replace(" ", "")
-        p = p_raw[:2] if p_raw.startswith("P") and len(p_raw) > 1 and p_raw[1].isdigit() else "P3"
-        pnum = int(p[1])
-        parts = (m.get("status") or "").upper().split()
-        s = parts[0] if parts else ""
-        return pnum * 10 + {"IN_PROGRESS": 0, "ACTIVE": 0, "BLOCKED": -1}.get(s, 5)
-
-    active = [
-        m for m in corpus["missions"].values()
-        if ((m.get("status") or "").upper().split() or [""])[ 0] not in TERMINAL
-    ]
-    ranked = sorted(active, key=_score)[:3]
-
-    top_priorities = []
-    for m in ranked:
-        mid = m["id"]
-        pkg = packages.get(mid)
-        entry: dict = {
-            "mission_id": mid,
-            "title": m.get("title", mid),
-            "status": m.get("status", ""),
-            "owner": m.get("owner", ""),
-            "priority": m.get("priority", ""),
-            "confidence": "HIGH" if pkg and pkg.completeness_score >= 0.7 else "MEDIUM",
-        }
-        if pkg:
-            entry["governed_by"] = [{"id": r.id, "title": r.title} for r in pkg.governing_adrs]
-            entry["triggered_by"] = [{"id": r.id, "title": r.title} for r in pkg.triggering_decisions]
-            entry["depends_on"] = [{"id": r.id, "title": r.title} for r in pkg.dependencies]
-        top_priorities.append(entry)
-
-    # Top blocker — first active mission with an explicit depends_on chain still unresolved
-    top_blocker = None
-    for mid, pkg in packages.items():
-        m = corpus["missions"].get(mid, {})
-        if (m.get("status") or "").upper().split()[0] in TERMINAL:
-            continue
-        if pkg.dependencies:
-            dep = pkg.dependencies[0]
-            dep_m = corpus["missions"].get(dep.id, {})
-            top_blocker = {
-                "blocked_mission": mid,
-                "blocked_title": m.get("title", mid),
-                "blocking_mission": dep.id,
-                "blocking_title": dep.title,
-                "blocking_status": (dep_m.get("status") or "UNKNOWN").upper(),
-                "resolution_path": f"Activate {dep.id} to unblock {mid}",
-                "confidence": "HIGH",
-                "source": f"explicit depends_on in {mid}",
-            }
-            break
-
-    # Top risk — governance traceability gap
-    no_decision = [
-        mid for mid, pkg in packages.items()
-        if not pkg.triggering_decisions
-        and not corpus["missions"].get(mid, {}).get("is_completed")
-    ]
-    top_risk = {
-        "description": (
-            f"Governance traceability gap — {len(no_decision)}/{len(packages)} "
-            "active missions have no traceable authorising decision."
-        ),
-        "severity": "medium",
-        "mitigation": "New mission template requires triggered_by at creation time.",
-        "affected_missions": no_decision,
-        "confidence": "HIGH",
+def _work_queue_item_to_dict(item) -> dict:
+    return {
+        "mission_id": item.mission_id,
+        "priority": item.priority.value,
+        "status": item.status.value,
+        "title": item.title,
+        "assigned_specialist": item.assigned_specialist,
+        "next_action": item.next_action,
+        "blockers": item.blockers,
+        "dependencies": item.dependencies,
+        "confidence": item.confidence,
+        "confidence_band": item.confidence_band.value if item.confidence_band else None,
+        "rationale": item.rationale,
+        "engineering_status": item.engineering_status,
     }
 
-    # Recommended next action
-    recommendation = None
-    if top_blocker:
-        blk_id = top_blocker["blocking_mission"]
-        blk_m = corpus["missions"].get(blk_id, {})
-        recommendation = {
-            "action": f"Activate {blk_id}",
-            "mission_id": blk_id,
-            "title": blk_m.get("title", blk_id),
-            "rationale": (
-                f"Activating {blk_id} unblocks {top_blocker['blocked_mission']} "
-                f"({top_blocker['blocked_title']}), the highest-priority active mission "
-                "with an explicit dependency."
-            ),
-            "confidence": "HIGH",
-            "source": "depends_on traversal",
-        }
-    elif ranked:
-        m = ranked[0]
-        recommendation = {
-            "action": f"Progress {m['id']}",
-            "mission_id": m["id"],
-            "title": m.get("title", m["id"]),
-            "rationale": "Highest-priority active mission with no blocking dependencies.",
-            "confidence": "HIGH",
-            "source": "priority ranking",
-        }
+
+def _escalation_to_dict(esc) -> dict:
+    return {
+        "escalation_type": esc.escalation_type,
+        "mission_id": esc.mission_id,
+        "level": esc.level.value,
+        "reason": esc.reason,
+        "data": esc.data,
+        "recommendation": esc.recommendation,
+        "timestamp": esc.timestamp.isoformat() if esc.timestamp else None,
+    }
+
+
+def _http_number_one_brief() -> dict:
+    """Assemble Number One Brief via the real NumberOne coordination engine
+    (core/coordination/number_one.py) — work queue, blockers, follow-ups,
+    escalations, specialist workload, recommended actions.
+
+    2026-09-08 (USS-TJR-MSN-0054): replaces a hand-rolled scoring function
+    that reimplemented a thinner version of the same brief logic from
+    scratch. NumberOne was well-built and tested (core/coordination/
+    test_number_one.py) but had zero live callers anywhere in the platform
+    — this endpoint is the first one. _load_missions() already produces the
+    mission-dict shape NumberOne.Mission.from_registry() expects (mission_id,
+    title, status, priority, domain, blockers, dependencies, next_action,
+    assigned_role), so no new adapter was needed — it was already sitting
+    there unused, just never called from this function specifically.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
+    from number_one import NumberOne  # noqa: PLC0415
+
+    missions = _load_missions()
+    brief = NumberOne().get_daily_brief(missions)
 
     return {
         "assembled_at": _http_timestamp(),
         "source": "context_assembly_service",
-        "top_priorities": top_priorities,
-        "top_blocker": top_blocker,
-        "top_risk": top_risk,
-        "recommended_next_action": recommendation,
+        "engine": "number_one_coordination_engine",
+        "generated_at": brief.timestamp.isoformat(),
+        "system_health": brief.system_health,
+        "total_missions": brief.total_missions,
+        "active_count": brief.active_count,
+        "blocked_count": brief.blocked_count,
+        "proposed_count": brief.proposed_count,
+        "top_priorities": [_work_queue_item_to_dict(i) for i in brief.top_priorities],
+        "blocked_missions": [_work_queue_item_to_dict(i) for i in brief.blocked_missions],
+        "follow_ups": brief.follow_ups,
+        "escalations": [_escalation_to_dict(e) for e in brief.escalations],
+        "specialist_workload": brief.specialist_workload,
+        "recommended_actions": brief.recommended_actions,
     }
 
 

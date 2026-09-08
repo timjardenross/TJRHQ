@@ -585,27 +585,31 @@ class TestLiveService(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
 
     def test_number_one_brief_contract(self):
+        """2026-09-08 (USS-TJR-MSN-0054): /brief/number-one now runs through
+        the real NumberOne coordination engine (core/coordination/
+        number_one.py) instead of a hand-rolled scoring function — the
+        response shape changed to CoordinationBrief's actual fields."""
         r = self.requests.get(f"{self.base}/brief/number-one", timeout=10)
         data = r.json()
-        for key in ("assembled_at", "source", "top_priorities",
-                    "top_blocker", "top_risk", "recommended_next_action"):
+        for key in ("assembled_at", "source", "engine", "system_health",
+                    "total_missions", "active_count", "blocked_count",
+                    "proposed_count", "top_priorities", "blocked_missions",
+                    "follow_ups", "escalations", "specialist_workload",
+                    "recommended_actions"):
             self.assertIn(key, data, f"Missing key in live /brief/number-one: {key}")
 
-    def test_number_one_brief_blocker_identified(self):
-        """MSN-0011 is blocked by MSN-0009 — this must be surfaced."""
+    def test_number_one_brief_uses_real_engine(self):
+        r = self.requests.get(f"{self.base}/brief/number-one", timeout=10)
+        self.assertEqual(r.json().get("engine"), "number_one_coordination_engine")
+
+    def test_number_one_brief_work_queue_item_shape(self):
         r = self.requests.get(f"{self.base}/brief/number-one", timeout=10)
         data = r.json()
-        blocker = data.get("top_blocker")
-        self.assertIsNotNone(blocker, "top_blocker should not be None")
-        self.assertIn("MSN-0011", blocker.get("blocked_mission", ""))
-        self.assertIn("MSN-0009", blocker.get("blocking_mission", ""))
-
-    def test_number_one_recommendation_present(self):
-        r = self.requests.get(f"{self.base}/brief/number-one", timeout=10)
-        rec = r.json().get("recommended_next_action")
-        self.assertIsNotNone(rec)
-        self.assertIn("action", rec)
-        self.assertIn("confidence", rec)
+        for item in data["top_priorities"]:
+            for key in ("mission_id", "priority", "status", "title",
+                        "assigned_specialist", "next_action", "blockers",
+                        "dependencies"):
+                self.assertIn(key, item, f"Missing WorkQueueItem field: {key}")
 
     @unittest.skipUnless(_EXPRESS_LIVE,
                          "Express API (port 5000) not running — Slack handler tier-1 unavailable")

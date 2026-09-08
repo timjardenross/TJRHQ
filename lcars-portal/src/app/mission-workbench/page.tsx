@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { Badge, Card } from '@/components/ui';
 import { WorkbenchShell } from '@/components/ui';
 import { MissionCard } from './_components/MissionCard';
+import { NumberOneCoordination } from './_components/NumberOneCoordination';
 import { useROSData } from '@/lib/useROSData';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { ACTIVE_STATUSES, COMPLETED_STATUSES, TERMINAL_STATUSES } from '@/lib/missionStatus';
@@ -222,6 +223,8 @@ export default function MissionWorkbenchPage() {
             </div>
 
             <OvercommitmentWarning posture={currentPosture} activeCount={activeMissions.length} />
+
+            <NumberOneCoordination />
           </>
         )}
 
