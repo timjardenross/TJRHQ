@@ -413,5 +413,81 @@ class TestLLMProviderModelRouter(unittest.TestCase):
         self.assertIsNone(name)
 
 
+class TestMistralPipelineStages(unittest.TestCase):
+    """Stage 1 (Research Scout) and Stage 1b (Engineering Officer) run in
+    parallel — they both read the same pre-Stage-1 input, not each other's
+    output, so there's no reason to force them sequential. Verifies the
+    concurrency doesn't change the pipeline's observable behavior."""
+
+    def _provider_with_agents_configured(self, *, engineering: bool):
+        from intelligence.brief import llm_provider as lp
+        provider = lp.LLMProvider()
+        patches = [
+            patch.object(lp, "MISTRAL_API_KEY", "fake-key"),
+            patch.object(lp, "MISTRAL_RESEARCH_AGENT_ID", "research-agent"),
+            patch.object(lp, "MISTRAL_RESEARCH_AGENT_VERSION", "1"),
+            patch.object(lp, "MISTRAL_BRIEFING_AGENT_ID", "briefing-agent"),
+            patch.object(lp, "MISTRAL_BRIEFING_AGENT_VERSION", "1"),
+            patch.object(lp, "MISTRAL_DECOMPOSITION_AGENT_ID", ""),
+            patch.object(lp, "MISTRAL_TAO_AGENT_ID", ""),
+            patch.object(lp, "MISTRAL_ENGINEERING_AGENT_ID", "engineering-agent" if engineering else ""),
+            patch.object(lp, "MISTRAL_ENGINEERING_AGENT_VERSION", "1"),
+        ]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        return provider
+
+    def test_stage1_and_stage1b_both_run_and_merge_when_engineering_present(self):
+        provider = self._provider_with_agents_configured(engineering=True)
+
+        def fake_call_agent(stage, agent_id, agent_version, prompt, client=None):
+            return {
+                "stage1-research": "research findings",
+                "stage1b-engineering": "engineering notes",
+                "stage4-briefing": "final brief",
+            }[stage]
+
+        with patch.object(provider, "_call_agent", side_effect=fake_call_agent) as mock_call:
+            result = provider._mistral_pipeline("Engineering: something broke")
+
+        self.assertEqual(result, "final brief")
+        called_stages = {c.kwargs["stage"] for c in mock_call.call_args_list}
+        self.assertIn("stage1-research", called_stages)
+        self.assertIn("stage1b-engineering", called_stages)
+        # Stage 4's prompt must have received both Stage 1's and Stage 1b's output.
+        stage4_call = next(c for c in mock_call.call_args_list if c.kwargs["stage"] == "stage4-briefing")
+        self.assertIn("research findings", stage4_call.kwargs["prompt"])
+        self.assertIn("engineering notes", stage4_call.kwargs["prompt"])
+
+    def test_stage1b_skipped_without_engineering_content(self):
+        provider = self._provider_with_agents_configured(engineering=True)
+
+        def fake_call_agent(stage, agent_id, agent_version, prompt, client=None):
+            return {"stage1-research": "research findings", "stage4-briefing": "final brief"}[stage]
+
+        with patch.object(provider, "_call_agent", side_effect=fake_call_agent) as mock_call:
+            result = provider._mistral_pipeline("no engineering content here")
+
+        self.assertEqual(result, "final brief")
+        called_stages = {c.kwargs["stage"] for c in mock_call.call_args_list}
+        self.assertNotIn("stage1b-engineering", called_stages)
+
+    def test_stage1b_failure_does_not_block_pipeline(self):
+        provider = self._provider_with_agents_configured(engineering=True)
+
+        def fake_call_agent(stage, agent_id, agent_version, prompt, client=None):
+            return {
+                "stage1-research": "research findings",
+                "stage1b-engineering": None,  # simulates the agent failing
+                "stage4-briefing": "final brief",
+            }[stage]
+
+        with patch.object(provider, "_call_agent", side_effect=fake_call_agent):
+            result = provider._mistral_pipeline("Engineering: something broke")
+
+        self.assertEqual(result, "final brief")
+
+
 if __name__ == "__main__":
     unittest.main()

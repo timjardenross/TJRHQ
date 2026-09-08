@@ -25,6 +25,7 @@ import logging
 import time
 import urllib.request
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 from intelligence.config import (
@@ -233,6 +234,13 @@ class LLMProvider:
 
         log.info("[pipeline] Starting Mistral brief pipeline")
 
+        # One client for the whole run instead of one per stage. mistralai's
+        # sync client is an httpx.Client underneath, which is documented as
+        # safe for concurrent requests from multiple threads — relied on
+        # below where Stage 1 and Stage 1b run in parallel.
+        from mistralai import Mistral
+        client = Mistral(api_key=MISTRAL_API_KEY)
+
         # ── Stage 0: Cognitive Subspace Decomposition Unit (CSD) ─────────────
         # Pre-processing: frame the raw event dump into structured research
         # directives before the Research Scout sees it. Optional — the Scout
@@ -253,6 +261,7 @@ class LLMProvider:
                 agent_id=MISTRAL_DECOMPOSITION_AGENT_ID,
                 agent_version=int(MISTRAL_DECOMPOSITION_AGENT_VERSION),
                 prompt=stage0_prompt,
+                client=client,
             )
             if decomposed:
                 log.info("[pipeline] Stage 0 (CSD) complete (%d chars)", len(decomposed))
@@ -260,7 +269,12 @@ class LLMProvider:
             else:
                 log.warning("[pipeline] Stage 0 (CSD) failed — continuing with raw event dump")
 
-        # ── Stage 1: Research Scout ──────────────────────────────────────────
+        # ── Stage 1: Research Scout (+ Stage 1b: Engineering Officer, in parallel) ──
+        # Stage 1b consumes research_input — the same pre-Stage-1 text Stage 1
+        # itself reads — not Stage 1's output, so the two have no data
+        # dependency on each other; only the merge below needs both done.
+        # Ran sequentially before, costing a full extra agent round-trip on
+        # every run that touches engineering content for no reason.
         stage1_prompt = (
             f"{_SYSTEM_PROMPT}\n\n"
             "STAGE 1 — RESEARCH SYNTHESIS\n"
@@ -270,21 +284,14 @@ class LLMProvider:
             "news, health, engineering, operational resilience, learning, opportunities.\n\n"
             f"{research_input}"
         )
-        research_package = self._call_agent(
-            stage="stage1-research",
-            agent_id=MISTRAL_RESEARCH_AGENT_ID,
-            agent_version=int(MISTRAL_RESEARCH_AGENT_VERSION),
-            prompt=stage1_prompt,
-        )
-        if not research_package:
-            raise RuntimeError("Stage 1 (Research Scout) returned no output")
-        log.info("[pipeline] Stage 1 complete (%d chars)", len(research_package))
 
-        # ── Stage 1b: Engineering Officer (domain specialist) ────────────────
-        # Only runs when the input actually contains engineering-domain
+        # Only run Stage 1b when the input actually contains engineering-domain
         # content (daily_digest.py labels its section "Engineering:") — no
         # point spending a call framing an empty section.
-        if MISTRAL_ENGINEERING_AGENT_ID and "Engineering:" in prompt:
+        run_engineering = bool(MISTRAL_ENGINEERING_AGENT_ID) and "Engineering:" in prompt
+        eng_take: Optional[str] = None
+
+        if run_engineering:
             stage1b_prompt = (
                 f"{_SYSTEM_PROMPT}\n\n"
                 "You are the Engineering Officer. The events below include an Engineering section. "
@@ -293,17 +300,43 @@ class LLMProvider:
                 "research package, not read standalone.\n\n"
                 f"{research_input}"
             )
-            eng_take = self._call_agent(
-                stage="stage1b-engineering",
-                agent_id=MISTRAL_ENGINEERING_AGENT_ID,
-                agent_version=int(MISTRAL_ENGINEERING_AGENT_VERSION),
-                prompt=stage1b_prompt,
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                research_future = pool.submit(
+                    self._call_agent,
+                    stage="stage1-research",
+                    agent_id=MISTRAL_RESEARCH_AGENT_ID,
+                    agent_version=int(MISTRAL_RESEARCH_AGENT_VERSION),
+                    prompt=stage1_prompt,
+                    client=client,
+                )
+                eng_future = pool.submit(
+                    self._call_agent,
+                    stage="stage1b-engineering",
+                    agent_id=MISTRAL_ENGINEERING_AGENT_ID,
+                    agent_version=int(MISTRAL_ENGINEERING_AGENT_VERSION),
+                    prompt=stage1b_prompt,
+                    client=client,
+                )
+                research_package = research_future.result()
+                eng_take = eng_future.result()
+        else:
+            research_package = self._call_agent(
+                stage="stage1-research",
+                agent_id=MISTRAL_RESEARCH_AGENT_ID,
+                agent_version=int(MISTRAL_RESEARCH_AGENT_VERSION),
+                prompt=stage1_prompt,
+                client=client,
             )
-            if eng_take:
-                log.info("[pipeline] Stage 1b (Engineering Officer) complete (%d chars)", len(eng_take))
-                research_package = f"{research_package}\n\nENGINEERING OFFICER NOTES:\n{eng_take}"
-            else:
-                log.warning("[pipeline] Stage 1b (Engineering Officer) failed — continuing without it")
+
+        if not research_package:
+            raise RuntimeError("Stage 1 (Research Scout) returned no output")
+        log.info("[pipeline] Stage 1 complete (%d chars)", len(research_package))
+
+        if eng_take:
+            log.info("[pipeline] Stage 1b (Engineering Officer) complete (%d chars)", len(eng_take))
+            research_package = f"{research_package}\n\nENGINEERING OFFICER NOTES:\n{eng_take}"
+        elif run_engineering:
+            log.warning("[pipeline] Stage 1b (Engineering Officer) failed — continuing without it")
 
         # ── Stage 2: Tactical Analysis Officer (TAO) ─────────────────────────
         # Single agent combining challenge review + summary compression (web search OFF)
@@ -320,6 +353,7 @@ class LLMProvider:
                 agent_id=MISTRAL_TAO_AGENT_ID,
                 agent_version=int(MISTRAL_TAO_AGENT_VERSION),
                 prompt=stage2_prompt,
+                client=client,
             )
             if tao_output:
                 log.info("[pipeline] Stage 2 (TAO) complete (%d chars)", len(tao_output))
@@ -390,6 +424,7 @@ class LLMProvider:
             agent_id=MISTRAL_BRIEFING_AGENT_ID,
             agent_version=int(MISTRAL_BRIEFING_AGENT_VERSION),
             prompt=stage4_prompt,
+            client=client,
         )
         if not briefing_output:
             raise RuntimeError("Stage 4 (Briefing Officer) returned no output")
@@ -408,15 +443,22 @@ class LLMProvider:
         agent_id: str,
         agent_version: int,
         prompt: str,
+        client: "Optional[Mistral]" = None,
     ) -> Optional[str]:
         """
         Call a Mistral agent via the conversations API.
         If the agent triggers web_search tool calls and returns no final message
         (conversations API returns intermediate state), fall back to calling
         mistral-small-latest directly via chat completions with the same prompt.
+
+        client lets _mistral_pipeline share one client across its up-to-7
+        stage calls instead of constructing a new one per stage; callers
+        outside the pipeline (check_brief_quality/check_risk_rating, each a
+        single one-off call) can omit it and get a fresh one as before.
         """
-        from mistralai import Mistral
-        client = Mistral(api_key=MISTRAL_API_KEY)
+        if client is None:
+            from mistralai import Mistral
+            client = Mistral(api_key=MISTRAL_API_KEY)
 
         for attempt in range(1, 3):
             try:
@@ -424,6 +466,12 @@ class LLMProvider:
                     agent_id=agent_id,
                     agent_version=agent_version,
                     inputs=[{"role": "user", "content": prompt}],
+                    # Bounds a single stage so one stuck web_search tool call
+                    # can't silently balloon the whole pipeline's latency —
+                    # observed live latency for the entire multi-stage
+                    # pipeline tops out around 70s (see HQ Status Usage tab
+                    # data), so 45s is generous for any one stage.
+                    timeout_ms=45_000,
                 )
                 text = self._extract_text(response)
                 if text:
