@@ -14,7 +14,7 @@ import { WorkbenchShell } from '@/components/ui';
 import { MissionCard } from './_components/MissionCard';
 import { useROSData } from '@/lib/useROSData';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
-import { ACTIVE_STATUSES, COMPLETED_STATUSES } from '@/lib/missionStatus';
+import { ACTIVE_STATUSES, COMPLETED_STATUSES, TERMINAL_STATUSES } from '@/lib/missionStatus';
 import type { Mission, RecoveryPostureBand } from '@/lib/types';
 
 const CAPACITY_COST: Record<string, { postures: RecoveryPostureBand[] }> = {
@@ -60,6 +60,7 @@ export default function MissionWorkbenchPage() {
   // fabricated data as if it were a real, current posture reading.
   const currentPosture = isPostureLive ? (livePosture.posture ?? 'UNKNOWN') : 'UNKNOWN';
 
+  const [view, setView] = useState<'open' | 'closed'>('open');
   const [filter, setFilter] = useState<'all' | 'today'>('all');
   const [liveMissions, setLiveMissions] = useState<Mission[]>([]);
   const [liveSummary, setLiveSummary] = useState<{
@@ -75,7 +76,7 @@ export default function MissionWorkbenchPage() {
         const supabase = createSupabaseBrowserClient();
         const { data, error } = await supabase
           .from('missions')
-          .select('id, mission_id, title, status, priority')
+          .select('id, mission_id, title, status, priority, updated_at, closed_at')
           .order('priority', { ascending: true });
         if (error) throw error;
         if (data) {
@@ -105,10 +106,16 @@ export default function MissionWorkbenchPage() {
 
   const summary = liveSummary ?? { total: 0, active: 0, in_progress: 0, blocked: 0, completed: 0, by_priority: {} };
   const activeMissions = liveMissions.filter(m => ACTIVE_STATUSES.includes(m.status));
-  const displayMissions = filter === 'today'
-    ? activeMissions.filter(m => isSuitableToday(m.priority, currentPosture))
-    : liveMissions;
+  const openMissions = liveMissions.filter(m => !TERMINAL_STATUSES.includes(m.status));
+  const closedMissions = liveMissions
+    .filter(m => TERMINAL_STATUSES.includes(m.status))
+    .sort((a, b) => (b.closed_at ?? b.updated_at ?? '').localeCompare(a.closed_at ?? a.updated_at ?? ''));
   const suitableCount = activeMissions.filter(m => isSuitableToday(m.priority, currentPosture)).length;
+  const displayMissions = view === 'closed'
+    ? closedMissions
+    : filter === 'today'
+      ? activeMissions.filter(m => isSuitableToday(m.priority, currentPosture))
+      : openMissions;
 
   const stats = [
     { label: 'Total', value: summary.total },
@@ -154,51 +161,83 @@ export default function MissionWorkbenchPage() {
           )}
         </Card>
 
-        {/* D-055 capacity filter */}
-        <div className="flex flex-col justify-between gap-3 rounded-lg border border-wb-line bg-wb-surface px-4 py-3 sm:flex-row sm:items-center">
-          <div>
-            <p className="mb-1 text-[10px] uppercase tracking-wider text-wb-ink2">
-              D-055 · Today&apos;s posture: <span className="text-wb-sage-deep">{currentPosture}</span>
-            </p>
-            <p className="text-[12px] text-wb-ink">
-              {suitableCount} of {activeMissions.length} active missions suitable for today&apos;s capacity.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setFilter('all')}
-              className={`rounded-md border px-3 py-1.5 text-[12px] font-semibold transition-colors focus-visible:outline
-                focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
-                filter === 'all' ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'
-              }`}
-            >
-              All missions
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter('today')}
-              className={`rounded-md border px-3 py-1.5 text-[12px] font-semibold transition-colors focus-visible:outline
-                focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
-                filter === 'today' ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'
-              }`}
-            >
-              Suitable today ({suitableCount})
-            </button>
-          </div>
+        {/* Open/In Progress vs Closed tabs */}
+        <div className="flex gap-2 border-b border-wb-line">
+          <button
+            type="button"
+            onClick={() => setView('open')}
+            className={`border-b-2 px-3 py-2 text-[12px] font-semibold transition-colors focus-visible:outline
+              focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+              view === 'open' ? 'border-wb-sage-deep text-wb-sage-deep' : 'border-transparent text-wb-ink2 hover:text-wb-ink'
+            }`}
+          >
+            Open / In Progress ({openMissions.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('closed')}
+            className={`border-b-2 px-3 py-2 text-[12px] font-semibold transition-colors focus-visible:outline
+              focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+              view === 'closed' ? 'border-wb-sage-deep text-wb-sage-deep' : 'border-transparent text-wb-ink2 hover:text-wb-ink'
+            }`}
+          >
+            Closed ({closedMissions.length})
+          </button>
         </div>
 
-        <OvercommitmentWarning posture={currentPosture} activeCount={activeMissions.length} />
+        {view === 'open' && (
+          <>
+            {/* D-055 capacity filter */}
+            <div className="flex flex-col justify-between gap-3 rounded-lg border border-wb-line bg-wb-surface px-4 py-3 sm:flex-row sm:items-center">
+              <div>
+                <p className="mb-1 text-[10px] uppercase tracking-wider text-wb-ink2">
+                  D-055 · Today&apos;s posture: <span className="text-wb-sage-deep">{currentPosture}</span>
+                </p>
+                <p className="text-[12px] text-wb-ink">
+                  {suitableCount} of {activeMissions.length} active missions suitable for today&apos;s capacity.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFilter('all')}
+                  className={`rounded-md border px-3 py-1.5 text-[12px] font-semibold transition-colors focus-visible:outline
+                    focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+                    filter === 'all' ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'
+                  }`}
+                >
+                  All missions
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilter('today')}
+                  className={`rounded-md border px-3 py-1.5 text-[12px] font-semibold transition-colors focus-visible:outline
+                    focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+                    filter === 'today' ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'
+                  }`}
+                >
+                  Suitable today ({suitableCount})
+                </button>
+              </div>
+            </div>
+
+            <OvercommitmentWarning posture={currentPosture} activeCount={activeMissions.length} />
+          </>
+        )}
 
         <Card>
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <h2 className="font-serif text-lg text-wb-ink">{filter === 'today' ? 'Suitable for Today' : 'All Missions'}</h2>
+              <h2 className="font-serif text-lg text-wb-ink">
+                {view === 'closed' ? 'Closed Missions' : filter === 'today' ? 'Suitable for Today' : 'Open / In Progress Missions'}
+              </h2>
               <p className="text-[11px] uppercase tracking-wide text-wb-ink2">
-                {filter === 'today' ? `${currentPosture} posture · capacity-matched` : 'Sorted by priority'}
+                {view === 'closed'
+                  ? 'Closed or archived · most recently closed first'
+                  : filter === 'today' ? `${currentPosture} posture · capacity-matched` : 'Sorted by priority'}
               </p>
             </div>
-            {filter === 'today' && <Badge status="info">Filtered</Badge>}
+            {view === 'open' && filter === 'today' && <Badge status="info">Filtered</Badge>}
           </div>
 
           {isLoading ? (
