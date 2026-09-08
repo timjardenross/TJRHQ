@@ -23,6 +23,8 @@ HTTP endpoints:
   GET /health           — liveness check + corpus counts
   GET /brief/captain    — Captain Brief JSON (health summary, priorities, blockers, decisions)
   GET /brief/number-one — Number One Brief JSON (top-3, blocker, risk, recommendation)
+  GET /queue/health-adjusted — Number One's capacity-aware work queue (per-item
+                          capacity_note, recommended_focus, plain-English advisory)
 
 Design constraints (WP-A):
   - Stateless: corpus re-read on every request
@@ -368,6 +370,17 @@ def _make_flask_app():
                 "assembled_at": _http_timestamp(),
             }), 500
 
+    @http_app.get("/queue/health-adjusted")
+    def http_health_adjusted_queue():
+        try:
+            return jsonify(_http_health_adjusted_queue())
+        except Exception as exc:
+            return jsonify({
+                "error": "health_adjusted_queue_failed",
+                "detail": str(exc),
+                "assembled_at": _http_timestamp(),
+            }), 500
+
     # ── Real Captain's Brief + Recommendations, over HTTP ──────────────────
     # 2026-07-10: lcars-portal's api/captain-brief and api/recommendations
     # routes previously shelled out to a local python3 CLI
@@ -661,6 +674,60 @@ def _pr_health_escalations(missions: list) -> list[dict]:
     return escalations
 
 
+def _capacity_status_for_today() -> str:
+    """Today's Green/Amber/Red/Unknown capacity status, from the same live
+    Captain's Log + capacity_score.py pipeline that already powers the
+    Human Systems Capacity Gate (core/health/capacity_gate.py, D-055) —
+    not a new source of truth, just this endpoint's first use of the
+    existing one. Never raises: falls back to "Unknown" on any failure
+    (no Supabase config, no check-in today, import error), matching
+    get_health_adjusted_queue()'s own honest-Unknown handling.
+    """
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
+        from health_context_adapter import build_health_context_live  # noqa: PLC0415
+
+        health = build_health_context_live()
+        return health.capacity_status or "Unknown"
+    except Exception as exc:
+        _err(f"Could not resolve today's capacity status — defaulting to Unknown: {exc}")
+        return "Unknown"
+
+
+def _http_health_adjusted_queue() -> dict:
+    """Number One's capacity-aware work queue (get_health_adjusted_queue())
+    over HTTP — the same engine call _http_number_one_brief() makes for the
+    daily brief, but exposing the queue's own capacity_note/recommended_focus/
+    advisory overlay directly rather than folding it into the brief.
+
+    2026-09-08 (USS-TJR-MSN-0054 follow-on): get_health_adjusted_queue() was
+    already built and tested-by-nobody in number_one.py with zero live
+    callers, same situation NumberOne itself was in before this mission.
+    Reuses the exact same mission-loading path as the brief (live Supabase
+    overlay + approved engineering handoffs) so the queue and the brief
+    never disagree about what "today's missions" means.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
+    from number_one import NumberOne  # noqa: PLC0415
+    from engineering_handoff_reader import load_engineering_handoffs  # noqa: PLC0415
+
+    missions = _load_live_missions_for_number_one()
+    try:
+        missions = missions + load_engineering_handoffs()
+    except Exception as exc:
+        _err(f"Could not load engineering handoffs: {exc}")
+
+    capacity_status = _capacity_status_for_today()
+    queue = NumberOne().get_health_adjusted_queue(missions, capacity_status)
+
+    return {
+        "assembled_at": _http_timestamp(),
+        "source": "context_assembly_service",
+        "engine": "number_one_coordination_engine",
+        **queue,
+    }
+
+
 def _http_number_one_brief() -> dict:
     """Assemble Number One Brief via the real NumberOne coordination engine
     (core/coordination/number_one.py) — work queue, blockers, follow-ups,
@@ -762,7 +829,7 @@ def main():
         port = args.port or config.CONTEXT_SERVICE_PORT
         flask_app = _make_flask_app()
         print(f"[context-service] Starting HTTP server on http://{args.host}:{port}")
-        print(f"[context-service] Endpoints: GET /health  GET /brief/captain  GET /brief/number-one  GET /brief/full  GET /recommendations/full  POST /brief/evolved")
+        print(f"[context-service] Endpoints: GET /health  GET /brief/captain  GET /brief/number-one  GET /queue/health-adjusted  GET /brief/full  GET /recommendations/full  POST /brief/evolved")
         # threaded=True (2026-08-09): /brief/evolved's real LLM calls run
         # 50-260s (MSN-0329 Phase 3 measured latency). Werkzeug's dev
         # server defaults to single-threaded/single-process, so without

@@ -110,6 +110,7 @@ class TestNumberOne:
         self.test_engineering_handoff_ingestion()
         self.test_engineering_handoff_lifecycle()
         self.test_blocked_ops_status_treated_as_blocked()
+        self.test_health_adjusted_queue()
 
         print()
         print("=" * 80)
@@ -447,6 +448,63 @@ class TestNumberOne:
         self.assert_true(
             report["total_blockers"] == 1 and len(report["critical"]) == 1,
             "get_blockers() should report a BLOCKED_OPS mission with blocker text",
+        )
+
+        print()
+
+    def test_health_adjusted_queue(self):
+        """Test 10: get_health_adjusted_queue() — the capacity overlay had
+        zero test coverage and zero live callers before it was wired into
+        context_service.py's /queue/health-adjusted (2026-09-08,
+        USS-TJR-MSN-0054 follow-on). Covers the Red/Amber/Green branches
+        already in the function plus the new Unknown branch, which must
+        give an honest "no check-in data" advisory rather than silently
+        reusing Green's "Normal prioritisation applies" wording."""
+        print("TEST 10: Health-Adjusted Queue (capacity overlay)")
+        print("-" * 80)
+
+        missions = [
+            create_test_mission("P0-ACTIVE", Priority.P0, MissionStatus.ACTIVE),
+            create_test_mission("P1-ACTIVE", Priority.P1, MissionStatus.ACTIVE),
+            create_test_mission("P2-ACTIVE", Priority.P2, MissionStatus.ACTIVE),
+        ]
+
+        red = self.number_one.get_health_adjusted_queue(missions, "Red")
+        red_notes = {m["mission_id"]: m["capacity_note"] for m in red["queue"]}
+        self.assert_true(
+            "CRITICAL" in red_notes["P0-ACTIVE"] and "DEFERRED" in red_notes["P1-ACTIVE"],
+            "Red capacity should mark P0 critical and defer everything else",
+        )
+        self.assert_true(
+            "RED" in red["advisory"].upper(),
+            "Red advisory should name the Red capacity state",
+        )
+
+        amber = self.number_one.get_health_adjusted_queue(missions, "Amber")
+        amber_notes = {m["mission_id"]: m["capacity_note"] for m in amber["queue"]}
+        self.assert_true(
+            "Proceed" in amber_notes["P1-ACTIVE"] and "Advisory" in amber_notes["P2-ACTIVE"],
+            "Amber capacity should greenlight P0/P1 and flag P2/P3 as advisory-only",
+        )
+
+        green = self.number_one.get_health_adjusted_queue(missions, "Green")
+        self.assert_true(
+            all(m["capacity_note"] == "" for m in green["queue"]),
+            "Green capacity should not annotate any queue item",
+        )
+        self.assert_true(
+            "GREEN" in green["advisory"].upper(),
+            "Green advisory should name the Green capacity state",
+        )
+
+        unknown = self.number_one.get_health_adjusted_queue(missions, "Unknown")
+        self.assert_true(
+            all(m["capacity_note"] == "" for m in unknown["queue"]),
+            "Unknown capacity should not annotate any queue item (nothing to gate against)",
+        )
+        self.assert_true(
+            "UNKNOWN" in unknown["advisory"].upper() and "GREEN" not in unknown["advisory"].upper(),
+            "Unknown capacity must say so honestly, not silently claim Green",
         )
 
         print()

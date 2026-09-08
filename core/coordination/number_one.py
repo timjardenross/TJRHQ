@@ -416,8 +416,25 @@ class NumberOne:
                 m["title"] for m in annotated
                 if m["priority"] in ("P0", "P1") and "BLOCKED" not in m["status"].upper()
             ][:3]
-        else:
+        elif capacity_status == "Green":
             advisory = "Captain is at GREEN capacity. Normal prioritisation applies."
+            recommended_focus = [
+                m["title"] for m in annotated
+                if "BLOCKED" not in m["status"].upper()
+            ][:3]
+        else:
+            # 2026-09-08 (USS-TJR-MSN-0054): capacity_status is "Unknown" (no
+            # Captain's Log check-in for today) or any other unrecognised
+            # value. Must not silently collapse into the Green branch's
+            # "Normal prioritisation applies" wording — that overstates
+            # confidence in data we don't actually have. No gating overlay
+            # is applied either way (there's nothing to gate against), but
+            # the advisory says so honestly instead of claiming Green.
+            advisory = (
+                "Captain's capacity is UNKNOWN today — no check-in data available. "
+                "Number One is not applying a capacity gate; normal prioritisation applies "
+                "but is not capacity-adjusted."
+            )
             recommended_focus = [
                 m["title"] for m in annotated
                 if "BLOCKED" not in m["status"].upper()
