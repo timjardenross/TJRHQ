@@ -111,6 +111,71 @@ def _load_corpus():
         return {"missions": {}, "decisions": {}, "adrs": {}, "capabilities": {}}
 
 
+def _load_live_missions_for_number_one() -> list:
+    """_load_missions() overlaid with live Supabase status/priority — the
+    actual system of record for mission lifecycle (per core/command-centre/
+    backend/api/missions.js's own comment: "mission-index.txt and
+    missions.db are NOT authoritative here. All reads go through
+    supabaseGet() -> PostgREST.").
+
+    2026-09-08: found while extending Number One's brief — the only sync
+    between Supabase and the file corpus (mission-registry-sync.timer, daily
+    06:45) only appends brand-new mission IDs to a flat text index; it never
+    updates an existing mission's status. So Missions/Active/*.md can
+    silently drift from what Supabase actually says a mission's current
+    status/priority is, and Number One's escalation/follow-up detection
+    would be reasoning over stale data without this.
+
+    Supabase's missions table has no blockers/dependencies/next_action/
+    assigned_role columns at all — those richer fields (which Number One's
+    escalation rules do use) only exist in the file corpus, where present.
+    So this overlays live status/priority onto the file corpus by
+    mission_id (Supabase wins for those two fields specifically) rather
+    than replacing the file corpus outright, and adds any Supabase mission
+    with no file-corpus record using just its Supabase fields (blockers/
+    dependencies/assigned_role empty for those — the same information
+    scarcity Number One already tolerates for a bare engineering handoff).
+    Falls back to the plain file corpus on any Supabase read failure.
+    """
+    file_missions = _load_missions()
+    by_id = {m["mission_id"]: dict(m) for m in file_missions}
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "core" / "health"))
+        from supabase_client import supabase_get  # noqa: PLC0415
+        rows = supabase_get("missions?select=mission_id,status,priority,updated_at,closed_at,pr_url")
+    except Exception as exc:
+        _err(f"Could not load live Supabase mission status — using file corpus only: {exc}")
+        return file_missions
+
+    for row in rows:
+        mid = row.get("mission_id")
+        if not mid:
+            continue
+        pr_url = row.get("pr_url")
+        if mid in by_id:
+            if row.get("status"):
+                by_id[mid]["status"] = row["status"]
+            if row.get("priority"):
+                by_id[mid]["priority"] = row["priority"]
+            if pr_url:
+                by_id[mid].setdefault("metadata", {})["pr_url"] = pr_url
+        else:
+            by_id[mid] = {
+                "mission_id": mid,
+                "title": mid,
+                "status": row.get("status") or "ACTIVE",
+                "priority": row.get("priority") or "P3",
+                "domain": "",
+                "due_date": None,
+                "metadata": {"pr_url": pr_url} if pr_url else {},
+                "blockers": [],
+                "dependencies": [],
+                "next_action": None,
+                "assigned_role": None,
+            }
+    return list(by_id.values())
+
+
 # ---------------------------------------------------------------------------
 # Assembly functions
 # ---------------------------------------------------------------------------
@@ -544,6 +609,58 @@ def _escalation_to_dict(esc) -> dict:
     }
 
 
+def _pr_health_escalations(missions: list) -> list[dict]:
+    """Check GitHub PR status for every mission/engineering-handoff carrying
+    a pr_url (core/coordination/pr_health.py) and generate escalation-shaped
+    dicts for what Number One's own rule-based checks can't see at all:
+    failing CI, or a reviewer requesting changes. Captain direction
+    (2026-09-08): "the role Number One plays is to review and catch things
+    I wouldn't pick up on, as I can't review code" — this is that.
+
+    Best-effort in both directions: pr_health.check_pr_health() never raises
+    (bad/missing token, network failure, PR not found all just skip that
+    one PR), and this function only ever ADDS escalations on top of
+    NumberOne's own rule-based ones — it can never suppress or block them.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
+    from pr_health import check_pr_health  # noqa: PLC0415
+
+    escalations = []
+    seen_urls: set[str] = set()
+    for m in missions:
+        pr_url = (m.get("metadata") or {}).get("pr_url")
+        if not pr_url or pr_url in seen_urls:
+            continue
+        seen_urls.add(pr_url)
+
+        health = check_pr_health(pr_url)
+        if not health.get("ok") or health.get("state") != "open":
+            continue
+
+        mission_id = m.get("mission_id", "")
+        if health.get("ci_conclusion") == "failure":
+            escalations.append({
+                "escalation_type": "PR_CI_FAILING",
+                "mission_id": mission_id,
+                "level": "HIGH",
+                "reason": f"CI is red on the open PR for {mission_id}",
+                "data": {"pr_url": pr_url, "ci_conclusion": health["ci_conclusion"]},
+                "recommendation": f"Review the CI failure at {pr_url}",
+                "timestamp": None,
+            })
+        if health.get("review_state") == "CHANGES_REQUESTED":
+            escalations.append({
+                "escalation_type": "PR_CHANGES_REQUESTED",
+                "mission_id": mission_id,
+                "level": "MEDIUM",
+                "reason": f"A reviewer requested changes on the open PR for {mission_id}",
+                "data": {"pr_url": pr_url, "review_state": health["review_state"]},
+                "recommendation": f"Address the review feedback at {pr_url}",
+                "timestamp": None,
+            })
+    return escalations
+
+
 def _http_number_one_brief() -> dict:
     """Assemble Number One Brief via the real NumberOne coordination engine
     (core/coordination/number_one.py) — work queue, blockers, follow-ups,
@@ -558,6 +675,13 @@ def _http_number_one_brief() -> dict:
     title, status, priority, domain, blockers, dependencies, next_action,
     assigned_role), so no new adapter was needed — it was already sitting
     there unused, just never called from this function specifically.
+
+    Uses _load_live_missions_for_number_one() (not the plain _load_missions())
+    — the file corpus that feeds every other function in this file has no
+    live sync with Supabase status changes, only new-mission-ID appends
+    (mission-registry-sync.timer), so it overlays live Supabase status/
+    priority onto the file corpus by mission_id. See that function's
+    docstring for the full reasoning.
 
     Also merges in approved engineering handoffs (core/coordination/
     engineering_handoff_reader.py's load_engineering_handoffs()) —
@@ -574,12 +698,18 @@ def _http_number_one_brief() -> dict:
     from number_one import NumberOne  # noqa: PLC0415
     from engineering_handoff_reader import load_engineering_handoffs  # noqa: PLC0415
 
-    missions = _load_missions()
+    missions = _load_live_missions_for_number_one()
     try:
         missions = missions + load_engineering_handoffs()
     except Exception as exc:
         _err(f"Could not load engineering handoffs: {exc}")
     brief = NumberOne().get_daily_brief(missions)
+
+    escalations = [_escalation_to_dict(e) for e in brief.escalations]
+    try:
+        escalations += _pr_health_escalations(missions)
+    except Exception as exc:
+        _err(f"Could not check PR health: {exc}")
 
     return {
         "assembled_at": _http_timestamp(),
@@ -594,7 +724,7 @@ def _http_number_one_brief() -> dict:
         "top_priorities": [_work_queue_item_to_dict(i) for i in brief.top_priorities],
         "blocked_missions": [_work_queue_item_to_dict(i) for i in brief.blocked_missions],
         "follow_ups": brief.follow_ups,
-        "escalations": [_escalation_to_dict(e) for e in brief.escalations],
+        "escalations": escalations,
         "specialist_workload": brief.specialist_workload,
         "recommended_actions": brief.recommended_actions,
     }

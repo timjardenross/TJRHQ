@@ -144,6 +144,73 @@ class TestHttpNumberOneBrief(unittest.TestCase):
             result = context_service._http_number_one_brief()
         self.assertEqual(result["total_missions"], len(_SYNTHETIC_MISSIONS))
 
+    def test_pr_ci_failure_becomes_an_escalation(self):
+        """Captain direction (2026-09-08): Number One should catch what a
+        non-code-reviewing Captain can't — a red PR is exactly that."""
+        mission_with_pr = {
+            **_SYNTHETIC_MISSIONS[1],
+            "metadata": {"pr_url": "https://github.com/acme/repo/pull/1"},
+        }
+        with patch.object(context_service, "_load_live_missions_for_number_one", return_value=[mission_with_pr]), \
+             patch("pr_health.check_pr_health", return_value={
+                 "ok": True, "state": "open", "ci_conclusion": "failure",
+                 "review_state": None, "mergeable_state": "blocked",
+             }):
+            result = context_service._http_number_one_brief()
+        types = [e["escalation_type"] for e in result["escalations"]]
+        self.assertIn("PR_CI_FAILING", types)
+
+    def test_pr_changes_requested_becomes_an_escalation(self):
+        mission_with_pr = {
+            **_SYNTHETIC_MISSIONS[1],
+            "metadata": {"pr_url": "https://github.com/acme/repo/pull/2"},
+        }
+        with patch.object(context_service, "_load_live_missions_for_number_one", return_value=[mission_with_pr]), \
+             patch("pr_health.check_pr_health", return_value={
+                 "ok": True, "state": "open", "ci_conclusion": "success",
+                 "review_state": "CHANGES_REQUESTED", "mergeable_state": "clean",
+             }):
+            result = context_service._http_number_one_brief()
+        types = [e["escalation_type"] for e in result["escalations"]]
+        self.assertIn("PR_CHANGES_REQUESTED", types)
+
+    def test_healthy_pr_produces_no_pr_escalation(self):
+        mission_with_pr = {
+            **_SYNTHETIC_MISSIONS[1],
+            "metadata": {"pr_url": "https://github.com/acme/repo/pull/3"},
+        }
+        with patch.object(context_service, "_load_live_missions_for_number_one", return_value=[mission_with_pr]), \
+             patch("pr_health.check_pr_health", return_value={
+                 "ok": True, "state": "open", "ci_conclusion": "success",
+                 "review_state": "APPROVED", "mergeable_state": "clean",
+             }):
+            result = context_service._http_number_one_brief()
+        types = [e["escalation_type"] for e in result["escalations"]]
+        self.assertNotIn("PR_CI_FAILING", types)
+        self.assertNotIn("PR_CHANGES_REQUESTED", types)
+
+    def test_pr_health_check_failure_degrades_gracefully(self):
+        """A GitHub API failure (bad token, rate limit, network) must never
+        break the brief — the endpoint must still return a valid response
+        with no PR_* escalations added, not raise or 500."""
+        mission_with_pr = {
+            **_SYNTHETIC_MISSIONS[1],
+            "metadata": {"pr_url": "https://github.com/acme/repo/pull/4"},
+        }
+        with patch.object(context_service, "_load_live_missions_for_number_one", return_value=[mission_with_pr]), \
+             patch("pr_health.check_pr_health", side_effect=RuntimeError("boom")):
+            result = context_service._http_number_one_brief()
+        self.assertEqual(result["total_missions"], 1)
+        types = [e["escalation_type"] for e in result["escalations"]]
+        self.assertNotIn("PR_CI_FAILING", types)
+        self.assertNotIn("PR_CHANGES_REQUESTED", types)
+
+    def test_mission_without_pr_url_is_skipped(self):
+        with patch.object(context_service, "_load_live_missions_for_number_one", return_value=_SYNTHETIC_MISSIONS), \
+             patch("pr_health.check_pr_health") as mock_check:
+            context_service._http_number_one_brief()
+        mock_check.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
