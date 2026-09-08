@@ -137,6 +137,47 @@ class TestFileSystemWalkExclusions(unittest.TestCase):
         self.assertIn("real_code.py", todos["TODO"][0])
 
 
+class TestFileSystemAuditReconciliation(unittest.TestCase):
+    """Regression test for USS-TJR-MSN-1788844167855: _find_test_files()
+    used to only glob the top-level tests/ directory non-recursively, while
+    _count_python_files() counted every .py file repo-wide (tests included)
+    — so a real audit run reported 976 python_files against only 94
+    test_files, even though 220 real test files existed outside tests/.
+    Proves test discovery now covers the same scope as the python-file
+    count: every discovered test file is one of the counted python files,
+    and files outside tests/ are found at all."""
+
+    def setUp(self):
+        self.tmpdir = Path(tempfile.mkdtemp())
+        (self.tmpdir / "pkg").mkdir()
+        (self.tmpdir / "pkg" / "module.py").write_text("x = 1\n")
+        (self.tmpdir / "pkg" / "test_module.py").write_text("def test_x(): pass\n")
+        tests_dir = self.tmpdir / "tests"
+        tests_dir.mkdir()
+        (tests_dir / "test_top_level.py").write_text("def test_y(): pass\n")
+        (self.tmpdir / "pkg" / "helper_test.py").write_text("def test_z(): pass\n")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_test_files_found_outside_top_level_tests_dir(self):
+        audit = FileSystemAudit(self.tmpdir)
+        test_files = audit._find_test_files()
+        self.assertIn("pkg/test_module.py", test_files)
+        self.assertIn("pkg/helper_test.py", test_files)
+        self.assertIn("tests/test_top_level.py", test_files)
+        self.assertEqual(len(test_files), 3)
+
+    def test_test_file_count_reconciles_with_python_file_count(self):
+        audit = FileSystemAudit(self.tmpdir)
+        python_count = audit._count_python_files()
+        test_count = len(audit._find_test_files())
+        # module.py + 3 test files = 4 total; every test file is a python
+        # file, so the test count can never exceed the total count.
+        self.assertEqual(python_count, 4)
+        self.assertLessEqual(test_count, python_count)
+
+
 class TestPolicyEngine(unittest.TestCase):
     """Test policy classification (deterministic rules)."""
 

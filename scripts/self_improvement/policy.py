@@ -254,7 +254,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
     # Test policy loading
-    policy_file = Path("config/self_improvement_policy.yaml")
+    policy_file = Path("config/self_improvement_policy.json")
     if policy_file.exists():
         engine = PolicyEngine(policy_file)
         print(f"Loaded {len(engine.category_policy)} policy categories")
