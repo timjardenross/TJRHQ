@@ -212,6 +212,8 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # to GLM cloud instead since this task doesn't need the Gemini-specific
     # provider branch. keep_alive "0" matches the MODEL_CLOUD convention used
     # by fallback-complex below (no local model stays resident for a cloud call).
+    # If MODEL_CLOUD (glm-5.3:cloud) isn't pulled/available yet, _run_task()
+    # falls this back to local MODEL_LARGE — see the "escalate:" check there.
     "escalate":              {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 300},
     "fallback-complex":      {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 120},
     "engineering-review":    {"model": MODEL_CODE,  "keep_alive": "10m", "timeout": 300},
@@ -440,12 +442,25 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
     if not policy:
         return {"success": False, "error": f"unknown task_type: {task_type}"}
 
-    # engineering-review: prefer qwen3-coder:30b, fall back to glm-5.2:cloud
+    # engineering-review: prefer qwen3-coder:30b, fall back to MODEL_CLOUD (glm-5.3:cloud)
     if task_type == "engineering-review":
         available = _available_model_names()
         if MODEL_CODE not in available and MODEL_CODE.split(":")[0] not in available:
             log.info("engineering-review: %s not installed, falling back to %s", MODEL_CODE, MODEL_CLOUD)
             policy = {**policy, "model": MODEL_CLOUD, "keep_alive": "0"}
+
+    # escalate: prefer MODEL_CLOUD (glm-5.3:cloud), fall back to local
+    # MODEL_LARGE (mistral-small3.2:24b) if the GLM 5.3 cloud tag isn't
+    # pulled/available yet on this host (e.g. not yet live on the Ollama
+    # Cloud account, or 5.3 hasn't been verified/pulled — see MODEL_CLOUD's
+    # definition comment above). Keeps escalate from going fully dark on a
+    # brand-new model tag; degrades to the slower local tier instead, same
+    # as it behaved before this migration.
+    if task_type == "escalate":
+        available = _available_model_names()
+        if MODEL_CLOUD not in available and MODEL_CLOUD.split(":")[0] not in available:
+            log.info("escalate: %s not available, falling back to %s", MODEL_CLOUD, MODEL_LARGE)
+            policy = {**policy, "model": MODEL_LARGE, "keep_alive": "15m"}
 
     model = policy["model"]
     keep_alive = policy.get("keep_alive", "n/a")
