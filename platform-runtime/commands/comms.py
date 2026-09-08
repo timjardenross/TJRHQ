@@ -23,12 +23,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-try:
-    from lib.comms import opportunities as opp, formats, weekly, pillars, portfolio, drafting, leadership
-    from lib.human_systems import safety
-except Exception:  # pragma: no cover
-    from slack_bot.lib.comms import opportunities as opp, formats, weekly, pillars, portfolio, drafting, leadership  # type: ignore
-    from slack_bot.lib.human_systems import safety  # type: ignore
+from lib.comms import opportunities as opp, formats, weekly, pillars, portfolio, drafting, leadership
+from lib.human_systems import safety
 
 # MSN-0079: sensitive-content approval gate + review/metrics surfaces. Reuses the
 # outcome_capture system of record (read-only). Guarded so /comms degrades cleanly.
@@ -86,28 +82,6 @@ def handle_comms(text: str, user_id: str | None = None, channel_id: str | None =
     return safety.frame(_help(), with_footer=False)
 
 
-def _send() -> str:
-    from lib.human_systems import delivery
-    import human_systems_scheduler as hss
-
-    channel = delivery.captain_channel()
-    tg_token, _tg_chat = delivery.telegram_config()
-
-    if not channel and not tg_token:
-        return "No delivery surface configured. Set SLACK_CHANNEL or TELEGRAM_BOT_TOKEN."
-
-    client = delivery.get_slack_client() if channel else None
-    result = hss.run_job("comms_weekly", client=client, channel=channel)
-
-    if result.get("skipped"):
-        return "Nothing to send — no publishable opportunities found."
-    if result.get("delivered"):
-        ch = result.get("channel", "")
-        suffix = f" ({ch})" if ch else ""
-        return f"Weekly influence brief sent{suffix} — Captain to review and publish."
-    return "Weekly influence brief dispatched."
-
-
 def _help() -> str:
     return (
         "*Communications & Presence Officer — the ship's external voice.*\n"
@@ -118,7 +92,7 @@ def _help() -> str:
         "• `/comms draft <n> [format]` — a draft scaffold for opportunity n\n"
         "• `/comms pillars` — the eight thought-leadership themes\n"
         "• `/comms portfolio` — published reputation record + content pipeline\n"
-        "• `/comms send` — deliver the weekly influence brief now (Slack + Telegram)\n"
+        "• `/comms send` — deliver the weekly influence brief now (Telegram)\n"
         "• `/comms pending` — sensitive content awaiting Captain approval\n"
         "• `/comms metrics` — outcome & learning counts\n"
         "• `/comms leadership` — internal Leadership Insight (evidence-weighted)\n"
@@ -234,32 +208,26 @@ def _pillars() -> str:
 
 
 def _send() -> str:
-    """Deliver the Weekly Thought Leadership Brief now to the configured bot(s).
+    """Deliver the Weekly Thought Leadership Brief now via Telegram.
 
-    Reuses the scheduler's comms_weekly job + the shared delivery fan-out, so the
-    brief goes to whichever surfaces are set (Slack DM and/or Telegram). On-demand
-    equivalent of the Monday cron — for the Captain or the VM operator.
+    Reuses the scheduler's comms_weekly job + the shared delivery layer.
+    On-demand equivalent of the Monday cron — for the Captain or the VM
+    operator.
 
-    INTERNAL DELIVERY ONLY: targets the Captain's own Slack DM / Telegram via
-    HUMAN_SYSTEMS_CHANNEL / TELEGRAM_CHAT_ID. It never posts to any external
-    platform — Captain-as-publisher is preserved.
+    INTERNAL DELIVERY ONLY: targets the Captain's own Telegram chat via
+    TELEGRAM_CHAT_ID. It never posts to any external platform —
+    Captain-as-publisher is preserved.
     """
-    try:
-        from human_systems_scheduler import run_job
-        from lib.human_systems import delivery
-    except Exception:  # pragma: no cover
-        from slack_bot.human_systems_scheduler import run_job  # type: ignore
-        from slack_bot.lib.human_systems import delivery  # type: ignore
+    from human_systems_scheduler import run_job
+    from lib.human_systems import delivery
 
-    client = delivery.get_slack_client()
-    channel = delivery.captain_channel()
     tg_token, tg_chat = delivery.telegram_config()
-    if not channel and not (tg_token and tg_chat):
+    if not (tg_token and tg_chat):
         return ("*Nothing sent* — no delivery surface is configured. Set "
-                "`HUMAN_SYSTEMS_CHANNEL` (Slack) and/or `TELEGRAM_BOT_TOKEN` + "
-                "`TELEGRAM_CHAT_ID` (Telegram), then try `/comms send` again.")
+                "`TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID`, then try "
+                "`/comms send` again.")
 
-    report = run_job("comms_weekly", client=client, channel=channel, dry_run=False)
+    report = run_job("comms_weekly", dry_run=False)
     if report.get("skipped"):
         return ("*Nothing to send* — no publishable opportunities right now. "
                 "That's the system staying quiet by design.")

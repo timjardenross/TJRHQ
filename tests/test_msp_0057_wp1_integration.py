@@ -25,6 +25,9 @@ test_dir = Path(__file__).resolve().parent
 project_dir = test_dir.parent
 if str(project_dir) not in sys.path:
     sys.path.insert(0, str(project_dir))
+_PLATFORM_RUNTIME = project_dir / "platform-runtime"
+if str(_PLATFORM_RUNTIME) not in sys.path:
+    sys.path.insert(0, str(_PLATFORM_RUNTIME))
 
 
 class TestWP1ResearchMemoryRetrieval:
@@ -33,7 +36,7 @@ class TestWP1ResearchMemoryRetrieval:
     def test_retriever_import(self):
         """Verify ResearchMemoryRetriever imports successfully."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
             assert ResearchMemoryRetriever is not None
             print("✅ ResearchMemoryRetriever imports successfully")
         except ImportError as e:
@@ -42,7 +45,7 @@ class TestWP1ResearchMemoryRetrieval:
     def test_retriever_initialization(self):
         """Verify ResearchMemoryRetriever initializes without errors."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
             retriever = ResearchMemoryRetriever()
             assert retriever is not None
             print("✅ ResearchMemoryRetriever initializes successfully")
@@ -52,7 +55,7 @@ class TestWP1ResearchMemoryRetrieval:
     def test_search_prior_research_signature(self):
         """Verify search_prior_research method exists and has correct signature."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
             retriever = ResearchMemoryRetriever()
             assert hasattr(retriever, 'search_prior_research')
             assert callable(retriever.search_prior_research)
@@ -63,7 +66,7 @@ class TestWP1ResearchMemoryRetrieval:
     def test_retrieval_result_structure(self):
         """Verify retrieval result has required fields."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
             retriever = ResearchMemoryRetriever()
 
             # Mock a search result
@@ -83,7 +86,7 @@ class TestWP1ResearchMemoryRetrieval:
     def test_decision_options(self):
         """Verify decision options are valid (REUSE/REUSE_WITH_NOTE/REFRESH/NEW_RESEARCH)."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
 
             valid_decisions = {"REUSE", "REUSE_WITH_NOTE", "REFRESH", "NEW_RESEARCH"}
             retriever = ResearchMemoryRetriever()
@@ -99,7 +102,7 @@ class TestWP1ResearchMemoryRetrieval:
     def test_confidence_score_range(self):
         """Verify confidence score is between 0 and 1."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
             retriever = ResearchMemoryRetriever()
             result = retriever.search_prior_research("test question")
 
@@ -113,7 +116,7 @@ class TestWP1ResearchMemoryRetrieval:
     def test_execution_speed(self):
         """Verify retrieval execution time is under 100ms target."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
             import time
 
             retriever = ResearchMemoryRetriever()
@@ -133,7 +136,7 @@ class TestWP1ResearchMemoryRetrieval:
     def test_similar_questions_return_reuse(self):
         """Verify similar questions return REUSE or REUSE_WITH_NOTE decisions."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
 
             retriever = ResearchMemoryRetriever()
 
@@ -158,7 +161,7 @@ class TestWP1ResearchMemoryRetrieval:
     def test_non_blocking_error_handling(self):
         """Verify retrieval errors are non-blocking and logged."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
 
             # Mock database failure to test non-blocking behavior
             retriever = ResearchMemoryRetriever()
@@ -195,7 +198,7 @@ class TestWP1ResearchMemoryRetrieval:
     def test_retrieval_decision_logging(self):
         """Verify retrieval decisions are logged."""
         try:
-            from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
 
             retriever = ResearchMemoryRetriever()
             result = retriever.search_prior_research("test question")
@@ -214,7 +217,7 @@ class TestWP1AcceptanceCriteria:
 
     def test_acceptance_existing_research_discovered(self):
         """AC: Existing research is automatically discovered."""
-        from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+        from lib.research_memory_retrieval import ResearchMemoryRetriever
 
         retriever = ResearchMemoryRetriever()
 
@@ -229,7 +232,7 @@ class TestWP1AcceptanceCriteria:
 
     def test_acceptance_similarity_scoring(self):
         """AC: Similar questions return prior findings with match confidence."""
-        from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+        from lib.research_memory_retrieval import ResearchMemoryRetriever
 
         retriever = ResearchMemoryRetriever()
 
@@ -249,7 +252,7 @@ class TestWP1AcceptanceCriteria:
 
     def test_acceptance_retrieval_decision_logged(self):
         """AC: Retrieval decision is logged."""
-        from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+        from lib.research_memory_retrieval import ResearchMemoryRetriever
 
         retriever = ResearchMemoryRetriever()
         result = retriever.search_prior_research("test question")
@@ -264,7 +267,7 @@ class TestWP1AcceptanceCriteria:
 
     def test_acceptance_execution_time(self):
         """AC: Retrieval execution time <100ms target."""
-        from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+        from lib.research_memory_retrieval import ResearchMemoryRetriever
         import time
 
         retriever = ResearchMemoryRetriever()
@@ -288,7 +291,7 @@ class TestWP1AcceptanceCriteria:
 
     def test_acceptance_false_positive_rate(self):
         """AC: False positive rate <5%."""
-        from slack_bot.lib.research_memory_retrieval import ResearchMemoryRetriever
+        from lib.research_memory_retrieval import ResearchMemoryRetriever
 
         retriever = ResearchMemoryRetriever()
 

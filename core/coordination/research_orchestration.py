@@ -21,7 +21,7 @@ Design:
   - Sequential (no parallelization)
   - Non-blocking error handling (failures don't crash)
   - In-memory execution (no database persistence in this phase)
-  - Testable without Slack integration
+  - Testable without any live chat-bot integration
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ except ImportError:
         ResearchMetricsCollector = None
 
 # Import existing research_delegator
-# Dynamically discover and import from slack_bot/lib using importlib
+# Dynamically discover and import from platform-runtime/lib using importlib
 
 delegate_research_task = None
 ResearchOutcome = None
@@ -123,8 +123,8 @@ ResearchOutcome = None
 # Calculate path relative to this file: core/coordination/research_orchestration.py
 # Go up 2 levels to reach the root, then into platform-runtime/lib (note: hyphen, not underscore)
 _orchestrator_path = Path(__file__).resolve()
-_slack_bot_lib_dir = _orchestrator_path.parent.parent.parent / "platform-runtime" / "lib"
-_research_delegator_file = _slack_bot_lib_dir / "research_delegator.py"
+_platform_runtime_lib_dir = _orchestrator_path.parent.parent.parent / "platform-runtime" / "lib"
+_research_delegator_file = _platform_runtime_lib_dir / "research_delegator.py"
 
 try:
     # Use importlib to load from file path directly
@@ -135,8 +135,8 @@ try:
     if _spec and _spec.loader:
         # CRITICAL FIX: Ensure platform-runtime/lib is in sys.path BEFORE exec_module
         # This allows research_delegator.py to import sibling modules like provider_health.py
-        if str(_slack_bot_lib_dir) not in sys.path:
-            sys.path.insert(0, str(_slack_bot_lib_dir))
+        if str(_platform_runtime_lib_dir) not in sys.path:
+            sys.path.insert(0, str(_platform_runtime_lib_dir))
 
         _delegator_module = importlib.util.module_from_spec(_spec)
         # Register in sys.modules BEFORE exec_module to avoid dataclass issues
@@ -172,7 +172,7 @@ log.info(f"[startup] Research delegator file: {_research_delegator_file}")
 log.info(f"[startup] Research delegator file exists = {_research_delegator_file.exists()}")
 
 # ─── Mistral agent client ─────────────────────────────────────────────────────
-# _slack_bot_lib_dir is already in sys.path (added above), so this import works.
+# _platform_runtime_lib_dir is already in sys.path (added above), so this import works.
 try:
     import mistral_agent_client as _mac
     log.info("[startup] mistral_agent_client loaded from platform-runtime/lib")
@@ -651,7 +651,7 @@ class ResearchOrchestrator:
             request_type=request_type,  # MSN-RECOMMENDATION-FIX Option B: include request type in result
         )
 
-        # Step 7: Captain's Briefing Officer (Path A: Brief as Primary Slack Output)
+        # Step 7: Captain's Briefing Officer (Path A: Brief as Primary Output)
         # Non-blocking: if briefing fails, mission continues with standard output
         try:
             from briefing_officer import generate_captains_brief
@@ -674,7 +674,7 @@ class ResearchOrchestrator:
                 result.captains_brief = brief
                 log.info("[briefing] Captain's Brief generated and attached to result")
             else:
-                log.warning("[briefing] Brief generation failed; Slack will use fallback format")
+                log.warning("[briefing] Brief generation failed; caller will use fallback format")
         except Exception as e:
             log.error(f"[briefing] Failed to load/call briefing officer: {e}", exc_info=True)
             # Non-blocking: continue without brief
@@ -952,8 +952,8 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
         """Deterministically split a research topic into a small task set.
 
         This is the last-resort path when all providers fail or return empty
-        output. It keeps the research pipeline alive so Slack never receives a
-        zero-task mission result.
+        output. It keeps the research pipeline alive so the caller never
+        receives a zero-task mission result.
         """
         topic = (research_topic or "").strip()
         if not topic:
@@ -966,7 +966,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
         return [
             f"Task 1: Identify the latest relevant information about {topic}",
             f"Task 2: Compare the top findings, risks, and practical implications for {topic}",
-            f"Task 3: Summarise the answer for Slack with clear next steps on {topic}",
+            f"Task 3: Summarise the answer with clear next steps on {topic}",
         ]
 
     # ========================================================================

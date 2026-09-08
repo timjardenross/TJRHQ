@@ -514,7 +514,7 @@ class AutoRemediationExecutor:
             f.write(json.dumps(result) + "\n")
 
     def _notify(self, results: dict[str, Any]) -> None:
-        """Best-effort cycle summary to Slack/Telegram — an autonomous path
+        """Best-effort cycle summary to Telegram — an autonomous path
         that commits or opens PRs unattended must never do so silently.
         Self-contained import (matches heartbeat.py's own convention) so a
         notify failure can never break remediation itself."""
@@ -531,7 +531,7 @@ class AutoRemediationExecutor:
             for entry in results["remediation_results"]:
                 for fid, msg in entry.items():
                     lines.append(f"• {fid}: {msg}")
-            notify("\n".join(lines), severity=Severity.INFO, transport=Transport.SLACK)
+            notify("\n".join(lines), severity=Severity.INFO, transport=Transport.TELEGRAM)
         except Exception as exc:
             log.warning(f"Cycle-summary notify failed (non-fatal): {exc}")
 

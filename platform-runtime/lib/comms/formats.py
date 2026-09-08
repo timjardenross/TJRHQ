@@ -14,10 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-try:
-    from lib.comms import pillars
-except Exception:  # pragma: no cover
-    from slack_bot.lib.comms import pillars  # type: ignore
+from lib.comms import pillars
 
 
 @dataclass(frozen=True)

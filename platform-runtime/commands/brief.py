@@ -22,26 +22,15 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-try:
-    from lib import daily_brief
-    from lib.human_systems import framework, decision, mission_load as ml, safety, memory, learning
-    from lib.delivery import forecast, data as ddata, lifecycle as dlife, analysis as danalysis
-    from lib.intel import ori as _ori, knowledge as _knowledge
-    from lib.strategy import objectives as _strategy, alignment as _alignment
-    from lib.comms import opportunities as _comms
-except Exception:  # pragma: no cover
-    from slack_bot.lib import daily_brief  # type: ignore
-    from slack_bot.lib.human_systems import framework, decision, mission_load as ml, safety, memory, learning  # type: ignore
-    from slack_bot.lib.delivery import forecast, data as ddata, lifecycle as dlife, analysis as danalysis  # type: ignore
-    from slack_bot.lib.intel import ori as _ori, knowledge as _knowledge  # type: ignore
-    from slack_bot.lib.strategy import objectives as _strategy, alignment as _alignment  # type: ignore
-    from slack_bot.lib.comms import opportunities as _comms  # type: ignore
+from lib import daily_brief
+from lib.human_systems import framework, decision, mission_load as ml, safety, memory, learning
+from lib.delivery import forecast, data as ddata, lifecycle as dlife, analysis as danalysis
+from lib.intel import ori as _ori, knowledge as _knowledge
+from lib.strategy import objectives as _strategy, alignment as _alignment
+from lib.comms import opportunities as _comms
 
 # Reuse the Human Systems command's data helpers (single source of fetch logic).
-try:
-    from commands.human_systems import _fetch_rows, _today_row, _delivery_context
-except Exception:  # pragma: no cover
-    from slack_bot.commands.human_systems import _fetch_rows, _today_row, _delivery_context  # type: ignore
+from commands.human_systems import _fetch_rows, _today_row, _delivery_context
 
 
 def build_brief() -> str:

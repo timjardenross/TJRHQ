@@ -1,10 +1,10 @@
 """AI-assisted draft generation (COMMS-001 WP8).
 
 Turns a content opportunity into a first-draft *prose* piece by reusing the bot's
-existing LLM client (``slack-bot/llm.py``). Generation uses **Google AI (Gemini)**
-via ``ask_gemini_safe`` — the Captain's connected provider. When Gemini is
-unavailable it falls back to the deterministic scaffold from ``formats`` — so the
-command never breaks and behaviour degrades cleanly.
+existing LLM client (``platform-runtime/llm.py``). Generation uses **Google AI
+(Gemini)** via ``ask_gemini_safe`` — the Captain's connected provider. When
+Gemini is unavailable it falls back to the deterministic scaffold from
+``formats`` — so the command never breaks and behaviour degrades cleanly.
 
 Captain-as-publisher is preserved: every output is explicitly an *unpublished first
 draft* for review; nothing is posted anywhere.
@@ -22,10 +22,7 @@ _BOT = Path(__file__).resolve().parents[2]
 if str(_BOT) not in sys.path:
     sys.path.insert(0, str(_BOT))
 
-try:
-    from lib.comms import formats, pillars
-except Exception:  # pragma: no cover
-    from slack_bot.lib.comms import formats, pillars  # type: ignore
+from lib.comms import formats, pillars
 
 # Rough target lengths per format, to steer the model.
 _LENGTH = {

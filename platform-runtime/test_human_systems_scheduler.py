@@ -7,7 +7,7 @@ Covers:
     job skips cleanly when there is no actionable signal.
   - on-demand `/hs push` preview reuses the runner and stays language-compliant.
 
-No live network: Supabase fetch, Slack client, and memory writes are mocked.
+No live network: Supabase fetch, Telegram sends, and memory writes are mocked.
 
 The "morning" job (and anything that previews it, e.g. `/hs push morning`)
 calls commands.brief.build_brief() for real, which — independently of any
@@ -26,7 +26,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 _BOT_DIR = Path(__file__).resolve().parent
 if str(_BOT_DIR) not in sys.path:
@@ -53,71 +53,44 @@ HARD = {
 # ── Delivery ──────────────────────────────────────────────────────────────────
 
 class TestDelivery(unittest.TestCase):
-    def _msg(self):
-        return push.morning_readiness_pulse(GOOD)
-
-    def test_dry_run_renders_without_sending(self):
-        r = delivery.deliver(self._msg(), client=MagicMock(), channel="U1", dry_run=True)
-        self.assertFalse(r.delivered)
-        self.assertTrue(r.dry_run)
-        self.assertIn("Morning Readiness", r.text)
-
-    def test_no_client_is_graceful(self):
-        r = delivery.deliver(self._msg(), client=None, channel="U1")
-        self.assertFalse(r.delivered)
-        self.assertEqual(r.error, "no_client")
-
-    def test_no_channel_is_graceful(self):
-        r = delivery.deliver(self._msg(), client=MagicMock(), channel=None)
-        self.assertFalse(r.delivered)
-        self.assertEqual(r.error, "no_channel")
-
-    def test_live_path_posts_rendered_text(self):
-        client = MagicMock()
-        r = delivery.deliver(self._msg(), client=client, channel="UCAPTAIN")
-        self.assertTrue(r.delivered)
-        client.chat_postMessage.assert_called_once()
-        _, kwargs = client.chat_postMessage.call_args
-        self.assertEqual(kwargs["channel"], "UCAPTAIN")
-        self.assertIn("Morning Readiness", kwargs["text"])
-
-    def test_delivery_failure_captured_not_raised(self):
-        client = MagicMock()
-        client.chat_postMessage.side_effect = RuntimeError("slack down")
-        r = delivery.deliver(self._msg(), client=client, channel="U1")
-        self.assertFalse(r.delivered)
-        self.assertIn("slack down", r.error or "")
-
-
-class TestTelegramDelivery(unittest.TestCase):
     _ENV = {"TELEGRAM_BOT_TOKEN": "123:abc", "TELEGRAM_CHAT_ID": "555"}
 
     def _msg(self):
         return push.morning_readiness_pulse(GOOD)
 
-    def test_fans_out_to_both_bots(self):
-        client = MagicMock()
-        with patch.dict("os.environ", self._ENV), \
-             patch.object(delivery, "_send_telegram", return_value=(True, None)) as tg:
-            r = delivery.deliver(self._msg(), client=client, channel="UCAP")
-        self.assertTrue(r.delivered)
-        client.chat_postMessage.assert_called_once()
-        tg.assert_called_once()
-        self.assertEqual(r.channel, "slack+telegram")
-
-    def test_telegram_only_when_no_slack(self):
-        with patch.dict("os.environ", self._ENV), \
-             patch.object(delivery, "_send_telegram", return_value=(True, None)):
-            r = delivery.deliver(self._msg(), client=None, channel=None)
-        self.assertTrue(r.delivered)
-        self.assertEqual(r.channel, "telegram")
-        self.assertIsNone(r.error)
-
-    def test_dry_run_lists_both_surfaces(self):
+    def test_dry_run_renders_without_sending(self):
         with patch.dict("os.environ", self._ENV):
-            r = delivery.deliver(self._msg(), client=MagicMock(), channel="UCAP", dry_run=True)
+            r = delivery.deliver(self._msg(), dry_run=True)
         self.assertFalse(r.delivered)
         self.assertTrue(r.dry_run)
+        self.assertIn("Morning Readiness", r.text)
+
+    def test_no_telegram_config_is_graceful(self):
+        with patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": "", "TELEGRAM_CHAT_ID": "", "HUMAN_SYSTEMS_TELEGRAM_CHAT": ""}, clear=False):
+            r = delivery.deliver(self._msg())
+        self.assertFalse(r.delivered)
+        self.assertEqual(r.error, "no_telegram_config")
+
+    def test_live_path_sends_rendered_text(self):
+        with patch.dict("os.environ", self._ENV), \
+             patch.object(delivery, "_send_telegram", return_value=(True, None)) as tg:
+            r = delivery.deliver(self._msg())
+        self.assertTrue(r.delivered)
+        self.assertEqual(r.channel, "telegram")
+        tg.assert_called_once()
+        args, _ = tg.call_args
+        self.assertIn("Morning Readiness", args[0])
+
+    def test_delivery_failure_captured_not_raised(self):
+        with patch.dict("os.environ", self._ENV), \
+             patch.object(delivery, "_send_telegram", return_value=(False, "telegram down")):
+            r = delivery.deliver(self._msg())
+        self.assertFalse(r.delivered)
+        self.assertIn("telegram down", r.error or "")
+
+    def test_dry_run_names_telegram_surface(self):
+        with patch.dict("os.environ", self._ENV):
+            r = delivery.deliver(self._msg(), dry_run=True)
         self.assertIn("telegram", r.channel)
 
     def test_to_telegram_strips_bold_and_truncates(self):
@@ -192,12 +165,13 @@ class TestRunner(unittest.TestCase):
         self.assertFalse(report.get("skipped"))
         self.assertIn("Capacity Degradation", report["text"])
 
-    def test_run_job_delivers_via_client(self):
-        client = MagicMock()
-        with patch.object(hss, "_fetch_rows", return_value=[GOOD]):
-            report = hss.run_job("morning", client=client, channel="UCAP")
+    def test_run_job_delivers_via_telegram(self):
+        with patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": "123:abc", "TELEGRAM_CHAT_ID": "555"}), \
+             patch.object(hss.delivery, "_send_telegram", return_value=(True, None)) as tg, \
+             patch.object(hss, "_fetch_rows", return_value=[GOOD]):
+            report = hss.run_job("morning")
         self.assertTrue(report["delivered"])
-        client.chat_postMessage.assert_called_once()
+        tg.assert_called_once()
 
     def test_run_job_records_to_memory(self):
         calls = []

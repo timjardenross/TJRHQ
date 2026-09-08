@@ -1,9 +1,9 @@
 """EDO — /delivery command (MSN-EDO-002/008).
 
 The Engineering & Delivery Officer's status surface: where work is stuck,
-delivery metrics, data-hygiene lint, and a reuse-first check. Pure with respect
-to Slack — returns a mrkdwn string. Reads the delivery views; degrades to a
-helpful message when Supabase is unavailable.
+delivery metrics, data-hygiene lint, and a reuse-first check. Returns a
+mrkdwn-style string. Reads the delivery views; degrades to a helpful
+message when Supabase is unavailable.
 
     handle_delivery(text, user_id=None, channel_id=None) -> str
 """
@@ -20,10 +20,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-try:
-    from lib.delivery import analysis, data, lifecycle, execution, forecast
-except Exception:  # pragma: no cover
-    from slack_bot.lib.delivery import analysis, data, lifecycle, execution, forecast  # type: ignore
+from lib.delivery import analysis, data, lifecycle, execution, forecast
 
 _HELP = (
     "*Engineering & Delivery Officer.*\n"

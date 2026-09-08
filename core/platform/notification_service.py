@@ -10,19 +10,16 @@ and the MSN-0210F discovery pass for the full gap list).
 2026-08-22 Wave 2 cutover (item E): command_bus.py's real ALERT/CRITICAL
 sends now go through notify() via its `_route()` (see command_bus.py's
 `_route()` docstring) — `_telegram()` has been retired from command_bus.py
-entirely. `_slack()` is still defined there and used directly by one
-non-ALERT/CRITICAL caller (`_rule_new_missions`'s Idea-triage nudge),
-which was out of scope for this cutover. command_bus.py's callers use
-template="raw" (see `_RAW_TEMPLATES` below) because they compose a full
-message that mixes intentional Markdown with dynamic values they've
-already escaped themselves — not the title/body-are-plain-content shape
-the "alert"/"plain" templates assume.
+entirely. command_bus.py's callers use template="raw" (see `_RAW_TEMPLATES`
+below) because they compose a full message that mixes intentional HTML
+with dynamic values they've already escaped themselves — not the
+title/body-are-plain-content shape the "alert"/"plain" templates assume.
 
-Slack is included here because both existing senders were reused verbatim
-(command_bus.py's `_slack`/`_telegram` HTTP bodies) per Wave 2 direction —
-but per the Phase 0 Slack retirement plan, Telegram is the durable
-transport; Slack support here should be treated as transitional, not a new
-long-term commitment.
+2026-09-08: Slack retired entirely (Captain direction — Slack was
+disabled). Telegram is now the only transport this module supports; the
+`Transport.SLACK` enum value and `_send_slack()` sender that used to sit
+here (transitional, per the Phase 0 Slack retirement plan referenced
+above) have been removed.
 """
 
 from __future__ import annotations
@@ -50,7 +47,6 @@ class Severity(str, Enum):
 
 class Transport(str, Enum):
     TELEGRAM = "telegram"
-    SLACK = "slack"  # transitional — see module docstring
     # future: EMAIL, VOICE, PUSH, LCARS (MSN-0210F mission scope)
 
 
@@ -84,17 +80,13 @@ class NotificationResult:
     claim (e.g. commit message, conversation), not just the word
     "verified." A `message_id` is only present on a real, accepted
     Telegram API response; it cannot be fabricated by a log line printing
-    "sent" without the send actually happening. `ok=True` with no
-    message_id (e.g. Slack) needs a different, transport-specific artifact
-    — for Slack that would be the `ts` this module doesn't currently
-    capture (see _send_slack's docstring); don't claim "verified live" for
-    Slack without adding that first."""
+    "sent" without the send actually happening."""
     ok: bool
     transport: Transport
     attempts: int
     error: Optional[str] = None
     sent_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    message_id: Optional[int] = None  # Telegram message_id, when the transport returns one; None for Slack
+    message_id: Optional[int] = None  # Telegram message_id, when the transport returns one
 
 
 @dataclass
@@ -160,14 +152,7 @@ def _send_telegram(
     text: str, reply_markup: Optional[dict] = None, chat_id: Optional[str] = None
 ) -> tuple[bool, Optional[str], Optional[int]]:
     """Sends via Telegram's HTML parse_mode (2026-08-22, switched from
-    Markdown — see _escape_telegram_html's docstring for why). NOTE: `text`
-    is shared with _send_slack() below via the same _render() output —
-    Slack's mrkdwn doesn't understand <b>/<code> tags, so Slack messages
-    will show literal tag characters until Slack gets its own rendering
-    path. Not fixed here: this module's own docstring already treats Slack
-    as transitional and Telegram as the durable transport; the previous
-    Markdown asterisks happened to double as valid Slack mrkdwn by
-    coincidence, HTML tags don't have an equivalent coincidence.
+    Markdown — see _escape_telegram_html's docstring for why).
 
     reply_markup (optional) attaches an inline keyboard — used by Phase B to add
     the RED-alert [VERIFY NOW] deep-link button.
@@ -201,43 +186,8 @@ def _send_telegram(
         return False, f"{type(exc).__name__}: {exc}", None
 
 
-def _send_slack(
-    text: str, reply_markup: Optional[dict] = None, chat_id: Optional[str] = None
-) -> tuple[bool, Optional[str], Optional[int]]:
-    """Reuses command_bus.py's _slack() HTTP body (chat.postMessage).
-    reply_markup and chat_id are Telegram-specific and ignored here
-    (signature parity with _send_telegram). message_id is always None —
-    Slack's ts (message timestamp) plays that role but nothing here needs
-    it yet; add if a Slack caller needs edit-in-place later."""
-    token = os.environ.get("SLACK_BOT_TOKEN", "")
-    channel = (
-        os.environ.get("BRIEF_CHANNEL")
-        or os.environ.get("BRIEF_USER_ID")
-        or os.environ.get("CAPTAINS_INBOX_CHANNEL_ID")
-        or ""
-    )
-    if not token or not channel:
-        return False, "missing SLACK_BOT_TOKEN or channel", None
-    url = "https://slack.com/api/chat.postMessage"
-    payload = json.dumps({"channel": channel, "text": text}).encode()
-    req = urllib.request.Request(
-        url, data=payload,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-            if not body.get("ok"):
-                return False, f"slack_api_error:{body.get('error')}", None
-            return True, None, None
-    except Exception as exc:
-        return False, f"{type(exc).__name__}: {exc}", None
-
-
 _SENDERS = {
     Transport.TELEGRAM: _send_telegram,
-    Transport.SLACK: _send_slack,
 }
 
 
@@ -262,20 +212,18 @@ def notify(
     Retries up to max_retries times per chunk (command_bus.py's senders
     never retried at all).
 
-    chat_id: override the env-resolved default recipient (Telegram only;
-    ignored by Slack — see _send_slack). For a caller that targets a
-    different chat per call (e.g. per-requester build confirmations, a
-    fixed escalation channel), not the single default chat this module
-    otherwise assumes.
+    chat_id: override the env-resolved default recipient. For a caller
+    that targets a different chat per call (e.g. per-requester build
+    confirmations, a fixed escalation channel), not the single default
+    chat this module otherwise assumes.
 
     chunk: split `body` across multiple messages at Telegram's 4096-char
     limit (word-boundary cuts, never mid-word) instead of the default
     hard truncation — for callers whose content can legitimately run long
     (e.g. a multi-paragraph daily brief) where truncating would cut real
-    content rather than an edge case. Only affects Telegram; Slack has no
-    equivalent hard limit in this module's usage so chunk is a no-op there.
-    Returns the result of the LAST chunk sent (an early chunk failing does
-    not raise — see the note below).
+    content rather than an edge case. Returns the result of the LAST
+    chunk sent (an early chunk failing does not raise — see the note
+    below).
     """
     sender = _SENDERS.get(transport)
     if sender is None:
