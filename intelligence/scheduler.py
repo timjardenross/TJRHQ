@@ -1575,9 +1575,22 @@ def _attention_evaluation_job() -> None:
         # (those only matter to the evolved-brief path below, which reuses
         # understanding_engine). At this cadence, select("*") re-transfers
         # those arrays on every one of 144 runs/day for zero benefit.
+        #
+        # `recommended_action` MUST stay in this list: it's how
+        # captain_brief_contract.recommendation_from_event() gives every
+        # INTERRUPT_NOW item real content. Omitting it (as this list
+        # previously did) doesn't just drop a nice-to-have — it silently
+        # breaks interrupt_dispatcher.py's own `item.recommendation.description
+        # if item.recommendation else item.reason` fallback, so every push
+        # this job sends falls through to `item.reason`, the Attention
+        # Engine's bare threshold formula ("importance=90 >= 75 AND
+        # confidence=80 >= 70") — a real Telegram symptom this job alone
+        # produces every ATTENTION_EVAL_INTERVAL_MINUTES, since commands/
+        # brief.py's manual '/brief' path polls with columns="*" and never
+        # hit this gap.
         events = poll_events(
             limit=200,
-            columns="event_id,domain,event_type,importance,confidence,relevance,time_sensitivity,metrics,status",
+            columns="event_id,domain,event_type,importance,confidence,relevance,time_sensitivity,metrics,status,recommended_action",
         )
         doc = assemble_captain_brief_document(events)
         if not doc.interrupt_now:

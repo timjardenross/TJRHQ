@@ -163,7 +163,8 @@ class BriefGenerator:
         (executive_snapshot, emerging_themes, forward_watch,
          cps230_implications, bottom_line, known_unknowns, llm_used, provider_used) = \
             self._generate_narrative(top5, brief_events, period_start, period_end,
-                                     sources_available, sources_failed, external_signals)
+                                     sources_available, sources_failed, external_signals,
+                                     missing_sources)
 
         # ── 8b. QA Validation Officer — non-blocking sanity check ─────────────
         # 2026-08-22: real LLM check for forced/mismatched framing (the bug
@@ -483,6 +484,7 @@ class BriefGenerator:
         sources_available: int,
         sources_failed: int,
         external_signals: Optional[list] = None,
+        missing_sources: Optional[list] = None,
     ) -> tuple:
         """
         Generate LLM narrative sections. Returns 8-tuple:
@@ -527,9 +529,21 @@ class BriefGenerator:
         # a banking angle on every story. cps230_implications stays in the
         # schema (it's a persisted DB column) but is only populated when the
         # events actually warrant it.
+        # 2026-09-08: `sources_failed` alone gave the LLM nothing to name, so
+        # any prose it wrote about degradation was necessarily generic
+        # reassurance ("engineering will monitor to ensure source diversity
+        # remains resilient") with no source actually named — the same
+        # "signal with no detail behind it" problem as the bare Attention
+        # Engine threshold text in interrupt_dispatcher.py's push body.
+        # `missing_sources` (the real failed source_name list, already
+        # computed above) was being collected for the coverage dict but
+        # never reached this prompt. Passing it lets the narrative name the
+        # actual source(s) that failed, or say nothing about degradation at
+        # all rather than manufacture a vague line to fill the gap.
+        failed_sources_text = ", ".join((missing_sources or [])[:10]) or "none named"
         prompt = f"""Generate a daily world-news digest for Captain TJR, in plain educational language.
 Period: {period_start.strftime('%d %b %Y')} to {period_end.strftime('%d %b %Y')}
-Sources available: {sources_available} ({sources_failed} failed)
+Sources available: {sources_available} ({sources_failed} failed: {failed_sources_text})
 
 TOP EVENTS THIS PERIOD:
 {event_summaries}

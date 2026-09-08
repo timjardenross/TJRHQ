@@ -116,6 +116,45 @@ class TestGenericNews(unittest.TestCase):
         self.assertTrue(suppressed)
 
 
+class TestCveBulletinSuppression(unittest.TestCase):
+    """2026-09-08: CVE/CVSS vulnerability bulletins were previously only
+    excluded ad hoc at two Telegram query call sites (captains_brief.py),
+    never marked suppressed=True here at classification time — so they
+    still reached ranking and brief_generator.py's LLM-narrated "What
+    matters today" section even after being "hidden" from the deterministic
+    signal digest."""
+
+    def test_cve_prefixed_title_suppressed(self):
+        ev = _make_event(title="CVE-2026-82598 — SeaCMS avatar upload vulnerability")
+        suppressed, reason = should_suppress(ev)
+        self.assertTrue(suppressed)
+        self.assertEqual(reason, "raw_cve_bulletin")
+
+    def test_cve_prefix_is_case_insensitive(self):
+        ev = _make_event(title="cve-2026-75760 ash_ai validation error disclosure")
+        suppressed, reason = should_suppress(ev)
+        self.assertTrue(suppressed)
+        self.assertEqual(reason, "raw_cve_bulletin")
+
+    def test_cvssv3_bulletin_summary_suppressed(self):
+        ev = _make_event(
+            title="Fortinet PSIRT Advisory: FortiOS heap overflow",
+            operational_relevance=0.55,
+        )
+        ev.raw_summary = "CVSSv3 Score: 8.8 High — [CWE-122] Heap-based Buffer Overflow"
+        suppressed, reason = should_suppress(ev)
+        self.assertTrue(suppressed)
+        self.assertEqual(reason, "raw_cvss_bulletin")
+
+    def test_genuine_breach_reporting_not_suppressed_as_cve(self):
+        ev = _make_event(
+            title="Major bank confirms customer data breach affecting 2 million accounts",
+            operational_relevance=0.55,
+        )
+        suppressed, reason = should_suppress(ev)
+        self.assertFalse(suppressed)
+
+
 class TestLowOperationalRelevance(unittest.TestCase):
 
     def test_below_floor_suppressed(self):
