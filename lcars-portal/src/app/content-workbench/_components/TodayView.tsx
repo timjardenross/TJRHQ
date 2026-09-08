@@ -61,18 +61,18 @@ function stageOfCounts(items: ContentItem[]) {
 export function TodayView({ onOpenStudio, onOpenPipeline, refreshSignal }: Props) {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     try {
       const res = await fetch('/api/content-workbench');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to load');
       setItems(data.items ?? []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      setLoadError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
       setLoading(false);
     }
@@ -81,7 +81,7 @@ export function TodayView({ onOpenStudio, onOpenPipeline, refreshSignal }: Props
   useEffect(() => { load(); }, [refreshSignal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) return <p className="text-sm text-wb-ink2">Loading…</p>;
-  if (error) return <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>;
+  if (loadError) return <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{loadError}</p>;
 
   // Priority order (brief §5): blocked-on-TJR review items, then
   // high-value fresh opportunities awaiting pursue/ignore, then

@@ -70,7 +70,7 @@ function Workbench() {
   const router = useRouter();
   const [tab, setTab] = useState<TabKey>('now');
   const [data, setData] = useState<Loaded | null>(null);
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [live, setLive] = useState(false);
@@ -85,10 +85,13 @@ function Workbench() {
         const clean = <T,>(p: unknown): T | null =>
           p && typeof p === 'object' && !('error' in (p as Record<string, unknown>)) ? (p as T) : null;
         setData({ recovery: clean<RecoveryPayload>(recovery), medical: clean<MedicalPayload>(medical) });
-        setLoadFailed(!recovery || (typeof recovery === 'object' && recovery !== null && 'error' in recovery));
+        const recoveryErr = recovery && typeof recovery === 'object' && 'error' in recovery
+          ? String((recovery as Record<string, unknown>).error)
+          : null;
+        setLoadError(!recovery ? 'Couldn’t load Human Systems data right now.' : recoveryErr);
         setLastUpdated(new Date());
       })
-      .catch(() => setLoadFailed(true))
+      .catch((e) => setLoadError(e instanceof Error ? e.message : 'Couldn’t load Human Systems data right now.'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -165,9 +168,9 @@ function Workbench() {
         </>
       )}
 
-      {loadFailed && !data?.recovery && (
+      {loadError && !data?.recovery && (
         <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4 text-[13px] text-wb-crit-on">
-          Couldn&rsquo;t load Human Systems data. The workbench stays read-only and safe; try again shortly.
+          {loadError} The workbench stays read-only and safe; try again shortly.
         </div>
       )}
     </WorkbenchShell>

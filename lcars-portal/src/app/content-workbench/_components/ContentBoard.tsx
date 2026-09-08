@@ -271,7 +271,7 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
   const [items, setItems] = useState<ContentItem[]>([]);
   const [counts, setCounts] = useState<Record<Stage, number> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   // 2026-08-09 mobile/iPad review (P1): the 4-column board's only mobile
   // fallback was horizontal-scroll through all 4 at min-w-[264px] each —
   // functional but a real working-memory cost on a phone (easy to lose
@@ -297,7 +297,7 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
 
   async function load() {
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     try {
       const res = await fetch('/api/content-workbench');
       const data = await res.json();
@@ -310,7 +310,7 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
         if (firstNonEmpty) setActiveMobileStage(firstNonEmpty);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load board');
+      setLoadError(e instanceof Error ? e.message : 'Failed to load board');
     } finally {
       setLoading(false);
     }
@@ -324,8 +324,8 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
   return (
     <div className="flex flex-col gap-3">
       {loading && <p className="text-sm text-wb-ink2">Loading board…</p>}
-      {error && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>}
-      {!loading && !error && (
+      {loadError && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{loadError}</p>}
+      {!loading && !loadError && (
         <>
           {counts && (
             <PipelineOverview counts={counts} activeStage={activeMobileStage} onSelectStage={selectMobileStage} />

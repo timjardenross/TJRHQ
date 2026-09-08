@@ -45,10 +45,12 @@ function Stat({ label, value, onClick, tone = 'ink' }: { label: string; value: n
 export function KpiDashboard({
   stats,
   loading,
+  loadError,
   onFilter,
 }: {
   stats: CaptureAnalytics | null;
   loading: boolean;
+  loadError?: string | null;
   onFilter: (f: InboxFilter) => void;
 }) {
   if (loading && !stats) {
@@ -56,6 +58,16 @@ export function KpiDashboard({
       <Card className="mb-6">
         <p className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">Capture · last 7 days</p>
         <p className="mt-2 text-[13px] text-wb-ink2">Loading…</p>
+      </Card>
+    );
+  }
+  if (loadError && !stats) {
+    // A genuine fetch failure — not the same as a real zero-capture week
+    // (MSN-LCARS-003: load failure must never render identically to empty).
+    return (
+      <Card className="mb-6 border-wb-crit/40 bg-wb-crit/10">
+        <p className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">Capture · last 7 days</p>
+        <p className="mt-2 text-[13px] text-wb-crit-on">{loadError} This is a load failure, not a real zero-capture week.</p>
       </Card>
     );
   }

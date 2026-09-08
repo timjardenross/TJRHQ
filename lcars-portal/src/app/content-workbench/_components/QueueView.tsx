@@ -43,19 +43,19 @@ function QueueRow({ item, onOpen }: { item: ContentItem; onOpen: () => void }) {
 export function QueueView({ refreshSignal, onOpenStudio }: { refreshSignal: number; onOpenStudio: (id: string) => void }) {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      setError(null);
+      setLoadError(null);
       try {
         const res = await fetch('/api/content-workbench');
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? 'Failed to load queue');
         setItems(data.items ?? []);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load queue');
+        setLoadError(e instanceof Error ? e.message : 'Failed to load queue');
       } finally {
         setLoading(false);
       }
@@ -64,7 +64,7 @@ export function QueueView({ refreshSignal, onOpenStudio }: { refreshSignal: numb
   }, [refreshSignal]);
 
   if (loading) return <p className="text-sm text-wb-ink2">Loading queue…</p>;
-  if (error) return <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>;
+  if (loadError) return <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{loadError}</p>;
   if (items.length === 0) return <p className="text-sm text-wb-ink2">Nothing in the pipeline.</p>;
 
   const sorted = [...items].sort((a, b) => priorityScore(a) - priorityScore(b));

@@ -125,21 +125,21 @@ function PortfolioCard({ item }: { item: PublishedItem }) {
 export function PortfolioTab() {
   const [items, setItems] = useState<PublishedItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [pillarFilter, setPillarFilter] = useState('all');
 
   useEffect(() => {
     async function load() {
       setLoading(true);
-      setError(null);
+      setLoadError(null);
       try {
         const res = await fetch('/api/comms?status=published');
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? 'Failed to load portfolio');
         setItems(data.items ?? []);
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load portfolio');
+        setLoadError(e instanceof Error ? e.message : 'Failed to load portfolio');
       } finally {
         setLoading(false);
       }
@@ -167,8 +167,8 @@ export function PortfolioTab() {
       </div>
 
       {loading && <p className="text-sm text-wb-ink2">Loading portfolio…</p>}
-      {error && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>}
-      {!loading && !error && filtered.length === 0 && <p className="text-sm text-wb-ink2">No published content yet.</p>}
+      {loadError && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{loadError}</p>}
+      {!loading && !loadError && filtered.length === 0 && <p className="text-sm text-wb-ink2">No published content yet.</p>}
 
       <div className="flex flex-col gap-2">
         {filtered.map((item) => (
