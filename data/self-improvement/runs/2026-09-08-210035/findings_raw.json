@@ -1,0 +1,63 @@
+{
+  "findings": [
+    {
+      "category": "model_catalogue_drift",
+      "title": "Model router routes escalate and fallback-complex to unavailable glm-5.3:cloud",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "Routing policy configures escalate and fallback-complex task types to require model glm-5.3:cloud",
+          "location": "model_router_audit.router_status.routing_policy"
+        },
+        {
+          "type": "service_status",
+          "observation": "Available models catalogue contains glm-5.2:cloud but does not contain glm-5.3:cloud",
+          "location": "model_router_audit.router_status.available_models"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "high",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Update model router policy for escalate and fallback-complex to target glm-5.2:cloud or deploy glm-5.3:cloud to router"
+      },
+      "expected_benefit": "Prevents task routing errors and runtime exceptions when executing escalation and fallback paths"
+    },
+    {
+      "category": "dead_code",
+      "title": "Deprecated Telegram bot directory persists in repository",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Deprecated bot code and test suites persist under telegram-bot.DEPRECATED-2026-07-12 past deprecation date",
+          "location": "telegram-bot.DEPRECATED-2026-07-12"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "delete",
+        "description": "Remove telegram-bot.DEPRECATED-2026-07-12 and its legacy tests from the repository"
+      },
+      "expected_benefit": "Cleans repository codebase, removes obsolete test overhead, and eliminates confusion with active bots"
+    },
+    {
+      "category": "governance_violation",
+      "title": "Working tree dirtied by uncommitted lock and runtime review artifacts",
+      "evidence": [
+        {
+          "type": "git_history",
+          "observation": "Repository main branch is dirty with uncommitted lock file .evolution_cycle.lock and self-improvement state files",
+          "location": "data/self-improvement/review/.evolution_cycle.lock"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Update .gitignore to exclude ephemeral review locks and runtime outputs in data/self-improvement/review/"
+      },
+      "expected_benefit": "Maintains a clean working copy and avoids committing lock files or transient review counters"
+    }
+  ]
+}
