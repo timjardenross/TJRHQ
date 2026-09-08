@@ -416,8 +416,25 @@ class NumberOne:
                 m["title"] for m in annotated
                 if m["priority"] in ("P0", "P1") and "BLOCKED" not in m["status"].upper()
             ][:3]
-        else:
+        elif capacity_status == "Green":
             advisory = "Captain is at GREEN capacity. Normal prioritisation applies."
+            recommended_focus = [
+                m["title"] for m in annotated
+                if "BLOCKED" not in m["status"].upper()
+            ][:3]
+        else:
+            # 2026-09-08 (USS-TJR-MSN-0054): capacity_status is "Unknown" (no
+            # Captain's Log check-in for today) or any other unrecognised
+            # value. Must not silently collapse into the Green branch's
+            # "Normal prioritisation applies" wording — that overstates
+            # confidence in data we don't actually have. No gating overlay
+            # is applied either way (there's nothing to gate against), but
+            # the advisory says so honestly instead of claiming Green.
+            advisory = (
+                "Captain's capacity is UNKNOWN today — no check-in data available. "
+                "Number One is not applying a capacity gate; normal prioritisation applies "
+                "but is not capacity-adjusted."
+            )
             recommended_focus = [
                 m["title"] for m in annotated
                 if "BLOCKED" not in m["status"].upper()
@@ -508,7 +525,7 @@ class NumberOne:
         normal_blockers = []
 
         for mission in mission_objs:
-            if mission.status != MissionStatus.BLOCKED or not mission.blockers:
+            if mission.status not in BLOCKED_STATUSES or not mission.blockers:
                 continue
 
             blocker_age = self._calculate_blocker_age(mission)
@@ -560,7 +577,7 @@ class NumberOne:
             routing = routing_results.get(mission.mission_id)
 
             # Escalation: Blocked P0 mission
-            if mission.priority == Priority.P0 and mission.status == MissionStatus.BLOCKED:
+            if mission.priority == Priority.P0 and mission.status in BLOCKED_STATUSES:
                 escalations.append(Escalation(
                     escalation_type="BLOCKED_P0",
                     mission_id=mission.mission_id,
@@ -656,7 +673,7 @@ class NumberOne:
         active_missions = [m for m in mission_objs if m.status not in TERMINAL_STATUSES and m.status not in DORMANT_STATUSES]
         total = len(active_missions)
         active = len([m for m in active_missions if m.status == MissionStatus.ACTIVE])
-        blocked = len([m for m in active_missions if m.status == MissionStatus.BLOCKED])
+        blocked = len([m for m in active_missions if m.status in BLOCKED_STATUSES])
         proposed = len([m for m in active_missions if m.status == MissionStatus.PROPOSED])
 
         # System health
@@ -668,7 +685,7 @@ class NumberOne:
         top_priorities = work_queue[:3]
 
         # Blocked missions
-        blocked_missions = [item for item in work_queue if item.status == MissionStatus.BLOCKED]
+        blocked_missions = [item for item in work_queue if item.status in BLOCKED_STATUSES]
 
         # Specialist workload
         specialist_workload = self._calculate_specialist_workload(mission_objs)
@@ -771,7 +788,7 @@ class NumberOne:
 
     def _is_long_blocked(self, mission: Mission, days: Optional[int] = None) -> bool:
         """Check if mission has been blocked too long."""
-        if mission.status != MissionStatus.BLOCKED:
+        if mission.status not in BLOCKED_STATUSES:
             return False
 
         threshold_days = days or (
@@ -881,6 +898,19 @@ TERMINAL_STATUSES = {
     MissionStatus.CLOSED, MissionStatus.ARCHIVED,        # D-008 terminal
     MissionStatus.COMPLETED, MissionStatus.CANCELLED,    # legacy terminal
 }
+
+# 2026-09-08: every "is this mission blocked" check below used to test only
+# MissionStatus.BLOCKED (the legacy pre-D-008 value) — but live missions
+# use the D-008 canonical status "Blocked", which _to_status() maps to
+# BLOCKED_OPS, a *different* enum member (both are real, coexisting values;
+# see MissionStatus's own docstring). The result: the BLOCKED_P0 critical
+# escalation, the blocked-mission count, and the blocker-age report were all
+# silently blind to every real, live blocked mission — confirmed live 2026-
+# 09-08 while wiring Number One into an actual Supabase-backed brief for
+# the first time (core/context-assembly/context_service.py). Both values
+# mean "blocked" to a human reading mission status; check both everywhere
+# that matters.
+BLOCKED_STATUSES = {MissionStatus.BLOCKED, MissionStatus.BLOCKED_OPS}
 
 # Dormant states: captured but not yet triaged — excluded from active work queue
 # without permanently closing the record. Promoted to Designed when actioned.

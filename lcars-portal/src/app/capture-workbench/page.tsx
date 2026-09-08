@@ -35,6 +35,7 @@ function Workbench() {
 
   const [stats, setStats] = useState<CaptureAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [live, setLive] = useState(false);
   // Bumped on a realtime change or a new capture; InboxView reloads its list on it.
@@ -43,8 +44,20 @@ function Workbench() {
   const loadStats = useCallback((withSpinner: boolean) => {
     if (withSpinner) setLoading(true);
     return fetchCaptureAnalytics()
-      .then((s) => { setStats(s); setLastUpdated(new Date()); })
-      .catch(() => setStats(null))
+      .then((s) => {
+        // fetchCaptureAnalytics()'s contract: null means the query/exception
+        // path failed; a genuinely empty week resolves to an all-zero object,
+        // never null (lib/capture.ts). A real fetch failure must not collapse
+        // into "no stats" — that's indistinguishable from a real zero-capture
+        // week (MSN-LCARS-003).
+        setStats(s);
+        setLoadError(s === null ? 'Couldn’t load capture stats right now.' : null);
+        if (s !== null) setLastUpdated(new Date());
+      })
+      .catch(() => {
+        setStats(null);
+        setLoadError('Couldn’t load capture stats right now.');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -94,7 +107,7 @@ function Workbench() {
     <WorkbenchShell wide title="Capture" eyebrow={EYEBROW[domain]}
       tagline="USS TJR · Capture · Review-first — nothing auto-routes without your say"
       right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
-      <KpiDashboard stats={stats} loading={loading} onFilter={filterToInbox} />
+      <KpiDashboard stats={stats} loading={loading} loadError={loadError} onFilter={filterToInbox} />
       {domain === 'capture' && <CaptureView onCaptured={refresh} />}
       {domain === 'inbox' && (
         <InboxView

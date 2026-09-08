@@ -167,11 +167,29 @@ class FileSystemAudit:
             return 0
 
     def _find_test_files(self) -> list[str]:
-        """Find test files."""
-        test_dir = self.repo_root / "tests"
-        if not test_dir.exists():
+        """Find test files (test_*.py / *_test.py) repo-wide, using the same
+        prune scope as _count_python_files() so the two counts are
+        reconcilable. Previously only glob'd the top-level tests/ directory
+        non-recursively, silently missing every test file living alongside
+        its source (platform-runtime/test_*.py, services/*/tests/*.py,
+        etc.) — 126 of 220 real test files repo-wide (USS-TJR-MSN-1788844167855).
+        Returns repo-relative paths rather than bare names since the same
+        basename can legitimately exist under multiple services."""
+        try:
+            result = subprocess.run(
+                ["find", str(self.repo_root)] + _find_prune_args()
+                + ["(", "-name", "test_*.py", "-o", "-name", "*_test.py", ")", "-type", "f", "-print"],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode != 0:
+                return []
+            return sorted(
+                str(Path(p).relative_to(self.repo_root))
+                for p in result.stdout.strip().splitlines() if p
+            )
+        except Exception as exc:
+            log.warning(f"Failed to find test files: {exc}")
             return []
-        return [f.name for f in test_dir.glob("test_*.py")]
 
     def _find_doc_files(self) -> dict[str, Any]:
         """
