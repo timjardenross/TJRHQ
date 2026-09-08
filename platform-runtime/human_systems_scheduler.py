@@ -5,27 +5,25 @@ capability. It does NOT introduce a new standalone daemon — it reuses:
 
   * the push generators (lib/human_systems/push.py)            — no new logic
   * the framework data fetch (commands/human_systems._fetch_rows)
-  * the Slack DM delivery pattern (lib/human_systems/delivery.py)
+  * the Telegram delivery pattern (lib/human_systems/delivery.py)
   * Command Memory (lib/human_systems/memory.py)
   * the SAME APScheduler + cron-from-env pattern as intelligence/scheduler.py
   * the SAME CLI invocation contract (--once / --job / --test / --json) so an
-    external trigger (cron, CI, or the running bot) drives it.
+    external trigger (cron, CI, or a caller) drives it.
 
-Two ways to run, both reusing the above:
-  1. In-process (recommended): start_in_process(client) is called from the
-     already-running slack-bot (app.py), so there is NO separate process.
-  2. CLI job-runner: `python human_systems_scheduler.py --job morning`
-     for cron/CI/manual invocation, mirroring `python -m intelligence.scheduler`.
+Run via: `python human_systems_scheduler.py --job morning` for cron/CI/manual
+invocation (mirroring `python -m intelligence.scheduler`), or `--daemon` for
+a standalone blocking APScheduler process. run_job() is also importable for
+one-shot use from a command handler (commands/human_systems.py,
+commands/comms.py) without starting any scheduler at all.
 
-# LOCAL SCHEDULER: tightly coupled to Slack bot process — cannot migrate to
-# canonical scheduler (intelligence/scheduler.py). start_in_process() uses a
-# BackgroundScheduler that receives the live Slack WebClient at startup; every
-# job delivers via lib/human_systems/delivery.py which requires that client.
-# The canonical scheduler is a BlockingScheduler with no Slack client and no
-# access to the delivery layer. run_job() is also importable for one-shot CLI
-# or command-handler use (app.py, commands/human_systems.py, commands/comms.py)
-# without starting any scheduler at all.
-"""
+2026-09-08: Slack retired as a transport (Captain direction — Slack was
+disabled). This module previously offered an additional in-process mode
+(start_in_process()) that ran inside the Slack bot process (app.py) and
+delivered via its live Slack WebClient — removed along with app.py itself.
+delivery.py is Telegram-only now, driven purely by env config, so every run
+mode here (CLI job, --test, --daemon) needs no client/channel to be passed
+in at all.
 
 Jobs:
   morning      Morning Readiness Pulse        (default HS_MORNING_CRON   "0 7 * * *")
@@ -161,8 +159,7 @@ def _publish_core_event(job: str, message, report: dict) -> None:
         pass
 
 
-def run_job(job: str, *, client=None, channel=None, dry_run: bool = False,
-            record: bool = True) -> dict:
+def run_job(job: str, *, dry_run: bool = False, record: bool = True) -> dict:
     """Run one proactive job: generate → record → deliver. Returns a report dict."""
     if job not in JOBS:
         return {"job": job, "error": f"unknown job (expected one of {JOBS})"}
@@ -185,7 +182,7 @@ def run_job(job: str, *, client=None, channel=None, dry_run: bool = False,
             except Exception as exc:  # pragma: no cover
                 log.warning("[human-systems-scheduler] memory record failed: %s", exc)
 
-        result = delivery.deliver(message, client=client, channel=channel, dry_run=dry_run)
+        result = delivery.deliver(message, dry_run=dry_run)
         report = {"job": job, **result.as_dict()}
         log.info("[human-systems-scheduler] job=%s delivered=%s dry_run=%s",
                  job, report["delivered"], report["dry_run"])
@@ -198,12 +195,10 @@ def run_job(job: str, *, client=None, channel=None, dry_run: bool = False,
         raise
 
 
-def run_all(*, client=None, channel=None, dry_run: bool = False) -> list[dict]:
+def run_all(*, dry_run: bool = False) -> list[dict]:
     """Run every job once (used for smoke tests and --test)."""
-    return [run_job(j, client=client, channel=channel, dry_run=dry_run) for j in JOBS]
+    return [run_job(j, dry_run=dry_run) for j in JOBS]
 
-
-# ── In-process scheduling (reuses the running slack-bot process) ──────────────
 
 def _timezone():
     tz_name = os.environ.get("HS_SCHEDULE_TZ", "Australia/Sydney")
@@ -214,51 +209,8 @@ def _timezone():
         return None
 
 
-def start_in_process(client, *, channel: str | None = None):
-    """Start the four jobs on a BackgroundScheduler inside the current process.
-
-    Designed to be called from the running slack-bot (app.py) so there is no
-    parallel daemon — the bot is already the long-lived notification service.
-    Returns the scheduler (or None if APScheduler is unavailable).
-    """
-    try:
-        from apscheduler.schedulers.background import BackgroundScheduler
-        from apscheduler.triggers.cron import CronTrigger
-    except ImportError:
-        log.warning("[human-systems-scheduler] APScheduler not installed — proactive jobs disabled")
-        return None
-
-    tz = _timezone()
-    scheduler = BackgroundScheduler(timezone=tz) if tz else BackgroundScheduler()
-
-    for job in JOBS:
-        env_key, default = _CRON_DEFAULTS[job]
-        cron = os.environ.get(env_key, default)
-        parts = cron.split()
-        if len(parts) != 5:
-            log.warning("[human-systems-scheduler] bad cron for %s: %r — skipping", job, cron)
-            continue
-        trigger_kwargs = dict(
-            minute=parts[0], hour=parts[1], day=parts[2],
-            month=parts[3], day_of_week=parts[4],
-        )
-        if tz:
-            trigger_kwargs["timezone"] = tz
-        scheduler.add_job(
-            run_job, CronTrigger(**trigger_kwargs),
-            kwargs={"job": job, "client": client, "channel": channel},
-            id=f"human_systems_{job}", replace_existing=True,
-        )
-        log.info("[human-systems-scheduler] scheduled %s cron=%r", job, cron)
-
-    scheduler.start()
-    log.info("[human-systems-scheduler] in-process scheduler started (%d jobs)", len(JOBS))
-    return scheduler
-
-
-def _start_daemon(client, channel):
-    """Blocking daemon mode — parity with intelligence/scheduler.py for hosts
-    that prefer a dedicated process. Prefer start_in_process() where possible."""
+def _start_daemon():
+    """Blocking daemon mode — parity with intelligence/scheduler.py."""
     try:
         from apscheduler.schedulers.blocking import BlockingScheduler
         from apscheduler.triggers.cron import CronTrigger
@@ -276,7 +228,7 @@ def _start_daemon(client, channel):
             kw["timezone"] = tz
         scheduler.add_job(
             run_job, CronTrigger(**kw),
-            kwargs={"job": job, "client": client, "channel": channel},
+            kwargs={"job": job},
             id=f"human_systems_{job}", replace_existing=True,
         )
     log.info("[human-systems-scheduler] daemon started")
@@ -296,11 +248,8 @@ if __name__ == "__main__":
     parser.add_argument("--daemon", action="store_true", help="Run blocking APScheduler daemon")
     args = parser.parse_args()
 
-    client = None if (args.test or args.dry_run) else delivery.get_slack_client()
-    channel = delivery.captain_channel()
-
     if args.daemon:
-        _start_daemon(client, channel)
+        _start_daemon()
         sys.exit(0)
 
     if args.test:
@@ -310,7 +259,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.job:
-        report = run_job(args.job, client=client, channel=channel, dry_run=args.dry_run)
+        report = run_job(args.job, dry_run=args.dry_run)
         print(json.dumps(report, indent=2) if args.json else report.get("text", report))
         sys.exit(0)
 

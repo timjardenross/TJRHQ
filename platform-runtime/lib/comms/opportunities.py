@@ -26,10 +26,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-try:
-    from lib.comms import pillars
-except Exception:  # pragma: no cover
-    from slack_bot.lib.comms import pillars  # type: ignore
+from lib.comms import pillars
 
 # Classification buckets (mission WP1).
 PUBLISHABLE = "publishable"

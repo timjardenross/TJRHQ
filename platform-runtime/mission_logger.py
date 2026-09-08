@@ -27,8 +27,7 @@ MISSION_HISTORY_TRIGGERS = [
 ]
 
 SECRET_ENV_KEYS = [
-    "SLACK_BOT_TOKEN",
-    "SLACK_APP_TOKEN",
+    "TELEGRAM_BOT_TOKEN",
 ]
 
 
@@ -99,7 +98,7 @@ Priority: {priority}
 
 Status: {status}
 
-Source: Slack
+Source: Commander
 
 ## User Request
 
@@ -129,7 +128,7 @@ Optional future notes.
         save_mission_after_creation(
             mission_id=mission_id,
             title=build_title(user_request),
-            user_id="slack-bot",  # Will be replaced by actual user_id when available
+            user_id="commander",  # Will be replaced by actual user_id when available
         )
     except Exception as e:
         log.error("[mission-logger] Failed to save to Command Memory: %s", e)

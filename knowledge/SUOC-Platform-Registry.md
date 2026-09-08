@@ -170,15 +170,15 @@ Every record follows the same field order: Capability Name, Description, Purpose
 
 ### Notification
 
-- **Description:** send a message through a transport (Telegram, transitionally Slack) with real severity, retry, templates, and a call log.
+- **Description:** send a message through a transport (Telegram — the only transport since Slack's platform-wide retirement) with real severity, retry, templates, and a call log.
 - **Purpose:** one shared sending mechanism instead of 5+ independent ad hoc senders.
 - **Engineering Confidence:** 80% — fully operationally validated (retry, real delivery, logging all confirmed working), the gap is adoption, not soundness.
-- **Current Maturity:** L2 — Implemented, zero production adoption (standalone by design this wave).
-- **Current Status:** fully built and operationally validated (retry behaviour, real delivery, logging all confirmed working end-to-end) but not called from any live path yet.
+- **Current Maturity:** L2 — Implemented; live consumer is `command_bus.py` (cut over 2026-08-22, Wave 2).
+- **Current Status:** fully built and operationally validated (retry behaviour, real delivery, logging all confirmed working end-to-end). 2026-09-08 (Slack platform-wide retirement, Captain direction): `Transport.SLACK`/`_send_slack()` removed outright — Telegram is now the only transport this module supports, and `command_bus.py`'s routing (`_route()`) sends every severity to Telegram (previously Slack carried everything and Telegram was ALERT/CRITICAL-only overflow).
 - **Owner:** Chief Engineer.
 - **Canonical Implementation:** `core/platform/notification_service.py` (`notify()`).
-- **Consumers:** none yet — `command_bus.py`'s own `_telegram`/`_slack` remain the live senders pending an explicit cutover decision.
-- **Dependencies:** Telegram Bot API, Slack `chat.postMessage` (transitional), env vars (`TELEGRAM_BOT_TOKEN`, `SLACK_BOT_TOKEN`, etc.).
+- **Consumers:** `command_bus.py` (all severities, since 2026-09-08); `scripts/self_improvement/auto_remediation.py`'s cycle-summary notify.
+- **Dependencies:** Telegram Bot API, env vars (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_IDS`).
 - **Capability Relationships:**
   - *Depends On:* Configuration (env vars — not yet via the actual service).
   - *Consumes:* nothing yet (standalone).
@@ -186,9 +186,9 @@ Every record follows the same field order: Capability Name, Description, Purpose
   - *Future Dependencies:* Audit (to persist its log), Event Bus (future trigger source for notifications).
 - **Related ADRs:** ADR-027.
 - **Related Missions:** MSN-0210F Phase 1 (built), MSN-0210G (full operational validation incl. a real delivery test), MSN-0210H (Hermes discovery's unified-gateway pattern validates this design direction).
-- **Technical Debt:** in-process call log not persisted to Audit; Slack transport is transitional pending Slack's platform-wide retirement; `command_bus.py` cutover explicitly held pending further readiness review.
-- **Next Planned Evolution:** `command_bus.py` cutover — held per Captain instruction, no date set.
-- **Last Updated:** 2026-07-05.
+- **Technical Debt:** in-process call log not persisted to Audit.
+- **Next Planned Evolution:** none pending — the `command_bus.py` cutover this entry used to describe as held is complete, and Slack transport support has been removed rather than merely deprioritised.
+- **Last Updated:** 2026-09-08.
 
 ### Configuration
 

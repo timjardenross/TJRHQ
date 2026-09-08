@@ -7,9 +7,9 @@ logging events across the six domains.
 Public API:
     handle_human_systems(text, user_id=None, channel_id=None) -> str
 
-The handler is pure with respect to Slack: it returns a mrkdwn string. Data is
-read from the Supabase ``analytics_health_daily`` view when available, and
-degrades gracefully to a no-data path when it isn't.
+The handler returns a mrkdwn-style string. Data is read from the Supabase
+``analytics_health_daily`` view when available, and degrades gracefully to
+a no-data path when it isn't.
 """
 
 from __future__ import annotations
@@ -25,13 +25,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-# Package import works whether invoked as slack-bot.lib or with slack-bot on path.
-try:
-    from lib.human_systems import framework, push, safety, memory
-    from lib.human_systems import decision, mission_load as ml, xo, learning
-except Exception:  # pragma: no cover - fallback for alternate sys.path layouts
-    from slack_bot.lib.human_systems import framework, push, safety, memory  # type: ignore
-    from slack_bot.lib.human_systems import decision, mission_load as ml, xo, learning  # type: ignore
+from lib.human_systems import framework, push, safety, memory
+from lib.human_systems import decision, mission_load as ml, xo, learning
 
 
 # ── Data access ───────────────────────────────────────────────────────────────

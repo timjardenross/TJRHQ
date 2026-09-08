@@ -307,7 +307,7 @@ class NumberOneExecutionEngine:
         )
 
     def format_captain_brief_section(self, summary: ExecutiveSummary) -> str:
-        """Format executive summary as a Slack-ready Captain brief section."""
+        """Format executive summary as a Captain brief section (mrkdwn-style)."""
         health_icon = {"green": ":large_green_circle:", "amber": ":large_yellow_circle:", "red": ":red_circle:"}.get(summary.system_health, ":white_circle:")
         lines = [
             f"{health_icon} *NUMBER ONE EXECUTIVE SUMMARY*",
@@ -345,16 +345,12 @@ class NumberOneExecutionEngine:
 
     def _get_client(self):
         try:
-            from slack_bot.command_memory_integration import get_client
+            sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
+            from command_memory_integration import get_client
             return get_client()
-        except Exception:
-            try:
-                sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
-                from command_memory_integration import get_client
-                return get_client()
-            except Exception as exc:
-                log.warning("[exec-engine] Command Memory client unavailable: %s", exc)
-                return None
+        except Exception as exc:
+            log.warning("[exec-engine] Command Memory client unavailable: %s", exc)
+            return None
 
     def _write_assignment(self, action: AssignmentAction) -> None:
         """Write assignment to missions table and log decision to Command Memory."""

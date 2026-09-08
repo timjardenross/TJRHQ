@@ -1,9 +1,9 @@
 """Command Operations Bus — cross-service routing and health orchestration.
 
 Polls Supabase and systemd state on a configurable cycle, detects problems,
-self-heals where safe, and routes alerts to the Captain across Slack and
-Telegram.  This is the thin coordination layer that was previously missing —
-it does not replace individual service polling, it coordinates across them.
+self-heals where safe, and routes alerts to the Captain via Telegram.  This
+is the thin coordination layer that was previously missing — it does not
+replace individual service polling, it coordinates across them.
 
 Routing rules (applied every COMMAND_BUS_INTERVAL seconds, default 300):
   1. executor_stuck       — build_request_inbox row stuck at engineering_running
@@ -23,8 +23,11 @@ Routing rules (applied every COMMAND_BUS_INTERVAL seconds, default 300):
 # downstream" is reported rather than a fabricated "failed".
 
 Outputs:
-  Slack    — all alerts (CAPTAINS_INBOX_CHANNEL_ID or BRIEF_CHANNEL from platform-runtime/.env)
-  Telegram — ALERT/CRITICAL severity (TELEGRAM_BOT_TOKEN + TELEGRAM_ALLOWED_CHAT_IDS)
+  Telegram — all alerts, every severity (TELEGRAM_BOT_TOKEN + TELEGRAM_ALLOWED_CHAT_IDS)
+             2026-09-08: Slack retired as a transport (Captain direction — Slack was
+             disabled). Telegram is now the only channel, so routing no longer gates
+             by severity the way it did when Slack carried everything and Telegram
+             was ALERT/CRITICAL-only overflow — see _route()'s docstring.
 
 State: SQLite at outputs/command_bus.db
 
@@ -79,8 +82,6 @@ _INTERVAL           = int(_env("COMMAND_BUS_INTERVAL", "300"))       # seconds b
 _STUCK_MIN          = int(_env("EXECUTOR_STUCK_MIN", "60"))           # minutes before stuck alert
 _NOTIFY_COOLDOWN_H  = int(_env("COMMAND_BUS_NOTIFY_COOLDOWN_H", "4")) # hours between repeat alerts
 
-_SLACK_TOKEN        = _env("SLACK_BOT_TOKEN")
-_SLACK_CHANNEL      = _env("BRIEF_CHANNEL") or _env("BRIEF_USER_ID") or _env("CAPTAINS_INBOX_CHANNEL_ID")
 _TG_TOKEN           = _env("TELEGRAM_BOT_TOKEN")
 _TG_CHAT_ID         = (_env("TELEGRAM_ALLOWED_CHAT_IDS") or "").split(",")[0].strip()
 
@@ -196,36 +197,10 @@ def _reopen_event(conn: sqlite3.Connection, key: str) -> None:
 # Routing outputs
 # ---------------------------------------------------------------------------
 
-def _slack(message: str) -> bool:
-    if not _SLACK_TOKEN or not _SLACK_CHANNEL:
-        log.warning("[bus:slack] No Slack token/channel configured")
-        return False
-    payload = json.dumps({"channel": _SLACK_CHANNEL, "text": message}).encode()
-    req = urllib.request.Request(
-        "https://slack.com/api/chat.postMessage",
-        data=payload,
-        headers={"Authorization": f"Bearer {_SLACK_TOKEN}",
-                 "Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=10) as r:
-            resp = json.load(r)
-            if not resp.get("ok"):
-                log.warning("[bus:slack] API error: %s", resp.get("error"))
-                return False
-        return True
-    except Exception as exc:
-        log.error("[bus:slack] Request failed: %s", exc)
-        return False
-
-
 def _esc_html(value: object) -> str:
     """Escape a DYNAMIC value for Telegram's HTML parse_mode, before it's
-    interpolated into `tg` — the Telegram-bound message string, which mixes
-    intentional <b>/<code> HTML with runtime values. `msg` (the Slack-bound
-    string built alongside `tg` at each call site) intentionally does NOT
-    use this — Slack was never affected by the bug this exists for, and
-    its own mrkdwn (*bold*) formatting is unrelated to Telegram's parser.
+    interpolated into a Telegram-bound message string, which mixes
+    intentional <b>/<code> HTML with runtime values.
 
     2026-08-22, corrected same day: this used to escape for legacy
     Telegram "Markdown" parse_mode (backslash before _, *, `, [). That
@@ -258,31 +233,24 @@ _SEVERITY_MAP = {
 }
 
 
-def _route(severity: str, slack_msg: str, tg_msg: str | None = None) -> bool:
-    """Post to Slack (always) and Telegram (ALERT/CRITICAL). Returns True if Slack succeeded.
+def _route(severity: str, tg_msg: str) -> bool:
+    """Post to Telegram. Returns True on success.
 
-    2026-08-22 Wave 2 cutover: sends now go through
-    notification_service.notify() instead of this file's own raw
-    urllib senders (_slack/_telegram have been retired from this path —
-    notification_service owns retry/backoff and the call-log now).
-    template="raw" is deliberate: slack_msg/tg_msg are already fully
-    composed (tg_msg's dynamic values already HTML-escaped via _esc_html()
-    above) — notify() must pass them through unchanged, not re-escape them
-    (see _esc_html's docstring and notification_service._RAW_TEMPLATES).
-
-    Severity routing is preserved exactly: Slack always fires; Telegram
-    fires only when `severity` is literally "ALERT" or "CRITICAL" (a
-    "HIGH" service-health alert does NOT get Telegram — that was already
-    true of the pre-cutover code: the caller's `tg if crit in
-    ("CRITICAL", "HIGH") else None` ternary was live but the check here
-    excluded "HIGH" regardless of tg_msg, so Telegram never fired for it).
+    2026-09-08 (Slack retirement, Captain direction — Slack was disabled):
+    Telegram is now the only transport. Before this, Slack carried every
+    severity and Telegram only fired for ALERT/CRITICAL (a "HIGH"
+    service-health alert never reached Telegram at all) — that gating
+    existed because Slack was the always-on channel and Telegram was
+    overflow for the urgent cases. With Slack gone, gating by severity
+    would silently drop MEDIUM/HIGH alerts entirely instead of just
+    changing which channel carries them, so every severity now routes to
+    Telegram. `tg_msg` must already be fully composed (dynamic values
+    already HTML-escaped via _esc_html() above) — notify() with
+    template="raw" passes it through unchanged, not re-escaped (see
+    _esc_html's docstring and notification_service._RAW_TEMPLATES).
     """
-    ok = _notify(slack_msg, severity=_SEVERITY_MAP.get(severity, Severity.WARNING),
-                 template="raw", transport=Transport.SLACK).ok
-    if severity in ("ALERT", "CRITICAL") and (tg_msg or slack_msg):
-        _notify(tg_msg or slack_msg, severity=_SEVERITY_MAP.get(severity, Severity.WARNING),
-                template="raw", transport=Transport.TELEGRAM)
-    return ok
+    return _notify(tg_msg, severity=_SEVERITY_MAP.get(severity, Severity.WARNING),
+                    template="raw", transport=Transport.TELEGRAM).ok
 
 
 # ---------------------------------------------------------------------------
@@ -348,19 +316,12 @@ def _rule_executor_stuck(conn: sqlite3.Connection, client) -> None:
             _reopen_event(conn, key)
             ev = conn.execute("SELECT * FROM bus_events WHERE event_key=?", (key,)).fetchone()
         if _should_notify(ev, _NOTIFY_COOLDOWN_H):
-            msg = (
-                f":warning: *Build Executor Stuck* [{age_min}m]\n"
-                f"Request `{req_id}` has been at `engineering_running` for {age_min} minutes.\n"
-                "The executor may have died mid-run. Manual intervention required:\n"
-                "• Reset the row status to `approved` to re-queue, OR\n"
-                "• Archive the request if it should not be retried."
-            )
             tg = (
                 f"⚠️ <b>Build Executor Stuck</b> [{age_min}m]\n"
                 f"<code>{_esc_html(req_id)}</code> stuck at <code>engineering_running</code> for {age_min}m.\n"
                 "Reset to <code>approved</code> to re-queue or archive if stale."
             )
-            if _route("ALERT", msg, tg):
+            if _route("ALERT", tg):
                 _mark_notified(conn, key)
                 log.info("[bus:stuck] Alerted on stuck request: %s (%dm)", req_id, age_min)
 
@@ -449,14 +410,8 @@ def _rule_service_health(conn: sqlite3.Connection) -> None:
         if not _should_notify(ev, _NOTIFY_COOLDOWN_H):
             continue
 
-        sev_emoji = {"CRITICAL": ":sos:", "HIGH": ":rotating_light:", "MEDIUM": ":warning:"}.get(crit, ":bell:")
-        msg = (
-            f"{sev_emoji} *Service Health Alert* [{crit}]\n"
-            f"`{svc}` is *{state}*.\n"
-            "Check: `systemctl status <service>` | `journalctl -u <service> -n 50`"
-        )
         tg = f"🆘 <b>Service Down</b> [{crit}]\n<code>{_esc_html(svc)}</code> is <b>{_esc_html(state)}</b>."
-        if _route(crit, msg, tg if crit in ("CRITICAL", "HIGH") else None):
+        if _route(crit, tg):
             _mark_notified(conn, key)
             log.info("[bus:health] Alerted: %s is %s [%s]", svc, state, crit)
 
@@ -490,13 +445,12 @@ def _rule_new_missions(conn: sqlite3.Connection, client) -> None:
             (mid, _now_iso()),
         )
         conn.commit()
-        msg = (
-            f":bulb: *New Mission — Triage Required*\n"
-            f"`{mid}` — {title}\n"
-            "Status: *Idea* — awaiting review, approval, or archival.\n"
-            "Use `/mission-status` to advance or `/mission-close` to archive."
+        tg = (
+            f"💡 <b>New Mission — Triage Required</b>\n"
+            f"<code>{_esc_html(mid)}</code> — {_esc_html(title)}\n"
+            "Status: <b>Idea</b> — awaiting review, approval, or archival via Mission Workbench."
         )
-        _slack(msg)
+        _route("MEDIUM", tg)
         log.info("[bus:missions] New Idea mission alerted: %s", mid)
 
 
@@ -523,9 +477,7 @@ def run_loop() -> None:
     """Continuous polling loop. Runs indefinitely; use systemd for lifecycle."""
     import time
     log.info("[bus] Starting command bus (interval=%ds)", _INTERVAL)
-    log.info("[bus] Slack channel: %s | Telegram chat: %s",
-             _SLACK_CHANNEL or "(not configured)",
-             _TG_CHAT_ID or "(not configured)")
+    log.info("[bus] Telegram chat: %s", _TG_CHAT_ID or "(not configured)")
     while True:
         try:
             run_once()

@@ -449,11 +449,11 @@ class LearningLoopService:
 # =============================================================================
 # INTEGRATION POINT: Research Command Handler
 # =============================================================================
-# Example usage in slack-bot/commands/research_command.py:
+# Example usage in platform-runtime/commands/research_command.py:
 #
 # def handle_research_response(mission_id, recommendation, user_id):
 #     """After research completes and recommendation is sent to user."""
-#     from slack_bot.lib.learning_loop_service import LearningLoopService
+#     from lib.learning_loop_service import LearningLoopService
 #     from tools.supabase.client import CommanderSupabaseClient
 #
 #     # Initialize service with backend client
