@@ -21,11 +21,20 @@
 // `icon` added 2026-09-05 (Adaptive Themes + Home/Workbench Redesign
 // mission, §13) — a component reference (lucide-react), not a string name,
 // so a typo fails at compile time rather than silently rendering nothing.
+//
+// Sidebar/switcher review (2026-09-08): Mission Workbench, Capture
+// Workbench, Captain's Brief, and Knowledge Workbench were live, linked-from
+// multiple places pages that had simply never been added here — not a
+// deliberate exclusion (none of their own header comments claim
+// zero-nav/deprecated status; several explicitly say "Reachable from
+// /workbenches"). Added below in priority order rather than left as a gap.
 
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard,
+  Inbox,
   Compass,
+  Rocket,
   BarChart3,
   ListChecks,
   Radar,
@@ -35,7 +44,9 @@ import {
   Dumbbell,
   FileText,
   MessageSquare,
+  ScrollText,
   Archive as ArchiveIcon,
+  BookOpen,
   Activity,
   Lightbulb,
   GitPullRequest,
@@ -60,10 +71,22 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     icon: LayoutDashboard,
   },
   {
+    href: '/capture-workbench',
+    title: 'Capture Workbench',
+    description: 'Quick capture and inbox triage — everything that comes in via Telegram/Slack/API, live, in one place.',
+    icon: Inbox,
+  },
+  {
     href: '/captains-chair-workbench',
     title: "Captain's Chair",
     description: 'Operational dashboard — recovery posture, mission overview, alerts, and intelligence at a glance.',
     icon: Compass,
+  },
+  {
+    href: '/mission-workbench',
+    title: 'Mission Workbench',
+    description: 'Every active and completed mission — capacity-cost aware, filtered by what fits today\'s recovery posture.',
+    icon: Rocket,
   },
   {
     href: '/weekly-review',
@@ -120,10 +143,22 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     icon: MessageSquare,
   },
   {
+    href: '/captains-brief-workbench',
+    title: "Captain's Brief",
+    description: 'The day\'s assembled briefing — KPIs, narrative brief, and domain breakdowns, refreshed on demand.',
+    icon: ScrollText,
+  },
+  {
     href: '/briefs',
     title: 'Briefs',
     description: 'The intelligence brief archive - every synthesized OSINT/world-news brief, filterable by review/publish status.',
     icon: ArchiveIcon,
+  },
+  {
+    href: '/knowledge-workbench',
+    title: 'Knowledge Workbench',
+    description: 'Command memory — organisational decisions and the reasoning behind them, searchable in one place.',
+    icon: BookOpen,
   },
   {
     href: '/agent-status-workbench',
