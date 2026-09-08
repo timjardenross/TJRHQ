@@ -20,8 +20,19 @@ Jobs registered here:
   mission_registry_sync    daily 06:45 — sync Supabase missions → registry (background)
   content_pipeline         daily 06:15 — content signal promotion + draft worker (background)
   pending_research_sweep   every 5 min — recover stuck captured_items (background)
+  appointment_prep         daily 08:45 — appointment prep briefs (see job_appointment_prep)
 
 Migration: 2026-08-23. Slack bot (starfleet-slack-bot.service) decommissioned.
+
+appointment_prep added 2026-09-08: platform-runtime/commands/health_appointment_prep.py's
+scheduled job (check_upcoming_appointments(), daily 08:45 per its own module docstring)
+was never migrated in the 2026-08-23 pass above — a gap, not a deliberate skip. Its
+Supabase query + brief-generation helpers aren't Slack-specific, so job_appointment_prep()
+below reuses them directly and delivers over Telegram via _tg_notify(). The module's
+Slack-coupled entry points (check_upcoming_appointments, handle_health_prep, _post())
+are untouched and still live via platform-runtime/proactive_scheduler.py + app.py,
+which have not themselves been decommissioned yet — this migration only adds the
+canonical-scheduler path alongside them.
 """
 
 from __future__ import annotations
@@ -492,6 +503,55 @@ def job_lifecycle_recommendations() -> None:
         _shakedown_log("lifecycle_recommendations", "failure", str(exc))
 
 
+def job_appointment_prep() -> None:
+    """Daily 08:45 — appointment prep briefs for appointments within lead
+    days (APPOINTMENT_LEAD_DAYS env, default 2). See module docstring for
+    the 2026-09-08 migration note: reuses health_appointment_prep.py's
+    query + brief-generation helpers (not Slack-specific), delivers over
+    Telegram instead of that module's chat_postMessage-based _post()."""
+    try:
+        sys.path.insert(0, str(_REPO_ROOT / "platform-runtime" / "commands"))
+        from health_appointment_prep import (
+            _get_upcoming_appointments,
+            _get_health_summary_period,
+            _get_recent_health_events,
+            _get_pending_followups,
+            _generate_prep_brief,
+        )
+    except ImportError as exc:
+        log.debug("[proactive] health_appointment_prep unavailable — appointment_prep skipped: %s", exc)
+        return
+
+    lead_days = int(os.environ.get("APPOINTMENT_LEAD_DAYS", "2"))
+    try:
+        appointments = _get_upcoming_appointments(lead_days)
+    except Exception as exc:
+        log.error("[proactive] Appointment prep: query failed: %s", exc)
+        _shakedown_log("appointment_prep", "failure", str(exc))
+        return
+    if not appointments:
+        log.info("[proactive] No appointments within %d days", lead_days)
+        _shakedown_log("appointment_prep", "skipped", f"No appointments within {lead_days} days")
+        return
+
+    health_summary = _get_health_summary_period(days=7)
+    recent_events  = _get_recent_health_events(since_days=30)
+    follow_ups     = _get_pending_followups()
+
+    sent = 0
+    for appt in appointments:
+        try:
+            brief = _generate_prep_brief(appt, health_summary, recent_events, follow_ups)
+            if _tg_notify(brief):
+                sent += 1
+        except Exception as exc:
+            log.error("[proactive] Appointment prep brief failed for %s: %s",
+                      appt.get("title", "appointment"), exc)
+    log.info("[proactive] Appointment prep: %d/%d brief(s) sent", sent, len(appointments))
+    _shakedown_log("appointment_prep", "success" if sent else "failure",
+                   f"{sent}/{len(appointments)} briefs sent")
+
+
 def job_shakedown_digest() -> None:
     """Daily 20:00 — operational shakedown day summary."""
     try:
@@ -705,11 +765,19 @@ def register_jobs(scheduler, tz) -> None:
         name="Knowledge Officer Monthly Brief",
         replace_existing=True,
     )
+    scheduler.add_job(
+        job_appointment_prep,
+        CronTrigger(hour=8, minute=45, timezone=tz),
+        id="appointment_prep",
+        name="Appointment Preparation Brief (M-20260614 WP4)",
+        replace_existing=True,
+    )
 
     log.info(
-        "[proactive] 12 cadence jobs registered: "
+        "[proactive] 13 cadence jobs registered: "
         "content_pipeline 06:15, mission_registry_sync 06:45, lifecycle_recs 08:15, "
-        "fortnightly_idea_review Mon 08:45, knowledge_freshness Wed 09:00, "
+        "fortnightly_idea_review Mon 08:45, appointment_prep daily 08:45, "
+        "knowledge_freshness Wed 09:00, "
         "decision_outcome_reminder Wed 09:15, forgotten_decisions Mon+Thu 09:30, "
         "decision_review Fri 16:00, weekly_review Fri 16:30, "
         "monthly_digest+ko_brief 1st-of-month, "
