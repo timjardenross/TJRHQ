@@ -56,6 +56,19 @@ _SYNTHETIC_MISSIONS = [
 ]
 
 
+_SYNTHETIC_HANDOFF = {
+    "mission_id": "ENG-HANDOFF-TEST-STALLED",
+    "title": "[ENG-HANDOFF] Stalled test handoff",
+    "status": "Blocked",
+    "priority": "P1",
+    "domain": "engineering",
+    "blockers": ["no artifact yet"],
+    "dependencies": [],
+    "next_action": "Triage this",
+    "assigned_role": None,
+}
+
+
 class TestHttpNumberOneBrief(unittest.TestCase):
     def _run(self, missions=None):
         with patch.object(context_service, "_load_missions", return_value=missions if missions is not None else _SYNTHETIC_MISSIONS):
@@ -110,6 +123,26 @@ class TestHttpNumberOneBrief(unittest.TestCase):
         import json
         result = self._run()
         json.dumps(result)  # raises if anything (Enum, datetime, dataclass) leaked through
+
+    def test_engineering_handoffs_merged_into_queue(self):
+        """load_engineering_handoffs()'s own docstring names Number One's
+        advisory queue as its intended consumer, but nothing called it from
+        here until now — this is the regression test for that wiring."""
+        with patch.object(context_service, "_load_missions", return_value=[]), \
+             patch("engineering_handoff_reader.load_engineering_handoffs", return_value=[_SYNTHETIC_HANDOFF]):
+            result = context_service._http_number_one_brief()
+        self.assertEqual(result["total_missions"], 1)
+        ids = [item["mission_id"] for item in result["top_priorities"]]
+        self.assertIn("ENG-HANDOFF-TEST-STALLED", ids)
+
+    def test_engineering_handoff_load_failure_degrades_gracefully(self):
+        """Missions/Engineering-Handoffs/ not existing (or any other read
+        failure) must never break the brief — Number One should still see
+        the regular missions."""
+        with patch.object(context_service, "_load_missions", return_value=_SYNTHETIC_MISSIONS), \
+             patch("engineering_handoff_reader.load_engineering_handoffs", side_effect=OSError("boom")):
+            result = context_service._http_number_one_brief()
+        self.assertEqual(result["total_missions"], len(_SYNTHETIC_MISSIONS))
 
 
 if __name__ == "__main__":

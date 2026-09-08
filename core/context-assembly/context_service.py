@@ -558,11 +558,27 @@ def _http_number_one_brief() -> dict:
     title, status, priority, domain, blockers, dependencies, next_action,
     assigned_role), so no new adapter was needed — it was already sitting
     there unused, just never called from this function specifically.
+
+    Also merges in approved engineering handoffs (core/coordination/
+    engineering_handoff_reader.py's load_engineering_handoffs()) —
+    its own docstring already names "Number One's advisory queue" as the
+    intended consumer of its default include_completed=False behaviour, but
+    nothing had ever actually called it from here. Read-only, non-blocking:
+    returns [] and changes nothing if Missions/Engineering-Handoffs/ doesn't
+    exist. Deliberately scoped to this function only (not folded into the
+    shared _load_missions(), which 8 other call sites in this file depend
+    on for their existing, tested behaviour) — Number One's brief is the one
+    consumer that should see `[ENG-HANDOFF]`-prefixed synthetic missions.
     """
     sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
     from number_one import NumberOne  # noqa: PLC0415
+    from engineering_handoff_reader import load_engineering_handoffs  # noqa: PLC0415
 
     missions = _load_missions()
+    try:
+        missions = missions + load_engineering_handoffs()
+    except Exception as exc:
+        _err(f"Could not load engineering handoffs: {exc}")
     brief = NumberOne().get_daily_brief(missions)
 
     return {
