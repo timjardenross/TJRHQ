@@ -10,6 +10,16 @@ Routing rules (applied every COMMAND_BUS_INTERVAL seconds, default 300):
                             > EXECUTOR_STUCK_MIN minutes → ALERT
   2. service_health       — critical services down or HTTP backend unhealthy → ALERT
   3. new_missions         — newly created Idea-status missions → one-time triage nudge
+  4. number_one_escalations — CRITICAL/HIGH escalations from Number One's brief
+                            (core/coordination/number_one.py, via context_service.py's
+                            _http_number_one_brief()) → ALERT/CRITICAL. USS-TJR-MSN-0362
+                            candidate A (2026-09-08): Number One catches PR CI failures,
+                            blocked P0 missions, etc. that the Captain wouldn't otherwise
+                            see until asked. MEDIUM-level escalations and follow-ups are
+                            deliberately NOT pushed — visible on Mission Workbench, not
+                            paged. Suppressed during quiet hours (7pm-7am Brisbane,
+                            NUMBER_ONE_QUIET_HOURS_START/_END) — an escalation still open
+                            when quiet hours end fires on the next cycle, never dropped.
 
 # 2026-08-29 (decommissioning-discipline drift check): removed the
 # "executor_needs_restart" rule and its telegram-build-executor.service
@@ -49,6 +59,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator
+from zoneinfo import ZoneInfo
 
 from core.platform.notification_service import Severity, Transport
 from core.platform.notification_service import notify as _notify
@@ -81,6 +92,15 @@ def _env(key: str, default: str = "") -> str:
 _INTERVAL           = int(_env("COMMAND_BUS_INTERVAL", "300"))       # seconds between cycles
 _STUCK_MIN          = int(_env("EXECUTOR_STUCK_MIN", "60"))           # minutes before stuck alert
 _NOTIFY_COOLDOWN_H  = int(_env("COMMAND_BUS_NOTIFY_COOLDOWN_H", "4")) # hours between repeat alerts
+
+# USS-TJR-MSN-0362 candidate A (2026-09-08): quiet hours for Number One's
+# escalation push specifically — the Captain's answer was 7pm-7am. Scoped to
+# this one rule only, not the other alerts in this file (executor_stuck/
+# service_health/new_missions predate this and nobody asked for their
+# behaviour to change — a genuine service outage at 2am should still page).
+_QUIET_HOURS_START = int(_env("NUMBER_ONE_QUIET_HOURS_START", "19"))  # 24h, Australia/Brisbane
+_QUIET_HOURS_END   = int(_env("NUMBER_ONE_QUIET_HOURS_END", "7"))
+_NUMBER_ONE_TZ      = ZoneInfo("Australia/Brisbane")                  # matches wellness_officer/intelligence.py's convention
 
 _TG_TOKEN           = _env("TELEGRAM_BOT_TOKEN")
 _TG_CHAT_ID         = (_env("TELEGRAM_ALLOWED_CHAT_IDS") or "").split(",")[0].strip()
@@ -251,6 +271,17 @@ def _route(severity: str, tg_msg: str) -> bool:
     """
     return _notify(tg_msg, severity=_SEVERITY_MAP.get(severity, Severity.WARNING),
                     template="raw", transport=Transport.TELEGRAM).ok
+
+
+def _in_number_one_quiet_hours() -> bool:
+    """True during the Captain's quiet hours for Number One's escalation
+    push (USS-TJR-MSN-0362 candidate A, 7pm-7am Brisbane by default).
+    Handles the overnight wrap (start > end) the same way as a same-day
+    window would — e.g. 19 <= hour or hour < 7."""
+    hour = datetime.now(_NUMBER_ONE_TZ).hour
+    if _QUIET_HOURS_START <= _QUIET_HOURS_END:
+        return _QUIET_HOURS_START <= hour < _QUIET_HOURS_END
+    return hour >= _QUIET_HOURS_START or hour < _QUIET_HOURS_END
 
 
 # ---------------------------------------------------------------------------
@@ -455,6 +486,95 @@ def _rule_new_missions(conn: sqlite3.Connection, client) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Rule 5: Number One escalations (USS-TJR-MSN-0362 candidate A, 2026-09-08)
+# ---------------------------------------------------------------------------
+
+_NUMBER_ONE_ALERT_EMOJI = {"CRITICAL": "🆘", "HIGH": "🔺"}
+
+
+def _get_number_one_brief() -> dict | None:
+    """Fetch Number One's brief (escalations, follow-ups, etc.) via the same
+    function context_service.py's /brief/number-one endpoint calls — no
+    reimplemented scoring/escalation logic, this rule only routes what
+    NumberOne + pr_health.py already computed. Direct in-process import
+    (same convention core/context-assembly/tests/test_number_one_brief.py
+    uses), not HTTP: command_bus.py, context_service.py, and number_one.py
+    all run in the same deployed environment/venv. Returns None on any
+    failure — this rule is best-effort and must never break the rest of
+    the polling cycle."""
+    try:
+        for p in (REPO_ROOT / "core" / "context-assembly", REPO_ROOT / "core" / "coordination", REPO_ROOT):
+            if str(p) not in sys.path:
+                sys.path.insert(0, str(p))
+        import context_service  # noqa: PLC0415
+        return context_service._http_number_one_brief()
+    except Exception as exc:
+        log.warning("[bus:number_one] Could not fetch Number One's brief: %s", exc)
+        return None
+
+
+def _rule_number_one_escalations(conn: sqlite3.Connection) -> None:
+    """Push Number One's CRITICAL/HIGH escalations (PR CI failing, blocked
+    P0 missions, etc.) to Telegram — the Captain direction behind this:
+    'Number One should also drive what lands in my face' (2026-09-08).
+    MEDIUM escalations and follow-ups stay visible on Mission Workbench
+    only, not pushed — this rule is deliberately narrower than the full
+    brief. Suppressed during quiet hours (_in_number_one_quiet_hours());
+    an escalation still open once quiet hours end is notified on the next
+    cycle — quiet hours delay delivery, they never drop it, since a
+    suppressed escalation is simply never marked notified."""
+    brief = _get_number_one_brief()
+    if brief is None:
+        return
+
+    relevant = [
+        e for e in (brief.get("escalations") or [])
+        if str(e.get("level", "")).upper() in ("CRITICAL", "HIGH")
+    ]
+
+    def _key(e: dict) -> str:
+        return f"number_one_escalation:{e.get('escalation_type', 'UNKNOWN')}:{e.get('mission_id', '?')}"
+
+    # Resolve escalations that are no longer present (mirrors _rule_service_health).
+    active_keys = {_key(e) for e in relevant}
+    for row in conn.execute(
+        "SELECT event_key FROM bus_events WHERE event_key LIKE 'number_one_escalation:%' AND resolved_at IS NULL"
+    ).fetchall():
+        if row["event_key"] not in active_keys:
+            _resolve_if_gone(conn, row["event_key"])
+
+    quiet = _in_number_one_quiet_hours()
+    for e in relevant:
+        key = _key(e)
+        ev = _upsert_event(conn, key)
+        if ev["resolved_at"]:
+            _reopen_event(conn, key)
+            ev = conn.execute("SELECT * FROM bus_events WHERE event_key=?", (key,)).fetchone()
+        if not _should_notify(ev, _NOTIFY_COOLDOWN_H):
+            continue
+        if quiet:
+            # Leave it un-notified — _should_notify() will still be True on
+            # the next cycle after quiet hours end, so nothing is dropped.
+            continue
+
+        level = str(e.get("level", "")).upper()
+        emoji = _NUMBER_ONE_ALERT_EMOJI.get(level, "⚠️")
+        mission_id = e.get("mission_id") or "?"
+        reason = e.get("reason") or ""
+        recommendation = e.get("recommendation") or ""
+        tg = (
+            f"{emoji} <b>Number One — {_esc_html(e.get('escalation_type', 'ESCALATION'))}</b> [{level}]\n"
+            f"<code>{_esc_html(mission_id)}</code> — {_esc_html(reason)}"
+        )
+        if recommendation:
+            tg += f"\n→ {_esc_html(recommendation)}"
+
+        if _route(level, tg):
+            _mark_notified(conn, key)
+            log.info("[bus:number_one] Alerted: %s on %s [%s]", e.get("escalation_type"), mission_id, level)
+
+
+# ---------------------------------------------------------------------------
 # Main cycle
 # ---------------------------------------------------------------------------
 
@@ -469,6 +589,7 @@ def run_once() -> None:
         _rule_executor_stuck(conn, client)
         _rule_service_health(conn)
         _rule_new_missions(conn, client)
+        _rule_number_one_escalations(conn)
 
     log.info("[bus] Cycle complete")
 
