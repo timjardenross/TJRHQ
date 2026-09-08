@@ -216,7 +216,11 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # falls this back to local MODEL_LARGE — see the "escalate:" check there.
     "escalate":              {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 300},
     "fallback-complex":      {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 120},
-    "engineering-review":    {"model": MODEL_CODE,  "keep_alive": "10m", "timeout": 300},
+    # keep_alive raised to 20m (from 10m, MSN-1788771576677): mission-engineering-dispatch.timer
+    # fires every 15m, so 10m keep_alive meant the model unloaded between ticks,
+    # forcing a cold Ollama load almost every call (24.64s avg, 4.26-59.29s range
+    # across 15 sampled calls). 20m comfortably outlasts the 15m dispatch interval.
+    "engineering-review":    {"model": MODEL_CODE,  "keep_alive": "20m", "timeout": 300},
     # Gemini API (not Ollama) — separate provider branch in _run_task.
     # Uses GEMINI_BILLING_API_KEY, a dedicated key so billing-report cost
     # tracking stays isolated from the shared GEMINI_API_KEY used elsewhere.
