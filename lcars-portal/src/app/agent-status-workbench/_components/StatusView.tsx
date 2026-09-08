@@ -10,8 +10,15 @@
  * §44, §57).
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui';
+
+// HQ V1 Integration QA §22 (recovery propagation) fix: this tab previously
+// fetched once on mount only — a Captain with the Status tab open during an
+// incident would never see it flip back to NORMAL on recovery without
+// reloading the page. Matches JobsView.tsx's existing 30s polling interval
+// on this same workbench, rather than inventing a different cadence.
+const REFRESH_INTERVAL_MS = 30_000;
 
 type Posture = 'normal' | 'degraded' | 'attention' | 'unknown';
 type CapabilityTone = 'healthy' | 'degraded' | 'unavailable' | 'unknown';
@@ -96,10 +103,12 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
   const [data, setData] = useState<StatusData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    async function load() {
+    async function load(withSpinner: boolean) {
+      if (withSpinner) setIsLoading(true);
       try {
         const res = await fetch('/api/agent-status-workbench/overview', { cache: 'no-store' });
         if (!res.ok) {
@@ -107,15 +116,22 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
           throw new Error(body?.error ?? `HTTP ${res.status}`);
         }
         const json = await res.json();
-        if (!cancelled) setData(json);
+        if (!cancelled) {
+          setData(json);
+          setLoadError(null);
+        }
       } catch (err) {
         if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load HQ status');
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled && withSpinner) setIsLoading(false);
       }
     }
-    load();
-    return () => { cancelled = true; };
+    load(true);
+    intervalRef.current = setInterval(() => load(false), REFRESH_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      if (intervalRef.current !== null) clearInterval(intervalRef.current);
+    };
   }, []);
 
   if (isLoading) {

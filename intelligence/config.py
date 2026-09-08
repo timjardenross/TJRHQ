@@ -37,7 +37,15 @@ GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY", "")
 MISTRAL_API_KEY   = os.getenv("MISTRAL_API_KEY", "")
 OLLAMA_BASE_URL   = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL      = os.getenv("OLLAMA_INTELLIGENCE_MODEL", "qwen3:8b")
-MODEL_ROUTER_URL  = os.getenv("MODEL_ROUTER_URL", "http://localhost:8080")
+# HQ V1 Integration QA §28 fix: every other Model Router caller in this
+# repo (platform-runtime/llm.py, telegram-bots/xo/app.py,
+# core/platform/reasoning_engine.py, core/platform/insight_engine.py)
+# defaults to port 8891 — the router's own real default
+# (core/model-router/app.py's MODEL_ROUTER_PORT). This was the only
+# default still pointing at 8080, silently falling through to the cloud/
+# Mistral chain on every call unless an out-of-repo .env happened to
+# override it, contradicting this file's own documented local-first intent.
+MODEL_ROUTER_URL  = os.getenv("MODEL_ROUTER_URL", "http://localhost:8891")
 
 # 2026-08-10 (Firecrawl production provisioning): the Captain's own personal
 # Firecrawl account, used ONLY as a last-resort fetch path (via

@@ -139,6 +139,8 @@ export default function HealthOsintCurationPage() {
       <Card title={`Pending Review (${pending.length})`}>
         {loading ? (
           <p className="text-sm text-wb-ink2 animate-pulse">Loading…</p>
+        ) : error ? (
+          <p className="text-sm text-wb-ink2">Couldn&apos;t load the queue — see the error above, not a genuinely clear queue.</p>
         ) : pending.length === 0 ? (
           <p className="text-sm text-wb-ink2">Nothing pending — queue is clear.</p>
         ) : (

@@ -64,6 +64,26 @@ class TestStateValidation(unittest.TestCase):
         verdict = state_validation.validate_topic(topic, REPO_ROOT)
         self.assertIn(verdict["result"], ("resolved", "unclear"))  # no match on nonexistent path -> "resolved" for presence_confirms, never raises
 
+    def test_grep_excludes_vendored_directories(self):
+        """EVO-0003: a topic's `paths` can name a whole directory, and that
+        directory can contain its own nested .venv/node_modules — those must
+        never be descended into (see this module's own _grep() docstring)."""
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            (tmp / "real_code.py").write_text("MATCH_TARGET = 1\n")
+            vendored = tmp / ".venv" / "lib" / "site-packages"
+            vendored.mkdir(parents=True)
+            (vendored / "vendored.py").write_text("MATCH_TARGET = 2\n")
+
+            # _grep() resolves its `paths` against `repo_root` — pass tmp
+            # itself as repo_root so "." resolves to our fixture directory,
+            # independent of where the real repo checkout happens to live.
+            matches = state_validation._grep("MATCH_TARGET", ["."], tmp)
+            self.assertIn("real_code.py", matches)
+            self.assertFalse(any(".venv" in m for m in matches))
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
     def test_duplicate_synthesis_regression_resolves_against_real_repo(self):
         """Section 16's worked example: the real repo's telegram-bots/xo/
         app.py renders the canonical intelligence_briefs row directly for

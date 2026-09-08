@@ -55,6 +55,12 @@ export default function HqEvolutionPage() {
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Create Mission moves an opportunity's lifecycle_state straight to
+  // "implementing" (dashboard.py's own decision-effect map), which the
+  // Discover tab's `discoveredOnly`/`proposed` filters immediately exclude —
+  // the item is still there, just relocated to the Improve tab's historical
+  // section. Without this, that relocation reads as "it disappeared."
+  const [notice, setNotice] = useState<string | null>(null);
   const [reasoning, setReasoning] = useState('');
   // Mission's own staged-approval ladder (Idea -> ... -> Approved), surfaced
   // inline for any opportunity handed off via "Create Mission" rather than
@@ -140,14 +146,42 @@ export default function HqEvolutionPage() {
         opportunity.investigation?.recommendation_rationale ? `HQ assessment: ${opportunity.investigation.recommendation_rationale}` : '',
       ].filter(Boolean).join('\n\n');
 
+      // Skip the Idea/Designed/Implemented/Tested/Number-One/XO ladder: that
+      // sequence describes a human engineer's own manual progress, but here
+      // the Captain clicking "Create Mission" on an investigated opportunity
+      // *is* the approval decision, and batch_coding.py's sync-one (see
+      // mission_dispatch.py) does design+implement as one AI-drafted step.
+      // Going straight to "Approved for Engineering" lets the existing
+      // mission-engineering-dispatch timer pick this up on its own next
+      // cycle instead of the mission sitting inert at Idea forever waiting
+      // for someone to hand-walk it through statuses that don't apply to
+      // this pathway. The human gate isn't removed, just moved to where it
+      // already happened (this click) plus the one that still exists after
+      // it (reviewing/merging the resulting draft PR).
       const res = await fetch('/api/missions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: opportunity.title, description, status: 'Idea', created_by: 'hq-evolution' }),
+        body: JSON.stringify({ title: opportunity.title, description, status: 'Approved for Engineering', created_by: 'hq-evolution' }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(typeof body?.error === 'string' ? body.error : 'Failed to create Mission');
-      await decide(opportunity.opportunity_id, 'create_mission', 'Handed off to Mission for controlled implementation.', body.mission?.mission_id);
+      if (!res.ok) {
+        const base = typeof body?.error === 'string' ? body.error : 'Failed to create Mission';
+        const detail = typeof body?.detail === 'string' ? body.detail : '';
+        throw new Error(detail ? `${base}: ${detail}` : base);
+      }
+      const missionId = body.mission?.mission_id as string | undefined;
+      await decide(opportunity.opportunity_id, 'create_mission', 'Handed off to Mission for controlled implementation.', missionId);
+      // Generic wording: this fires both from the Discover tab (where the
+      // opportunity then moves out of view into Improve) and, for an
+      // already-'approved' opportunity with no mission_id, from the Learned
+      // tab's historical section — where it stays in the same list and just
+      // gains a Mission badge instead of moving anywhere.
+      setNotice(
+        missionId
+          ? `Mission ${missionId} created and queued for engineering dispatch.`
+          : 'Mission created and queued for engineering dispatch.',
+      );
+      setTimeout(() => setNotice(null), 8000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create Mission');
     }
@@ -233,6 +267,16 @@ export default function HqEvolutionPage() {
         </p>
       )}
 
+      {notice && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mb-4 rounded-lg border border-wb-ok/40 bg-wb-ok/10 p-3 text-sm text-wb-ok-on"
+        >
+          ✓ {notice}
+        </p>
+      )}
+
       {tab === 'discover' && (
         <DiscoverTab
           summary={summary}
@@ -278,6 +322,7 @@ export default function HqEvolutionPage() {
           learned={learned}
           historical={historical}
           onDecide={decide}
+          onCreateMission={createMissionFor}
           missionStatuses={missionStatuses}
           missionDispatch={missionDispatch}
         />
@@ -707,11 +752,12 @@ const LEARNED_FILTERS: { key: string; label: string; result: string | null }[] =
 ];
 
 function LearnedTab({
-  learned, historical, onDecide, missionStatuses, missionDispatch,
+  learned, historical, onDecide, onCreateMission, missionStatuses, missionDispatch,
 }: {
   learned: Opportunity[];
   historical: Opportunity[];
   onDecide: (id: string, type: OpportunityDecisionType, reasoning?: string) => void;
+  onCreateMission: (o: Opportunity) => void;
   missionStatuses: Record<string, string>;
   missionDispatch: Record<string, { success: boolean; message: string; pr_url: string | null }>;
 }) {
@@ -778,6 +824,17 @@ function LearnedTab({
               const autoEligible = !!o.automation_eligibility
                 && !['manual_only', 'needs_more_evidence'].includes(o.automation_eligibility);
               const dispatch = o.mission_id ? missionDispatch[o.mission_id] : undefined;
+              // 2026-09-07: an 'approved' opportunity with no mission_id went
+              // through the legacy bounded-remediation path (approve_improvement)
+              // instead of Create Mission — for a needs_signoff/manual_only
+              // opportunity that path's own risk-level gate skips it every
+              // single cycle, forever, with no other route forward once it's
+              // past 'proposed' (the Improve tab's Create Mission button only
+              // lists opportunities still in that state). Offering it here too
+              // is the same action, just not restricted to the moment it was
+              // first approved — the backend's create_mission transition
+              // doesn't gate on lifecycle_state, only on requiring a mission_id.
+              const canRetroCreateMission = o.lifecycle_state === 'approved' && !o.mission_id;
               return (
                 <div key={o.opportunity_id} className="p-3 rounded border border-wb-line bg-wb-bg text-sm text-wb-ink flex items-center justify-between gap-3">
                   <div>
@@ -805,6 +862,12 @@ function LearnedTab({
                     {o.remediation_status === 'failed' && (
                       <p className="text-xs text-wb-crit-on mt-1">Auto-remediation attempt failed: {o.remediation_message}</p>
                     )}
+                    {o.remediation_status === 'failed' && canRetroCreateMission && (
+                      <p className="text-xs text-wb-ink2 mt-1">
+                        This will keep failing on its own (blocked by risk level/automation eligibility) — use
+                        Create Mission below to route it through AI-assisted engineering instead.
+                      </p>
+                    )}
                     {!o.remediation_status && dispatch?.success && (
                       dispatch.pr_url ? (
                         <p className="text-xs text-wb-ok mt-1">
@@ -827,6 +890,14 @@ function LearnedTab({
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    {canRetroCreateMission && (
+                      <button
+                        onClick={() => onCreateMission(o)}
+                        className="px-3 py-1.5 rounded bg-wb-sage-deep text-white text-xs font-semibold hover:opacity-90"
+                      >
+                        Create Mission
+                      </button>
+                    )}
                     {canMarkImplemented && (
                       <button
                         onClick={() => onDecide(o.opportunity_id, 'mark_implemented', 'Manually implemented by the Captain')}

@@ -1,4 +1,8 @@
--- Migration 0189: user_settings
+-- Migration 0196: user_settings (renumbered from 0189 by HQ V1 Integration QA §I10 —
+-- see docs/architecture/HQ-V1-INTEGRATION-CONTRACTS.md; a second, unrelated file
+-- also claimed 0189 first (0189_source_expansion_coverage_gap.sql, applied earlier
+-- the same day) so this one moved to the next free number. Cosmetic only: Supabase
+-- tracks the applied migration by its own timestamped version, not this filename.
 --
 -- TJR HQ Settings Page Redesign mission ("Settings vs Agent & Job Status"):
 -- server-side storage for persistent HQ-behaviour preferences — the things

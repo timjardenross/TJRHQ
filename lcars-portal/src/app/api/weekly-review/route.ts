@@ -22,6 +22,7 @@ import { createSupabaseServerClient, requireSession } from '@/lib/supabase-serve
 import type { Signal, SignalItem, SystemSummary, WorkbenchSection } from '@/lib/weeklyReview';
 import { buildSynthesis, flattenSignalCounts } from './synthesis';
 import { getAssessedContext } from '@/app/api/human-systems/assessed-context';
+import { errorDetail } from '@/lib/errorDetail';
 
 type SB = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
@@ -253,7 +254,7 @@ async function reviewBriefs(sb: SB, since: string): Promise<WorkbenchSection> {
   };
 }
 
-// ── Agent & Job Status ────────────────────────────────────────────────────────
+// ── HQ Status ──────────────────────────────────────────────────────────────────
 // Sources: domain_heartbeat_latest (view), domain_heartbeats (failure history).
 async function reviewAgentStatus(sb: SB, since: string): Promise<WorkbenchSection> {
   const [stale, neverSucceeded, failuresThisWeek] = await Promise.all([
@@ -267,7 +268,7 @@ async function reviewAgentStatus(sb: SB, since: string): Promise<WorkbenchSectio
   const repeated = Array.from(failCounts.entries()).filter(([, n]) => n >= 2);
 
   return {
-    key: 'agent-status', title: 'Agent & Job Status', href: '/agent-status-workbench',
+    key: 'agent-status', title: 'HQ Status', href: '/agent-status-workbench',
     signals: [
       signal('stale', 'Stale schedules (automation drift)', stale.rows.map((r) => ({ id: r.domain_key, title: r.domain_key, meta: r.last_status ?? undefined })), 'warn', stale.unavailable),
       signal('never', 'Never succeeded (needs escalation)', neverSucceeded.rows.map((r) => ({ id: r.domain_key, title: r.domain_key })), 'crit', neverSucceeded.unavailable),
@@ -377,7 +378,7 @@ export async function GET() {
 
     return NextResponse.json({ summary, workbenches, synthesis, signalCounts, priorWeek });
   } catch (err) {
-    return NextResponse.json({ error: 'Failed to build weekly review', detail: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to build weekly review', detail: errorDetail(err) }, { status: 500 });
   }
 }
 
@@ -419,6 +420,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    return NextResponse.json({ error: 'Failed to complete review', detail: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to complete review', detail: errorDetail(err) }, { status: 500 });
   }
 }

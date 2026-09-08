@@ -68,7 +68,20 @@ class PolicyEngine:
     def _determine_automation_eligibility(
         self, finding: dict[str, Any], category_rules: dict[str, Any]
     ) -> AutomationEligibility:
-        """Determine if a finding can be auto-remediated."""
+        """Determine if a finding can be auto-remediated.
+
+        HQ V1 Integration QA §14/§28 (authority firewall): `confidence` and
+        `evidence_strength` are the LLM's own self-reported fields. This
+        function must remain a monotonic DOWNGRADE-ONLY ratchet on those
+        two inputs — the ceiling is always `category_rules`'s deterministic
+        default (config the model has no influence over); a self-reported
+        confidence/evidence_strength value may only ever push the result to
+        a MORE restrictive tier (NEEDS_MORE_EVIDENCE), never to a less
+        restrictive one. There is no code path here that raises eligibility
+        above the category default, by design — an overconfident or
+        prompt-injected model can lower its own authority but can never
+        raise it. See test_policy_confidence_cannot_raise_eligibility.
+        """
 
         # Start with category default
         default_eligibility = category_rules.get("automation_eligibility", "needs_signoff")

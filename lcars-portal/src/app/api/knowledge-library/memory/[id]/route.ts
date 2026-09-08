@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import type { ArchiveStatus, RetentionPolicy } from '@/lib/types';
+import { errorDetail } from '@/lib/errorDetail';
 
 // USS-TJR-MSN-0206D: manual retention override. The policy engine
 // (src/lib/retentionPolicy.ts) never assigns 'Archived' — this is the only
@@ -80,7 +81,7 @@ export async function PATCH(
 
     return NextResponse.json({ document: data });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Failed to update retention', detail }, { status: 500 });
   }
 }

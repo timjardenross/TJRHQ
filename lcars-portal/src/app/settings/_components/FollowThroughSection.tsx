@@ -98,7 +98,7 @@ export function FollowThroughSection() {
           </Link>
           . For delivery health and retry logs, see{' '}
           <Link href="/agent-status-workbench" className="text-wb-sage-deep hover:underline">
-            Agent &amp; Job Status →
+            HQ Status →
           </Link>
           .
         </p>

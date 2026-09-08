@@ -57,6 +57,16 @@ export function AiAutomationSection() {
             ))}
           </div>
         </div>
+        {/* Workbench integration audit: these 5 per-capability toggles persist
+            correctly but have no consumer anywhere in the codebase today —
+            confirmed by a repo-wide search, no gate reads aiAutomation.capabilities.
+            Same "don't fabricate an editable control that silently does
+            nothing" principle this section's own header comment already
+            applies to the Advanced model-routing fields below, just not yet
+            applied here. Honest caveat until a real gate is wired to them. */}
+        <p className="mt-2 text-[11px] text-wb-ink2/70">
+          These 5 are recorded but not yet wired to any live gate — toggling them changes nothing today.
+        </p>
       </div>
 
       <div className="mt-2">

@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import * as fs from 'fs';
 import * as path from 'path';
+import { errorDetail } from '@/lib/errorDetail';
 
 const ACTIVE_STATUSES = [
   'Idea', 'Designed', 'Implemented', 'Tested',
@@ -151,7 +152,7 @@ export async function GET() {
       ],
     });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json(
       {
         generated_at: generatedAt,

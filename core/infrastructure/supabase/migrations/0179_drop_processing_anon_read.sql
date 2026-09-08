@@ -12,7 +12,8 @@
 -- (real rows)") and added the correct replacement (authenticated_read) —
 -- but never dropped the original anon_read policy, so both stayed active
 -- side by side. Same bug class already fixed once for missions/core_events
--- in 0145_missions_core_events_drop_anon.sql; this generalizes that fix to
+-- in 0195_missions_core_events_drop_anon.sql (renumbered from 0145 by HQ V1
+-- Integration QA §I10); this generalizes that fix to
 -- the one other table pair found carrying it (permissions scoping pass,
 -- 2026-08-29 — see docs/UI-Layer-Debt-Handoff-2026-08-29.md's sibling
 -- permissions findings, not written up as their own file).

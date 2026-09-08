@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import type { KnowledgeLibraryStats } from '@/lib/types';
+import { errorDetail } from '@/lib/errorDetail';
 
 // USS-TJR-MSN-0205D: dashboard card counts for the Knowledge Library.
 // `status` is the processing pipeline's own lifecycle (0205C, unchanged);
@@ -80,7 +81,7 @@ export async function GET() {
 
     return NextResponse.json(stats);
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const detail = errorDetail(err);
     return NextResponse.json({ error: 'Failed to load knowledge library stats', detail }, { status: 500 });
   }
 }

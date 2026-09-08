@@ -4,8 +4,13 @@
  *
  * Human Systems owns capacity_checkins and everything derived from it
  * (posture, trajectory, loads, needs). Ready Room and Weekly Review are not
- * allowed to re-derive that themselves or query capacity_checkins directly
- * — they read this one small object instead. This keeps the boundary
+ * allowed to re-derive POSTURE/TRAJECTORY themselves or duplicate this
+ * module's own query shape for that purpose — they read this one small
+ * object instead. (HQ V1 Integration QA §29: this does not forbid a
+ * different, raw-evidence read against capacity_checkins for a distinct
+ * purpose — see api/weekly-review/route.ts's reviewHumanSystems(), which
+ * reads raw overload/declined-day counts, never re-derives posture, and is
+ * not a violation of this boundary.) This keeps the boundary
  * "Human Systems informs, never vetoes" (brief §7) enforceable in one
  * place: this file decides what "constrained" looks like; consumers only
  * decide what to DO with it (smaller Today cap, cautious phrasing, etc.),

@@ -20,6 +20,7 @@ Endpoints:
     POST /api/model/self-improvement-mission   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/hq-evolution-investigate   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/hq-evolution-evaluate-outcome  gemini-flash-latest  (cloud, GEMINI_API_KEY)
+    POST /api/model/health-signal-curation     gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/adhd-decompose      gemma3:4b      keep_alive 2m   (Ready Room workbench)
     GET  /api/model/status              Ollama status + loaded models
     GET  /api/model/recent-calls        Last N calls from log
@@ -115,7 +116,12 @@ MODEL_EMBED = "nomic-embed-text:latest"  # embeddings — matches Ollama's own c
                                           # it every cycle. Cosmetic fix, verified via
                                           # call_log.jsonl: embed calls were 0-failure
                                           # before this change too.
-MODEL_CLOUD = "glm-5.2:cloud"         # cloud fallback (no keep_alive)
+MODEL_CLOUD = "glm-5.3:cloud"         # cloud fallback (no keep_alive)
+                                       # NOTE: bumped from glm-5.2:cloud 2026-09-08 on GLM 5.3's
+                                       # release (Ollama Cloud, US/EU, zero data retention). Verify
+                                       # this tag is actually pulled/served (`ollama list` /
+                                       # `ollama pull glm-5.3:cloud`) before relying on it in prod —
+                                       # fall back to glm-5.2:cloud if 5.3 isn't live yet.
 MODEL_CODE  = "qwen2.5-coder:7b"      # engineering review
 MODEL_GEMINI = "gemini-flash-latest"  # billing reports (Gemini API, not Ollama)
 
@@ -194,7 +200,21 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # Moved to Gemini 2026-08-22 for the same reason as the entry above.
     "captain-reasoning-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120},
     "embed":                 {"model": MODEL_EMBED, "keep_alive": "1m",  "timeout": 30},
-    "escalate":              {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
+    # 2026-09-08: moved from local MODEL_LARGE (mistral-small3.2:24b) to GLM 5.3
+    # cloud, same reasoning as intelligence-brief/captain-insight-synthesis/
+    # captain-reasoning-synthesis above (identical tier: "large model", CPU-only
+    # local Ollama, quality-sensitive not latency-sensitive — see those entries'
+    # comments for the 168-238s local-latency evidence this migration class is
+    # based on). Caller is _router_endpoint_for_specialists() in
+    # platform-runtime/llm.py, which routes Research-Officer-style
+    # discovery/deep-analysis/trade-off prompts here — the same "infrequent,
+    # not latency-sensitive" shape as the other Gemini migrations, just routed
+    # to GLM cloud instead since this task doesn't need the Gemini-specific
+    # provider branch. keep_alive "0" matches the MODEL_CLOUD convention used
+    # by fallback-complex below (no local model stays resident for a cloud call).
+    # If MODEL_CLOUD (glm-5.3:cloud) isn't pulled/available yet, _run_task()
+    # falls this back to local MODEL_LARGE — see the "escalate:" check there.
+    "escalate":              {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 300},
     "fallback-complex":      {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 120},
     "engineering-review":    {"model": MODEL_CODE,  "keep_alive": "10m", "timeout": 300},
     # Gemini API (not Ollama) — separate provider branch in _run_task.
@@ -221,6 +241,12 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # evidence), not a re-run of the original investigation — same timeout
     # class as hq-evolution-investigate.
     "hq-evolution-evaluate-outcome": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300},
+    # HQ V1 Integration QA §28 fix: tools/health-osint/health_signal_curation.py
+    # previously called core/llm/provider_chain.py directly, bypassing this
+    # router entirely (the one confirmed Model Router bypass found in that
+    # audit). Single-signal classification prompt, same bounded shape as
+    # hq-evolution-investigate — same timeout class.
+    "health-signal-curation": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 60},
     # Ready Room workbench (Life Admin + Task Decomposition), tier-0 target
     # for intelligence.adhd.task_decomposition.TaskDecomposer._model_router.
     # Do NOT have this route call decompose_task() itself — that function
@@ -416,12 +442,25 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
     if not policy:
         return {"success": False, "error": f"unknown task_type: {task_type}"}
 
-    # engineering-review: prefer qwen3-coder:30b, fall back to glm-5.2:cloud
+    # engineering-review: prefer qwen3-coder:30b, fall back to MODEL_CLOUD (glm-5.3:cloud)
     if task_type == "engineering-review":
         available = _available_model_names()
         if MODEL_CODE not in available and MODEL_CODE.split(":")[0] not in available:
             log.info("engineering-review: %s not installed, falling back to %s", MODEL_CODE, MODEL_CLOUD)
             policy = {**policy, "model": MODEL_CLOUD, "keep_alive": "0"}
+
+    # escalate: prefer MODEL_CLOUD (glm-5.3:cloud), fall back to local
+    # MODEL_LARGE (mistral-small3.2:24b) if the GLM 5.3 cloud tag isn't
+    # pulled/available yet on this host (e.g. not yet live on the Ollama
+    # Cloud account, or 5.3 hasn't been verified/pulled — see MODEL_CLOUD's
+    # definition comment above). Keeps escalate from going fully dark on a
+    # brand-new model tag; degrades to the slower local tier instead, same
+    # as it behaved before this migration.
+    if task_type == "escalate":
+        available = _available_model_names()
+        if MODEL_CLOUD not in available and MODEL_CLOUD.split(":")[0] not in available:
+            log.info("escalate: %s not available, falling back to %s", MODEL_CLOUD, MODEL_LARGE)
+            policy = {**policy, "model": MODEL_LARGE, "keep_alive": "15m"}
 
     model = policy["model"]
     keep_alive = policy.get("keep_alive", "n/a")
@@ -624,6 +663,7 @@ class RouterHandler(BaseHTTPRequestHandler):
             "/api/model/self-improvement-mission": "self-improvement-mission",
             "/api/model/hq-evolution-investigate": "hq-evolution-investigate",
             "/api/model/hq-evolution-evaluate-outcome": "hq-evolution-evaluate-outcome",
+            "/api/model/health-signal-curation": "health-signal-curation",
         }
         task_type = route_map.get(path)
         if task_type is None:

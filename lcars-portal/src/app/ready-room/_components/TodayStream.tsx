@@ -141,6 +141,21 @@ export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number
   const [activeTask, setActiveTask] = useState<PersonalTask | null>(null);
   const [internalRefresh, setInternalRefresh] = useState(0);
   const [doneOpen, setDoneOpen] = useState(false);
+  // HQ V1 Integration QA §21 fix: surfaces a genuine Google Tasks sync
+  // failure in-page, distinct from "no tasks" — the backend already makes
+  // this distinction (google-tasks/sync/route.ts), Ready Room's own page
+  // previously didn't show it. 'ok'/'unknown' render nothing (no wall of
+  // green); only a confirmed 'failed' shows a caveat.
+  const [syncStatus, setSyncStatus] = useState<'ok' | 'failed' | 'unknown'>('unknown');
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/ready-room/sync-status')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!cancelled && data?.status) setSyncStatus(data.status); })
+      .catch(() => { /* stays 'unknown' — never claim ok on a fetch failure */ });
+    return () => { cancelled = true; };
+  }, []);
 
   async function load() {
     setState('loading');
@@ -214,6 +229,11 @@ export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number
       <p className="rounded-md border border-wb-line bg-wb-surface px-4 py-3 text-[13px] text-wb-ink">
         {statusSentence}
       </p>
+      {syncStatus === 'failed' && (
+        <p className="rounded-md border border-wb-warn/40 bg-wb-warn/10 px-4 py-2 text-[12px] text-wb-warn-on">
+          Google Tasks sync is currently failing — tasks added or completed on your phone may not appear here yet.
+        </p>
+      )}
 
       <section>
         <h2 className="mb-2 font-serif text-[15px] text-wb-ink">Today</h2>

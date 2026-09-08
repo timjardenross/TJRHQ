@@ -75,6 +75,9 @@ class SignalScore:
     risk_rating: str                # HIGH | MEDIUM | LOW
     method: str                     # 'llm' | 'heuristic'
     provider: Optional[str] = None  # LLM provider name when method == 'llm'
+    model_name: Optional[str] = None    # resolved model, when method == 'llm'
+    input_tokens: Optional[int] = None  # when the provider's response reported it
+    output_tokens: Optional[int] = None
     notes: dict[str, Any] = field(default_factory=dict)
 
     def as_event_columns(self) -> dict[str, Any]:
@@ -126,7 +129,10 @@ def _downgrade_if_resolved(score: SignalScore, signal: dict) -> SignalScore:
     return score
 
 
-def _finalise(breakdown: dict[str, int], method: str, provider=None, notes=None) -> SignalScore:
+def _finalise(
+    breakdown: dict[str, int], method: str, provider=None, notes=None,
+    model_name=None, input_tokens=None, output_tokens=None,
+) -> SignalScore:
     clean = {dim: _clamp(breakdown.get(dim, 3)) for dim in DIMENSIONS}
     total = sum(clean.values())
     relevance = round(max(1.0, min(5.0, total / 10.0)), 1)
@@ -137,6 +143,9 @@ def _finalise(breakdown: dict[str, int], method: str, provider=None, notes=None)
         risk_rating=risk_rating_for(total),
         method=method,
         provider=provider,
+        model_name=model_name,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
         notes=notes or {},
     )
 
@@ -233,6 +242,9 @@ class IntelligenceAnalyst:
                 self._cost_governor.log_call(
                     task_type=task_type,
                     provider=(llm_result.provider if llm_result else "unknown"),
+                    model_name=llm_result.model_name if llm_result else None,
+                    input_tokens=llm_result.input_tokens if llm_result else None,
+                    output_tokens=llm_result.output_tokens if llm_result else None,
                     latency_ms=latency_ms,
                     success=llm_result is not None,
                     failure_reason=None if llm_result else "no_llm_result_or_unparseable",
@@ -277,7 +289,12 @@ class IntelligenceAnalyst:
         if llm is None:
             return None
         try:
-            raw, provider = llm.generate(self._build_prompt(signal))
+            # use_mistral_pipeline=False: this is a short structured-JSON
+            # scoring call, not a narrative — the 7-agent brief pipeline
+            # (~30-70s) has nothing to offer it over Gemini/Mistral Small
+            # (~2-3s) and was confirmed live as a 13-14x latency spike for
+            # zero quality benefit on this task (HQ Status Usage tab data).
+            raw, provider = llm.generate(self._build_prompt(signal), use_mistral_pipeline=False)
         except Exception as exc:
             log.warning("IntelligenceAnalyst: LLM generate failed (%s)", exc)
             return None
@@ -287,7 +304,13 @@ class IntelligenceAnalyst:
         if breakdown is None:
             log.info("IntelligenceAnalyst: unparseable LLM scoring output; using heuristic")
             return None
-        return _finalise(breakdown, method="llm", provider=provider)
+        usage = getattr(llm, "last_usage", None)
+        return _finalise(
+            breakdown, method="llm", provider=provider,
+            model_name=usage.model if usage else None,
+            input_tokens=usage.input_tokens if usage else None,
+            output_tokens=usage.output_tokens if usage else None,
+        )
 
     @staticmethod
     def _parse_breakdown(raw: str) -> Optional[dict[str, int]]:

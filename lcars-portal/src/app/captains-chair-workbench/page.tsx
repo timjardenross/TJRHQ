@@ -88,6 +88,7 @@ export default function CaptainsChairWorkbench() {
     interruptNow: briefingError ? null : (briefingStats?.interruptNow ?? 0),
     emergencyCount: emergency?.count ?? 0,
     emergencyWorstTier: emergency?.worstTier ?? null,
+    emergencyFreshness: emergency?.freshness ?? 'stale',
     hqPosture: hqPostureLower,
     hqSummary: hqStatus?.summary ?? null,
     hqUnavailable: hqStatusError !== null,

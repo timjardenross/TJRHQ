@@ -5,9 +5,9 @@
 // module covers the sections of Settings that need to be readable by more
 // than one browser tab or by the Python intelligence pipeline (Intelligence
 // monitoring preferences in particular) — so it lives server-side, in the
-// user_settings table (migration 0189), not localStorage.
+// user_settings table (migration 0196, renumbered from 0189), not localStorage.
 //
-// Single JSONB blob, single row (id='hq') — see migration 0189's comment
+// Single JSONB blob, single row (id='hq') — see migration 0196's comment
 // for why. Every field here has a safe default; a missing/partial row
 // (first run, or a section added after some Captain's row was written)
 // always merges onto DEFAULT_SETTINGS rather than throwing, so a settings

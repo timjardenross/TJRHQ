@@ -17,6 +17,7 @@ from __future__ import annotations
 import contextlib
 import json
 import urllib.request
+from dataclasses import dataclass
 from typing import Optional
 
 try:
@@ -28,6 +29,17 @@ try:
     _TRACING_AVAILABLE = True
 except Exception:
     _TRACING_AVAILABLE = False
+
+
+@dataclass
+class LLMCallResult:
+    """Text plus whatever token-usage the provider's own response reported.
+    input_tokens/output_tokens are None when a provider's response doesn't
+    carry usage data — callers must treat that as "unknown", not zero."""
+    text: str
+    model: str
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
 
 
 def _llm_span(provider: str, model: str, task_type: str = ""):
@@ -57,7 +69,7 @@ def call_gemini(
     max_output_tokens: int = 2048,
     temperature: float = 0.3,
     timeout: int = 30,
-) -> str:
+) -> LLMCallResult:
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY not set")
 
@@ -92,7 +104,13 @@ def call_gemini(
     candidates = data.get("candidates", [])
     if not candidates:
         raise RuntimeError("Gemini returned no candidates")
-    return candidates[0]["content"]["parts"][0]["text"].strip()
+    usage = data.get("usageMetadata", {})
+    return LLMCallResult(
+        text=candidates[0]["content"]["parts"][0]["text"].strip(),
+        model="gemini-3.5-flash-lite",
+        input_tokens=usage.get("promptTokenCount"),
+        output_tokens=usage.get("candidatesTokenCount"),
+    )
 
 
 def call_mistral(
@@ -104,7 +122,7 @@ def call_mistral(
     max_tokens: int = 2048,
     temperature: float = 0.3,
     timeout: int = 30,
-) -> str:
+) -> LLMCallResult:
     if not api_key:
         raise RuntimeError("MISTRAL_API_KEY not set")
 
@@ -130,7 +148,13 @@ def call_mistral(
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read())
 
-    return data["choices"][0]["message"]["content"].strip()
+    usage = data.get("usage", {})
+    return LLMCallResult(
+        text=data["choices"][0]["message"]["content"].strip(),
+        model=data.get("model") or model,
+        input_tokens=usage.get("prompt_tokens"),
+        output_tokens=usage.get("completion_tokens"),
+    )
 
 
 def call_ollama(
@@ -142,7 +166,7 @@ def call_ollama(
     temperature: float = 0.3,
     num_predict: int = 1200,
     timeout: int = 60,
-) -> str:
+) -> LLMCallResult:
     body = json.dumps({
         "model": model,
         "prompt": f"{system_prompt}\n\n{prompt}",
@@ -162,4 +186,9 @@ def call_ollama(
     text = (data.get("response") or "").strip()
     if not text:
         raise RuntimeError("Ollama returned an empty response")
-    return text
+    return LLMCallResult(
+        text=text,
+        model=model,
+        input_tokens=data.get("prompt_eval_count"),
+        output_tokens=data.get("eval_count"),
+    )

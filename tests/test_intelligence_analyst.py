@@ -32,7 +32,7 @@ class FakeLLM:
         self._provider = provider
         self._raises = raises
 
-    def generate(self, prompt):
+    def generate(self, prompt, use_mistral_pipeline=True):
         if self._raises:
             raise RuntimeError("provider down")
         return self._raw, self._provider

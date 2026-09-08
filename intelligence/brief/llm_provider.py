@@ -25,6 +25,7 @@ import logging
 import time
 import urllib.request
 import urllib.error
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 from intelligence.config import (
@@ -39,7 +40,7 @@ from intelligence.config import (
     MISTRAL_QA_AGENT_ID, MISTRAL_QA_AGENT_VERSION,
     MODEL_ROUTER_URL, OLLAMA_BASE_URL, OLLAMA_MODEL,
 )
-from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
+from core.llm.provider_chain import call_gemini, call_mistral, call_ollama, LLMCallResult
 
 log = logging.getLogger(__name__)
 
@@ -66,6 +67,15 @@ Rules:
 
 class LLMProvider:
     """Attempts each provider in preference order. Never raises — returns None on total failure."""
+
+    def __init__(self) -> None:
+        # Set by generate() (via _gemini/_mistral/_ollama/_model_router/
+        # _mistral_pipeline) right before it returns text, so a caller that
+        # needs cost-governance data (token usage, resolved model) can read
+        # it immediately after calling generate() without generate() itself
+        # having to change its public (text, provider_name) return shape —
+        # that shape has ~10 existing callers that only want the text.
+        self.last_usage: Optional[LLMCallResult] = None
 
     def check_brief_quality(self, brief_text: str) -> Optional[str]:
         """
@@ -129,10 +139,25 @@ class LLMProvider:
             log.warning("[risk-challenge] check failed: %s", exc)
             return None
 
-    def generate(self, prompt: str) -> tuple[Optional[str], Optional[str]]:
+    def generate(self, prompt: str, use_mistral_pipeline: bool = True) -> tuple[Optional[str], Optional[str]]:
         """
         Returns (text, provider_name) or (None, None) if all fail.
+        Also sets self.last_usage (token counts + resolved model, where the
+        winning provider's response exposed them) for callers that need it
+        for cost-governance logging.
+
+        use_mistral_pipeline=False skips the 7-agent brief pipeline
+        (~30-70s latency per call, see _mistral_pipeline) when Model Router
+        is unavailable, falling straight through to Gemini/Mistral Small/
+        Ollama instead (~2-3s each). The pipeline's research/challenge/
+        briefing stages exist to produce a long-form narrative; a caller
+        asking for a short structured response (e.g. IntelligenceAnalyst's
+        10-dimension JSON scoring) gets nothing from them but a 13-14x
+        latency spike, confirmed via the HQ Status Usage tab: 92 real
+        signal-scoring calls fell through to this pipeline and averaged
+        36.6s (p99 67s) vs ~2.6s for the same task on Gemini/Mistral Small.
         """
+        self.last_usage = None
         providers = [
             ("model-router",            self._model_router),
             ("mistral-4stage-pipeline", self._mistral_pipeline),
@@ -140,6 +165,8 @@ class LLMProvider:
             ("mistral-small",           self._mistral),
             (OLLAMA_MODEL,              self._ollama),
         ]
+        if not use_mistral_pipeline:
+            providers = [(name, fn) for name, fn in providers if name != "mistral-4stage-pipeline"]
         for name, fn in providers:
             try:
                 result = fn(prompt)
@@ -175,6 +202,13 @@ class LLMProvider:
         text = (data.get("response") or data.get("content") or "").strip()
         if not text:
             raise RuntimeError("Model Router returned an empty response")
+        token_info = data.get("token_info") or {}
+        self.last_usage = LLMCallResult(
+            text=text,
+            model=data.get("model") or "model-router",
+            input_tokens=token_info.get("prompt_eval_count"),
+            output_tokens=token_info.get("eval_count"),
+        )
         return text
 
     # ─── 4-Stage Mistral Pipeline ─────────────────────────────────────────────
@@ -200,6 +234,13 @@ class LLMProvider:
 
         log.info("[pipeline] Starting Mistral brief pipeline")
 
+        # One client for the whole run instead of one per stage. mistralai's
+        # sync client is an httpx.Client underneath, which is documented as
+        # safe for concurrent requests from multiple threads — relied on
+        # below where Stage 1 and Stage 1b run in parallel.
+        from mistralai import Mistral
+        client = Mistral(api_key=MISTRAL_API_KEY)
+
         # ── Stage 0: Cognitive Subspace Decomposition Unit (CSD) ─────────────
         # Pre-processing: frame the raw event dump into structured research
         # directives before the Research Scout sees it. Optional — the Scout
@@ -220,6 +261,7 @@ class LLMProvider:
                 agent_id=MISTRAL_DECOMPOSITION_AGENT_ID,
                 agent_version=int(MISTRAL_DECOMPOSITION_AGENT_VERSION),
                 prompt=stage0_prompt,
+                client=client,
             )
             if decomposed:
                 log.info("[pipeline] Stage 0 (CSD) complete (%d chars)", len(decomposed))
@@ -227,7 +269,12 @@ class LLMProvider:
             else:
                 log.warning("[pipeline] Stage 0 (CSD) failed — continuing with raw event dump")
 
-        # ── Stage 1: Research Scout ──────────────────────────────────────────
+        # ── Stage 1: Research Scout (+ Stage 1b: Engineering Officer, in parallel) ──
+        # Stage 1b consumes research_input — the same pre-Stage-1 text Stage 1
+        # itself reads — not Stage 1's output, so the two have no data
+        # dependency on each other; only the merge below needs both done.
+        # Ran sequentially before, costing a full extra agent round-trip on
+        # every run that touches engineering content for no reason.
         stage1_prompt = (
             f"{_SYSTEM_PROMPT}\n\n"
             "STAGE 1 — RESEARCH SYNTHESIS\n"
@@ -237,21 +284,14 @@ class LLMProvider:
             "news, health, engineering, operational resilience, learning, opportunities.\n\n"
             f"{research_input}"
         )
-        research_package = self._call_agent(
-            stage="stage1-research",
-            agent_id=MISTRAL_RESEARCH_AGENT_ID,
-            agent_version=int(MISTRAL_RESEARCH_AGENT_VERSION),
-            prompt=stage1_prompt,
-        )
-        if not research_package:
-            raise RuntimeError("Stage 1 (Research Scout) returned no output")
-        log.info("[pipeline] Stage 1 complete (%d chars)", len(research_package))
 
-        # ── Stage 1b: Engineering Officer (domain specialist) ────────────────
-        # Only runs when the input actually contains engineering-domain
+        # Only run Stage 1b when the input actually contains engineering-domain
         # content (daily_digest.py labels its section "Engineering:") — no
         # point spending a call framing an empty section.
-        if MISTRAL_ENGINEERING_AGENT_ID and "Engineering:" in prompt:
+        run_engineering = bool(MISTRAL_ENGINEERING_AGENT_ID) and "Engineering:" in prompt
+        eng_take: Optional[str] = None
+
+        if run_engineering:
             stage1b_prompt = (
                 f"{_SYSTEM_PROMPT}\n\n"
                 "You are the Engineering Officer. The events below include an Engineering section. "
@@ -260,17 +300,43 @@ class LLMProvider:
                 "research package, not read standalone.\n\n"
                 f"{research_input}"
             )
-            eng_take = self._call_agent(
-                stage="stage1b-engineering",
-                agent_id=MISTRAL_ENGINEERING_AGENT_ID,
-                agent_version=int(MISTRAL_ENGINEERING_AGENT_VERSION),
-                prompt=stage1b_prompt,
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                research_future = pool.submit(
+                    self._call_agent,
+                    stage="stage1-research",
+                    agent_id=MISTRAL_RESEARCH_AGENT_ID,
+                    agent_version=int(MISTRAL_RESEARCH_AGENT_VERSION),
+                    prompt=stage1_prompt,
+                    client=client,
+                )
+                eng_future = pool.submit(
+                    self._call_agent,
+                    stage="stage1b-engineering",
+                    agent_id=MISTRAL_ENGINEERING_AGENT_ID,
+                    agent_version=int(MISTRAL_ENGINEERING_AGENT_VERSION),
+                    prompt=stage1b_prompt,
+                    client=client,
+                )
+                research_package = research_future.result()
+                eng_take = eng_future.result()
+        else:
+            research_package = self._call_agent(
+                stage="stage1-research",
+                agent_id=MISTRAL_RESEARCH_AGENT_ID,
+                agent_version=int(MISTRAL_RESEARCH_AGENT_VERSION),
+                prompt=stage1_prompt,
+                client=client,
             )
-            if eng_take:
-                log.info("[pipeline] Stage 1b (Engineering Officer) complete (%d chars)", len(eng_take))
-                research_package = f"{research_package}\n\nENGINEERING OFFICER NOTES:\n{eng_take}"
-            else:
-                log.warning("[pipeline] Stage 1b (Engineering Officer) failed — continuing without it")
+
+        if not research_package:
+            raise RuntimeError("Stage 1 (Research Scout) returned no output")
+        log.info("[pipeline] Stage 1 complete (%d chars)", len(research_package))
+
+        if eng_take:
+            log.info("[pipeline] Stage 1b (Engineering Officer) complete (%d chars)", len(eng_take))
+            research_package = f"{research_package}\n\nENGINEERING OFFICER NOTES:\n{eng_take}"
+        elif run_engineering:
+            log.warning("[pipeline] Stage 1b (Engineering Officer) failed — continuing without it")
 
         # ── Stage 2: Tactical Analysis Officer (TAO) ─────────────────────────
         # Single agent combining challenge review + summary compression (web search OFF)
@@ -287,6 +353,7 @@ class LLMProvider:
                 agent_id=MISTRAL_TAO_AGENT_ID,
                 agent_version=int(MISTRAL_TAO_AGENT_VERSION),
                 prompt=stage2_prompt,
+                client=client,
             )
             if tao_output:
                 log.info("[pipeline] Stage 2 (TAO) complete (%d chars)", len(tao_output))
@@ -357,11 +424,17 @@ class LLMProvider:
             agent_id=MISTRAL_BRIEFING_AGENT_ID,
             agent_version=int(MISTRAL_BRIEFING_AGENT_VERSION),
             prompt=stage4_prompt,
+            client=client,
         )
         if not briefing_output:
             raise RuntimeError("Stage 4 (Briefing Officer) returned no output")
 
         log.info("[pipeline] Stage 3 (Briefing) complete (%d chars) — pipeline finished", len(briefing_output))
+        # Token usage isn't captured per-stage across this up-to-7-agent
+        # chain (the mistralai conversations SDK response isn't parsed for
+        # it here) — record the model label with unknown (not zero) tokens
+        # rather than silently reporting nothing.
+        self.last_usage = LLMCallResult(text=briefing_output, model="mistral-4stage-pipeline")
         return briefing_output
 
     def _call_agent(
@@ -370,15 +443,22 @@ class LLMProvider:
         agent_id: str,
         agent_version: int,
         prompt: str,
+        client: "Optional[Mistral]" = None,
     ) -> Optional[str]:
         """
         Call a Mistral agent via the conversations API.
         If the agent triggers web_search tool calls and returns no final message
         (conversations API returns intermediate state), fall back to calling
         mistral-small-latest directly via chat completions with the same prompt.
+
+        client lets _mistral_pipeline share one client across its up-to-7
+        stage calls instead of constructing a new one per stage; callers
+        outside the pipeline (check_brief_quality/check_risk_rating, each a
+        single one-off call) can omit it and get a fresh one as before.
         """
-        from mistralai import Mistral
-        client = Mistral(api_key=MISTRAL_API_KEY)
+        if client is None:
+            from mistralai import Mistral
+            client = Mistral(api_key=MISTRAL_API_KEY)
 
         for attempt in range(1, 3):
             try:
@@ -386,6 +466,12 @@ class LLMProvider:
                     agent_id=agent_id,
                     agent_version=agent_version,
                     inputs=[{"role": "user", "content": prompt}],
+                    # Bounds a single stage so one stuck web_search tool call
+                    # can't silently balloon the whole pipeline's latency —
+                    # observed live latency for the entire multi-stage
+                    # pipeline tops out around 70s (see HQ Status Usage tab
+                    # data), so 45s is generous for any one stage.
+                    timeout_ms=45_000,
                 )
                 text = self._extract_text(response)
                 if text:
@@ -482,24 +568,30 @@ class LLMProvider:
     # ─── Gemini 2.5 Flash ─────────────────────────────────────────────────────
 
     def _gemini(self, prompt: str) -> Optional[str]:
-        return call_gemini(
+        result = call_gemini(
             _SYSTEM_PROMPT, prompt,
             api_key=GEMINI_API_KEY, max_output_tokens=2048, temperature=0.3, timeout=30,
         )
+        self.last_usage = result
+        return result.text
 
     # ─── Mistral Small ────────────────────────────────────────────────────────
 
     def _mistral(self, prompt: str) -> Optional[str]:
-        return call_mistral(
+        result = call_mistral(
             _SYSTEM_PROMPT, prompt,
             api_key=MISTRAL_API_KEY, max_tokens=2048, temperature=0.3, timeout=30,
         )
+        self.last_usage = result
+        return result.text
 
     # ─── Ollama ───────────────────────────────────────────────────────────────
 
     def _ollama(self, prompt: str) -> Optional[str]:
-        return call_ollama(
+        result = call_ollama(
             _SYSTEM_PROMPT, prompt,
             base_url=OLLAMA_BASE_URL, model=OLLAMA_MODEL,
             temperature=0.3, num_predict=1200, timeout=60,
         )
+        self.last_usage = result
+        return result.text

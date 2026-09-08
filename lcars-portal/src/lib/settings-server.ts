@@ -23,12 +23,26 @@ export async function getSettings(): Promise<HqSettings> {
   }
 }
 
+/** Reads the current row for a patch's merge base. Unlike getSettings(),
+ * this must distinguish "row genuinely absent" (fine — merge the patch
+ * onto defaults) from "read failed" (must NOT merge onto defaults, or a
+ * transient DB error would silently overwrite every other section back
+ * to factory defaults while the write itself reports success). */
+async function readCurrentForPatch(): Promise<HqSettings> {
+  const sb = createSupabaseServiceRoleClient();
+  const { data, error } = await sb.from('user_settings').select('data').eq('id', ROW_ID).maybeSingle();
+  if (error) throw error;
+  return mergeSettings(data?.data);
+}
+
 /** Merges `patch` onto the current settings and writes the result back.
  * Shallow-merges at the top-level section (e.g. `{ hqBehaviour: {...} }`)
  * so a caller updating one section never has to round-trip the others
- * first. Returns the full settings object as written. */
+ * first. Returns the full settings object as written. Throws (never
+ * silently falls back to defaults) if the pre-write read fails, since
+ * writing on a bad read would clobber the real settings. */
 export async function patchSettings(patch: Partial<HqSettings>): Promise<HqSettings> {
-  const current = await getSettings();
+  const current = await readCurrentForPatch();
   const next = mergeSettings({ ...current, ...patch });
   const sb = createSupabaseServiceRoleClient();
   const { error } = await sb.from('user_settings').upsert({ id: ROW_ID, data: next, updated_at: new Date().toISOString() });

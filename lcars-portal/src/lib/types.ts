@@ -372,7 +372,15 @@ export type ProcessingStatus =
   | 'embedded'
   | 'failed'
   | 'awaiting_review'
-  | 'excluded'; // USS-TJR-MSN-0206B: Content Eligibility Engine terminal state
+  | 'excluded' // USS-TJR-MSN-0206B: Content Eligibility Engine terminal state
+  // Migration 0049 (failed_document_recovery) — retry lifecycle for a
+  // `failed` document. Added here to match the DB CHECK constraint and
+  // worker.py exactly; previously missing, which left `PERMANENTLY_FAILED`
+  // and `RETRYING` rendering as neutral/untoned in WorkbenchBadge instead
+  // of critical (see lib/departments.ts's inferTone()).
+  | 'retry_pending'
+  | 'retrying'
+  | 'permanently_failed';
 
 export type DocumentCategory =
   | 'Financial'
