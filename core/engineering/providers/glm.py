@@ -3,9 +3,10 @@ GLM (Zhipu / Z.ai) backend for the Engineering Workflow Router.
 
 Talks to a GLM model over the OpenAI-compatible Chat Completions API. The
 default target is Ollama Cloud (https://ollama.com/v1), which serves the GLM-5
-family (glm-5, glm-5.1, glm-5.2, glm-4.7). The same request shape also works for
-any OpenAI-compatible GLM gateway (e.g. a local Ollama at http://localhost:11434/v1,
-or Zhipu/Z.ai's /api/paas/v4), so the endpoint is fully env-driven.
+family (glm-5, glm-5.1, glm-5.2, glm-5.3, glm-5.3-flash, glm-4.7). The same
+request shape also works for any OpenAI-compatible GLM gateway (e.g. a local
+Ollama at http://localhost:11434/v1, or Zhipu/Z.ai's /api/paas/v4), so the
+endpoint is fully env-driven.
 
 Auth is a simple `Authorization: Bearer <GLM_API_KEY>` (Ollama Cloud style). Uses
 only the standard library (urllib) — no extra SDK dependency, matching the
@@ -18,7 +19,8 @@ Required env var:
 
 Optional env vars:
     GLM_BASE_URL   (default: https://ollama.com/v1)
-    GLM_MODEL      (default: glm-5.2)   — set to the exact served model id
+    GLM_MODEL      (default: glm-5.3)   — set to the exact served model id
+                   (e.g. glm-5.3-flash for the multimodal/coding-tuned variant)
 """
 
 from __future__ import annotations
@@ -32,7 +34,7 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "glm-5.2"
+DEFAULT_MODEL = "glm-5.3"
 DEFAULT_BASE_URL = "https://ollama.com/v1"
 _REQUEST_TIMEOUT = 120  # seconds for generation
 

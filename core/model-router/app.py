@@ -116,7 +116,12 @@ MODEL_EMBED = "nomic-embed-text:latest"  # embeddings — matches Ollama's own c
                                           # it every cycle. Cosmetic fix, verified via
                                           # call_log.jsonl: embed calls were 0-failure
                                           # before this change too.
-MODEL_CLOUD = "glm-5.2:cloud"         # cloud fallback (no keep_alive)
+MODEL_CLOUD = "glm-5.3:cloud"         # cloud fallback (no keep_alive)
+                                       # NOTE: bumped from glm-5.2:cloud 2026-09-08 on GLM 5.3's
+                                       # release (Ollama Cloud, US/EU, zero data retention). Verify
+                                       # this tag is actually pulled/served (`ollama list` /
+                                       # `ollama pull glm-5.3:cloud`) before relying on it in prod —
+                                       # fall back to glm-5.2:cloud if 5.3 isn't live yet.
 MODEL_CODE  = "qwen2.5-coder:7b"      # engineering review
 MODEL_GEMINI = "gemini-flash-latest"  # billing reports (Gemini API, not Ollama)
 
@@ -195,7 +200,19 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # Moved to Gemini 2026-08-22 for the same reason as the entry above.
     "captain-reasoning-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120},
     "embed":                 {"model": MODEL_EMBED, "keep_alive": "1m",  "timeout": 30},
-    "escalate":              {"model": MODEL_LARGE, "keep_alive": "15m", "timeout": 300},
+    # 2026-09-08: moved from local MODEL_LARGE (mistral-small3.2:24b) to GLM 5.3
+    # cloud, same reasoning as intelligence-brief/captain-insight-synthesis/
+    # captain-reasoning-synthesis above (identical tier: "large model", CPU-only
+    # local Ollama, quality-sensitive not latency-sensitive — see those entries'
+    # comments for the 168-238s local-latency evidence this migration class is
+    # based on). Caller is _router_endpoint_for_specialists() in
+    # platform-runtime/llm.py, which routes Research-Officer-style
+    # discovery/deep-analysis/trade-off prompts here — the same "infrequent,
+    # not latency-sensitive" shape as the other Gemini migrations, just routed
+    # to GLM cloud instead since this task doesn't need the Gemini-specific
+    # provider branch. keep_alive "0" matches the MODEL_CLOUD convention used
+    # by fallback-complex below (no local model stays resident for a cloud call).
+    "escalate":              {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 300},
     "fallback-complex":      {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 120},
     "engineering-review":    {"model": MODEL_CODE,  "keep_alive": "10m", "timeout": 300},
     # Gemini API (not Ollama) — separate provider branch in _run_task.
