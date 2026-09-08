@@ -71,7 +71,16 @@ _SYNTHETIC_HANDOFF = {
 
 class TestHttpNumberOneBrief(unittest.TestCase):
     def _run(self, missions=None):
-        with patch.object(context_service, "_load_missions", return_value=missions if missions is not None else _SYNTHETIC_MISSIONS):
+        # 2026-09-08: Missions/Engineering-Handoffs/ now has real content in
+        # this checkout (a separate autonomous process's artifacts, unrelated
+        # to this test) — patching only _load_missions isn't hermetic on its
+        # own, since _http_number_one_brief() also merges in
+        # load_engineering_handoffs()'s real files. Tests that want to
+        # exercise that merge explicitly override this patch themselves
+        # (test_engineering_handoffs_merged_into_queue,
+        # test_engineering_handoff_load_failure_degrades_gracefully).
+        with patch.object(context_service, "_load_missions", return_value=missions if missions is not None else _SYNTHETIC_MISSIONS), \
+             patch("engineering_handoff_reader.load_engineering_handoffs", return_value=[]):
             return context_service._http_number_one_brief()
 
     def test_uses_real_engine(self):
@@ -152,6 +161,7 @@ class TestHttpNumberOneBrief(unittest.TestCase):
             "metadata": {"pr_url": "https://github.com/acme/repo/pull/1"},
         }
         with patch.object(context_service, "_load_live_missions_for_number_one", return_value=[mission_with_pr]), \
+             patch("engineering_handoff_reader.load_engineering_handoffs", return_value=[]), \
              patch("pr_health.check_pr_health", return_value={
                  "ok": True, "state": "open", "ci_conclusion": "failure",
                  "review_state": None, "mergeable_state": "blocked",
@@ -166,6 +176,7 @@ class TestHttpNumberOneBrief(unittest.TestCase):
             "metadata": {"pr_url": "https://github.com/acme/repo/pull/2"},
         }
         with patch.object(context_service, "_load_live_missions_for_number_one", return_value=[mission_with_pr]), \
+             patch("engineering_handoff_reader.load_engineering_handoffs", return_value=[]), \
              patch("pr_health.check_pr_health", return_value={
                  "ok": True, "state": "open", "ci_conclusion": "success",
                  "review_state": "CHANGES_REQUESTED", "mergeable_state": "clean",
@@ -180,6 +191,7 @@ class TestHttpNumberOneBrief(unittest.TestCase):
             "metadata": {"pr_url": "https://github.com/acme/repo/pull/3"},
         }
         with patch.object(context_service, "_load_live_missions_for_number_one", return_value=[mission_with_pr]), \
+             patch("engineering_handoff_reader.load_engineering_handoffs", return_value=[]), \
              patch("pr_health.check_pr_health", return_value={
                  "ok": True, "state": "open", "ci_conclusion": "success",
                  "review_state": "APPROVED", "mergeable_state": "clean",
@@ -198,6 +210,7 @@ class TestHttpNumberOneBrief(unittest.TestCase):
             "metadata": {"pr_url": "https://github.com/acme/repo/pull/4"},
         }
         with patch.object(context_service, "_load_live_missions_for_number_one", return_value=[mission_with_pr]), \
+             patch("engineering_handoff_reader.load_engineering_handoffs", return_value=[]), \
              patch("pr_health.check_pr_health", side_effect=RuntimeError("boom")):
             result = context_service._http_number_one_brief()
         self.assertEqual(result["total_missions"], 1)
@@ -207,6 +220,7 @@ class TestHttpNumberOneBrief(unittest.TestCase):
 
     def test_mission_without_pr_url_is_skipped(self):
         with patch.object(context_service, "_load_live_missions_for_number_one", return_value=_SYNTHETIC_MISSIONS), \
+             patch("engineering_handoff_reader.load_engineering_handoffs", return_value=[]), \
              patch("pr_health.check_pr_health") as mock_check:
             context_service._http_number_one_brief()
         mock_check.assert_not_called()

@@ -307,6 +307,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/signals \\[today|high|cyber|all\\] — top intelligence events, last 24\\-48h\n"
         "/themes — emerging themes from the latest ORI intelligence brief\n"
         "/source\\_status — health of intelligence collection sources\n\n"
+        "*Missions*\n"
+        "/priorities — ask Number One: escalations, stale follow\\-ups, top priorities\n\n"
         "*Capacity Tracking*\n"
         "_Moved to @tjrmindbody\\_capacitybot — /capacity, /deepcheck, /evening, /today, /week, /month, "
         "/capacity\\_patterns, /actions, /therapy\\._\n\n"
@@ -785,6 +787,81 @@ async def cmd_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             f"⚠️ Signals query failed: `{_escape_strict(str(exc)[:80])}`",
             parse_mode="MarkdownV2",
         )
+
+
+_NUMBER_ONE_LEVEL_ICON = {"CRITICAL": "🆘", "HIGH": "🔺", "MEDIUM": "🟡", "LOW": "⚪"}
+
+
+def _esc_html(value: object) -> str:
+    """Escape a dynamic value for Telegram's HTML parse_mode — Number One's
+    escalation/follow-up text is free-form and may contain &, <, >."""
+    text = str(value)
+    for ch, esc in (("&", "&amp;"), ("<", "&lt;"), (">", "&gt;")):
+        text = text.replace(ch, esc)
+    return text
+
+
+def _get_number_one_brief() -> dict | None:
+    """Fetch Number One's brief the same way core/coordination/command_bus.py's
+    escalation-push rule does — direct in-process import of context_service.py's
+    _http_number_one_brief(), not a reimplementation. Returns None on failure."""
+    try:
+        for p in (_REPO_ROOT / "core" / "context-assembly", _REPO_ROOT / "core" / "coordination", _REPO_ROOT):
+            if str(p) not in sys.path:
+                sys.path.insert(0, str(p))
+        import context_service
+        return context_service._http_number_one_brief()
+    except Exception as exc:
+        log.warning("[priorities] Could not fetch Number One's brief: %s", exc)
+        return None
+
+
+async def cmd_priorities(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/priorities — USS-TJR-MSN-0362 candidate B (2026-09-08): ask Number
+    One directly. Deterministic, rule-based (core/coordination/number_one.py)
+    — same data as Mission Workbench's "Number One Coordination" card, not
+    an LLM guess at ship status. Escalations + follow-ups + top priorities."""
+    brief = await asyncio.to_thread(_get_number_one_brief)
+    if brief is None:
+        await update.message.reply_text(
+            "⚠️ Couldn't reach Number One right now. This is a load failure, "
+            "not confirmation nothing needs attention."
+        )
+        return
+
+    escalations = brief.get("escalations") or []
+    follow_ups = brief.get("follow_ups") or []
+    top = brief.get("top_priorities") or []
+
+    lines = ["<b>🖖 Number One — Coordination</b>"]
+
+    if not escalations and not follow_ups:
+        lines.append("Nothing needs escalation right now — no blockers or stale follow-ups found.")
+    else:
+        for e in escalations[:8]:
+            level = str(e.get("level", "")).upper()
+            icon = _NUMBER_ONE_LEVEL_ICON.get(level, "⚪")
+            lines.append(
+                f"\n{icon} <b>{_esc_html(e.get('escalation_type', 'ESCALATION'))}</b> [{level}]\n"
+                f"<code>{_esc_html(e.get('mission_id', '?'))}</code> — {_esc_html(e.get('reason', ''))}"
+            )
+            if e.get("recommendation"):
+                lines.append(f"→ {_esc_html(e['recommendation'])}")
+        for f in follow_ups[:5]:
+            lines.append(
+                f"\n🟡 <b>{_esc_html(str(f.get('type', 'FOLLOW_UP')).replace('_', ' '))}</b>\n"
+                f"<code>{_esc_html(f.get('mission_id', '?'))}</code> — {_esc_html(f.get('reason', ''))}"
+            )
+            if f.get("recommendation"):
+                lines.append(f"→ {_esc_html(f['recommendation'])}")
+
+    if top:
+        lines.append("\n<b>Top priorities</b>")
+        for item in top[:5]:
+            lines.append(f"  • [{_esc_html(item.get('priority', '?'))}] {_esc_html(item.get('title', item.get('mission_id', '?')))}")
+
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+    log.info("[priorities] escalations=%d follow_ups=%d top=%d", len(escalations), len(follow_ups), len(top))
 
 
 async def cmd_themes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2074,6 +2151,7 @@ def main() -> None:
     app.add_handler(CommandHandler("note",            cmd_note))
     app.add_handler(CommandHandler("db_status",       cmd_db_status))
     app.add_handler(CommandHandler("brief",           cmd_brief))
+    app.add_handler(CommandHandler("priorities",      cmd_priorities))
     app.add_handler(CommandHandler("restart_bots",    cmd_restart_bots))
     app.add_handler(CallbackQueryHandler(handle_mood_chart_callback,         pattern=r"^mc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback,      pattern=r"^vc\|"))
