@@ -289,7 +289,12 @@ class IntelligenceAnalyst:
         if llm is None:
             return None
         try:
-            raw, provider = llm.generate(self._build_prompt(signal))
+            # use_mistral_pipeline=False: this is a short structured-JSON
+            # scoring call, not a narrative — the 7-agent brief pipeline
+            # (~30-70s) has nothing to offer it over Gemini/Mistral Small
+            # (~2-3s) and was confirmed live as a 13-14x latency spike for
+            # zero quality benefit on this task (HQ Status Usage tab data).
+            raw, provider = llm.generate(self._build_prompt(signal), use_mistral_pipeline=False)
         except Exception as exc:
             log.warning("IntelligenceAnalyst: LLM generate failed (%s)", exc)
             return None

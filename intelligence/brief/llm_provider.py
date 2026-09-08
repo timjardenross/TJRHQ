@@ -138,12 +138,23 @@ class LLMProvider:
             log.warning("[risk-challenge] check failed: %s", exc)
             return None
 
-    def generate(self, prompt: str) -> tuple[Optional[str], Optional[str]]:
+    def generate(self, prompt: str, use_mistral_pipeline: bool = True) -> tuple[Optional[str], Optional[str]]:
         """
         Returns (text, provider_name) or (None, None) if all fail.
         Also sets self.last_usage (token counts + resolved model, where the
         winning provider's response exposed them) for callers that need it
         for cost-governance logging.
+
+        use_mistral_pipeline=False skips the 7-agent brief pipeline
+        (~30-70s latency per call, see _mistral_pipeline) when Model Router
+        is unavailable, falling straight through to Gemini/Mistral Small/
+        Ollama instead (~2-3s each). The pipeline's research/challenge/
+        briefing stages exist to produce a long-form narrative; a caller
+        asking for a short structured response (e.g. IntelligenceAnalyst's
+        10-dimension JSON scoring) gets nothing from them but a 13-14x
+        latency spike, confirmed via the HQ Status Usage tab: 92 real
+        signal-scoring calls fell through to this pipeline and averaged
+        36.6s (p99 67s) vs ~2.6s for the same task on Gemini/Mistral Small.
         """
         self.last_usage = None
         providers = [
@@ -153,6 +164,8 @@ class LLMProvider:
             ("mistral-small",           self._mistral),
             (OLLAMA_MODEL,              self._ollama),
         ]
+        if not use_mistral_pipeline:
+            providers = [(name, fn) for name, fn in providers if name != "mistral-4stage-pipeline"]
         for name, fn in providers:
             try:
                 result = fn(prompt)
