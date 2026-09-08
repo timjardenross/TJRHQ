@@ -286,11 +286,11 @@ def _call_threshold_llm(prompt: str) -> tuple[Optional[int], Optional[str], Opti
 
     providers = [
         ("gemini-3.5-flash-lite", lambda p: call_gemini(
-            _THRESHOLD_SYSTEM_PROMPT, p, api_key=gemini_key, max_output_tokens=200)),
+            _THRESHOLD_SYSTEM_PROMPT, p, api_key=gemini_key, max_output_tokens=200).text),
         ("mistral-small", lambda p: call_mistral(
-            _THRESHOLD_SYSTEM_PROMPT, p, api_key=mistral_key, max_tokens=200)),
+            _THRESHOLD_SYSTEM_PROMPT, p, api_key=mistral_key, max_tokens=200).text),
         (ollama_model, lambda p: call_ollama(
-            _THRESHOLD_SYSTEM_PROMPT, p, base_url=ollama_base, model=ollama_model, num_predict=150)),
+            _THRESHOLD_SYSTEM_PROMPT, p, base_url=ollama_base, model=ollama_model, num_predict=150).text),
     ]
     for name, fn in providers:
         try:

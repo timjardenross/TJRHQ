@@ -150,11 +150,11 @@ def _verbatim_urgent_section(alerts: list[dict]) -> str:
 def _generate_summary(alerts: list[dict]) -> tuple[str, str] | None:
     prompt = _build_prompt(alerts)
     try:
-        return call_gemini(_SYSTEM_PROMPT, prompt, api_key=os.environ.get("GEMINI_API_KEY", "")), "gemini"
+        return call_gemini(_SYSTEM_PROMPT, prompt, api_key=os.environ.get("GEMINI_API_KEY", "")).text, "gemini"
     except Exception as exc:
         log.warning("[emergency-alert-summary] Gemini failed, falling back to Mistral: %s", exc)
     try:
-        return call_mistral(_SYSTEM_PROMPT, prompt, api_key=os.environ.get("MISTRAL_API_KEY", "")), "mistral"
+        return call_mistral(_SYSTEM_PROMPT, prompt, api_key=os.environ.get("MISTRAL_API_KEY", "")).text, "mistral"
     except Exception as exc:
         log.warning("[emergency-alert-summary] Mistral also failed: %s", exc)
         return None

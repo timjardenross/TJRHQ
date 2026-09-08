@@ -18,6 +18,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "tools" / "health-osint"))
 
 import health_signal_curation as hsc  # noqa: E402
+from core.llm.provider_chain import LLMCallResult  # noqa: E402
 
 
 def _signal(**overrides):
@@ -63,8 +64,9 @@ def test_classify_tries_model_router_first():
 
 
 def test_classify_falls_back_to_direct_providers_when_model_router_unreachable():
+    gemini_result = LLMCallResult(text=json.dumps({"decision": "PUBLISH", "reason": "ok"}), model="gemini-3.5-flash-lite")
     with mock.patch.object(hsc, "_call_model_router", side_effect=RuntimeError("Model Router unavailable")), \
-         mock.patch("core.llm.provider_chain.call_gemini", return_value=json.dumps({"decision": "PUBLISH", "reason": "ok"})) as gemini_mock:
+         mock.patch("core.llm.provider_chain.call_gemini", return_value=gemini_result) as gemini_mock:
         result = hsc._classify(_signal())
     gemini_mock.assert_called_once()
     assert result["decision"] == "PUBLISH"

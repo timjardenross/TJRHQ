@@ -240,11 +240,11 @@ def _classify(signal: dict[str, Any]) -> dict[str, Any]:
     providers = [
         ("model-router", lambda: _call_model_router(prompt)),
         ("gemini", lambda: call_gemini(_SYSTEM_PROMPT, prompt, api_key=GEMINI_API_KEY,
-                                        max_output_tokens=300, temperature=0.1, timeout=30)),
+                                        max_output_tokens=300, temperature=0.1, timeout=30).text),
         ("mistral", lambda: call_mistral(_SYSTEM_PROMPT, prompt, api_key=MISTRAL_API_KEY,
-                                          max_tokens=300, temperature=0.1, timeout=30)),
+                                          max_tokens=300, temperature=0.1, timeout=30).text),
         ("ollama", lambda: call_ollama(_SYSTEM_PROMPT, prompt, base_url=OLLAMA_BASE_URL,
-                                        model=OLLAMA_MODEL, temperature=0.1, num_predict=300, timeout=60)),
+                                        model=OLLAMA_MODEL, temperature=0.1, num_predict=300, timeout=60).text),
     ]
 
     for name, fn in providers:

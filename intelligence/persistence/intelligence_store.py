@@ -402,11 +402,12 @@ def _parse_blast_radius_answer(raw: Optional[str]) -> Optional[bool]:
 
 def _call_blast_radius_llm(
     event: RankedEvent,
-) -> tuple[Optional[bool], Optional[str], Optional[str]]:
+) -> tuple[Optional[bool], Optional[str], Optional[str], "Optional[LLMCallResult]"]:
     """Try the shared provider chain in order -- same fail-through pattern as
     core/platform/infra_narrative.py's _generate(). Returns
-    (is_broad_or_None, provider_name_or_None, raw_response_or_None). Never
-    raises; a total failure returns (None, None, None)."""
+    (is_broad_or_None, provider_name_or_None, raw_response_or_None,
+    usage_or_None). Never raises; a total failure returns
+    (None, None, None, None)."""
     from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
 
     prompt = _blast_radius_llm_prompt(event)
@@ -425,17 +426,17 @@ def _call_blast_radius_llm(
     ]
     for name, fn in providers:
         try:
-            raw = fn(prompt)
-            answer = _parse_blast_radius_answer(raw)
+            result = fn(prompt)
+            answer = _parse_blast_radius_answer(result.text)
             if answer is not None:
-                return answer, name, raw
+                return answer, name, result.text, result
             log.warning(
                 "[outage-alert] blast-radius LLM (%s) returned unparseable output: %r",
-                name, raw,
+                name, result.text,
             )
         except Exception as exc:
             log.warning("[outage-alert] blast-radius LLM provider %s failed: %s", name, exc)
-    return None, None, None
+    return None, None, None, None
 
 
 def _passes_blast_radius_check(event: RankedEvent, event_id: Optional[str]) -> bool:
@@ -471,13 +472,16 @@ def _passes_blast_radius_check(event: RankedEvent, event_id: Optional[str]) -> b
             return True
 
     start = _time.monotonic()
-    is_broad, provider, raw = _call_blast_radius_llm(event)
+    is_broad, provider, raw, usage = _call_blast_radius_llm(event)
     latency_ms = int((_time.monotonic() - start) * 1000)
 
     if cost_governor is not None:
         cost_governor.log_call(
             task_type=_BLAST_RADIUS_TASK_TYPE,
             provider=provider or "unknown",
+            model_name=usage.model if usage else None,
+            input_tokens=usage.input_tokens if usage else None,
+            output_tokens=usage.output_tokens if usage else None,
             latency_ms=latency_ms,
             success=is_broad is not None,
             failure_reason=None if is_broad is not None else "all_providers_failed_or_unparseable",
