@@ -61,7 +61,10 @@ class DeleteFileStrategy(RemediationStrategy):
                     else:
                         file_path.unlink()
                     log.info(f"Deleted: {file_path}")
-                    return {"success": True, "mode": "direct", "message": f"Deleted {file_path}"}
+                    return {
+                        "success": True, "mode": "direct", "message": f"Deleted {file_path}",
+                        "files": [str(file_path.relative_to(repo_root))],
+                    }
                 except Exception as exc:
                     return {"success": False, "error": str(exc)}
 
@@ -97,7 +100,8 @@ class DocumentStrategy(RemediationStrategy):
                         return {
                             "success": True,
                             "mode": "direct",
-                            "message": f"Updated README.md: Python version requirement changed to 3.11+"
+                            "message": f"Updated README.md: Python version requirement changed to 3.11+",
+                            "files": [str(readme_path.relative_to(repo_root))],
                         }
                 except Exception as exc:
                     return {"success": False, "error": f"Failed to update README: {exc}"}
@@ -169,7 +173,8 @@ def set_model_confidence(score: float):
                     return {
                         "success": True,
                         "mode": "direct",
-                        "message": f"Created metrics template at {metrics_file} - integrate with dashboard"
+                        "message": f"Created metrics template at {metrics_file} - integrate with dashboard",
+                        "files": [str(metrics_file.relative_to(repo_root))],
                     }
                 except Exception as exc:
                     return {"success": False, "error": f"Failed to create metrics: {exc}"}
@@ -619,7 +624,13 @@ class AutoRemediationExecutor:
             # defeating the whole point of the draft-PR review step.
             if not dry_run and rem_result.get("mode") == "direct":
                 commit_msg = f"[SD] fix: {finding.get('title')}\n\nFinding: {fid}\n{rem_result.get('message', '')}"
-                sha = self.git_commit(commit_msg)
+                files = rem_result.get("files")
+                if not files:
+                    log.warning(
+                        f"{fid}: direct-mode strategy returned no 'files' list — "
+                        "falling back to `git add -A` for this commit"
+                    )
+                sha = self.git_commit(commit_msg, paths=files)
                 if not sha:
                     results["failed_count"] += 1
                     self.record_result(fid, False, "Git commit failed")
