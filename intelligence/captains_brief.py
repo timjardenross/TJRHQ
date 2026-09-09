@@ -1305,6 +1305,26 @@ def generate_weekly_debrief_digest() -> str:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+# 2026-09-10: morning brief also goes to this ANZ address by explicit
+# request, alongside Telegram — not env-configurable, this is the one
+# named recipient asked for, not a general CC list.
+_MORNING_BRIEF_EMAIL_TO = "tim.jarden-ross@anz.com"
+
+
+def _email_morning_brief(text: str) -> None:
+    """Best-effort email copy of the morning brief. Never raises and never
+    affects the return value of send_brief() — Telegram is still the
+    brief's real delivery/failure signal (see resend_email.send_email's own
+    fail-open contract)."""
+    from core.notifications.resend_email import send_email
+
+    html = text.replace("\n", "<br>\n")
+    subject = f"USS TJR — Morning Brief — {date.today().isoformat()}"
+    ok = send_email(_MORNING_BRIEF_EMAIL_TO, subject, html)
+    if not ok:
+        log.warning("Morning brief email to %s failed (non-blocking)", _MORNING_BRIEF_EMAIL_TO)
+
+
 def send_brief(brief_type: str, **kwargs) -> bool:
     """Generate and deliver a brief. Returns True if Telegram delivery succeeded."""
     signals: list[dict] = []
@@ -1348,6 +1368,11 @@ def send_brief(brief_type: str, **kwargs) -> bool:
         brief_type, text, signals_count=len(signals), health=_get_capacity_today(),
         evidence_window_hours=evidence_window_hours, collection_caveat=collection_caveat,
     )
+    if brief_type == "morning":
+        try:
+            _email_morning_brief(text)
+        except Exception as exc:
+            log.warning("Morning brief email failed (non-blocking): %s", exc)
     return _send_telegram(text)
 
 
