@@ -35,9 +35,37 @@ Do not print `.env`, Slack tokens, OpenAI keys or other credentials during start
 - Tests pass
 - Documentation updated
 
-## Commander Runtime Dispatch
+## Commander Runtime Dispatch — REMOVED (2026-09-09)
 
-Slack app mentions are delegated from `app.py` to `commander_runtime.py`, which handles this order:
+The Slack Commander bot has been removed platform-wide: `app.py` and `commander_bridge.py`
+are deleted. `commander_runtime.py` and `router.py` still exist on disk but have zero
+importers anywhere in the repo (verified by a full-repo grep for both `import` and
+`from ... import` forms, plus a check for dynamic/importlib-based loading) — they are
+dead code themselves.
+
+Their removal means the BOT-008/010/011/012/013 modules they dispatched to, and
+`runtime_event_logger.py`, are now also confirmed dead:
+
+- **`mission_executor.py` (BOT-013)** — no live callers. Only reference is
+  `test_intelligence_loop.py`, a test of its internal helpers.
+- **`specialist_registry.py` (BOT-010)** — no live callers; only imported by
+  `mission_executor.py`, `collaboration_engine.py`, `router.py`, `commander_runtime.py`,
+  all of which are themselves dead.
+- **`repository_awareness.py` (BOT-008)** — no live callers; only reference is
+  `tests/test_repository_awareness_source_truth.py`.
+- **`knowledge_retrieval.py` (BOT-011)** — no live callers. (`prompt_loader.py` has an
+  unrelated function that happens to share the name `load_knowledge_retrieval_context`
+  but does not import this module.)
+- **`collaboration_engine.py` (BOT-012)** — no live callers, no tests.
+- **`runtime_event_logger.py`** — no live callers, no tests.
+
+These six modules plus their two dead tests are proposed for deletion; see
+`platform-runtime/MODULE-MAP.md` for the disposition list. Confirm with the user before
+deleting.
+
+The dispatch order below is historical, describing the removed system for context only:
+
+Slack app mentions were delegated from `app.py` to `commander_runtime.py`, which handled this order:
 
 1. GitHub issue generation
 2. Mission executor
@@ -50,9 +78,9 @@ Slack app mentions are delegated from `app.py` to `commander_runtime.py`, which 
 
 This order protects existing issue generation while allowing local runtime awareness modules to answer deterministic registry questions without an LLM call.
 
-## Commander Runtime v1.0
+## Commander Runtime v1.0 — REMOVED (2026-09-09)
 
-The runtime integration layer wraps the existing BOT modules instead of replacing them. `app.py` should remain a small adapter that extracts Slack text, calls `execute_commander_runtime()`, and sends the returned response.
+Historical description, kept for context; `app.py` no longer exists. The runtime integration layer wrapped the existing BOT modules instead of replacing them. `app.py` was meant to remain a small adapter that extracted Slack text, called `execute_commander_runtime()`, and sent the returned response.
 
 Runtime responsibilities:
 
