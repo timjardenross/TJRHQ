@@ -131,6 +131,42 @@ def test_records_dispatch_message_id_when_transport_returns_one(monkeypatch):
     assert recorded == [(INTERRUPT_NOW_EVENT["event_id"], 4242)]
 
 
+def test_appends_portal_deep_link_when_configured(monkeypatch):
+    monkeypatch.setenv("LCARS_PORTAL_URL", "https://usstjros.vercel.app")
+    events = [dict(INTERRUPT_NOW_EVENT)]
+    items = _brief_items(events)
+
+    calls = []
+
+    def fake_notify(body, **kwargs):
+        calls.append(body)
+        return _fake_notify_ok()
+
+    dispatch_interrupt_now(events, items, notify_fn=fake_notify)
+
+    assert len(calls) == 1
+    assert calls[0].startswith(INTERRUPT_NOW_EVENT["recommended_action"])
+    assert calls[0].endswith(
+        f"https://usstjros.vercel.app/captains-brief-workbench?domain=brief#brief-item-{INTERRUPT_NOW_EVENT['event_id']}"
+    )
+
+
+def test_omits_portal_deep_link_when_not_configured(monkeypatch):
+    monkeypatch.delenv("LCARS_PORTAL_URL", raising=False)
+    events = [dict(INTERRUPT_NOW_EVENT)]
+    items = _brief_items(events)
+
+    calls = []
+
+    def fake_notify(body, **kwargs):
+        calls.append(body)
+        return _fake_notify_ok()
+
+    dispatch_interrupt_now(events, items, notify_fn=fake_notify)
+
+    assert calls == [INTERRUPT_NOW_EVENT["recommended_action"]]
+
+
 def test_does_not_record_dispatch_message_id_when_transport_has_none(monkeypatch):
     events = [dict(INTERRUPT_NOW_EVENT)]
     items = _brief_items(events)

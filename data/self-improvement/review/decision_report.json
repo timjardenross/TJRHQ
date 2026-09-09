@@ -1,28 +1,28 @@
 {
-  "timestamp": "2026-09-08T21:01:51.612607+00:00",
-  "model_confidence": 1.0,
-  "model_confidence_rating": "high",
-  "total_decisions": 4,
-  "approved_count": 3,
+  "timestamp": "2026-09-09T21:01:11.319013+00:00",
+  "model_confidence": 0.5,
+  "model_confidence_rating": "low",
+  "total_decisions": 0,
+  "approved_count": 0,
   "rejected_count": 0,
-  "pending_evidence_count": 1,
-  "approval_rate": 1.0,
-  "auto_remediation_eligible": [
+  "pending_evidence_count": 0,
+  "approval_rate": 0,
+  "auto_remediation_eligible": [],
+  "auto_remediation_eligible_count": 0,
+  "manual_review_needed": [
     "FND-001",
     "FND-002",
     "FND-003"
   ],
-  "auto_remediation_eligible_count": 3,
-  "manual_review_needed": [],
-  "manual_review_count": 0,
+  "manual_review_count": 3,
   "finding_scores": {
-    "FND-001": 0.95,
-    "FND-002": 0.95,
-    "FND-003": 0.95
+    "FND-001": 0.5,
+    "FND-002": 0.5,
+    "FND-003": 0.5
   },
   "recommendations": [
-    "Model confidence is 100% \u2014 safe for auto-remediation",
-    "3 findings approved, 0 rejected, 1 pending evidence",
-    "3 findings eligible for auto-remediation"
+    "Model confidence is 50% \u2014 recommend manual review before auto-fix",
+    "0 findings approved, 0 rejected, 0 pending evidence",
+    "0 findings eligible for auto-remediation"
   ]
 }

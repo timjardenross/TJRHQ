@@ -23,6 +23,7 @@ it doesn't decide when evaluation runs).
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Callable, Optional
 
 from core.platform.attention_engine import AttentionCategory
@@ -36,6 +37,18 @@ from core.platform.notification_service import (
 )
 
 log = logging.getLogger(__name__)
+
+
+def _deep_link(event_id: str) -> Optional[str]:
+    """Captain's Brief deep-link for a dispatched event, appended to the
+    Telegram push so a bare "importance=X >= Y" scoring trace is never the
+    only thing the Captain has to act on — same LCARS_PORTAL_URL pattern as
+    intelligence/workflow/service.py::_deep_link. None (omitted, not a
+    broken link) when LCARS_PORTAL_URL isn't configured."""
+    base = (os.environ.get("LCARS_PORTAL_URL", "") or "").rstrip("/")
+    if not base:
+        return None
+    return f"{base}/captains-brief-workbench?domain=brief#brief-item-{event_id}"
 
 
 def dispatch_interrupt_now(
@@ -65,6 +78,9 @@ def dispatch_interrupt_now(
             continue
 
         body = item.recommendation.description if item.recommendation else item.reason
+        link = _deep_link(item.event_id) if item.event_id else None
+        if link:
+            body = f"{body}\n\n{link}"
         title = f"{item.domain} · {item.event_type}"
         result = notify_fn(
             body,

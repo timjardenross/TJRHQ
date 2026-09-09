@@ -83,7 +83,10 @@ export function ItemRow({ item }: { item: CaptainBriefItem }) {
   const showReasonCaption = headline !== item.reason;
 
   return (
-    <li className="rounded-md border border-wb-line bg-wb-surface p-2">
+    <li
+      id={item.event_id ? `brief-item-${item.event_id}` : undefined}
+      className="rounded-md border border-wb-line bg-wb-surface p-2 target:ring-2 target:ring-wb-sage-deep"
+    >
       <p className="text-[10px] uppercase tracking-[0.14em] text-wb-ink2">
         {item.domain} · {item.event_type}
       </p>

@@ -1,0 +1,58 @@
+{
+  "findings": [
+    {
+      "category": "model_catalogue_drift",
+      "title": "Model router policy configures unlisted model glm-5.3:cloud",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "Routing policy routes 'escalate' and 'fallback-complex' tasks to 'glm-5.3:cloud', but available_models only contains 'glm-5.2:cloud'.",
+          "location": "core/model-router"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "high",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Align routing_policy for 'escalate' and 'fallback-complex' to match available model 'glm-5.2:cloud' or configure provider credentials and catalogue registration for 'glm-5.3:cloud'."
+      },
+      "expected_benefit": "Prevents dispatch failures and unhandled runtime exceptions during task escalation and fallback operations."
+    },
+    {
+      "category": "governance_violation",
+      "title": "Uncommitted source modifications on main branch",
+      "evidence": [
+        {
+          "type": "git_history",
+          "observation": "Working tree is dirty with uncommitted changes across core/platform/interrupt_dispatcher.py and lcars-portal/src/app/captains-brief-workbench/_components/ItemRow.tsx.",
+          "location": "core/platform/interrupt_dispatcher.py"
+        }
+      ],
+      "confidence": 0.98,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Review, validate, and commit or stash pending modifications in interrupt_dispatcher.py and ItemRow.tsx to maintain repository determinism."
+      },
+      "expected_benefit": "Restores deployment reproducibility and ensures Telegram message_id dispatch persistence fixes are tracked in git history."
+    },
+    {
+      "category": "config_drift",
+      "title": "In-tree virtual environment chatterbox-venv unignored in repository tree",
+      "evidence": [
+        {
+          "type": "file_exists",
+          "observation": "Virtual environment located at core/voice/chatterbox-venv contains vendor site-packages and third-party test suites, swelling indexed Python files to 16,065.",
+          "location": "core/voice/chatterbox-venv"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Add core/voice/chatterbox-venv/ to .gitignore and audit exclusion paths to prevent third-party dependencies from skewing repo telemetry."
+      },
+      "expected_benefit": "Eliminates audit noise, accelerates repository scanning duration, and avoids vendor code pollution."
+    }
+  ]
+}
