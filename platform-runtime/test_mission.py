@@ -14,11 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-MISSION_REGISTRY_DIR = ROOT / "core" / "missions" / "mission-registry"
-if str(MISSION_REGISTRY_DIR) not in sys.path:
-    sys.path.insert(0, str(MISSION_REGISTRY_DIR))
-
-from mission_registry import MissionRegistry
+from core.missions.mission_registry import MissionRegistry
 from core.coordination.mission_registry_memory_adapter import MissionRegistryMemoryAdapter
 from core.coordination.number_one_memory_adapter import NumberOneMemoryAdapter
 import commands.research_command as research_command
