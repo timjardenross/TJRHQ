@@ -112,3 +112,34 @@ def test_does_not_mark_acknowledged_on_failed_dispatch(monkeypatch):
     dispatch_interrupt_now(events, items, notify_fn=fake_fail)
 
     assert marked == []
+
+
+def test_records_dispatch_message_id_when_transport_returns_one(monkeypatch):
+    events = [dict(INTERRUPT_NOW_EVENT)]
+    items = _brief_items(events)
+
+    import core.platform.interrupt_dispatcher as mod
+    monkeypatch.setattr(mod, "mark_event_status", lambda *a, **k: None)
+    recorded = []
+    monkeypatch.setattr(mod, "record_dispatch_message_id", lambda event_id, message_id: recorded.append((event_id, message_id)))
+
+    def fake_notify_with_id(*a, **k):
+        return NotificationResult(ok=True, transport=Transport.TELEGRAM, attempts=1, message_id=4242)
+
+    dispatch_interrupt_now(events, items, notify_fn=fake_notify_with_id)
+
+    assert recorded == [(INTERRUPT_NOW_EVENT["event_id"], 4242)]
+
+
+def test_does_not_record_dispatch_message_id_when_transport_has_none(monkeypatch):
+    events = [dict(INTERRUPT_NOW_EVENT)]
+    items = _brief_items(events)
+
+    import core.platform.interrupt_dispatcher as mod
+    monkeypatch.setattr(mod, "mark_event_status", lambda *a, **k: None)
+    recorded = []
+    monkeypatch.setattr(mod, "record_dispatch_message_id", lambda event_id, message_id: recorded.append((event_id, message_id)))
+
+    dispatch_interrupt_now(events, items, notify_fn=lambda *a, **k: _fake_notify_ok())
+
+    assert recorded == []

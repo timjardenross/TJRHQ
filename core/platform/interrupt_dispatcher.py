@@ -27,7 +27,7 @@ from typing import Any, Callable, Optional
 
 from core.platform.attention_engine import AttentionCategory
 from core.platform.captain_brief_contract import CaptainBriefItem
-from core.platform.event_bus import mark_event_status
+from core.platform.event_bus import mark_event_status, record_dispatch_message_id
 from core.platform.notification_service import (
     NotificationResult,
     Severity,
@@ -76,6 +76,8 @@ def dispatch_interrupt_now(
         results.append(result)
         if result.ok and item.event_id:
             mark_event_status(item.event_id, "acknowledged")
+            if result.message_id is not None:
+                record_dispatch_message_id(item.event_id, result.message_id)
         elif not result.ok:
             log.warning(
                 "[interrupt-dispatcher] notify failed for event %s: %s",

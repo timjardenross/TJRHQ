@@ -203,4 +203,22 @@ def mark_event_status(event_id: str, status: str) -> bool:
         return False
 
 
-__all__ = ["publish_event", "poll_events", "mark_event_status"]
+def record_dispatch_message_id(event_id: str, message_id: int) -> bool:
+    """Persist the Telegram message_id a dispatch produced, so a bad or
+    duplicate push can be deleted/edited later instead of only ever being
+    superseded by a resend."""
+    try:
+        from tools.supabase.client import CommanderSupabaseClient
+
+        client = CommanderSupabaseClient()
+        raw = client.raw_client
+        if raw is None:
+            return False
+        raw.table("core_events").update({"dispatch_message_id": message_id}).eq("event_id", event_id).execute()
+        return True
+    except Exception as exc:
+        log.warning("[event-bus] record_dispatch_message_id failed (non-blocking): %s", exc)
+        return False
+
+
+__all__ = ["publish_event", "poll_events", "mark_event_status", "record_dispatch_message_id"]
