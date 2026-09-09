@@ -186,8 +186,14 @@ class SelfImprovementOrchestrator:
         # code-fix commits used git_commit), so every cycle left the tree
         # dirty and FND-001 ("Uncommitted Self-Improvement Cycle Artifacts")
         # kept re-firing and getting skipped rather than actually fixed.
+        # Scoped to this cycle's own artifact directory — not `-A` — so a
+        # dirty unrelated in-progress edit sitting elsewhere in the tree at
+        # cycle time never gets swept into this commit (confirmed
+        # 2026-09-10: it had been).
+        artifacts_path = str(self.data_root.relative_to(self.repo_root))
         commit_sha = self.executor.git_commit(
-            f"self-improvement: cycle {run_id} artifacts"
+            f"self-improvement: cycle {run_id} artifacts",
+            paths=[artifacts_path],
         )
         summary["artifacts_commit_sha"] = commit_sha
         if commit_sha is None:

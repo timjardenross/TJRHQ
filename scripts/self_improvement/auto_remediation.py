@@ -438,11 +438,22 @@ class AutoRemediationExecutor:
 
         return True
 
-    def git_commit(self, message: str) -> str | None:
-        """Create a git commit. Returns the new commit sha, or None on failure."""
+    def git_commit(self, message: str, paths: list[str] | None = None) -> str | None:
+        """Create a git commit. Returns the new commit sha, or None on failure.
+
+        `paths` scopes the `git add` to specific repo-relative paths — pass
+        this whenever the caller knows exactly what it wrote (e.g. the
+        cycle-artifacts commit). Confirmed 2026-09-10: the old unconditional
+        `git add -A` swept up unrelated in-progress edits sitting in the
+        working tree at cycle time into a "self-improvement: cycle ...
+        artifacts"-labelled commit. `paths=None` keeps `-A` for the
+        remediation-fix commit path, where the changed files aren't
+        tracked by the caller."""
         try:
+            add_cmd = ["git", "-C", str(self.repo_root), "add"]
+            add_cmd += paths if paths else ["-A"]
             subprocess.run(
-                ["git", "-C", str(self.repo_root), "add", "-A"],
+                add_cmd,
                 check=True,
                 capture_output=True,
             )
