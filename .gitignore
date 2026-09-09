@@ -72,3 +72,19 @@ data/memory_graph.db*
 # .infisical-auth.env leak. Ignored explicitly before that repeats.
 core/voice/chatterbox-venv/
 core/voice/cache/
+
+# data/self-improvement/review/: the self-improvement engine's live review
+# state — mutated continuously between cycles as findings get reviewed
+# (decisions.jsonl, opportunities.jsonl) or a cycle runs (.evolution_cycle.lock).
+# Unlike data/self-improvement/runs/ (durable per-cycle evidence, tracked
+# on purpose), these change outside of any deliberate commit, which kept
+# dirtying the VM's working tree and blocking deploy/auto-deploy.sh's
+# fast-forward-only pull (confirmed 2026-09-09: divergence + repeated
+# "working tree is dirty" aborts). Untracked here; the periodic cycle-summary
+# files in the same directory (cycle_summary.json, decision_report.json,
+# evolution_summary.json, opportunity_id_counter.txt, remediation_results.jsonl,
+# mission_dispatch_log.jsonl) are intentionally still committed as each
+# cycle's record and are unaffected by this.
+data/self-improvement/review/.evolution_cycle.lock
+data/self-improvement/review/decisions.jsonl
+data/self-improvement/review/opportunities.jsonl
