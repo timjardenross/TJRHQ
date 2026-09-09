@@ -59,3 +59,25 @@ def test_job_never_raises_on_poll_failure(monkeypatch):
 
     monkeypatch.setattr(event_bus, "poll_events", boom)
     scheduler._attention_evaluation_job()  # must not raise — same non-blocking contract as every other job in this file
+
+
+def test_polls_recommended_action_so_dispatched_pushes_have_real_content(monkeypatch):
+    """Regression test: this job's explicit `columns` list previously omitted
+    `recommended_action`, so captain_brief_contract.recommendation_from_event()
+    always saw it as absent and every INTERRUPT_NOW push fell back to
+    interrupt_dispatcher's `item.reason` — the Attention Engine's bare
+    threshold formula ("importance=90 >= 75 AND confidence=80 >= 70") — with
+    no actual signal content, even though intelligence_store.py writes a
+    real title into `recommended_action` for exactly this purpose."""
+    seen_columns = {}
+
+    def fake_poll(limit=200, columns="*", **kwargs):
+        seen_columns["value"] = columns
+        return [dict(INTERRUPT_NOW_EVENT)]
+
+    monkeypatch.setattr(event_bus, "poll_events", fake_poll)
+    monkeypatch.setattr(interrupt_dispatcher, "dispatch_interrupt_now", lambda *a, **k: [])
+
+    scheduler._attention_evaluation_job()
+
+    assert "recommended_action" in seen_columns["value"].split(",")

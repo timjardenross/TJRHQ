@@ -97,6 +97,50 @@ class TestLLMFailureDegradation(unittest.TestCase):
         self.assertIsInstance(brief, ResilienceBrief)
         self.assertFalse(brief.narrative_available)
 
+    def test_narrative_prompt_names_failed_sources_not_just_a_count(self):
+        """2026-09-08: the narrative prompt used to pass only bare
+        sources_failed/sources_available counts, even though brief_generator
+        already computes `missing_sources` (real source_name values) for the
+        coverage dict — so the LLM had nothing concrete to reference and
+        could only write generic reassurance about degradation ("engineering
+        will monitor...") without naming what actually failed. This asserts
+        the failed source's real name reaches the LLM prompt."""
+        from intelligence.brief.brief_generator import BriefGenerator
+        from intelligence.models import SourceHealth
+
+        top = [_make_ranked_event(f"Event {i}", i) for i in range(1, 4)]
+        now = datetime(2026, 6, 12, tzinfo=timezone.utc)
+        health_records = [
+            SourceHealth(source_id="s1", source_name="Fortinet PSIRT", checked_at=now, status="ok"),
+            SourceHealth(source_id="s2", source_name="ACME Threat Feed", checked_at=now, status="failed"),
+        ]
+
+        with patch("intelligence.brief.brief_generator.collect_all", return_value=([], health_records)), \
+             patch("intelligence.brief.brief_generator.store", self._patch_store()), \
+             patch("intelligence.brief.brief_generator.classify", side_effect=lambda x: x), \
+             patch("intelligence.brief.brief_generator.rank", return_value=top), \
+             patch("intelligence.brief.brief_generator.top_events", return_value=top), \
+             patch("intelligence.brief.brief_generator.morning_cycle.get_status", return_value=None), \
+             patch("intelligence.brief.brief_generator.external_domains.fetch_health_signals",
+                   return_value=DomainFetchResult(domain="health", available=True, signals=[])), \
+             patch("intelligence.brief.brief_generator.external_domains.fetch_emergency_alerts",
+                   return_value=DomainFetchResult(domain="emergency", available=True, signals=[])), \
+             patch("intelligence.brief.brief_generator.LLMProvider") as mock_llm_cls:
+
+            mock_llm = MagicMock()
+            mock_llm.generate.return_value = (None, None)
+            mock_llm_cls.return_value = mock_llm
+
+            BriefGenerator().generate()
+
+            narrative_calls = [
+                call for call in mock_llm.generate.call_args_list
+                if call.args and "Sources available" in call.args[0]
+            ]
+            self.assertTrue(narrative_calls, "expected one LLM call carrying the narrative prompt")
+            prompt = narrative_calls[0].args[0]
+            self.assertIn("ACME Threat Feed", prompt)
+
     def test_narrative_marked_unavailable_on_llm_failure(self):
         """All narrative text fields should be None or [UNAVAILABLE] when LLM fails."""
         from intelligence.brief.brief_generator import BriefGenerator
