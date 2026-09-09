@@ -8,12 +8,22 @@
 // disappears at (that component remains the below-xl fallback nav,
 // unchanged) — no gap reopened between them.
 //
-// Calendar/Help have no dedicated standalone page in this app today
-// (calendar lives as a card on /hub; Help doesn't exist yet anywhere) —
-// rather than link to a 404 or invent a page outside this mission's scope,
-// those two render as disabled with an inline "soon" tag. Home and
-// Calendar both resolve to /hub by design (glance dashboard IS where
-// today's calendar lives) — a harmless double-highlight, not a bug.
+// Help has no dedicated standalone page in this app today — rather than
+// link to a 404 or invent a page outside this mission's scope, it renders
+// disabled with an inline "soon" tag.
+//
+// Calendar entry removed (Sidebar review, 2026-09-08): it only ever
+// resolved to /hub, duplicating Home — a confusing double-highlight, not a
+// second destination. Calendar still lives as a card on /hub.
+//
+// Missions/Alerts/Library now link straight at their real pages
+// (/mission-workbench, /captains-chair-workbench/alerts,
+// /knowledge-workbench) instead of the /missions, /alerts,
+// /knowledge-library redirect stubs — those stubs live under the legacy
+// (app) LCARS layout, so following them briefly rendered the old
+// LCARS-branded chrome before bouncing to the real destination. Missions
+// and Alerts are also lower priority than Workbenches/Library now — they're
+// narrower, single-purpose surfaces, not places captains land often.
 //
 // Settings Page Redesign mission (2026-09-06): Settings now has a real
 // route (/settings) — see app/settings/ — so its entry is enabled.
@@ -22,7 +32,6 @@ import { usePathname } from 'next/navigation';
 import {
   Home,
   LayoutGrid,
-  CalendarDays,
   Rocket,
   TriangleAlert,
   BookMarked,
@@ -41,10 +50,9 @@ interface SidebarLink {
 const PRIMARY: SidebarLink[] = [
   { href: '/hub', label: 'Home', icon: Home },
   { href: '/workbenches', label: 'Workbenches', icon: LayoutGrid },
-  { href: '/hub', label: 'Calendar', icon: CalendarDays },
-  { href: '/missions', label: 'Missions', icon: Rocket },
-  { href: '/alerts', label: 'Alerts', icon: TriangleAlert },
-  { href: '/knowledge-library', label: 'Library', icon: BookMarked },
+  { href: '/knowledge-workbench', label: 'Library', icon: BookMarked },
+  { href: '/mission-workbench', label: 'Missions', icon: Rocket },
+  { href: '/captains-chair-workbench/alerts', label: 'Alerts', icon: TriangleAlert },
 ];
 
 const SECONDARY: SidebarLink[] = [
@@ -98,7 +106,7 @@ export function Sidebar() {
           <SidebarRow
             key={link.label}
             link={link}
-            active={pathname === link.href || (link.href !== '/hub' && pathname?.startsWith(link.href + '/'))}
+            active={pathname === link.href || pathname?.startsWith(link.href + '/')}
           />
         ))}
       </nav>
