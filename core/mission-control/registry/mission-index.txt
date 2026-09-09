@@ -192,3 +192,19 @@
 # MSN-0145 SUPABASE SYNC (2026-08-11 06:45)
 
 - USS-TJR-MSN-0361 | 2026-08-11 06:45 | Supabase | Tested | Tighten technology_outage/telecom_outage classifier keyword lists
+
+# MSN-0145 SUPABASE SYNC (2026-09-09 06:45)
+
+- USS-TJR-MSN-0362 | 2026-09-09 06:45 | Supabase | Idea | Number One — Full Concept scoping (conversational front-end, action layer, unified memory)
+
+- USS-TJR-MSN-0363 | 2026-09-09 06:45 | Supabase | Closed | Remove Slack integration platform-wide — Telegram is now the sole transport
+
+- USS-TJR-MSN-0364 | 2026-09-09 06:45 | Supabase | Closed | Number One: proactive Telegram escalation push + /priorities command (USS-TJR-MSN-0362 candidates A+B)
+
+# MSN-0145 SUPABASE SYNC (2026-09-09 06:45)
+
+- USS-TJR-MSN-0362 | 2026-09-09 06:45 | Supabase | Idea | Number One — Full Concept scoping (conversational front-end, action layer, unified memory)
+
+- USS-TJR-MSN-0363 | 2026-09-09 06:45 | Supabase | Closed | Remove Slack integration platform-wide — Telegram is now the sole transport
+
+- USS-TJR-MSN-0364 | 2026-09-09 06:45 | Supabase | Closed | Number One: proactive Telegram escalation push + /priorities command (USS-TJR-MSN-0362 candidates A+B)
