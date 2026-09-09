@@ -168,6 +168,29 @@ else
 fi
 rm -rf "$tmp"
 
+echo "test: untracked file present -> does NOT abort, pulls normally (regression: live processes on the VM drop untracked files, e.g. handoff docs, that must not block deploy)"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+git clone --quiet -b main "$tmp/origin.git" "$tmp/pusher" >/dev/null 2>&1
+(
+  cd "$tmp/pusher"
+  git config user.email test@example.com
+  git config user.name Test
+  echo "two" > core_change.txt
+  git add -A
+  git commit --quiet -m "backend change"
+  git push --quiet origin HEAD 2>&1
+)
+echo "untracked scratch file" > "$tmp/clone/untracked_handoff.md"
+before_sha="$(git -C "$tmp/clone" rev-parse HEAD)"
+out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+after_sha="$(git -C "$tmp/clone" rev-parse HEAD)"
+if [ "$before_sha" != "$after_sha" ] && grep -q "systemctl restart context-service.service" "$log" && [ -f "$tmp/clone/untracked_handoff.md" ]; then
+  pass "untracked file does not block the pull, and survives it"
+else
+  fail "untracked file present (before=$before_sha after=$after_sha log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
 echo "test: diverged history -> ff-only merge fails, aborts without corrupting local branch"
 tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
 git clone --quiet -b main "$tmp/origin.git" "$tmp/pusher" >/dev/null 2>&1

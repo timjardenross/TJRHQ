@@ -11,8 +11,11 @@
 # than exposing a new inbound webhook endpoint.
 #
 # Safety rules, in order:
-#   1. Never touches a dirty working tree - a manual in-progress change on
-#      this VM always wins over automation. Aborts loudly instead.
+#   1. Never touches a working tree with uncommitted changes to a TRACKED
+#      file - a manual in-progress edit on this VM always wins over
+#      automation. Aborts loudly instead. Untracked files are not checked
+#      here (see the dirty-check below for why - they can't be endangered
+#      by a fast-forward pull the way a modified tracked file can).
 #   2. Fast-forward only. Never merges, never rebases, never resolves a
 #      conflict. If history has diverged, stop and surface it - this repo's
 #      main should only ever move forward from this VM's point of view.
@@ -53,8 +56,17 @@ LOG_PREFIX="[auto-deploy]"
 
 cd "$REPO_ROOT"
 
-if [ -n "$(git status --porcelain)" ]; then
-  echo "$LOG_PREFIX ABORT: working tree is dirty - not pulling. Resolve manually." >&2
+# --untracked-files=no: a new untracked file (several live processes on this
+# VM drop one, e.g. self-improvement/mission-dispatch handoff docs, before a
+# separate job commits it later) can't be endangered by a fast-forward pull -
+# it isn't part of the tree git is fast-forwarding. The one real edge case
+# (an incoming commit adds a file at that same untracked path) is still
+# caught: `git merge --ff-only` below refuses to clobber an untracked file
+# and fails loudly, which is exactly the existing "fast-forward failed"
+# abort path. What this check still must catch is an uncommitted EDIT to an
+# already-tracked file - that's the one thing a pull could actually stomp on.
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  echo "$LOG_PREFIX ABORT: working tree is dirty (uncommitted changes to tracked files) - not pulling. Resolve manually." >&2
   exit 1
 fi
 
