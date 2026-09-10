@@ -497,6 +497,48 @@ class TestEvolutionOrchestrator(unittest.TestCase):
         self.assertEqual(len(current), 1)
         self.assertEqual(current[0]["automation_eligibility"], "manual_only")
 
+    def test_gate_rejected_candidate_is_persisted_as_a_reviewable_opportunity(self):
+        """2026-09-10: candidates that fail the relevance gate used to be
+        discarded after only a bare count — no title, no reason, nowhere.
+        A human reviewing 'what did HQ filter out overnight, in case it
+        missed something' had nothing to look at. Now every gate-rejected
+        candidate is persisted as a real 'rejected' opportunity with the
+        gate's own reasons, visible through the same store everything else
+        goes through."""
+        orch = self._make_orchestrator()
+        candidate = make_candidate(fit="weak", value="low", evidence_strength="weak", complexity="high")
+        with patch("internal_discovery.discover", return_value=[candidate]):
+            result = orch.run_cycle(dry_run=False)
+
+        self.assertEqual(result["rejected_at_gate_count"], 1)
+        self.assertEqual(result["worth_considering_count"], 0)
+
+        store = OpportunityStore(self.tmpdir)
+        current = store.all_current()
+        self.assertEqual(len(current), 1)
+        self.assertEqual(current[0]["lifecycle_state"], "rejected")
+        self.assertIsNotNone(current[0]["rejection_reason"])
+        self.assertIn("relevance gate", current[0]["rejection_reason"])
+
+    def test_repeatedly_gate_rejected_candidate_never_duplicates(self):
+        """Same fingerprint failing the gate two cycles running must update
+        the one 'rejected' record, not pile up a fresh one every night —
+        relevance.py's own dedup (state == 'rejected' and not meaningfully
+        better -> duplicate) already guarantees this before the candidate
+        ever reaches the new persistence branch; this pins that guarantee
+        specifically for gate-rejected records."""
+        orch = self._make_orchestrator()
+        candidate = make_candidate(fit="weak", value="low", evidence_strength="weak", complexity="high")
+        with patch("internal_discovery.discover", return_value=[candidate]):
+            orch.run_cycle(dry_run=False)
+            second = orch.run_cycle(dry_run=False)
+
+        self.assertEqual(second["rejected_at_gate_count"], 0)
+        self.assertEqual(second["duplicate_count"], 1)
+
+        store = OpportunityStore(self.tmpdir)
+        self.assertEqual(len(store.all_current()), 1)
+
     def test_surfaced_count_never_exceeds_configured_cap(self):
         orch = self._make_orchestrator()
         orch.evolution_config = {**orch.evolution_config, "max_opportunities_surfaced_per_cycle": 1}
