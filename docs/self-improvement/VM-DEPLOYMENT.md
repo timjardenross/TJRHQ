@@ -5,7 +5,8 @@ Quick deployment steps for the VM (109.123.227.196 / `vmi3371936`).
 Covers `scripts/self_improvement/orchestrator.py` — the canonical implementation,
 already deployed and running (`self-improving-system.timer`, enabled). A second
 implementation (`self_improving_loop.py`) was retired 2026-07-29 without ever
-being deployed to this VM — see `self-improving-loop.DEPRECATED-2026-07-29/DEPRECATED.md`.
+being deployed to this VM and has since been removed from the tree — see git
+history for `self-improving-loop.DEPRECATED-2026-07-29/DEPRECATED.md`.
 
 ## Prerequisites Check
 

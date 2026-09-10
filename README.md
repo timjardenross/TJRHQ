@@ -39,7 +39,8 @@ so file history predating the split is preserved.
 - **`telegram-bots/`** — Telegram-facing bots. `xo/` is the only live Telegram bot (Captain
   decision 2026-07-05) — the Captain's action interface, running as `tg-xo.service`.
   `recovery_officer/` and `wellness_officer/` are its helpers. The standalone Chief Engineer
-  bot is retired — see `telegram-bot.DEPRECATED-2026-07-12/`.
+  bot was retired 2026-07-12 and removed from the tree; see git history
+  (`telegram-bot.DEPRECATED-2026-07-12/` prior to removal).
 - **`core/command-centre/`** — Express.js backend + frontend for the command centre surface.
 
 ---
@@ -52,7 +53,6 @@ TJRHQ/
 │                         #   specialist registry, notifications, event logging
 ├── lcars-portal/         # LCARS web command dashboard (Next.js)
 ├── telegram-bots/        # xo/ (live), recovery_officer/, wellness_officer/
-├── telegram-bot.DEPRECATED-2026-07-12/  # retired Chief Engineer bot
 ├── core/                 # advisory, capture, content, coordination, dashboard, engineering,
 │                         #   governance (authority enforcement), health, inbox, infrastructure
 │                         #   (mac-collector, vm-processing, vm-transfer, Supabase migrations),
