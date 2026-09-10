@@ -696,6 +696,7 @@ function ImproveTab({
                         <span className="text-xs bg-wb-line text-wb-ink2 px-2 py-1 rounded">{f.category}</span>
                         <Badge status={toneToStatus(severityToTone(f.severity))}>{f.severity}</Badge>
                         {f.decision && <Badge status={toneToStatus(decisionToTone(f.decision))}>{f.decision.replace('_', ' ')}</Badge>}
+                        {!f.decision && f.staleness?.status === 'resolved' && <Badge status="warning">possibly already fixed</Badge>}
                       </div>
                     </button>
                   ))}
@@ -717,6 +718,22 @@ function ImproveTab({
                 <div className="bg-wb-bg p-3 rounded border-l-4 border-wb-sage-deep text-sm text-wb-ink mb-4">
                   <strong>{selectedLegacyFinding.proposed_action.type}:</strong> {selectedLegacyFinding.proposed_action.description}
                 </div>
+                {!selectedLegacyFinding.decision && selectedLegacyFinding.staleness?.status === 'resolved' && (
+                  <div className="bg-wb-warn/10 border-l-4 border-wb-warn p-3 rounded text-sm text-wb-ink mb-4">
+                    <div className="font-semibold text-xs uppercase tracking-wider text-wb-warn-on mb-1">
+                      This may already be fixed
+                    </div>
+                    <p className="text-xs text-wb-ink2 mb-1">
+                      HQ re-checked this finding&apos;s own evidence against the current repo and none of it still holds —
+                      it may have been fixed outside this pipeline (e.g. a manually-authored PR). Verify before deciding:
+                    </p>
+                    <ul className="list-disc pl-4 text-xs text-wb-ink2 space-y-0.5">
+                      {selectedLegacyFinding.staleness.items.map((item, i) => (
+                        <li key={i}>{item.location ? `${item.location}: ` : ''}{item.detail}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {!selectedLegacyFinding.decision ? (
                   <>
                     <textarea

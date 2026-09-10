@@ -83,8 +83,8 @@ core/voice/cache/
 # "working tree is dirty" aborts). Untracked here; the periodic cycle-summary
 # files in the same directory (cycle_summary.json, decision_report.json,
 # evolution_summary.json, opportunity_id_counter.txt, remediation_results.jsonl,
-# mission_dispatch_log.jsonl) are intentionally still committed as each
-# cycle's record and are unaffected by this.
+# mission_dispatch_log.jsonl, finding_staleness.jsonl) are intentionally
+# still committed as each cycle's record and are unaffected by this.
 data/self-improvement/review/.evolution_cycle.lock
 data/self-improvement/review/decisions.jsonl
 data/self-improvement/review/opportunities.jsonl

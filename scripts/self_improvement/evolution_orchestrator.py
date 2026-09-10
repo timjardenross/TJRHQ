@@ -33,6 +33,8 @@ from router_client import ModelRouterClient
 from policy import PolicyEngine
 from opportunity_store import OpportunityStore, new_fingerprint, MISSION_ONLY_CLASSES
 from relevance import RelevanceGate
+from decision_processor import DecisionProcessor
+import staleness_check
 from investigation_schema import validate_investigation, honest_fallback_investigation
 import internal_discovery
 import external_discovery
@@ -147,13 +149,16 @@ class EvolutionOrchestrator:
             log.error(f"Failed to load watchlist: {exc}")
             return []
 
-    def _load_latest_classified_findings(self) -> list[dict[str, Any]]:
+    def _load_latest_classified_findings(self) -> tuple[list[dict[str, Any]], Optional[str]]:
         """Reuse the existing daily cycle's most recent classified findings,
         if any exist — never re-runs model analysis itself. Same mtime-sort
-        fix as auto_remediation.py's load_latest_findings()."""
+        fix as auto_remediation.py's load_latest_findings(). Returns
+        (findings, run_id) — the run_id is needed by the staleness-check
+        phase below, since finding_id (e.g. 'FND-001') is recycled every
+        run and is only unique paired with the run that produced it."""
         runs_dir = self.data_root / "runs"
         if not runs_dir.exists():
-            return []
+            return [], None
         run_dirs = sorted(
             (d for d in runs_dir.iterdir() if d.is_dir()),
             key=lambda d: d.stat().st_mtime, reverse=True,
@@ -163,11 +168,49 @@ class EvolutionOrchestrator:
             if findings_file.exists():
                 try:
                     with open(findings_file) as f:
-                        return json.load(f).get("findings", [])
+                        return json.load(f).get("findings", []), run_dir.name
                 except Exception as exc:
                     log.warning(f"Failed to read {findings_file}: {exc}")
                     continue
-        return []
+        return [], None
+
+    def _check_finding_staleness(self, classified_findings: list[dict[str, Any]], run_id: Optional[str], dry_run: bool) -> int:
+        """Section: reconciliation. A finding fixed entirely outside this
+        pipeline (a human-authored PR, not an approved opportunity or a
+        dispatched Mission) has no automated signal that tells the system
+        it's done — it just sits "proposed"/undecided forever until a
+        human happens to notice and re-derive that by hand. This re-checks
+        every UNDECIDED finding's own evidence against current repo state
+        every cycle and records the result — it never changes a decision
+        or a lifecycle_state itself (see staleness_check.py's own
+        never-guess contract for what "unclear" means and why it exists).
+        Returns the number of findings checked (0 in dry_run — this writes
+        an append-only log, same side-effect rule as everything else)."""
+        if dry_run or not classified_findings or not run_id:
+            return 0
+
+        decisions_by_finding = DecisionProcessor(self.data_root).aggregate_decisions(
+            DecisionProcessor(self.data_root).load_decisions()
+        ).get("by_finding", {})
+        undecided = [f for f in classified_findings if f.get("finding_id") not in decisions_by_finding]
+        if not undecided:
+            return 0
+
+        staleness_path = self.data_root / "review" / "finding_staleness.jsonl"
+        staleness_path.parent.mkdir(parents=True, exist_ok=True)
+        now_iso = datetime.now(timezone.utc).isoformat()
+        with open(staleness_path, "a") as f:
+            for finding in undecided:
+                result = staleness_check.check_finding_staleness(finding, self.repo_root)
+                record = {
+                    "timestamp": now_iso,
+                    "run_id": run_id,
+                    "finding_id": finding.get("finding_id"),
+                    "title": finding.get("title"),
+                    **result,
+                }
+                f.write(json.dumps(record) + "\n")
+        return len(undecided)
 
     def _count_cycles_since(self, since_iso: str) -> int:
         """V2 section 9: an honest cycle count for observation_window types
@@ -480,7 +523,11 @@ class EvolutionOrchestrator:
         log.info("=" * 80)
 
         evidence = self.collector.collect_all()
-        classified_findings = self._load_latest_classified_findings()
+        classified_findings, findings_run_id = self._load_latest_classified_findings()
+        findings_staleness_checked = self._check_finding_staleness(classified_findings, findings_run_id, dry_run)
+        if findings_staleness_checked:
+            log.info(f"Re-checked {findings_staleness_checked} undecided finding(s) from {findings_run_id} "
+                      f"against current repo state — see data/self-improvement/review/finding_staleness.jsonl")
 
         # ONE Model Router health check per cycle — health_check() is a
         # real network call, shared between this phase and the
