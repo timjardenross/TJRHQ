@@ -452,6 +452,7 @@ def api_evolution_summary():
         "run_id": cycle_summary.get("run_id"),
         "timestamp": cycle_summary.get("timestamp"),
         "investigated_count": cycle_summary.get("investigated_count", 0),
+        "rejected_at_gate_count": cycle_summary.get("rejected_at_gate_count", 0),
         "worth_considering_count": cycle_summary.get("worth_considering_count", 0),
         "nothing_worth_changing": cycle_summary.get("nothing_worth_changing", pending_decisions_count == 0),
         "highest_value_opportunity": cycle_summary.get("highest_value_opportunity"),

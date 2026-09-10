@@ -539,26 +539,16 @@ class EvolutionOrchestrator:
         evaluated = [(c, self.gate.evaluate(c)) for c in all_candidates]
         duplicates = [(c, v) for c, v in evaluated if v.is_duplicate]
         passed = [(c, v) for c, v in evaluated if v.passes_investigate and not v.is_duplicate]
-        log.info(f"{len(duplicates)} duplicate/already-considered, {len(passed)} clear the relevance gate")
+        failed_gate = [(c, v) for c, v in evaluated if not v.passes_investigate and not v.is_duplicate]
+        log.info(f"{len(duplicates)} duplicate/already-considered, {len(passed)} clear the relevance gate, "
+                 f"{len(failed_gate)} rejected at the gate")
 
-        # Persist every gate-cleared candidate as a lightweight DISCOVERED
-        # record (so future cycles can dedup against it) before spending
-        # any investigation budget. A candidate the relevance gate is
-        # RECONSIDERING (verdict.reconsider_of set — a prior "discovered"/
-        # "investigating"/"watching"/"rejected" record for this same
-        # fingerprint) must update that SAME opportunity_id rather than
-        # create_new() a fresh one: otherwise something rediscovered every
-        # cycle without ever being promoted would pile up one new
-        # "discovered" card per cycle forever instead of one card that
-        # just keeps refreshing (found alongside the fix that stopped
-        # "discovered"/"investigating" from being permanently frozen).
-        discovered_opps = []
-        for candidate, verdict in passed:
-            fields = dict(
+        def _base_fields(candidate: dict[str, Any], verdict, lifecycle_state: str) -> dict[str, Any]:
+            return dict(
                 title=candidate["title"],
                 change_class=candidate["change_class"],
                 discovery_source=candidate["discovery_source"],
-                lifecycle_state="discovered",
+                lifecycle_state=lifecycle_state,
                 fingerprint=candidate["fingerprint"],
                 summary=candidate.get("summary", ""),
                 why_relevant=candidate.get("why_relevant", ""),
@@ -577,13 +567,48 @@ class EvolutionOrchestrator:
                 measurement_hint=candidate.get("measurement_hint"),
                 run_id=run_id,
             )
+
+        def _persist(candidate: dict[str, Any], verdict, fields: dict[str, Any]):
             if dry_run:
-                opp = None
-            elif verdict.reconsider_of:
-                opp = self.store.update(verdict.reconsider_of, **fields)
-            else:
-                opp = self.store.create_new(**fields)
+                return None
+            if verdict.reconsider_of:
+                return self.store.update(verdict.reconsider_of, **fields)
+            return self.store.create_new(**fields)
+
+        # Persist every gate-cleared candidate as a lightweight DISCOVERED
+        # record (so future cycles can dedup against it) before spending
+        # any investigation budget. A candidate the relevance gate is
+        # RECONSIDERING (verdict.reconsider_of set — a prior "discovered"/
+        # "investigating"/"watching"/"rejected" record for this same
+        # fingerprint) must update that SAME opportunity_id rather than
+        # create_new() a fresh one: otherwise something rediscovered every
+        # cycle without ever being promoted would pile up one new
+        # "discovered" card per cycle forever instead of one card that
+        # just keeps refreshing (found alongside the fix that stopped
+        # "discovered"/"investigating" from being permanently frozen).
+        discovered_opps = []
+        for candidate, verdict in passed:
+            fields = _base_fields(candidate, verdict, "discovered")
+            opp = _persist(candidate, verdict, fields)
             discovered_opps.append((candidate, verdict, opp))
+
+        # 2026-09-10: candidates that fail the relevance gate used to be
+        # discarded after only a bare count (investigated_count minus
+        # cleared_relevance_gate_count) — no title, no reason, nowhere,
+        # for either this run or any future one. Persisting them as real
+        # 'rejected' opportunities (with the gate's own reasons as
+        # rejection_reason) makes them reviewable through the same
+        # Learned-tab historical list every other decision goes through,
+        # so a human can catch a wrongly-filtered candidate instead of it
+        # vanishing silently every night. Same reconsider_of/create_new
+        # pattern as the gate-cleared branch above, so a fingerprint that
+        # keeps failing doesn't pile up a fresh record every cycle —
+        # check_duplicate() in relevance.py already dedupes an unchanged
+        # 'rejected' fingerprint before it ever reaches failed_gate.
+        for candidate, verdict in failed_gate:
+            fields = _base_fields(candidate, verdict, "rejected")
+            fields["rejection_reason"] = "Auto-rejected at relevance gate: " + "; ".join(verdict.reasons)
+            _persist(candidate, verdict, fields)
 
         # SHORTLIST -> INVESTIGATE (the expensive step; bounded)
         log.info("\nSHORTLIST / INVESTIGATE")
@@ -670,6 +695,7 @@ class EvolutionOrchestrator:
             "dry_run": dry_run,
             "investigated_count": len(all_candidates),
             "cleared_relevance_gate_count": len(passed),
+            "rejected_at_gate_count": len(failed_gate),
             "duplicate_count": len(duplicates),
             "shortlisted_count": len(shortlisted),
             "deep_investigated_count": len(investigated),

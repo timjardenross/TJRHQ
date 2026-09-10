@@ -380,6 +380,13 @@ function DiscoverTab({
             </p>
           </>
         )}
+        {!!summary?.rejected_at_gate_count && summary.rejected_at_gate_count > 0 && (
+          <p className="mt-1 text-xs text-wb-ink2">
+            {summary.rejected_at_gate_count} other candidate{summary.rejected_at_gate_count === 1 ? '' : 's'} didn&apos;t clear
+            the relevance gate — see the Learned tab&apos;s &quot;Historical decisions&quot; list to review what HQ filtered out
+            and why, in case anything should have surfaced.
+          </p>
+        )}
         {!!summary?.outcomes_completed_count && summary.outcomes_completed_count > 0 && (
           <p className="mt-1 text-xs text-wb-ink2">
             {summary.outcomes_completed_count} previous improvement{summary.outcomes_completed_count === 1 ? '' : 's'} verified overnight.
@@ -840,6 +847,9 @@ function LearnedTab({
                   <div>
                     <div className="font-semibold">{o.title}</div>
                     <div className="text-xs text-wb-ink2">{CHANGE_CLASS_LABEL[o.change_class]} · updated {new Date(o.updated_at).toLocaleDateString()}</div>
+                    {o.lifecycle_state === 'rejected' && o.rejection_reason && (
+                      <p className="text-xs text-wb-ink2 mt-1">{o.rejection_reason}</p>
+                    )}
                     {/* 2026-09-07: HandoffPRStrategy/mission_dispatch.py both
                         report success=true even when NO PR was opened (an
                         existing-file edit deferred to manual review, or

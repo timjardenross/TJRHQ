@@ -160,6 +160,7 @@ export interface EvolutionSummary {
   run_id: string | null;
   timestamp: string | null;
   investigated_count: number;
+  rejected_at_gate_count: number;
   worth_considering_count: number;
   nothing_worth_changing: boolean;
   highest_value_opportunity: { opportunity_id: string | null; title: string; change_class: string; summary: string } | null;
