@@ -38,6 +38,7 @@ REPO_ROOT = Path(__file__).parent.parent.parent
 DATA_ROOT = REPO_ROOT / "data" / "self-improvement"
 RUNS_DIR = DATA_ROOT / "runs"
 DECISIONS_FILE = DATA_ROOT / "review" / "decisions.jsonl"
+FINDING_STALENESS_FILE = DATA_ROOT / "review" / "finding_staleness.jsonl"
 REMEDIATION_RESULTS_FILE = DATA_ROOT / "review" / "remediation_results.jsonl"
 _PR_URL_RE = re.compile(r"https?://\S+")
 
@@ -107,6 +108,35 @@ def load_decisions():
         log.error(f"Failed to load decisions: {exc}")
 
     return decisions
+
+
+def load_finding_staleness(run_id):
+    """Latest evolution_orchestrator.py staleness-check result per
+    finding_id, for ONE specific run_id only (its own append-only
+    finding_staleness.jsonl, last entry per finding_id wins — same
+    convention as load_decisions()/load_remediation_results() above).
+    finding_id alone (e.g. 'FND-001') is recycled every run, so this must
+    filter on run_id too or it would silently attach one run's staleness
+    result to a different run's unrelated finding that happens to share
+    the same recycled id."""
+    if not run_id or not FINDING_STALENESS_FILE.exists():
+        return {}
+
+    results = {}
+    try:
+        with open(FINDING_STALENESS_FILE) as f:
+            for line in f:
+                if line.strip():
+                    r = json.loads(line)
+                    if r.get("run_id") != run_id:
+                        continue
+                    finding_id = r.get("finding_id")
+                    if finding_id:
+                        results[finding_id] = r
+    except Exception as exc:
+        log.error(f"Failed to load finding staleness: {exc}")
+
+    return results
 
 
 def load_remediation_results():
@@ -184,6 +214,7 @@ def api_findings():
     """Get all findings from latest run."""
     findings, run_id = load_findings()
     decisions = load_decisions()
+    staleness = load_finding_staleness(run_id)
 
     # Enrich findings with decision status
     for f in findings:
@@ -193,6 +224,7 @@ def api_findings():
             f["decision_reasoning"] = decisions[fid].get("reasoning", "")
         else:
             f["decision"] = None
+        f["staleness"] = staleness.get(fid)
 
     return jsonify({
         "run_id": run_id,

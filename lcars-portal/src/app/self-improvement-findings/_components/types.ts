@@ -188,6 +188,16 @@ export interface LegacyFinding {
   proposed_action: { type: string; description: string };
   decision?: 'approved' | 'rejected' | 'more_evidence';
   decision_reasoning?: string;
+  // scripts/self_improvement/staleness_check.py, run fresh every HQ
+  // Evolution cycle for every still-undecided finding — never changes the
+  // decision itself, only flags whether this finding's own evidence still
+  // holds against the CURRENT repo (e.g. a human-authored PR fixed it
+  // outside this pipeline entirely, so nothing else would ever notice).
+  staleness?: {
+    status: 'confirmed' | 'resolved' | 'unclear';
+    items: Array<{ status: 'confirmed' | 'resolved' | 'unclear'; detail: string; location: string | null }>;
+    timestamp: string;
+  } | null;
 }
 
 export const CHANGE_CLASS_LABEL: Record<ChangeClass, string> = {

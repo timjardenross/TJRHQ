@@ -539,6 +539,63 @@ class TestEvolutionOrchestrator(unittest.TestCase):
         store = OpportunityStore(self.tmpdir)
         self.assertEqual(len(store.all_current()), 1)
 
+    def _seed_findings_run(self, run_id: str, findings: list[dict]):
+        run_dir = self.tmpdir / "runs" / run_id
+        run_dir.mkdir(parents=True)
+        (run_dir / "findings_classified.json").write_text(json.dumps({"findings": findings}))
+        return run_dir
+
+    def test_staleness_check_flags_an_undecided_finding_whose_evidence_no_longer_holds(self):
+        """2026-09-10: a finding fixed by a human-authored PR (outside the
+        approve/mission pipeline entirely) used to sit undecided forever
+        with nothing telling the system it was resolved. This is the
+        reconciliation pass — never changes the decision itself, just
+        records that the finding's own evidence no longer holds."""
+        self._seed_findings_run("2026-09-09-000000", [
+            {"finding_id": "FND-001", "title": "Deprecated dir persists",
+             "evidence": [{"type": "file_exists", "location": "definitely-does-not-exist-anywhere"}]},
+        ])
+        orch = self._make_orchestrator()
+        with patch("internal_discovery.discover", return_value=[]):
+            orch.run_cycle(dry_run=False)
+
+        staleness_file = self.tmpdir / "review" / "finding_staleness.jsonl"
+        self.assertTrue(staleness_file.exists())
+        records = [json.loads(line) for line in staleness_file.read_text().splitlines() if line.strip()]
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["finding_id"], "FND-001")
+        self.assertEqual(records[0]["run_id"], "2026-09-09-000000")
+        self.assertEqual(records[0]["status"], "resolved")
+
+    def test_staleness_check_never_writes_for_an_already_decided_finding(self):
+        run_dir_parent = self.tmpdir / "runs"
+        self._seed_findings_run("2026-09-09-000000", [
+            {"finding_id": "FND-001", "title": "Already decided",
+             "evidence": [{"type": "file_exists", "location": "nope"}]},
+        ])
+        review_dir = self.tmpdir / "review"
+        review_dir.mkdir(parents=True)
+        (review_dir / "decisions.jsonl").write_text(
+            json.dumps({"finding_id": "FND-001", "decision": "approved", "reasoning": "handled",
+                        "timestamp": "2026-09-09T00:00:00+00:00"}) + "\n"
+        )
+        orch = self._make_orchestrator()
+        with patch("internal_discovery.discover", return_value=[]):
+            orch.run_cycle(dry_run=False)
+
+        staleness_file = self.tmpdir / "review" / "finding_staleness.jsonl"
+        self.assertFalse(staleness_file.exists())
+        self.assertTrue(run_dir_parent.exists())  # sanity: the seeded run really was there to be skipped
+
+    def test_dry_run_never_writes_staleness_file(self):
+        self._seed_findings_run("2026-09-09-000000", [
+            {"finding_id": "FND-001", "title": "x", "evidence": [{"type": "file_exists", "location": "nope"}]},
+        ])
+        orch = self._make_orchestrator()
+        with patch("internal_discovery.discover", return_value=[]):
+            orch.run_cycle(dry_run=True)
+        self.assertFalse((self.tmpdir / "review" / "finding_staleness.jsonl").exists())
+
     def test_surfaced_count_never_exceeds_configured_cap(self):
         orch = self._make_orchestrator()
         orch.evolution_config = {**orch.evolution_config, "max_opportunities_surfaced_per_cycle": 1}
