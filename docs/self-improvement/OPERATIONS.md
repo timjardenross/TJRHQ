@@ -6,9 +6,9 @@ system: `scripts/self_improvement/orchestrator.py`, run daily by
 (not repo-relative — see `docs/self-improvement/README.md` § Data Locations).
 
 A second implementation (`self_improving_loop.py`) was retired 2026-07-29
-without ever being deployed to the VM — see
-`self-improving-loop.DEPRECATED-2026-07-29/DEPRECATED.md`. Ignore any older
-notes referencing it.
+without ever being deployed to the VM and has since been removed from the
+tree — see git history for `self-improving-loop.DEPRECATED-2026-07-29/DEPRECATED.md`.
+Ignore any older notes referencing it.
 
 ## Daily Operations
 
