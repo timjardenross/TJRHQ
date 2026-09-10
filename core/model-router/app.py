@@ -214,6 +214,11 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # by fallback-complex below (no local model stays resident for a cloud call).
     # If MODEL_CLOUD (glm-5.3:cloud) isn't pulled/available yet, _run_task()
     # falls this back to local MODEL_LARGE — see the "escalate:" check there.
+    # fallback-complex gets the identical guard (self-improvement audit
+    # FND-001, 2026-09-08: this task type was left hardcoded to MODEL_CLOUD
+    # with no availability check when escalate/engineering-review got theirs
+    # in the same 2026-09-08 GLM 5.3 migration, so a call here would hard-fail
+    # instead of degrading like its siblings while glm-5.3:cloud isn't pulled).
     "escalate":              {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 300},
     "fallback-complex":      {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 120},
     # keep_alive raised to 20m (from 10m, MSN-1788771576677): mission-engineering-dispatch.timer
@@ -464,6 +469,18 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
         available = _available_model_names()
         if MODEL_CLOUD not in available and MODEL_CLOUD.split(":")[0] not in available:
             log.info("escalate: %s not available, falling back to %s", MODEL_CLOUD, MODEL_LARGE)
+            policy = {**policy, "model": MODEL_LARGE, "keep_alive": "15m"}
+
+    # fallback-complex: same guard as escalate above. This task type was
+    # missed when escalate/engineering-review got their availability checks
+    # in the 2026-09-08 GLM 5.3 migration (self-improvement audit FND-001,
+    # 2026-09-08) — it was left hardcoded to MODEL_CLOUD, so any call would
+    # hard-fail against Ollama instead of degrading to the local tier while
+    # glm-5.3:cloud isn't pulled/available on this host.
+    if task_type == "fallback-complex":
+        available = _available_model_names()
+        if MODEL_CLOUD not in available and MODEL_CLOUD.split(":")[0] not in available:
+            log.info("fallback-complex: %s not available, falling back to %s", MODEL_CLOUD, MODEL_LARGE)
             policy = {**policy, "model": MODEL_LARGE, "keep_alive": "15m"}
 
     model = policy["model"]
