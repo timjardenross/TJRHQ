@@ -28,7 +28,7 @@ import {
 // is an overnight-cycle-fed surface, not a live terminal — with the same
 // hidden-tab pause behaviour, plus a manual refresh action.
 
-type TabKey = 'discover' | 'investigate' | 'improve' | 'learned';
+type TabKey = 'discover' | 'investigate' | 'improve' | 'learned' | 'rejected';
 
 const REFRESH_MS = 60_000;
 
@@ -208,8 +208,14 @@ export default function HqEvolutionPage() {
   const investigating = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'investigating'), [opportunities]);
   const watching = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'watching'), [opportunities]);
   const learned = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'learned'), [opportunities]);
+  // Rejected gets its own tab (with full OpportunityDetail per item, including
+  // rejection_reason) rather than a one-line row buried in Learned's collapsed
+  // "Historical decisions" section — that gave no room to see why HQ rejected
+  // something without first expanding a <details> and hunting through mixed
+  // approved/implementing/rejected rows.
+  const rejected = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'rejected'), [opportunities]);
   const historical = useMemo(
-    () => opportunities.filter((o) => ['approved', 'implementing', 'verifying', 'rejected', 'resolved_before_research'].includes(o.lifecycle_state)),
+    () => opportunities.filter((o) => ['approved', 'implementing', 'verifying', 'resolved_before_research'].includes(o.lifecycle_state)),
     [opportunities],
   );
   const discoveredOnly = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'discovered'), [opportunities]);
@@ -230,6 +236,7 @@ export default function HqEvolutionPage() {
     setSelectedId(o.opportunity_id);
     if (o.lifecycle_state === 'proposed') setTab('improve');
     else if (o.lifecycle_state === 'investigating') setTab('investigate');
+    else if (o.lifecycle_state === 'rejected') setTab('rejected');
     else setTab('discover');
   }
 
@@ -257,6 +264,7 @@ export default function HqEvolutionPage() {
             { key: 'investigate', label: `Investigate${investigating.length ? ` (${investigating.length})` : ''}` },
             { key: 'improve', label: `Improve${proposed.length + pendingLegacyCount ? ` (${proposed.length + pendingLegacyCount})` : ''}` },
             { key: 'learned', label: 'Learned' },
+            { key: 'rejected', label: `Rejected${rejected.length ? ` (${rejected.length})` : ''}` },
           ]}
         />
       }
@@ -328,6 +336,16 @@ export default function HqEvolutionPage() {
         />
       )}
 
+      {tab === 'rejected' && (
+        <RejectedTab
+          rejected={rejected}
+          selected={selected}
+          onSelect={setSelectedId}
+          missionStatuses={missionStatuses}
+          missionDispatch={missionDispatch}
+        />
+      )}
+
       <div className="text-center text-xs text-wb-ink2 mt-8">
         Refreshes automatically every minute while this tab is visible ·{' '}
         <button onClick={() => loadAll()} className="underline hover:no-underline">Refresh now</button>
@@ -383,8 +401,8 @@ function DiscoverTab({
         {!!summary?.rejected_at_gate_count && summary.rejected_at_gate_count > 0 && (
           <p className="mt-1 text-xs text-wb-ink2">
             {summary.rejected_at_gate_count} other candidate{summary.rejected_at_gate_count === 1 ? '' : 's'} didn&apos;t clear
-            the relevance gate — see the Learned tab&apos;s &quot;Historical decisions&quot; list to review what HQ filtered out
-            and why, in case anything should have surfaced.
+            the relevance gate — see the Rejected tab to review what HQ filtered out and why, in case anything should
+            have surfaced.
           </p>
         )}
         {!!summary?.outcomes_completed_count && summary.outcomes_completed_count > 0 && (
@@ -864,9 +882,6 @@ function LearnedTab({
                   <div>
                     <div className="font-semibold">{o.title}</div>
                     <div className="text-xs text-wb-ink2">{CHANGE_CLASS_LABEL[o.change_class]} · updated {new Date(o.updated_at).toLocaleDateString()}</div>
-                    {o.lifecycle_state === 'rejected' && o.rejection_reason && (
-                      <p className="text-xs text-wb-ink2 mt-1">{o.rejection_reason}</p>
-                    )}
                     {/* 2026-09-07: HandoffPRStrategy/mission_dispatch.py both
                         report success=true even when NO PR was opened (an
                         existing-file edit deferred to manual review, or
@@ -944,6 +959,55 @@ function LearnedTab({
           </div>
         </details>
       )}
+    </div>
+  );
+}
+
+// ── Rejected ────────────────────────────────────────────────────────────
+
+/** Same master/detail shape as Investigate — a rejected opportunity gets its
+ * full OpportunityDetail (including "Why this was rejected"), not a one-line
+ * row buried in Learned's collapsed historical list. Covers both a rejected
+ * relevance-gate candidate and a fully-investigated opportunity the Captain
+ * (or HQ) decided against — both land here as lifecycle_state 'rejected'. */
+function RejectedTab({
+  rejected, selected, onSelect, missionStatuses, missionDispatch,
+}: {
+  rejected: Opportunity[];
+  selected: Opportunity | null;
+  onSelect: (id: string) => void;
+  missionStatuses: Record<string, string>;
+  missionDispatch: Record<string, { success: boolean; message: string; pr_url: string | null }>;
+}) {
+  const selectedRejected = selected && rejected.some((o) => o.opportunity_id === selected.opportunity_id) ? selected : null;
+
+  return (
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+      <div className="col-span-1">
+        <Card title="Rejected">
+          {rejected.length === 0 ? (
+            <p className="text-sm text-wb-ink2">Nothing rejected yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {rejected.map((o) => (
+                <OpportunityCard key={o.opportunity_id} opportunity={o} selected={selectedRejected?.opportunity_id === o.opportunity_id} onSelect={() => onSelect(o.opportunity_id)} />
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <div className="col-span-2">
+        {selectedRejected ? (
+          <OpportunityDetail
+            opportunity={selectedRejected}
+            missionStatus={selectedRejected.mission_id ? missionStatuses[selectedRejected.mission_id] : undefined}
+            missionDispatch={selectedRejected.mission_id ? missionDispatch[selectedRejected.mission_id] : undefined}
+          />
+        ) : (
+          <Card title="Rejected opportunity"><div className="text-center py-12 text-wb-ink2">Select a rejected item to see why HQ rejected it.</div></Card>
+        )}
+      </div>
     </div>
   );
 }
