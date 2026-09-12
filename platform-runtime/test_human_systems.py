@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for HSF-001 — Human Systems Framework.
 
 Covers:
@@ -295,7 +296,7 @@ class TestCommand(unittest.TestCase):
     def test_red_flag_overrides_and_prepends(self):
         out = hs.handle_human_systems("plan movement but I have new numbness in my legs")
         # Escalation banner must come first.
-        self.assertTrue(out.startswith(":rotating_light:") or out.startswith(":warning:"))
+        self.assertTrue(out.startswith((":rotating_light:", ":warning:")))
         self.assertIn("numbness", out.lower()) if False else None
         self.assertEqual(safety.check_language(out), [])
 

@@ -170,7 +170,7 @@ def _log_delivery_risk(risk: DeliveryRisk) -> None:
             ),
             owner=f"{DELIVERY_RISK_OWNER_PREFIX}{risk.initiative_id}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - risk logging to Command Memory, best-effort, already logged
         log.debug("[program.delivery_risk] log failed: %s", exc)
 
 

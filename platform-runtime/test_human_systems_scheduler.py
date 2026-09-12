@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for WP7 — Human Systems proactive scheduler + delivery.
 
 Covers:
@@ -26,6 +27,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import patch
 
 _BOT_DIR = Path(__file__).resolve().parent
@@ -56,7 +58,7 @@ HARD = {
 # ── Delivery ──────────────────────────────────────────────────────────────────
 
 class TestDelivery(unittest.TestCase):
-    _ENV = {"TELEGRAM_BOT_TOKEN": "123:abc", "TELEGRAM_CHAT_ID": "555"}
+    _ENV: ClassVar[dict] = {"TELEGRAM_BOT_TOKEN": "123:abc", "TELEGRAM_CHAT_ID": "555"}
 
     def _msg(self):
         return push.morning_readiness_pulse(GOOD)
@@ -179,9 +181,8 @@ class TestRunner(unittest.TestCase):
     def test_run_job_records_to_memory(self):
         calls = []
         with patch.object(hss.memory, "record_recommendation",
-                          lambda **k: calls.append(k) or True):
-            with patch.object(hss, "_fetch_rows", return_value=[GOOD]):
-                hss.run_job("weekly", dry_run=True)
+                          lambda **k: calls.append(k) or True), patch.object(hss, "_fetch_rows", return_value=[GOOD]):
+            hss.run_job("weekly", dry_run=True)
         self.assertTrue(calls)
         self.assertEqual(calls[0]["source"], "scheduler")
 

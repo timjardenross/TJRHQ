@@ -40,7 +40,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -116,7 +116,7 @@ class Initiative:
         if not self.review_date:
             return False
         try:
-            return date.fromisoformat(self.review_date[:10]) < date.today()
+            return date.fromisoformat(self.review_date[:10]) < datetime.now(timezone.utc).date()
         except ValueError:
             return False
 
@@ -203,7 +203,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (supabase unavailable)
         log.debug("[strategy.initiatives] Supabase unavailable: %s", exc)
         return None
 
@@ -231,7 +231,7 @@ def create_initiative(
         from command_memory_integration import log_decision_to_command_memory
 
         init_id = f"init-{uuid4().hex[:8]}"
-        review_date = (date.today() + timedelta(days=review_days)).isoformat()
+        review_date = (datetime.now(timezone.utc).date() + timedelta(days=review_days)).isoformat()
 
         init = Initiative(
             initiative_id=init_id,
@@ -255,7 +255,7 @@ def create_initiative(
         log.info("[strategy.initiatives] Created %s — %s (objective %s)", init_id, title[:60], objective_id)
         return init_id
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (create_initiative failed)
         log.warning("[strategy.initiatives] create_initiative failed: %s", exc)
         return None
 
@@ -305,7 +305,7 @@ def update_initiative(initiative_id: str, **fields: Any) -> bool:
         c.raw_client.table("decisions").update(update).eq("id", rows[0]["id"]).execute()
         return True
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (update_initiative failed)
         log.debug("[strategy.initiatives] update_initiative failed: %s", exc)
         return False
 
@@ -324,7 +324,7 @@ def get_initiative(initiative_id: str) -> Initiative | None:
         )
         rows = list(res.data or [])
         return _row_to_initiative(rows[0]) if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_initiative failed)
         log.debug("[strategy.initiatives] get_initiative failed: %s", exc)
         return None
 
@@ -353,7 +353,7 @@ def list_initiatives(include_closed: bool = False, limit: int = 100) -> list[Ini
                 continue
             out.append(init)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (list_initiatives failed)
         log.debug("[strategy.initiatives] list_initiatives failed: %s", exc)
         return []
 
@@ -386,11 +386,11 @@ def link_mission(initiative_id: str, mission_id: str) -> bool:
 
         log_decision_to_command_memory(
             statement=f"{_INITIATIVE_LINK_STATEMENT} {initiative_id} > {mission_id}",
-            rationale=f"INITIATIVE: {initiative_id} | MISSION: {mission_id} | LINKED: {datetime.utcnow().isoformat()}",
+            rationale=f"INITIATIVE: {initiative_id} | MISSION: {mission_id} | LINKED: {datetime.now(timezone.utc).isoformat()}",
             owner=owner,
         )
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (link_mission failed)
         log.debug("[strategy.initiatives] link_mission failed: %s", exc)
         return False
 
@@ -413,7 +413,7 @@ def get_linked_missions(initiative_id: str) -> list[str]:
                 if seg.startswith("MISSION: "):
                     out.append(seg[len("MISSION: "):].strip())
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_linked_missions failed)
         log.debug("[strategy.initiatives] get_linked_missions failed: %s", exc)
         return []
 

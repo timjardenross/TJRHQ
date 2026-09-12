@@ -98,7 +98,8 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init
+        log.debug("[program.wbs] Supabase client unavailable: %s", exc)
         return None
 
 
@@ -115,7 +116,7 @@ def _fetch_missions(mission_ids: list[str]) -> list[dict]:
         for row in res.data or []:
             if str(row.get("id") or "") in wanted:
                 out.append(row)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort mission fetch, already logged
         log.debug("[program.wbs] mission fetch failed: %s", exc)
     return out
 
@@ -177,7 +178,8 @@ def _related_investigations(init: Initiative) -> list[str]:
                 owner = str(row.get("owner") or "")
                 out.append(owner.split(":", 1)[1] if ":" in owner else owner)
         return out
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort related-investigation lookup
+        log.debug("[program.wbs] related investigations lookup failed: %s", exc)
         return []
 
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-0011C — paperclip_issue_creator.py.
 
 Covers:
@@ -17,6 +18,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 _BOT_DIR = Path(__file__).resolve().parent
@@ -244,7 +246,7 @@ _UNSET = object()  # sentinel to distinguish None from "not provided"
 class TestCreateSlackPaperclipIssue(unittest.TestCase):
     """Paperclip client mocked — tests result dict structure and routing."""
 
-    _DEFAULT_ISSUE = {"id": "uuid-001", "identifier": "STA-3", "title": "Test Issue"}
+    _DEFAULT_ISSUE: ClassVar[dict] = {"id": "uuid-001", "identifier": "STA-3", "title": "Test Issue"}
 
     def _mock_client(self, is_enabled=True, create_return=_UNSET):
         """Build a MagicMock PaperclipClient."""

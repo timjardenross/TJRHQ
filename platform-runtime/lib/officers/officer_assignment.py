@@ -30,7 +30,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -150,7 +150,7 @@ def assign_mission(
             )
             if list(existing.data or []):
                 c.raw_client.table("decisions").update(
-                    {"statement": statement, "rationale": rat, "updated_at": datetime.utcnow().isoformat()}
+                    {"statement": statement, "rationale": rat, "updated_at": datetime.now(timezone.utc).isoformat()}
                 ).eq("owner", owner).execute()
             else:
                 c.raw_client.table("decisions").insert({
@@ -165,7 +165,7 @@ def assign_mission(
             "[officer_assignment] %s assigned %s to %s (by %s)",
             mission_type or "mission", mission_id, target_officer, assigning_officer,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - mission-assignment decision record write, already logged
         log.debug("[officer_assignment] Record failed %s: %s", mission_id, exc)
 
     return AssignmentDecision(
@@ -207,7 +207,7 @@ def get_assignment(mission_id: str) -> AssignmentDecision | None:
             assigned_by=parts.get("ASSIGNED_BY", ""),
             rationale=parts.get("RATIONALE", ""),
         )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Get assignment failed, already logged
         log.debug("[officer_assignment] Get assignment failed %s: %s", mission_id, exc)
         return None
 

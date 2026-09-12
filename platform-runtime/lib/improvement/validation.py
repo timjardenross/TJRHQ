@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -112,7 +112,7 @@ def _log_outcome_to_command_memory(
                 "[improvement.validation] Outcome logged for mission %s", mission_id
             )
         return bool(success)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - outcome-validation write, non-blocking, already logged
         log.warning(
             "[improvement.validation] Command Memory write failed (non-blocking): %s", exc
         )
@@ -130,12 +130,12 @@ def _update_mission_validated(mission_id: str, benefit_realised: str) -> None:
 
         c.raw_client.table("missions").update({
             "status": "completed",
-            "updated_at": datetime.utcnow().isoformat() + "Z",
+            "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
             "notes": f"[VALIDATED] {benefit_realised}",
         }).eq("id", mission_id).execute()
 
         log.info("[improvement.validation] Mission %s marked completed (validated)", mission_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - mission status update, non-blocking, already logged
         log.debug("[improvement.validation] Mission status update skipped: %s", exc)
 
 
@@ -158,7 +158,7 @@ def get_improvement_outcomes(limit: int = 20) -> list[dict[str, Any]]:
         ).limit(limit).execute()
 
         return list(res.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - outcome retrieval, best-effort, already logged
         log.warning("[improvement.validation] Outcome retrieval failed: %s", exc)
         return []
 

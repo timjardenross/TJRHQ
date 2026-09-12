@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for mission_lifecycle WP2 (status transitions) and WP3 (idea filter).
 
@@ -146,15 +147,14 @@ class TestTransitionAudit(unittest.TestCase):
         from commands.mission_lifecycle import (
             _write_transition_audit,
         )
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch("commands.mission_lifecycle._TRANSITION_LOG_DIR", Path(tmpdir)):
-                _write_transition_audit("MSN-0001", "Idea", "Planned", "U001", "test note")
-                files = list(Path(tmpdir).glob("TRANSITION-MSN-0001-*.json"))
-                self.assertEqual(len(files), 1)
-                data = json.loads(files[0].read_text())
-                self.assertEqual(data["from_status"], "Idea")
-                self.assertEqual(data["to_status"], "Planned")
-                self.assertEqual(data["note"], "test note")
+        with tempfile.TemporaryDirectory() as tmpdir, patch("commands.mission_lifecycle._TRANSITION_LOG_DIR", Path(tmpdir)):
+            _write_transition_audit("MSN-0001", "Idea", "Planned", "U001", "test note")
+            files = list(Path(tmpdir).glob("TRANSITION-MSN-0001-*.json"))
+            self.assertEqual(len(files), 1)
+            data = json.loads(files[0].read_text())
+            self.assertEqual(data["from_status"], "Idea")
+            self.assertEqual(data["to_status"], "Planned")
+            self.assertEqual(data["note"], "test note")
 
 
 if __name__ == "__main__":

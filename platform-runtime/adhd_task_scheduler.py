@@ -44,7 +44,7 @@ def _run_nudge_check(supabase_client) -> dict | None:
         result = nudge_scheduler_entry_point(supabase_client)
         log.info("[adhd_task_scheduler] Nudge check complete: %s", result)
         return result
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort nudge check, already logged
         log.error("[adhd_task_scheduler] Failed: %s", e)
         return None
 
@@ -73,7 +73,7 @@ def start_adhd_task_scheduler(supabase_client) -> threading.Thread:
         while True:
             try:
                 _run_nudge_check(supabase_client)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - best-effort scheduler loop iteration, already logged
                 log.error("[adhd_task_scheduler] Loop error: %s", e)
             time.sleep(_INTERVAL)
 

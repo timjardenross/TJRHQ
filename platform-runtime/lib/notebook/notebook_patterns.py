@@ -79,7 +79,7 @@ class PatternReport:
     domain_distribution: dict[str, int] = field(default_factory=dict)
     total_notes_analysed: int = 0
     lookback_days: int = 30
-    generated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     @property
     def has_signals(self) -> bool:
@@ -112,7 +112,7 @@ def detect_patterns(
             "id, title, raw_content, classification, status, recommended_route, "
             "created_at, updated_at, strategic_alignment_score, triage_summary"
         ).gte("created_at", cutoff).not_.in_("status", ["ARCHIVED"]).execute()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort notes fetch, already logged
         log.warning("[notebook-patterns] Failed to fetch notes: %s", exc)
         return report
 
@@ -178,7 +178,8 @@ def detect_patterns(
         try:
             created = datetime.fromisoformat(note["created_at"].replace("Z", "+00:00"))
             days_stalled = (now - created).days
-        except Exception:
+        except (ValueError, TypeError, AttributeError) as _exc:
+            log.debug("[notebook-patterns] created_at parse failed for note %s: %s", note.get("id"), _exc)
             continue
         if days_stalled >= 7:
             report.abandoned_ideas.append(AbandonedIdea(

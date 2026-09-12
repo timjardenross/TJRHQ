@@ -186,7 +186,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - supabase client init, best-effort, already logged
         log.debug("[strategy.capabilities] Supabase unavailable: %s", exc)
         return None
 
@@ -252,7 +252,7 @@ def register_capability(
         log.info("[strategy.capabilities] Registered %s — %s (%s)", cap_id, name[:60], cap_type.value)
         return cap_id
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - capability registration, already logged
         log.warning("[strategy.capabilities] register_capability failed: %s", exc)
         return None
 
@@ -290,7 +290,7 @@ def update_capability(capability_id: str, **fields: Any) -> bool:
             setattr(cap, k, v)
         c.raw_client.table("decisions").update({"rationale": _build_rationale(cap)}).eq("id", rows[0]["id"]).execute()
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - capability update, best-effort, already logged
         log.debug("[strategy.capabilities] update_capability failed: %s", exc)
         return False
 
@@ -309,7 +309,7 @@ def get_capability(capability_id: str) -> Capability | None:
         )
         rows = list(res.data or [])
         return _row_to_capability(rows[0]) if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - capability fetch, best-effort, already logged
         log.debug("[strategy.capabilities] get_capability failed: %s", exc)
         return None
 
@@ -340,7 +340,7 @@ def list_capabilities(
                 continue
             out.append(cap)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - capability listing, best-effort, already logged
         log.debug("[strategy.capabilities] list_capabilities failed: %s", exc)
         return []
 

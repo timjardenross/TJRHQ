@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for HSF-002 — Captain Capacity Decision Engine.
 
 Covers:
@@ -243,7 +244,7 @@ class TestCommand(unittest.TestCase):
 
     def test_red_flag_overrides_decision(self):
         out = hs.handle_human_systems("decide — also I have chest pain and can't breathe")
-        self.assertTrue(out.startswith(":rotating_light:") or out.startswith(":warning:"))
+        self.assertTrue(out.startswith((":rotating_light:", ":warning:")))
         self.assertEqual(safety.check_language(out), [])
 
     def test_all_decision_outputs_compliant(self):

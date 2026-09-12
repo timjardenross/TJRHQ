@@ -59,7 +59,7 @@ def handle_missions_active(ack, respond) -> None:
         respond(text)
         log.info(f"[memory-queries] Returned {len(missions)} active missions")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Slack command handler, error reported to user, already logged
         log.error(f"[memory-queries] Error in /missions-active: {e}")
         respond(f"❌ Query failed: {e}")
 
@@ -96,7 +96,7 @@ def handle_decisions_active(ack, respond) -> None:
         respond(text)
         log.info(f"[memory-queries] Returned {len(decisions)} active decisions")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Slack command handler, error reported to user, already logged
         log.error(f"[memory-queries] Error in /decisions-active: {e}")
         respond(f"❌ Query failed: {e}")
 
@@ -150,7 +150,7 @@ def handle_memory_search(ack, respond, command) -> None:
         respond(text)
         log.info(f"[memory-queries] Search for '{query}' returned {len(missions)} missions, {len(decisions)} decisions")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Slack command handler, error reported to user, already logged
         log.error(f"[memory-queries] Error in /memory-search: {e}")
         respond(f"❌ Search failed: {e}")
 
@@ -217,7 +217,7 @@ def handle_mission_status(ack, respond, command) -> None:
             )
             log.warning(f"[memory-queries] Mission {mission_id} status update did not apply")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Slack command handler, error reported to user, already logged
         log.error(f"[memory-queries] Error in /mission-status: {e}")
         respond(f"❌ Status update failed: {e}")
 
@@ -266,6 +266,6 @@ def handle_memory_metrics_summary(ack, respond, command) -> None:
 
         respond("\n".join(response_lines))
         log.info("[memory-queries] Memory metrics summary returned for %sd", window_days)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Slack command handler, error reported to user, already logged
         log.error(f"[memory-queries] Error in /memory-metrics: {e}")
         respond(f"❌ Metrics summary failed: {e}")

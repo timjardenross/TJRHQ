@@ -34,7 +34,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -174,14 +174,14 @@ def add_participant(
                 )
                 if res.data:
                     return False
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort dedup check, already logged
             log.debug("[investigation.collaboration] Participant dedup skipped: %s", exc)
 
         log_decision_to_command_memory(
             statement=f"{_PARTICIPANT_STATEMENT} {investigation_id}: {officer} ({role_str})",
             rationale=(
                 f"OFFICER: {officer} | ROLE: {role_str} | "
-                f"DOMAIN: {domain} | ADDED: {datetime.utcnow().isoformat()}"
+                f"DOMAIN: {domain} | ADDED: {datetime.now(timezone.utc).isoformat()}"
             ),
             owner=owner,
         )
@@ -191,7 +191,7 @@ def add_participant(
         )
         return True
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort participant add, already logged
         log.debug("[investigation.collaboration] add_participant failed: %s", exc)
         return False
 
@@ -238,7 +238,7 @@ def get_participants(investigation_id: str) -> list[InvestigationParticipant]:
 
         return participants
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort participant fetch, already logged
         log.debug("[investigation.collaboration] get_participants failed: %s", exc)
         return []
 
@@ -333,7 +333,7 @@ def record_evidence_contribution(
             {"rationale": new_rationale}
         ).eq("id", rows[0]["id"]).execute()
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort evidence count update, already logged
         log.debug("[investigation.collaboration] record_evidence_contribution failed: %s", exc)
 
 

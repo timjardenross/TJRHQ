@@ -287,13 +287,13 @@ def _low_capacity_plan(snap: CapacitySnapshot, intensity: str) -> str:
         "A practical shape for a protected day:",
         "• *One anchor only.* Pick a single must-do and let the rest be optional.",
         "• *Work in short blocks* (20–30 min) with real breaks between them.",
-        "• *Movement:* the smallest gentle option — a short walk or some easy "
-        "mobility. Consistency beats intensity.",
+        ("• *Movement:* the smallest gentle option — a short walk or some easy "
+        "mobility. Consistency beats intensity."),
         "• *Nutrition anchors:* don't skip meals; protein + hydration steady the day.",
-        "• *Nervous system:* one reset (breath, lie-down, outdoors) before the "
-        "afternoon dip.",
-        "• *Defer non-urgent decisions.* Low-capacity days are a poor time to "
-        "commit to big things.",
+        ("• *Nervous system:* one reset (breath, lie-down, outdoors) before the "
+        "afternoon dip."),
+        ("• *Defer non-urgent decisions.* Low-capacity days are a poor time to "
+        "commit to big things."),
         "",
         "This is a signal to lighten load, not to push through. The day still counts.",
     ])
@@ -306,10 +306,10 @@ def _recovery_plan(snap: CapacitySnapshot, intensity: str) -> str:
         f"Based on the pattern, the domains asking for protection: *{limited}*.",
         "",
         "A practical recovery shape for the next few days:",
-        "• *Sleep first.* A consistent wind-down and wake time does more than any "
-        "single intervention.",
-        "• *Pacing over pushing.* Plan to finish each block with something left in "
-        "the tank.",
+        ("• *Sleep first.* A consistent wind-down and wake time does more than any "
+        "single intervention."),
+        ("• *Pacing over pushing.* Plan to finish each block with something left in "
+        "the tank."),
         "• *Gentle movement daily* to keep the system confident — not to train.",
         "• *Two nervous-system resets a day* (breath, somatic tracking, outdoors).",
         "• *Protect one genuinely restful window* and guard it like a mission slot.",
@@ -326,8 +326,8 @@ def _movement_plan(snap: CapacitySnapshot, intensity: str) -> str:
         core = [
             "• *3–5 min* of gentle mobility or a short walk, once daily.",
             "• Stop with capacity to spare — the goal is confidence, not fatigue.",
-            "• A fallback on the hardest days: stand, breathe, and move through a "
-            "comfortable range for 60 seconds.",
+            ("• A fallback on the hardest days: stand, breathe, and move through a "
+            "comfortable range for 60 seconds."),
         ]
     elif band == "moderate":
         core = [
@@ -347,28 +347,14 @@ def _movement_plan(snap: CapacitySnapshot, intensity: str) -> str:
         "",
         *core,
         "",
-        "Movement is safe. We're protecting consistency and confidence, not "
+        ("Movement is safe. We're protecting consistency and confidence, not "
         "chasing intensity. A practical next step could be choosing the time of "
-        "day you're most likely to actually do it.",
+        "day you're most likely to actually do it."),
     ])
 
 
 def _nutrition_plan(snap: CapacitySnapshot) -> str:
-    return "\n".join([
-        "*Nutrition Support Plan*",
-        "Practical anchors for stable energy and recovery — no restriction, no extremes:",
-        "",
-        "• *Protein at each meal* to support satiety and recovery.",
-        "• *Hydration anchor:* a glass of water with each meal and on waking.",
-        "• *Regular timing* steadies energy more than any single food choice.",
-        "• *An easy fallback meal* you can make on low-capacity days, so eating "
-        "well doesn't depend on having energy.",
-        "• *Vegetables / fibre* where they fit, without making it a project.",
-        "",
-        "Consider keeping it simple and repeatable. If weight, energy or gut "
-        "symptoms are a live concern, a dietitian or GP is the right call for "
-        "tailored advice.",
-    ])
+    return "*Nutrition Support Plan*\nPractical anchors for stable energy and recovery — no restriction, no extremes:\n\n• *Protein at each meal* to support satiety and recovery.\n• *Hydration anchor:* a glass of water with each meal and on waking.\n• *Regular timing* steadies energy more than any single food choice.\n• *An easy fallback meal* you can make on low-capacity days, so eating well doesn't depend on having energy.\n• *Vegetables / fibre* where they fit, without making it a project.\n\nConsider keeping it simple and repeatable. If weight, energy or gut symptoms are a live concern, a dietitian or GP is the right call for tailored advice."
 
 
 def _mind_plan(snap: CapacitySnapshot) -> str:
@@ -378,17 +364,17 @@ def _mind_plan(snap: CapacitySnapshot) -> str:
         "*Mind / Cognitive Load Plan*",
         f"_Current cognitive capacity: {band}._",
         "",
-        "When the load feels high, treat overwhelm as a capacity signal rather "
-        "than a to-do list:",
+        ("When the load feels high, treat overwhelm as a capacity signal rather "
+        "than a to-do list:"),
         "• *Name the next smallest meaningful action* — just one.",
-        "• *Externalise the rest:* park everything else on a list so it's not "
-        "running in the background.",
+        ("• *Externalise the rest:* park everything else on a list so it's not "
+        "running in the background."),
         "• *One block at a time*, with a defined start and stop.",
         "• *A 2-minute reset* (breath or a short walk) before switching tasks.",
         "• *Defer decisions* that don't have to be made under load today.",
         "",
-        "A practical next step could be choosing the single action and starting a "
-        "short timer for it.",
+        ("A practical next step could be choosing the single action and starting a "
+        "short timer for it."),
     ])
 
 
@@ -413,13 +399,13 @@ def explain_signal(row: dict | None) -> str:
     if pain is not None:
         lines += [
             "",
-            "Body signals are treated as information, not a damage readout — they "
-            "describe the nervous system's current state, not the day's worth.",
+            ("Body signals are treated as information, not a damage readout — they "
+            "describe the nervous system's current state, not the day's worth."),
         ]
     lines += [
         "",
-        "Based on the pattern, this *may* suggest where to spend and where to "
-        "protect energy. It is not a diagnosis.",
+        ("Based on the pattern, this *may* suggest where to spend and where to "
+        "protect energy. It is not a diagnosis."),
     ]
     return "\n".join(lines)
 

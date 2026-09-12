@@ -24,7 +24,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:  # pragma: no cover - environment dependent
+    except Exception as exc:  # pragma: no cover - environment dependent  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.warning("[edo.data] Supabase unavailable: %s", exc)
         return None
 
@@ -44,7 +44,7 @@ def fetch_delivery_rows(limit: int = 200) -> list[dict]:
             .select("*").order("created_at", desc=True).limit(limit).execute()
         )
         return list(res.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort delivery rows fetch, already logged
         log.error("[edo.data] fetch_delivery_rows failed: %s", exc)
         return []
 
@@ -58,7 +58,7 @@ def fetch_metrics() -> dict | None:
         res = c.raw_client.table("mission_delivery_metrics").select("*").limit(1).execute()
         rows = list(res.data or [])
         return rows[0] if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort metrics fetch, already logged
         log.error("[edo.data] fetch_metrics failed: %s", exc)
         return None
 
@@ -71,7 +71,7 @@ def fetch_dispatch_health() -> dict | None:
     try:
         rows = list((c.raw_client.table("dispatch_health").select("*").limit(1).execute()).data or [])
         return rows[0] if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dispatch health fetch, already logged
         log.error("[edo.data] fetch_dispatch_health failed: %s", exc)
         return None
 
@@ -83,7 +83,7 @@ def fetch_capabilities() -> list[dict]:
     try:
         res = c.raw_client.table("capabilities").select("*").execute()
         return list(res.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort capabilities fetch, already logged
         log.error("[edo.data] fetch_capabilities failed: %s", exc)
         return []
 
@@ -101,7 +101,7 @@ def record_transition(*, mission_id: str, to_state: str, from_state: str | None 
     try:
         res = c.insert("mission_state_transitions", payload)
         return bool(getattr(res, "ok", False))
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort transition write, already logged
         log.warning("[edo.data] record_transition failed: %s", exc)
         return False
 
@@ -121,7 +121,7 @@ def record_execution_event(*, mission_id: str, status: str, branch: str | None =
     try:
         res = c.insert("mission_execution_events", payload)
         return bool(getattr(res, "ok", False))
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort execution event write, already logged
         log.warning("[edo.data] record_execution_event failed: %s", exc)
         return False
 
@@ -134,7 +134,7 @@ def fetch_execution_events(limit: int = 100) -> list[dict]:
         res = (c.raw_client.table("mission_execution_events")
                .select("*").order("created_at", desc=True).limit(limit).execute())
         return list(res.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort execution events fetch, already logged
         log.error("[edo.data] fetch_execution_events failed: %s", exc)
         return []
 
@@ -159,6 +159,6 @@ def register_capability(*, name: str, purpose: str, owner: str | None = None,
     try:
         res = c.insert("capabilities", payload)
         return bool(getattr(res, "ok", False))
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort capability registration, already logged
         log.warning("[edo.data] register_capability failed: %s", exc)
         return False

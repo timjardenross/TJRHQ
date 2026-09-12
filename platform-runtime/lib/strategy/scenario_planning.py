@@ -200,7 +200,7 @@ def model_scenario(
                 total_benefit += adjusted
                 benefit_count += 1
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort per-initiative modelling, already logged
             log.debug("[strategy.scenario] initiative %s failed: %s", init.initiative_id, exc)
             at_risk += 1
 
@@ -254,7 +254,7 @@ def compare_scenarios(inputs: dict[str, Any] | None = None) -> list[ScenarioResu
     for stype in ScenarioType:
         try:
             results.append(model_scenario(stype, inputs))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort scenario type modelling, already logged
             log.debug("[strategy.scenario] %s failed: %s", stype.value, exc)
     return results
 

@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ class ExecutionResult:
 
 
 def _now() -> str:
-    return datetime.utcnow().isoformat() + "Z"
+    return datetime.now(timezone.utc).isoformat() + "Z"
 
 
 def _slug(text: str, maxlen: int = 60) -> str:
@@ -79,7 +79,7 @@ def _slug(text: str, maxlen: int = 60) -> str:
 
 def _create_mission(note: dict[str, Any], supabase_client: Any) -> tuple[str | None, str]:
     """Insert a mission stub into the missions table (status=Idea)."""
-    mid = f"M-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}-NB"
+    mid = f"M-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-NB"
     title = note.get("title") or _slug(note.get("raw_content", "Notebook capture"), 80)
     description = "\n\n".join(filter(None, [
         note.get("triage_summary"),
@@ -102,14 +102,14 @@ def _create_mission(note: dict[str, Any], supabase_client: Any) -> tuple[str | N
         supabase_client.table("missions").insert(record).execute()
         log.info("[notebook-executor] Mission %s created from note %s", mid, note["id"])
         return mid, "missions"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort mission insert, already logged
         log.warning("[notebook-executor] Mission insert failed for note %s: %s", note["id"], exc)
         return None, "missions"
 
 
 def _create_build_request(note: dict[str, Any], supabase_client: Any) -> tuple[str | None, str]:
     """Insert into build_request_inbox (PENDING_TRIAGE)."""
-    bid = f"BREQ-NB-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+    bid = f"BREQ-NB-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
     title = note.get("title") or _slug(note.get("raw_content", "Notebook build request"), 80)
 
     record: dict[str, Any] = {
@@ -126,14 +126,14 @@ def _create_build_request(note: dict[str, Any], supabase_client: Any) -> tuple[s
         supabase_client.table("build_request_inbox").insert(record).execute()
         log.info("[notebook-executor] Build request %s created from note %s", bid, note["id"])
         return bid, "build_request_inbox"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort build request insert, already logged
         log.warning("[notebook-executor] Build request insert failed for note %s: %s", note["id"], exc)
         return None, "build_request_inbox"
 
 
 def _create_strategic_initiative(note: dict[str, Any], supabase_client: Any) -> tuple[str | None, str]:
     """Insert a strategic objective stub."""
-    obj_id = f"OBJ-NB-{datetime.utcnow().strftime('%Y%m%d')}"
+    obj_id = f"OBJ-NB-{datetime.now(timezone.utc).strftime('%Y%m%d')}"
     title = note.get("title") or _slug(note.get("raw_content", "Notebook initiative"), 80)
 
     record: dict[str, Any] = {
@@ -166,17 +166,17 @@ def _create_strategic_initiative(note: dict[str, Any], supabase_client: Any) -> 
                 "strategy.objective_created", domain="strategic-planning",
                 source="notebook-route-executor", recommended_action=title,
             )
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort event publish, already logged
+            log.debug("[lib.notebook.notebook_route_executor] best-effort step failed, continuing: %s", _exc)
         return obj_id, "strategic_objectives"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort strategic objective insert, already logged
         log.warning("[notebook-executor] Strategic objective insert failed for note %s: %s", note["id"], exc)
         return None, "strategic_objectives"
 
 
 def _create_improvement(note: dict[str, Any], supabase_client: Any) -> tuple[str | None, str]:
     """Add to improvement backlog (decisions table, owner prefix pattern)."""
-    dec_id = f"DEC-NB-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+    dec_id = f"DEC-NB-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
     content_preview = _slug(note.get("raw_content", "Notebook improvement idea"), 80)
 
     record: dict[str, Any] = {
@@ -199,15 +199,15 @@ def _create_improvement(note: dict[str, Any], supabase_client: Any) -> tuple[str
         supabase_client.table("decisions").insert(record).execute()
         log.info("[notebook-executor] Improvement %s created from note %s", dec_id, note["id"])
         return dec_id, "decisions"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort improvement insert, already logged
         log.warning("[notebook-executor] Improvement insert failed for note %s: %s", note["id"], exc)
         return None, "decisions"
 
 
 def _create_knowledge_article(note: dict[str, Any], supabase_client: Any) -> tuple[str | None, str]:
     """Insert into lessons_learned as a knowledge capture."""
-    lesson_date = datetime.utcnow().strftime("%Y-%m-%d")
-    ll_id = f"LL-NB-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+    lesson_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    ll_id = f"LL-NB-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
     title = note.get("title") or _slug(note.get("raw_content", "Notebook knowledge capture"), 80)
 
     record: dict[str, Any] = {
@@ -228,14 +228,14 @@ def _create_knowledge_article(note: dict[str, Any], supabase_client: Any) -> tup
         supabase_client.table("lessons_learned").insert(record).execute()
         log.info("[notebook-executor] Knowledge article %s created from note %s", ll_id, note["id"])
         return ll_id, "lessons_learned"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort knowledge article insert, already logged
         log.warning("[notebook-executor] Knowledge article insert failed for note %s: %s", note["id"], exc)
         return None, "lessons_learned"
 
 
 def _create_research_request(note: dict[str, Any], supabase_client: Any) -> tuple[str | None, str]:
     """Insert into research_memory as a research request."""
-    res_id = f"RES-NB-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+    res_id = f"RES-NB-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
     title = note.get("title") or _slug(note.get("raw_content", "Notebook research request"), 80)
 
     record: dict[str, Any] = {
@@ -252,7 +252,7 @@ def _create_research_request(note: dict[str, Any], supabase_client: Any) -> tupl
         supabase_client.table("research_memory").insert(record).execute()
         log.info("[notebook-executor] Research request %s created from note %s", res_id, note["id"])
         return res_id, "research_memory"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort research request insert, already logged
         log.warning("[notebook-executor] Research request insert failed for note %s: %s", note["id"], exc)
         return None, "research_memory"
 
@@ -287,7 +287,7 @@ def _create_comms_opportunity(note: dict[str, Any], supabase_client: Any) -> tup
         supabase_client.table("comms_content").insert(record).execute()
         log.info("[notebook-executor] Comms opportunity %s created from note %s", comms_id, note["id"])
         return comms_id, "comms_content"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort comms opportunity insert, already logged
         log.warning("[notebook-executor] Comms opportunity insert failed for note %s: %s", note["id"], exc)
         return None, "comms_content"
 
@@ -369,7 +369,7 @@ def execute_route(
             "routed_at":          _now(),
             "routed_by":          routed_by,
         }).eq("id", note_id).execute()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort traceability writeback, already logged
         log.warning("[notebook-executor] Traceability update failed for note %s: %s", note_id, exc)
 
     return ExecutionResult(
@@ -394,7 +394,7 @@ def execute_all_routed(
         try:
             r = execute_route(row["id"], supabase_client, routed_by=routed_by)
             results.append(r)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort per-note route execution, already logged
             log.warning("[notebook-executor] Unhandled error for note %s: %s", row["id"], exc)
             results.append(ExecutionResult(note_id=row["id"], route_type="", error=str(exc)))
 

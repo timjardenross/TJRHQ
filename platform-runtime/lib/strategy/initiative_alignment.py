@@ -83,7 +83,8 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort optional Supabase client init
+        log.debug("[strategy.initiative_alignment] Supabase client init failed: %s", exc)
         return None
 
 
@@ -114,7 +115,7 @@ def run_alignment_scan() -> AlignmentReport:
         else:
             by_objective.setdefault(init.objective_id, []).append(init)
 
-    for obj_id, group in by_objective.items():
+    for group in by_objective.values():
         for i in range(len(group)):
             for j in range(i + 1, len(group)):
                 a, b = group[i], group[j]
@@ -141,7 +142,7 @@ def run_alignment_scan() -> AlignmentReport:
                     report.orphan_improvements.append(mid)
                 else:
                     report.orphan_missions.append(mid)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (mission scan failed)
         log.debug("[strategy.alignment] mission scan failed: %s", exc)
 
     # Orphan investigations (open investigations with no initiative context)
@@ -162,7 +163,7 @@ def run_alignment_scan() -> AlignmentReport:
             # Investigation is "aligned" if its context references an initiative/objective
             if "initiative" not in rationale.lower() and "objective" not in rationale.lower():
                 report.orphan_investigations.append(inv_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (investigation scan failed)
         log.debug("[strategy.alignment] investigation scan failed: %s", exc)
 
     log.info(
@@ -206,8 +207,8 @@ def traceability_for_mission(mission_id: str) -> dict[str, Any]:
 def format_alignment(report: AlignmentReport) -> str:
     if not report.has_findings and report.total_missions == 0:
         return "_Strategic alignment: no data available._"
-    lines = [f"*Strategic Alignment:* {report.coverage_pct:.0%} mission coverage "
-             f"({report.linked_missions}/{report.total_missions} traced to initiatives)"]
+    lines = [(f"*Strategic Alignment:* {report.coverage_pct:.0%} mission coverage "
+             f"({report.linked_missions}/{report.total_missions} traced to initiatives)")]
     if report.orphan_missions:
         lines.append(f"  :warning: {len(report.orphan_missions)} orphan mission(s)")
     if report.orphan_improvements:

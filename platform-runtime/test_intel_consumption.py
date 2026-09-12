@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-XO-003 — Unified Intelligence Consumption Layer.
 
 WP2 ORI surfacing · WP3 Knowledge surfacing · WP1 composer integration ·
@@ -9,6 +10,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import patch
 
 _BOT_DIR = Path(__file__).resolve().parent
@@ -30,7 +32,7 @@ LOAD = MissionLoad(open_count=2, open_titles=["X"],
 # ── WP2 ORI ───────────────────────────────────────────────────────────────────
 
 class TestORI(unittest.TestCase):
-    BRIEF = {"overall_risk": "AMBER",
+    BRIEF: ClassVar[dict] = {"overall_risk": "AMBER",
              "top_events": [{"title": "Major cloud provider outage in APAC"}],
              "bottom_line": "Watch dependency on the affected provider this week.",
              "forward_watch": ["Regulator guidance expected"], "confidence": 0.7}

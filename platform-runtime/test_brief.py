@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-XO-002 — Captain's Daily Operating Picture (/brief)."""
 
 from __future__ import annotations
@@ -49,7 +50,7 @@ class TestCompose(unittest.TestCase):
         snap = framework.interpret_capacity(HARD)
         pkg = decision.recommendation_package(snap, LOAD, [], notes="I have chest pain and can't breathe")
         out = daily_brief.compose_daily_brief(capacity=snap, recommendation=pkg, load=LOAD)
-        self.assertTrue(out.startswith(":rotating_light:") or out.startswith(":warning:"))
+        self.assertTrue(out.startswith((":rotating_light:", ":warning:")))
 
     def test_officer_attribution(self):
         snap, pkg = self._pkg()

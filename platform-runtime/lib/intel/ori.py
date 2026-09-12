@@ -29,7 +29,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - supabase client init, best-effort, already logged
         log.warning("[intel.ori] Supabase unavailable: %s", exc)
         return None
 
@@ -79,7 +79,7 @@ def fetch_ori_signal() -> ORISignal | None:
                        "bottom_line, top_events, confidence, generated_at")
                .order("generated_at", desc=True).limit(2).execute())
         rows = list(res.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - ORI brief fetch, best-effort, already logged
         log.error("[intel.ori] fetch failed: %s", exc)
         return None
     if not rows:

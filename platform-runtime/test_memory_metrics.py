@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 import sys
@@ -56,15 +57,14 @@ class MemoryMetricsTests(unittest.TestCase):
 
             adapter = MissionRegistryMemoryAdapter(registry=None)
             adapter.repo_root = repo_root
-            with patch("core.coordination.mission_registry_memory_adapter.log_memory_metric") as mock_metric:
-                with patch.object(adapter, "_load_from_files", return_value=[{
-                    "mission_id": "MSN-OLD",
-                    "title": "Old Mission",
-                    "status": "ACTIVE",
-                    "updated_at": "2020-01-01T00:00:00Z",
-                    "description": "stale mission",
-                }]):
-                    context = adapter.retrieve_related_missions(title="Old Mission", text="stale mission", limit=3)
+            with patch("core.coordination.mission_registry_memory_adapter.log_memory_metric") as mock_metric, patch.object(adapter, "_load_from_files", return_value=[{
+                "mission_id": "MSN-OLD",
+                "title": "Old Mission",
+                "status": "ACTIVE",
+                "updated_at": "2020-01-01T00:00:00Z",
+                "description": "stale mission",
+            }]):
+                context = adapter.retrieve_related_missions(title="Old Mission", text="stale mission", limit=3)
 
             self.assertTrue(context.stale_context)
             self.assertTrue(any("stale context flagged" in context.summary for _ in [0]))

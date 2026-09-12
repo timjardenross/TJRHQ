@@ -67,7 +67,7 @@ def generate_capability_review(inputs: dict[str, Any] | None = None) -> Capabili
             reverse=True,
         )
         review.matter_most = [f"{c.name} (L{c.maturity.value} — {c.maturity.label})" for c in strategic_caps[:5]]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Q1 data gather, already logged
         log.debug("[capability_review] Q1 failed: %s", exc)
 
     # ── Q2 + Q3: Improving vs deteriorating ───────────────────────────────────
@@ -83,7 +83,7 @@ def generate_capability_review(inputs: dict[str, Any] | None = None) -> Capabili
             f"{a.name} ({a.label})" + (" ⚠ needs attention" if a.needs_attention else "")
             for a in deteriorating[:5]
         ]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Q2/Q3 data gather, already logged
         log.debug("[capability_review] Q2/Q3 failed: %s", exc)
 
     # ── Q4: Technical debt threatening capability base ────────────────────────
@@ -95,7 +95,7 @@ def generate_capability_review(inputs: dict[str, Any] | None = None) -> Capabili
         review.debt_threatened = [
             f"{d.name} [{d.area.value}, {d.trend.value} trend]" for d in concerning[:5]
         ]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Q4 data gather, already logged
         log.debug("[capability_review] Q4 failed: %s", exc)
 
     # ── Q5: Architecture investments ──────────────────────────────────────────
@@ -109,7 +109,7 @@ def generate_capability_review(inputs: dict[str, Any] | None = None) -> Capabili
             review.architecture_investments.append(f"De-risk: {e.name} (high risk, {e.state.value})")
         for e in transition:
             review.architecture_investments.append(f"Advance: {e.name} (in transition)")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Q5 data gather, already logged
         log.debug("[capability_review] Q5 failed: %s", exc)
 
     # ── Q6: Strategic simulation readiness ───────────────────────────────────
@@ -125,14 +125,14 @@ def generate_capability_review(inputs: dict[str, Any] | None = None) -> Capabili
             review.simulation_risks.append(
                 f"Cross-scenario fragile: {', '.join(sim_report.common_fragile_caps[:3])}"
             )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Q6 simulation gather, already logged
         log.debug("[capability_review] Q6 failed: %s", exc)
 
     # ── Critical gap count ────────────────────────────────────────────────────
     try:
         from lib.strategy.capability_gaps import get_critical_gaps
         review.critical_gap_count = len(get_critical_gaps())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort critical gap count, already logged
         log.debug("[capability_review] gap count failed: %s", exc)
 
     # ── Headline ──────────────────────────────────────────────────────────────

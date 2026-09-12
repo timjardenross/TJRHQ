@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -66,7 +66,7 @@ def _build_rationale(
     outcome: str = "",
     opened_at: datetime | None = None,
 ) -> str:
-    ts = (opened_at or datetime.utcnow()).isoformat()
+    ts = (opened_at or datetime.now(timezone.utc)).isoformat()
     parts = [
         f"SOURCE: {source}",
         f"TYPE: {inv_type}",
@@ -107,7 +107,7 @@ def _row_to_investigation(row: dict[str, Any]) -> Investigation | None:
         inv_type = InvestigationType.OPERATIONAL
 
     opened_raw = parts.get("OPENED", "")
-    opened_at  = datetime.utcnow()
+    opened_at  = datetime.now(timezone.utc)
     if opened_raw:
         try:
             opened_at = datetime.fromisoformat(opened_raw.replace("Z", "+00:00"))
@@ -154,7 +154,7 @@ def _has_open_investigation(officer: str, inv_type: str, question_prefix: str) -
             if p.get("OFFICER") == officer and p.get("STATUS") not in ("closed",):
                 return True
         return False
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - dedup check, best-effort, already logged
         log.debug("[investigation.registry] Dedup check failed: %s", exc)
         return False
 
@@ -219,7 +219,7 @@ def open_investigation(
         )
         return inv_id
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - investigation creation, already logged
         log.warning("[investigation.registry] open_investigation failed: %s", exc)
         return None
 
@@ -260,7 +260,7 @@ def update_investigation_status(
 
         return True
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - status update, best-effort, already logged
         log.debug("[investigation.registry] update_status failed: %s", exc)
         return False
 
@@ -293,7 +293,7 @@ def close_investigation(
         p = _parse_rationale(str(rows[0].get("rationale") or ""))
         p["STATUS"]  = InvestigationStatus.CLOSED.value
         p["OUTCOME"] = outcome.value
-        p["CLOSED"]  = datetime.utcnow().isoformat()
+        p["CLOSED"]  = datetime.now(timezone.utc).isoformat()
         if notes:
             p["NOTES"] = notes[:100]
         if mission_id:
@@ -310,7 +310,7 @@ def close_investigation(
         )
         return True
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - investigation close, best-effort, already logged
         log.debug("[investigation.registry] close_investigation failed: %s", exc)
         return False
 
@@ -342,7 +342,7 @@ def get_open_investigations(limit: int = 20) -> list[Investigation]:
 
         return investigations
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - open-investigations fetch, best-effort, already logged
         log.debug("[investigation.registry] get_open_investigations failed: %s", exc)
         return []
 
@@ -367,7 +367,7 @@ def get_investigation(investigation_id: str) -> Investigation | None:
             return None
         return _row_to_investigation(rows[0])
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - single investigation fetch, best-effort, already logged
         log.debug("[investigation.registry] get_investigation failed: %s", exc)
         return None
 
@@ -386,7 +386,8 @@ def get_investigations_summary() -> dict[str, Any]:
             "by_status": by_status,
             "by_type": by_type,
         }
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - summary aggregation, best-effort, defaults to empty
+        log.debug("[investigation.registry] get_investigations_summary failed: %s", exc)
         return {"open_total": 0, "by_status": {}, "by_type": {}}
 
 

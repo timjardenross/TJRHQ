@@ -122,7 +122,7 @@ def _store_decision_package(package: DecisionPackage) -> None:
             ),
             owner=f"{DECISION_OWNER_PREFIX}{package.investigation_id}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort decision package store, already logged
         log.debug("[investigation.decision_package] Store failed: %s", exc)
 
 
@@ -243,7 +243,7 @@ def get_decision_package(investigation_id: str) -> DecisionPackage | None:
             required_approvals=parts.get("APPROVALS", "xo").split(", "),
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort decision package fetch, already logged
         log.debug("[investigation.decision_package] get_decision_package failed: %s", exc)
         return None
 
@@ -275,7 +275,7 @@ def get_pending_decision_packages(limit: int = 10) -> list[DecisionPackage]:
 
         return packages
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort pending packages fetch, already logged
         log.debug("[investigation.decision_package] get_pending failed: %s", exc)
         return []
 

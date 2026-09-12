@@ -42,7 +42,8 @@ try:
         list_lessons,
         requires_approval,
     )
-except Exception:  # pragma: no cover
+except Exception as _import_exc:  # noqa: BLE001 - optional outcome_capture module, degrade to stubs  # pragma: no cover
+    log.debug("[comms] outcome_capture unavailable, using stub fallbacks: %s", _import_exc)
     def requires_approval(_c):  # type: ignore
         return False
     def get_content_candidates(*a, **k):  # type: ignore
@@ -111,11 +112,13 @@ def _lead_data():
     """Fetch leadership outcomes + recent lessons (read-only, graceful)."""
     try:
         outs = leadership_outcomes(limit=50)
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - leadership outcomes read, degrade to empty  # pragma: no cover
+        log.debug("[comms] leadership_outcomes failed: %s", exc)
         outs = []
     try:
         lessons = list_lessons(limit=6)
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - recent lessons read, degrade to empty  # pragma: no cover
+        log.debug("[comms] list_lessons failed: %s", exc)
         lessons = []
     return outs, lessons
 
@@ -199,8 +202,8 @@ def _draft(rest: str) -> str:
             status="draft", fmt=(fmt_key or o.suggested_format), strategic_domain=o.strategic_domain,
             notes=f"draft_mode={mode}",
         )
-    except Exception:  # pragma: no cover
-        pass
+    except Exception as _exc:  # noqa: BLE001 - draft content-lifecycle record, non-blocking  # pragma: no cover
+        log.debug("[commands.comms] record_content failed, continuing: %s", _exc)
     return body
 
 
@@ -254,7 +257,8 @@ def _pending() -> str:
     """
     try:
         cands = get_content_candidates(include_internal=True, limit=25)
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - content candidates read, degrade to empty  # pragma: no cover
+        log.debug("[comms] get_content_candidates failed: %s", exc)
         cands = []
     sensitive = [c for c in cands if requires_approval(c.get("content_classification"))]
     lines = ["*Sensitive Content — pending Captain approval*", ""]

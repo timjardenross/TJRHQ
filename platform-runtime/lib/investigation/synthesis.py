@@ -208,7 +208,7 @@ def synthesize_findings(
     ]
 
     # Compose headline
-    high = [p for p in integrated.supporting_perspectives if p.confidence >= 0.75]
+    [p for p in integrated.supporting_perspectives if p.confidence >= 0.75]
     integrated.headline = (
         f"{len(integrated.supporting_perspectives)} officer(s) converge on "
         f"'{consensus_action}' ({integrated.confidence_label} confidence)"
@@ -243,7 +243,7 @@ def _store_synthesis(integrated: IntegratedFinding) -> None:
             ),
             owner=f"{SYNTHESIS_OWNER_PREFIX}{integrated.investigation_id}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort synthesis store, already logged
         log.debug("[investigation.synthesis] Store synthesis failed: %s", exc)
 
 
@@ -341,7 +341,7 @@ def _store_challenge(review: ChallengeReview) -> None:
             ),
             owner=f"{CHALLENGE_OWNER_PREFIX}{review.investigation_id}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort challenge store, already logged
         log.debug("[investigation.synthesis] Store challenge failed: %s", exc)
 
 
@@ -386,7 +386,7 @@ def get_synthesis(investigation_id: str) -> IntegratedFinding | None:
             has_contradiction=int(parts.get("CONTRADICTING", "0") or 0) > 0,
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort synthesis fetch, already logged
         log.debug("[investigation.synthesis] get_synthesis failed: %s", exc)
         return None
 
@@ -398,8 +398,8 @@ def format_integrated_finding(finding: IntegratedFinding) -> str:
     lines = [
         f"*Integrated Finding ({finding.investigation_id}):*",
         f"  {finding.headline}",
-        f"  Confidence: {finding.confidence_label} ({finding.integrated_confidence:.0%}) "
-        f"across {finding.officer_count} officer(s)",
+        (f"  Confidence: {finding.confidence_label} ({finding.integrated_confidence:.0%}) "
+        f"across {finding.officer_count} officer(s)"),
         f"  Consensus action: `{finding.consensus_action}`",
     ]
     if finding.supporting_evidence:

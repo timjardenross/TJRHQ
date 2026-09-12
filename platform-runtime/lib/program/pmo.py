@@ -223,9 +223,9 @@ def format_program_portfolio(portfolio: ProgramPortfolio) -> str:
     reds = portfolio.red_count
     lines = [
         "*:clipboard: PROGRAM COORDINATION (Number One PMO)*",
-        f"  Initiatives: {len(portfolio.program_health)} "
+        (f"  Initiatives: {len(portfolio.program_health)} "
         f"({reds} red) | Blocked: {len(portfolio.blocked_work)} | "
-        f"Risks: {len(portfolio.delivery_risks)} | Conflicts: {len(portfolio.resource_conflicts)}",
+        f"Risks: {len(portfolio.delivery_risks)} | Conflicts: {len(portfolio.resource_conflicts)}"),
     ]
     at_risk = portfolio.what_is_at_risk
     if at_risk:

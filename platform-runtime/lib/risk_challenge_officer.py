@@ -50,6 +50,6 @@ def call_risk_challenge_officer(
             "review": review.as_dict(),
             "agent_output": "Risk & Challenge Officer",
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort challenge review, already logged
         log.warning("[risk-challenge-officer] challenge review failed: %s", exc)
         return None

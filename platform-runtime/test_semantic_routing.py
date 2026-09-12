@@ -230,7 +230,7 @@ def interactive_mode():
                 break
 
             if user_input.lower() == "test":
-                success = run_tests()
+                run_tests()
                 continue
 
             # Route the request
@@ -242,7 +242,7 @@ def interactive_mode():
         except KeyboardInterrupt:
             print("\nExiting...")
             break
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test asserts no-crash / interactive loop fixture
             print(f"Error: {e}")
             print()
 

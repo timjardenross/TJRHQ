@@ -154,7 +154,7 @@ def add_to_backlog(opp: Any) -> bool:
                         officer, action[:40],
                     )
                     return False
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (dedup check skipped)
             log.debug("[improvement.backlog] Dedup check skipped: %s", exc)
 
         score  = getattr(opp, "score", None)
@@ -178,7 +178,7 @@ def add_to_backlog(opp: Any) -> bool:
         log.info("[improvement.backlog] Added: %s / %s", officer, action[:60])
         return True
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (add_to_backlog failed)
         log.debug("[improvement.backlog] add_to_backlog failed: %s", exc)
         return False
 
@@ -210,7 +210,7 @@ def get_backlog(limit: int = 50) -> list[BacklogItem]:
         items.sort(key=lambda i: i.composite_score, reverse=True)
         return items
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_backlog failed)
         log.debug("[improvement.backlog] get_backlog failed: %s", exc)
         return []
 
@@ -232,7 +232,7 @@ def get_backlog_count() -> int:
         )
         return int(getattr(res, "count", None) or 0)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_backlog_count failed)
         log.debug("[improvement.backlog] get_backlog_count failed: %s", exc)
         return 0
 
@@ -287,7 +287,7 @@ def mark_backlog_item_processed(decision_id: str, mission_id: str | None = None)
         log.info("[improvement.backlog] Processed: %s → mission %s", decision_id, mission_id)
         return True
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (mark_processed failed)
         log.debug("[improvement.backlog] mark_processed failed: %s", exc)
         return False
 

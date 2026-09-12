@@ -75,7 +75,7 @@ def save_mission_log(
 ) -> Path:
     ensure_missions_dir()
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     safe_request = redact_secrets(user_request)
     safe_response = redact_secrets(commander_response)
     specialists = ", ".join(assigned_specialists)
@@ -130,7 +130,7 @@ Optional future notes.
             title=build_title(user_request),
             user_id="commander",  # Will be replaced by actual user_id when available
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Command Memory write, non-blocking, mission still created locally, already logged
         log.error("[mission-logger] Failed to save to Command Memory: %s", e)
         # Non-blocking failure — mission still created locally
 
@@ -159,7 +159,7 @@ def _supabase_insert_mission(
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         client.insert("missions", payload)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - supabase mission insert, best-effort, already logged
         log.debug("[mission-logger] Supabase mission insert failed: %s", exc)
 
 
