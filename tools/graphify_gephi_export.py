@@ -168,7 +168,7 @@ def _importance(degree_val: int, max_degree: int) -> float:
 
 def _write_gexf(root, path: Path):
     raw = ET.tostring(root, encoding="unicode")
-    pretty = minidom.parseString(raw).toprettyxml(indent="  ", encoding="utf-8")
+    pretty = minidom.parseString(raw).toprettyxml(indent="  ", encoding="utf-8")  # nosec B318 - parses our own just-generated ET.tostring() output, not external input
     path.write_bytes(pretty)
 
 

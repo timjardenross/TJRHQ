@@ -14,8 +14,8 @@ import pytest
 def _reset_sender(monkeypatch):
     calls = []
 
-    def fake_telegram(text, reply_markup=None, chat_id=None):
-        calls.append({"text": text, "reply_markup": reply_markup, "chat_id": chat_id})
+    def fake_telegram(text, reply_markup=None, chat_id=None, severity=ns.Severity.INFO):
+        calls.append({"text": text, "reply_markup": reply_markup, "chat_id": chat_id, "severity": severity})
         return True, None, 12345
 
     monkeypatch.setitem(ns._SENDERS, ns.Transport.TELEGRAM, fake_telegram)
@@ -65,6 +65,61 @@ def test_chunk_true_splits_without_truncating_content(_reset_sender):
 def test_chunk_true_short_body_sends_one_message(_reset_sender):
     ns.notify("short message", chunk=True)
     assert len(_reset_sender) == 1
+
+
+def test_apprise_render_strips_telegram_html_and_unescapes_entities():
+    # "alert" template wraps title in <b> for Telegram — Apprise transports
+    # don't parse that as HTML, so it must come out as plain text, and the
+    # &amp;-escaping _escape_telegram_html applied must be undone too.
+    text = ns._render_for_apprise("alert", "A & B", "body <x>", ns.Severity.CRITICAL)
+    assert "<b>" not in text and "</b>" not in text
+    assert "A & B" in text
+    assert "&amp;" not in text
+
+
+def test_apprise_render_prefixes_severity_emoji_on_plain_template():
+    text = ns._render_for_apprise("plain", None, "hello", ns.Severity.WARNING)
+    assert text.startswith(ns._SEVERITY_EMOJI[ns.Severity.WARNING])
+    assert "hello" in text
+
+
+def test_apprise_render_leaves_raw_template_untouched_besides_unescaping():
+    # "raw" is caller-composed — no severity emoji should be injected.
+    text = ns._render_for_apprise("raw", None, "already composed", ns.Severity.CRITICAL)
+    assert text == "already composed"
+
+
+def test_send_apprise_missing_urls_env(monkeypatch):
+    monkeypatch.delenv("APPRISE_URLS", raising=False)
+    ok, error, message_id = ns._send_apprise("hi")
+    assert ok is False
+    assert "APPRISE_URLS" in error
+    assert message_id is None
+
+
+def test_send_apprise_invalid_url(monkeypatch):
+    monkeypatch.setenv("APPRISE_URLS", "not-a-real-apprise-scheme://nope")
+    ok, error, message_id = ns._send_apprise("hi")
+    assert ok is False
+    assert error is not None
+
+
+def test_notify_apprise_transport_routes_through_send_apprise(monkeypatch):
+    captured = {}
+
+    def fake_send_apprise(text, reply_markup=None, chat_id=None, severity=ns.Severity.INFO):
+        captured["text"] = text
+        captured["severity"] = severity
+        return True, None, None
+
+    monkeypatch.setitem(ns._SENDERS, ns.Transport.APPRISE, fake_send_apprise)
+    result = ns.notify("hello", severity=ns.Severity.WARNING, transport=ns.Transport.APPRISE)
+    assert result.ok is True
+    assert result.transport == ns.Transport.APPRISE
+    assert result.message_id is None
+    # Rendered via _render_for_apprise, not Telegram's _render — no HTML tags.
+    assert "<" not in captured["text"]
+    assert captured["severity"] == ns.Severity.WARNING
 
 
 def test_chunk_never_cuts_mid_word(_reset_sender):

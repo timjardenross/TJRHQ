@@ -525,6 +525,29 @@ class TestRouter:
 # ─── Mistral provider unit tests ──────────────────────────────────────────────
 
 class TestMistralProvider:
+    """USS-TJR-MSN-0366 Stream 5: mistral_batch.call() now gates every
+    dispatch through core.security.llm_guardrails (Presidio redaction +
+    NeMo Guardrails input/output rails) — see that module's own docstring.
+    These are unit tests of THIS module's transport logic, so the
+    guardrails calls are patched to pass through unchanged (real, no-mock
+    coverage of the guardrails themselves lives in
+    core/security/test_llm_guardrails.py and
+    tests/test_model_router_guardrails.py, which — unlike this file — skip
+    cleanly when platform-runtime/.venv-llmsec isn't provisioned, exactly
+    the case in this CI environment). Keeps this file's own "All tests are
+    offline — no real API calls are made" guarantee intact for the
+    guardrails dependency too, not just Mistral's.
+    """
+
+    @staticmethod
+    def _passthrough_guardrails():
+        """Patch mistral_batch's two guardrail call sites so this class's
+        tests exercise only the Mistral transport logic they're named for."""
+        return (
+            patch("core.engineering.providers.mistral_batch.secure_outbound_prompt", side_effect=lambda p: (p, None)),
+            patch("core.engineering.providers.mistral_batch.check_output_rail", return_value=None),
+        )
+
     def test_raises_without_api_key(self):
         from core.engineering.providers import mistral_batch
         with patch("core.engineering.providers.mistral_batch.Mistral", MagicMock()):
@@ -539,9 +562,10 @@ class TestMistralProvider:
         mock_client.chat.complete.return_value = MagicMock(
             choices=[MagicMock(message=MagicMock(content="response text"))]
         )
+        p1, p2 = self._passthrough_guardrails()
         # Mistral is a module-level name in mistral_batch; patch there (mistralai v2 is a namespace package)
         with patch.dict(os.environ, {"MISTRAL_API_KEY": "test-key"}):
-            with patch("core.engineering.providers.mistral_batch.Mistral", return_value=mock_client):
+            with patch("core.engineering.providers.mistral_batch.Mistral", return_value=mock_client), p1, p2:
                 text, model = mistral_batch.call("hello")
         assert text == "response text"
         assert model == mistral_batch.DEFAULT_MODEL
@@ -552,8 +576,9 @@ class TestMistralProvider:
         mock_client.chat.complete.return_value = MagicMock(
             choices=[MagicMock(message=MagicMock(content="ok"))]
         )
+        p1, p2 = self._passthrough_guardrails()
         with patch.dict(os.environ, {"MISTRAL_API_KEY": "test-key"}):
-            with patch("core.engineering.providers.mistral_batch.Mistral", return_value=mock_client):
+            with patch("core.engineering.providers.mistral_batch.Mistral", return_value=mock_client), p1, p2:
                 text, model = mistral_batch.call("hello", model="mistral-large-2411")
         assert model == "mistral-large-2411"
         call_kwargs = mock_client.chat.complete.call_args

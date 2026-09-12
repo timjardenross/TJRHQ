@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Field Note: Comms Backup Procedure</title></head>
+<body>
+<h1>Field Note: Comms Backup Procedure</h1>
+<p>This note documents the manual fallback procedure for the bridge comms
+relay when the primary uplink drops for more than five minutes.</p>
+<h2>Trigger conditions</h2>
+<ul>
+  <li>Primary uplink heartbeat missed three times consecutively</li>
+  <li>Manual override called by the duty officer</li>
+</ul>
+<h2>Steps</h2>
+<ol>
+  <li>Switch relay selector to SECONDARY</li>
+  <li>Confirm secondary handshake within 30 seconds</li>
+  <li>Log the failover event with timestamp and operator initials</li>
+</ol>
+<h2>Escalation table</h2>
+<table>
+  <tr><th>Minutes down</th><th>Action</th></tr>
+  <tr><td>0-5</td><td>Monitor only</td></tr>
+  <tr><td>5-15</td><td>Switch to secondary relay</td></tr>
+  <tr><td>15+</td><td>Page on-call engineer</td></tr>
+</table>
+<p>Reviewed quarterly. Last review: 2026-06-01.</p>
+</body>
+</html>

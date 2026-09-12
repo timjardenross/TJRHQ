@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """Keyword and semantic retrieval for the USS TJR Supabase knowledge prototype.
 
-Keyword search now routes through Meilisearch (http://localhost:7700) as the
+Keyword search routes through Meilisearch (http://localhost:7700) as the
 primary path.  If Meilisearch is unavailable or returns no hits, the call
 falls back automatically to the Supabase keyword_search_documents RPC and
 then to the ilike fallback_search — preserving full backward compatibility.
+
+Semantic search (USS-TJR-MSN-0366, see docs/decisions/SD-meilisearch-vs-paradedb.md)
+follows the same shape: Meilisearch hybrid search (keyword + vector) is tried
+first, using a query embedding from the existing EmbeddingClient, falling
+back to the Supabase match_document_chunks pgvector RPC if Meilisearch has no
+hybrid embedder configured, is unreachable, or returns no hits.
 """
 
 from __future__ import annotations
@@ -26,6 +32,7 @@ if str(Path(__file__).resolve().parent) not in _sys.path:
 from _local_import_supabase import import_sibling
 from knowledge_sensitivity import is_visible_for_general_access
 from core.search.meilisearch_client import search as meilisearch_search
+from core.search.meilisearch_client import hybrid_search as meilisearch_hybrid_search
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +160,43 @@ def keyword_results(client: SupabaseClient, query: str, document_type: str | Non
         return fallback_search(client, query, document_type, limit)
 
 
+def _meilisearch_hybrid_results(
+    query: str,
+    embedding: list[float],
+    document_type: str | None,
+    limit: int,
+) -> list[dict[str, Any]]:
+    """Return hybrid-search hits from Meilisearch, normalised to the shared result shape.
+
+    Returns an empty list when Meilisearch is unreachable, has no hybrid
+    embedder configured on the index (e.g. dimension mismatch, or
+    configure_hybrid_embedder() was never run), or holds no matching
+    documents — any of which tells ``semantic_results`` to fall through to
+    the Supabase pgvector RPC. Mirrors ``_meilisearch_keyword_results``'
+    visibility and document-type filtering so the hybrid path honours the
+    same sensitivity rules as every other retrieval path in this module.
+    """
+    raw_hits = meilisearch_hybrid_search(query, embedding, index="knowledge", limit=limit)
+    results: list[dict[str, Any]] = []
+    for hit in raw_hits:
+        if not is_visible_for_general_access(hit.get("metadata")):
+            continue
+        if document_type and hit.get("document_type") != document_type:
+            continue
+        results.append(
+            {
+                "document_id": hit.get("document_id") or hit.get("id"),
+                "source_path": hit.get("source_path"),
+                "title": hit.get("title"),
+                "document_type": hit.get("document_type"),
+                "chunk_index": hit.get("chunk_index"),
+                "snippet": (hit.get("content") or hit.get("snippet") or "")[:500],
+                "similarity": hit.get("_rankingScore", 0.0),
+            }
+        )
+    return results
+
+
 def semantic_results(
     client: SupabaseClient,
     query: str,
@@ -160,8 +204,25 @@ def semantic_results(
     limit: int,
     threshold: float,
 ) -> tuple[list[dict[str, Any]], str]:
+    """Return semantic search results, preferring Meilisearch hybrid search over Supabase.
+
+    Search order (USS-TJR-MSN-0366 / SD-meilisearch-vs-paradedb):
+    1. Meilisearch hybrid search (keyword + vector, single unified backend).
+    2. Supabase ``match_document_chunks`` pgvector RPC (if Meilisearch has no
+       hybrid embedder configured, is unreachable, or returns empty).
+
+    The query embedding is computed once via the existing ``EmbeddingClient``
+    and reused for whichever path actually serves the request, so both paths
+    stay backed by the same live embedding provider (Mistral by default).
+    """
     embedder = EmbeddingClient()
     embedding = embedder.create_one(query)
+
+    hybrid_hits = _meilisearch_hybrid_results(query, embedding, document_type, limit)
+    if hybrid_hits:
+        return hybrid_hits, embedder.label
+
+    logger.debug("Meilisearch hybrid search returned no hits for '%s'; falling back to Supabase.", query)
     payload = {
         "query_embedding": vector_literal(embedding),
         "match_threshold": threshold,

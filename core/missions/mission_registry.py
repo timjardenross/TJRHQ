@@ -57,7 +57,7 @@ class MissionRegistry:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         try:
-            rows = conn.execute(f"SELECT {', '.join(_COLUMNS)} FROM missions").fetchall()
+            rows = conn.execute(f"SELECT {', '.join(_COLUMNS)} FROM missions").fetchall()  # nosec B608 - _COLUMNS is a fixed internal constant, not user input
         finally:
             conn.close()
 

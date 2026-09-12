@@ -613,13 +613,26 @@ _morning_brief_sent_at: str | None = None
 
 
 def _pregenerate_brief_audio(brief_type: str) -> None:
-    """Fire-and-forget: pre-generate + cache the just-sent brief's audio via
-    the Chatterbox TTS service (core/voice/tts_chatterbox.py, cache_key
-    support added 2026-09-05), so the Hub/Captain's Chair "read brief
-    aloud" button plays instantly instead of the ~35s cold-generation
-    latency measured live on this VM. Best-effort — brief delivery has
-    already succeeded by the time this runs; a TTS failure here must never
-    surface as a brief-delivery failure."""
+    """Fire-and-forget: pre-generate + cache the just-sent brief's audio, so
+    the Hub/Captain's Chair "read brief aloud" button plays instantly
+    instead of paying cold-generation latency live. Best-effort — brief
+    delivery has already succeeded by the time this runs; a TTS failure
+    here must never surface as a brief-delivery failure.
+
+    2026-09-12 (USS-TJR-MSN-0366 Stream 7): routed to the Kokoro TTS
+    service (core/voice/tts_kokoro.py) instead of Chatterbox
+    (core/voice/tts_chatterbox.py). This call has never set `voice_ref` —
+    it is plain narration of brief text, exactly the niche Chatterbox
+    measured 0.08x realtime on (~35s for one ~90-char sentence) and
+    Kokoro measured 2.63x realtime on in the same sandbox. Chatterbox is
+    kept running for voice-cloning requests only; this caller was never
+    one of those, so nothing here loses capability by moving. Falls back
+    to KOKORO_SERVICE_URL/KOKORO_SERVICE_SECRET, then to the old
+    TTS_SERVICE_URL/TTS_SERVICE_SECRET names (Chatterbox's) if the
+    Kokoro-specific ones aren't set, so an existing deployment that only
+    ever configured the old env vars keeps working without a deploy-time
+    env change — it will just be pointed at whichever service those URLs
+    resolve to."""
     try:
         import re
         import requests
@@ -635,10 +648,10 @@ def _pregenerate_brief_audio(brief_type: str) -> None:
         clean_text = re.sub(r"<[^>]+>", " ", row["brief_text"])
         clean_text = re.sub(r"\s+", " ", clean_text).strip()
 
-        tts_url = os.environ.get("TTS_SERVICE_URL", "")
-        tts_secret = os.environ.get("TTS_SERVICE_SECRET", "")
+        tts_url = os.environ.get("KOKORO_SERVICE_URL") or os.environ.get("TTS_SERVICE_URL", "")
+        tts_secret = os.environ.get("KOKORO_SERVICE_SECRET") or os.environ.get("TTS_SERVICE_SECRET", "")
         if not tts_url or not tts_secret:
-            log.info("Brief audio pre-generation skipped — TTS_SERVICE_URL/TTS_SERVICE_SECRET not configured")
+            log.info("Brief audio pre-generation skipped — KOKORO_SERVICE_URL/KOKORO_SERVICE_SECRET (or TTS_SERVICE_URL/TTS_SERVICE_SECRET) not configured")
             return
 
         resp = requests.post(

@@ -246,6 +246,43 @@ jobs:
             pip install -r "${{ matrix.req }}"
           fi
 
+      # USS-TJR-MSN-0366 Stream 5 follow-up (flagged by review on PR #180):
+      # all 9 tests in core/security/test_llm_guardrails.py — the platform's
+      # highest-strategic-value new control — were skipping in this job,
+      # not passing, because platform-runtime/.venv-llmsec (Presidio +
+      # NeMo Guardrails, deliberately isolated from this job's own
+      # dependencies per requirements-llmsec.txt's header) was never
+      # provisioned here. None of those 9 tests need a live model (the
+      # injection/output-rail cases use NeMo's own FakeLLMModel via
+      # fake_responses — see that test file's module docstring), so
+      # provisioning this venv is sufficient to run the WHOLE suite for
+      # real in CI, not just the model-free subset. Gated to the `core`
+      # matrix entry only — no other entry imports core/security/.
+      - name: Cache llmsec venv
+        if: matrix.name == 'core'
+        uses: actions/cache@v4
+        with:
+          path: platform-runtime/.venv-llmsec
+          key: llmsec-venv-${{ hashFiles('core/security/requirements-llmsec.txt') }}
+
+      - name: Provision llmsec venv (Presidio + NeMo Guardrails)
+        if: matrix.name == 'core'
+        run: |
+          if [ ! -x platform-runtime/.venv-llmsec/bin/python3 ]; then
+            python3 -m venv platform-runtime/.venv-llmsec
+            platform-runtime/.venv-llmsec/bin/pip install --upgrade pip
+            platform-runtime/.venv-llmsec/bin/pip install -r core/security/requirements-llmsec.txt
+            # Presidio's default NLP engine would otherwise download the
+            # 400MB en_core_web_lg on first use; _llmsec_worker.py is
+            # configured for the small model instead (see its NlpEngineProvider
+            # config) — installed explicitly so first-use never hits the
+            # network mid-test.
+            platform-runtime/.venv-llmsec/bin/pip install \
+              https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+          else
+            echo "platform-runtime/.venv-llmsec restored from cache, skipping install."
+          fi
+
       - name: Run pytest (${{ matrix.name }})
         run: |
           set +e
@@ -257,6 +294,93 @@ jobs:
             exit 0
           fi
           exit "$code"
+
+  # USS-TJR-MSN-0366 Stream 8. Advisory only (continue-on-error) — this repo
+  # already has a hand-rolled dead-code checker (tools/verify_dead_code.py,
+  # a per-path evidence report a human/agent runs on demand) but nothing
+  # that runs automatically on every PR and scans the whole tree at once.
+  # Vulture catches a materially different — and narrower — class of thing
+  # than verify_dead_code.py: unused imports/functions/classes/variables it
+  # can see by static analysis of the Python it's given, not "is this path
+  # referenced anywhere" (verify_dead_code.py's job) and not "is this whole
+  # module unreachable from a real entry point" (neither tool does that —
+  # see reports/vulture/README.md's writeup of the commander_runtime.py/
+  # router.py cluster for why: Vulture only saw the one true external entry
+  # point as unused, not the mutually-referencing modules beneath it).
+  # Always runs (not gated by the paths-filter matrix above) since dead-code
+  # scanning benefits from seeing the whole tree, not just this PR's diff.
+  # `continue-on-error: true` so a finding never blocks merge; read the job
+  # output to see what it found. Real findings from the first run are
+  # triaged in reports/vulture/.
+  vulture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install vulture
+        run: pip install vulture
+
+      # `continue-on-error: true` on the JOB (as this used to be set) only
+      # keeps a failure here from failing the overall workflow RUN — the
+      # job's own check-run conclusion still reports "failure" on the PR
+      # (confirmed: PR #180's first real CI run showed this job red despite
+      # the job-level flag, because vulture's real findings exit non-zero).
+      # `continue-on-error: true` on the STEP itself is what actually makes
+      # the step's outcome (and therefore this job's conclusion) "success"
+      # while still surfacing the findings in the log. Advisory means
+      # green-with-a-log, not red.
+      - name: Run vulture (advisory — findings do not fail the build)
+        continue-on-error: true
+        run: |
+          vulture core/ intelligence/ platform-runtime/ .vulture_whitelist.py --min-confidence 60
+
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pre-commit envs
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - run: pip install pre-commit
+
+      # USS-TJR-MSN-0368 Stream 8: CI-side enforcement of the pre-commit
+      # config that Stream D of USS-TJR-MSN-0365 wired up but never gated on
+      # (hooks were opt-in per contributor's local `pre-commit install`
+      # only). Split into a hard gate and a soft one rather than one
+      # `pre-commit run --all-files`, because ruff-check and bandit have a
+      # real pre-existing findings backlog on this 930-file monorepo
+      # (6,861 ruff / 2,795 bandit at last count -- see
+      # knowledge/OSS-Gap-Solutions-2026-08-23.md and this mission's Stream
+      # 9 record) that gating on immediately would turn red on day one for
+      # reasons unrelated to whoever's PR triggered the run.
+      #
+      # Hard gate (blocks the PR): gitleaks + detect-secrets. Both already
+      # pass clean repo-wide today -- nothing to triage, purely a secrets
+      # tripwire, so there's no reason to let a new leak merge in the
+      # meantime.
+      - name: pre-commit (secrets scan — blocking)
+        run: pre-commit run --all-files gitleaks detect-secrets
+
+      # Soft gate (visible, non-blocking): ruff-check + bandit. Flips to
+      # blocking once Stream 9's triage lands (179 Medium bandit findings
+      # fixed/suppressed, ruff's 3,420 auto-fixable findings landed as their
+      # own isolated formatting PR) -- until then this only reports drift so
+      # new code doesn't silently add to the pile without anyone seeing it.
+      - name: pre-commit (lint/security — informational until Stream 9 lands)
+        continue-on-error: true
+        run: pre-commit run --all-files ruff-check bandit
 
   actionlint:
     runs-on: ubuntu-latest
@@ -275,3 +399,83 @@ jobs:
 
       - name: Run actionlint
         run: /tmp/actionlint-bin/actionlint .github/workflows/*.yml
+
+  # USS-TJR-MSN-0366 Stream 1. Net-new: nothing in this repo ran Semgrep
+  # before this job. Runs over the WHOLE tree in one pass, like actionlint
+  # above — not per-matrix-directory like the `test` job — because it is
+  # the only SAST coverage lcars-portal/ (Next.js/TypeScript) has at all;
+  # bandit (.pre-commit-config.yaml) only ever covers Python.
+  #
+  # Advisory only, deliberately: `continue-on-error: true` so a finding
+  # never blocks a PR. This is a first-pass adoption of a brand-new tool
+  # against an existing, previously-unscanned monorepo — the point right
+  # now is visibility into what Semgrep finds (including the custom
+  # RLS-adjacent rules in .semgrep.yml, see that file's header), not a new
+  # merge gate. Revisit once findings are triaged; see
+  # reports/semgrep/20260912-060349-findings.md for the first triage pass
+  # and knowledge/missions/SEMGREP-CI-20260912-knowledge-record.md for the
+  # full account of what did and didn't work standing this up.
+  #
+  # OSS CLI only, on purpose: no SEMGREP_APP_TOKEN, no `semgrep ci`, no
+  # login, no results uploaded to semgrep.dev — `semgrep scan` never
+  # touches a secret, matching this stream's "OSS-CLI, not the hosted
+  # product" scope. `permissions: contents: read` (workflow-level, above)
+  # is all this job needs — it only reads the checked-out tree.
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Pinned exact version (not "pip install semgrep" unpinned) —
+      # verified locally against this repo at 1.177.0 before this job was
+      # written; an unpinned install could silently change findings out
+      # from under this advisory gate on a later run.
+      - name: Install semgrep
+        run: pip install semgrep==1.177.0
+
+      # Registry rulesets (p/python, p/javascript, p/typescript,
+      # p/security-audit) give general-purpose coverage; .semgrep.yml at
+      # the repo root holds this repo's own custom/ RLS-adjacent rules.
+      # They're combined as separate --config flags on one invocation —
+      # Semgrep's config format has no extends/include key to pull a
+      # registry ruleset into a local YAML file, so this is the actual
+      # supported way to run both together, not a workaround.
+      #
+      # NOTE: the registry configs (semgrep.dev) were unreachable from the
+      # sandbox this job was authored in (egress policy blocked
+      # semgrep.dev outright — see the knowledge record). They are
+      # expected to work fine from a normal GitHub-hosted runner's
+      # unrestricted egress, but that specific claim was NOT verified
+      # end-to-end before this job shipped — if this step's registry
+      # fetch ever fails in real CI, that's the first thing to check.
+      # Job-level continue-on-error only protects the overall workflow RUN,
+      # not this job's own check-run conclusion (see the vulture job's
+      # comment above for the confirmed real evidence from PR #180). Moved
+      # to the step so a real finding (or the registry-config-unreachable
+      # risk noted above) shows green-with-a-log instead of red.
+      - name: Semgrep scan
+        continue-on-error: true
+        run: |
+          semgrep scan \
+            --config=p/python \
+            --config=p/javascript \
+            --config=p/typescript \
+            --config=p/security-audit \
+            --config=.semgrep.yml \
+            --metrics=off \
+            --disable-version-check \
+            --error \
+            --output=semgrep-results.json \
+            --json
+
+      - name: Upload Semgrep results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-results
+          path: semgrep-results.json
+          retention-days: 30

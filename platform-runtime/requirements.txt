@@ -15,6 +15,10 @@ idna==3.18
 # needs >=3.x; verified against the actually-running platform, USS-TJR-MSN-0365
 # incident response). garak, which needs openai<3.0, is deliberately NOT in
 # this file for exactly this reason — see core/quality/requirements-garak.txt.
+# Docling (USS-TJR-MSN-0366) is deliberately NOT in this file either — no
+# version conflict, just a torch/transformers footprint (~6.2GB on a plain
+# `pip install docling`, confirmed live 2026-09-12) this file's other
+# consumers shouldn't have to carry. See core/knowledge/requirements-docling.txt.
 jiter==0.16.0
 openai==3.13.0
 pydantic==2.13.4
@@ -40,6 +44,11 @@ apscheduler>=3.10.0
 # "not installed" (confirmed via intelligence_source_health) until this line was added.
 feedparser>=6.0.0
 beautifulsoup4>=4.12.0
+# USS-TJR-MSN-0368 Stream 9: was only a transitive dep (pulled in by
+# something else) -- pinned explicitly now that emergency-alert-adapters/
+# health-signal/RSS XML parsing depends on it directly for XXE safety
+# (swapped from stdlib xml.etree.ElementTree, which is not defused).
+defusedxml>=0.7.1
 # 2026-07-10: core/context-assembly/context_service.py's `serve` command
 # (Flask HTTP bridge for Captain's Brief + Recommendations, deploy/
 # context-service.service) needs these - not previously declared here
@@ -81,3 +90,11 @@ gunicorn>=23.0.0
 # unresolvable shared one. Found during USS-TJR-MSN-0365's incident response
 # (2026-09-12) after a live venv reached this exact inconsistent state via
 # incremental installs that bypassed the resolver.
+# 2026-09-12 (USS-TJR-MSN-0366 Stream 9): core/platform/notification_service.py's
+# Transport.APPRISE / _send_apprise() — a config-URL-per-transport hedge against
+# a repeat of the 2026-09-08 Slack-retirement migration (see that module's header
+# comment). Checked via `pip install --dry-run` before adding: no pinned (`==`)
+# dependencies of its own (requests, requests-oauthlib, markdown, PyYAML, click —
+# all already satisfied or unpinned), zero overlap/conflict with the
+# anthropic/google-genai/openai versions this file already pins.
+apprise>=1.13.1

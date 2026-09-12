@@ -40,6 +40,7 @@ import json
 import os
 import shutil
 import sys
+import time
 import traceback
 import argparse
 from pathlib import Path
@@ -822,15 +823,50 @@ def _err(msg: str):
     print(f"[context-service] WARN: {msg}", file=sys.stderr)
 
 
+def _resolve_gunicorn_bin(*, attempts: int = 5, delay_seconds: float = 2.0) -> str:
+    """Resolve the gunicorn binary, retrying briefly if the resolved path
+    doesn't exist yet -- see _run_gunicorn's docstring for the real crash
+    loop this guards against (a concurrent venv reinstall transiently
+    removing the binary between resolution and exec). Returns the last
+    resolved path even if it never appeared, so the caller's os.execvp
+    still raises a clear FileNotFoundError rather than this function
+    raising a different one.
+    """
+    last_candidate = "gunicorn"
+    for attempt in range(attempts):
+        candidate = shutil.which("gunicorn") or os.path.join(os.path.dirname(sys.executable), "gunicorn")
+        last_candidate = candidate
+        if os.path.exists(candidate):
+            return candidate
+        if attempt < attempts - 1:
+            _err(f"gunicorn not found at {candidate!r} (attempt {attempt + 1}/{attempts}), "
+                 f"retrying in {delay_seconds}s -- possibly a concurrent venv reinstall")
+            time.sleep(delay_seconds)
+    return last_candidate
+
+
 def _run_gunicorn(host: str, port: int):
     """Launch gunicorn against this Flask app instead of calling
     flask_app.run() (the Werkzeug dev server).
 
     Replaces this process (os.execvp — no child process to babysit or
     forget to reap) so `python3 context_service.py serve --host ... --port
-    ...` keeps working unchanged for every existing caller (deploy/
-    context-service.service, local dev, docs above) while gunicorn's
-    production workers actually handle every request from here on.
+    ...` keeps working unchanged for local dev (deploy/context-service.service
+    now execs gunicorn directly instead of going through this function --
+    see that unit's 2026-09-12 ExecStart change -- but this path stays for
+    everyone still running `serve` by hand) while gunicorn's production
+    workers actually handle every request from here on.
+
+    USS-TJR-MSN-0368 Stream 2 hardening: retries the binary-resolution
+    check for a few seconds before exec-ing. Root-caused a real 67-crash
+    loop on context-service.service (2026-09-12, 14:28-14:39) to this exact
+    resolution racing a concurrent `pip install` into the same venv --
+    `gunicorn_bin` momentarily didn't exist, os.execvp raised
+    FileNotFoundError, and systemd's 10s RestartSec turned an 11-minute
+    transient gap into 67 crash/restart cycles before the venv settled.
+    That specific unit is no longer exposed to this since its ExecStart is
+    now a fixed absolute path with no runtime resolution, but this function
+    still is for local `serve` usage, so it gets the same protection.
 
     --chdir / --pythonpath both point at this script's own directory:
     core/context-assembly isn't a dotted-importable package (the "-" in
@@ -849,7 +885,7 @@ def _run_gunicorn(host: str, port: int):
     MSN-0329 Phase 3) as unresponsive.
     """
     script_dir = str(Path(__file__).resolve().parent)
-    gunicorn_bin = shutil.which("gunicorn") or os.path.join(os.path.dirname(sys.executable), "gunicorn")
+    gunicorn_bin = _resolve_gunicorn_bin()
     cmd = [
         gunicorn_bin,
         "--bind", f"{host}:{port}",
