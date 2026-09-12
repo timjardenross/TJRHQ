@@ -10,10 +10,12 @@ from typing import Optional
 
 from intelligence.ingestion.api_adapter import APIAdapter
 from intelligence.ingestion.browser_adapter import BrowserAdapter
+from intelligence.ingestion.changedetection_adapter import ChangeDetectionAdapter
 from intelligence.ingestion.downdetector_adapter import DowndetectorAdapter
 from intelligence.ingestion.github_markdown_adapter import GitHubMarkdownAdapter
 from intelligence.ingestion.rss_adapter import RSSAdapter
 from intelligence.ingestion.scrape_adapter import ScrapeAdapter
+from intelligence.ingestion.uptime_kuma_adapter import UptimeKumaAdapter
 from intelligence.models import IntelligenceItem, SourceHealth, SourceRecord
 from intelligence.persistence import intelligence_store as store
 
@@ -38,6 +40,17 @@ _ADAPTER_MAP = {
     # scrape working (that would duplicate collection and skew
     # source_fidelity_report()'s signal-to-noise metrics).
     "browser":         BrowserAdapter,
+    # 2026-09-12 (USS-TJR-MSN-0366 Stream 6, watchlist execution engine):
+    # push-then-drain adapters — the real fetch/probe already happened in a
+    # separate, persistent Docker container (deploy/docker-compose.watchlist.yml);
+    # collect() only drains the on-disk queue their webhook receivers filled
+    # (intelligence/watchlist/webhook_queue.py). Two distinct signal types
+    # from two distinct mechanisms: changedetection.io diffs page content,
+    # Uptime Kuma directly probes up/down — see each adapter's own
+    # docstring for why neither duplicates downdetector_adapter.py's
+    # crowdsourced-report-volume signal.
+    "changedetection": ChangeDetectionAdapter,
+    "uptime_kuma":     UptimeKumaAdapter,
 }
 
 

@@ -5,6 +5,20 @@ Date: 2026-06-13
 Purpose: Parse Architecture Decision Records for cross-references and potential
          conflicts. Surfaces as a Slack report or command response.
 
+Writing a new ADR? Start from the MADR template at
+docs/decisions/TEMPLATE-madr.md (adopted USS-TJR-MSN-0366 Stream 10,
+2026-09-12 — format only, no new tool/dependency) — see
+docs/decisions/EXAMPLE-ADR-001-model-router-cloud-escalation-degrade-chain.md
+for a filled-out real example. That directory isn't scanned by this module
+yet (see below); wiring it in is scoped to a later ADR-consolidation
+mission, not this one.
+
+This module currently only scans `core/governance/architecture-decision-
+records/` and `knowledge/architecture/` (see `_ADR_DIRS` below) for files
+named `ADR-NNN-*.{md,txt}` with plain `Title:`/`Status:` header lines — a
+simpler shape than MADR's YAML front matter. Neither directory has any
+files in it yet in this repo as of 2026-09-12.
+
 Public API:
     scan_adrs() -> ADRScanResult
     format_conflict_report(result: ADRScanResult) -> str
