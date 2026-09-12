@@ -102,34 +102,18 @@ class TestEngineeringHandoffsDirDefined:
 
 
 # ---------------------------------------------------------------------------
-# WP2 — _parse_router_args detects mission IDs correctly
-# ---------------------------------------------------------------------------
-
-class TestParseRouterArgs:
-    def setup_method(self):
-        self.mb = _import_mission_brief()
-
-    def test_mission_id_detected_full(self):
-        mid, backend, mode = self.mb._parse_router_args("USS-TJR-MSN-0056 --backend mistral --mode implementation")
-        assert mid == "USS-TJR-MSN-0056"
-        assert backend == "mistral"
-        assert mode == "implementation"
-
-    def test_mission_id_detected_bare(self):
-        mid, backend, mode = self.mb._parse_router_args("MSN-0056")
-        assert mid == "USS-TJR-MSN-0056"
-
-    def test_free_text_returns_none(self):
-        mid, backend, mode = self.mb._parse_router_args("build a dashboard widget for mission status")
-        assert mid is None
-
-    def test_free_text_defaults(self):
-        mid, backend, mode = self.mb._parse_router_args("add health check command")
-        assert mid is None
-        assert backend == "mistral"
-        assert mode == "plan"
-
-
+# WP2 — REMOVED (ADR-030 resolution, USS-TJR-MSN-0370)
+#
+# This class tested `_parse_router_args`, part of a "mission ID routes
+# through the Engineering Router, free text uses Mistral Scribe" design that
+# never actually landed in commands/mission_brief.py — `_parse_router_args`
+# does not exist anywhere in this module's git history, only in test
+# fixtures. Its sibling integration-test file
+# (platform-runtime/tests/test_mission_brief_router_integration.py, which
+# exercised the same missing function) was already deleted on 2026-09-08 as
+# orphaned Slack-only test debt (commit 38e554352, "Remove Slack integration
+# platform-wide"). This class was the other, overlooked half of that same
+# cleanup. See ADR-030's Resolution section for the full evidence trail.
 # ---------------------------------------------------------------------------
 # WP3 — handle_build_brief routes via handle_mission_brief (no duplication)
 # ---------------------------------------------------------------------------
@@ -186,46 +170,19 @@ class TestBuildBriefDoesNotDuplicateRouter:
 
 
 # ---------------------------------------------------------------------------
-# WP4 — router_meta persisted in build record
+# WP4 — REMOVED (ADR-030 resolution, USS-TJR-MSN-0370)
+#
+# This class asserted `save_build_record(..., router_meta=...)` — a kwarg
+# that does not exist on the real `save_build_record()` and never has, per
+# git history. Same abandoned "Engineering Router" integration as WP2 above
+# (mission-ID-based backend/mode routing for /build). See ADR-030's
+# Resolution section.
 # ---------------------------------------------------------------------------
-
-class TestBuildRecordRouterMeta:
-    def setup_method(self):
-        self.mb = _import_mission_brief()
-
-    def test_router_meta_written_to_record(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)):
-                path = self.mb.save_build_record(
-                    request_text="MSN-0056 --backend gemini --mode review",
-                    brief_text="Routed brief content",
-                    github_summary="Preview",
-                    thread_ts="ts1",
-                    router_meta={"mission_id": "USS-TJR-MSN-0056", "backend": "gemini", "mode": "review"},
-                )
-                content = (Path(tmpdir) / Path(path).name).read_text()
-
-        assert "USS-TJR-MSN-0056" in content
-        assert "gemini" in content
-        assert "review" in content
-        assert "Engineering Router Metadata" in content
-
-    def test_no_router_meta_section_for_free_text(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)):
-                path = self.mb.save_build_record(
-                    request_text="add a health check command",
-                    brief_text="Plain brief",
-                    github_summary="Preview",
-                    router_meta=None,
-                )
-                content = (Path(tmpdir) / Path(path).name).read_text()
-
-        assert "Engineering Router Metadata" not in content
 
 
 # ---------------------------------------------------------------------------
-# WP5 — Engineering Handoff includes Mission ID and router metadata
+# WP5 — Engineering Handoff includes Mission ID (router-metadata assertions
+# removed; see ADR-030 Resolution — same abandoned integration as WP2/WP4)
 # ---------------------------------------------------------------------------
 
 class TestEngineeringHandoffRouterMeta:
@@ -246,59 +203,16 @@ class TestEngineeringHandoffRouterMeta:
             record["router_mode"] = "implementation"
         return record
 
-    def _patch_handoff(self, tmpdir_path):
-        """Return a context manager stack that patches paths and lazy imports."""
-        import contextlib
-
-        # record_build_lifecycle_event is imported lazily inside the function body
-        # via `from lib.build_learning_loop import record_build_lifecycle_event`.
-        # Patch the stub module attribute directly.
-        return contextlib.ExitStack().__enter__  # placeholder — use inline patches below
-
-    def test_handoff_includes_mission_id(self):
-        import lib.build_learning_loop as bll
-        with tempfile.TemporaryDirectory() as tmpdir:
-            orig_bll = bll.record_build_lifecycle_event
-            bll.record_build_lifecycle_event = MagicMock()
-            try:
-                with (
-                    patch.object(self.mb, "_ENGINEERING_HANDOFFS_DIR", Path(tmpdir)),
-                    patch.object(self.mb, "_REPO_ROOT", Path(tmpdir)),
-                ):
-                    result = self.mb.save_engineering_handoff_from_build_record(
-                        self._make_build_record(with_router=True),
-                        approver_user_id="U99",
-                    )
-                    content = (Path(tmpdir) / Path(result["handoff_path"]).name).read_text()
-            finally:
-                bll.record_build_lifecycle_event = orig_bll
-
-        assert "USS-TJR-MSN-0056" in content
-        assert "mistral" in content
-        assert "implementation" in content
-        assert "Engineering Router Metadata" in content
-        assert "ADR-030" in content
-
-    def test_handoff_mission_id_unassigned_for_free_text(self):
-        import lib.build_learning_loop as bll
-        with tempfile.TemporaryDirectory() as tmpdir:
-            orig_bll = bll.record_build_lifecycle_event
-            bll.record_build_lifecycle_event = MagicMock()
-            try:
-                with (
-                    patch.object(self.mb, "_ENGINEERING_HANDOFFS_DIR", Path(tmpdir)),
-                    patch.object(self.mb, "_REPO_ROOT", Path(tmpdir)),
-                ):
-                    result = self.mb.save_engineering_handoff_from_build_record(
-                        self._make_build_record(with_router=False),
-                        approver_user_id="U99",
-                    )
-                    content = (Path(tmpdir) / Path(result["handoff_path"]).name).read_text()
-            finally:
-                bll.record_build_lifecycle_event = orig_bll
-
-        assert "Mission ID: unassigned" in content
-        assert "Engineering Router Metadata" not in content
+    # test_handoff_includes_mission_id and test_handoff_mission_id_unassigned_
+    # for_free_text REMOVED (ADR-030 resolution, USS-TJR-MSN-0370): both
+    # asserted on router_mission_id/router_backend/router_mode fields and an
+    # "Engineering Router Metadata" / "ADR-030" section that
+    # save_engineering_handoff_from_build_record() never builds and no code
+    # path ever populates on build_record. Confirmed via full git history
+    # search: no version of commands/mission_brief.py in this repo has ever
+    # produced that section — only test fixtures assumed it existed (same
+    # abandoned integration as WP2/WP4 above). See ADR-030's Resolution
+    # section for the full evidence trail.
 
     def test_handoff_file_created_without_nameerror(self):
         """Core regression: _ENGINEERING_HANDOFFS_DIR must not raise NameError."""
@@ -319,7 +233,12 @@ class TestEngineeringHandoffRouterMeta:
                     except NameError as exc:
                         raise AssertionError(f"NameError raised — bug not fixed: {exc}") from exc
 
-                    assert result and result.get("handoff_path"), "Expected a non-empty handoff path"
+                    # save_engineering_handoff_from_build_record() returns a
+                    # repo-relative path string (see its own module
+                    # docstring / public API list at the top of
+                    # commands/mission_brief.py) — not a dict.
+                    assert result, "Expected a non-empty handoff path"
+                    assert isinstance(result, str)
                     files = list(Path(tmpdir).glob("ENG-HANDOFF-*.md"))
                     assert len(files) == 1, f"Expected exactly one ENG-HANDOFF file, got {files}"
             finally:
@@ -334,33 +253,13 @@ class TestFindBuildRecordRouterMeta:
     def setup_method(self):
         self.mb = _import_mission_brief()
 
-    def test_router_meta_recovered_from_record(self):
-        content = (
-            "# Build Record\n\n"
-            "- Timestamp: 2026-06-14 12:00:00\n"
-            "- User ID: U1\n"
-            "- Channel ID: C1\n\n"
-            "- Thread TS: ts_test\n\n"
-            "## Request\n\nMSN-0056 --backend mistral --mode implementation\n\n"
-            "## Mission Implementation Brief\n\n"
-            "```text\nMission Title: Test\n```\n\n"
-            "## Engineering Router Metadata\n\n"
-            "- Mission ID: USS-TJR-MSN-0056\n"
-            "- Backend: mistral\n"
-            "- Mode: implementation\n\n"
-            "## GitHub Handoff Summary\n\npreview\n"
-        )
-        with tempfile.TemporaryDirectory() as tmpdir:
-            p = Path(tmpdir) / "BUILD-20260614-120000-msn-0056.md"
-            p.write_text(content)
-            with patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)):
-                with patch.object(self.mb, "_REPO_ROOT", Path(tmpdir)):
-                    record = self.mb.find_build_record_by_thread("ts_test")
-
-        assert record is not None
-        assert record.get("router_mission_id") == "USS-TJR-MSN-0056"
-        assert record.get("router_backend") == "mistral"
-        assert record.get("router_mode") == "implementation"
+    # test_router_meta_recovered_from_record REMOVED (ADR-030 resolution,
+    # USS-TJR-MSN-0370): find_build_record_by_thread() has no code parsing a
+    # "## Engineering Router Metadata" section (it only extracts
+    # record_path/request_text/channel_id/user_id/mission_title/thread_ts —
+    # see its real implementation in commands/mission_brief.py), and nothing
+    # in this repo ever writes that section to a build record. Same
+    # abandoned integration as WP2/WP4/WP5 above.
 
     def test_no_router_meta_for_plain_record(self):
         content = (
@@ -393,7 +292,22 @@ class TestFindBuildRecordRouterMeta:
 # ---------------------------------------------------------------------------
 
 class TestSaveEngineeringHandoffReturnsDict:
-    """save_engineering_handoff_from_build_record() must return a dict."""
+    """save_engineering_handoff_from_build_record() return-value contract.
+
+    NOTE (ADR-030 resolution, USS-TJR-MSN-0370): this class's name and the
+    mission it cites (M-20260614-ENGINEERING-HANDOFF-E2E-CLOSURE) implied a
+    dict return with "handoff_path"/"decision_id" keys, but no version of
+    commands/mission_brief.py in this repo's git history has ever returned
+    anything but a plain repo-relative path string — that's also what the
+    module's own public-API docstring documents
+    (`save_engineering_handoff_from_build_record(...) -> str`). There is no
+    live caller anywhere in the repo that consumes this return value at all
+    (mission_brief.py itself has no callers post the 2026-09-08 Slack
+    removal — same "confirmed dead, not touched this pass" category as
+    commands/health_appointment_prep.py from that commit). Updated to assert
+    the real, documented str contract instead of inventing an unrequested
+    dict-returning rewrite of dead code.
+    """
 
     def setup_method(self):
         self.mb = _import_mission_brief()
@@ -409,7 +323,7 @@ class TestSaveEngineeringHandoffReturnsDict:
             "decision_id": "DEC-REC-WP4-000000",
         }
 
-    def test_returns_dict_with_handoff_path_and_decision_id(self):
+    def test_returns_relative_path_string(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
             (tmp / "Missions" / "Engineering-Handoffs").mkdir(parents=True)
@@ -429,13 +343,8 @@ class TestSaveEngineeringHandoffReturnsDict:
                 if orig is not None:
                     bll.record_build_lifecycle_event = orig
 
-        assert isinstance(result, dict), "Expected dict, got " + type(result).__name__
-        assert "handoff_path" in result
-        assert "decision_id" in result
-        assert isinstance(result["handoff_path"], str)
-        assert isinstance(result["decision_id"], str)
-        # The stub generate_build_decision_id returns "DEC-REC-STUB-000000"
-        assert result["decision_id"]  # non-empty
+        assert isinstance(result, str), "Expected str, got " + type(result).__name__
+        assert result
 
     def test_handoff_path_is_relative(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -458,7 +367,7 @@ class TestSaveEngineeringHandoffReturnsDict:
                     bll.record_build_lifecycle_event = orig
 
         # Path must not be absolute (relative_to(_REPO_ROOT) succeeded)
-        assert not Path(result["handoff_path"]).is_absolute()
+        assert not Path(result).is_absolute()
 
 
 class TestCommandMemoryStatusDefault:
