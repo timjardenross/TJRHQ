@@ -6,15 +6,19 @@ context with repo-grounded information:
 
   1. Mission file content (description, acceptance criteria) from Missions/Active/
   2. Relevant files found by keyword search against the mission title
-  3. Git status output for missions whose title suggests untracked/uncommitted work
-  4. Anti-hallucination framing when no real context is found
+  3. Structural API context / anti-patterns / recall from the local cortex_suite
+     MCP server (types, signatures, learned pitfalls), when available
+  4. Git status output for missions whose title suggests untracked/uncommitted work
+  5. Anti-hallucination framing when no real context is found
 
 All enrichment is read-only. No files are modified.
 """
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -63,6 +67,13 @@ _MAX_CONTENT_CHARS = 6000     # per-file character cap
 _MAX_CONTENT_TOTAL = 14000    # total character budget across all included files
 _MAX_GREP_BYTES = 60000       # skip content-grep for files larger than this
 
+# STRUCTURAL API CONTEXT (cortex_suite) — additive supplement to the keyword
+# search above, not a replacement. Same budget-discipline pattern as the
+# verbatim file-content injection.
+_CORTEX_MAX_CHARS = 4000       # total budget for the cortex-derived section
+_CORTEX_TOKEN_BUDGET = "600"   # cortex's own --token-budget for `context`
+_CORTEX_TIMEOUT_SECS = 8       # must never let a slow/hung binary stall the pipeline
+
 
 # ─── Public API ──────────────────────────────────────────────────────────────
 
@@ -108,6 +119,10 @@ def enrich(ctx: MissionContext) -> str:
                 "Do not invent file paths.",
             )
         )
+
+    cortex_context = _cortex_structural_context(ctx.title)
+    if cortex_context:
+        sections.append(_section("STRUCTURAL API CONTEXT (cortex_suite)", cortex_context))
 
     if _needs_git_status(ctx.title):
         git_out = _run_git_status()
@@ -259,6 +274,145 @@ def _extract_keywords(title: str) -> list[str]:
     }
     words = re.findall(r"[a-z]+", title.lower())
     return [w for w in words if len(w) >= 3 and w not in _STOP]
+
+
+# ─── Structural API context (cortex_suite, optional) ──────────────────────────
+#
+# cortex_suite (https://github.com/Artistsyn/cortex_suite) is a local, offline
+# MCP server pair (Rust + tree-sitter, SQLite-backed) indexed against this
+# repo's core/, platform-runtime/ and lcars-portal/ roots — see
+# .cortex/index-sources.json. It supplements the keyword search above with
+# structural context (types/signatures) and learned anti-patterns. This
+# integration talks to it via its CLI (not the MCP stdio protocol), since
+# enrich() runs as a plain function call, not an MCP client.
+#
+# Must degrade to silence on any failure: unset, unreachable, not yet indexed,
+# or erroring. Never raises — this is a supplement, and the keyword-based
+# enrichment above already covers the "no relevant context" case on its own.
+
+def _cortex_enabled() -> bool:
+    return os.getenv("CORTEX_CONTEXT_ENABLED", "1").strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _cortex_binary() -> Optional[Path]:
+    """Locate the cortex CLI binary via .cortex/suite.env (written by
+    cortex_suite's setup.sh), or CORTEX_BIN to override."""
+    override = os.getenv("CORTEX_BIN")
+    if override:
+        path = Path(override)
+        return path if path.exists() else None
+
+    env_file = _REPO_ROOT / ".cortex" / "suite.env"
+    if not env_file.exists():
+        return None
+    try:
+        text = env_file.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    match = re.search(r'CORTEX_SUITE\s*=\s*"?([^"\n]+)"?', text)
+    if not match:
+        return None
+    suite_root = Path(match.group(1))
+    for candidate in (
+        suite_root / "cortex" / "target" / "release" / "cortex",
+        suite_root / "cortex" / "target" / "debug" / "cortex",
+    ):
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _cortex_db() -> Optional[Path]:
+    db = _REPO_ROOT / ".cortex" / "memory.db"
+    return db if db.exists() else None
+
+
+def _run_cortex(args: list[str]) -> Optional[str]:
+    """Run one cortex CLI subcommand. Returns stdout, or None on any failure
+    (missing binary/db, non-zero exit, timeout, exception) — never raises."""
+    binary = _cortex_binary()
+    db = _cortex_db()
+    if binary is None or db is None:
+        return None
+    try:
+        result = subprocess.run(
+            [str(binary), "--db", str(db), *args],
+            cwd=str(_REPO_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=_CORTEX_TIMEOUT_SECS,
+        )
+        if result.returncode != 0:
+            log.warning(
+                "[enricher] cortex %s exited %s: %s",
+                args[0], result.returncode, result.stderr.strip()[:300],
+            )
+            return None
+        return result.stdout.strip()
+    except Exception as exc:  # binary missing, timeout, permissions, etc.
+        log.warning("[enricher] cortex %s unavailable: %s", args[0], exc)
+        return None
+
+
+def _filter_anti_patterns(raw_json: str, hint: str) -> str:
+    """Keep only anti-patterns whose description/tags overlap the hint's
+    keywords. `anti-pattern list` has no hint filter of its own (unlike the
+    MCP get_anti_patterns(hint) tool it stands in for), so filtering happens
+    here to avoid padding the prompt with irrelevant entries."""
+    keywords = set(_extract_keywords(hint))
+    if not keywords:
+        return ""
+    try:
+        entries = json.loads(raw_json)
+    except (json.JSONDecodeError, TypeError):
+        return ""
+
+    lines: list[str] = []
+    for entry in entries:
+        haystack = " ".join(
+            [entry.get("description", ""), " ".join(entry.get("tags", []))]
+        ).lower()
+        if any(kw in haystack for kw in keywords):
+            lines.append(f"- {entry.get('description', '').strip()}")
+            wrong = entry.get("wrong")
+            correct = entry.get("correct")
+            if wrong and correct:
+                lines.append(f"  wrong: {wrong}\n  correct: {correct}")
+    return "\n".join(lines)
+
+
+def _cortex_structural_context(hint: str) -> str:
+    """Best-effort structural context (types/signatures), anti-patterns, and
+    prior-solution recall from cortex_suite, for the given hint (the mission
+    title — cortex's hint matching is built for natural-language phrases, not
+    a pre-tokenized keyword list). Returns "" when disabled, unavailable, or
+    nothing relevant is found — enrich() then omits the section entirely."""
+    if not _cortex_enabled() or not hint.strip():
+        return ""
+
+    parts: list[str] = []
+
+    packet = _run_cortex(["context", hint, "--token-budget", _CORTEX_TOKEN_BUDGET])
+    if packet:
+        parts.append(packet)
+
+    anti_raw = _run_cortex(["anti-pattern", "list", "--format", "json"])
+    if anti_raw:
+        matched = _filter_anti_patterns(anti_raw, hint)
+        if matched:
+            parts.append("KNOWN ANTI-PATTERNS:\n" + matched)
+
+    recalled = _run_cortex(["recall", hint])
+    if recalled and "No results found" not in recalled:
+        parts.append("RECALL:\n" + recalled)
+
+    if not parts:
+        return ""
+
+    combined = "\n\n".join(parts).strip()
+    if len(combined) > _CORTEX_MAX_CHARS:
+        combined = combined[:_CORTEX_MAX_CHARS].rstrip() + "\n... (truncated)"
+    return combined
 
 
 # ─── Git status ───────────────────────────────────────────────────────────────
