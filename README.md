@@ -99,14 +99,48 @@ python3 tools/supabase/collaborative_specialist_runtime.py "question" --challeng
 python3 tools/supabase/collaborative_specialist_runtime.py "question" --challenge --dual-commander
 ```
 
+The candidate slot can be routed through [LiteLLM](https://docs.litellm.ai/) instead of a
+second local Ollama tag, so any provider LiteLLM supports (OpenAI, Anthropic, Gemini, Mistral,
+or Ollama-through-LiteLLM) can stand in as the candidate — or the primary, since each slot's
+provider is independent. This is an optional dependency: run
+`tools/supabase/.venv/bin/pip install -r tools/supabase/requirements.txt` once (creating
+`tools/supabase/.venv` first with `python3 -m venv tools/supabase/.venv` if it doesn't exist
+yet), then invoke the script with `tools/supabase/.venv/bin/python3` instead of the system
+`python3` whenever `COMMANDER_PRIMARY_PROVIDER` or `COMMANDER_CANDIDATE_PROVIDER` is set to
+`litellm`. Without it, the `ollama`-only path above needs no extra install.
+
 Environment variables (add to `.env`, never commit it):
 
 ```
 COMMANDER_PRIMARY_MODEL=qwen3:8b
 COMMANDER_CANDIDATE_MODEL=deepseek-r1:14b
+
+# Shared default provider for both slots (unchanged behaviour if this is all you set).
 COMMANDER_SYNTHESIS_PROVIDER=ollama
+
+# Optional per-slot overrides — primary and candidate can use DIFFERENT providers.
+# Each falls back to COMMANDER_SYNTHESIS_PROVIDER, then to "ollama", if unset.
+# COMMANDER_PRIMARY_PROVIDER=ollama
+# COMMANDER_CANDIDATE_PROVIDER=litellm
+
 OLLAMA_BASE_URL=http://localhost:11434
 ```
+
+Example: local Ollama primary vs. a cloud candidate via LiteLLM —
+
+```
+COMMANDER_PRIMARY_MODEL=qwen3:8b
+COMMANDER_PRIMARY_PROVIDER=ollama
+COMMANDER_CANDIDATE_MODEL=gemini/gemini-2.5-flash
+COMMANDER_CANDIDATE_PROVIDER=litellm
+GEMINI_API_KEY=...            # or whatever LiteLLM requires for the chosen provider
+```
+
+`COMMANDER_CANDIDATE_MODEL` must be a LiteLLM-formatted model string when
+`COMMANDER_CANDIDATE_PROVIDER=litellm` (e.g. `gemini/gemini-2.5-flash`,
+`anthropic/claude-sonnet-5`, `ollama/qwen3:8b`) — LiteLLM reads the provider out of the
+string itself. A LiteLLM call failure (bad API key, provider down, model not found) falls
+back to the same deterministic synthesis the Ollama path uses; it never crashes the run.
 
 ---
 

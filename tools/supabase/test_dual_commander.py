@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Validation tests for USS-TJR-MSN-0010A Dual Commander Evaluation Mode.
 
-All tests run in deterministic mode (no Ollama required).
+Most tests run in deterministic mode (no Ollama/LiteLLM required). The
+litellm-provider tests mock commander_synthesis.litellm_synthesis directly,
+so they don't need the litellm package importable either — only a real
+end-to-end run needs tools/supabase/.venv (see README's "Dual Commander
+evaluation" section).
 
 Run:
     python3 tools/supabase/test_dual_commander.py
@@ -11,12 +15,14 @@ from __future__ import annotations
 
 import json
 import os
+import unittest.mock as mock
 from pathlib import Path
 
 from collaboration_logger import LOG_DIR
 from collaborative_specialist_runtime import run
 from dual_commander_evaluator import (
     DualCommanderEvaluation,
+    _call_model,
     _compare,
     _extract_section_names,
     _shared_keywords,
@@ -190,6 +196,105 @@ def test_run_dual_commander_deterministic() -> None:
     print("  PASS test_run_dual_commander_deterministic")
 
 
+def test_call_model_litellm_success() -> None:
+    """_call_model(provider="litellm") returns the model's response, not the
+    fallback, when litellm_synthesis() succeeds — mocked so this needs
+    neither the litellm package nor a real API key."""
+    outputs = [_make_output("Chief Engineer")]
+    fallback = "FALLBACK-SHOULD-NOT-BE-USED"
+    with mock.patch(
+        "commander_synthesis.litellm_synthesis",
+        return_value="# Commander TJR Recommendation\n\n## Position\nProceed.",
+    ) as mocked:
+        response = _call_model(
+            "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+            SAMPLE_CONTEXT,
+            outputs,
+            challenge=None,
+            model="gemini/gemini-2.5-flash",
+            provider="litellm",
+            fallback=fallback,
+        )
+    mocked.assert_called_once()
+    assert response != fallback
+    assert "Proceed." in response
+    print("  PASS test_call_model_litellm_success")
+
+
+def test_call_model_litellm_failure_falls_back() -> None:
+    """A litellm_synthesis() failure (bad API key, provider down, model not
+    found) must degrade to the deterministic fallback, exactly like the
+    Ollama path — never raise."""
+    outputs = [_make_output("Chief Engineer")]
+    fallback = "FALLBACK-USED"
+    with mock.patch(
+        "commander_synthesis.litellm_synthesis",
+        side_effect=RuntimeError("simulated: model not found"),
+    ):
+        response = _call_model(
+            "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+            SAMPLE_CONTEXT,
+            outputs,
+            challenge=None,
+            model="anthropic/nonexistent-model",
+            provider="litellm",
+            fallback=fallback,
+        )
+    assert response == fallback
+    print("  PASS test_call_model_litellm_failure_falls_back")
+
+
+def test_call_model_unknown_provider_falls_back() -> None:
+    """An unsupported provider name must fall back cleanly, not raise —
+    covers the branch that used to hardcode 'requires ollama'."""
+    outputs = [_make_output("Chief Engineer")]
+    fallback = "FALLBACK-USED"
+    response = _call_model(
+        "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+        SAMPLE_CONTEXT,
+        outputs,
+        challenge=None,
+        model="whatever",
+        provider="carrier-pigeon",
+        fallback=fallback,
+    )
+    assert response == fallback
+    print("  PASS test_call_model_unknown_provider_falls_back")
+
+
+def test_run_dual_commander_split_providers() -> None:
+    """COMMANDER_PRIMARY_PROVIDER / COMMANDER_CANDIDATE_PROVIDER let the two
+    slots use different providers in the same run — the actual feature this
+    task adds. Primary stays deterministic (no Ollama needed in CI);
+    candidate is routed through a mocked litellm_synthesis()."""
+    os.environ.pop("COMMANDER_SYNTHESIS_PROVIDER", None)
+    os.environ["COMMANDER_PRIMARY_PROVIDER"] = "deterministic"
+    os.environ["COMMANDER_CANDIDATE_PROVIDER"] = "litellm"
+    os.environ["COMMANDER_CANDIDATE_MODEL"] = "gemini/gemini-2.5-flash"
+    try:
+        outputs = [_make_output("Chief Engineer"), _make_output("Chief of Staff", 70)]
+        with mock.patch(
+            "commander_synthesis.litellm_synthesis",
+            return_value="# Commander TJR Recommendation\n\n## Position\nCandidate via LiteLLM.",
+        ):
+            evaluation = run_dual_commander(
+                "Should USS TJR prioritise Slack specialist collaboration over Voice Core?",
+                SAMPLE_CONTEXT,
+                outputs,
+                challenge=None,
+            )
+        assert evaluation.candidate_model == "gemini/gemini-2.5-flash"
+        assert "Candidate via LiteLLM." in evaluation.candidate_response
+        # Primary used the "deterministic" provider (unsupported by _call_model,
+        # same as any non-ollama/litellm value), so it took the fallback path.
+        assert "# Commander TJR" in evaluation.primary_response
+    finally:
+        os.environ.pop("COMMANDER_PRIMARY_PROVIDER", None)
+        os.environ.pop("COMMANDER_CANDIDATE_PROVIDER", None)
+        os.environ.pop("COMMANDER_CANDIDATE_MODEL", None)
+    print("  PASS test_run_dual_commander_split_providers")
+
+
 def test_runtime_dual_commander_creates_log() -> None:
     """run() with dual_commander=True must create a log with dual commander fields."""
     os.environ["COMMANDER_SYNTHESIS_PROVIDER"] = "deterministic"
@@ -318,6 +423,10 @@ def main() -> int:
         test_dual_commander_evaluation_dataclass,
         test_dual_commander_as_dict,
         test_run_dual_commander_deterministic,
+        test_call_model_litellm_success,
+        test_call_model_litellm_failure_falls_back,
+        test_call_model_unknown_provider_falls_back,
+        test_run_dual_commander_split_providers,
         test_runtime_dual_commander_creates_log,
         test_runtime_existing_mode_unaffected,
         test_runtime_dual_commander_output_format,
