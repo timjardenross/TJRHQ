@@ -47,6 +47,33 @@ ADR-consolidation mission, not something to improvise now.
 - Keep pull requests scoped to what was asked; this repo's PR template
   (`.github/pull_request_template.md`) has the expected shape (summary, test plan, scope,
   breaking changes).
-- When in doubt about platform-wide conventions or existing capabilities, check
-  `knowledge/` and any registry/CMDB-style docs before adding something new — see the
-  Chief Engineer skill for why.
+- Starting a new mission brief? Start from `knowledge/MISSION-BRIEF-TEMPLATE.md` rather than
+  inventing a structure — its Pre-flight section is the enforcement point for the
+  "check first" rule below (USS-TJR-MSN-0372).
+
+### Check-first registries
+
+The same failure mode has hit this repo twice for real: a mission adds a row to an
+existing list without checking whether it's already there (`SOURCES` duplicate rows that
+took down a 163-row upsert batch; up to 4 separate ADR registries before consolidation).
+Before adding to any of these, grep the exact name/key first — "check `knowledge/` and be
+careful" isn't enough, run the actual grep:
+
+- **Intelligence sources** — `tools/intelligence/seed_source_registry.py` (`SOURCES` list).
+  Check `source_name`/`url` before adding; the file already dedupes+warns on a collision,
+  but that's a safety net, not a substitute for checking first.
+- **ADR citations** — `core/governance/architecture-decision-records/` is the canonical
+  filed-ADR directory. Check the number isn't already filed or reserved before citing or
+  writing a new one. (`docs/decisions/` holds the MADR *template* and worked example, not
+  the filed registry itself — don't confuse the two.)
+- **Scheduled jobs (APScheduler)** — consolidation is in progress (USS-TJR-MSN-0368 Stream
+  6); real count as of that stream is 2 live instances (`intelligence/scheduler.py`,
+  `telegram-bots/revs/scheduler.py`). Ask before adding a new scheduler instance rather than
+  assuming one doesn't already cover your use case.
+- **Specialist registry** — `platform-runtime/prompt_loader.py`'s `SPECIALISTS` dict and
+  `specialists/SPECIALIST-INVENTORY.md` (narrative, not code-loaded) both describe the same
+  specialist roster from two angles; check both before adding a specialist so the two don't
+  drift apart.
+
+This list will go stale as registries get added or consolidated — that's expected and fine;
+update it when the next instance of this pattern turns up rather than treating it as final.
