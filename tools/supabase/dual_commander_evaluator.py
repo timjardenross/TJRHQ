@@ -9,6 +9,16 @@ Usage:
     from dual_commander_evaluator import run_dual_commander
     evaluation = run_dual_commander(question, context, outputs, challenge)
     print(evaluation.formatted_output())
+
+Providers (2026-09-12): primary and candidate can each use a DIFFERENT
+provider — "ollama" (local, via commander_synthesis.ollama_synthesis) or
+"litellm" (any provider LiteLLM supports, via
+commander_synthesis.litellm_synthesis: OpenAI, Anthropic, Gemini, Mistral,
+or Ollama-through-LiteLLM). This is deliberately per-slot rather than one
+shared provider: the natural use case is a free local Ollama model as the
+always-on primary, evaluated against a paid cloud candidate model, which
+requires the two slots to route differently. See README's "Dual Commander
+evaluation" section for the env vars.
 """
 
 from __future__ import annotations
@@ -139,7 +149,15 @@ def run_dual_commander(
     """
     primary_model = os.environ.get("COMMANDER_PRIMARY_MODEL", DEFAULT_PRIMARY_MODEL)
     candidate_model = os.environ.get("COMMANDER_CANDIDATE_MODEL", DEFAULT_CANDIDATE_MODEL)
-    provider = os.environ.get("COMMANDER_SYNTHESIS_PROVIDER", DEFAULT_PROVIDER).lower()
+
+    # COMMANDER_SYNTHESIS_PROVIDER remains the shared default for both slots
+    # (preserves prior behaviour when nothing new is set). COMMANDER_PRIMARY_PROVIDER
+    # / COMMANDER_CANDIDATE_PROVIDER let primary and candidate use DIFFERENT
+    # providers — the actual point of this feature: primary stays local Ollama,
+    # candidate becomes a cloud model via LiteLLM. See module docstring.
+    legacy_provider = os.environ.get("COMMANDER_SYNTHESIS_PROVIDER", DEFAULT_PROVIDER).lower()
+    primary_provider = os.environ.get("COMMANDER_PRIMARY_PROVIDER", legacy_provider).lower()
+    candidate_provider = os.environ.get("COMMANDER_CANDIDATE_PROVIDER", legacy_provider).lower()
 
     fallback = (
         deterministic_synthesis_with_challenge(question, context, outputs, challenge, decision_context)
@@ -147,17 +165,17 @@ def run_dual_commander(
         else deterministic_synthesis(question, context, outputs, decision_context)
     )
 
-    print(f"  [Dual Commander] Calling primary model: {primary_model}")
+    print(f"  [Dual Commander] Calling primary model: {primary_model} (provider={primary_provider})")
     primary_response = _call_model(
         question, context, outputs, challenge,
-        model=primary_model, provider=provider, fallback=fallback,
+        model=primary_model, provider=primary_provider, fallback=fallback,
         decision_context=decision_context,
     )
 
-    print(f"  [Dual Commander] Calling candidate model: {candidate_model}")
+    print(f"  [Dual Commander] Calling candidate model: {candidate_model} (provider={candidate_provider})")
     candidate_response = _call_model(
         question, context, outputs, challenge,
-        model=candidate_model, provider=provider, fallback=fallback,
+        model=candidate_model, provider=candidate_provider, fallback=fallback,
         decision_context=decision_context,
     )
 
@@ -190,7 +208,8 @@ def _call_model(
     fallback: str,
     decision_context: dict[str, Any] | None = None,
 ) -> str:
-    """Call a single Ollama model and return its response.
+    """Call a single Commander model via the given provider ("ollama" or
+    "litellm") and return its response.
 
     Falls back to deterministic synthesis on any failure so the whole
     runtime does not crash if one model is unavailable.
@@ -198,19 +217,23 @@ def _call_model(
     decision_context (MSN-0009A) is passed to the model when available,
     ensuring both Commander models receive the same structured decision frame.
     """
-    if provider != "ollama":
+    if provider not in ("ollama", "litellm"):
         print(
-            f"  Warning: Dual Commander requires COMMANDER_SYNTHESIS_PROVIDER=ollama. "
-            f"Using deterministic fallback for {model}."
+            f"  Warning: Dual Commander does not support provider={provider!r} "
+            f"(expected 'ollama' or 'litellm'). Using deterministic fallback for {model}."
         )
         return fallback
 
     try:
-        # Import here so the module is usable without ollama being present
-        # (deterministic tests never reach this path).
-        from commander_synthesis import ollama_synthesis  # noqa: PLC0415
+        # Imported here so the module is usable without ollama/litellm being
+        # present (deterministic tests never reach this path).
+        if provider == "ollama":
+            from commander_synthesis import ollama_synthesis  # noqa: PLC0415
+            response = ollama_synthesis(question, context, outputs, challenge, model, decision_context)
+        else:  # "litellm"
+            from commander_synthesis import litellm_synthesis  # noqa: PLC0415
+            response = litellm_synthesis(question, context, outputs, challenge, model, decision_context)
 
-        response = ollama_synthesis(question, context, outputs, challenge, model, decision_context)
         if not response.strip():
             print(f"  Warning: {model} returned an empty response. Using deterministic fallback.")
             return fallback

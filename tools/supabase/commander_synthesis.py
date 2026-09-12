@@ -373,6 +373,41 @@ def ollama_synthesis(
     return strip_thinking(body.get("response") or body.get("thinking") or "")
 
 
+def litellm_synthesis(
+    question: str,
+    context: dict[str, Any],
+    outputs: list[SpecialistOutput],
+    challenge: ChallengeReview | None,
+    model: str,
+    decision_context: dict[str, Any] | None = None,
+) -> str:
+    """Same prompt/return contract as ollama_synthesis(), routed through
+    LiteLLM instead of Ollama's raw /api/generate. `model` must be a
+    LiteLLM-formatted model string (e.g. "gemini/gemini-2.5-flash",
+    "anthropic/claude-sonnet-5", "ollama/qwen3:8b") — LiteLLM reads the
+    provider out of the string itself, so no separate provider parsing is
+    needed here.
+
+    litellm is an optional dependency (see tools/supabase/requirements.txt
+    and tools/supabase/.venv) — imported lazily so this module stays
+    importable without it, same convention as ollama_synthesis() imposes no
+    import-time requirement on Ollama being installed/running.
+    """
+    import litellm  # noqa: PLC0415
+
+    hierarchy_block = _build_hierarchy_block(question)
+    prompt = commander_prompt(question, context, outputs, challenge, decision_context, hierarchy_block)
+    timeout = float(os.environ.get("COMMANDER_SYNTHESIS_TIMEOUT_SECONDS", "30"))
+    response = litellm.completion(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        timeout=timeout,
+        temperature=0.2,
+    )
+    text = response.choices[0].message.content or ""
+    return strip_thinking(text)
+
+
 def commander_prompt(
     question: str,
     context: dict[str, Any],
