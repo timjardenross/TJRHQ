@@ -36,7 +36,7 @@ def _get_captains_log_live():
         from capacity_score import compute_capacity_score
         from supabase_client import is_configured, supabase_get
         return supabase_get, is_configured, compute_capacity_score
-    except Exception:
+    except Exception:  # noqa: BLE001 - optional health-module import; (None, None, None) signals unavailability to the caller
         return None, None, None
 
 
@@ -552,7 +552,7 @@ def build_health_context_live(assembled_at: str | None = None) -> HealthContextP
                 energy_vals = [encode_energy(r["energy"]) for r in recent if r.get("energy")]
                 result_e = compute_energy_trend(energy_vals)
                 energy_trend_direction = None if result_e == "insufficient_data" else result_e
-            except Exception:
+            except Exception:  # noqa: BLE001 - best-effort trend computation; None trend direction is a valid 'insufficient data' outcome
                 pass
 
             # Compute capacity score
@@ -564,7 +564,7 @@ def build_health_context_live(assembled_at: str | None = None) -> HealthContextP
                 entry, trend_direction, cap_score, assembled_at,
                 energy_trend=energy_trend_direction,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - already documented: fall through to the legacy Health-Summary.md path
             pass  # fall through to legacy path
 
     # Legacy fallback: read Health-Summary.md

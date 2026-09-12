@@ -495,7 +495,7 @@ def run_sync(base: Path | None = None, model: str = batch_api.DEFAULT_MODEL,
             stamp.update(_maybe_open_pr(path.stem, text, fields))
             _stamp(path, stamp)
             delivered.append(path.stem)
-        except Exception as exc:  # per-handoff isolation; one failure doesn't stop the rest
+        except Exception as exc:  # per-handoff isolation; one failure doesn't stop the rest  # noqa: BLE001 - already documented: per-handoff isolation, already logged via log.warning() and recorded in the stamp file
             _stamp(path, {"Batch Status": "FAILED", "Batch Error": str(exc)[:200]})
             failed.append(path.stem)
             log.warning("[batch_coding] sync failed for %s: %s", path.stem, exc)
@@ -531,7 +531,7 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
     }
     try:
         _ensure_env()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - env-readiness check surfaced into result['error'], not swallowed
         result["status"], result["error"] = "skipped", f"env not ready: {exc}"
         return result
 
@@ -611,7 +611,7 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
         result.update(status="delivered", artifact=artifact_ref, pr_url=pr_url, pr_error=pr_error)
         log.info("[batch_coding] sync-one delivered %s (mode=%s, pr=%s)",
                  path.stem, mode_used, pr_url or "none")
-    except Exception as exc:  # mark FAILED so the queue reflects it; never raise
+    except Exception as exc:  # mark FAILED so the queue reflects it; never raise  # noqa: BLE001 - already documented: must never raise, already logged via log.warning() and recorded in the stamp file
         _stamp(path, {"Batch Status": "FAILED", "Batch Error": str(exc)[:200]})
         result["status"], result["error"] = "failed", str(exc)[:200]
         log.warning("[batch_coding] sync-one failed for %s: %s", path.stem, exc)

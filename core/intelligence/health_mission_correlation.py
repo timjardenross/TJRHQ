@@ -51,12 +51,12 @@ def _fetch_health_entries(days: int = 90) -> list[dict[str, Any]]:
             f"captains_log_entries?log_date=gte.{since}&order=log_date.asc&limit={days}"
         )
         return rows
-    except Exception:
+    except Exception:  # noqa: BLE001 - cascading Supabase fallback to the legacy table; final give-up handled by the nested except below
         try:
             return supabase_get(
                 f"analytics_health_daily?log_date=gte.{since}&order=log_date.asc&limit={days}"
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - documented contract: return [] when both the primary and legacy table reads fail
             return []
 
 
@@ -72,7 +72,7 @@ def _fetch_mission_dates() -> dict[str, list[str]]:
                 if upd:
                     day = upd[:10]
                     day_map[day].append(m.get("id", "?"))
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort day_map enrichment from one of several sources; missing source just means fewer entries
             pass
 
     # Fallback: daily_brief.json top_priorities updated timestamps
@@ -85,7 +85,7 @@ def _fetch_mission_dates() -> dict[str, list[str]]:
                 ts = data.get("timestamp", "")[:10]
                 if ts:
                     day_map[ts].append(item.get("mission_id", "?"))
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort day_map enrichment from one of several sources; missing source just means fewer entries
             pass
 
     return day_map

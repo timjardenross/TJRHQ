@@ -59,7 +59,7 @@ def _fetch_recovery_confidence_today() -> int | None:
             return None
         checkins = rows[0].get("checkins_today", 0) or 0
         return 100 if checkins > 0 else 0
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: None on any read failure
         return None
 
 
@@ -152,7 +152,7 @@ def persist_readiness_snapshot(
             recommended_action=(snapshot.get("recommended_focus") or [None])[0]
                 if isinstance(snapshot.get("recommended_focus"), list) else None,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort recommendation-event emission; not required for the snapshot persist to succeed
         pass
 
     return True
@@ -221,7 +221,7 @@ def load_readiness_history(days: int = 30) -> list[dict[str, Any]]:
             snap_date = date.fromisoformat(snap_date_str[:10])
             if snap_date >= cutoff:
                 snapshots.append(snap)
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort per-file snapshot read; one corrupt/malformed snapshot must not lose the rest
             continue
 
     return sorted(snapshots, key=lambda s: s.get("assessment_date", ""))

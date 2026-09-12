@@ -50,7 +50,7 @@ def extract(path, **_kwargs) -> ExtractionResult:
     # Primary text via markdown export (preserves structure, headers, lists)
     try:
         text = doc.export_to_markdown()
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort text-extraction fallback; empty string here just triggers the join-texts fallback below, final emptiness is caught by the ExtractionError check at the end
         text = ""
 
     # Fallback: join all text items if markdown export empty
@@ -61,7 +61,7 @@ def extract(path, **_kwargs) -> ExtractionResult:
                 if hasattr(item, "text") and item.text.strip():
                     parts.append(item.text.strip())
             text = "\n\n".join(parts)
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort text-extraction fallback; total failure is still caught by the ExtractionError check at the end
             pass
 
     # Append table data as CSV blocks
@@ -73,9 +73,9 @@ def extract(path, **_kwargs) -> ExtractionResult:
                 if df is not None and not df.empty:
                     table_count += 1
                     text += f"\n\n## Table {table_count}\n{df.to_csv(index=False)}"
-            except Exception:
+            except Exception:  # noqa: BLE001 - best-effort per-table CSV export; one malformed table must not lose the rest
                 continue
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort table-export section as a whole; text extraction succeeded above regardless, table data is a bonus
         pass
 
     if not text.strip():
