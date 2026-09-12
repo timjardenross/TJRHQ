@@ -25,6 +25,13 @@ which provides dedup, versioning, and semantic retrieval over a local Qdrant
 vector store. If mem0ai is not installed, those types fall through to their
 existing Supabase-table behaviour without error.
 
+RELATIONSHIPS is additionally backed by core/platform/memory_graph.py
+(Graphiti's temporal fact graph) when a ``query`` kwarg is given — this is
+memory_graph.py's first real caller (see that module's own docstring:
+"a unified_memory.py route... none of that is built here" — this is that
+route). Falls through to the existing `knowledge_edges` table when no query
+is given, or if Graphiti/GEMINI_API_KEY is unavailable.
+
 Standalone module. Not yet adopted by any existing caller — each existing
 memory-reading module keeps working exactly as it does today; this is an
 additive convergence point for future code, not a forced migration.
@@ -280,7 +287,7 @@ def recall(memory_type: MemoryType, **filters: Any) -> list[dict[str, Any]]:
         if memory_type == MemoryType.CONFIDENCE_HISTORY:
             return _recall_table("quality_scores", filters, order_col="scored_at")
         if memory_type == MemoryType.RELATIONSHIPS:
-            return _recall_table("knowledge_edges", filters, order_col="created_at")
+            return _recall_relationships(filters)
         log.warning("[unified-memory] recall: unhandled memory_type %r", memory_type)
         return []
     except Exception as exc:
@@ -322,6 +329,33 @@ def _recall_factual(filters: dict[str, Any]) -> list[dict[str, Any]]:
     Accepts the same ``query``, ``user_id``, and ``limit`` kwargs as _recall_semantic.
     """
     return _recall_semantic(filters)
+
+
+def _recall_relationships(filters: dict[str, Any]) -> list[dict[str, Any]]:
+    """RELATIONSHIPS recall: memory_graph.py's temporal fact graph (Graphiti)
+    when a ``query`` kwarg is given — the graph's own hybrid search, scoped
+    to ``group_ids`` if provided (defaults to whatever domains have actually
+    been backfilled so far; see memory_graph.search()'s own docstring).
+    Falls through to the existing `knowledge_edges` table when no query is
+    given, or if Graphiti/GEMINI_API_KEY is unavailable — memory_graph.py's
+    own async _build_graphiti() raises a clear RuntimeError in that case,
+    caught here same as every other non-blocking recall path in this module.
+    """
+    query = filters.get("query", "")
+    if not query:
+        return _recall_table("knowledge_edges", filters, order_col="created_at")
+
+    import asyncio
+
+    from core.platform import memory_graph
+
+    num_results = int(filters.get("limit", 10))
+    group_ids = filters.get("group_ids")
+    try:
+        return asyncio.run(memory_graph.search(query, num_results=num_results, group_ids=group_ids))
+    except Exception as exc:
+        log.warning("[unified-memory] relationships graph search failed (non-blocking): %s", exc)
+        return _recall_table("knowledge_edges", filters, order_col="created_at")
 
 
 def _recall_working() -> list[dict[str, Any]]:
