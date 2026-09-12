@@ -379,6 +379,23 @@ jobs:
           pre-commit run --all-files gitleaks
           pre-commit run --all-files detect-secrets
 
+      # TEMPORARY diagnostic for #189 (round 2 — require_serial: true alone
+      # did not fix it, so print the actual diff straight into the job log
+      # instead of guessing further or relying on upload-artifact, whose
+      # path resolution is itself unexplained here). Remove once root-caused.
+      - name: Diagnose secrets baseline diff (#189)
+        if: always()
+        run: |
+          echo "--- ls -la .secrets.baseline ---"
+          ls -la .secrets.baseline || echo "FILE MISSING"
+          echo "--- git status --short .secrets.baseline ---"
+          git status --short .secrets.baseline || true
+          echo "--- git diff .secrets.baseline (full) ---"
+          git diff .secrets.baseline || true
+          echo "--- pwd / workspace ---"
+          pwd
+          echo "$GITHUB_WORKSPACE"
+
       # Soft gate (visible, non-blocking): ruff-check + bandit. Flips to
       # blocking once Stream 9's triage lands (179 Medium bandit findings
       # fixed/suppressed, ruff's 3,420 auto-fixable findings landed as their
