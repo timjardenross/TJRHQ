@@ -65,7 +65,7 @@ class DeleteFileStrategy(RemediationStrategy):
                         "success": True, "mode": "direct", "message": f"Deleted {file_path}",
                         "files": [str(file_path.relative_to(repo_root))],
                     }
-                except Exception as exc:
+                except OSError as exc:
                     return {"success": False, "error": str(exc)}
 
         return {"success": False, "error": "No safe files to delete (code deletions require manual review)"}
@@ -103,7 +103,7 @@ class DocumentStrategy(RemediationStrategy):
                             "message": "Updated README.md: Python version requirement changed to 3.11+",
                             "files": [str(readme_path.relative_to(repo_root))],
                         }
-                except Exception as exc:
+                except OSError as exc:
                     return {"success": False, "error": f"Failed to update README: {exc}"}
 
         return {
@@ -176,7 +176,7 @@ def set_model_confidence(score: float):
                         "message": f"Created metrics template at {metrics_file} - integrate with dashboard",
                         "files": [str(metrics_file.relative_to(repo_root))],
                     }
-                except Exception as exc:
+                except OSError as exc:
                     return {"success": False, "error": f"Failed to create metrics: {exc}"}
 
         return {
@@ -263,8 +263,8 @@ class HandoffPRStrategy(RemediationStrategy):
                 [str(venv_python), "-m", "core.engineering.batch_coding", "sync-one",
                  "--handoff", str(handoff_path)],
                 cwd=repo_root, capture_output=True, text=True, timeout=180,
-            )
-        except Exception as exc:
+            check=False)
+        except (OSError, subprocess.SubprocessError) as exc:
             return {"success": False, "error": f"sync-one subprocess failed: {exc}"}
 
         if result.returncode != 0:
@@ -368,7 +368,7 @@ class AutoRemediationExecutor:
                         fid = d.get("finding_id")
                         if fid:
                             decisions[fid] = d
-        except Exception as exc:
+        except (OSError, json.JSONDecodeError, AttributeError) as exc:
             log.error(f"Failed to load decisions: {exc}")
 
         return decisions
@@ -554,7 +554,7 @@ class AutoRemediationExecutor:
                 cwd=self.repo_root,
                 capture_output=True,
                 timeout=300,
-            )
+            check=False)
             if result.returncode == 0:
                 log.info("Tests passed")
                 return True
@@ -564,7 +564,7 @@ class AutoRemediationExecutor:
         except subprocess.TimeoutExpired:
             log.error("Tests timed out")
             return False
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - wraps the whole test-run subprocess call beyond the already-handled TimeoutExpired case; a single unexpected failure here must not crash the overnight remediation cycle, and it is fully logged
             log.error(f"Test run failed: {exc}")
             return False
 
@@ -601,7 +601,7 @@ class AutoRemediationExecutor:
                 for fid, msg in entry.items():
                     lines.append(f"• {fid}: {msg}")
             notify("\n".join(lines), severity=Severity.INFO, transport=Transport.TELEGRAM)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - notify() is explicitly best-effort per this method's own docstring: a notification failure must never break remediation itself; already logged
             log.warning(f"Cycle-summary notify failed (non-fatal): {exc}")
 
     def execute(self, model_confidence: float = 0.8, dry_run: bool = False) -> dict[str, Any]:

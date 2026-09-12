@@ -219,7 +219,7 @@ class PolicyEngine:
                     config = json.load(f)
                 log.info(f"Loaded policy from {policy_file}")
                 return config
-            except Exception as exc:
+            except (OSError, json.JSONDecodeError) as exc:
                 log.error(f"Failed to load policy: {exc}")
                 return {"categories": {}}
 
@@ -232,7 +232,7 @@ class PolicyEngine:
             return config
         except ImportError:
             log.warning("PyYAML not available; policy loading will use defaults")
-        except Exception as exc:
+        except (OSError, yaml.YAMLError) as exc:
             log.error(f"Failed to load policy: {exc}")
 
         # Return minimal default policy

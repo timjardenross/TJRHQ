@@ -181,7 +181,7 @@ def find_related_outcomes(candidate: dict[str, Any], store: Any, max_results: in
             })
 
         return results
-    except Exception:
+    except Exception:  # noqa: BLE001 - memory recall/summary is a helpful enrichment, never a hard dependency; any failure here must not block investigation
         # Memory recall is a helpful enrichment, never a hard dependency —
         # any failure here must not block investigation of the candidate.
         return []
@@ -255,5 +255,5 @@ def format_related_experience(related: list[dict[str, Any]]) -> str:
             summary += "."
 
         return summary
-    except Exception:
+    except Exception:  # noqa: BLE001 - memory recall/summary is a helpful enrichment, never a hard dependency; any failure here must not block investigation
         return ""

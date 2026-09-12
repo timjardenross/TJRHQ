@@ -35,7 +35,7 @@ class DecisionProcessor:
                 for line in f:
                     if line.strip():
                         decisions.append(json.loads(line))
-        except Exception as exc:
+        except (OSError, json.JSONDecodeError) as exc:
             log.error(f"Failed to load decisions: {exc}")
             return []
 

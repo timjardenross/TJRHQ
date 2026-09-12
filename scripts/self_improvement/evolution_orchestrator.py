@@ -145,7 +145,7 @@ class EvolutionOrchestrator:
         try:
             with open(self.watchlist_path) as f:
                 return json.load(f).get("topics", [])
-        except Exception as exc:
+        except (OSError, json.JSONDecodeError) as exc:
             log.error(f"Failed to load watchlist: {exc}")
             return []
 
@@ -169,7 +169,7 @@ class EvolutionOrchestrator:
                 try:
                     with open(findings_file) as f:
                         return json.load(f).get("findings", []), run_dir.name
-                except Exception as exc:
+                except (OSError, json.JSONDecodeError) as exc:
                     log.warning(f"Failed to read {findings_file}: {exc}")
                     continue
         return [], None
@@ -448,7 +448,7 @@ class EvolutionOrchestrator:
                         }
                         latest_material_learning_ts = evaluated_at
 
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-opportunity outcome evaluation loop; one opportunity's unpredictable evaluation failure must not abort evaluation of the rest, already logged and skipped via continue
                 log.warning(f"Outcome evaluation failed for {opportunity_id}: {exc}")
                 continue
 
@@ -487,7 +487,7 @@ class EvolutionOrchestrator:
                     inv["related_experience"] = related
                     inv["related_experience_summary"] = related_summary
                     return inv
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - model/LLM investigation call has an unpredictable exception surface; already logged, and the code deliberately falls back to a deterministic template on any failure
                 log.warning(f"Model investigation failed, falling back to template: {exc}")
 
         fallback = honest_fallback_investigation(candidate)
@@ -554,7 +554,7 @@ class EvolutionOrchestrator:
             outcome_eval_summary = self._evaluate_due_outcomes(run_id) if not dry_run else {
                 "implementations_confirmed": 0, "outcomes_evaluated": 0, "regressions": 0, "latest_material_learning": None,
             }
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - explicitly documented above: this newer V2 outcome-evaluation phase must never be able to take the whole (load-bearing) cycle down; already logged
             log.error(f"Outcome evaluation phase failed entirely — continuing to discovery unaffected: {exc}")
             outcome_eval_summary = {
                 "implementations_confirmed": 0, "outcomes_evaluated": 0, "regressions": 0, "latest_material_learning": None,

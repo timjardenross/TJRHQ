@@ -73,10 +73,10 @@ class RepositoryState:
         try:
             result = subprocess.run(
                 ["git", "-C", str(self.repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
-                capture_output=True, text=True, timeout=5
+                capture_output=True, text=True, timeout=5, check=False
             )
             return result.stdout.strip() if result.returncode == 0 else None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to get branch: {exc}")
             return None
 
@@ -85,10 +85,10 @@ class RepositoryState:
         try:
             result = subprocess.run(
                 ["git", "-C", str(self.repo_root), "rev-parse", "HEAD"],
-                capture_output=True, text=True, timeout=5
+                capture_output=True, text=True, timeout=5, check=False
             )
             return result.stdout.strip() if result.returncode == 0 else None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to get commit: {exc}")
             return None
 
@@ -97,10 +97,10 @@ class RepositoryState:
         try:
             result = subprocess.run(
                 ["git", "-C", str(self.repo_root), "log", "-1", "--format=%B"],
-                capture_output=True, text=True, timeout=5
+                capture_output=True, text=True, timeout=5, check=False
             )
             return result.stdout.strip() if result.returncode == 0 else None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to get commit message: {exc}")
             return None
 
@@ -109,10 +109,10 @@ class RepositoryState:
         try:
             result = subprocess.run(
                 ["git", "-C", str(self.repo_root), "status", "--porcelain"],
-                capture_output=True, text=True, timeout=5
+                capture_output=True, text=True, timeout=5, check=False
             )
             return bool(result.stdout.strip()) if result.returncode == 0 else None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to check dirty status: {exc}")
             return None
 
@@ -121,7 +121,7 @@ class RepositoryState:
         try:
             result = subprocess.run(
                 ["git", "-C", str(self.repo_root), "status", "--porcelain"],
-                capture_output=True, text=True, timeout=5
+                capture_output=True, text=True, timeout=5, check=False
             )
             if result.returncode != 0:
                 return []
@@ -133,7 +133,7 @@ class RepositoryState:
                     if len(parts) > 1:
                         files.append(parts[1])
             return files
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to get uncommitted files: {exc}")
             return []
 
@@ -160,10 +160,10 @@ class FileSystemAudit:
         try:
             result = subprocess.run(
                 ["find", str(self.repo_root)] + _find_prune_args() + ["-name", "*.py", "-type", "f", "-print"],
-                capture_output=True, text=True, timeout=10
+                capture_output=True, text=True, timeout=10, check=False
             )
             return len(result.stdout.strip().splitlines()) if result.returncode == 0 else 0
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to count Python files: {exc}")
             return 0
 
@@ -180,7 +180,7 @@ class FileSystemAudit:
             result = subprocess.run(
                 ["find", str(self.repo_root)] + _find_prune_args()
                 + ["(", "-name", "test_*.py", "-o", "-name", "*_test.py", ")", "-type", "f", "-print"],
-                capture_output=True, text=True, timeout=10
+                capture_output=True, text=True, timeout=10, check=False
             )
             if result.returncode != 0:
                 return []
@@ -188,7 +188,7 @@ class FileSystemAudit:
                 str(Path(p).relative_to(self.repo_root))
                 for p in result.stdout.strip().splitlines() if p
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to find test files: {exc}")
             return []
 
@@ -280,7 +280,7 @@ class ModelRouterAudit:
                         key = line.split('"')[1]
                         task_types[key] = True
             return {"task_types": list(task_types.keys()), "count": len(task_types)}
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to read router code: {exc}")
             return {"error": str(exc)}
 
@@ -290,7 +290,7 @@ class ModelRouterAudit:
             import urllib.request
             response = urllib.request.urlopen(f"{self.router_url}/health", timeout=2)  # nosec B310 - router_url defaults to fixed http://127.0.0.1:8891 literal, only overridable via an operator CLI flag, not user input - reviewed 2026-09-12
             return response.status == 200
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             return False
 
     def _get_router_status(self) -> dict[str, Any]:
@@ -299,7 +299,7 @@ class ModelRouterAudit:
             import urllib.request
             response = urllib.request.urlopen(f"{self.router_url}/api/model/status", timeout=5)  # nosec B310 - router_url defaults to fixed http://127.0.0.1:8891 literal, only overridable via an operator CLI flag, not user input - reviewed 2026-09-12
             return json.loads(response.read().decode())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             return {"error": str(exc)}
 
     def _check_call_log(self) -> bool:
@@ -340,12 +340,12 @@ class CodeAnalysis:
             for pattern, label in patterns:
                 result = subprocess.run(
                     ["grep", "-r", pattern, str(self.repo_root), "--include=*.py"] + _grep_exclude_args(),
-                    capture_output=True, text=True, timeout=10
+                    capture_output=True, text=True, timeout=10, check=False
                 )
                 if result.returncode == 0 and result.stdout:
                     todos[label] = result.stdout.strip().split('\n')[:10]  # limit to 10
             return todos
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to find TODOs: {exc}")
             return {}
 
@@ -355,12 +355,12 @@ class CodeAnalysis:
         try:
             result = subprocess.run(
                 ["grep", "-r", "^import .*#.*unused", str(self.repo_root), "--include=*.py"] + _grep_exclude_args(),
-                capture_output=True, text=True, timeout=10
+                capture_output=True, text=True, timeout=10, check=False
             )
             if result.returncode == 0 and result.stdout:
                 return result.stdout.strip().split('\n')[:5]
             return []
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             return []
 
     def _find_hardcoded_patterns(self) -> list[str]:
@@ -375,14 +375,14 @@ class CodeAnalysis:
             try:
                 result = subprocess.run(
                     ["grep", "-r", "-E", pattern, str(self.repo_root), "--include=*.py"] + _grep_exclude_args(),
-                    capture_output=True, text=True, timeout=10
+                    capture_output=True, text=True, timeout=10, check=False
                 )
                 if result.returncode == 0 and result.stdout:
                     # Limit to a few examples
                     for line in result.stdout.strip().split('\n')[:2]:
                         if line:
                             findings.append(line)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
                 log.debug("pattern search failed for %r: %s", pattern, exc)
         return findings[:10]  # limit overall
 

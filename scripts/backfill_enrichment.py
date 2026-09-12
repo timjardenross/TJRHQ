@@ -66,7 +66,7 @@ def backfill_events(batch_size: int = 100, limit: int = None) -> None:
             stats = enrich_and_save(batch_objs, store)
             total_processed += stats["canonical"] + stats["duplicate"]
             log.info(f"  → canonical={stats['canonical']} duplicate={stats['duplicate']} failed={stats['failed']}")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-batch enrichment call; one bad batch's unpredictable failure must not abort the whole backfill run, already logged and skipped via continue
             log.error(f"Batch failed: {exc}")
             continue
         
