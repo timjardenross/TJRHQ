@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for HSF-002 — Captain Capacity Decision Engine.
 
 Covers:

@@ -116,11 +116,11 @@ class TestParseRouterArgs:
         assert mode == "implementation"
 
     def test_mission_id_detected_bare(self):
-        mid, backend, mode = self.mb._parse_router_args("MSN-0056")
+        mid, _backend, _mode = self.mb._parse_router_args("MSN-0056")
         assert mid == "USS-TJR-MSN-0056"
 
     def test_free_text_returns_none(self):
-        mid, backend, mode = self.mb._parse_router_args("build a dashboard widget for mission status")
+        mid, _backend, _mode = self.mb._parse_router_args("build a dashboard widget for mission status")
         assert mid is None
 
     def test_free_text_defaults(self):

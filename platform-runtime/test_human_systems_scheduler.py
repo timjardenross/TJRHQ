@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for WP7 — Human Systems proactive scheduler + delivery.
 
 Covers:

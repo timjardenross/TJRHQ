@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-XO-003 — Unified Intelligence Consumption Layer.
 
 WP2 ORI surfacing · WP3 Knowledge surfacing · WP1 composer integration ·

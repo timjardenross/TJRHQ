@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for HSF-001 — Human Systems Framework.
 
 Covers:

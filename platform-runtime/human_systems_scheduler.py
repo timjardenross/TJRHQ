@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Human Systems Proactive Scheduler / Job-Runner (WP7, HSF-001 §7.2).
 
 Turns the Human Systems Officer from a purely reactive command into a proactive

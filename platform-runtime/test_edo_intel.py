@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-EDO-003 — Autonomous Delivery & Decision Intelligence.
 
 WP1 execution telemetry/backends/rollback; WP2 control tower (risk, throughput,
@@ -53,7 +54,7 @@ ROWS = [
 
 class TestExecutionTelemetry(unittest.TestCase):
     def test_backend_default_and_validation(self):
-        art, reason = execution.prepare_dispatch(MISSION, plan_approved=True)
+        art, _reason = execution.prepare_dispatch(MISSION, plan_approved=True)
         self.assertEqual(art["backend"], "claude_code")
         self.assertIn("rollback", art)
         bad, why = execution.prepare_dispatch(MISSION, plan_approved=True, backend="nope")

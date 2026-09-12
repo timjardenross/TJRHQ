@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-SPC-001 — Strategic Planning Command MVP.
 
 WP1/WP2 domain model + objective ranking · WP3 mission alignment / orphans ·

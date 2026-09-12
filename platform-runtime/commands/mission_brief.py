@@ -427,7 +427,7 @@ def handle_save_mission_file(
             ":warning: *mission-index.txt is never updated automatically.*"
         )
 
-    proposed_id, index_error = _read_next_mission_id()
+    proposed_id, _index_error = _read_next_mission_id()
 
     try:
         llm_output = _call_mistral_mission_scribe(

@@ -305,7 +305,7 @@ def record_activity_run(activity_id: str) -> None:
         if not schedule:
             return
 
-        last_run, run_count = _get_schedule_state(activity_id)
+        _last_run, run_count = _get_schedule_state(activity_id)
         now = datetime.now(timezone.utc)
         next_due = now + timedelta(days=schedule.interval_days)
         new_count = run_count + 1

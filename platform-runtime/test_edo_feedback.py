@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-EDO-003 (consolidation) WP3 — delivery feedback loop / learning."""
 
 from __future__ import annotations

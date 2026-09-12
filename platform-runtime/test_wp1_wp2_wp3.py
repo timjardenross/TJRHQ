@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for WP1 (escalation_manager), WP2 (alert_metrics), WP3 (mission_risk)
 """
@@ -51,7 +52,7 @@ class _InMemorySupabaseClient:
         return rows
 
     def _patch(self, query: str, payload: dict) -> bool:
-        table, _, qs = query.partition("?")
+        table, _, _qs = query.partition("?")
         store = self._tables.get(table, [])
         # Find matching rows and update
         matched = self.get(query)

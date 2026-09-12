@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for USS-TJR-MSN-COMMS-001 — Communications & Presence Officer.
 
 WP2 pillars · WP3 opportunity engine (classify/score/build) · WP4/WP8 format

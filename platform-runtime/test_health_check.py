@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for the /health-check command.
 
 Rewritten 2026-08-11 (Fleet Engineering Review backlog item) — the

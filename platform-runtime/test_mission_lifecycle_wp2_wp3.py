@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for mission_lifecycle WP2 (status transitions) and WP3 (idea filter).
 

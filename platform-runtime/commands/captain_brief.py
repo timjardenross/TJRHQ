@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """WP8 — /captain-brief and /operating-picture Slack slash commands.
 
 Retrieves assembled context from the Context Assembly service (WP6) and

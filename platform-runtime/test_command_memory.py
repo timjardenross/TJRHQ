@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-0040A — Command Memory MVP integration.
 
 Covers:

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-XO-002 — Captain's Daily Operating Picture (/brief)."""
 
 from __future__ import annotations

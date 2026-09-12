@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for the EDO execution runner + dispatch artifacts (EDO-006)."""
 
 from __future__ import annotations
@@ -52,7 +53,7 @@ class TestRunner(unittest.TestCase):
         self.assertEqual(art["mission_id"], "MSN-0099")
 
     def test_run_blocks_without_approval(self):
-        art, reason = edo_execute.run("MSN-0099", plan_approved=False, mission=MISSION)
+        art, _reason = edo_execute.run("MSN-0099", plan_approved=False, mission=MISSION)
         self.assertIsNone(art)
 
     def test_run_unknown_mission(self):
@@ -63,7 +64,7 @@ class TestRunner(unittest.TestCase):
 
     def test_run_finds_mission_in_delivery_rows(self):
         with patch.object(edo_execute.data, "fetch_delivery_rows", return_value=[MISSION]):
-            art, reason = edo_execute.run("MSN-0099", plan_approved=True)
+            _art, reason = edo_execute.run("MSN-0099", plan_approved=True)
         self.assertEqual(reason, "ok")
 
     def test_main_dry_run_blocked_returns_2(self):

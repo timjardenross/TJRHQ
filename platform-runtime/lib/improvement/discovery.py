@@ -213,7 +213,7 @@ def _create_missions_within_budget(
             continue
 
         # Budget gate (secondary check after pre-flight)
-        can_create, reason = engine.can_create_mission(budget, opp.category.value)
+        can_create, _reason = engine.can_create_mission(budget, opp.category.value)
         if not can_create:
             if add_to_backlog(opp):
                 result.backlog_items_added += 1

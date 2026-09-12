@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-0011C — paperclip_issue_creator.py.
 
 Covers:

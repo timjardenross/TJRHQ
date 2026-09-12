@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for ADR-006 Phase 3 mission registry memory integration."""
 
 from __future__ import annotations
