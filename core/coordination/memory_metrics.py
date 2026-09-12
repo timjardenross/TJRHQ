@@ -19,7 +19,7 @@ def _env_float(name: str, default: float) -> float:
         return default
     try:
         return float(raw)
-    except Exception:
+    except Exception:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.debug("[memory-metrics] invalid %s=%r; using default %s", name, raw, default)
         return default
 
@@ -60,7 +60,7 @@ def log_memory_metric(
         }
         result = log_memory_event(payload)
         return bool(result.ok)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.debug("[memory-metrics] non-blocking metric write failed: %s", exc)
         return False
 
@@ -240,6 +240,6 @@ def fetch_memory_metrics_summary(client: Any, window_days: int = 7) -> dict[str,
             return {"found": False, "window_days": window_days, "reason": "client_unavailable"}
         events = client.select_recent("commander_memory_events", 250)
         return summarize_memory_metrics(events, window_days=window_days)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.debug("[memory-metrics] summary fetch failed: %s", exc)
         return {"found": False, "window_days": window_days, "reason": "fetch_failed"}

@@ -104,7 +104,7 @@ def _fetch_week_entries(days: int = 7) -> list[dict[str, Any]]:
             f"&limit={days}"
         )
         return rows
-    except Exception:
+    except Exception:  # noqa: BLE001 - cascading Supabase fallback: falls through to the legacy captains_log_entries query on the next lines; final give-up path (line ~148) returns []
         # Fallback to captains_log_entries if view not yet deployed
         rows = supabase_get(
             f"captains_log_entries"
@@ -136,7 +136,7 @@ def _fetch_baseline_entries(days: int = 30) -> list[dict[str, Any]]:
             f"&limit={days}"
         )
         return rows
-    except Exception:
+    except Exception:  # noqa: BLE001 - cascading Supabase fallback (second attempt); final failure handled by the nested except below
         try:
             rows = supabase_get(
                 f"captains_log_entries"
@@ -145,7 +145,7 @@ def _fetch_baseline_entries(days: int = 30) -> list[dict[str, Any]]:
                 f"&limit={days}"
             )
             return rows
-        except Exception:
+        except Exception:  # noqa: BLE001 - documented contract: return [] when both the view and the legacy table read fail
             return []
 
 
@@ -1345,7 +1345,7 @@ def run_synthesis(days: int = 7, update_health_summary: bool = True) -> dict[str
             from heartbeat import record_heartbeat
             record_heartbeat("weekly_health_synthesis", status="skipped",
                               detail=f"period={week_start}, days_logged={n} < {MIN_DAYS_FOR_SYNTHESIS}")
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort telemetry heartbeat; must not fail the synthesis run it's reporting on
             pass
 
         return {
@@ -1458,7 +1458,7 @@ def run_synthesis(days: int = 7, update_health_summary: bool = True) -> dict[str
         raw_text, llm_provider = provider.generate(llm_prompt)
         if raw_text:
             llm_narrative = parse_llm_narrative(raw_text)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logged (logging.warning); LLM narrative is optional, deterministic fallback covers this
         # Non-fatal — synthesis continues with deterministic fallback
         import logging
         logging.getLogger(__name__).warning("LLM narrative generation failed: %s", exc)
@@ -1548,13 +1548,13 @@ def run_synthesis(days: int = 7, update_health_summary: bool = True) -> dict[str
             "health_insights", full_payload,
             on_conflict="period_start,period_end,insight_type",
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 - cascading Supabase upsert fallback to the legacy payload shape; failure of that fallback is captured in insight['_persist_error'] below
         try:
             supabase_upsert(
                 "health_insights", legacy_payload,
                 on_conflict="period_start,period_end,insight_type",
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - error captured into insight['_persist_error'] for the caller/heartbeat to see, not swallowed
             insight["_persist_error"] = str(exc)
 
     # STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort.
@@ -1567,15 +1567,16 @@ def run_synthesis(days: int = 7, update_health_summary: bool = True) -> dict[str
         else:
             record_heartbeat("weekly_health_synthesis", status="ok",
                               detail=f"period={week_start}")
-    except Exception as _hb_exc:
+    except Exception as _hb_exc:  # noqa: BLE001 - best-effort telemetry heartbeat; must not fail the synthesis run after its real work is already done
         pass
 
     # ── Update Health-Summary.md ─────────────────────────────────────────────
     if update_health_summary:
         try:
             _update_health_summary_md(narrative, week_start)
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - already logged (logging.warning); updating the markdown summary is best-effort, not the source of truth
+            import logging
+            logging.getLogger(__name__).warning("Could not update Health-Summary.md (non-fatal): %s", exc)
 
     return insight
 

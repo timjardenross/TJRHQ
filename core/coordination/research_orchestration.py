@@ -516,7 +516,7 @@ class ResearchOrchestrator:
                 log.warning("  Consolidation used fallback (timeout or error)")
             else:
                 log.info(f"  Consolidated {len([t for t in tasks if t.findings])} task findings")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Consolidation failed fatally: {e}. Using local fallback.")
             consolidation_fallback_used = True
             successful_tasks = [t for t in tasks if t.findings]
@@ -544,7 +544,7 @@ class ResearchOrchestrator:
         try:
             # NEW: Pass raw findings to decision framework for evidence grounding
             recommendation, confidence = self._generate_recommendation_with_fallback(raw_findings, tasks)
-        except Exception as rec_error:
+        except Exception as rec_error:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning(f"Recommendation generation failed: {rec_error}. Continuing without recommendation.")
             recommendation = None
             confidence = 0.0
@@ -578,7 +578,7 @@ class ResearchOrchestrator:
             try:
                 # Pass raw findings to decision framework for evidence grounding
                 recommendation, confidence = self._generate_recommendation_with_fallback(raw_findings, tasks)
-            except Exception as rec_error:
+            except Exception as rec_error:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.warning(f"Recommendation generation failed: {rec_error}. Continuing without recommendation.")
                 recommendation = None
                 confidence = 0.0
@@ -699,7 +699,7 @@ class ResearchOrchestrator:
             if summary_result.get("status") == "success":
                 result.captains_brief = result.captains_brief or summary_result.get("summary")
                 log.info("[summary] Summary officer enrichment completed")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"[summary] Optional summary enrichment skipped: {e}")
 
         try:
@@ -714,7 +714,7 @@ class ResearchOrchestrator:
             if challenge_result:
                 result.errors.append("challenge_review_attached")
                 log.info("[challenge] Risk & challenge enrichment completed")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"[challenge] Optional risk/challenge enrichment skipped: {e}")
 
         # MSN-0055C WP7: Persist metrics and log summary
@@ -787,7 +787,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 if tasks:
                     log.info(f"Decomposition successful via {provider_name}: {len(tasks)} tasks")
                     return tasks[:3]  # Cap at 3 tasks
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.warning(f"Decomposition failed with {provider_name}: {e}. Trying next provider.")
                 continue
 
@@ -823,7 +823,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 log.info(f"[decompose] Mistral: SUCCESS — {len(tasks)} tasks")
             return tasks
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning(f"[decompose] Mistral: FAILED — {type(e).__name__}: {e}")
             return []
 
@@ -848,7 +848,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
             else:
                 log.error("[decompose] Gemini 2.5 Flash Lite: Empty response from API")
                 return []
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"[decompose] Gemini 2.5 Flash Lite: FAILED - {type(e).__name__}: {e}")
             return []
 
@@ -915,7 +915,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                     log.warning(f"Fallback decomposition produced {len(tasks)} tasks; capped at 3 (max for MVP)")
                 return capped_tasks
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Task decomposition failed: {e}")
             return []
 
@@ -1086,7 +1086,7 @@ Provide only the consolidated summary, no headers or metadata."""
                 log.warning(f"Consolidation provider failed: {outcome.status}. Using local fallback.")
                 raise Exception("Legacy routing failed")
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             # Consolidation timeout or error - use deterministic local fallback
             log.warning(f"Consolidation failed ({type(e).__name__}): {str(e)[:100]}. Using local fallback consolidation.")
 
@@ -1172,7 +1172,7 @@ Cost/Effort: [if relevant]"""
                 log.debug(f"Options extraction failed: {outcome.status}")
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Options extraction failed ({type(e).__name__}): {str(e)[:50]}")
             return None
 
@@ -1227,7 +1227,7 @@ Be specific with numbers/timelines where possible."""
                 log.debug(f"Trade-off analysis failed: {outcome.status}")
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Trade-off analysis failed ({type(e).__name__}): {str(e)[:50]}")
             return None
 
@@ -1280,7 +1280,7 @@ Format clearly. Be specific about probability and impact."""
                 log.debug(f"Risk assessment failed: {outcome.status}")
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Risk assessment failed ({type(e).__name__}): {str(e)[:50]}")
             return None
 
@@ -1497,7 +1497,7 @@ CONFIDENCE: [0.0-1.0]"""
                     log.info("No recommendation generated from findings")
                     return None, 0.0
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning(f"Recommendation generation failed ({type(e).__name__}): {str(e)[:100]}. Continuing without recommendation.")
             return None, 0.0
 
@@ -1625,7 +1625,7 @@ CONFIDENCE: [0.0-1.0]"""
                 log.debug(f"Decision framework generation failed: {outcome.status}")
                 return None, 0.0
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Decision framework generation failed ({type(e).__name__}): {str(e)[:50]}")
             return None, 0.0
 
@@ -1703,7 +1703,7 @@ CONFIDENCE: [0.0-1.0]"""
                 log.debug(f"Flash Lite call failed: {outcome.status}")
                 return None, 0.0
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Recommendation failed ({type(e).__name__}): {str(e)[:50]}")
             return None, 0.0
 

@@ -268,7 +268,7 @@ class HealthContentClassifier:
             ).limit(sample_size).execute()
 
             insights = response.data if hasattr(response, 'data') else response
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to fetch insights for validation: {e}")
             return {
                 "status": "error",

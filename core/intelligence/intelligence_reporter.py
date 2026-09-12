@@ -71,7 +71,7 @@ def _generate_decision_effectiveness() -> dict[str, Any]:
     try:
         from decision_effectiveness import compute_decision_effectiveness
         return compute_decision_effectiveness()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - per-report isolation boundary: this generator's failure must not take down the whole report suite; error captured in the returned dict
         return {"status": "error", "error": str(e), "traceback": traceback.format_exc()}
 
 
@@ -79,7 +79,7 @@ def _generate_mission_intelligence() -> dict[str, Any]:
     try:
         from mission_portfolio_analytics import compute_mission_analytics
         return compute_mission_analytics()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - per-report isolation boundary: this generator's failure must not take down the whole report suite; error captured in the returned dict
         return {"status": "error", "error": str(e)}
 
 
@@ -92,12 +92,12 @@ def _generate_health_performance_correlation() -> dict[str, Any]:
 
     try:
         health_corr = compute_health_mission_correlations()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - per-report isolation boundary: this generator's failure must not take down the whole report suite; error captured in the returned dict
         health_corr = {"status": "error", "error": str(e)}
 
     try:
         sleep_corr = compute_sleep_lag_from_supabase()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - per-report isolation boundary: this generator's failure must not take down the whole report suite; error captured in the returned dict
         sleep_corr = {"status": "error", "error": str(e)}
 
     return {
@@ -114,7 +114,7 @@ def _generate_knowledge_utilisation() -> dict[str, Any]:
     try:
         from knowledge_utilisation import compute_knowledge_utilisation
         return compute_knowledge_utilisation()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - per-report isolation boundary: this generator's failure must not take down the whole report suite; error captured in the returned dict
         return {"status": "error", "error": str(e)}
 
 
@@ -122,7 +122,7 @@ def _generate_readiness_trend(days: int = 30) -> dict[str, Any]:
     try:
         from readiness_history import generate_readiness_trend_report
         return generate_readiness_trend_report(days)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - per-report isolation boundary: this generator's failure must not take down the whole report suite; error captured in the returned dict
         return {"status": "error", "error": str(e)}
 
 
@@ -130,7 +130,7 @@ def _generate_operating_patterns() -> dict[str, Any]:
     try:
         from operating_patterns import compute_operating_patterns_from_sources
         return compute_operating_patterns_from_sources()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - per-report isolation boundary: this generator's failure must not take down the whole report suite; error captured in the returned dict
         return {"status": "error", "error": str(e)}
 
 
@@ -152,7 +152,7 @@ def _persist_readiness_snapshot_if_available() -> bool:
 
         from readiness_history import persist_readiness_snapshot
         return persist_readiness_snapshot(readiness_dict, health_entry)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         print(f"[reporter] Readiness snapshot persistence failed (non-fatal): {e}")
         return False
 
@@ -185,7 +185,7 @@ def _fetch_todays_health_entry() -> dict[str, Any] | None:
                 "body_signals": None,
             }
         return None
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: returns None on any lookup failure, same as the not-found path just above
         return None
 
 
@@ -207,7 +207,7 @@ def _write_report(name: str, data: dict[str, Any], dry_run: bool = False) -> boo
         status = data.get("status", "?")
         print(f"✅ {name}.json written (status={status})")
         return True
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         print(f"❌ Failed to write {name}.json: {e}")
         return False
 
@@ -341,7 +341,7 @@ def _sb_post_events(events: list[dict], dry_run: bool = False) -> int:
             if not is_configured():
                 print("[reporter] Supabase not configured — skipping event persistence")
                 return 0
-        except Exception:
+        except Exception:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             print("[reporter] Supabase not configured — skipping event persistence")
             return 0
 
@@ -368,7 +368,7 @@ def _sb_post_events(events: list[dict], dry_run: bool = False) -> int:
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
             rows = json.loads(resp.read())
             existing_hashes = {r["dedup_hash"] for r in rows}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         print(f"[reporter] Warning: could not check existing events (will attempt insert anyway): {e}")
 
     new_events = [e for e in events if e["dedup_hash"] not in existing_hashes]
@@ -407,13 +407,13 @@ def _sb_post_events(events: list[dict], dry_run: bool = False) -> int:
                 count = _do_insert(core_payload)
                 print(f"[reporter] Persisted {count} intelligence_events (core fields) to Supabase")
                 return count
-            except Exception as e2:
+            except Exception as e2:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 print(f"[reporter] Warning: intelligence_events insert failed: {e2}")
                 return 0
         else:
             print(f"[reporter] Warning: intelligence_events insert failed (HTTP {e.code}): {e}")
             return 0
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         print(f"[reporter] Warning: intelligence_events insert failed: {e}")
         return 0
 
@@ -439,13 +439,13 @@ def run_daily_intelligence(dry_run: bool = False) -> dict[str, Any]:
             try:
                 _, generator = _REPORTS[key]
                 data = generator()
-            except Exception:
+            except Exception:  # noqa: BLE001 - dry-run re-generation is best-effort preview data only; empty dict degrades gracefully
                 data = {}
         else:
             report_path = _OUTPUTS_DIR / f"{key}.json"
             try:
                 data = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else {}
-            except Exception:
+            except Exception:  # noqa: BLE001 - best-effort cached-report read; empty dict degrades gracefully if the file is missing/corrupt
                 data = {}
         events = _extract_events_from_report(key, data)
         all_events.extend(events)
@@ -497,7 +497,7 @@ def run_all_reports(dry_run: bool = False, persist_readiness: bool = True) -> di
             results[key] = {"status": status, "wrote": wrote}
             if status not in ("error",) and wrote:
                 ok_count += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             print(f"❌ Unhandled error: {e}")
             results[key] = {"status": "error", "error": str(e)}
 

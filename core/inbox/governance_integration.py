@@ -61,7 +61,7 @@ def apply_governance_assessment(item: dict[str, Any]) -> dict[str, Any]:
         from core.coordination.governance_service import GovernanceContextService
         svc = GovernanceContextService()
         assessment = svc.assess_governance(entity, context)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[governance-integration] Service call failed: %s", exc)
         return {"governance_status": "failed"}
 

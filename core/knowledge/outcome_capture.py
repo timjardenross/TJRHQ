@@ -256,7 +256,7 @@ def record_outcome(inp: OutcomeInput) -> OutcomeResult:
             outcome_id=outcome_id, source_type=inp.source_type, source_id=inp.source_id,
             persisted=True, lesson_id=lesson_id, warnings=warnings,
         )
-    except Exception as exc:  # pragma: no cover - network failure path
+    except Exception as exc:  # pragma: no cover - network failure path  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
         return OutcomeResult(
             outcome_id=outcome_id, source_type=inp.source_type, source_id=inp.source_id,
             persisted=False, lesson_id=lesson_id, warnings=warnings,
@@ -268,12 +268,12 @@ def _promote_lesson(inp: OutcomeInput, warnings: list[str]) -> str | None:
     """Persist the lesson into lessons_learned via the existing capture path."""
     try:
         from lesson_capture import LessonInput, capture_lesson  # type: ignore
-    except Exception:
+    except Exception:  # noqa: BLE001 - import-path retry guard; the real failure is handled and logged by the retry's own except block below
         # core/knowledge on path? add and retry once.
         sys.path.insert(0, str(_REPO_ROOT / "core" / "knowledge"))
         try:
             from lesson_capture import LessonInput, capture_lesson  # type: ignore
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
             warnings.append(f"lesson promotion skipped (import failed: {exc})")
             return None
     try:
@@ -289,7 +289,7 @@ def _promote_lesson(inp: OutcomeInput, warnings: list[str]) -> str | None:
         if not res.success and res.errors:
             warnings.append("lesson promotion had errors: " + "; ".join(res.errors))
         return res.lesson_id
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
         warnings.append(f"lesson promotion skipped ({exc})")
         return None
 
@@ -304,7 +304,7 @@ def _get(query: str) -> list[dict[str, Any]]:
         return []
     try:
         return supabase_get(query)
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract ("returning [] on any error / offline"); this is the shared read helper for every retrieval call below
         return []
 
 
@@ -616,7 +616,7 @@ def _age_days(ts: str | None, *, _now: datetime | None = None) -> int | None:
             dt = dt.replace(tzinfo=timezone.utc)
         now = _now or datetime.now(timezone.utc)
         return max(0, (now - dt).days)
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract ("None if unparseable/missing"); any parse failure is equally "unparseable" to the caller
         return None
 
 

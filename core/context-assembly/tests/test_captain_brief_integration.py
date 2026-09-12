@@ -51,7 +51,7 @@ def _service_live() -> bool:
         import requests
         requests.get(f"{_CA_URL}/health", timeout=2)
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001 - test-availability probe: any failure means "not live"
         return False
 
 
@@ -65,7 +65,7 @@ def _express_live() -> bool:
         _express = os.environ.get("COMMAND_CENTRE_API", "http://localhost:5000")
         requests.get(f"{_express}/health", timeout=2)
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001 - test-availability probe: any failure means "not live"
         return False
 
 
@@ -283,8 +283,8 @@ class TestFetchContextAssemblyBrief(unittest.TestCase):
         sys.modules.setdefault("dotenv", MagicMock())
         try:
             spec.loader.exec_module(mod)
-        except Exception:
-            pass  # Flask app.run() etc. may raise — helper is still importable
+        except Exception:  # noqa: BLE001 - Flask app.run() etc. may raise on import side-effects; helper is still importable regardless
+            pass
         return mod
 
     def test_fallback_on_connection_error(self):

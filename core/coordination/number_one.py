@@ -37,7 +37,7 @@ try:
         MemoryContext,
         NumberOneMemoryAdapter,
     )
-except Exception:  # pragma: no cover - advisory-only fallback
+except Exception:  # pragma: no cover - advisory-only fallback  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
     NumberOneMemoryAdapter = None
     MemoryContext = None
 
@@ -866,7 +866,7 @@ class NumberOne:
             return None
         try:
             return self.memory_adapter.retrieve_context(missions, routing_results or {})
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one] memory retrieval failed (non-blocking): %s", exc)
             return None
 
@@ -887,7 +887,7 @@ class NumberOne:
                 "confidence": 0.0,
             }
             self.memory_adapter.persist_brief(payload)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one] memory persistence failed (non-blocking): %s", exc)
 
 

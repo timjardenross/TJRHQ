@@ -316,7 +316,7 @@ def _rule_executor_stuck(conn: sqlite3.Connection, client) -> None:
             columns="request_id,status,created_at",
             limit=100,
         ) or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[bus:stuck] Supabase query failed: %s", exc)
         return
 
@@ -461,7 +461,7 @@ def _rule_new_missions(conn: sqlite3.Connection, client) -> None:
             columns="mission_id,title,status",
             limit=200,
         ) or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[bus:missions] Supabase query failed: %s", exc)
         return
 
@@ -509,7 +509,7 @@ def _get_number_one_brief() -> dict | None:
                 sys.path.insert(0, str(p))
         import context_service
         return context_service._http_number_one_brief()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[bus:number_one] Could not fetch Number One's brief: %s", exc)
         return None
 
@@ -603,7 +603,7 @@ def run_loop() -> None:
     while True:
         try:
             run_once()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error("[bus] Cycle error (continuing): %s", exc)
         time.sleep(_INTERVAL)
 

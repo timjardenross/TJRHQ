@@ -69,7 +69,7 @@ def create_task(
         task_id = result.data[0].get("task_id")
         _log_task_event(client, task_id, "created", {"task_type": task_type, "domain": domain, "owner": owner})
         return task_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[task-engine] create_task failed (non-blocking): %s", exc)
         return None
 
@@ -125,7 +125,7 @@ def transition_task(
             {"new_status": new_status, "error": error, "delegated_to": delegated_to},
         )
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[task-engine] transition_task failed (non-blocking): %s", exc)
         return False
 
@@ -143,7 +143,7 @@ def get_task(task_id: str) -> dict[str, Any] | None:
         client = CommanderSupabaseClient()
         rows = client.get(f"tasks?task_id=eq.{task_id}&select=*")
         return rows[0] if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[task-engine] get_task failed (non-blocking): %s", exc)
         return None
 
@@ -161,7 +161,7 @@ def get_task_by_idempotency_key(idempotency_key: str) -> dict[str, Any] | None:
         client = CommanderSupabaseClient()
         rows = client.get(f"tasks?idempotency_key=eq.{urllib.parse.quote(idempotency_key, safe='')}&select=*")
         return rows[0] if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[task-engine] get_task_by_idempotency_key failed (non-blocking): %s", exc)
         return None
 
@@ -173,7 +173,7 @@ def get_child_tasks(parent_task_id: str) -> list[dict[str, Any]]:
 
         client = CommanderSupabaseClient()
         return client.get(f"tasks?parent_task_id=eq.{parent_task_id}&select=*")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[task-engine] get_child_tasks failed (non-blocking): %s", exc)
         return []
 
@@ -185,7 +185,7 @@ def get_task_history(task_id: str) -> list[dict[str, Any]]:
 
         client = CommanderSupabaseClient()
         return client.get(f"task_events?task_id=eq.{task_id}&select=*&order=occurred_at.asc")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[task-engine] get_task_history failed (non-blocking): %s", exc)
         return []
 
@@ -193,7 +193,7 @@ def get_task_history(task_id: str) -> list[dict[str, Any]]:
 def _log_task_event(client, task_id: str, event_type: str, detail: dict[str, Any]) -> None:
     try:
         client.insert("task_events", {"task_id": task_id, "event_type": event_type, "detail": detail})
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[task-engine] _log_task_event failed (non-blocking): %s", exc)
 
 

@@ -57,7 +57,7 @@ class ModelWarmupManager:
             self.last_warmup[model_name] = datetime.now(timezone.utc)
             log.info(f"Successfully warmed up model: {model_name}")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to warm up model {model_name}: {e!s}")
             return False
 
@@ -68,7 +68,7 @@ class ModelWarmupManager:
             _response, _ = router_call(self.warmup_prompt, model_name)
             self.keepalive_connections[model_name] = datetime.now(timezone.utc)
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to maintain keep-alive for model {model_name}: {e!s}")
             return False
 

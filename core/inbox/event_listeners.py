@@ -59,7 +59,7 @@ def invalidate_governance_cache_for_artefact(artefact_id: str) -> int:
             .execute()
         )
         rows = result.data or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[inbox-events] Failed to fetch cached items: %s", exc)
         return 0
 
@@ -89,7 +89,7 @@ def invalidate_governance_cache_for_artefact(artefact_id: str) -> int:
                 "governance_cache_expires_at": now,
             }).eq("id", item_id).execute()
             invalidated += 1
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[inbox-events] Failed to invalidate cache for %s: %s", item_id, exc)
 
     log.info(
@@ -121,7 +121,7 @@ def sweep_expired_governance_cache(limit: int = 50) -> list[str]:
             .execute()
         )
         rows = result.data or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[inbox-events] sweep query failed: %s", exc)
         return []
 
@@ -133,7 +133,7 @@ def sweep_expired_governance_cache(limit: int = 50) -> list[str]:
             client.table("captured_items").update({
                 "processing_status": "pending",
             }).eq("id", item_id).execute()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[inbox-events] Failed to re-queue %s: %s", item_id, exc)
 
     if item_ids:

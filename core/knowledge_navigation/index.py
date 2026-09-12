@@ -68,7 +68,7 @@ def _rest_get(url: str, key: str, table: str, params: dict[str, str]) -> list[di
     except urllib.error.HTTPError as exc:
         log.warning("[hierarchy-index] %s GET failed: HTTP %s", table, exc.code)
         return []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[hierarchy-index] %s GET failed: %s", table, exc)
         return []
 
@@ -99,7 +99,7 @@ def _rest_upsert(url: str, key: str, table: str, rows: list[dict[str, Any]]) -> 
             pass
         log.error("[hierarchy-index] %s upsert failed: HTTP %s %s", table, exc.code, detail)
         return False
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[hierarchy-index] %s upsert failed: %s", table, exc)
         return False
 
@@ -148,7 +148,7 @@ class HierarchyIndex:
                     source_file=row.get("source_file") or "",
                     metadata=row.get("metadata") or {},
                 ))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.warning("[hierarchy-index] Skipping malformed node %s: %s", row.get("node_id"), exc)
 
         for row in edges:
@@ -160,7 +160,7 @@ class HierarchyIndex:
                     confidence=float(row.get("confidence") or 1.0),
                     evidence=row.get("evidence") or "",
                 ))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.warning("[hierarchy-index] Skipping malformed edge: %s", exc)
 
         log.info("[hierarchy-index] Loaded %s", self._graph)

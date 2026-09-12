@@ -75,7 +75,7 @@ def _load_yaml(path: Path) -> dict:
         import yaml
         with open(path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[authority] Failed to load %s: %s", path, exc)
         return {}
 
@@ -226,7 +226,7 @@ def audit_authority_action(
         )
         if not result.ok:
             log.warning("[authority] Audit log write failed: %s", result.error)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[authority] Audit log failed (non-blocking): %s", exc)
 
 

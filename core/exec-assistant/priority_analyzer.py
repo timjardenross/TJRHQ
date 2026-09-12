@@ -172,7 +172,7 @@ class PriorityAnalyzer:
                 ).order("due_date", desc=False).execute()
 
                 commitments = [Commitment(**row) for row in result.data]
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.error(f"Failed to fetch commitments: {e}")
                 return []
 

@@ -58,7 +58,7 @@ def _git_last_modified(file_ref: str, repo_root: Path) -> str:
             # and normalize to UTC for consistent comparison with other timestamps.
             dt = datetime.strptime(first_line, "%Y-%m-%d %H:%M:%S %z")
             return dt.astimezone(timezone.utc).isoformat()
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort git-metadata lookup; failure just means no last-modified timestamp
         pass
     return None
 
@@ -123,7 +123,7 @@ def _fetch_command_memory_mission_ids() -> set[str]:
         from command_memory_integration import get_active_missions
         missions = get_active_missions()
         return {m["id"] for m in missions if m.get("id")}
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort Command Memory dedup lookup; failure just means no dedup filtering
         return set()
 
 
@@ -140,7 +140,7 @@ def _load_engineering_handoffs_safe() -> list[dict]:
     try:
         cm_ids = _fetch_command_memory_mission_ids()
         return load_engineering_handoffs(command_memory_mission_ids=cm_ids)
-    except Exception as e:  # pragma: no cover - defensive; ingestion is advisory
+    except Exception as e:  # pragma: no cover - defensive; ingestion is advisory  # noqa: BLE001 - already logged (print) and documented advisory-only fallback
         print(f"⚠️  Engineering handoff ingestion skipped (non-fatal): {e}")
         return []
 
@@ -152,7 +152,7 @@ def _summarise_engineering_handoffs_safe(missions: list[dict]) -> dict:
         return empty
     try:
         return summarise_engineering_handoffs(missions)
-    except Exception as e:  # pragma: no cover - defensive; reporting is advisory
+    except Exception as e:  # pragma: no cover - defensive; reporting is advisory  # noqa: BLE001 - already logged (print) and documented advisory-only fallback
         print(f"⚠️  Engineering handoff summary skipped (non-fatal): {e}")
         return empty
 
@@ -232,7 +232,7 @@ class NumberOneExporter:
             print(f"✅ Exported brief to {output_file}")
             return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export brief: {e}")
             return False
 
@@ -274,7 +274,7 @@ class NumberOneExporter:
             print(f"✅ Exported queue to {output_file}")
             return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export queue: {e}")
             return False
 
@@ -311,7 +311,7 @@ class NumberOneExporter:
             print(f"✅ Exported escalations to {output_file}")
             return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export escalations: {e}")
             return False
 
@@ -324,14 +324,14 @@ class NumberOneExporter:
                 json.dump(blockers, f, indent=2)
             print(f"✅ Exported blockers to {output_file}")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export blockers: {e}")
             # Write empty valid JSON so consumers don't fail
             try:
                 with open(self.output_dir / "blockers.json", "w") as f:
                     json.dump({"timestamp": datetime.now(timezone.utc).isoformat(), "total_blockers": 0,
                                "critical": [], "high": [], "normal": [], "error": str(e)}, f, indent=2)
-            except Exception:
+            except Exception:  # noqa: BLE001 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 
@@ -347,13 +347,13 @@ class NumberOneExporter:
                 json.dump(health_queue, f, indent=2)
             print(f"✅ Exported health queue to {output_file}")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export health queue: {e}")
             try:
                 with open(self.output_dir / "health_queue.json", "w") as f:
                     json.dump({"exported_at": datetime.now(timezone.utc).isoformat(), "capacity_status": "Unknown",
                                "queue": [], "recommended_focus": [], "advisory": "Unavailable", "error": str(e)}, f, indent=2)
-            except Exception:
+            except Exception:  # noqa: BLE001 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 
@@ -368,7 +368,7 @@ class NumberOneExporter:
                     json.dump({"assembled_at": datetime.now(timezone.utc).isoformat(),
                                "recommendations": [], "health_constraints_applied": False,
                                "total_active_missions": 0, "unavailable": True}, f, indent=2)
-            except Exception:
+            except Exception:  # noqa: BLE001 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return True
         try:
@@ -398,14 +398,14 @@ class NumberOneExporter:
                 json.dump(pkg_dict, f, indent=2)
             print(f"✅ Exported recommendations to {output_file}")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export recommendations: {e}")
             try:
                 with open(self.output_dir / "recommendations.json", "w") as f:
                     json.dump({"assembled_at": datetime.now(timezone.utc).isoformat(),
                                "recommendations": [], "health_constraints_applied": False,
                                "total_active_missions": 0, "error": str(e)}, f, indent=2)
-            except Exception:
+            except Exception:  # noqa: BLE001 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 
@@ -421,7 +421,7 @@ class NumberOneExporter:
             try:
                 with open(self.output_dir / "readiness.json", "w") as f:
                     json.dump({"exported_at": datetime.now(timezone.utc).isoformat(), "unavailable": True}, f, indent=2)
-            except Exception:
+            except Exception:  # noqa: BLE001 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return True
         try:
@@ -442,13 +442,13 @@ class NumberOneExporter:
                 json.dump(readiness_dict, f, indent=2)
             print(f"✅ Exported readiness to {output_file}")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export readiness: {e}")
             try:
                 with open(self.output_dir / "readiness.json", "w") as f:
                     json.dump({"exported_at": datetime.now(timezone.utc).isoformat(),
                                "score": 0, "status": "Unknown", "error": str(e)}, f, indent=2)
-            except Exception:
+            except Exception:  # noqa: BLE001 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 
@@ -512,13 +512,13 @@ class NumberOneExporter:
                 json.dump(payload, f, indent=2)
             print(f"✅ Exported lessons to {output_file} ({len(lessons)} entries)")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export lessons: {e}")
             try:
                 with open(output_file, "w") as f:
                     json.dump({"exported_at": datetime.now(timezone.utc).isoformat(),
                                "total": 0, "lessons": [], "error": str(e)}, f, indent=2)
-            except Exception:
+            except Exception:  # noqa: BLE001 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 
@@ -728,7 +728,7 @@ class NumberOneExporter:
         try:
             _run_intelligence_reports(dry_run=False, persist_readiness=True)
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logged (print); intelligence reporting is explicitly non-blocking/advisory
             print(f"⚠️  Intelligence reporting failed (non-fatal): {e}")
             return True  # never block the main export
 

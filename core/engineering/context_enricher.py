@@ -164,7 +164,7 @@ def _load_mission_file(mission_id: str, title: str) -> str | None:
                     body = candidate.read_text(encoding="utf-8", errors="replace")
                     log.info("[enricher] mission file: %s", candidate)
                     return body[:_MAX_MISSION_BODY].strip()
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                     log.warning("[enricher] could not read %s: %s", candidate, exc)
 
     log.info("[enricher] no mission file found for %s", mission_id)
@@ -246,7 +246,7 @@ def _load_file_contents(rel_paths: list[str]) -> str:
         path = _REPO_ROOT / rel
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
-        except Exception as exc:  # unreadable → skip, never raise
+        except Exception as exc:  # unreadable → skip, never raise  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[enricher] could not read %s: %s", path, exc)
             continue
         total_lines = text.count("\n") + 1
@@ -348,7 +348,7 @@ def _run_cortex(args: list[str]) -> str | None:
             )
             return None
         return result.stdout.strip()
-    except Exception as exc:  # binary missing, timeout, permissions, etc.
+    except Exception as exc:  # binary missing, timeout, permissions, etc.  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[enricher] cortex %s unavailable: %s", args[0], exc)
         return None
 

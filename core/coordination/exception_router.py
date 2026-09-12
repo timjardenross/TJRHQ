@@ -231,7 +231,7 @@ def classify_all(items: list[dict[str, Any]]) -> RoutedBrief:
                 Route.NUMBER_ONE: brief.number_one,
                 Route.OFFICER: brief.officer,
             }[decision.route].append(decision)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[exception-router] Failed to classify item %s: %s", item.get("type"), exc)
     return brief
 

@@ -34,7 +34,7 @@ async def speak_to_file(text: str) -> str | None:
     except ImportError:
         log.warning("edge-tts not installed — voice output disabled")
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("TTS synthesis failed: %s", exc)
         return None
 
@@ -56,7 +56,7 @@ async def send_voice_reply(bot, chat_id: int, text: str) -> bool:
         with open(path, "rb") as f:
             await bot.send_audio(chat_id=chat_id, audio=f)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("Telegram audio send failed: %s", exc)
         return False
     finally:

@@ -85,7 +85,7 @@ def fetch_approved_missions(limit: int = 25) -> list[dict[str, Any]]:
             f"&status=eq.{quote(APPROVED_STATUS)}&order=updated_at.asc&limit={limit}"
         )
         return supabase_get(path)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning(f"Failed to fetch Approved-for-Engineering missions: {exc}")
         return []
 
@@ -114,7 +114,7 @@ def _dispatch_history(data_root: Path) -> tuple[set[str], dict[str, int]]:
                         failures.pop(mid, None)
                     else:
                         failures[mid] = failures.get(mid, 0) + 1
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning(f"Failed to read {log_path}: {exc}")
         return set(), {}
     return succeeded, failures

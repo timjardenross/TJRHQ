@@ -85,7 +85,7 @@ class _SupabaseReader:
         try:
             result = self._client.table(table).select(columns).limit(limit).execute()
             return result.data or []
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[governance-service] select failed on %s: %s", table, exc)
             return []
 

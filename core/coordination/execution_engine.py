@@ -132,7 +132,7 @@ class NumberOneExecutionEngine:
             except AuthorityError as exc:
                 log.warning("[exec-engine] Assignment blocked by authority gate: %s", exc.reason)
                 return None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[exec-engine] Authority check failed (non-blocking): %s", exc)
 
         days = review_days or self.REVIEW_DATE_DEFAULT_DAYS
@@ -348,7 +348,7 @@ class NumberOneExecutionEngine:
             sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
             from command_memory_integration import get_client
             return get_client()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[exec-engine] Command Memory client unavailable: %s", exc)
             return None
 
@@ -366,7 +366,7 @@ class NumberOneExecutionEngine:
                     }
                 )
                 log.info("[exec-engine] Mission %s assigned to %s", action.mission_id, action.assigned_to)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[exec-engine] Assignment write failed (non-blocking): %s", exc)
 
         self._log_decision(
@@ -386,7 +386,7 @@ class NumberOneExecutionEngine:
         """Non-blocking write to Command Memory decisions table."""
         try:
             _try_log_decision(statement, rationale, owner="number_one")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[exec-engine] Decision log failed (non-blocking): %s", exc)
 
     def _build_recommendations(

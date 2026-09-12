@@ -24,7 +24,7 @@ try:
         MissionRegistryMemoryContext,
         RelatedMission,
     )
-except Exception:  # pragma: no cover - advisory-only fallback
+except Exception:  # pragma: no cover - advisory-only fallback  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
     MissionRegistryMemoryAdapter = None
     MissionRegistryMemoryContext = None
     RelatedMission = None
@@ -35,7 +35,7 @@ try:
         DecisionRegistryMemoryContext,
         RelatedDecision,
     )
-except Exception:  # pragma: no cover - advisory-only fallback
+except Exception:  # pragma: no cover - advisory-only fallback  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
     DecisionRegistryMemoryAdapter = None
     DecisionRegistryMemoryContext = None
     RelatedDecision = None
@@ -58,7 +58,7 @@ def _build_supabase_client():
         client = CommanderSupabaseClient()
         if client.is_enabled():
             return client
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[number-one-memory] Supabase client unavailable: %s", exc)
     return None
 
@@ -191,7 +191,7 @@ class NumberOneMemoryAdapter:
             }
             result = self.supabase.insert("number_one_memory", payload)
             return bool(result.ok)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one-memory] persist failed: %s", exc)
             return False
 
@@ -245,7 +245,7 @@ class NumberOneMemoryAdapter:
                 return [self._normalize_row(row, "adr") for row in (response.data or [])]
 
             return []
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one-memory] Supabase retrieval failed: %s", exc)
             return self._retrieve_from_files(query_type, query_text)
 
@@ -351,7 +351,7 @@ class NumberOneMemoryAdapter:
                 text=text,
                 limit=5,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one-memory] mission registry retrieval failed: %s", exc)
             return None
 
@@ -378,7 +378,7 @@ class NumberOneMemoryAdapter:
                 text=text,
                 limit=5,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one-memory] decision registry retrieval failed: %s", exc)
             return None
 

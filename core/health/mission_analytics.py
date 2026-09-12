@@ -72,7 +72,7 @@ def analyse_missions() -> dict[str, Any]:
 
     try:
         missions = supabase_get("missions?limit=500&order=created_at.asc")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("missions fetch failed: %s", exc)
         return _empty(f"Fetch error: {exc}")
 

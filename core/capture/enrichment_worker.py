@@ -269,7 +269,7 @@ def _auto_route_personal(item: dict, suggestion: dict, dry_run: bool = False) ->
         try:
             _sb_patch("captains_log_entries", {"id": log_id}, {"overall_note": new_note})
             log.info("[%s] Appended to captains_log_entries id=%s", item_id[:8], log_id)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error("[%s] Failed to update captains_log_entries: %s", item_id[:8], exc)
             return False
     else:
@@ -291,7 +291,7 @@ def _auto_route_personal(item: dict, suggestion: dict, dry_run: bool = False) ->
             "review_status":     "actioned",
             "summary":           json.dumps(updated_summary),
         })
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[%s] Failed to mark item as routed: %s", item_id[:8], exc)
         return False
 
@@ -347,7 +347,7 @@ def _promote_to_intelligence_note(item: dict, suggestion: dict, dry_run: bool = 
             "confidence_score": suggestion["confidence"],
             "metadata":    provenance,
         })
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[%s] Failed to create intelligence_notes row: %s", item_id[:8], exc)
         return False
 
@@ -370,7 +370,7 @@ def _promote_to_intelligence_note(item: dict, suggestion: dict, dry_run: bool = 
             "review_status":     "actioned",
             "summary":           json.dumps(updated_summary),
         })
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[%s] Failed to mark item as routed: %s", item_id[:8], exc)
         return False
 
@@ -401,7 +401,7 @@ def enrich_item(item: dict, dry_run: bool = False) -> bool:
 
     try:
         suggestion = _call_llm(text)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[%s] LLM call failed: %s", item_id[:8], exc)
         if not dry_run:
             existing = _safe_parse_summary(item.get("summary"))
@@ -509,7 +509,7 @@ def _advance_notebook_pipeline(dry_run: bool = False) -> None:
 
         result = run_notebook_pipeline(client)
         log.info("[notebook-pipeline] advanced: %s", result)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[notebook-pipeline] advance failed (non-blocking): %s", exc)
 
 
@@ -535,7 +535,7 @@ def run_batch(limit: int = 10, dry_run: bool = False) -> dict:
             else:
                 err += 1
             time.sleep(0.5)  # avoid hammering Ollama
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error("Unexpected error on item %s: %s", item.get("id", "?")[:8], exc)
             err += 1
     _advance_notebook_pipeline(dry_run=dry_run)

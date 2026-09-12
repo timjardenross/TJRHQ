@@ -100,7 +100,7 @@ def _load_missions() -> list:
             }
             missions.append(m_dict)
         return missions
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - module/corpus load failure must not crash the assembler; already logged via _err()
         _err(f"Could not load missions corpus: {e}")
         return []
 
@@ -110,7 +110,7 @@ def _load_corpus():
     try:
         from loaders import load_corpus
         return load_corpus()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - module/corpus load failure must not crash the assembler; already logged via _err()
         _err(f"Could not load corpus: {e}")
         return {"missions": {}, "decisions": {}, "adrs": {}, "capabilities": {}}
 
@@ -147,7 +147,7 @@ def _load_live_missions_for_number_one() -> list:
         sys.path.insert(0, str(REPO_ROOT / "core" / "health"))
         from supabase_client import supabase_get
         rows = supabase_get("missions?select=mission_id,status,priority,updated_at,closed_at,pr_url")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase read failure falls back to file corpus; already logged via _err()
         _err(f"Could not load live Supabase mission status — using file corpus only: {exc}")
         return file_missions
 
@@ -195,7 +195,7 @@ def get_recommendations(missions: list = None, health: HealthContextPackage = No
     if health is None:
         try:
             health = assemble_health_context()
-        except Exception:
+        except Exception:  # noqa: BLE001 - optional health enrichment; None fallback is the documented degraded state
             health = None
     pkg = generate_recommendation_package(missions, health)
     return pkg.to_dict()
@@ -216,7 +216,7 @@ def get_captain_brief(missions: list = None, recommendations: list = None) -> di
             health = assemble_health_context()
             from recommendation_engine import rank_missions
             recommendations = rank_missions(missions, health)
-        except Exception:
+        except Exception:  # noqa: BLE001 - optional recommendation enrichment; empty-list fallback is the documented degraded state
             recommendations = []
     brief = assemble_captain_brief_context(
         missions=missions,
@@ -234,7 +234,7 @@ def get_operating_picture(missions: list = None, recommendations: list = None) -
             health = assemble_health_context()
             from recommendation_engine import rank_missions
             recommendations = rank_missions(missions, health)
-        except Exception:
+        except Exception:  # noqa: BLE001 - optional recommendation enrichment; empty-list fallback is the documented degraded state
             recommendations = []
     cop = assemble_operating_picture(
         missions=missions,
@@ -267,7 +267,7 @@ def generate_all_outputs():
         health = assemble_health_context()
         from recommendation_engine import rank_missions
         recs = rank_missions(missions, health)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - optional health/recs enrichment; already logged via _err(), degrades gracefully
         _err(f"Health/recs failed (non-fatal): {e}")
         health = None
         recs = []
@@ -343,7 +343,7 @@ def _make_flask_app():
                 },
                 "checked_at": _http_timestamp(),
             })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "status": "unhealthy",
                 "error": str(exc),
@@ -354,7 +354,7 @@ def _make_flask_app():
     def http_captain_brief():
         try:
             return jsonify(_http_captain_brief())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "error": "captain_brief_failed",
                 "detail": str(exc),
@@ -365,7 +365,7 @@ def _make_flask_app():
     def http_number_one_brief():
         try:
             return jsonify(_http_number_one_brief())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "error": "number_one_brief_failed",
                 "detail": str(exc),
@@ -376,7 +376,7 @@ def _make_flask_app():
     def http_health_adjusted_queue():
         try:
             return jsonify(_http_health_adjusted_queue())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "error": "health_adjusted_queue_failed",
                 "detail": str(exc),
@@ -410,7 +410,7 @@ def _make_flask_app():
             events = poll_events(limit=limit)
             doc = assemble_captain_brief_document(events)
             return jsonify(dataclasses.asdict(doc, dict_factory=_str_default_asdict))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "error": "full_captain_brief_failed",
                 "detail": str(exc),
@@ -421,7 +421,7 @@ def _make_flask_app():
     def http_recommendations_full():
         try:
             return jsonify(get_recommendations())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "error": "recommendations_failed",
                 "detail": str(exc),
@@ -458,7 +458,7 @@ def _make_flask_app():
             events = poll_events(limit=limit)
             doc = assemble_evolved_captain_brief(events)
             return jsonify(dataclasses.asdict(doc, dict_factory=_str_default_asdict))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "error": "evolved_captain_brief_failed",
                 "detail": str(exc),
@@ -522,8 +522,8 @@ def _http_captain_brief() -> dict:
             "data_quality": health.data_quality,
             "safety_flags": health.safety_flags,
         }
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort brief section; now logged via _err(), degrades to the default summary
+        _err(f"Could not assemble health summary (non-fatal, using default): {exc}")
 
     # Blockers
     blocker_list = []
@@ -536,8 +536,8 @@ def _http_captain_brief() -> dict:
                 "recommended_action": b.recommended_action,
                 "dependent_missions": b.dependent_missions,
             })
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort brief section; now logged via _err(), degrades to an empty list
+        _err(f"Could not assemble blockers (non-fatal): {exc}")
 
     # Decisions awaiting input
     pending_decisions = []
@@ -550,8 +550,8 @@ def _http_captain_brief() -> dict:
                 "urgency": d.urgency,
                 "awaiting_captain_input": d.awaiting_captain_input,
             })
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort brief section; now logged via _err(), degrades to an empty list
+        _err(f"Could not assemble pending decisions (non-fatal): {exc}")
 
     # Top priorities from corpus packages
     packages = {}
@@ -560,8 +560,8 @@ def _http_captain_brief() -> dict:
             pkg = assemble_mission_context(mid, corpus)
             if pkg:
                 packages[mid] = pkg
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - best-effort per-mission enrichment; now logged via _err(), skips just that mission
+            _err(f"Could not assemble mission context for {mid} (non-fatal): {exc}")
 
     TERMINAL = {"COMPLETED", "CANCELLED", "CLOSED", "ARCHIVED", "COMPLETE"}
 
@@ -709,7 +709,7 @@ def _capacity_status_for_today() -> str:
 
         health = build_health_context_live()
         return health.capacity_status or "Unknown"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logged via _err(); defaulting capacity status to Unknown is the documented fallback
         _err(f"Could not resolve today's capacity status — defaulting to Unknown: {exc}")
         return "Unknown"
 
@@ -734,7 +734,7 @@ def _http_health_adjusted_queue() -> dict:
     missions = _load_live_missions_for_number_one()
     try:
         missions = missions + load_engineering_handoffs()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logged via _err(); engineering handoffs are additive/optional to the mission list
         _err(f"Could not load engineering handoffs: {exc}")
 
     capacity_status = _capacity_status_for_today()
@@ -788,14 +788,14 @@ def _http_number_one_brief() -> dict:
     missions = _load_live_missions_for_number_one()
     try:
         missions = missions + load_engineering_handoffs()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logged via _err(); engineering handoffs are additive/optional to the mission list
         _err(f"Could not load engineering handoffs: {exc}")
     brief = NumberOne().get_daily_brief(missions)
 
     escalations = [_escalation_to_dict(e) for e in brief.escalations]
     try:
         escalations += _pr_health_escalations(missions)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logged via _err(); PR-health enrichment is additive/optional
         _err(f"Could not check PR health: {exc}")
 
     return {
@@ -957,7 +957,7 @@ def main():
 
         print(json.dumps(result, indent=2, default=str))
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level CLI entry point: must catch anything to report the failure as JSON and exit non-zero
         print(json.dumps({"error": str(e), "assembled_at": datetime.now(timezone.utc).isoformat()}))
         sys.exit(1)
 

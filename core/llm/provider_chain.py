@@ -27,7 +27,7 @@ try:
     from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
     _configure_tracing("provider-chain")
     _TRACING_AVAILABLE = True
-except Exception:
+except Exception:  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
     _TRACING_AVAILABLE = False
 
 

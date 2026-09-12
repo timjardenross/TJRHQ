@@ -55,7 +55,7 @@ def _get(path: str) -> list:
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
             return json.loads(resp.read())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("Supabase query failed (%s): %s", path, exc)
         return []
 
@@ -76,7 +76,7 @@ def _post_batch(table: str, rows: list) -> list | None:
         detail = exc.read().decode(errors="replace")
         log.error("Batch insert failed (%s): %s %s", table, exc.code, detail)
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("Batch insert failed (%s): %s", table, exc)
         return None
 
@@ -100,7 +100,7 @@ def _log_batch_operation(result: dict) -> None:
         )
         with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
             pass
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("Audit log write failed (non-fatal): %s", exc)
 
 

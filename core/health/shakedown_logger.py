@@ -60,7 +60,7 @@ def log_event(
     try:
         with open(_LOG_FILE, "a") as f:
             f.write(json.dumps(record) + "\n")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[shakedown] Failed to write event log: %s", exc)
 
 

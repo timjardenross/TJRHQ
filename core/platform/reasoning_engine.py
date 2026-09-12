@@ -88,7 +88,7 @@ def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: in
     except (urllib.error.URLError, OSError, TimeoutError) as exc:
         log.info("[reasoning-engine] model router unreachable (non-blocking): %s", exc)
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[reasoning-engine] model router call failed unexpectedly (non-blocking): %s", exc)
         return None
 

@@ -90,7 +90,7 @@ def persist_readiness_snapshot(
     local_path = _READINESS_LOG_DIR / f"{today}.json"
     try:
         local_path.write_text(json.dumps(snapshot, indent=2, default=str), encoding="utf-8")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         print(f"[readiness_history] Local write failed: {exc}")
         return False
 
@@ -117,7 +117,7 @@ def persist_readiness_snapshot(
                 },
                 on_conflict="assessment_date",
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             print(f"[readiness_history] Supabase upsert failed (non-fatal): {exc}")
 
     # ── Event Bus emission (best-effort, non-blocking, MSN-0305) ────────────

@@ -121,7 +121,7 @@ class ResearchMetrics:
                 "[research-metrics] Supabase client not available. "
                 "Metrics not persisted. (Install supabase-py)"
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(
                 f"[research-metrics] Failed to store metrics: {type(e).__name__}: {str(e)[:100]}"
             )

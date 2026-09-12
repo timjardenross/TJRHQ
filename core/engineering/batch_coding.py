@@ -332,7 +332,7 @@ def _open_files_pr(custom_id: str, files: dict[str, str], fields: dict[str, str]
             custom_id, files, title=f"[Mistral] {title}", body=body, token=token, repo=repo,
             allow_existing=allow_existing,
         )
-    except Exception as exc:  # never let PR creation break delivery
+    except Exception as exc:  # never let PR creation break delivery  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[batch_coding] files-PR attempt errored for %s: %s", custom_id, exc)
         return {"opened": False, "reason": "exception", "detail": str(exc)[:200]}
 
@@ -360,7 +360,7 @@ def _maybe_open_pr(custom_id: str, text: str, fields: dict[str, str]) -> dict[st
             custom_id, diff, title=f"[Mistral] {title}", body=body,
             token=token, repo=repo,
         )
-    except Exception as exc:  # never let PR creation break delivery
+    except Exception as exc:  # never let PR creation break delivery  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[batch_coding] PR attempt errored for %s: %s", custom_id, exc)
         return {}
     if result.get("opened"):

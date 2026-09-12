@@ -74,7 +74,7 @@ def record_insight(insight: Insight, recommendation: Recommendation | None = Non
         except Exception:
             pass
         return result.data[0].get("id")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[insight-outcomes] record_insight failed (non-blocking): %s", exc)
         return None
 
@@ -103,7 +103,7 @@ def record_outcome(insight_id: str, outcome: str, note: str | None = None) -> bo
             "outcome_recorded_at": datetime.now(timezone.utc).isoformat(),
         }).eq("id", insight_id).execute()
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[insight-outcomes] record_outcome failed (non-blocking): %s", exc)
         return False
 
@@ -121,7 +121,7 @@ def fetch_outcome_history(limit: int = 100) -> list[dict[str, Any]]:
             return []
         result = raw.table("insight_outcomes").select("*").order("generated_at", desc=True).limit(limit).execute()
         return list(result.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[insight-outcomes] fetch_outcome_history failed (non-blocking): %s", exc)
         return []
 
