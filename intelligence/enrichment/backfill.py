@@ -148,7 +148,7 @@ def enrich_row(row: dict, dry_run: bool = False) -> bool:
     try:
         event = _build_classified_event(row)
         result = enrich(event)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - per-row enrichment inside a backfill batch loop — one bad row must not abort the batch; already logged
         log.error("[%s] Enrichment failed: %s", event_id[:8], exc)
         return False
 
@@ -170,7 +170,7 @@ def enrich_row(row: dict, dry_run: bool = False) -> bool:
             "executive_relevance": result["executive_relevance"],
         })
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - per-row PATCH inside a backfill batch loop — one bad row must not abort the batch; already logged
         log.error("[%s] PATCH failed: %s", event_id[:8], exc)
         return False
 
@@ -191,7 +191,7 @@ def run(dry_run: bool = False, max_events: int | None = None) -> dict:
         # Using a moving offset would overshoot once enough rows are removed.
         try:
             batch, total = _fetch_batch(0)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - batch-fetch failure inside the backfill loop — already logged, breaks the loop cleanly rather than crashing
             log.error("Failed to fetch batch: %s", exc)
             break
 

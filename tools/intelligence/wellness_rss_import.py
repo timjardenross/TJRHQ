@@ -149,7 +149,8 @@ def _parse_feed_xml(xml_bytes: bytes, source: SourceRecord, limit: int) -> list[
         # ISO 8601 fallback
         try:
             return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - final date-format fallback; caller treats None as "no publish date available"
+            log.debug("ISO 8601 date parse failed for %r: %s", date_str, exc)
             return None
 
     items: list[IntelligenceItem] = []
@@ -232,7 +233,7 @@ def _collect_rss(sources: list[SourceRecord], limit_per_source: int = 25) -> lis
             req = urllib.request.Request(feed_url, headers=_UA)
             with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310 - feed_url sourced from this repo's own source registry, not raw user input
                 raw = resp.read()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-source fetch inside the import loop — one bad source must not abort the run; already logged
             log.warning("[%s] fetch failed: %s", source.source_name, exc)
             return []
 
@@ -286,7 +287,7 @@ def _collect_rss(sources: list[SourceRecord], limit_per_source: int = 25) -> lis
             items = _parse_feed_xml(raw, source, limit_per_source)
             log.info("[%s] %d items via stdlib XML", source.source_name, len(items))
             return items
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - stdlib XML fallback parser — a parse failure here means no more fallbacks remain, caller treats [] as "no items this run"; already logged
             log.warning("[%s] XML parse failed: %s", source.source_name, exc)
             return []
 

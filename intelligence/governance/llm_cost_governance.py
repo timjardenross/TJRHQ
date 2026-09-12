@@ -80,7 +80,7 @@ class LLMCostGovernance:
                     self._config_cache[task_type] = config
                     self._last_config_load = datetime.now(timezone.utc)
                 return config
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort config fetch, already logged; caller treats None as 'no governance config, proceed ungoverned'
             log.warning(f"Failed to fetch cost governance config: {exc}")
             return None
 
@@ -103,7 +103,7 @@ class LLMCostGovernance:
                     row = data[0]
                     return int(row.get("call_count", 0)), float(row.get("total_cost_usd", 0.0))
                 return 0, 0.0
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort daily-cost fetch, already logged; caller treats (0, 0.0) as 'no spend recorded yet'
             log.warning(f"Failed to fetch daily costs: {exc}")
             return 0, 0.0
 
@@ -248,7 +248,7 @@ class LLMCostGovernance:
             req = urllib.request.Request(url, data=body, headers=headers, method="POST")
             with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 - self.supabase_url is always the SUPABASE_URL env var / config constant passed by internal callers, not user input - reviewed 2026-09-12
                 return resp.status == 201
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort call-logging write, already logged; a logging failure must not block the real LLM call it's recording
             log.warning(f"Failed to log LLM call: {exc}")
             return False
 

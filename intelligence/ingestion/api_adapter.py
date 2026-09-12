@@ -483,7 +483,8 @@ class APIAdapter(BaseSourceAdapter):
             return None
         try:
             return datetime.strptime(val, "%d/%m/%Y %H:%M:%S").replace(tzinfo=timezone.utc)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - unparseable/unexpected timestamp format; caller treats None as "no timestamp available"
+            log.debug("[api_adapter] VicEmergency timestamp %r unparseable: %s", val, exc)
             return None
 
     def _parse_generic(self, data) -> list[IntelligenceItem]:
@@ -518,9 +519,11 @@ class APIAdapter(BaseSourceAdapter):
         if isinstance(val, (int, float)):
             try:
                 return datetime.fromtimestamp(val / 1000 if val > 1e10 else val, tz=timezone.utc)
-            except Exception:
+            except Exception as exc:  # noqa: BLE001 - out-of-range/invalid numeric timestamp; caller treats None as "no timestamp available"
+                log.debug("[api_adapter] Numeric timestamp %r unparseable: %s", val, exc)
                 return None
         try:
             return datetime.fromisoformat(str(val).replace("Z", "+00:00"))
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - unparseable/unexpected ISO-ish timestamp string; caller treats None as "no timestamp available"
+            log.debug("[api_adapter] ISO-ish timestamp %r unparseable: %s", val, exc)
             return None

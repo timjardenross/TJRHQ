@@ -136,7 +136,7 @@ def build_daily_digest(hours: int = 24, signals: list[dict] | None = None) -> st
 
     try:
         events = poll_events(since=since, limit=200)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort events poll, already logged; caller falls back to an empty event list
         log.warning("[daily_digest] poll_events failed: %s", exc)
         events = []
 
@@ -144,7 +144,7 @@ def build_daily_digest(hours: int = 24, signals: list[dict] | None = None) -> st
     if events:
         try:
             doc = assemble_captain_brief_document(events)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort document assembly, already logged; caller falls back to empty domain_text
             log.warning("[daily_digest] assemble_captain_brief_document failed: %s", exc)
 
     domain_text = _format_domain_events(doc) if doc else ""
@@ -165,7 +165,7 @@ def build_daily_digest(hours: int = 24, signals: list[dict] | None = None) -> st
 
     try:
         text, provider = _llm.generate(prompt)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort LLM synthesis, already logged; caller treats None as 'digest unavailable'
         log.warning("[daily_digest] LLM synthesis failed: %s", exc)
         return None
 

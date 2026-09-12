@@ -69,7 +69,7 @@ async def _fetch(url: str, timeout_seconds: int) -> str:
                 if state in ("interactive", "complete"):
                     ready = True
                     break
-            except Exception:  # noqa: S110 - readyState poll; a transient eval failure just retries next tick, never fatal here
+            except Exception:  # noqa: BLE001, S110 - readyState poll; a transient eval failure just retries next tick, never fatal here
                 pass
             await asyncio.sleep(1)
         if not ready:
@@ -80,7 +80,7 @@ async def _fetch(url: str, timeout_seconds: int) -> str:
     finally:
         try:
             await asyncio.wait_for(session.close(), timeout=15)
-        except Exception:  # noqa: S110 - best-effort cleanup on the way out; a close failure must not mask/replace the real result or error
+        except Exception:  # noqa: BLE001, S110 - best-effort cleanup on the way out; a close failure must not mask/replace the real result or error
             pass
 
 
@@ -93,7 +93,7 @@ def main() -> None:
     try:
         html = asyncio.run(_fetch(args.url, args.timeout_seconds))
         print(json.dumps({"html": html}))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - CLI top-level boundary; the caller (a subprocess wrapper) reads this JSON error envelope from stdout instead of a traceback
         print(json.dumps({"error": f"{type(exc).__name__}: {exc}"[:500]}))
         sys.exit(1)
 
