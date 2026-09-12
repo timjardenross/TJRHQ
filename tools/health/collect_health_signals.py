@@ -441,9 +441,13 @@ class HealthCollector:
     def _parse_rss_date(self, date_str):
         if not date_str:
             return None
+        # Result is truncated to .date() immediately below — only the
+        # calendar date is kept, not the time-of-day, so an unattached
+        # offset can only matter at the UTC-day boundary (accepted
+        # approximation for RSS-sourced health signal dates).
         for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%a, %d %b %Y %H:%M:%S %Z", "%a, %d %b %Y %H:%M:%S %z", "%Y-%m-%d"):
             try:
-                return datetime.strptime(date_str, fmt).date().isoformat()
+                return datetime.strptime(date_str, fmt).date().isoformat()  # noqa: DTZ007 - truncated to date-only, see comment above
             except ValueError:
                 continue
         return None

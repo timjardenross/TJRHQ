@@ -7,7 +7,7 @@ Purpose: Analyze dual commander evaluation runs and generate recommendations
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 @dataclass
@@ -108,7 +108,7 @@ class DualCommanderAnalyzer:
                     "Ensure varied question types (policy, technical, operational, strategic)",
                     f"Re-analyze after reaching {min_runs} runs",
                 ],
-                analysis_timestamp=datetime.now(),
+                analysis_timestamp=datetime.now(timezone.utc),
             )
 
         # Count wins
@@ -161,7 +161,7 @@ class DualCommanderAnalyzer:
             confidence=confidence,
             reasoning=reasoning,
             next_steps=next_steps,
-            analysis_timestamp=datetime.now(),
+            analysis_timestamp=datetime.now(timezone.utc),
         )
 
     def _classify_decision_types(self, runs: list[dict]) -> dict[str, dict[str, float]]:
@@ -340,7 +340,7 @@ class DualCommanderAnalyzer:
             steps = [
                 f"Run {20 - total_runs} more evaluations",
                 "Ensure varied question types across policy, technical, operational, strategic",
-                f"Target completion: {(datetime.now() + timedelta(days=14)).strftime('%Y-%m-%d')}",
+                f"Target completion: {(datetime.now(timezone.utc) + timedelta(days=14)).strftime('%Y-%m-%d')}",
                 "Re-analyze after reaching 20 runs",
             ]
 

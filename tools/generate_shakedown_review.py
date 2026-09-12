@@ -23,7 +23,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[1]
@@ -227,7 +227,7 @@ def generate_recommendations(analysis: dict, days: int) -> list[str]:
 
 def write_report(analysis: dict, assessments: list, recommendations: list, days: int, since: date) -> Path:
     until = since + timedelta(days=days - 1)
-    report_date = date.today().isoformat()
+    report_date = datetime.now().astimezone().date().isoformat()
 
     lines = [
         "# Operational Shakedown Review — M-20260615",

@@ -8,7 +8,7 @@ Purpose: Generate embeddings for all document chunks using nomic-embed-text
 
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 import requests
 
@@ -79,7 +79,7 @@ class EmbeddingGenerator:
                 avg_time_per_chunk=0,
                 total_time=0,
                 failed_ids=[],
-                embedding_timestamp=datetime.now()
+                embedding_timestamp=datetime.now(timezone.utc)
             )
 
         # Filter chunks that need embedding
@@ -143,7 +143,7 @@ class EmbeddingGenerator:
             avg_time_per_chunk=avg_time,
             total_time=total_time,
             failed_ids=failed_ids,
-            embedding_timestamp=datetime.now()
+            embedding_timestamp=datetime.now(timezone.utc)
         )
 
     def _embed_text(self, text: str) -> list[float]:

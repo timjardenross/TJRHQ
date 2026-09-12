@@ -18,7 +18,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
-from datetime import date, timedelta
+from datetime import datetime, timedelta
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -66,8 +66,8 @@ import urllib.parse
 
 def test_daily_logs() -> None:
     print("\n── health_daily_logs ──")
-    today = date.today().isoformat()
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    today = datetime.now().astimezone().date().isoformat()
+    yesterday = (datetime.now().astimezone().date() - timedelta(days=1)).isoformat()
 
     # 1a — insert a valid log
     status, resp = _req("POST", "health_daily_logs", {
@@ -168,7 +168,7 @@ def test_health_events(linked_log_id=None):
     # 2e — FK link to daily log (if we have one)
     if linked_log_id:
         status4, resp4 = _req("POST", "health_events", {
-            "event_date": (date.today() - timedelta(days=1)).isoformat(),
+            "event_date": (datetime.now().astimezone().date() - timedelta(days=1)).isoformat(),
             "event_type": "recovery_milestone",
             "title": "FK link test",
             "linked_log_id": linked_log_id,

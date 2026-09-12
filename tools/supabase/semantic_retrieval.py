@@ -11,7 +11,7 @@ import os
 import sys
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Allow running from the supabase tools directory directly
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -160,7 +160,7 @@ class SemanticRetriever:
                 results=[],
                 num_results=0,
                 latency_ms=0,
-                timestamp=datetime.now()
+                timestamp=datetime.now(timezone.utc)
             )
 
         # Compute similarity to all documents
@@ -197,7 +197,7 @@ class SemanticRetriever:
             results=results,
             num_results=len(results),
             latency_ms=latency_ms,
-            timestamp=datetime.now()
+            timestamp=datetime.now(timezone.utc)
         )
 
 

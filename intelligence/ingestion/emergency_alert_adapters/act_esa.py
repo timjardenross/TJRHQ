@@ -31,7 +31,13 @@ def _act_datetime(value: str | None) -> str | None:
         return None
     try:
         from datetime import datetime
-        return datetime.strptime(value.split(".")[0], "%d %b %Y %H:%M:%S").isoformat()
+        # KNOWN GAP (flagged, not guessed): ACT's own feed format carries no
+        # timezone/offset at all. It is presumed local Canberra time (AEST/
+        # AEDT, DST-observing) but that is unverified against the feed's own
+        # docs — bom_warnings.py hit a real 10h-off bug from a similar
+        # assumption (see its 2026-08-27 comment) before its offset could be
+        # confirmed from the text. Do not silently reinterpret this as UTC.
+        return datetime.strptime(value.split(".")[0], "%d %b %Y %H:%M:%S").isoformat()  # noqa: DTZ007 - source has no offset info; flagged above, not resolved
     except ValueError:
         return None
 

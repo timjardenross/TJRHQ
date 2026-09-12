@@ -9,7 +9,7 @@ import json
 import os
 import tempfile
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -136,7 +136,7 @@ class TeamAdoptionTracker:
             recipient_role=member.role,
             pack_type=pack_type,
             delivery_method=delivery_method,
-            delivered_at=datetime.now().isoformat(),
+            delivered_at=datetime.now(timezone.utc).isoformat(),
             delivered=True
         )
         self.deliveries.append(delivery)
@@ -167,7 +167,7 @@ class TeamAdoptionTracker:
         engagement = PackEngagement(
             pack_id=pack_id,
             recipient_name=recipient_name,
-            opened_at=datetime.now().isoformat() if opened else None,
+            opened_at=datetime.now(timezone.utc).isoformat() if opened else None,
             read=read,
             read_duration_minutes=read_duration_minutes,
             shared=shared,
@@ -204,7 +204,7 @@ class TeamAdoptionTracker:
         feedback = TeamMemberFeedback(
             member_name=member_name,
             member_role=member.role,
-            feedback_date=datetime.now().isoformat(),
+            feedback_date=datetime.now(timezone.utc).isoformat(),
             rating=rating,
             relevance_score=relevance_score,
             usefulness_score=usefulness_score,

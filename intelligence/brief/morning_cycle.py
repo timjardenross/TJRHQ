@@ -82,7 +82,7 @@ def _resolve_tz():
 
 def local_now() -> datetime:
     tz = _resolve_tz()
-    return datetime.now(tz) if tz is not None else datetime.now()
+    return datetime.now(tz) if tz is not None else datetime.now()  # noqa: DTZ005 - deliberate host-local-time fallback (logged above) when SCHEDULE_TZ can't be resolved; this call's whole purpose is "use whatever local time the host has"
 
 
 def cycle_id_for(moment: datetime | None = None) -> str:

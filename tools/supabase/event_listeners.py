@@ -9,7 +9,7 @@ Purpose: Listen for events (Slack messages, GitHub PRs, Notion updates) and surf
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -212,7 +212,7 @@ if __name__ == "__main__":
         source="slack",
         event_type="message_posted",
         event_id="evt_001",
-        timestamp=datetime.now(),
+        timestamp=datetime.now(timezone.utc),
         actor="captain-tjr",
         payload={"text": "Should we defer the Kafka migration?"}
     )

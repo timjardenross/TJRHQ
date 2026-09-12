@@ -19,7 +19,7 @@ import argparse
 import json
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -135,7 +135,7 @@ def ingest_files(paths: list[Path], dry_run: bool) -> bool:
 def scan_once(state: dict[str, str], dry_run: bool, verbose: bool) -> dict[str, str]:
     """Run one scan cycle. Returns updated state."""
     new_or_modified, deleted = detect_changes(state)
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     if not new_or_modified and not deleted:
         if verbose:

@@ -113,7 +113,10 @@ def _parse_date(value: str | None) -> date | None:
     if not value:
         return None
     try:
-        return datetime.strptime(value[:10], "%Y-%m-%d").date()
+        # Input is already a calendar-date string (or the date-prefix of an
+        # ISO timestamp) sliced to its first 10 chars — no time-of-day or
+        # offset component to lose, so tz-awareness doesn't apply here.
+        return datetime.strptime(value[:10], "%Y-%m-%d").date()  # noqa: DTZ007 - date-only input, no offset possible
     except ValueError:
         return None
 

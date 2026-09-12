@@ -18,7 +18,7 @@ import logging
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
@@ -91,7 +91,10 @@ class LLMCostGovernance:
             return 0, 0.0
 
         try:
-            today = date.today().isoformat()
+            # Matches llm_daily_costs' cost_date, computed by the DB as
+            # current_date (server/DB timezone, effectively UTC) — use the
+            # same UTC calendar day here rather than host-local.
+            today = datetime.now(timezone.utc).date().isoformat()
             url = (f"{self.supabase_url}/rest/v1/llm_daily_costs"
                    f"?cost_date=eq.{today}&task_type=eq.{task_type}")
             req = urllib.request.Request(url, headers=self._headers())

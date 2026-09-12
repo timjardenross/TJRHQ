@@ -1077,7 +1077,11 @@ def _priority_tiered_collection_job() -> None:
         from zoneinfo import ZoneInfo
         hour = _datetime.now(ZoneInfo("Australia/Brisbane")).hour
     except Exception:
-        hour = _datetime.now().hour
+        # Defensive only — ZoneInfo("Australia/Brisbane") should never fail on a
+        # supported Python; if it somehow does, fall back to host local time
+        # rather than guessing UTC (this host is deployed/configured for
+        # Brisbane time, so host-local is the closer approximation).
+        hour = _datetime.now().hour  # noqa: DTZ005 - deliberate host-local-time fallback, see comment above
     if not _within_priority_tiered_window(hour):
         log.info(
             "Priority tiered collection skipped (outside 07:00-19:00 Brisbane, hour=%d)",

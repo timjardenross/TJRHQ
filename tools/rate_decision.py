@@ -38,7 +38,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -113,7 +113,7 @@ def _rate_governance(decision_id: str, quality: int, notes: str) -> None:
         "outcome_quality": quality,
         "quality_label": QUALITY_LABELS[quality],
         "notes":         notes,
-        "rated_date":    date.today().isoformat(),
+        "rated_date":    datetime.now().astimezone().date().isoformat(),
         "rated_at":      datetime.now(timezone.utc).isoformat(),
     }
     _append_rating(record)

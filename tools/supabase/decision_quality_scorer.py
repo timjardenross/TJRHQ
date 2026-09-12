@@ -7,7 +7,7 @@ Purpose: Score decisions on clarity, timeliness, accuracy, actionability (0-4 sc
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -118,7 +118,7 @@ class DecisionQualityScorer:
             reasoning=reasoning,
             specialist_feedback=specialist_feedback,
             captain_notes=captain_notes,
-            evaluation_timestamp=datetime.now(),
+            evaluation_timestamp=datetime.now(timezone.utc),
         )
 
     def _score_clarity(self, decision_text: str) -> float:

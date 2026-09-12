@@ -20,7 +20,7 @@ import argparse
 import os
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -81,7 +81,7 @@ def sync(dry_run: bool = False) -> int:
         print("[dry-run] No changes written.")
         return 0
 
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     with _REGISTRY.open("a", encoding="utf-8") as f:
         f.write(f"\n# MSN-0145 SUPABASE SYNC ({ts})\n")
         for m in new_missions:

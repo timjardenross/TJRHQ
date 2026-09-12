@@ -18,7 +18,7 @@ import os
 import re
 import urllib.request
 from collections import Counter
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 log = logging.getLogger("captains-brief")
 
@@ -167,7 +167,7 @@ def _get_todays_morning_brief_text() -> str | None:
     same-day repeats (Content Review / Platform Health) without
     re-deriving state. Best-effort — a lookup failure just means repeats
     render normally, same as pre-fix behaviour, never breaks the brief."""
-    today = date.today().isoformat()
+    today = datetime.now(_AEST).date().isoformat()
     rows = _sb_get(
         "captains_daily_briefs",
         f"brief_date=eq.{today}&brief_type=eq.morning&order=generated_at.desc"
@@ -177,7 +177,7 @@ def _get_todays_morning_brief_text() -> str | None:
 
 
 def _get_recent_debrief_logs(days: int = 7) -> list[dict]:
-    since = (date.today() - timedelta(days=days)).isoformat()
+    since = (datetime.now(_AEST).date() - timedelta(days=days)).isoformat()
     return _sb_get(
         "debrief_logs",
         f"log_date=gte.{since}&order=log_date.desc"
@@ -249,7 +249,7 @@ def _persist_brief(
     }
     payload = json.dumps({
         "brief_type":      brief_type,
-        "brief_date":      date.today().isoformat(),
+        "brief_date":      datetime.now(_AEST).date().isoformat(),
         "brief_text":      text[:8000],
         "signals_count":   signals_count,
         "health_snapshot": health or {},
@@ -530,7 +530,7 @@ def _get_weekly_capacity(days: int = 7) -> dict:
     and will keep degrading toward "source: none" as the 7-day window rolls
     past 2026-08-21 — a real gap, left open here since only the daily briefs
     were in scope for the capacity_checkins cutover."""
-    since = (date.today() - timedelta(days=days - 1)).isoformat()
+    since = (datetime.now(_AEST).date() - timedelta(days=days - 1)).isoformat()
     log_entries = _sb_get(
         "captains_log_entries",
         f"log_date=gte.{since}&order=log_date.asc"
@@ -1318,7 +1318,7 @@ def _email_morning_brief(text: str) -> None:
     from core.notifications.resend_email import send_email
 
     html = text.replace("\n", "<br>\n")
-    subject = f"USS TJR — Morning Brief — {date.today().isoformat()}"
+    subject = f"USS TJR — Morning Brief — {datetime.now(_AEST).date().isoformat()}"
     ok = send_email(_MORNING_BRIEF_EMAIL_TO, subject, html)
     if not ok:
         log.warning("Morning brief email to %s failed (non-blocking)", _MORNING_BRIEF_EMAIL_TO)

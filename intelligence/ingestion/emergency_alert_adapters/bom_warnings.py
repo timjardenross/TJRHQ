@@ -145,7 +145,7 @@ def _parse_bom_issued_at(text: str) -> str | None:
     cleaned = raw.replace(f" {tz_match.group(1)}", "")
     try:
         from datetime import datetime
-        naive = datetime.strptime(cleaned, "%I:%M %p on %A %d %B %Y")
+        naive = datetime.strptime(cleaned, "%I:%M %p on %A %d %B %Y")  # noqa: DTZ007 - offset applied explicitly on the next line from the parsed abbreviation
         return naive.replace(tzinfo=timezone(offset)).isoformat()
     except ValueError:
         return None
