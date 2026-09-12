@@ -18,8 +18,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-VENV_PYTHON="${REPO_ROOT}/platform-runtime/.venv/bin/python3"
-VENV_GARAK="${REPO_ROOT}/platform-runtime/.venv/bin/garak"
+# garak lives in its own dedicated venv, not platform-runtime/.venv — it
+# hard-requires openai<3.0, which conflicts with the openai>=3.x the rest of
+# platform-runtime needs. See core/quality/requirements-garak.txt.
+VENV_PYTHON="${REPO_ROOT}/platform-runtime/.venv-garak/bin/python3"
+VENV_GARAK="${REPO_ROOT}/platform-runtime/.venv-garak/bin/garak"
 REPORT_DIR="${REPO_ROOT}/reports/garak"
 ROUTER_URL="${ROUTER_URL:-http://localhost:8891}"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -28,13 +31,15 @@ REPORT_PATH="${REPORT_DIR}/sweep-${TIMESTAMP}.json"
 # ── Preflight checks ────────────────────────────────────────────────────────
 
 if [[ ! -x "${VENV_PYTHON}" ]]; then
-    echo "[garak-sweep] ERROR: platform-runtime venv not found at ${VENV_PYTHON}" >&2
+    echo "[garak-sweep] ERROR: dedicated garak venv not found at ${REPO_ROOT}/platform-runtime/.venv-garak. Run:" >&2
+    echo "  python3 -m venv ${REPO_ROOT}/platform-runtime/.venv-garak" >&2
+    echo "  ${REPO_ROOT}/platform-runtime/.venv-garak/bin/pip install -r core/quality/requirements-garak.txt" >&2
     exit 2
 fi
 
 if [[ ! -x "${VENV_GARAK}" ]]; then
-    echo "[garak-sweep] ERROR: garak not installed in venv. Run:" >&2
-    echo "  ${REPO_ROOT}/platform-runtime/.venv/bin/pip install garak" >&2
+    echo "[garak-sweep] ERROR: garak not installed in the dedicated venv. Run:" >&2
+    echo "  ${REPO_ROOT}/platform-runtime/.venv-garak/bin/pip install -r core/quality/requirements-garak.txt" >&2
     exit 2
 fi
 
