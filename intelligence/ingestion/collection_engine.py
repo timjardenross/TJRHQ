@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
 from intelligence.ingestion.api_adapter import APIAdapter
+from intelligence.ingestion.browser_adapter import BrowserAdapter
 from intelligence.ingestion.downdetector_adapter import DowndetectorAdapter
 from intelligence.ingestion.github_markdown_adapter import GitHubMarkdownAdapter
 from intelligence.ingestion.rss_adapter import RSSAdapter
@@ -29,6 +30,14 @@ _ADAPTER_MAP = {
     # its own two-layer gate, not a JSON API and not generic article-list
     # scraping) — see intelligence/ingestion/downdetector_adapter.py.
     "downdetector":    DowndetectorAdapter,
+    # 2026-09-12: sources with no RSS/API and no working plain-HTTP scrape
+    # path (JS-rendered, or a server that just times out on urllib) — a
+    # headless browser fetch via browser_adapter.py. Only ever selected for
+    # a source explicitly registered with source_type="browser"; never a
+    # silent second collection path for a source that already has rss/api/
+    # scrape working (that would duplicate collection and skew
+    # source_fidelity_report()'s signal-to-noise metrics).
+    "browser":         BrowserAdapter,
 }
 
 

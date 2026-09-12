@@ -1,0 +1,19 @@
+# Isolated venv for browser_adapter.py's fetch_html.py worker — NOT installed
+# into platform-runtime/.venv. browser-use hard-pins exact versions of
+# anthropic/google-genai/mcp/google-api-core/google-auth that conflict with
+# what's already load-bearing there (Graphiti, mem0, other Gemini-dependent
+# code) — confirmed live 2026-09-12: installing it into the shared venv
+# silently downgraded google-genai 2.19.0 -> 1.65.0 platform-wide.
+#
+# Setup:
+#   python3 -m venv intelligence/ingestion/browser_worker/.venv
+#   intelligence/ingestion/browser_worker/.venv/bin/pip install -r intelligence/ingestion/browser_worker/requirements.txt
+#
+# Also reuses whatever Chromium build is already cached at
+# /root/.cache/ms-playwright/chromium-*/chrome-linux64/chrome (see
+# fetch_html.py's _find_chromium()) rather than downloading a second one —
+# if that cache doesn't exist on a given host, install one:
+#   pip install playwright && playwright install chromium
+# (into any venv — fetch_html.py only needs the resulting binary path, not
+# the playwright Python package itself).
+browser-use==0.13.10
