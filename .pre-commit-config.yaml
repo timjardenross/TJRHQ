@@ -41,6 +41,21 @@ repos:
       - id: detect-secrets
         name: detect-secrets
         args: ["--baseline", ".secrets.baseline"]
+        # Without this, pre-commit is free to split a `--all-files` run of
+        # this hook across this 930+-file repo into multiple parallel
+        # subprocess batches, each getting only a subset of filenames.
+        # detect_secrets/pre_commit_hook.py's should_update_baseline() trims
+        # the loaded baseline down to just the files in *that invocation's*
+        # filelist before comparing — so a batch that doesn't include some
+        # already-tracked file makes the hook think that file's finding
+        # disappeared, and it rewrites the baseline and exits 3 ("files were
+        # modified") with no real secret involved (see #189: this reproduced
+        # locally clean every time — one process, one full file list — but
+        # failed in CI, where batching evidently split differently).
+        # require_serial forces exactly one invocation with the complete
+        # file list, matching detect-secrets' own documented pre-commit
+        # setup for this reason.
+        require_serial: true
         exclude: |
           (?x)^(
             .*\.lock|

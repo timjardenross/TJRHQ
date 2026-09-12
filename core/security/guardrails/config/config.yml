@@ -25,7 +25,7 @@ models:
       base_url: http://localhost:11434/v1
       # Ollama's OpenAI-compat endpoint doesn't check this, but the
       # underlying OpenAI-compatible client requires a non-empty string.
-      api_key: "ollama-local-no-key-required"
+      api_key: "ollama-local-no-key-required"  # pragma: allowlist secret
 
 rails:
   input:
