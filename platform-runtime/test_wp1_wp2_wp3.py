@@ -343,10 +343,10 @@ class TestMissionRiskScoring(unittest.TestCase):
         # old > new. Made relative to today, like the already-correct
         # sibling test_risk_band_critical below, so this doesn't silently
         # break again on a future run.
-        old_date = (date.today() - timedelta(days=25)).strftime("%Y%m%d")
-        new_date = (date.today() - timedelta(days=1)).strftime("%Y%m%d")
-        old = self._mission(id=f"M-{old_date}-000001", timestamp=f"{(date.today() - timedelta(days=25)).isoformat()} 09:00")
-        new = self._mission(id=f"M-{new_date}-000001", timestamp=f"{(date.today() - timedelta(days=1)).isoformat()} 09:00")
+        old_date = (date.today() - timedelta(days=25)).strftime("%Y%m%d")  # noqa: DTZ011 - test-relative day offset, not a real timestamp - reviewed 2026-09-12
+        new_date = (date.today() - timedelta(days=1)).strftime("%Y%m%d")  # noqa: DTZ011 - test-relative day offset, not a real timestamp - reviewed 2026-09-12
+        old = self._mission(id=f"M-{old_date}-000001", timestamp=f"{(date.today() - timedelta(days=25)).isoformat()} 09:00")  # noqa: DTZ011 - test-relative day offset, not a real timestamp - reviewed 2026-09-12
+        new = self._mission(id=f"M-{new_date}-000001", timestamp=f"{(date.today() - timedelta(days=1)).isoformat()} 09:00")  # noqa: DTZ011 - test-relative day offset, not a real timestamp - reviewed 2026-09-12
         r_old = self.mr.calculate_mission_risk_score(old)
         r_new = self.mr.calculate_mission_risk_score(new)
         self.assertGreater(r_old["score"], r_new["score"])
@@ -376,7 +376,7 @@ class TestMissionRiskScoring(unittest.TestCase):
         # which had aged past the ≥21-day max age bucket by the time this
         # ran, regardless of the timestamp override. Fixed by overriding
         # both to a genuinely recent relative date.
-        recent = date.today() - timedelta(days=1)
+        recent = date.today() - timedelta(days=1)  # noqa: DTZ011 - test-relative day offset, not a real timestamp - reviewed 2026-09-12
         r = self.mr.calculate_mission_risk_score(
             self._mission(
                 id=f"M-{recent.strftime('%Y%m%d')}-000001",
