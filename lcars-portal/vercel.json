@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "ignoreCommand": "git diff --quiet \"${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}\" HEAD -- .",
+  "ignoreCommand": "git rev-parse --verify --quiet \"${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}\" >/dev/null && git diff --quiet \"${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}\" HEAD -- . || exit 1",
   "git": {
     "deploymentEnabled": {
       "dependabot/**": false
