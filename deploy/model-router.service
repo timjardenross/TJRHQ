@@ -13,8 +13,12 @@ WorkingDirectory=/opt/starship-endeavour/core/model-router
 Environment="MODEL_ROUTER_PORT=8891"
 Environment="MODEL_ROUTER_HOST=127.0.0.1"
 Environment="OLLAMA_BASE_URL=http://localhost:11434"
-EnvironmentFile=-/opt/starship-endeavour/slack-bot/.env
-ExecStart=/usr/bin/python3 /opt/starship-endeavour/core/model-router/app.py
+# 2026-09-12 (USS-TJR-MSN-0371 Stream 3): repo was drifted from live (was
+# slack-bot/.env, a file that doesn't exist; live had already been
+# corrected to platform-runtime/.env). Reconciled, then cut over to
+# Infisical the same pass — old line kept commented as rollback.
+# EnvironmentFile=-/opt/starship-endeavour/platform-runtime/.env
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /usr/bin/python3 /opt/starship-endeavour/core/model-router/app.py
 Restart=always
 RestartSec=10
 

@@ -1,0 +1,18 @@
+[Unit]
+Description=Starfleet Slack Commander Bot
+After=network.target number-one-exporter.service starfleet-backend.service
+
+[Service]
+WorkingDirectory=/opt/starship-endeavour/platform-runtime
+# 2026-09-12 (USS-TJR-MSN-0371 Stream 4): cut over to Infisical, old
+# EnvironmentFile= kept commented as rollback. Note: this unit appears
+# retired (see mission-registry-sync.service's own comment — "disabled/
+# retired since 2026-07-07, MSN-0337"); migrated for consistency, not
+# restarted as part of this pass since it's not in active use.
+# EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/.venv/bin/python /opt/starship-endeavour/platform-runtime/app.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

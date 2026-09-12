@@ -1,0 +1,17 @@
+[Unit]
+Description=Capacity Bot (MY CAPACITY TODAY) Telegram bot
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/starship-endeavour
+# 2026-09-12 (USS-TJR-MSN-0371 Stream 2): cut over to Infisical via the
+# per-bot wrapper (root secrets + /bots/capacitybot folder override). Old
+# two-file EnvironmentFile= kept here, commented, as the rollback path.
+# EnvironmentFile=-/opt/starship-endeavour/platform-runtime/.env
+# EnvironmentFile=-/opt/starship-endeavour/telegram-bots/capacitybot/.env
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical-bot.sh capacitybot -- /opt/starship-endeavour/telegram-bots/capacitybot/.venv/bin/python -m telegram_bots.capacitybot.app
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

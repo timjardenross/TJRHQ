@@ -31,14 +31,12 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/starship-endeavour
-EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
-# 2026-09-05: wrapped with run-with-infisical.sh — layers Infisical's
-# project USSTJR/prod secrets (BOT_API_SECRET, Google Calendar creds,
-# Supabase keys, etc.) on top of the EnvironmentFile above rather than
-# replacing it, so anything not yet migrated to Infisical still falls back
-# to the .env file. See run-with-infisical.sh's own header for why a
-# wrapper script instead of a direct --client-id/--client-secret flag (this
-# CLI version's `run` subcommand only accepts a pre-minted --token).
+# 2026-09-05: wrapped with run-with-infisical.sh, originally layered on
+# top of the EnvironmentFile= below as a fallback for keys not yet in
+# Infisical. USS-TJR-MSN-0371 Stream 0 closed that gap (pushed every
+# missing key), so Stream 6 dropped the fallback file entirely — old line
+# kept commented as rollback.
+# EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
 ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/.venv/bin/python -m intelligence.scheduler
 Restart=always
 RestartSec=10

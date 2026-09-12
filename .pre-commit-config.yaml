@@ -55,6 +55,14 @@ repos:
         # invocation named in the mission brief; gitleaks v8 removed the
         # `protect` subcommand in favor of `git --pre-commit`.
 
+  - repo: local
+    hooks:
+      - id: no-raw-env-secrets
+        name: no raw .env EnvironmentFile= in deploy/*.service (USS-TJR-MSN-0371)
+        entry: python3 tools/check_no_raw_env_secrets.py
+        language: system
+        files: ^deploy/.*\.service$
+
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
     hooks:
