@@ -5,7 +5,10 @@ Provides /mission-list, /mission-status, /mission-close Slack commands.
 
 WP2: /mission-status now supports lifecycle transitions:
   /mission-status <id> <new-status>
-  Valid statuses: Idea, Planned, Active, Blocked, Review, Completed, Closed
+  See handle_mission_status()'s docstring / _VALID_TRANSITIONS below for
+  the current valid status list (the governance lifecycle from
+  M-20260614-GOVERNANCE-LIFECYCLE-CLOSURE superseded the original simple
+  Idea/Planned/Active/Blocked/Review/Completed/Closed set below it).
 
 WP3: /mission-list now supports `idea` filter:
   /mission-list idea  — Idea-status missions sorted by age (oldest first)
@@ -558,11 +561,9 @@ def _handle_status_transition(
         if note:
             lines.append(f"*Note:* _{note}_")
         lines.append("")
-        if new_status == "Active":
-            lines.append("_Mission is now in the active work queue._")
-        elif new_status == "Planned":
-            lines.append("_Mission is now in the planning queue. Use `/build` when ready for engineering._")
-        elif new_status in ("Closed", "Completed"):
+        if new_status == "Approved for Engineering":
+            lines.append("_Mission approved for engineering. Use `/build` to generate an implementation brief._")
+        elif new_status == "Closed":
             lines.append("_Mission closed. Consider capturing a lesson with `/lesson-log`._")
             # MSN-0079 WP1: request outcome capture if none exists. Never invents a lesson.
             prompt = _closure_outcome_prompt(mission_id, mission_title)
