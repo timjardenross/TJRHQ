@@ -1,0 +1,19 @@
+title = "TJRHQ gitleaks config"
+
+# Extend gitleaks' built-in default ruleset rather than replacing it.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Paths that legitimately contain high-entropy strings that are not secrets"
+paths = [
+  # detect-secrets' baseline stores SHA1 hashes of the strings it flagged,
+  # not the strings themselves — those 40-char hex digests otherwise trip
+  # gitleaks' generic-api-key rule on every entry in the file.
+  '''(^|/)\.secrets\.baseline$''',
+  # Lockfiles are full of content-integrity hashes (sha512-... etc.), not
+  # credentials.
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)yarn\.lock$''',
+  '''\.lock$''',
+]
