@@ -12,6 +12,7 @@ collected, classified, and ranked IntelligenceItems.
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import ClassVar
 
 from intelligence.brief import external_domains, morning_cycle
 from intelligence.brief.comparison import compute_comparison
@@ -307,7 +308,7 @@ class BriefGenerator:
 
     # ─── Private helpers ──────────────────────────────────────────────────────
 
-    _RISK_ORDER = {"GREEN": 0, "AMBER": 1, "RED": 2}
+    _RISK_ORDER: ClassVar[dict] = {"GREEN": 0, "AMBER": 1, "RED": 2}
 
     def _event_risk_rating(self, event: RankedEvent) -> str:
         if event.customer_impact == "high" or event.banking_relevance == "high":

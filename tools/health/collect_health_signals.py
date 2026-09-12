@@ -205,7 +205,7 @@ class HealthCollector:
 
     # ─── Source resolution ──────────────────────────────────────────────
 
-    def _get_or_create_source(self, source_name: str, source_type: str, source_url: str = None) -> str:
+    def _get_or_create_source(self, source_name: str, source_type: str, source_url: str | None = None) -> str:
         if source_name in self._source_cache:
             return self._source_cache[source_name]
 

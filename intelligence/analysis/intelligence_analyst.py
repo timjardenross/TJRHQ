@@ -25,7 +25,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, ClassVar
 
 log = logging.getLogger(__name__)
 
@@ -332,8 +332,8 @@ class IntelligenceAnalyst:
         return breakdown
 
     # ── Heuristic path (deterministic, never fails) ──────────────────────────
-    _IMPACT = {"low": 2, "medium": 3, "high": 5, "": 2, None: 2}
-    _ESSENTIAL_EVENTS = {
+    _IMPACT: ClassVar[dict] = {"low": 2, "medium": 3, "high": 5, "": 2, None: 2}
+    _ESSENTIAL_EVENTS: ClassVar[set[str]] = {
         "telecom_outage", "payments_disruption", "energy_disruption",
         "technology_outage", "cyber", "transport_disruption",
     }

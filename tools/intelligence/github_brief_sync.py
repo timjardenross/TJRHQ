@@ -79,7 +79,7 @@ def _resolve_source(dry_run: bool) -> SourceRecord:
 
 
 def _record_health(store, source, *, status: str, items: int,
-                   latency_ms: int, error: str = None) -> None:
+                   latency_ms: int, error: str | None = None) -> None:
     """Write one intelligence_source_health row for this sync run (WP7 obs).
 
     Best-effort: a health-logging failure must never mask the sync outcome.
@@ -100,7 +100,7 @@ def _record_health(store, source, *, status: str, items: int,
 
 
 def run(days: int, dry_run: bool, backfill: bool,
-        emit_sql: bool = False, source_id: str = None) -> dict:
+        emit_sql: bool = False, source_id: str | None = None) -> dict:
     import time
     t0 = time.monotonic()
     lookback = max(days, 3650) if backfill else days

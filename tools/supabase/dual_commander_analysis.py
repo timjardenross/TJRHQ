@@ -8,6 +8,7 @@ Purpose: Analyze dual commander evaluation runs and generate recommendations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import ClassVar
 
 
 @dataclass
@@ -38,7 +39,7 @@ class DualCommanderAnalyzer:
     """Analyze dual commander evaluation patterns."""
 
     # Decision type keywords
-    DECISION_TYPES = {
+    DECISION_TYPES: ClassVar[dict] = {
         "policy": [
             "policy",
             "governance",

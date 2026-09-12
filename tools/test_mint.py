@@ -153,7 +153,7 @@ def test_cli() -> None:
         env = {**os.environ, "_MINT_TEST_COUNTER": str(counter_path)}
         result = subprocess.run(
             [sys.executable, str(script), "MSN"],
-            capture_output=True, text=True, timeout=10, env=env,
+            capture_output=True, text=True, check=False, timeout=10, env=env,
         )
     out = result.stdout.strip()
     check("exit code 0", result.returncode == 0, result.stderr)

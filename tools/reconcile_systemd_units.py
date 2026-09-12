@@ -62,7 +62,7 @@ _PROJECT_UNIT_PATTERN = re.compile(
 
 def _run(cmd: list[str]) -> str:
     """Run a shell command and return its output."""
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         raise RuntimeError(f"Command failed: {' '.join(cmd)}\n{result.stderr}")
     return result.stdout.strip()

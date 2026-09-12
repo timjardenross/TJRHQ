@@ -83,7 +83,7 @@ def _build_event(
     provider: str = "",
     outcome: str = "",
     follow_up_required: bool = False,
-    follow_up_date: str = None,
+    follow_up_date: str | None = None,
     follow_up_notes: str = "",
 ) -> dict:
     """Validate and build a health_events row dict."""
@@ -119,7 +119,7 @@ def _build_event(
     }
 
 
-def _prompt(label: str, required: bool = False, choices: tuple = None, default: str = "") -> str:
+def _prompt(label: str, required: bool = False, choices: tuple | None = None, default: str = "") -> str:
     while True:
         suffix = f" [{default}]" if default else ""
         if choices:

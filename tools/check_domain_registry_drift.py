@@ -49,7 +49,7 @@ _UNIT_DIR = Path("/etc/systemd/system")
 
 
 def _run(cmd: list[str]) -> str:
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     return result.stdout.strip()
 
 

@@ -95,7 +95,7 @@ def sync(dry_run: bool = False) -> int:
     return 0
 
 
-def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+def _record_heartbeat(status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort.
 
     Chief Engineer follow-up (.claude/skills/bot-reviews/fixes-2026-08-09/

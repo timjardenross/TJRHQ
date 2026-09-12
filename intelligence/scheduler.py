@@ -62,7 +62,7 @@ except Exception as exc:  # noqa: BLE001 - tracing is observability-only; must n
     log.warning("[scheduler] Telemetry tracing setup failed (non-fatal): %s", exc)
 
 
-def _record_heartbeat(domain_key: str, status: str, detail: str = None, error_message: str = None) -> None:
+def _record_heartbeat(domain_key: str, status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort —
     a heartbeat write must never break the job it's attached to — but a
     silent failure here is exactly how a job can run correctly for weeks
@@ -93,7 +93,7 @@ def _brief_to_stdout(brief: ResilienceBrief) -> None:
     print(json.dumps(dataclasses.asdict(brief), default=_default, indent=2))
 
 
-def run_once(period_days: int = None, trigger: str = "on_demand") -> ResilienceBrief:
+def run_once(period_days: int | None = None, trigger: str = "on_demand") -> ResilienceBrief:
     from intelligence.config import BRIEF_PERIOD_DAYS
     days = period_days or BRIEF_PERIOD_DAYS
     log.info("Running single brief generation: %d-day period", days)
@@ -901,7 +901,7 @@ def _health_osint_weekly_fetch_job() -> None:
         ingest_script = os.path.join(health_osint_dir, "health_signal_ingestion.py")
         result = subprocess.run(
             [sys.executable, ingest_script],
-            capture_output=True, text=True, timeout=600,
+            capture_output=True, text=True, check=False, timeout=600,
         )
         if result.returncode != 0:
             log.error("Health OSINT weekly fetch failed (exit %d): %s", result.returncode, result.stderr[-2000:])
@@ -924,7 +924,7 @@ def _health_osint_weekly_fetch_job() -> None:
         # weekly runs rather than starving it behind new arrivals.
         curation_result = subprocess.run(
             [sys.executable, curation_script, "--limit", "100"],
-            capture_output=True, text=True, timeout=900,
+            capture_output=True, text=True, check=False, timeout=900,
         )
         if curation_result.returncode != 0:
             log.error("Health OSINT auto-curation failed (exit %d): %s", curation_result.returncode, curation_result.stderr[-2000:])
@@ -975,7 +975,7 @@ def _suppression_audit_job() -> None:
         )
         result = subprocess.run(
             [sys.executable, script, "--days", "1"],
-            capture_output=True, text=True, timeout=900,
+            capture_output=True, text=True, check=False, timeout=900,
         )
         if result.returncode != 0:
             log.error("Suppression audit failed (exit %d): %s", result.returncode, result.stderr[-2000:])

@@ -8,6 +8,7 @@ Purpose: Score decisions on clarity, timeliness, accuracy, actionability (0-4 sc
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import ClassVar
 
 
 @dataclass
@@ -34,7 +35,7 @@ class DecisionQualityScorer:
     """Score decisions based on clarity, timeliness, accuracy, actionability."""
 
     # Bonus/penalty keywords (for tuning)
-    TIMELINESS_PENALTIES = {
+    TIMELINESS_PENALTIES: ClassVar[dict] = {
         "hasty": -0.25,
         "rushed": -0.25,
         "premature": -0.25,
@@ -42,14 +43,14 @@ class DecisionQualityScorer:
         "too late": -0.25,
     }
 
-    TIMELINESS_BONUSES = {
+    TIMELINESS_BONUSES: ClassVar[dict] = {
         "perfect timing": 0.25,
         "well-timed": 0.25,
         "timely": 0.15,
         "opportune": 0.25,
     }
 
-    ACTIONABILITY_PENALTIES = {
+    ACTIONABILITY_PENALTIES: ClassVar[dict] = {
         "ambiguous": -0.25,
         "unclear": -0.25,
         "hard to execute": -0.25,
@@ -57,7 +58,7 @@ class DecisionQualityScorer:
         "vague": -0.15,
     }
 
-    ACTIONABILITY_BONUSES = {
+    ACTIONABILITY_BONUSES: ClassVar[dict] = {
         "clear steps": 0.25,
         "explicit owner": 0.25,
         "easy to execute": 0.25,

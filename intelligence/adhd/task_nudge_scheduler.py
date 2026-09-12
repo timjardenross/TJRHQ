@@ -16,6 +16,7 @@ import os
 import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
+from typing import ClassVar
 
 log = logging.getLogger(__name__)
 
@@ -90,7 +91,7 @@ class NudgeRateLimiter:
 class TaskNudgeComposer:
     """Composes non-judgmental nudge messages for stalled tasks."""
 
-    NUDGE_TEMPLATES = [
+    NUDGE_TEMPLATES: ClassVar[list[str]] = [
         "Still thinking about this one?",
         "Gently nudging: {title}",
         "This might be ready to start: {title}",

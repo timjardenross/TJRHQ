@@ -9,6 +9,7 @@ Purpose: Auto-generate role-based, temporal, and differential knowledge packs
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
+from typing import ClassVar
 
 
 class PackType(Enum):
@@ -69,7 +70,7 @@ class KnowledgePack:
 class RoleBasedPackGenerator:
     """Generate role-curated knowledge packs."""
 
-    ROLE_MAPPINGS = {
+    ROLE_MAPPINGS: ClassVar[dict] = {
         "Chief Engineer": {
             "categories": ["adr", "architecture", "deployment"],
             "tags": ["infrastructure", "scalability", "performance"]

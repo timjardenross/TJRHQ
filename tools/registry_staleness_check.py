@@ -96,7 +96,7 @@ def _last_commit_date(relative_path: str) -> date | None:
     try:
         out = subprocess.run(
             ["git", "log", "-1", "--format=%cs", "--", relative_path],
-            cwd=_REPO_ROOT, capture_output=True, text=True, timeout=10,
+            cwd=_REPO_ROOT, capture_output=True, text=True, check=False, timeout=10,
         )
     except Exception:
         return None

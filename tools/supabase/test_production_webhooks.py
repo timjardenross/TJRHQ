@@ -39,7 +39,7 @@ class ProductionWebhookTester:
     def test_slack_webhook(
         self,
         signing_secret: str,
-        payload: dict = None
+        payload: dict | None = None
     ) -> tuple[bool, float, int]:
         """Test Slack webhook endpoint.
 
@@ -98,7 +98,7 @@ class ProductionWebhookTester:
     def test_github_webhook(
         self,
         secret: str,
-        payload: dict = None
+        payload: dict | None = None
     ) -> tuple[bool, float, int]:
         """Test GitHub webhook endpoint.
 
@@ -156,7 +156,7 @@ class ProductionWebhookTester:
     def test_notion_webhook(
         self,
         secret: str,
-        payload: dict = None
+        payload: dict | None = None
     ) -> tuple[bool, float, int]:
         """Test Notion webhook endpoint.
 
