@@ -54,7 +54,6 @@ jobs:
     # (continue-on-error: true) — a finding never blocks merge; real
     # findings from the first run are triaged in reports/knip/.
     runs-on: ubuntu-latest
-    continue-on-error: true
     defaults:
       run:
         working-directory: lcars-portal
@@ -68,7 +67,14 @@ jobs:
           cache-dependency-path: lcars-portal/package-lock.json
 
       - run: npm ci
-      - run: npm run deadcode
+      # Job-level continue-on-error only protects the overall workflow RUN,
+      # not this job's own check-run conclusion — confirmed on PR #180's
+      # first real CI run, where the python-ci.yml `vulture` job (same
+      # job-level-only mistake) showed red despite the flag. Step-level is
+      # what actually makes a real finding show green-with-a-log here.
+      - name: Run knip
+        continue-on-error: true
+        run: npm run deadcode
 
   notification-sender-gate:
     # Council verdict 2026-08-29 ("make duplication impossible, not just

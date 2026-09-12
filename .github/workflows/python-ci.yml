@@ -277,7 +277,6 @@ jobs:
   # triaged in reports/vulture/.
   vulture:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -288,7 +287,17 @@ jobs:
       - name: Install vulture
         run: pip install vulture
 
+      # `continue-on-error: true` on the JOB (as this used to be set) only
+      # keeps a failure here from failing the overall workflow RUN — the
+      # job's own check-run conclusion still reports "failure" on the PR
+      # (confirmed: PR #180's first real CI run showed this job red despite
+      # the job-level flag, because vulture's real findings exit non-zero).
+      # `continue-on-error: true` on the STEP itself is what actually makes
+      # the step's outcome (and therefore this job's conclusion) "success"
+      # while still surfacing the findings in the log. Advisory means
+      # green-with-a-log, not red.
       - name: Run vulture (advisory — findings do not fail the build)
+        continue-on-error: true
         run: |
           vulture core/ intelligence/ platform-runtime/ .vulture_whitelist.py --min-confidence 60
 
@@ -333,7 +342,6 @@ jobs:
   # is all this job needs — it only reads the checked-out tree.
   semgrep:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -363,7 +371,13 @@ jobs:
       # unrestricted egress, but that specific claim was NOT verified
       # end-to-end before this job shipped — if this step's registry
       # fetch ever fails in real CI, that's the first thing to check.
+      # Job-level continue-on-error only protects the overall workflow RUN,
+      # not this job's own check-run conclusion (see the vulture job's
+      # comment above for the confirmed real evidence from PR #180). Moved
+      # to the step so a real finding (or the registry-config-unreachable
+      # risk noted above) shows green-with-a-log instead of red.
       - name: Semgrep scan
+        continue-on-error: true
         run: |
           semgrep scan \
             --config=p/python \
