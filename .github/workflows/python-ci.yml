@@ -290,8 +290,14 @@ jobs:
       # pass clean repo-wide today -- nothing to triage, purely a secrets
       # tripwire, so there's no reason to let a new leak merge in the
       # meantime.
+      # `pre-commit run` only accepts a single optional hookid positional
+      # argument, not several -- `pre-commit run --all-files gitleaks
+      # detect-secrets` errors out before running any hook ("unrecognized
+      # arguments: detect-secrets"), so each hook needs its own invocation.
       - name: pre-commit (secrets scan — blocking)
-        run: pre-commit run --all-files gitleaks detect-secrets
+        run: |
+          pre-commit run --all-files gitleaks
+          pre-commit run --all-files detect-secrets
 
       # Soft gate (visible, non-blocking): ruff-check + bandit. Flips to
       # blocking once Stream 9's triage lands (179 Medium bandit findings
@@ -300,7 +306,9 @@ jobs:
       # new code doesn't silently add to the pile without anyone seeing it.
       - name: pre-commit (lint/security — informational until Stream 9 lands)
         continue-on-error: true
-        run: pre-commit run --all-files ruff-check bandit
+        run: |
+          pre-commit run --all-files ruff-check
+          pre-commit run --all-files bandit
 
   actionlint:
     runs-on: ubuntu-latest
