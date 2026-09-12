@@ -20,7 +20,7 @@ jobs:
       run:
         working-directory: lcars-portal
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -58,7 +58,7 @@ jobs:
       run:
         working-directory: lcars-portal
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -84,7 +84,7 @@ jobs:
     # not-yet-migrated instances.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: python3 tools/check_notification_senders.py
 
   config-loader-gate:
@@ -98,7 +98,7 @@ jobs:
     # positive) — see tools/check_config_loaders.py.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: python3 tools/check_config_loaders.py
 
   workbench-registry-gate:
@@ -110,5 +110,5 @@ jobs:
     # tools/check_workbench_registry.py.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: python3 tools/check_workbench_registry.py
