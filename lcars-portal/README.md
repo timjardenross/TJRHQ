@@ -95,6 +95,13 @@ alongside the Command Centre backend.
 the `lcars-portal/` directory; the default build command (`next build`) and
 output are used as-is.
 
+`vercel.json`'s `ignoreCommand` skips the build entirely when a push doesn't
+touch anything under this directory (TJRHQ is a large multi-service monorepo
+where most commits — Python services, docs, other bots — never touch the
+portal). This assumes the Vercel project's Root Directory is set to
+`lcars-portal/` (per Option B above), which makes the ignore command run
+with this directory as its working directory.
+
 **Port note:** 3100 is chosen to avoid collisions with existing services
 (Dashy `8000`, Command Centre backend `5050`, Slack bot `3001`).
 
