@@ -75,7 +75,7 @@ def send_email(to: str, subject: str, html: str, from_addr: str | None = None, t
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - req.url is the hardcoded https://api.resend.com/emails literal, not user input - reviewed 2026-09-12
             resp.read()
             return True
     except urllib.error.HTTPError as exc:

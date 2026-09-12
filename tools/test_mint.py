@@ -184,7 +184,7 @@ def test_http_server() -> None:
         try:
             # /health
             try:
-                with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=3) as r:
+                with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=3) as r:  # nosec B310 - url is a fixed localhost test-server literal, not user input - reviewed 2026-09-12
                     body = json.loads(r.read())
                 check("/health status ok", body.get("status") == "ok", str(body))
             except Exception as exc:
@@ -199,7 +199,7 @@ def test_http_server() -> None:
                     headers={"Content-Type": "application/json"},
                     method="POST",
                 )
-                with urllib.request.urlopen(req, timeout=3) as r:
+                with urllib.request.urlopen(req, timeout=3) as r:  # nosec B310 - url is a fixed localhost test-server literal, not user input - reviewed 2026-09-12
                     body = json.loads(r.read())
                 check("POST /mint status allocated", body.get("status") == "allocated", str(body))
                 check("POST /mint canonical ID", "USS-TJR-MSN-" in body.get("mission_id", ""), str(body))

@@ -31,7 +31,7 @@ def main():
     # ── Validation tests (no real audio needed) ──────────────────────────────
 
     total += 1
-    r = transcribe_file("/tmp/does_not_exist.ogg")
+    r = transcribe_file("/tmp/does_not_exist.ogg")  # nosec B108 - test fixture path asserting missing-file error handling, no file is created here - reviewed 2026-09-12
     passed += run("missing file → ok=false + error message", r, expect_ok=False)
     assert "not found" in r.get("error", "").lower(), f"expected 'not found' in error, got: {r}"
 

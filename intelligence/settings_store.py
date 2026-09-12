@@ -58,7 +58,7 @@ def _load_enabled_sets() -> Optional[dict]:
         method="GET",
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             rows = json.loads(resp.read())
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError) as exc:
         logger.warning("settings_store: user_settings read failed, no filter applied: %s", exc)

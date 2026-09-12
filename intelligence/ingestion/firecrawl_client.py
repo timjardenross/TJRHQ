@@ -164,7 +164,7 @@ def scrape(url: str, formats: Optional[list[str]] = None, timeout: Optional[int]
 
     with _semaphores[provider]:
         try:
-            with urllib.request.urlopen(req, timeout=timeout or _DEFAULT_TIMEOUT) as resp:
+            with urllib.request.urlopen(req, timeout=timeout or _DEFAULT_TIMEOUT) as resp:  # nosec B310 - request url is the fixed _SCRAPE_ENDPOINT constant (api.firecrawl.dev); target `url` travels only inside the JSON payload, not as the fetch scheme - reviewed 2026-09-12
                 body = json.loads(resp.read().decode("utf-8", errors="replace"))
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")[:500]

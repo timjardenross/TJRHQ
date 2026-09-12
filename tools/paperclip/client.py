@@ -234,7 +234,7 @@ class PaperclipClient:
 
         req = urllib.request.Request(url, data=body, headers=headers, method=method)
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # nosec B310 - url built from self.base_url, an env var/fixed local default, not user input - reviewed 2026-09-12
                 return json.loads(resp.read().decode())
         except urllib.error.HTTPError as exc:
             try:

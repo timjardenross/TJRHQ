@@ -109,7 +109,7 @@ def call(prompt: str, model: Optional[str] = None, system: Optional[str] = None)
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:  # nosec B310 - url built from GLM_BASE_URL env var, fixed API endpoint - reviewed 2026-09-12
             raw = resp.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         # Surface the API's error body (it does NOT contain the key) to diagnose

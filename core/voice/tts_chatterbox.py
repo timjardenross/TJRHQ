@@ -179,4 +179,4 @@ def generate(req: GenerateRequest, x_tts_secret: str | None = Header(default=Non
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    uvicorn.run(app, host="0.0.0.0", port=PORT)  # nosec B104 - genuinely exposed publicly via Caddy for Vercel/lcars-portal to reach (see module docstring); TTS_SERVICE_SECRET auth is the compensating control - reviewed 2026-09-12

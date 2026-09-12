@@ -6,6 +6,8 @@ Purpose: Measure adoption, collect feedback, track engagement metrics
 """
 
 import json
+import os
+import tempfile
 import time
 from dataclasses import dataclass, asdict
 from typing import List, Dict, Optional
@@ -398,7 +400,13 @@ if __name__ == "__main__":
         "metrics": asdict(tracker.calculate_metrics())
     }
 
-    with open("/tmp/adoption_metrics.json", "w") as f:
+    # 2026-09-12 (bandit B108): was a hardcoded "/tmp/..." literal. Uses
+    # tempfile.gettempdir() (same default, honours TMPDIR) and the file is
+    # opened with 0o600 since this export includes team member names and
+    # free-text feedback, unlike production_metrics.py's aggregate counters.
+    export_path = os.path.join(tempfile.gettempdir(), "adoption_metrics.json")
+    fd = os.open(export_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
         json.dump(data, f, indent=2)
 
-    print("\n✅ Adoption data exported to /tmp/adoption_metrics.json")
+    print(f"\n✅ Adoption data exported to {export_path}")

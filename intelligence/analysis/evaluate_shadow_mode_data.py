@@ -135,7 +135,7 @@ class EvaluationHarness:
         url = f"{SUPABASE_URL}/rest/v1/{query}"
         try:
             req = urllib.request.Request(url, headers=_headers())
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
                 signals = json.loads(resp.read())
         except Exception as exc:
             log.error(f"Failed to fetch signals: {exc}")
@@ -157,7 +157,7 @@ class EvaluationHarness:
                         f"?brief_id=eq.{brief_id}&select=approval_audit,updated_at"
                     )
                     brief_req = urllib.request.Request(brief_url, headers=_headers())
-                    with urllib.request.urlopen(brief_req, timeout=10) as resp:
+                    with urllib.request.urlopen(brief_req, timeout=10) as resp:  # nosec B310 - brief_url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
                         briefs = json.loads(resp.read())
                         if briefs:
                             brief = briefs[0]

@@ -55,7 +55,7 @@ class SupabaseClient:
             headers=self._headers(headers),
         )
         try:
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with urllib.request.urlopen(request, timeout=30) as response:  # nosec B310 - url built from self.url (SUPABASE_URL env var), not user input - reviewed 2026-09-12
                 data = response.read().decode("utf-8")
                 return json.loads(data) if data else None
         except urllib.error.HTTPError as error:

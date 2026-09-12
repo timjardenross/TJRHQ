@@ -15,6 +15,7 @@ import json
 import logging
 import re
 import subprocess
+import tempfile
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -29,7 +30,11 @@ _TZ = ZoneInfo("Australia/Brisbane")
 _TRANSCRIPTION_DIR = Path("/opt/starship-endeavour/services/transcription")
 TRANSCRIPTION_PY   = _TRANSCRIPTION_DIR / ".venv/bin/python"
 TRANSCRIPTION_SCRIPT = _TRANSCRIPTION_DIR / "transcribe.py"
-VOICE_TMP_DIR      = Path("/tmp/starship-captures/voice")
+# 2026-09-12 (bandit B108): was a hardcoded "/tmp/..." literal. Uses
+# tempfile.gettempdir() instead (still /tmp by default on this VM, but
+# honours TMPDIR if ever overridden) and app.py now creates it with 0o700
+# so downloaded voice recordings aren't world-readable in a shared /tmp.
+VOICE_TMP_DIR      = Path(tempfile.gettempdir()) / "starship-captures" / "voice"
 
 # ── Classification rules ──────────────────────────────────────────────────────
 # Ordered by specificity — first match wins.

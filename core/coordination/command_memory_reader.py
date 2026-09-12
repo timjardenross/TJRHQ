@@ -50,7 +50,7 @@ def load_live_missions(env_path: str = "platform-runtime/.env", limit: int = 200
         method="GET",
     )
     try:
-        with urllib.request.urlopen(req, timeout=20) as r:
+        with urllib.request.urlopen(req, timeout=20) as r:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
             return json.loads(r.read().decode("utf-8"))
     except (urllib.error.HTTPError, urllib.error.URLError, ValueError):
         return []

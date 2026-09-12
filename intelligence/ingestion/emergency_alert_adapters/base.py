@@ -63,7 +63,7 @@ def http_get(url: str, timeout: int = 20) -> bytes:
     Firecrawl — that budget (external_fetch_budget.py, 1,000 scrapes/month
     shared platform-wide) is reserved for sources that actually need it."""
     req = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT, "Accept": "*/*"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - generic fetch helper; callers pass this adapter module's own fixed emergency-feed URL constant, not user input - reviewed 2026-09-12
         return resp.read()
 
 

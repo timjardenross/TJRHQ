@@ -6,6 +6,7 @@ Purpose: Collect and analyze production webhook performance metrics
 """
 
 import json
+import tempfile
 import time
 from dataclasses import dataclass, asdict
 from typing import List, Dict
@@ -283,5 +284,10 @@ if __name__ == "__main__":
     dashboard.print_live_dashboard()
 
     # Export to JSON
-    collector.export_to_json("/tmp/production_metrics.json")
-    print("\n✅ Metrics exported to /tmp/production_metrics.json")
+    # 2026-09-12 (bandit B108): was a hardcoded "/tmp/..." literal; uses
+    # tempfile.gettempdir() instead (same default on this VM, honours
+    # TMPDIR if ever overridden). Metrics content is non-sensitive
+    # (latency/event-type counters), so no path change beyond that.
+    export_path = f"{tempfile.gettempdir()}/production_metrics.json"
+    collector.export_to_json(export_path)
+    print(f"\n✅ Metrics exported to {export_path}")

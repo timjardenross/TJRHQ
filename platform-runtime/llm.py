@@ -75,7 +75,7 @@ def is_ollama_available() -> bool:
             f"{get_ollama_base_url()}/api/tags",
             method="GET",
         )
-        with urllib.request.urlopen(request, timeout=60) as response:
+        with urllib.request.urlopen(request, timeout=60) as response:  # nosec B310 - url built from OLLAMA_BASE_URL env var (internal router base), not user input - reviewed 2026-09-12
             return 200 <= response.status < 300
     except Exception:
         return False
@@ -91,7 +91,7 @@ def is_router_available() -> bool:
             f"{get_model_router_url()}/health",
             method="GET",
         )
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with urllib.request.urlopen(req, timeout=3) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL env var (internal router base), not user input - reviewed 2026-09-12
             return 200 <= resp.status < 300
     except Exception:
         return False
@@ -151,7 +151,7 @@ def generate_with_router(
         headers={"Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=get_timeout_seconds()) as resp:
+        with urllib.request.urlopen(req, timeout=get_timeout_seconds()) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL env var plus a fixed endpoint name from _router_endpoint_for_specialists's own literal return values, not user input - reviewed 2026-09-12
             body = json.loads(resp.read().decode())
         content = (body.get("response") or body.get("content") or "").strip()
     except Exception as error:
@@ -215,7 +215,7 @@ def generate_with_ollama(prompt: str, system_prompt: str | None = None, model: s
     )
 
     try:
-        with urllib.request.urlopen(request, timeout=get_timeout_seconds()) as response:
+        with urllib.request.urlopen(request, timeout=get_timeout_seconds()) as response:  # nosec B310 - url built from OLLAMA_BASE_URL env var (internal router base), not user input - reviewed 2026-09-12
             body = json.loads(response.read().decode("utf-8"))
     except urllib.error.URLError as error:
         raise LLMUnavailableError(f"Ollama unavailable: {type(error).__name__}") from error
@@ -428,7 +428,7 @@ def generate_with_gemini(prompt: str, system_prompt: str | None = None, model: s
         headers={"Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=get_timeout_seconds()) as response:
+        with urllib.request.urlopen(request, timeout=get_timeout_seconds()) as response:  # nosec B310 - url is the fixed generativelanguage.googleapis.com host with a fixed default model name and the API key, never user input - reviewed 2026-09-12
             body = json.loads(response.read().decode("utf-8"))
     except urllib.error.URLError as error:
         raise LLMUnavailableError(f"Gemini unavailable: {type(error).__name__}") from error

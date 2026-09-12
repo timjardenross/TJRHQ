@@ -2773,7 +2773,7 @@ def _fetch_existing_ids() -> dict:
     url = f"{SUPABASE_URL}/rest/v1/intelligence_source_registry?select=source_id,source_name"
     req = urllib.request.Request(url, headers=_headers())
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from SUPABASE_URL env var, not user input - reviewed 2026-09-12
             rows = json.loads(resp.read())
             # Keep only the first occurrence per name (oldest record)
             seen = {}
@@ -2831,7 +2831,7 @@ def _upsert(rows: list[dict]) -> tuple[int, int]:
         body = json.dumps(batch).encode()
         req = urllib.request.Request(url, data=body, headers=headers, method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from SUPABASE_URL env var, not user input - reviewed 2026-09-12
                 result = json.loads(resp.read())
                 return len(result) if isinstance(result, list) else 1, 0
         except urllib.error.HTTPError as exc:
@@ -2855,7 +2855,7 @@ def _delete_all() -> None:
     url = f"{SUPABASE_URL}/rest/v1/intelligence_source_registry?source_id=neq.00000000-0000-0000-0000-000000000000"
     headers = {**_headers(), "Prefer": "return=minimal"}
     req = urllib.request.Request(url, headers=headers, method="DELETE")
-    with urllib.request.urlopen(req, timeout=10):
+    with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url built from SUPABASE_URL env var, not user input - reviewed 2026-09-12
         pass
 
 

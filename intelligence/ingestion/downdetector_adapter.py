@@ -330,7 +330,7 @@ class DowndetectorAdapter(BaseSourceAdapter):
                 url,
                 headers={"User-Agent": _UA, "Accept": "text/html,application/xhtml+xml"},
             )
-            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:
+            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:  # nosec B310 - generic fetch helper; url is self.source.url from the curated intelligence_sources registry, not user input - reviewed 2026-09-12
                 charset = "utf-8"
                 content_type = resp.headers.get("Content-Type", "")
                 if "charset=" in content_type:

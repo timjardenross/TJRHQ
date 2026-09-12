@@ -97,7 +97,7 @@ class CommanderSupabaseClient:
                 "Prefer": "return=representation" if returning else "return=minimal",
             },
         )
-        with urllib.request.urlopen(request, timeout=20) as response:
+        with urllib.request.urlopen(request, timeout=20) as response:  # nosec B310 - url built from self.url (SUPABASE_URL env var), not user input - reviewed 2026-09-12
             if not returning:
                 return None
             return json.loads(response.read().decode("utf-8") or "[]")
@@ -134,7 +134,7 @@ class CommanderSupabaseClient:
                 "Accept": "application/json",
             },
         )
-        with urllib.request.urlopen(request, timeout=20) as response:
+        with urllib.request.urlopen(request, timeout=20) as response:  # nosec B310 - url built from self.url (SUPABASE_URL env var), not user input - reviewed 2026-09-12
             return json.loads(response.read().decode("utf-8"))
 
     def get(self, query: str, timeout: int = 10) -> list[dict[str, Any]]:
@@ -167,7 +167,7 @@ class CommanderSupabaseClient:
                 "Accept": "application/json",
             },
         )
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:  # nosec B310 - url built from self.url (SUPABASE_URL env var), not user input - reviewed 2026-09-12
             result = json.loads(response.read().decode("utf-8"))
             return result if isinstance(result, list) else [result]
 
@@ -191,7 +191,7 @@ class CommanderSupabaseClient:
                     "Prefer": "return=minimal",
                 },
             )
-            with urllib.request.urlopen(request, timeout=timeout):
+            with urllib.request.urlopen(request, timeout=timeout):  # nosec B310 - url built from self.url (SUPABASE_URL env var), not user input - reviewed 2026-09-12
                 return True
         except Exception as exc:
             import logging as _log
@@ -215,7 +215,7 @@ class CommanderSupabaseClient:
                     "Prefer": "return=minimal",
                 },
             )
-            with urllib.request.urlopen(request, timeout=timeout):
+            with urllib.request.urlopen(request, timeout=timeout):  # nosec B310 - url built from self.url (SUPABASE_URL env var), not user input - reviewed 2026-09-12
                 return True
         except Exception:
             return False

@@ -172,7 +172,7 @@ class ScrapeAdapter(BaseSourceAdapter):
 
     @staticmethod
     def _do_fetch(req: urllib.request.Request, timeout: int) -> str:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - generic fetch helper; only caller is _fetch_html(self.source.url), sourced from the curated intelligence_sources registry, not user input - reviewed 2026-09-12
             charset = "utf-8"
             content_type = resp.headers.get("Content-Type", "")
             if "charset=" in content_type:

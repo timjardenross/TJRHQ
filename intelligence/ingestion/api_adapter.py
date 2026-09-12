@@ -108,7 +108,7 @@ class APIAdapter(BaseSourceAdapter):
             headers={"User-Agent": _UA, "Accept": "application/json, application/xml;q=0.9, */*;q=0.8"},
         )
         try:
-            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:
+            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_SECONDS) as resp:  # nosec B310 - generic fetch helper; url is this adapter's api_endpoint/url from the curated intelligence_sources registry, not user input - reviewed 2026-09-12
                 raw = resp.read()
                 ct = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
                 if ct in self._RSS_CONTENT_TYPES or raw.lstrip()[:5] in (b"<?xml", b"<rss ", b"<feed"):

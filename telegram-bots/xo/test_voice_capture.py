@@ -147,7 +147,7 @@ def test_classification_mapping():
 def test_transcription_failure():
     print("\n── Transcription failure paths ──────────────────────────────────")
     # Non-existent audio → ok=False
-    result = transcribe_audio("/tmp/does_not_exist_starship.oga")
+    result = transcribe_audio("/tmp/does_not_exist_starship.oga")  # nosec B108 - test fixture path asserting missing-file error handling - reviewed 2026-09-12
     check("missing file returns ok=False", not result.get("ok"))
     check("missing file error is a non-empty string", isinstance(result.get("error"), str) and len(result["error"]) > 0)
 
@@ -159,7 +159,7 @@ def test_transcription_failure():
              patch("telegram_bots.xo.voice_capture.TRANSCRIPTION_SCRIPT") as mock_script:
             mock_py.exists.return_value = True
             mock_script.exists.return_value = True
-            r = transcribe_audio("/tmp/fake.oga")
+            r = transcribe_audio("/tmp/fake.oga")  # nosec B108 - subprocess.run is mocked in this test, no real file I/O occurs - reviewed 2026-09-12
             check("empty stdout → ok=False", not r.get("ok"))
 
 
@@ -239,7 +239,7 @@ def test_handle_capture_success():
             "language": "en",
             "duration": 8.2,
         }
-        result = handle_capture_from_voice(mock_supabase, "/tmp/fake.oga", 643108092, 1001)
+        result = handle_capture_from_voice(mock_supabase, "/tmp/fake.oga", 643108092, 1001)  # nosec B108 - transcribe_audio is mocked in this test, no real file I/O occurs - reviewed 2026-09-12
 
     check("pipeline returns ok=True", result.get("ok") is True)
     check("capture_id is set", bool(result.get("capture_id")))
@@ -258,7 +258,7 @@ def test_handle_capture_transcription_failure():
 
     with patch("telegram_bots.xo.voice_capture.transcribe_audio") as mock_transcribe:
         mock_transcribe.return_value = {"ok": False, "error": "File not found"}
-        result = handle_capture_from_voice(mock_supabase, "/tmp/missing.oga", 643108092, 2001)
+        result = handle_capture_from_voice(mock_supabase, "/tmp/missing.oga", 643108092, 2001)  # nosec B108 - transcribe_audio is mocked to return a failure, no real file I/O occurs - reviewed 2026-09-12
 
     check("returns ok=False on transcription failure", result.get("ok") is False)
     check("error message present", bool(result.get("error")))
@@ -367,7 +367,7 @@ def test_handle_capture_from_voice_promotes_capacity_signal():
 
     with patch("telegram_bots.xo.voice_capture.transcribe_audio") as mock_transcribe:
         mock_transcribe.return_value = {"ok": True, "text": "my pain is pretty bad today", "duration": 6.0}
-        result = handle_capture_from_voice(mock_supabase, "/tmp/fake.oga", 643108092, 3001)
+        result = handle_capture_from_voice(mock_supabase, "/tmp/fake.oga", 643108092, 3001)  # nosec B108 - transcribe_audio is mocked in this test, no real file I/O occurs - reviewed 2026-09-12
 
     check("pipeline still returns ok=True", result.get("ok") is True)
     check("voice_type = capacity_signal", result.get("voice_type") == "capacity_signal")
@@ -384,7 +384,7 @@ def test_handle_capture_from_voice_does_not_promote_other_types():
 
     with patch("telegram_bots.xo.voice_capture.transcribe_audio") as mock_transcribe:
         mock_transcribe.return_value = {"ok": True, "text": "remind me to book the physio", "duration": 4.0}
-        result = handle_capture_from_voice(mock_supabase, "/tmp/fake.oga", 643108092, 4001)
+        result = handle_capture_from_voice(mock_supabase, "/tmp/fake.oga", 643108092, 4001)  # nosec B108 - transcribe_audio is mocked in this test, no real file I/O occurs - reviewed 2026-09-12
 
     check("voice_type = thing_to_do (unrelated classification, unaffected)", result.get("voice_type") == "thing_to_do")
     check("capacity_checkin field stays None for non-capacity captures", result.get("capacity_checkin") is None)

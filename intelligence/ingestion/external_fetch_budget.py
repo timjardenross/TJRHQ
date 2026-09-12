@@ -209,7 +209,7 @@ def _rpc_try_increment(provider: str, cycle_start: date, cycle_end: date, ceilin
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             body = json.loads(resp.read().decode("utf-8", errors="replace"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:500]
@@ -315,7 +315,7 @@ def current_usage(provider: str, *, today: Optional[date] = None, timeout: int =
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             rows = json.loads(resp.read().decode("utf-8", errors="replace"))
     except Exception as exc:
         raise FetchBudgetCheckFailed(f"Failed to read external_fetch_usage for {provider}: {exc}") from exc

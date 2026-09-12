@@ -577,7 +577,7 @@ class TestNumberOne:
 
         # Graceful degradation: missing/empty dir -> [] (non-blocking)
         self.assert_true(
-            load_engineering_handoffs("/tmp/__missing_handoffs_dir__") == [],
+            load_engineering_handoffs("/tmp/__missing_handoffs_dir__") == [],  # nosec B108 - test fixture path asserting graceful degradation on a missing dir, not a real temp-file write - reviewed 2026-09-12
             "Missing handoff directory degrades gracefully to []"
         )
         with tempfile.TemporaryDirectory() as empty_dir:

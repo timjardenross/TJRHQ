@@ -882,7 +882,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
 
             log.info("[decompose] Ollama: Sending request to qwen3:8b...")
 
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with urllib.request.urlopen(request, timeout=30) as response:  # nosec B310 - url built from OLLAMA_BASE_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
                 response_data = json.loads(response.read().decode("utf-8"))
                 response_text = response_data.get("response", "")
 
@@ -1472,7 +1472,7 @@ CONFIDENCE: [0.0-1.0]"""
 
             log.info("Calling Ollama for recommendation generation")
 
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with urllib.request.urlopen(request, timeout=30) as response:  # nosec B310 - url built from OLLAMA_BASE_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
                 response_data = json.loads(response.read().decode("utf-8"))
                 response_text = response_data.get("response", "").strip()
 

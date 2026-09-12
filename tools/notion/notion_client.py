@@ -62,7 +62,7 @@ class NotionClient:
             headers=self._headers(),
         )
         try:
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with urllib.request.urlopen(request, timeout=30) as response:  # nosec B310 - url is the fixed api.notion.com endpoint, not user input - reviewed 2026-09-12
                 data = response.read().decode("utf-8")
                 return json.loads(data) if data else {}
         except urllib.error.HTTPError as error:

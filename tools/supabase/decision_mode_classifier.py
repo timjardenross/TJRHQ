@@ -255,7 +255,7 @@ def _llm_classify(question: str) -> DecisionClassification:
         method="POST",
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(request, timeout=timeout) as resp:
+    with urllib.request.urlopen(request, timeout=timeout) as resp:  # nosec B310 - url built from OLLAMA_BASE_URL env var with fixed default, not user input - reviewed 2026-09-12
         body = json.loads(resp.read().decode("utf-8"))
 
     raw = (body.get("response") or "").strip()

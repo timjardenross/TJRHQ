@@ -37,7 +37,7 @@ def check_connectivity() -> tuple[bool, str]:
     """
     url = f"{_base_url()}/api/tags"
     try:
-        req = urllib.request.urlopen(url, timeout=_CONNECT_TIMEOUT)
+        req = urllib.request.urlopen(url, timeout=_CONNECT_TIMEOUT)  # nosec B310 - url built from OLLAMA_VM_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
         data = json.loads(req.read().decode())
         models = [m["name"] for m in data.get("models", [])]
         return True, f"Ollama reachable at {_base_url()}. Models: {models}"
@@ -81,7 +81,7 @@ def call(prompt: str, model: Optional[str] = None) -> tuple[str, str]:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:  # nosec B310 - url built from OLLAMA_VM_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
             raw = resp.read().decode("utf-8")
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Ollama request failed: {exc}") from exc
