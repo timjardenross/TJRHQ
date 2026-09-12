@@ -370,17 +370,34 @@ jobs:
       # pass clean repo-wide today -- nothing to triage, purely a secrets
       # tripwire, so there's no reason to let a new leak merge in the
       # meantime.
+      #
+      # Caught on PR #180 (2026-09-12): `pre-commit run` accepts at most ONE
+      # hook-id positional argument (confirmed via `pre-commit run --help`:
+      # "positional arguments: hook - A single hook-id to run") -- the
+      # original one-line `pre-commit run --all-files gitleaks
+      # detect-secrets` was invalid CLI usage from the moment it was
+      # written and failed with "unrecognized arguments: detect-secrets"
+      # on every run, on main included, not just this PR. Split into one
+      # invocation per hook so both actually run.
       - name: pre-commit (secrets scan — blocking)
-        run: pre-commit run --all-files gitleaks detect-secrets
+        run: |
+          set -e
+          pre-commit run --all-files gitleaks
+          pre-commit run --all-files detect-secrets
 
       # Soft gate (visible, non-blocking): ruff-check + bandit. Flips to
       # blocking once Stream 9's triage lands (179 Medium bandit findings
       # fixed/suppressed, ruff's 3,420 auto-fixable findings landed as their
       # own isolated formatting PR) -- until then this only reports drift so
       # new code doesn't silently add to the pile without anyone seeing it.
+      # Same one-hook-id-per-invocation fix as the blocking gate above --
+      # the original combined command never actually ran either check, it
+      # just failed argparse and got masked by continue-on-error.
       - name: pre-commit (lint/security — informational until Stream 9 lands)
         continue-on-error: true
-        run: pre-commit run --all-files ruff-check bandit
+        run: |
+          pre-commit run --all-files ruff-check
+          pre-commit run --all-files bandit
 
   actionlint:
     runs-on: ubuntu-latest
