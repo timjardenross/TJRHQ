@@ -1,0 +1,28 @@
+[Unit]
+# Arize Phoenix LLM observability collector — OSS-Gap-Solutions-2026-08-23.md
+# GAP 2. Seven modules already instrument themselves via configure_tracing()
+# (intelligence/scheduler.py, platform-runtime/lib/telemetry.py,
+# platform-runtime/lib/officers/daily_operations_cycle.py,
+# platform-runtime/lib/mistral_agent_client.py, telegram-bots/xo/app.py,
+# core/llm/provider_chain.py, core/model-router/app.py) and were emitting
+# OTel spans with nothing listening on :6006/:4317 to receive them — this
+# unit is purely "make the collector exist and stay running", not new
+# instrumentation. See tools/start-phoenix.sh for the manual equivalent.
+#
+# UI/HTTP: :6006 (0.0.0.0). OTLP gRPC ingest: :4317. Trace store persists at
+# ~/.phoenix (root's home), independent of this unit — surviving a restart.
+Description=Starship Endeavour — Arize Phoenix LLM Observability
+Documentation=https://docs.arize.com/phoenix
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/starship-endeavour
+ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/python -m phoenix.server.main serve --host 0.0.0.0 --port 6006
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=phoenix
+
+[Install]
+WantedBy=multi-user.target
