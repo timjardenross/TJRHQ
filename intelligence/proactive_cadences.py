@@ -73,7 +73,7 @@ def _tg_notify(text: str) -> bool:
         from core.platform.notification_service import Severity, Transport, notify
         result = notify(text, severity=Severity.INFO, transport=Transport.TELEGRAM)
         return result.ok
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Telegram notify helper, already logged; caller gets a bool and decides what to do
         log.error("[proactive] Telegram notify failed: %s", exc)
         return False
 
@@ -84,7 +84,7 @@ def _shakedown_log(job_id: str, status: str, detail: str = "") -> None:
         sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
         from shakedown_logger import log_event
         log_event(job_id, status, detail, "telegram")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort shakedown event write, already logged at debug (explicitly 'non-critical' per the log message)
         log.debug("[shakedown] log_event failed (non-critical): %s", exc)
     try:
         # Relied on intelligence/scheduler.py having already inserted this
@@ -99,7 +99,7 @@ def _shakedown_log(job_id: str, status: str, detail: str = "") -> None:
         if not record_heartbeat(job_id, status=hb, detail=detail or None,
                                 error_message=detail if hb == "failed" else None):
             log.warning("[heartbeat] record_heartbeat(%s) returned False (see heartbeat.py logs)", job_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - heartbeat recording is observability-only and must never crash the caller it's reporting on
         log.warning("[heartbeat] record_heartbeat(%s) raised: %s", job_id, exc)
 
 
@@ -126,7 +126,7 @@ def _get_pending_decisions() -> list[dict]:
                 log.debug("[proactive] Skipping unreadable decision file %s: %s", f, exc)
                 continue
         return pending[:10]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort decisions-dir scan, already logged; caller treats an empty list as "nothing pending"
         log.warning("[proactive] Pending decision check failed: %s", exc)
         return []
 
@@ -250,7 +250,7 @@ def _get_idea_missions() -> list[dict]:
             return []
         rows = c.get("missions?select=*&status=ilike.Idea&order=created_at.asc&limit=30")
         return rows or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort idea-missions lookup, already logged at debug; caller treats an empty list as 'nothing to triage'
         log.debug("[proactive] Idea missions unavailable: %s", exc)
         return []
 
@@ -310,7 +310,7 @@ def _check_health_logged_today() -> bool:
         today = _today_iso()
         rows = c.get(f"capacity_checkins?select=id&log_date=eq.{today}&limit=1")
         return bool(rows)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort health check-in lookup, already logged
         log.warning("[proactive] Health check-in check failed: %s", exc)
         return False
 
@@ -441,7 +441,7 @@ def job_forgotten_decisions() -> None:
         log.info("[proactive] Forgotten decisions alert sent (%d items)", len(items))
         _shakedown_log("forgotten_decisions", "success" if ok else "failure",
                        f"{len(items)} items")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Forgotten decisions job failed: %s", exc)
         _shakedown_log("forgotten_decisions", "failure", str(exc))
 
@@ -459,7 +459,7 @@ def job_fortnightly_idea_review() -> None:
         if msg:
             _tg_notify(msg)
             log.info("[proactive] Fortnightly idea review sent (%d ideas)", len(missions))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Fortnightly idea review failed: %s", exc)
 
 
@@ -501,7 +501,7 @@ def job_lifecycle_recommendations() -> None:
         log.info("[proactive] Lifecycle recommendations sent (%d items)", needing)
         _shakedown_log("lifecycle_recommendations", "success" if ok else "failure",
                        f"{needing} items")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Lifecycle recommendations failed: %s", exc)
         _shakedown_log("lifecycle_recommendations", "failure", str(exc))
 
@@ -528,7 +528,7 @@ def job_appointment_prep() -> None:
     lead_days = int(os.environ.get("APPOINTMENT_LEAD_DAYS", "2"))
     try:
         appointments = _get_upcoming_appointments(lead_days)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Appointment prep: query failed: %s", exc)
         _shakedown_log("appointment_prep", "failure", str(exc))
         return
@@ -547,7 +547,7 @@ def job_appointment_prep() -> None:
             brief = _generate_prep_brief(appt, health_summary, recent_events, follow_ups)
             if _tg_notify(brief):
                 sent += 1
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-appointment brief failure inside a loop — one bad appointment must not abort the batch; already logged
             log.error("[proactive] Appointment prep brief failed for %s: %s",
                       appt.get("title", "appointment"), exc)
     log.info("[proactive] Appointment prep: %d/%d brief(s) sent", sent, len(appointments))
@@ -568,7 +568,7 @@ def job_shakedown_digest() -> None:
         _shakedown_log("shakedown_digest", "success" if ok else "failure",
                        f"Day {summary['day_n']}: {summary['total_events']} events, "
                        f"{summary['failure_count']} failures")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Shakedown digest failed: %s", exc)
         _shakedown_log("shakedown_digest", "failure", str(exc))
 
@@ -587,7 +587,7 @@ def job_mission_registry_sync() -> None:
         else:
             log.info("[proactive] Mission registry sync: already up to date")
             _shakedown_log("mission_registry_sync", "skipped", "Registry already up to date")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Mission registry sync failed: %s", exc)
         _shakedown_log("mission_registry_sync", "failure", str(exc))
 
@@ -602,7 +602,7 @@ def job_content_pipeline() -> None:
         promoted = create_opportunities_from_signals(limit=5, min_rank_score=70.0)
         log.info("[proactive] Content signal promotion: %s (%d/%d created)",
                  promoted.get("status"), promoted.get("created", 0), promoted.get("requested", 0))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Content signal promotion failed: %s", exc)
         _shakedown_log("content_pipeline", "failure", f"promotion: {exc}")
         return
@@ -613,7 +613,7 @@ def job_content_pipeline() -> None:
         log.info("[proactive] Content drafting: %d/%d item(s) drafted", drafted, len(items))
         _shakedown_log("content_pipeline", "success",
                        f"promoted={promoted.get('created', 0)} drafted={drafted}/{len(items)}")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Content drafting failed: %s", exc)
         _shakedown_log("content_pipeline", "failure", f"drafting: {exc}")
 
@@ -643,7 +643,7 @@ def job_pending_research_sweep() -> None:
                          item.get("title", item["id"])[:60])
                 pass1_ids.add(item["id"])
                 process_captured_item(item["id"])
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-item orchestration failure inside a loop — one bad captured item must not abort the sweep; already logged
                 log.error("[proactive] Orchestration failed for %s: %s", item["id"], exc)
         queued = (
             _db._client.table("captured_items")
@@ -657,13 +657,13 @@ def job_pending_research_sweep() -> None:
         for item in research_items:
             try:
                 _run_research(item["id"], item)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-item research failure inside a loop — one bad item must not abort the sweep; already logged
                 log.error("[proactive] Research failed for %s: %s", item["id"], exc)
         _shakedown_log(
             "pending_research_sweep", "success",
             f"processed={len(pass1_ids)} researched={len(research_items)}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared scheduler process; already logged
         log.error("[proactive] Pending research sweep failed: %s", exc)
         _shakedown_log("pending_research_sweep", "failure", str(exc))
 

@@ -74,7 +74,7 @@ def _record_heartbeat(domain_key: str, status: str, detail: str | None = None, e
         from heartbeat import record_heartbeat
         if not record_heartbeat(domain_key, status=status, detail=detail, error_message=error_message):
             log.warning("[heartbeat] record_heartbeat(%s) returned False (see heartbeat.py logs)", domain_key)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - heartbeat recording is observability-only and must never crash the caller it's reporting on
         log.warning("[heartbeat] record_heartbeat(%s) raised: %s", domain_key, exc)
 
 
@@ -108,11 +108,11 @@ def _resolve_tz(name: str):
     try:
         import pytz
         return pytz.timezone(name)
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort tz-library probe (pytz) — falls through to the zoneinfo fallback below on any failure
         try:
             from zoneinfo import ZoneInfo
             return ZoneInfo(name)
-        except Exception:
+        except Exception:  # noqa: BLE001 - final tz-resolution fallback; already logged and returns None so callers use the scheduler default
             log.warning("Could not resolve timezone %s — using scheduler default", name)
             return None
 
@@ -143,7 +143,7 @@ def _seed_operational_patterns() -> None:
         from operational_pattern_library import seed_initial_patterns
         count = seed_initial_patterns()
         log.info("[pattern-library] Startup seed complete: %d pattern(s) written", count)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort startup seed, already logged as non-blocking
         log.warning("[pattern-library] Startup seed failed (non-blocking): %s", exc)
 
 
@@ -184,7 +184,7 @@ def _start_scheduler() -> None:
         try:
             if _store.brief_exists_for_cycle(status.cycle_id):
                 return
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort existing-brief poll check, already logged; a check failure just skips this poll cycle
             log.warning("[morning-cycle %s] could not check for an existing brief this poll: %s",
                         status.cycle_id, exc)
             return
@@ -197,7 +197,7 @@ def _start_scheduler() -> None:
         try:
             brief = run_once(trigger="scheduled")
             log.info("ORI brief complete: %s risk=%s", brief.brief_id[:8], brief.overall_risk)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged
             log.error("ORI brief generation failed: %s", exc)
 
     scheduler.add_job(
@@ -222,7 +222,7 @@ def _start_scheduler() -> None:
             if DAILY_BRIEF_AFTER_SYNC:
                 brief = run_once(trigger="scheduled")
                 log.info("Post-sync brief: %s risk=%s", brief.brief_id[:8], brief.overall_risk)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged
             log.error("ORI GitHub sync failed: %s", exc)
 
     scheduler.add_job(_github_job, github_trigger, id="ori_github_sync", replace_existing=True)
@@ -587,7 +587,7 @@ def _start_scheduler() -> None:
     try:
         from intelligence.proactive_cadences import register_jobs as _register_proactive
         _register_proactive(scheduler, tz)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort sub-registrar call, already logged as non-blocking
         log.warning("Proactive cadences failed to register (non-blocking): %s", exc)
 
     log.info(
@@ -667,7 +667,7 @@ def _pregenerate_brief_audio(brief_type: str) -> None:
         )
         resp.raise_for_status()
         log.info("Brief audio pre-generated and cached: brief_type=%s id=%s", brief_type, row["id"])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort audio pre-generation, already logged as non-blocking
         log.warning("Brief audio pre-generation failed (non-blocking): %s", exc)
 
 
@@ -696,7 +696,7 @@ def _morning_brief_job() -> None:
             log.warning("Morning brief delivery failed")
             _record_heartbeat("captains_daily_briefs", "failed", error_message="morning brief delivery failed")
             _record_heartbeat("morning_brief", "failed", error_message="morning brief delivery failed")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Morning brief job failed: %s", exc)
         _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
         _record_heartbeat("morning_brief", "failed", error_message=str(exc))
@@ -720,7 +720,7 @@ def _midday_check_job() -> None:
             _pregenerate_brief_audio("midday")
         else:
             log.info("Midday check: no new significant signals — suppressing brief")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged
         log.error("Midday check job failed: %s", exc)
 
 
@@ -736,7 +736,7 @@ def _eod_brief_job() -> None:
                            error_message=None if ok else "eod brief delivery failed")
         if ok:
             _pregenerate_brief_audio("eod")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("EOD brief job failed: %s", exc)
         _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
 
@@ -751,7 +751,7 @@ def _weekly_brief_job() -> None:
         _record_heartbeat("captains_daily_briefs", "ok" if ok else "failed",
                            detail="weekly brief" if ok else None,
                            error_message=None if ok else "weekly brief delivery failed")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Weekly brief job failed: %s", exc)
         _record_heartbeat("captains_daily_briefs", "failed", error_message=str(exc))
 
@@ -766,7 +766,7 @@ def _knowledge_ops_brief_job() -> None:
     try:
         ok = send_brief("knowledge_ops")
         log.info("Knowledge Platform brief %s", "delivered" if ok else "delivery failed")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged
         log.error("Knowledge Platform brief job failed: %s", exc)
 
 
@@ -795,7 +795,7 @@ def _daily_collection_job() -> None:
 
     try:
         items, health_records = collect_all()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Daily collection job failed: %s", exc)
         _record_heartbeat("intelligence_collection", "failed", error_message=str(exc))
         return
@@ -853,13 +853,13 @@ def _daily_collection_job() -> None:
             saved = _stats["canonical"] + _stats["duplicate"]
             log.info("Phase A enrichment: canonical=%d duplicate=%d failed=%d",
                      _stats["canonical"], _stats["duplicate"], _stats["failed"])
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort enrichment path with an explicit plain-save fallback loop right below; already logged
             log.warning("Phase A enrichment failed; plain-save fallback: %s", exc)
             for event in ranked:
                 try:
                     if store.save_event(event):
                         saved += 1
-                except Exception as exc2:
+                except Exception as exc2:  # noqa: BLE001 - per-event save failure inside a fallback loop — one bad event must not abort the batch; already logged
                     log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
 
         log.info(
@@ -867,7 +867,7 @@ def _daily_collection_job() -> None:
             "events_classified=%d events_saved=%d",
             len(health_records), len(items), len(classified), saved,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - post-processing stage catch, collection heartbeat already recorded above (see comment); already logged
         # Collection heartbeat already recorded above — this stage is
         # classify/dedup/save, logged but not deadman's-switch-gated.
         log.error("Daily collection post-processing failed: %s", exc)
@@ -932,7 +932,7 @@ def _health_osint_weekly_fetch_job() -> None:
         else:
             log.info("Health OSINT auto-curation: %s", curation_result.stdout[-2000:])
             _record_heartbeat("health_osint_auto_curation", "ok", detail=curation_result.stdout[-500:])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Health OSINT weekly fetch job failed: %s", exc)
         _record_heartbeat("health_osint_weekly_fetch", "failed", error_message=str(exc))
 
@@ -983,7 +983,7 @@ def _suppression_audit_job() -> None:
             return
         log.info("Suppression audit: %s", result.stdout[-2000:])
         _record_heartbeat("intelligence_suppression_audit", "ok", detail=result.stdout[-500:])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Suppression audit job failed: %s", exc)
         _record_heartbeat("intelligence_suppression_audit", "failed", error_message=str(exc))
 
@@ -1077,7 +1077,7 @@ def _priority_tiered_collection_job() -> None:
     try:
         from zoneinfo import ZoneInfo
         hour = _datetime.now(ZoneInfo("Australia/Brisbane")).hour
-    except Exception:
+    except Exception:  # noqa: BLE001 - defensive-only fallback, see comment above; already handled by falling back to host-local time
         # Defensive only — ZoneInfo("Australia/Brisbane") should never fail on a
         # supported Python; if it somehow does, fall back to host local time
         # rather than guessing UTC (this host is deployed/configured for
@@ -1146,13 +1146,13 @@ def _priority_tiered_collection_job() -> None:
             from intelligence.ingestion.phase_a_enrichment import enrich_and_save
             _stats = enrich_and_save(ranked, store, shadow_mode=True)
             saved = _stats["canonical"] + _stats["duplicate"]
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort enrichment path with an explicit plain-save fallback loop right below; already logged
             log.warning("Phase A enrichment failed on priority-tiered run; plain-save fallback: %s", exc)
             for event in ranked:
                 try:
                     if store.save_event(event):
                         saved += 1
-                except Exception as exc2:
+                except Exception as exc2:  # noqa: BLE001 - per-event save failure inside a fallback loop — one bad event must not abort the batch; already logged
                     log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
 
         log.info(
@@ -1164,7 +1164,7 @@ def _priority_tiered_collection_job() -> None:
             "downdetector_priority_tiered_collection", "ok",
             detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Priority tiered collection job failed: %s", exc)
         _record_heartbeat("downdetector_priority_tiered_collection", "failed", error_message=str(exc))
 
@@ -1194,7 +1194,7 @@ def _downdetector_threshold_recompute_job() -> None:
             "downdetector_threshold_recompute", "ok",
             detail=f"sources={len(results)} learned={learned} bootstrap={bootstrap}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Downdetector threshold recompute job failed: %s", exc)
         _record_heartbeat("downdetector_threshold_recompute", "failed", error_message=str(exc))
 
@@ -1304,13 +1304,13 @@ def _intraday_status_collection_job() -> None:
             from intelligence.ingestion.phase_a_enrichment import enrich_and_save
             _stats = enrich_and_save(ranked, store, shadow_mode=True)
             saved = _stats["canonical"] + _stats["duplicate"]
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort enrichment path with an explicit plain-save fallback loop right below; already logged
             log.warning("Phase A enrichment failed on intraday run; plain-save fallback: %s", exc)
             for event in ranked:
                 try:
                     if store.save_event(event):
                         saved += 1
-                except Exception as exc2:
+                except Exception as exc2:  # noqa: BLE001 - per-event save failure inside a fallback loop — one bad event must not abort the batch; already logged
                     log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
 
         log.info(
@@ -1322,7 +1322,7 @@ def _intraday_status_collection_job() -> None:
             "intraday_status_collection", "ok",
             detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Intraday status collection job failed: %s", exc)
         _record_heartbeat("intraday_status_collection", "failed", error_message=str(exc))
 
@@ -1391,13 +1391,13 @@ def _intraday_media_collection_job() -> None:
             from intelligence.ingestion.phase_a_enrichment import enrich_and_save
             _stats = enrich_and_save(ranked, store, shadow_mode=True)
             saved = _stats["canonical"] + _stats["duplicate"]
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort enrichment path with an explicit plain-save fallback loop right below; already logged
             log.warning("Phase A enrichment failed on intraday media run; plain-save fallback: %s", exc)
             for event in ranked:
                 try:
                     if store.save_event(event):
                         saved += 1
-                except Exception as exc2:
+                except Exception as exc2:  # noqa: BLE001 - per-event save failure inside a fallback loop — one bad event must not abort the batch; already logged
                     log.warning("Event save failed (%s): %s", event.raw_title[:60], exc2)
 
         log.info(
@@ -1409,7 +1409,7 @@ def _intraday_media_collection_job() -> None:
             "intraday_media_collection", "ok",
             detail=f"sources={len(health_records)} items={len(items)} saved={saved}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Intraday media collection job failed: %s", exc)
         _record_heartbeat("intraday_media_collection", "failed", error_message=str(exc))
 
@@ -1430,7 +1430,7 @@ def _health_mission_correlation_job() -> None:
         log.info("Health-mission correlation complete: status=%s n_health=%d n_missions=%d",
                  result.get('status'), result.get('n_health_entries', 0), result.get('n_mission_days', 0))
         _record_heartbeat("health_mission_correlation", "ok", detail=result.get('status'))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Health-mission correlation job failed: %s", exc)
         _record_heartbeat("health_mission_correlation", "failed", error_message=str(exc))
 
@@ -1450,7 +1450,7 @@ def _adhd_nudge_job() -> None:
                  result.get('checked', 0), result.get('nudged', 0), len(result.get('errors', [])))
         _record_heartbeat("adhd_task_nudge", "ok", detail=f"nudged={result.get('nudged', 0)}")
         _record_heartbeat("follow_through_engine", "ok", detail=f"nudged={result.get('nudged', 0)}")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("ADHD task nudge job failed: %s", exc)
         _record_heartbeat("adhd_task_nudge", "failed", error_message=str(exc))
         _record_heartbeat("follow_through_engine", "failed", error_message=str(exc))
@@ -1496,7 +1496,7 @@ def _google_tasks_sync_job() -> None:
             "google_tasks_sync", "ok",
             detail=f"pushed={body.get('pushed', 0)} pulled={body.get('pulled', 0)}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Google Tasks sync job failed: %s", exc)
         _record_heartbeat("google_tasks_sync", "failed", error_message=str(exc))
 
@@ -1514,7 +1514,7 @@ def _content_scoring_job() -> None:
         svc = ContentIntelligenceService()
         written = svc.score_and_persist(days=7)
         log.info("Content intelligence scoring complete: %d signals written", written)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged
         log.error("Content intelligence scoring failed: %s", exc)
 
 
@@ -1556,7 +1556,7 @@ def _evolved_insight_generation_job() -> None:
             "evolved_captain_insight_generation", "ok",
             detail=f"{insight_count} insight(s) from {len(events)} events",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Evolved insight generation job failed: %s", exc)
         _record_heartbeat("evolved_captain_insight_generation", "failed", error_message=str(exc))
 
@@ -1633,7 +1633,7 @@ def _attention_evaluation_job() -> None:
             "Attention evaluation: %d event(s) evaluated, %d interrupt_now, %d dispatched",
             len(events), len(doc.interrupt_now), dispatched,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged
         log.error("Attention evaluation job failed: %s", exc)
 
 
@@ -1663,7 +1663,7 @@ def _attention_drill_job() -> None:
             "ok" if dispatched_ok else "failed",
             detail=f"category={result['category']}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Attention drill job failed: %s", exc)
         _record_heartbeat("attention_engine_drill", "failed", error_message=str(exc))
 
@@ -1695,7 +1695,7 @@ def _validation_suite_job() -> None:
             template="alert",
             transport=Transport.TELEGRAM,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged
         log.error("Validation suite job failed: %s", exc)
 
 
@@ -1721,7 +1721,7 @@ def _brief_qa_nightly_job() -> None:
         log.info("Brief QA nightly: %d passed, %d failed, %d errors", passed, failed, errors)
         _record_heartbeat("brief_qa_agent_nightly", "ok",
                          detail=f"passed={passed} failed={failed} errors={errors}")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Brief QA nightly job failed: %s", exc)
         _record_heartbeat("brief_qa_agent_nightly", "failed", error_message=str(exc))
 
@@ -1754,7 +1754,7 @@ def _source_fidelity_audit_job() -> None:
             "source_fidelity_audit", "ok",
             detail=f"sources={total_sources} high={high_value} low={low_value} degraded={degraded}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Source fidelity audit job failed: %s", exc)
         _record_heartbeat("source_fidelity_audit", "failed", error_message=str(exc))
 
@@ -1806,7 +1806,7 @@ def _episodic_memory_decay_job() -> None:
             "episodic_memory_decay", "ok",
             detail=f"deleted={deleted_count} cutoff={cutoff[:10]}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Episodic memory decay job failed: %s", exc)
         _record_heartbeat("episodic_memory_decay", "failed", error_message=str(exc))
 
