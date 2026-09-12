@@ -39,7 +39,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime, timezone
 
 
 def _brisbane_today() -> str:
@@ -48,7 +48,7 @@ def _brisbane_today() -> str:
         from zoneinfo import ZoneInfo
         return datetime.now(ZoneInfo("Australia/Brisbane")).date().isoformat()
     except Exception:
-        return date.today().isoformat()
+        return datetime.now(timezone.utc).date().isoformat()
 from pathlib import Path
 from typing import Any
 
@@ -311,7 +311,7 @@ def _brisbane_now() -> datetime:
         from zoneinfo import ZoneInfo
         return datetime.now(ZoneInfo("Australia/Brisbane"))
     except Exception:
-        return datetime.now()
+        return datetime.now(timezone.utc)
 
 
 def _current_pulse_window(hour: int) -> str:

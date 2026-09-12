@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any
 
 try:
@@ -56,7 +56,7 @@ def escalation_level(confidence: int, pulses_completed: int) -> int:
         from zoneinfo import ZoneInfo
         hour = datetime.now(ZoneInfo("Australia/Brisbane")).hour
     except Exception:
-        hour = datetime.now().hour
+        hour = datetime.now(timezone.utc).hour
 
     if confidence == 0 and pulses_completed == 0:
         if hour >= 14:

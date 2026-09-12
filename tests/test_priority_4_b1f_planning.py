@@ -17,7 +17,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -208,7 +208,7 @@ def test_priority_4_automatic_routing():
         'id': 'DEC-AUTO-001',
         'provider_name': selected,
         'routing_method': 'automatic',
-        'timestamp': datetime.utcnow().isoformat()
+        'timestamp': datetime.now(timezone.utc).isoformat()
     }
 
     log.info(f"  Decision recorded: {decision['id']} → {decision['provider_name']}")

@@ -499,8 +499,8 @@ class TestEnhancedReadinessScore(unittest.TestCase):
         self.assertLessEqual(result.score, 100)
 
     def test_deadline_pressure_reduces_ops(self):
-        from datetime import date, timedelta
-        due_soon = (date.today() + timedelta(days=1)).isoformat()
+        from datetime import datetime, timedelta, timezone
+        due_soon = (datetime.now(timezone.utc).date() + timedelta(days=1)).isoformat()
         missions = [
             {"id": "M1", "priority": "P0", "status": "Designed",
              "due_date": due_soon, "title": "Urgent mission"},

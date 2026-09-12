@@ -191,7 +191,7 @@ def save_decision(finding_id, decision, reasoning=""):
         "finding_id": finding_id,
         "decision": decision,
         "reasoning": reasoning,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     try:

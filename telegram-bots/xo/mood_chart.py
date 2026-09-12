@@ -11,7 +11,7 @@ telemetry) and with optional contextual annotations (sleep, pain, anxiety, etc.)
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 _TZ = ZoneInfo("Australia/Brisbane")
@@ -44,7 +44,7 @@ def _current_time_of_day() -> str:
     try:
         local_hour = datetime.now(_TZ).hour
     except Exception:
-        local_hour = datetime.now().hour
+        local_hour = datetime.now(timezone.utc).hour
     if local_hour < 14:
         return "morning"
     if local_hour < 18:

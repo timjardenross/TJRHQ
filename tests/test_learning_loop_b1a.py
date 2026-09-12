@@ -12,7 +12,7 @@ Authority: MSN-0060B-LEARNING-LOOP-IMPLEMENTATION.md Phase B1A
 import logging
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 
 import pytest
@@ -158,7 +158,7 @@ class TestDecisionRecording:
 
     def test_record_decision_with_custom_timestamp(self, learning_loop_service):
         """Test: Record decision with explicit timestamp."""
-        custom_time = datetime(2026, 6, 10, 15, 0, 0)
+        custom_time = datetime(2026, 6, 10, 15, 0, 0, tzinfo=timezone.utc)
         decision = learning_loop_service.record_decision(
             mission_id="MSN-0055B",
             recommendation_id="REC-20260610-150000",
