@@ -34,7 +34,7 @@ numpy==2.4.6
 python-pptx==1.0.2
 
 # Development
-pytest==7.4.0
+pytest==9.1.1
 pytest-cov==4.1.0
 black==24.4.2
 pylint==2.17.0
