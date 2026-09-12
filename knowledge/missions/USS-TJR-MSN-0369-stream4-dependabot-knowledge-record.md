@@ -1,0 +1,50 @@
+# USS-TJR-MSN-0369 — Stream 4: Dependabot PR Triage
+
+Date: 2026-09-12
+Scope: Stream 4 ONLY of "Real Backlog Closeout (Bandit/Ruff/ADR/Dependabot)" — triage every currently-open Dependabot PR on `timjardenross/TJRHQ` to merged-and-verified-green or closed/deferred with a specific reason. Zero left undecided.
+
+## Pre-flight: re-listed open Dependabot PRs
+
+Re-listed at the start of this run (not relied on the possibly-stale list in the brief). 11 Dependabot PRs were open, matching the brief's numbers exactly: #120, #121, #124, #126, #145, #148, #151, #157, #160, #162, #168. (Also 4 non-Dependabot PRs open — #181, #186, #188, #190 — out of scope for this stream, left untouched.)
+
+## Cross-cutting finding: pre-existing CI noise, not caused by these bumps
+
+Every PR's `test (core)` job failed, **including on #120/#121 (GitHub Actions version bumps that touch zero Python)** — proof this is a pre-existing baseline failure, not something these bumps caused. Pulled actual failure logs for two path-specific jobs to confirm the pattern held for Python bumps too:
+
+- `telegram-bots-capacitybot` test job (PRs #124, #148): 46 failures, all `KeyError: 'TELEGRAM_BOT_TOKEN'` — a missing CI secret/env var, unrelated to python-telegram-bot or python-dotenv version.
+- `services-revs-content-agents` test job (PR #145): `FileNotFoundError: examples/sample_brief.md` — a working-directory-relative test fixture bug, unrelated to mypy version. Also confirmed mypy is **not invoked anywhere in CI** for this service (no workflow step, no config file references it) — it's an unused dev-only pin, so "stricter mypy defaults breaking CI" cannot happen here.
+
+These match the existing "46 pre-existing test failures" and "python-ci.yml on main" issues already tracked elsewhere (PR #181 is open fixing two of them, out of scope for this stream). Verification below is therefore against the *relevant, path-specific* signal and actual code review, not against these known-broken baseline jobs.
+
+## Vercel lcars-portal deploy-limit check (mandatory pre-check for #160/#162/#168)
+
+Checked live commit status on multiple lcars-portal-touching PRs as of 2026-09-12 08:32–08:33 UTC (same day, within the hour of this triage): **`Vercel: Deployment rate limited — retry in 24 hours`**, consistently, across #160, #162, #168 (and the same on the Python-only PRs re-run around the same time, confirming the whole repo's Vercel integration is rate-limited, not project-specific noise). The Vercel MCP connector was not linked/authenticated in this session (`list_projects` errored), so I relied on GitHub's own status-check evidence rather than guessing. **Conclusion: the limit is NOT clear.** All three lcars-portal PRs deferred at least partly for this reason (with additional independent reasons below).
+
+## Outcomes
+
+| PR | Package | Outcome | Reason |
+|----|---------|---------|--------|
+| #120 | actions/checkout 4→7 | **Merged** (squash, `a929891a`) | Read actual release notes: only change of substance is a "safer pull_request_target defaults" security hardening for fork PR checkouts. Repo has zero `pull_request_target`/`workflow_run` triggers (`grep` confirmed) — no-op here. Pre-merge Vercel check had already succeeded once for this PR. |
+| #121 | actions/setup-node 4→7 | **Merged** (squash, `5ec6425c`) | Release notes: v5 needs runner ≥2.327.1 (GitHub-hosted runners already meet this), v6 restricts auto-caching to npm — lcars-portal-ci.yml already sets `cache: "npm"` explicitly, so no behavior change. |
+| #124 | python-telegram-bot 20.7→22.8 (capacitybot) | **Merged** (squash, `e4f975fe`) | Reviewed actual PTB usage in `telegram-bots/capacitybot`: only stable, still-present APIs (`Application`, `ApplicationHandlerStop`, `CallbackQueryHandler`, `CommandHandler`, `ContextTypes`, `MessageHandler`, `TypeHandler`, `filters`, `app.job_queue.run_once/run_daily`, `Update`, `InlineKeyboardButton/Markup`). Checked PTB changelog 20.7→22.8: breaking changes are all Bot-API Business/Gift-feature removals and an HTTPXRequest connection-pool default change — none touch this bot's surface. CI failure present is the pre-existing `TELEGRAM_BOT_TOKEN` secret issue (see above), unrelated to this bump. |
+| #126 | pandas ≥2.0.0→≥3.0.5 (vm-processing) | **Merged** (squash, `302696cd`) | Actually read `core/infrastructure/vm-processing/parsers/tabular_parser.py` — the only file importing pandas outside tests. Usage is `pd.read_csv`, `pd.read_excel(..., engine="openpyxl")`, `len(df)`, `df.head()`, `.to_csv()` only — none of pandas 3.x's breaking changes (Copy-on-Write always on, string-dtype default, removed deprecated methods like `.append`/`.iteritems`/`.ix`) touch any of this. Path-specific CI job (`core-infrastructure-vm-processing`) was already green pre-merge. |
+| #145 | mypy 1.10.0→2.3.1 (revs-content-agents) | **Merged** (squash, `41d75bb0`) | Confirmed mypy is not invoked by any CI workflow, Makefile, or config in this service — it's an unused dev-only pin, so "stricter type-checking defaults breaking CI" is structurally impossible here. The service's test-job failure is the pre-existing `sample_brief.md` fixture-path bug (see above), unrelated. |
+| #148 | python-dotenv 1.0.0→1.2.3 (capacitybot) | **Merged** (squash, `30659c50`) | Fast-track per triage rules; minor/patch-only bump of a config-loading library with a tiny surface. CI failure is the same pre-existing `TELEGRAM_BOT_TOKEN` secret issue, unrelated. |
+| #151 | python-telegram-bot 20.7→22.8 (revs) | **Merged** (squash, `da3a3104`) | Same independent review as #124 done for the `revs` bot's own usage (`telegram-bots/revs/app.py`, `commands.py`, `daily.py`, `onboarding.py`, `weekly.py`) — same stable API surface, no exposure to the 20.7→22.8 breaking changes. Path-specific CI failure (`telegram-bots-revs`) is the pre-existing missing-secret issue. |
+| #157 | supabase 2.3.4→2.31.0 (xo bot) | **Closed / deferred** | Real risk found, not rubber-stamped: `telegram-bots/xo/scoped_supabase.py::build_scoped_client()` deliberately monkeypatches the private `client._auth_token` attribute to give Authorization a different value than apikey (needed for XO's `xo_bot` scoped-Postgres-role RLS mitigation) — its own docstring says this is "pinned to the currently-installed `supabase==2.3.4` behaviour" and must be "re-verified against `SyncClient.__init__`/`.postgrest` source if that pin ever moves." supabase-py v2.24.0 removed the `SyncClient` classes entirely in favor of plain `httpx.Client`s — exactly the internal this hack depends on. Bumping blind risks either a loud `AttributeError` or a silent fallback to unscoped/anon access that the existing live-verification probe isn't guaranteed to catch. Left a detailed PR comment and closed; needs a scoped follow-up to re-verify/rewrite `scoped_supabase.py` against the current supabase-py internals before re-attempting this upgrade. |
+| #160 | typescript 5.4.5→7.0.2 (lcars-portal) | **Closed / deferred** | (1) Vercel deploy limit confirmed still active (see above). (2) Two-major-version jump (5→6→7, spanning the native/Go compiler rewrite line) needs a real local `tsc --noEmit` pass and breaking-change review across lcars-portal — real work, out of scope for this triage pass. |
+| #162 | tailwindcss 3.4.13→4.3.3 (lcars-portal) | **Closed / deferred** | (1) Vercel deploy limit confirmed still active. (2) Tailwind v4 is not a drop-in bump — it replaces the `tailwind.config.js` theme-extension model with the CSS-native `@theme`/`@import "tailwindcss"` model and moves the PostCSS plugin to a separate `@tailwindcss/postcss` package. lcars-portal's LCARS design-token setup (custom `theme.extend` colors/plugins) needs a real config migration + visual regression pass, which deserves its own scoped mission, not a dependency-bump PR. |
+| #168 | eslint-config-next 14.2.35→16.3.4 (lcars-portal) | **Closed / deferred** | (1) Vercel deploy limit confirmed still active. (2) Version-mismatch risk: lcars-portal pins `next@^14.2.35`, but `eslint-config-next` majors track Next.js majors — jumping the lint config to 16.x alone (without bumping `next` itself) risks a preset built for Next 16 conventions running against a Next 14 app. Needs to be paired with an actual Next.js upgrade decision, not merged standalone. |
+
+## Summary
+
+- **7 merged** and squashed into `main`: #120, #121, #124, #126, #145, #148, #151.
+- **4 closed/deferred** with specific written reasons and tracked here: #157 (supabase — private-internal SyncClient removal risk), #160/#162/#168 (lcars-portal — Vercel deploy limit still active, plus independent real-work reasons for each: TS major-jump review, Tailwind v4 config migration, eslint-config-next/Next.js version mismatch).
+- Zero PRs left undecided.
+- Post-merge CI on the new `main` HEAD was checked (see commit `8188b13a` and the merge-commit SHAs above) — the only failing jobs post-merge are the same pre-existing `test (core)` / bot-secret / fixture-path issues documented above, which already existed on `main` before this stream started and are out of scope for Stream 4 (tracked separately, e.g. open PR #181).
+
+## Follow-ups for future missions
+
+1. Re-verify/rewrite `telegram-bots/xo/scoped_supabase.py::build_scoped_client()` against current (non-`SyncClient`) supabase-py internals, then re-attempt the supabase 2.3.4→2.31.0 bump (#157 or its Dependabot successor).
+2. Scope a dedicated lcars-portal frontend-upgrade mission covering: TypeScript 5→7, Tailwind v3→v4 config migration, and a coordinated Next.js + eslint-config-next major bump — once the Vercel free-tier deploy-rate-limit is actually cleared (confirm via Vercel dashboard/API access, not just absence of a fresh rate-limit error).
+3. Confirm `TELEGRAM_BOT_TOKEN` is provisioned as a CI secret/env var for `telegram-bots/capacitybot`, `telegram-bots/revs`, `telegram-bots/xo` test jobs, and fix the `services/revs-content-agents` test fixture path resolution (`examples/sample_brief.md`) — both pre-existing, unrelated to this stream, surfaced repeatedly while verifying these PRs.
