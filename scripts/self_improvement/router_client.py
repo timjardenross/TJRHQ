@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Model Router client for self-improvement analysis.
 
@@ -241,7 +242,7 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
                 "task_type": task_type,
                 "duration_ms": duration_ms,
             }
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - final catch-all after the specific URLError branch above; the Model Router HTTP call surface beyond network errors is unpredictable, already logged and returned as a structured failure
             duration_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
             log.error(f"{task_type} unexpected error: {exc}")
             self._log_call(task_type, None, duration_ms, error=str(exc))
@@ -394,7 +395,7 @@ Output ONLY valid JSON:
         try:
             with urllib.request.urlopen(f"{self.base_url}/health", timeout=2) as resp:  # nosec B310 - url built from self.base_url, a fixed local model-router constant, not user input - reviewed 2026-09-12
                 return resp.status == 200
-        except Exception as exc:
+        except (urllib.error.URLError, OSError, TimeoutError) as exc:
             log.error(f"Health check failed: {exc}")
             return False
 
@@ -403,7 +404,7 @@ Output ONLY valid JSON:
         try:
             with urllib.request.urlopen(f"{self.base_url}/api/model/status", timeout=5) as resp:  # nosec B310 - url built from self.base_url, a fixed local model-router constant, not user input - reviewed 2026-09-12
                 return json.loads(resp.read().decode())
-        except Exception as exc:
+        except (urllib.error.URLError, OSError, TimeoutError, json.JSONDecodeError) as exc:
             log.error(f"Failed to get router status: {exc}")
             return {"error": str(exc)}
 

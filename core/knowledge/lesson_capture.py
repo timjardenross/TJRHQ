@@ -81,7 +81,7 @@ def next_lesson_id() -> str:
 
 
 def _format_lesson_block(lesson_id: str, inp: LessonInput) -> str:
-    recorded = inp.date_recorded or date.today().isoformat()
+    recorded = inp.date_recorded or datetime.now().astimezone().date().isoformat()
     lines = [f"\n## {lesson_id}\n"]
     lines.append(f"### Title\n\n{inp.title.strip()}\n")
     lines.append(f"### Date\n\n{recorded}\n")
@@ -121,7 +121,7 @@ def _upsert_to_supabase(lesson_id: str, inp: LessonInput) -> bool:
     """Upsert lesson record to lessons_learned Supabase table."""
     if not is_configured():
         return False
-    recorded = inp.date_recorded or date.today().isoformat()
+    recorded = inp.date_recorded or datetime.now().astimezone().date().isoformat()
     row = {
         "lesson_id":      lesson_id,
         "title":          inp.title.strip(),
@@ -137,7 +137,7 @@ def _upsert_to_supabase(lesson_id: str, inp: LessonInput) -> bool:
     try:
         supabase_upsert("lessons_learned", row, on_conflict="lesson_id")
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: False on any upsert failure
         return False
 
 
@@ -149,7 +149,7 @@ def _write_knowledge_record(lesson_id: str, inp: LessonInput) -> bool:
     record_path = _KNOWLEDGE_MISSIONS_DIR / f"{inp.mission_id}-knowledge-record.md"
     if record_path.exists():
         return False  # Don't overwrite existing records
-    recorded = inp.date_recorded or date.today().isoformat()
+    recorded = inp.date_recorded or datetime.now().astimezone().date().isoformat()
     content = f"""# Knowledge Record — {inp.mission_id}
 
 | Field | Value |
@@ -280,7 +280,7 @@ def backfill_lessons_to_supabase() -> dict:
             supabase_upsert("lessons_learned", row, on_conflict="lesson_id")
             synced += 1
             ids.append(lesson_id)
-        except Exception:
+        except Exception:  # noqa: BLE001 - batch sync: one lesson's failure increments the failed counter, doesn't stop the batch
             failed += 1
 
     return {"synced": synced, "failed": failed, "lesson_ids": ids}

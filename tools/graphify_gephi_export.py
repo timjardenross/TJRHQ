@@ -344,7 +344,6 @@ def write_topology(filtered_nodes, filtered_links, id_map):
     }
 
     # Cap at 3000 nodes for layout speed; pick highest-degree nodes
-    id_to_node = {n["id"]: n for n in filtered_nodes}
     degree_f: dict[str, int] = defaultdict(int)
     for lnk in filtered_links:
         degree_f[lnk["source"]] += 1
@@ -366,7 +365,8 @@ def write_topology(filtered_nodes, filtered_links, id_map):
     # kamada_kawai uses pure numpy (no scipy needed); fall back to random if it fails
     try:
         pos = nx.kamada_kawai_layout(G)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - kamada_kawai can fail on disconnected/degenerate graphs; falls back to a seeded random layout so the export still completes
+        print(f"  kamada_kawai layout failed ({exc}), using random layout")
         pos = nx.random_layout(G, seed=42)
 
     node_colours = [

@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from core.platform.attention_engine import AttentionCategory, evaluate_batch
+from core.platform.attention_engine import evaluate_batch
 from core.platform.captain_brief_contract import (
     CaptainBrief,
     CaptainBriefItem,
@@ -244,12 +244,6 @@ def assemble_captain_brief_document(
     # Cross-domain priorities: every surfaced (non-never-interrupt,
     # non-remembered-only) item, ranked — not just interrupt_now/can_be_delayed,
     # since should_be_aggregated/should_be_summarised items can still matter.
-    surfaced_categories = {
-        AttentionCategory.INTERRUPT_NOW,
-        AttentionCategory.CAN_BE_DELAYED,
-        AttentionCategory.SHOULD_BE_SUMMARISED,
-        AttentionCategory.SHOULD_BE_AGGREGATED,
-    }
     all_surfaced_items = (
         brief.interrupt_now + brief.can_be_delayed + brief.should_be_summarised + brief.should_be_aggregated
     )

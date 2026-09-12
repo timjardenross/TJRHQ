@@ -7,8 +7,9 @@ Purpose: Auto-generate role-based, temporal, and differential knowledge packs
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
+from typing import ClassVar
 
 
 class PackType(Enum):
@@ -69,7 +70,7 @@ class KnowledgePack:
 class RoleBasedPackGenerator:
     """Generate role-curated knowledge packs."""
 
-    ROLE_MAPPINGS = {
+    ROLE_MAPPINGS: ClassVar[dict] = {
         "Chief Engineer": {
             "categories": ["adr", "architecture", "deployment"],
             "tags": ["infrastructure", "scalability", "performance"]
@@ -120,7 +121,7 @@ class RoleBasedPackGenerator:
             summary=summary,
             documents=filtered,
             recommendations=recommendations,
-            generated_at=datetime.now()
+            generated_at=datetime.now(timezone.utc)
         )
 
         return pack
@@ -184,7 +185,7 @@ class TemporalPackGenerator:
         Returns:
             KnowledgePack with recent documents
         """
-        cutoff = datetime.now() - timedelta(days=days)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
         recent = [doc for doc in all_documents if doc.updated_at >= cutoff]
 
         summary = (
@@ -205,7 +206,7 @@ class TemporalPackGenerator:
             summary=summary,
             documents=recent,
             recommendations=recommendations,
-            generated_at=datetime.now()
+            generated_at=datetime.now(timezone.utc)
         )
 
         return pack
@@ -232,7 +233,7 @@ class DifferentialPackGenerator:
         Returns:
             KnowledgePack with only changed documents
         """
-        last_review = self.last_review_timestamps.get(role, datetime.now() - timedelta(days=7))
+        last_review = self.last_review_timestamps.get(role, datetime.now(timezone.utc) - timedelta(days=7))
 
         changed = [
             doc for doc in all_documents
@@ -257,11 +258,11 @@ class DifferentialPackGenerator:
             summary=summary,
             documents=changed,
             recommendations=recommendations,
-            generated_at=datetime.now()
+            generated_at=datetime.now(timezone.utc)
         )
 
         # Update last review timestamp
-        self.last_review_timestamps[role] = datetime.now()
+        self.last_review_timestamps[role] = datetime.now(timezone.utc)
 
         return pack
 
@@ -274,8 +275,8 @@ if __name__ == "__main__":
             title="ADR-001: Kubernetes Migration",
             content="Decision to migrate infrastructure to Kubernetes in Q3 2026...",
             category="adr",
-            created_at=datetime.now() - timedelta(days=10),
-            updated_at=datetime.now() - timedelta(days=10),
+            created_at=datetime.now(timezone.utc) - timedelta(days=10),
+            updated_at=datetime.now(timezone.utc) - timedelta(days=10),
             tags=["infrastructure", "scalability"]
         ),
         Document(
@@ -283,8 +284,8 @@ if __name__ == "__main__":
             title="DEC-015: Defer Kafka Upgrade",
             content="Decision to defer Kafka upgrade to Q4 due to current project load...",
             category="decision",
-            created_at=datetime.now() - timedelta(days=5),
-            updated_at=datetime.now() - timedelta(days=2),
+            created_at=datetime.now(timezone.utc) - timedelta(days=5),
+            updated_at=datetime.now(timezone.utc) - timedelta(days=2),
             tags=["messaging", "infrastructure"]
         ),
         Document(
@@ -292,8 +293,8 @@ if __name__ == "__main__":
             title="Deployment Runbook",
             content="Step-by-step guide for deploying to production...",
             category="runbook",
-            created_at=datetime.now() - timedelta(days=30),
-            updated_at=datetime.now() - timedelta(days=1),
+            created_at=datetime.now(timezone.utc) - timedelta(days=30),
+            updated_at=datetime.now(timezone.utc) - timedelta(days=1),
             tags=["deployment", "operations"]
         ),
     ]

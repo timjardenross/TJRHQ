@@ -17,7 +17,7 @@ target, where to focus engineering effort.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import datetime, timezone
 from statistics import mean, median
 
 from . import lifecycle
@@ -41,8 +41,8 @@ def _age(row: dict) -> int:
     if not c:
         return 0
     try:
-        return (date.today() - datetime.fromisoformat(str(c).replace("Z", "+00:00")).date()).days
-    except Exception:
+        return (datetime.now(timezone.utc).date() - datetime.fromisoformat(str(c).replace("Z", "+00:00")).date()).days
+    except (ValueError, TypeError):
         return 0
 
 
@@ -111,13 +111,13 @@ def _closed_date(row: dict):
         return None
     try:
         return datetime.fromisoformat(str(c).replace("Z", "+00:00")).date()
-    except Exception:
+    except (ValueError, TypeError):
         return None
 
 
 def throughput(rows: list[dict], weeks: int = 4) -> dict:
     """Closures within the last `weeks`, total + simple trend direction."""
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     closed = [r for r in rows if _state(r) in lifecycle.TERMINAL_STATES]
     buckets = [0] * weeks
     for r in closed:
@@ -139,7 +139,7 @@ def cycle_time_stats(rows: list[dict]) -> dict:
     if not vals:
         return {"count": 0, "avg": None, "median": None, "p90": None}
     s = sorted(vals)
-    p90 = s[min(len(s) - 1, int(round(0.9 * (len(s) - 1))))]
+    p90 = s[min(len(s) - 1, round(0.9 * (len(s) - 1)))]
     return {"count": len(vals), "avg": round(mean(vals), 1),
             "median": round(median(vals), 1), "p90": round(p90, 1)}
 

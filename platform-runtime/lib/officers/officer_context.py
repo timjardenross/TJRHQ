@@ -118,7 +118,7 @@ def _fetch_decisions_for_prefix(prefix: str, limit: int = _MEMORY_DECISION_LIMIT
             .execute()
         )
         return list(res.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (prefix fetch failed)
         log.debug("[officer_context] Prefix fetch failed %s: %s", prefix, exc)
         return []
 
@@ -156,7 +156,7 @@ def _fetch_active_missions_for_officer(officer: str, limit: int = _MISSION_LIMIT
                 "rationale": parts.get("RATIONALE", ""),
             })
         return missions
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (mission fetch failed)
         log.debug("[officer_context] Mission fetch failed %s: %s", officer, exc)
         return []
 
@@ -167,7 +167,8 @@ def _fetch_strategic_anchors() -> list[str]:
         from lib.strategy.objectives import list_objectives
         objs = list_objectives()
         return [f"{o.title} [{o.status}]" for o in objs[:5]]
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort strategic anchors fetch
+        log.debug("[officer_context] Strategic anchor fetch failed: %s", exc)
         return []
 
 
@@ -177,7 +178,8 @@ def _fetch_patterns(officer: str) -> list[str]:
         from lib.learning.patterns import get_patterns_for_domain
         pats = get_patterns_for_domain(officer, limit=3)
         return [p.description[:80] for p in pats if hasattr(p, "description")]
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort pattern fetch
+        log.debug("[officer_context] Pattern fetch failed for %s: %s", officer, exc)
         return []
 
 
@@ -225,7 +227,7 @@ def annotate_with_context(item: dict[str, Any], cycle_ctx: Any, officer: str) ->
             "patterns": oc.patterns[:2],
             "summary": oc.context_summary,
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (annotation failed for)
         log.debug("[officer_context] Annotation failed for %s: %s", officer, exc)
     return item
 

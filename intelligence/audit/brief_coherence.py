@@ -14,7 +14,7 @@ Checks:
 import json
 import logging
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from intelligence.persistence import intelligence_store
 
@@ -46,7 +46,7 @@ def brief_sample(limit: int = 5, days: int = 30) -> dict:
     - narrative sections (executive_snapshot, emerging_themes, forward_watch, etc.)
     - CPS230 implications
     """
-    since = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
     log.info(f"Sampling {limit} briefs from last {days} days...")
     query = (
@@ -62,7 +62,7 @@ def brief_sample(limit: int = 5, days: int = 30) -> dict:
 
     samples = {
         "period_days": days,
-        "sampled_at": datetime.utcnow().isoformat(),
+        "sampled_at": datetime.now(timezone.utc).isoformat(),
         "total_briefs_sampled": len(briefs),
         "briefs": [],
     }
@@ -73,13 +73,11 @@ def brief_sample(limit: int = 5, days: int = 30) -> dict:
         if isinstance(top_events, str):
             try:
                 top_events = json.loads(top_events)
-            except:
+            except (json.JSONDecodeError, ValueError):
                 top_events = []
 
         cps230 = brief.get("cps230_implications", "")
-        if isinstance(cps230, str):
-            cps230 = cps230
-        else:
+        if not isinstance(cps230, str):
             cps230 = json.dumps(cps230) if cps230 else ""
 
         brief_sample = {

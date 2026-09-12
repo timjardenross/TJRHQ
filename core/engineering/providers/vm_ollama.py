@@ -40,7 +40,7 @@ def check_connectivity() -> tuple[bool, str]:
         data = json.loads(req.read().decode())
         models = [m["name"] for m in data.get("models", [])]
         return True, f"Ollama reachable at {_base_url()}. Models: {models}"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - connectivity probe; error surfaced in the returned message
         return False, f"Ollama not reachable at {_base_url()}: {exc}"
 
 

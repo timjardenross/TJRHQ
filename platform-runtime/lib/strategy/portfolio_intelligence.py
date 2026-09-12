@@ -172,7 +172,7 @@ def recommend_all(inputs: dict[str, Any] | None = None) -> list[InitiativeRecomm
     for init in list_initiatives(include_closed=False):
         try:
             recs.append(recommend_for_initiative(init, inputs))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort per-initiative recommendation, already logged
             log.debug("[strategy.portfolio] recommend failed for %s: %s", init.initiative_id, exc)
     order = {
         Recommendation.STOP: 0, Recommendation.PAUSE: 1, Recommendation.MERGE: 2,
@@ -213,7 +213,7 @@ def analyse_portfolio() -> PortfolioAnalysis:
         )
         analysis.underfunded_objectives = underfunded_objectives() or []
         analysis.overloaded_objectives = overloaded_objectives() or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort objective load, already logged
         log.debug("[strategy.portfolio] objective load query failed: %s", exc)
 
     # Objectives carrying many initiatives are overloaded at the initiative layer

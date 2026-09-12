@@ -138,8 +138,6 @@ def test_custom_weights_change_ranking_outcome():
     events = [CAN_BE_DELAYED_LOW_CONFIDENCE_EVENT, CAN_BE_DELAYED_MIDRANGE_EVENT]
     inputs_list = [_inputs_from_event(e) for e in events]
 
-    default_ranked = rank_events(inputs_list)
-
     # Weight entirely toward risk: the low-confidence/high-importance event
     # (evt-003, high risk) should now clearly outrank the mid-range one.
     risk_heavy = PriorityWeights(urgency=0.0, importance=0.0, time_sensitivity=0.0, value=0.0, risk=1.0, opportunity=0.0)

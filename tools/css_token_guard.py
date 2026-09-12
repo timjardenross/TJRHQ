@@ -140,10 +140,10 @@ def check_file(path, token_defs, known_rgb):
             elif fallback:
                 fallback_hex = fallback.strip()
                 current = defined[name]
-                if re.fullmatch(r"#[0-9a-fA-F]{6}", fallback_hex) and re.fullmatch(r"#[0-9a-fA-F]{6}", current):
-                    if fallback_hex.lower() != current.lower():
-                        errors.append((i, "stale-fallback",
-                                       f"var(--{name}, {fallback_hex}) — fallback != current token value {current}"))
+                if (re.fullmatch(r"#[0-9a-fA-F]{6}", fallback_hex) and re.fullmatch(r"#[0-9a-fA-F]{6}", current)
+                        and fallback_hex.lower() != current.lower()):
+                    errors.append((i, "stale-fallback",
+                                   f"var(--{name}, {fallback_hex}) — fallback != current token value {current}"))
 
         for m in HEX_RE.finditer(line):
             hexv = m.group(0)
@@ -178,8 +178,8 @@ def check_file(path, token_defs, known_rgb):
                 actual_rgb = tuple(int(x) for x in m.groups())
                 if actual_rgb != expected_rgb:
                     errors.append((i, "orphaned-semantic-rgba",
-                                    f".{selector} — {m.group(0)} doesn't match --{expected_token}'s "
-                                    f"RGB {expected_rgb} (expected {expected_hex})"))
+                                    (f".{selector} — {m.group(0)} doesn't match --{expected_token}'s "
+                                     f"RGB {expected_rgb} (expected {expected_hex})")))
 
         border_m = BORDER_STATUS_RE.search(line)
         bg_m = BACKGROUND_RGBA_RE.search(line)
@@ -192,8 +192,8 @@ def check_file(path, token_defs, known_rgb):
                 actual_rgb = tuple(int(x) for x in bg_m.groups())
                 if actual_rgb != expected_rgb:
                     errors.append((i, "orphaned-border-paired-rgba",
-                                    f"border uses var(--{expected_token}) but background {bg_m.group(0)} "
-                                    f"doesn't match its RGB {expected_rgb} (expected {expected_hex})"))
+                                    (f"border uses var(--{expected_token}) but background {bg_m.group(0)} "
+                                     f"doesn't match its RGB {expected_rgb} (expected {expected_hex})")))
 
     return errors, rgba_echoes, rgba_echo_lines
 

@@ -106,7 +106,6 @@ def test_compare_different_responses() -> None:
     )
     comparison = _compare("qwen3:8b", primary, "deepseek-r1:14b", candidate)
     # Must detect section differences
-    combined = " ".join(comparison["areas_of_difference"])
     assert len(comparison["areas_of_difference"]) >= 1
     print("  PASS test_compare_different_responses")
 
@@ -377,7 +376,6 @@ def test_runtime_existing_mode_unaffected() -> None:
 def test_runtime_dual_commander_output_format() -> None:
     """Formatted output must contain all required section headings."""
     os.environ["COMMANDER_SYNTHESIS_PROVIDER"] = "deterministic"
-    before = set(LOG_DIR.glob("*.json")) if LOG_DIR.exists() else set()
     import contextlib
     import io
 
@@ -435,7 +433,7 @@ def main() -> int:
     for test in tests:
         try:
             test()
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - test-runner harness — one failing test must not abort the rest of the suite; already printed + counted in failures
             print(f"  FAIL {test.__name__}: {error}")
             failures += 1
     print()

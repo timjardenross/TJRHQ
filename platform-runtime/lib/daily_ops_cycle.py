@@ -33,7 +33,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -185,8 +185,8 @@ def _step_human_systems(entry: dict | None, ctx: CycleContext) -> None:
                 "source": "human_systems",
                 "priority": "P0" if status == "Red" else "P2",
             })
-        ctx.data_freshness["human_systems"] = datetime.utcnow().isoformat()
-    except Exception as exc:
+        ctx.data_freshness["human_systems"] = datetime.now(timezone.utc).isoformat()
+    except Exception as exc:  # noqa: BLE001 - best-effort Human Systems step, already logged
         log.warning("[daily-cycle] Human Systems step failed (non-blocking): %s", exc)
         ctx.capacity_status = "Unknown"
 
@@ -209,8 +209,8 @@ def _step_strategic_planning(ctx: CycleContext) -> None:
                 "source": "strategic_planning",
                 "priority": item.get("priority", "P2"),
             })
-        ctx.data_freshness["strategic_planning"] = datetime.utcnow().isoformat()
-    except Exception as exc:
+        ctx.data_freshness["strategic_planning"] = datetime.now(timezone.utc).isoformat()
+    except Exception as exc:  # noqa: BLE001 - best-effort Strategic Planning step, already logged
         log.warning("[daily-cycle] Strategic Planning step failed (non-blocking): %s", exc)
 
 
@@ -245,8 +245,8 @@ def _step_ori(ctx: CycleContext) -> None:
                 "priority": "P0" if ctx.resilience_risk == "RED" else "P1",
                 "mission_id": brief.get("brief_id", ""),
             })
-        ctx.data_freshness["ori"] = datetime.utcnow().isoformat()
-    except Exception as exc:
+        ctx.data_freshness["ori"] = datetime.now(timezone.utc).isoformat()
+    except Exception as exc:  # noqa: BLE001 - best-effort ORI step, already logged
         log.warning("[daily-cycle] ORI step failed (non-blocking): %s", exc)
 
 
@@ -272,8 +272,8 @@ def _step_engineering(missions: list[dict], ctx: CycleContext) -> None:
             elif status in IN_PROGRESS:
                 ctx.engineering_in_progress += 1
 
-        ctx.data_freshness["engineering"] = datetime.utcnow().isoformat()
-    except Exception as exc:
+        ctx.data_freshness["engineering"] = datetime.now(timezone.utc).isoformat()
+    except Exception as exc:  # noqa: BLE001 - best-effort Engineering step, already logged
         log.warning("[daily-cycle] Engineering step failed (non-blocking): %s", exc)
 
 
@@ -294,8 +294,8 @@ def _step_communications(ctx: CycleContext) -> None:
                 "source": "communications",
                 "priority": "P3",
             })
-        ctx.data_freshness["communications"] = datetime.utcnow().isoformat()
-    except Exception as exc:
+        ctx.data_freshness["communications"] = datetime.now(timezone.utc).isoformat()
+    except Exception as exc:  # noqa: BLE001 - best-effort Communications step, already logged
         log.warning("[daily-cycle] Communications step failed (non-blocking): %s", exc)
 
 
@@ -318,8 +318,8 @@ def _step_number_one(missions: list[dict], ctx: CycleContext) -> None:
                 "priority": e.priority,
                 "mission_id": e.mission_id,
             })
-        ctx.data_freshness["number_one"] = datetime.utcnow().isoformat()
-    except Exception as exc:
+        ctx.data_freshness["number_one"] = datetime.now(timezone.utc).isoformat()
+    except Exception as exc:  # noqa: BLE001 - best-effort Number One step, already logged
         log.warning("[daily-cycle] Number One step failed (non-blocking): %s", exc)
 
 
@@ -405,7 +405,7 @@ def _step_investigation_review(ctx: CycleContext) -> None:
                         "mission_id": inv_id,
                     })
 
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - best-effort investigation evidence/findings gather, already logged
                 log.warning("[daily-cycle] Investigation evidence/findings failed for %s: %s", inv_id, exc)
 
         # Surface pending decision packages
@@ -420,17 +420,18 @@ def _step_investigation_review(ctx: CycleContext) -> None:
                     "priority": "P1",
                     "mission_id": pkg.investigation_id,
                 })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort decision package surface, already logged
             log.debug("[daily-cycle] Decision package surface failed: %s", exc)
 
         # Count all open investigations
         try:
             summary = get_investigations_summary()
             ctx.open_investigations_count = summary.get("open_total", 0)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - best-effort investigation count fallback, already logged
+            log.debug("[daily-cycle] Investigation summary count unavailable: %s", exc)
             ctx.open_investigations_count = len(new_inv_ids)
 
-        ctx.data_freshness["investigation"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["investigation"] = datetime.now(timezone.utc).isoformat()
 
         log.info(
             "[daily-cycle] Investigation step: %d new, %d open, %d high-confidence findings, %d decision packages",
@@ -438,7 +439,7 @@ def _step_investigation_review(ctx: CycleContext) -> None:
             len(ctx.high_confidence_findings), ctx.decision_packages_ready,
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort investigation step, already logged
         log.warning("[daily-cycle] Investigation step failed (non-blocking): %s", exc)
 
 
@@ -508,7 +509,7 @@ def _make_collaborative_if_significant(ctx: CycleContext, inv: Any, findings: An
             integrated.integrated_confidence,
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort collaborative upgrade, already logged
         log.debug("[daily-cycle] Collaborative upgrade failed for %s: %s",
                   getattr(inv, "investigation_id", "?"), exc)
 
@@ -569,8 +570,8 @@ def _step_learning_review(ctx: CycleContext) -> None:
                 inv = get_investigation(inv_id)
                 if inv and lesson_from_investigation(inv):
                     lessons_created += 1
-            except Exception:
-                pass
+            except Exception as _exc:  # noqa: BLE001 - best-effort lesson generation step, already logged
+                log.debug("[lib.daily_ops_cycle] best-effort step failed, continuing: %s", _exc)
         ctx.lessons_generated_this_cycle = lessons_created
         ctx.lesson_candidates_pending = get_lesson_candidate_count(pending_only=True)
 
@@ -580,7 +581,7 @@ def _step_learning_review(ctx: CycleContext) -> None:
             ctx.knowledge_quality = brief.knowledge_quality.to_dict()
         ctx.learning_summary = format_learning_brief(brief)
 
-        ctx.data_freshness["learning"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["learning"] = datetime.now(timezone.utc).isoformat()
 
         log.info(
             "[daily-cycle] Learning step: %d patterns, %d cross-domain, %d lessons, KQ=%s",
@@ -588,7 +589,7 @@ def _step_learning_review(ctx: CycleContext) -> None:
             ctx.knowledge_quality.get("grade", "n/a") if ctx.knowledge_quality else "n/a",
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort learning step, already logged
         log.warning("[daily-cycle] Learning step failed (non-blocking): %s", exc)
 
 
@@ -628,15 +629,15 @@ def _step_strategic_outcomes(ctx: CycleContext, *, monthly_review: bool = False)
                 "*Strategic Outcomes:* _No initiatives defined — work is not yet "
                 "traced to measurable outcomes (D-062)._"
             )
-            ctx.data_freshness["strategic_outcomes"] = datetime.utcnow().isoformat()
+            ctx.data_freshness["strategic_outcomes"] = datetime.now(timezone.utc).isoformat()
             return
 
         # Refresh health for each initiative (persisted)
         for init in initiatives:
             try:
                 refresh_initiative_health(init.initiative_id, inputs)
-            except Exception:
-                pass
+            except Exception as _exc:  # noqa: BLE001 - best-effort initiative health refresh, already logged
+                log.debug("[lib.daily_ops_cycle] best-effort step failed, continuing: %s", _exc)
 
         # Dashboard (WP7)
         dash = build_strategic_dashboard(inputs)
@@ -676,10 +677,10 @@ def _step_strategic_outcomes(ctx: CycleContext, *, monthly_review: bool = False)
             try:
                 review = run_executive_strategic_review(inputs)
                 ctx.executive_strategic_review = format_executive_review(review)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - best-effort executive strategic review, already logged
                 log.debug("[daily-cycle] Executive strategic review failed: %s", exc)
 
-        ctx.data_freshness["strategic_outcomes"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["strategic_outcomes"] = datetime.now(timezone.utc).isoformat()
         log.info(
             "[daily-cycle] Strategic outcomes: %d initiatives (%s), %d stop, %d accelerate, alignment %.0f%%",
             ctx.initiatives_total, ctx.initiative_health_summary,
@@ -687,7 +688,7 @@ def _step_strategic_outcomes(ctx: CycleContext, *, monthly_review: bool = False)
             ctx.alignment_coverage_pct * 100,
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort strategic outcomes step, already logged
         log.warning("[daily-cycle] Strategic outcomes step failed (non-blocking): %s", exc)
 
 
@@ -715,7 +716,7 @@ def _step_program_coordination(ctx: CycleContext, *, delivery_review: bool = Fal
             ctx.program_summary = (
                 "*Program Coordination:* _No initiatives — nothing to coordinate (D-063)._"
             )
-            ctx.data_freshness["program"] = datetime.utcnow().isoformat()
+            ctx.data_freshness["program"] = datetime.now(timezone.utc).isoformat()
             return
 
         inputs = {
@@ -790,17 +791,17 @@ def _step_program_coordination(ctx: CycleContext, *, delivery_review: bool = Fal
             try:
                 review = run_executive_delivery_review(inputs)
                 ctx.executive_delivery_review = format_delivery_review(review)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - best-effort executive delivery review, already logged
                 log.debug("[daily-cycle] Executive delivery review failed: %s", exc)
 
-        ctx.data_freshness["program"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["program"] = datetime.now(timezone.utc).isoformat()
         log.info(
             "[daily-cycle] Program coordination: %s health, %d blocked, %d conflicts, %d risks, %d interventions",
             hs, ctx.blocked_work_count, ctx.resource_conflicts_count,
             ctx.delivery_risks_count, ctx.program_interventions,
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort program coordination step, already logged
         log.warning("[daily-cycle] Program coordination step failed (non-blocking): %s", exc)
 
 
@@ -838,7 +839,8 @@ def _step_improvement_review(
         try:
             from lib.improvement.backlog import get_backlog_count
             ctx.improvement_backlog_count = get_backlog_count()
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - best-effort backlog count fallback, already logged
+            log.debug("[daily-cycle] Backlog count unavailable: %s", exc)
             ctx.improvement_backlog_count = result.backlog_items_added
 
         # Surface High-band items to exception router (cap at 3 to avoid noise)
@@ -850,7 +852,7 @@ def _step_improvement_review(
                 "priority": "P2",
             })
 
-        ctx.data_freshness["improvement"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["improvement"] = datetime.now(timezone.utc).isoformat()
 
         log.info(
             "[daily-cycle] Improvement step: %d candidates (%d High), "
@@ -859,7 +861,7 @@ def _step_improvement_review(
             len(result.missions_created), result.missions_deferred,
             result.budget.status_label if result.budget else "unknown",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort improvement step, already logged
         log.warning("[daily-cycle] Improvement step failed (non-blocking): %s", exc)
 
 
@@ -887,7 +889,7 @@ def _step_portfolio_optimisation(
             ctx.portfolio_review_summary = (
                 "*Portfolio Optimisation:* _No initiatives — nothing to optimise (D-064)._"
             )
-            ctx.data_freshness["portfolio"] = datetime.utcnow().isoformat()
+            ctx.data_freshness["portfolio"] = datetime.now(timezone.utc).isoformat()
             return
 
         inputs = {
@@ -958,7 +960,7 @@ def _step_portfolio_optimisation(
                     "source": "portfolio_optimisation",
                     "priority": "P1",
                 })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort value realisation assessment, already logged
             log.debug("[daily-cycle] Value realisation assessment failed: %s", exc)
 
         # WP7 — Portfolio review (on delivery_review / portfolio_review flag)
@@ -973,21 +975,21 @@ def _step_portfolio_optimisation(
                     "cross_domain_opportunities": ctx.cross_domain_opportunities,
                 })
                 ctx.portfolio_review_summary = format_portfolio_review(review)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - best-effort portfolio review, already logged
                 log.debug("[daily-cycle] Portfolio review failed: %s", exc)
 
         # Build the optimisation summary for the Captain brief
         if not ctx.portfolio_review_summary:
             ctx.portfolio_review_summary = format_optimisation(opt)
 
-        ctx.data_freshness["portfolio"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["portfolio"] = datetime.now(timezone.utc).isoformat()
         log.info(
             "[daily-cycle] Portfolio optimisation: terminate=%d, pause=%d, accelerate=%d, value=%.0f%%, at_risk=%d",
             opt.terminate_count, opt.pause_count, opt.accelerate_count,
             ctx.portfolio_value_pct * 100, ctx.portfolio_at_risk_count,
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort portfolio optimisation step, already logged
         log.warning("[daily-cycle] Portfolio optimisation step failed (non-blocking): %s", exc)
 
 
@@ -1017,7 +1019,7 @@ def _step_enterprise_architecture(
             ctx.capability_review_summary = (
                 "*Enterprise Architecture:* _No capabilities registered — register capabilities to enable planning (D-065)._"
             )
-            ctx.data_freshness["enterprise_architecture"] = datetime.utcnow().isoformat()
+            ctx.data_freshness["enterprise_architecture"] = datetime.now(timezone.utc).isoformat()
             return
 
         inputs = {
@@ -1039,7 +1041,7 @@ def _step_enterprise_architecture(
                     "source": "enterprise_architecture",
                     "priority": "P1",
                 })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort capability gap analysis, already logged
             log.debug("[daily-cycle] Capability gap analysis failed: %s", exc)
 
         # Maturity assessment (WP3) — track readiness
@@ -1049,7 +1051,7 @@ def _step_enterprise_architecture(
             if assessments:
                 managed = sum(1 for a in assessments if a.assessed_maturity.value >= 3)
                 ctx.capability_readiness_pct = round(managed / len(assessments), 3)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort maturity assessment, already logged
             log.debug("[daily-cycle] Maturity assessment failed: %s", exc)
 
         # Architecture view (WP4) — surface high-risk entities to Captain
@@ -1063,7 +1065,7 @@ def _step_enterprise_architecture(
                     "source": "enterprise_architecture",
                     "priority": "P1",
                 })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort architecture view, already logged
             log.debug("[daily-cycle] Architecture view failed: %s", exc)
 
         # Technical debt profile (WP5) — surface critical debt to XO
@@ -1079,7 +1081,7 @@ def _step_enterprise_architecture(
                     "source": "enterprise_architecture",
                     "priority": "P2",
                 })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort technical debt profile, already logged
             log.debug("[daily-cycle] Technical debt profile failed: %s", exc)
 
         # Future state planning (WP6) — surface critical H1 needs to XO
@@ -1095,7 +1097,7 @@ def _step_enterprise_architecture(
                     "source": "enterprise_architecture",
                     "priority": "P2",
                 })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort future state planning, already logged
             log.debug("[daily-cycle] Future state planning failed: %s", exc)
 
         # Strategic simulation (WP7) — surface cross-scenario low readiness to Captain
@@ -1114,7 +1116,7 @@ def _step_enterprise_architecture(
                     "source": "enterprise_architecture",
                     "priority": "P1",
                 })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort strategic simulation, already logged
             log.debug("[daily-cycle] Strategic simulation failed: %s", exc)
 
         # Full 6-question capability review (on flag)
@@ -1126,10 +1128,10 @@ def _step_enterprise_architecture(
                 )
                 review = generate_capability_review(inputs)
                 ctx.capability_review_summary = format_capability_review(review)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - best-effort capability review, already logged
                 log.debug("[daily-cycle] Capability review failed: %s", exc)
 
-        ctx.data_freshness["enterprise_architecture"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["enterprise_architecture"] = datetime.now(timezone.utc).isoformat()
         log.info(
             "[daily-cycle] Enterprise architecture: %d caps, readiness=%.0f%%, critical gaps=%d, "
             "sim low=%d, tech debt critical=%d",
@@ -1138,7 +1140,7 @@ def _step_enterprise_architecture(
             ctx.tech_debt_critical_count,
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort enterprise architecture step, already logged
         log.warning("[daily-cycle] Enterprise architecture step failed (non-blocking): %s", exc)
 
 
@@ -1166,7 +1168,7 @@ def _step_investment_governance(
             investments = list_investments()
             ctx.investment_total = len(investments)
             ctx.investment_active = sum(1 for inv in investments if inv.is_active)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort investment registry lookup, already logged
             log.debug("[daily-cycle] Investment registry unavailable: %s", exc)
 
         inputs = {
@@ -1194,7 +1196,7 @@ def _step_investment_governance(
                     "priority": "P2",
                     "mission_id": bc.initiative_id,
                 })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort business case assessment, already logged
             log.debug("[daily-cycle] Business case assessment failed: %s", exc)
 
         # Dependency analysis (WP3) — surface blocked initiatives to Number One
@@ -1217,7 +1219,7 @@ def _step_investment_governance(
                     "source": "investment_governance",
                     "priority": "P2",
                 })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort dependency analysis, already logged
             log.debug("[daily-cycle] Dependency analysis failed: %s", exc)
 
         # Capacity planning (WP4) — surface overload to XO
@@ -1244,7 +1246,7 @@ def _step_investment_governance(
                     "source": "investment_governance",
                     "priority": "P2",
                 })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort capacity planning, already logged
             log.debug("[daily-cycle] Capacity planning failed: %s", exc)
 
         # Benefit leakage (WP7) — critical → Captain, others → XO
@@ -1271,7 +1273,7 @@ def _step_investment_governance(
                     "priority": "P2",
                     "mission_id": l.initiative_id,
                 })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort benefit leakage detection, already logged
             log.debug("[daily-cycle] Benefit leakage detection failed: %s", exc)
 
         # Delivery constraints (WP8) — critical → Captain routing
@@ -1289,7 +1291,7 @@ def _step_investment_governance(
                     "source": "investment_governance",
                     "priority": "P1",
                 })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort delivery constraint analysis, already logged
             log.debug("[daily-cycle] Delivery constraint analysis failed: %s", exc)
 
         # Full investment review (on flag)
@@ -1308,10 +1310,10 @@ def _step_investment_governance(
                     "source": "investment_governance",
                     "priority": "P2",
                 })
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - best-effort investment review, already logged
                 log.debug("[daily-cycle] Investment review failed: %s", exc)
 
-        ctx.data_freshness["investment_governance"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["investment_governance"] = datetime.now(timezone.utc).isoformat()
         log.info(
             "[daily-cycle] Investment governance: investments=%d/%d active, "
             "bc approved=%d rejected=%d, blocked=%d, leakage critical=%d, constraints critical=%d",
@@ -1321,7 +1323,7 @@ def _step_investment_governance(
             ctx.delivery_constraint_critical,
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort investment governance step, already logged
         log.warning("[daily-cycle] Investment governance step failed (non-blocking): %s", exc)
 
 
@@ -1358,14 +1360,14 @@ def _step_autonomous_officers(
         elif result.triggers_fired or result.actions_created:
             ctx.officer_cycle_summary = format_officer_cycle_summary(result)
 
-        ctx.data_freshness["autonomous_officers"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["autonomous_officers"] = datetime.now(timezone.utc).isoformat()
         log.info(
             "[daily-cycle] Autonomous officers: triggers=%d, actions=%d, escalations=%d, "
             "handoffs=%d, assignments=%d",
             result.triggers_fired, result.actions_created,
             result.escalations_advanced, result.handoffs_created, result.assignments_made,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort autonomous officer cycle, already logged
         log.warning("[daily-cycle] Autonomous officer cycle failed (non-blocking): %s", exc)
 
 
@@ -1392,7 +1394,7 @@ def _format_improvement_discovery_section(ctx: CycleContext) -> str:
         active  = budget.get("active_improvement_missions", "?")
         maximum = budget.get("max_improvement_missions", "?")
         cap_st  = budget.get("capacity_status", "?")
-        label   = budget.get("status_label", "")
+        budget.get("status_label", "")
         created = ctx.improvement_missions_created
         drained = ctx.improvement_backlog_drained
         backlog = ctx.improvement_backlog_count
@@ -1505,7 +1507,7 @@ def assemble_executive_brief(ctx: CycleContext) -> str:
             brief = f"{brief}\n\n{ctx.officer_cycle_summary}"
 
         return brief
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort brief assembly, falls back on failure, already logged
         log.warning("[daily-cycle] Brief assembly failed, returning fallback: %s", exc)
         return _fallback_brief(ctx)
 
@@ -1523,7 +1525,7 @@ def _fallback_brief(ctx: CycleContext) -> str:
             f"{backlog_part}"
         )
     return (
-        f"*CAPTAIN BRIEF — {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC*\n"
+        f"*CAPTAIN BRIEF — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC*\n"
         f"Capacity: {ctx.capacity_status}\n"
         f"Engineering in progress: {ctx.engineering_in_progress} | Blocked: {ctx.engineering_blocked}\n"
         f"ORI Risk: {ctx.resilience_risk}\n"

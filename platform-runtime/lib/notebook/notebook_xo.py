@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class NotebookSynthesis:
     number_one_items: list[dict[str, Any]] = field(default_factory=list)
     officer_items: list[dict[str, Any]] = field(default_factory=list)
     knowledge_items: list[dict[str, Any]] = field(default_factory=list)
-    synthesised_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    synthesised_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     @property
     def has_captain_items(self) -> bool:
@@ -188,7 +188,7 @@ def inject_into_xo_brief(
                     "mission_id":  None,
                     "description": f"Opportunity cluster: avg strategic score {top_opp.avg_strategic_score:.0%}, {top_opp.count} notes.",
                 })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (pattern injection failed (non-blocking))
             log.warning("[notebook-xo] Pattern injection failed (non-blocking): %s", exc)
 
     return injected

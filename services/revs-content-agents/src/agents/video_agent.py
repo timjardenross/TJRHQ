@@ -75,8 +75,8 @@ class VideoAgent:
 
         subprocess.run(
             ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_list),
-             "-vf", f"scale={resolution}:force_original_aspect_ratio=decrease,"
-                    f"pad={resolution}:(ow-iw)/2:(oh-ih)/2,format=yuv420p",
+             "-vf", (f"scale={resolution}:force_original_aspect_ratio=decrease,"
+                    f"pad={resolution}:(ow-iw)/2:(oh-ih)/2,format=yuv420p"),
              "-r", str(fps), "-c:v", "libx264", str(silent_path)],
             check=True, capture_output=True,
         )

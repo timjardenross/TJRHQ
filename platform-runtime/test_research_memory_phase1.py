@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Phase 1 tests for ADR-006 research memory activation."""
 
 from __future__ import annotations

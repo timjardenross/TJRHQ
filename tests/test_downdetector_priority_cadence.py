@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for intelligence/scheduler.py's Downdetector tiered-cadence
 priority job (Captain decision 1: Big 4 banks + Telstra/Optus checked more

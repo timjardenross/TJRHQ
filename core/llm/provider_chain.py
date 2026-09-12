@@ -27,7 +27,7 @@ try:
     from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
     _configure_tracing("provider-chain")
     _TRACING_AVAILABLE = True
-except Exception:
+except Exception:  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
     _TRACING_AVAILABLE = False
 
 
@@ -97,9 +97,8 @@ def call_gemini(
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with _llm_span("gemini", "gemini-3.5-flash-lite"):
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url is a hardcoded generativelanguage.googleapis.com literal constant, not user input - reviewed 2026-09-12
-            data = json.loads(resp.read())
+    with _llm_span("gemini", "gemini-3.5-flash-lite"), urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url is a hardcoded generativelanguage.googleapis.com literal constant, not user input - reviewed 2026-09-12
+        data = json.loads(resp.read())
 
     candidates = data.get("candidates", [])
     if not candidates:
@@ -144,9 +143,8 @@ def call_mistral(
         },
         method="POST",
     )
-    with _llm_span("mistral", model):
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url is a hardcoded api.mistral.ai literal constant, not user input - reviewed 2026-09-12
-            data = json.loads(resp.read())
+    with _llm_span("mistral", model), urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url is a hardcoded api.mistral.ai literal constant, not user input - reviewed 2026-09-12
+        data = json.loads(resp.read())
 
     usage = data.get("usage", {})
     return LLMCallResult(
@@ -179,9 +177,8 @@ def call_ollama(
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with _llm_span("ollama", model):
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - base_url is a keyword param, but all callers source it from a fixed env-driven OLLAMA base URL constant, not end-user input - reviewed 2026-09-12
-            data = json.loads(resp.read())
+    with _llm_span("ollama", model), urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - base_url is a keyword param, but all callers source it from a fixed env-driven OLLAMA base URL constant, not end-user input - reviewed 2026-09-12
+        data = json.loads(resp.read())
 
     text = (data.get("response") or "").strip()
     if not text:

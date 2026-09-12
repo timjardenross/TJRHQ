@@ -19,7 +19,7 @@ Design:
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 log = logging.getLogger(__name__)
 
@@ -45,9 +45,9 @@ class ResearchMemoryEntry:
         """Days since research was created."""
         try:
             created = datetime.fromisoformat(self.created_at)
-            age = datetime.utcnow() - created
+            age = datetime.now(timezone.utc) - created
             return age.days
-        except Exception:
+        except (ValueError, TypeError):
             return 999  # Treat unparseable dates as very old
 
     @property
@@ -151,7 +151,7 @@ class ResearchMemoryRetriever:
                 reason=reason
             )
 
-        except Exception as e:
+        except Exception as e: # noqa: BLE001 - Retrieval failed: {e}, already logged
             log.error(f"[KB-RETRIEVE] Retrieval failed: {e}")
             return RetrievalResult(
                 found=False,
@@ -177,7 +177,7 @@ class ResearchMemoryRetriever:
         """
         try:
             # Query all non-stale research (within 6 months)
-            cutoff_date = (datetime.utcnow() - timedelta(days=180)).isoformat()
+            cutoff_date = (datetime.now(timezone.utc) - timedelta(days=180)).isoformat()
 
             response = self.supabase.table("research_memory") \
                 .select("*") \
@@ -188,7 +188,7 @@ class ResearchMemoryRetriever:
             log.debug(f"[KB-RETRIEVE] Found {len(entries)} non-stale entries")
             return entries
 
-        except Exception as e:
+        except Exception as e: # noqa: BLE001 - Query failed: {e}, already logged
             log.warning(f"[KB-RETRIEVE] Query failed: {e}")
             return []
 
@@ -243,7 +243,7 @@ class ResearchMemoryRetriever:
                 if score > 0:
                     scored.append((score, entry))
 
-            except Exception as e:
+            except Exception as e: # noqa: BLE001 - Failed to score candidate: {e}, already logged
                 log.debug(f"[KB-RETRIEVE] Failed to score candidate: {e}")
                 continue
 
@@ -327,7 +327,7 @@ class ResearchMemoryRetriever:
 
         try:
             # Increment reuse_count
-            response = self.supabase.table("research_memory") \
+            self.supabase.table("research_memory") \
                 .update({"reuse_count": self.supabase.rpc("increment_reuse_count", {"entry_id": entry_id})}) \
                 .eq("id", entry_id) \
                 .execute()
@@ -335,6 +335,6 @@ class ResearchMemoryRetriever:
             log.debug(f"[KB-RETRIEVE] Incremented reuse count for {entry_id}")
             return True
 
-        except Exception as e:
+        except Exception as e: # noqa: BLE001 - Failed to increment reuse count: {e}, already logged
             log.warning(f"[KB-RETRIEVE] Failed to increment reuse count: {e}")
             return False

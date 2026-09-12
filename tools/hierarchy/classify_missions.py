@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 classify_missions.py — Batch Google AI classifier for historical mission files.
 
@@ -129,7 +130,7 @@ def _classify_mission(
 
     except json.JSONDecodeError as exc:
         return {"initiative_id": "PARSE_ERROR", "confidence": 0.0, "reasoning": f"JSON parse failed: {exc}"}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - LLM-response parse fallback — returns a structured PARSE_ERROR/ERROR record the caller can flag for manual review, not silently dropped
         return {"initiative_id": "ERROR", "confidence": 0.0, "reasoning": f"{type(exc).__name__}: {str(exc)[:100]}"}
 
 
@@ -227,8 +228,8 @@ def _write_review(rows: list[dict]) -> None:
         "- Set Decision to `SKIP` for missions that shouldn't be tagged",
         "- Run `python3 tools/hierarchy/approve_classifications.py` when done",
         "",
-        f"**Summary:** {len(rows)} missions | {len(high_conf)} high-confidence "
-        f"| {len(low_conf)} need review | {len(errors)} errors",
+        (f"**Summary:** {len(rows)} missions | {len(high_conf)} high-confidence "
+         f"| {len(low_conf)} need review | {len(errors)} errors"),
         "",
         "---",
         "",

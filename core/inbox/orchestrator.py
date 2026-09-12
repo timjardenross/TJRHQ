@@ -39,7 +39,7 @@ class _DB:
             try:
                 from supabase import create_client
                 self._client = create_client(self.url, self.key)
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - optional Supabase client init; self._client stays None and enabled() reports unavailable
                 pass
 
     def enabled(self) -> bool:
@@ -51,7 +51,7 @@ class _DB:
         try:
             result = self._client.table(table).select("*").eq("id", item_id).limit(1).execute()
             return result.data[0] if result.data else None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[inbox-orchestrator] get failed on %s id=%s: %s", table, item_id, exc)
             return None
 
@@ -61,7 +61,7 @@ class _DB:
         try:
             self._client.table(table).update(payload).eq("id", item_id).execute()
             return True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[inbox-orchestrator] update failed on %s id=%s: %s", table, item_id, exc)
             return False
 
@@ -80,7 +80,7 @@ class _DB:
                 .execute()
             )
             return result.data[0]["id"] if result.data else None
-        except Exception:
+        except Exception:  # noqa: BLE001 - documented contract: None on any lookup failure (dedup check degrades to 'no match found')
             return None
 
 
@@ -170,7 +170,7 @@ def _run_research(item_id: str, item: dict) -> None:
     """
     try:
         from core.coordination.research_orchestration import ResearchOrchestrator
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[inbox-orchestrator] ResearchOrchestrator import failed (skipping research): %s", exc)
         _db.update("captured_items", item_id, {"research_status": "failed"})
         return
@@ -193,7 +193,7 @@ def _run_research(item_id: str, item: dict) -> None:
             "[inbox-orchestrator] Research complete item_id=%s status=%s confidence=%.2f provider=%s",
             item_id, result.status, result.confidence, result.primary_provider,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[inbox-orchestrator] Research failed for %s: %s", item_id, exc)
         _db.update("captured_items", item_id, {"research_status": "failed"})
 
@@ -246,7 +246,7 @@ def process_captured_item(item_id: str) -> None:
             from core.inbox.governance_integration import apply_governance_assessment
             gov_updates = apply_governance_assessment(item)
             updates.update(gov_updates)
-        except Exception as gov_exc:
+        except Exception as gov_exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[inbox-orchestrator] Governance assessment failed (non-blocking): %s", gov_exc)
             updates["governance_status"] = "failed"
 
@@ -281,12 +281,12 @@ def process_captured_item(item_id: str) -> None:
             t.start()
             log.info("[inbox-orchestrator] Research thread launched for item_id=%s topic=%s", item_id, _build_research_topic(item)[:80])
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[inbox-orchestrator] Processing failed for %s: %s", item_id, exc)
         try:
             _db.update("captured_items", item_id, {
                 "processing_status": "failed",
                 "processing_errors": [str(exc)],
             })
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - best-effort failure-status write; must not raise a second exception over the one already being handled
             pass

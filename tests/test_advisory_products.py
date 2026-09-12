@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-0099 intelligence products + presentation layer.
 
 Key invariants:

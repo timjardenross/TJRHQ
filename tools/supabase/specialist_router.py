@@ -64,7 +64,7 @@ def load_specialist_profiles() -> dict[str, SpecialistProfile]:
     allowed: list[str] = []
     for raw_line in text.splitlines():
         line = raw_line.strip()
-        if not line or line.startswith("File:") or line.startswith("Purpose:") or line.startswith("Dependencies/Notes:"):
+        if not line or line.startswith(("File:", "Purpose:", "Dependencies/Notes:")):
             continue
         if not line.startswith(("Domains:", "Allowed Types:")):
             if current:

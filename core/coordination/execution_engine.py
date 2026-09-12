@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -132,11 +132,11 @@ class NumberOneExecutionEngine:
             except AuthorityError as exc:
                 log.warning("[exec-engine] Assignment blocked by authority gate: %s", exc.reason)
                 return None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[exec-engine] Authority check failed (non-blocking): %s", exc)
 
         days = review_days or self.REVIEW_DATE_DEFAULT_DAYS
-        review_date = datetime.utcnow() + timedelta(days=days)
+        review_date = datetime.now(timezone.utc) + timedelta(days=days)
 
         action = AssignmentAction(
             mission_id=mission_id,
@@ -245,7 +245,7 @@ class NumberOneExecutionEngine:
         Organises missions by state, surfaces escalations and recent assignments.
         This is the primary Number One contribution to the daily Captain brief.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         escalations = escalations or []
         assignments = assignments or []
 
@@ -271,7 +271,7 @@ class NumberOneExecutionEngine:
                 try:
                     lu = datetime.fromisoformat(str(last_updated_str).replace("Z", "+00:00"))
                     days_since = (now - lu.replace(tzinfo=None)).days
-                except Exception:
+                except Exception:  # noqa: BLE001 - documented default: days_since=0 on any unparseable timestamp
                     days_since = 0
 
             stale_threshold = STALE_P0_DAYS if priority == "P0" else STALE_DAYS
@@ -348,7 +348,7 @@ class NumberOneExecutionEngine:
             sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
             from command_memory_integration import get_client
             return get_client()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[exec-engine] Command Memory client unavailable: %s", exc)
             return None
 
@@ -361,12 +361,12 @@ class NumberOneExecutionEngine:
                     action.mission_id,
                     {
                         "owner": action.assigned_to,
-                        "updated_at": datetime.utcnow().isoformat() + "Z",
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
                         "updated_by": "number_one",
                     }
                 )
                 log.info("[exec-engine] Mission %s assigned to %s", action.mission_id, action.assigned_to)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[exec-engine] Assignment write failed (non-blocking): %s", exc)
 
         self._log_decision(
@@ -386,7 +386,7 @@ class NumberOneExecutionEngine:
         """Non-blocking write to Command Memory decisions table."""
         try:
             _try_log_decision(statement, rationale, owner="number_one")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[exec-engine] Decision log failed (non-blocking): %s", exc)
 
     def _build_recommendations(
@@ -418,7 +418,7 @@ def _try_log_decision(statement: str, rationale: str, owner: str) -> None:
         sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
         from command_memory_integration import log_decision_to_command_memory
         log_decision_to_command_memory(statement=statement, rationale=rationale, owner=owner)
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - best-effort Command Memory mirror; must not break the actual decision-logging flow
         pass
 
 

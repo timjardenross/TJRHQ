@@ -18,7 +18,10 @@ decision, the ranker is never modified.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 from intelligence.governance.workflow_gate import (
     ANALYST,
@@ -226,8 +229,8 @@ def publish_brief(repo, actor_role: str, brief_id: str,
     try:
         from intelligence.brief_published_notifier import notify_published
         notify_published(brief)
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - notification failure must never break a real publish (see comment above)
+        log.warning("[workflow/service] Publish notification failed for brief %r: %s", getattr(brief, "id", "?"), exc)
 
     return updated
 
@@ -316,7 +319,7 @@ def notify_telegram(repo, actor_role: str, brief_id: str, sender=None) -> dict:
             sent = bool(notify(payload["text"], title="RED — Operational Resilience",
                                severity=Severity.ALERT, transport=Transport.TELEGRAM,
                                reply_markup=reply_markup))
-    except Exception as exc:  # delivery must never break the workflow
+    except Exception as exc:  # delivery must never break the workflow  # noqa: BLE001 - explicitly documented above as 'delivery must never break the workflow' — logged via log_mutation's audit trail with the error captured
         log_mutation("intelligence_briefs", brief_id, "NOTIFY", actor_role,
                      after_state={"telegram_sent": False, "error": str(exc)})
         return {"sent": False, "payload": payload}

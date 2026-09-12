@@ -110,7 +110,7 @@ def _looks_like_author_name(tail: str) -> bool:
     return bool(tail) and len(tail) <= 40 and bool(AUTHOR_NAME_TAIL_RE.match(tail))
 
 
-def check_content(filename: str, text: str, page_count: int = None, pdf_metadata: dict = None) -> EligibilityResult:
+def check_content(filename: str, text: str, page_count: int | None = None, pdf_metadata: dict | None = None) -> EligibilityResult:
     """Content-based check, run after extraction/OCR — scores
     recreational-content signals and excludes once enough independent
     signals agree (see module docstring for the scoring rationale)."""

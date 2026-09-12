@@ -73,7 +73,7 @@ def check_column(table: str, col: str) -> bool:
         # 401/403 = auth issue, not a schema problem
         print(f"  WARNING: {table}.{col} returned HTTP {e.code} — check auth.")
         return True
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - explicitly documented above as 'don't fail on network errors' — already printed as a warning
         print(f"  WARNING: {table}.{col} probe failed ({e})")
         return True  # don't fail on network errors
 

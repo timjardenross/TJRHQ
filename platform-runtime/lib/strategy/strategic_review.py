@@ -138,8 +138,8 @@ def _learning_note(init: Initiative) -> str:
         relevant = [c for c in cands if init.objective_id and init.objective_id in (c.context or "")]
         if relevant:
             return f"{len(relevant)} lesson(s) linked to this objective."
-    except Exception:
-        pass
+    except Exception as _exc:  # noqa: BLE001 - lesson candidate lookup, already logged
+        log.debug("[lib.strategy.strategic_review] lesson candidate lookup failed, continuing: %s", _exc)
     return "No specific lessons captured yet."
 
 
@@ -156,7 +156,7 @@ def persist_initiative_review(review: InitiativeReview) -> bool:
             owner=f"{_REVIEW_OWNER_PREFIX}{review.initiative_id}",
         )
         return True
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - persist_initiative_review failed, already logged
         log.debug("[strategy.review] persist_initiative_review failed: %s", exc)
         return False
 
@@ -213,13 +213,13 @@ def build_strategic_dashboard(inputs: dict[str, Any] | None = None) -> Strategic
              "priority": o.priority, "progress": o.progress_label()}
             for o in snap.active[:10]
         ]
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - objective snapshot failed, already logged
         log.debug("[strategy.review] objective snapshot failed: %s", exc)
 
     # Alignment
     try:
         dash.alignment = run_alignment_scan()
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - alignment scan failed, already logged
         log.debug("[strategy.review] alignment scan failed: %s", exc)
 
     return dash
@@ -275,7 +275,7 @@ def run_executive_strategic_review(inputs: dict[str, Any] | None = None) -> Exec
             bits.append(f"knowledge {lb.knowledge_quality.grade}")
         if bits:
             key_learnings = "; ".join(bits) + "."
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - learning brief failed, already logged
         log.debug("[strategy.review] learning brief failed: %s", exc)
 
     disinvest = [r for r in recs if r.is_disinvestment]
@@ -305,8 +305,8 @@ def format_strategic_dashboard(dash: StrategicDashboard) -> str:
     hs = dash.health_summary
     lines = [
         "*:dart: STRATEGIC OUTCOMES*",
-        f"  Initiatives: {dash.total_initiatives} "
-        f"(:large_green_circle:{hs.get('green',0)} :large_yellow_circle:{hs.get('amber',0)} :red_circle:{hs.get('red',0)})",
+        (f"  Initiatives: {dash.total_initiatives} "
+        f"(:large_green_circle:{hs.get('green',0)} :large_yellow_circle:{hs.get('amber',0)} :red_circle:{hs.get('red',0)})"),
     ]
     if dash.objectives:
         lines.append(f"  Active objectives: {len(dash.objectives)}")

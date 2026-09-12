@@ -9,7 +9,7 @@ and reusable by future missions, decisions, and specialists.
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from lesson_capture import LessonRecord
@@ -33,7 +33,7 @@ def generate_knowledge_record(
     lesson: LessonRecord,
     linked_missions: list[str] | None = None,
 ) -> str:
-    now = datetime.now().strftime("%Y-%m-%d")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     specialists_str = ", ".join(assigned_specialists) if assigned_specialists else "Not recorded"
     linked_missions_str = ", ".join(linked_missions) if linked_missions else "None"
     linked_decisions_str = ", ".join(lesson.linked_decisions) if lesson.linked_decisions else "None"

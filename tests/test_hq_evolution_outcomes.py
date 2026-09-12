@@ -368,7 +368,7 @@ class TestOutcomeSchema(unittest.TestCase):
         for garbage in (None, {}, {"unexpected_effects": "not a list"}):
             try:
                 outcome_schema.validate_outcome_evaluation(garbage if isinstance(garbage, dict) else {})
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - test asserts validate_outcome_evaluation never raises on garbage input
                 self.fail(f"validate_outcome_evaluation raised on {garbage!r}: {exc}")
 
     def test_honest_fallback_never_fabricates_success(self):
@@ -617,7 +617,7 @@ class TestOrchestratorOutcomeLoop(unittest.TestCase):
 
         scratch.write_text("x" * 1024)  # shrink -> "after"
         with patch("evidence_sources.file_size_mb", return_value={"available": True, "value": scratch.stat().st_size / (1024 * 1024), "description": "scratch after"}):
-            result = orch.run_cycle(dry_run=False)
+            orch.run_cycle(dry_run=False)
 
         final = store.get(opp.opportunity_id)
         self.assertEqual(final["lifecycle_state"], "learned")

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Automated QA agent — the "agent recommends, human decides" pre-screen
 for intelligence_briefs sitting in IN_REVIEW.
@@ -249,7 +250,7 @@ def run_nightly(repo, dry_run: bool = True, actor: str = "system") -> list[dict]
     for brief in briefs:
         try:
             results.append(run_data_qa_agent(repo, brief["brief_id"], dry_run=dry_run, actor=actor))
-        except Exception as exc:  # one bad brief must not stop the batch
+        except Exception as exc:  # one bad brief must not stop the batch  # noqa: BLE001 - already documented above as 'one bad brief must not stop the batch'; already logged + captured into the returned results list
             log.error("brief_qa_agent: failed scoring %s: %s", brief.get("brief_id"), exc)
             results.append({"brief_id": brief.get("brief_id"), "error": str(exc)})
     return results

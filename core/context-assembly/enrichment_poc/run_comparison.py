@@ -15,7 +15,7 @@ Usage:
 
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Allow imports from parent directory
@@ -167,7 +167,7 @@ def make_recommendation(agg):
 def write_report(rows, agg, recommendation):
     lines = []
     lines.append("# Context Assembly Phase 0.5 — Enrichment Validation Report")
-    lines.append(f"\n**Generated:** {datetime.utcnow().isoformat()}Z")
+    lines.append(f"\n**Generated:** {datetime.now(timezone.utc).isoformat()}Z")
     lines.append(f"**Missions assessed:** {agg['missions_assessed']}")
     lines.append(f"**Average original completeness:** {agg['avg_original_completeness']:.0%}")
     lines.append(f"**Average enriched completeness:** {agg['avg_enriched_completeness']:.0%}")
@@ -303,7 +303,7 @@ def main():
 
     # Write outputs
     summary = {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "aggregate": agg,
         "per_mission": rows,
         "recommendation": recommendation,
@@ -318,7 +318,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-#!/usr/bin/env python3
+
 # DEPRECATED EXPERIMENT:
 # Retained for reference only. The canonical context-assembly runtime lives
 # outside the enrichment_poc experiment tree.

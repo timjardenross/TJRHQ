@@ -12,25 +12,14 @@
 #     pre-commit install
 # Only then do these hooks actually run on `git commit`.
 #
-# USS-TJR-MSN-0369 update: bandit's backlog is now triaged (0 unaddressed
-# Medium findings repo-wide) and CI's bandit step is blocking. Ruff's
-# backlog is only partly triaged -- the 3,420-finding auto-fixable subset
-# landed as its own PR, but ~3,395 findings remain that need manual
-# judgment file-by-file, so CI's ruff-check step stays informational
-# (continue-on-error) for now.
-#
-# LOCAL pre-commit still hard-blocks on both ruff-check and bandit (unlike
-# CI, which only gates bandit) -- so editing any file that still carries
-# pre-existing, unrelated ruff findings will block your commit even though
-# your own change is fine. If that happens and the findings are genuinely
-# pre-existing and out of scope for what you're doing, it's fine to run:
-#     SKIP=ruff-check git commit -m "..."
-# (or `SKIP=ruff-check,bandit` if bandit also flags something pre-existing
-# and unrelated -- bandit should be rare now that its backlog is clear).
+# USS-TJR-MSN-0369/0370 update: both bandit's Medium backlog (0 unaddressed
+# repo-wide) and ruff's full backlog (0 findings repo-wide, including the
+# ~3,395 manual-judgment findings triaged in MSN-0370 after MSN-0369's
+# autofix PR) are clear. Both CI's bandit and ruff-check steps are now
+# blocking (see the bandit hook's own comment below for a real gap this had
+# in practice, fixed in USS-TJR-MSN-0373).
 # Never skip gitleaks or detect-secrets this way -- those stay hard-blocking
-# for a reason. This convention goes away once a follow-up mission finishes
-# triaging ruff's remaining manual-judgment findings and CI's ruff-check
-# step also flips to blocking.
+# for a reason.
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.7
@@ -43,7 +32,16 @@ repos:
     hooks:
       - id: bandit
         name: bandit (security lint)
-        args: ["-q"]
+        # -ll: report Medium+ severity only. CI's blocking gate (USS-TJR-MSN-0369)
+        # was triaged and verified against a manually-run `bandit -ll`, but this
+        # flag was never actually added here -- so the hook ran at bandit's
+        # default (all severities) and CI's "pre-commit run --all-files bandit"
+        # inherited that mismatch, failing on the ~2,503 pre-existing Low
+        # findings (assert/subprocess/random patterns) that triage explicitly
+        # left out of scope. Confirmed via `pre-commit run --all-files bandit`
+        # locally: 0 Medium, 0 High, 2503 Low -- so this flag now enforces
+        # exactly what was triaged, not more, and doesn't hide any real drift.
+        args: ["-q", "-ll"]
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1

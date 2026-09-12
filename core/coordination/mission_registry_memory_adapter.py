@@ -51,7 +51,7 @@ def _is_stale(timestamp: Any, days: int = 180) -> bool:
             dt = dt.replace(tzinfo=timezone.utc)
         age = datetime.now(timezone.utc) - dt.astimezone(timezone.utc)
         return age > timedelta(days=days)
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: False (not stale) on any unparseable timestamp
         return False
 
 
@@ -77,7 +77,7 @@ class MissionRegistryMemoryAdapter:
     ) -> MissionRegistryMemoryContext:
         try:
             missions = self._load_missions()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[mission-registry-memory] load failed: %s", exc)
             log_memory_metric(
                 source="mission_registry",

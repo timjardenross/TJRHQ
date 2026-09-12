@@ -158,7 +158,7 @@ async def backfill_from_core_events(hours: int = 48, limit: int = 100) -> dict[s
                 group_id=event.get("domain") or "unknown",
             )
             added += 1
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-event isolation for a backfill loop; already logged and counted in `failed`, one bad event must not stop the rest
             failed += 1
             log.warning("[memory-graph] add_episode failed for event_id=%s: %s", event.get("event_id"), exc)
 

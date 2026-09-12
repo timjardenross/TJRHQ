@@ -113,7 +113,10 @@ def _parse_date(value: str | None) -> date | None:
     if not value:
         return None
     try:
-        return datetime.strptime(value[:10], "%Y-%m-%d").date()
+        # Input is already a calendar-date string (or the date-prefix of an
+        # ISO timestamp) sliced to its first 10 chars — no time-of-day or
+        # offset component to lose, so tz-awareness doesn't apply here.
+        return datetime.strptime(value[:10], "%Y-%m-%d").date()  # noqa: DTZ007 - date-only input, no offset possible
     except ValueError:
         return None
 
@@ -158,7 +161,7 @@ def _pg_get(path_and_query: str, count_exact: bool = False) -> tuple[list[dict],
                     if tail.isdigit():
                         total = int(tail)
             return rows, total
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase GET wrapper — caller sees ([], None) and handles it; already logged
         log.error("[FollowThrough] GET %s failed: %s", path_and_query, exc)
         return [], None
 
@@ -175,7 +178,7 @@ def _pg_patch(table: str, row_id: str, payload: dict) -> bool:
     try:
         with urllib.request.urlopen(req, timeout=15):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase PATCH wrapper — caller sees False and handles it; already logged
         log.error("[FollowThrough] PATCH %s/%s failed: %s", table, row_id, exc)
         return False
 
@@ -192,7 +195,7 @@ def _pg_post(table: str, payload: dict) -> bool:
     try:
         with urllib.request.urlopen(req, timeout=15):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase POST wrapper — caller sees False and handles it; already logged
         log.error("[FollowThrough] POST %s failed: %s", table, exc)
         return False
 
@@ -666,7 +669,7 @@ def run_follow_through_pass() -> dict:
                 _record_individual_sent(task["id"], chat_id, message_id)
                 _record_send(task, now, task.get("_tone", "neutral"), bundled=False)
                 summary["nudged"] += 1
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-task send failure inside a batch loop — one bad task must not abort the run; already logged + collected into summary['errors']
                 summary["errors"].append(f"task {task.get('id')}: {exc}")
                 log.error("[FollowThrough] Individual send failed for %s: %s", task.get("id"), exc)
 
@@ -680,16 +683,16 @@ def run_follow_through_pass() -> dict:
                     for task in bundle:
                         try:
                             _record_send(task, now, task.get("_tone", "neutral"), bundled=True)
-                        except Exception as exc:
+                        except Exception as exc:  # noqa: BLE001 - per-task bundle-record failure inside a nested loop — one bad task must not abort the bundle; already collected into summary['errors']
                             summary["errors"].append(f"bundle record failed for {task.get('id')}: {exc}")
                     summary["nudged"] += 1
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-bundle send failure inside a batch loop — one bad bundle must not abort the run; already logged + collected into summary['errors']
                 summary["errors"].append(f"bundle: {exc}")
                 log.error("[FollowThrough] Bundle send failed: %s", exc)
 
         return summary
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level pass boundary — a full nudge pass must report what it could, not crash; already logged + collected into summary['errors']
         error_msg = f"[FollowThrough] Pass error: {exc}"
         log.error(error_msg)
         summary["errors"].append(error_msg)

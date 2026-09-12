@@ -94,7 +94,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.debug("[enterprise_architecture] Supabase unavailable: %s", exc)
         return None
 
@@ -196,7 +196,7 @@ def register_arch_entity(
         )
         log.info("[enterprise_architecture] Registered %s — %s (%s)", entity_id, name[:60], state.value)
         return entity_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort entity registration, already logged
         log.warning("[enterprise_architecture] register_arch_entity failed: %s", exc)
         return None
 
@@ -227,7 +227,7 @@ def list_arch_entities(
                 continue
             out.append(e)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort entity listing, already logged
         log.debug("[enterprise_architecture] list_arch_entities failed: %s", exc)
         return []
 
@@ -256,7 +256,7 @@ def get_architecture_view() -> ArchitectureView:
             rows = list(res.data or [])
             if rows and rows[0].get("coverage_pct") is not None:
                 av.adr_coverage_pct = float(rows[0]["coverage_pct"])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort ADR metrics read, already logged
         log.debug("[enterprise_architecture] adr read failed: %s", exc)
 
     log.info("[enterprise_architecture] current=%d target=%d transition=%d",

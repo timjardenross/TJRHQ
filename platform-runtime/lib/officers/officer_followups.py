@@ -28,7 +28,7 @@ import logging
 import sys
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -70,7 +70,7 @@ class FollowUp:
 
     @property
     def is_overdue(self) -> bool:
-        return datetime.utcnow() > self.due_date and self.status not in (
+        return datetime.now(timezone.utc) > self.due_date and self.status not in (
             FollowUpStatus.RESOLVED, FollowUpStatus.ESCALATED
         )
 
@@ -78,7 +78,7 @@ class FollowUp:
     def days_overdue(self) -> int:
         if not self.is_overdue:
             return 0
-        return (datetime.utcnow() - self.due_date).days
+        return (datetime.now(timezone.utc) - self.due_date).days
 
 
 # ── Storage helpers ───────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ def _row_to_followup(row: dict[str, Any]) -> FollowUp | None:
                 parts[k.strip()] = v.strip()
 
         def _date(s: str) -> datetime:
-            return datetime.fromisoformat(s) if s else datetime.utcnow()
+            return datetime.fromisoformat(s) if s else datetime.now(timezone.utc)
 
         return FollowUp(
             follow_up_id=follow_up_id,
@@ -115,7 +115,8 @@ def _row_to_followup(row: dict[str, Any]) -> FollowUp | None:
             status=_try_enum(FollowUpStatus, parts.get("STATUS", ""), FollowUpStatus.PENDING),
             check_count=int(parts.get("CHECKS", "0") or "0"),
         )
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort row parse, malformed rows skipped
+        log.debug("[officer_followups] Row parse failed: %s", exc)
         return None
 
 
@@ -136,7 +137,7 @@ def register_follow_up(
 ) -> FollowUp:
     """Register a follow-up tracking record for an officer action."""
     follow_up_id = uuid.uuid4().hex[:12]
-    due_date = datetime.utcnow() + timedelta(days=due_days)
+    due_date = datetime.now(timezone.utc) + timedelta(days=due_days)
     fu = FollowUp(
         follow_up_id=follow_up_id,
         mission_id=mission_id,
@@ -167,7 +168,7 @@ def register_follow_up(
                 }).execute()
         log.info("[officer_followups] Registered follow-up %s: %s due %s",
                  follow_up_id, mission_id, due_date.date())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort follow-up registration, already logged
         log.debug("[officer_followups] Register failed %s: %s", mission_id, exc)
     return fu
 
@@ -193,7 +194,7 @@ def check_follow_ups() -> list[FollowUp]:
             if fu and fu.is_overdue:
                 overdue.append(fu)
         log.info("[officer_followups] %d overdue follow-up(s) detected", len(overdue))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort overdue check, already logged
         log.debug("[officer_followups] Check failed: %s", exc)
     return overdue
 
@@ -208,7 +209,7 @@ def resolve_follow_up(follow_up_id: str) -> None:
         owner = f"{_FOLLOWUP_OWNER_PREFIX}{follow_up_id}"
         c.raw_client.table("decisions").update({"status": "resolved"}).eq("owner", owner).execute()
         log.info("[officer_followups] Resolved follow-up %s", follow_up_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort follow-up resolve, already logged
         log.debug("[officer_followups] Resolve failed %s: %s", follow_up_id, exc)
 
 
@@ -233,7 +234,7 @@ def list_officer_follow_ups(officer: str) -> list[FollowUp]:
             fu = _row_to_followup(row)
             if fu:
                 result.append(fu)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort follow-up listing, already logged
         log.debug("[officer_followups] List failed for %s: %s", officer, exc)
     return result
 
@@ -245,7 +246,7 @@ def detect_idle_missions(missions: list[dict[str, Any]]) -> list[dict[str, Any]]
     querying independently — avoids parallel data fetching.
     """
     idle: list[dict[str, Any]] = []
-    cutoff = datetime.utcnow() - timedelta(days=IDLE_THRESHOLD_DAYS)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=IDLE_THRESHOLD_DAYS)
     for m in missions:
         updated = m.get("updated_at") or m.get("created_at") or ""
         try:

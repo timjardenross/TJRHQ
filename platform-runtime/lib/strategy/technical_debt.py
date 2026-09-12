@@ -119,7 +119,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.debug("[technical_debt] Supabase unavailable: %s", exc)
         return None
 
@@ -231,7 +231,7 @@ def register_debt(
         )
         log.info("[technical_debt] Registered %s — %s (%s)", debt_id, name[:60], severity.value)
         return debt_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort debt registration, already logged
         log.warning("[technical_debt] register_debt failed: %s", exc)
         return None
 
@@ -261,7 +261,7 @@ def update_debt(debt_id: str, **fields: Any) -> bool:
                 setattr(debt, k, v)
         c.raw_client.table("decisions").update({"rationale": _build_rationale(debt)}).eq("id", rows[0]["id"]).execute()
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort debt update, already logged
         log.debug("[technical_debt] update_debt failed: %s", exc)
         return False
 
@@ -280,7 +280,7 @@ def get_debt(debt_id: str) -> TechDebt | None:
         )
         rows = list(res.data or [])
         return _row_to_debt(rows[0]) if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort debt lookup, already logged
         log.debug("[technical_debt] get_debt failed: %s", exc)
         return None
 
@@ -311,7 +311,7 @@ def list_debts(
                 continue
             out.append(d)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort debt list query, already logged
         log.debug("[technical_debt] list_debts failed: %s", exc)
         return []
 

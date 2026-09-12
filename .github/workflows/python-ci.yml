@@ -427,17 +427,15 @@ jobs:
       - name: pre-commit (security — blocking)
         run: pre-commit run --all-files bandit
 
-      # Ruff: still informational. This mission's Stream 2 landed the
-      # 3,420-finding auto-fixable subset as its own isolated PR, but ~3,395
-      # findings remain (`ruff check .` at last count) that need manual
-      # judgment file-by-file -- explicitly out of scope for this mission.
-      # Flipping this to blocking now would fail CI on every commit against
-      # pre-existing, untouched files, not just new drift. Flip once a
-      # follow-up mission triages (fixes or rule-level suppresses) the
-      # remainder; until then this only reports drift so new code doesn't
-      # silently add to the pile unseen.
-      - name: pre-commit (lint — informational until ruff manual triage lands)
-        continue-on-error: true
+      # Ruff: blocking (USS-TJR-MSN-0370). The remaining ~3,395 manual-
+      # judgment findings left after Stream 2's autofix PR were triaged to
+      # zero: split by top-level directory across 4 parallel passes
+      # (core/, platform-runtime/, intelligence/+tools/, telegram-bots/+misc),
+      # each narrowing real production blind-excepts, fixing timezone-naive
+      # datetime bugs, and suppressing genuine false positives with dated
+      # reasons -- not mechanically globbed. Fresh `ruff check .` now
+      # reports 0 findings repo-wide.
+      - name: pre-commit (lint — blocking)
         run: pre-commit run --all-files ruff-check
 
   actionlint:

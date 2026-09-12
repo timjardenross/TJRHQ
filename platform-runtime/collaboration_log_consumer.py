@@ -20,9 +20,12 @@ Public API:
 from __future__ import annotations
 
 import json
+import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 _BOT_DIR = Path(__file__).resolve().parent
 _LOG_FILE = _BOT_DIR / "logs" / "collaboration.jsonl"
@@ -38,7 +41,7 @@ def log_collaboration_output(
     try:
         _LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
         entry = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "mission_id": mission_id or "",
             "user_text": user_text[:500],
             "specialists": specialists or [],
@@ -46,8 +49,8 @@ def log_collaboration_output(
         }
         with _LOG_FILE.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (failed to persist collaboration log entry)
+        log.debug("[collaboration_log_consumer] failed to persist collaboration log entry: %s", exc)
 
 
 def get_recent_collaboration_entries(limit: int = 20) -> list[dict]:

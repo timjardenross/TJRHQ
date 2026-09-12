@@ -183,9 +183,8 @@ class TestCallAgent:
         fake_mistral_module = MagicMock()
         fake_mistral_module.Mistral.return_value = fake_client
 
-        with patch.dict(os.environ, self._env()):
-            with patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
-                result = self.mac.call_agent("execute", "research", "What is X?")
+        with patch.dict(os.environ, self._env()), patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
+            result = self.mac.call_agent("execute", "research", "What is X?")
 
         assert result == "research findings here"
 
@@ -206,9 +205,8 @@ class TestCallAgent:
         fake_mistral_module = MagicMock()
         fake_mistral_module.Mistral.return_value = fake_client
 
-        with patch.dict(os.environ, self._env()):
-            with patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
-                result = self.mac.call_agent("execute", "research", "prompt")
+        with patch.dict(os.environ, self._env()), patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
+            result = self.mac.call_agent("execute", "research", "prompt")
         assert result is None
 
     def test_retries_on_429(self):
@@ -220,10 +218,8 @@ class TestCallAgent:
         fake_mistral_module = MagicMock()
         fake_mistral_module.Mistral.return_value = fake_client
 
-        with patch.dict(os.environ, self._env()):
-            with patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
-                with patch("mistral_agent_client.time.sleep"):
-                    result = self.mac.call_agent("execute", "research", "prompt")
+        with patch.dict(os.environ, self._env()), patch.dict(sys.modules, {"mistralai": fake_mistral_module}), patch("mistral_agent_client.time.sleep"):
+            result = self.mac.call_agent("execute", "research", "prompt")
         assert result == "retry worked"
 
     def test_unknown_agent_name_returns_none(self):
@@ -246,13 +242,15 @@ class TestOrchestrationResearchMistralFirst:
         fake_mistral_module = MagicMock()
         fake_mistral_module.Mistral.return_value = fake_client
 
-        with patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
-            with patch.dict(os.environ, {
+        with (
+            patch.dict(sys.modules, {"mistralai": fake_mistral_module}),
+            patch.dict(os.environ, {
                 "MISTRAL_API_KEY": "key",
                 "MISTRAL_RESEARCH_AGENT_ID": "ag_research_scout",
                 "MISTRAL_RESEARCH_AGENT_VERSION": "23",
-            }):
-                result = mac.call_agent("execute", "research", "research question")
+            }),
+        ):
+            result = mac.call_agent("execute", "research", "research question")
 
         assert result is not None
         assert "task" in result.lower() or "[" in result
@@ -275,12 +273,8 @@ class TestCallStageFallback:
 
         fake_legacy = MagicMock(return_value=FakeOutcome())
 
-        # Load research_orchestration fresh
-        spec = importlib.util.spec_from_file_location(
-            "_ro_test",
-            REPO_ROOT / "core" / "coordination" / "research_orchestration.py",
-        )
-        # We can't easily exec it without full deps; just test _call_stage logic inline
+        # We can't easily load research_orchestration fresh and exec it without
+        # full deps; just test _call_stage logic inline
 
         # Simulate _call_stage logic directly
         def _call_stage_sim(stage, agent_name, prompt, timeout_sec=30, mission_id=None):
@@ -320,8 +314,6 @@ class TestCallStageFallback:
         assert outcome.findings == "mistral text"
         fake_legacy.assert_not_called()
 
-
-import importlib.util  # needed for TestCallStageFallback
 
 # ─── call_mistral_research in research_delegator ─────────────────────────────
 
@@ -435,10 +427,8 @@ class TestStructuredLogging:
             "MISTRAL_BRIEFING_AGENT_ID": "ag_brief_abc12345",
             "MISTRAL_BRIEFING_AGENT_VERSION": "2",
         }
-        with caplog.at_level(logging.INFO, logger="mistral_agent_client"):
-            with patch.dict(os.environ, env):
-                with patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
-                    mac.call_agent("consolidate", "briefing", "prompt", mission_id="MSN-42")
+        with caplog.at_level(logging.INFO, logger="mistral_agent_client"), patch.dict(os.environ, env), patch.dict(sys.modules, {"mistralai": fake_mistral_module}):
+            mac.call_agent("consolidate", "briefing", "prompt", mission_id="MSN-42")
 
         log_text = " ".join(caplog.messages)
         assert "stage=consolidate" in log_text
@@ -449,9 +439,8 @@ class TestStructuredLogging:
         import mistral_agent_client as mac
         env = {"MISTRAL_API_KEY": "key", "MISTRAL_BRIEFING_AGENT_ID": ""}
 
-        with caplog.at_level(logging.WARNING, logger="mistral_agent_client"):
-            with patch.dict(os.environ, env):
-                mac.call_agent("consolidate", "briefing", "prompt")
+        with caplog.at_level(logging.WARNING, logger="mistral_agent_client"), patch.dict(os.environ, env):
+            mac.call_agent("consolidate", "briefing", "prompt")
 
         log_text = " ".join(caplog.messages)
         assert "no_agent_id" in log_text or "status=failed" in log_text

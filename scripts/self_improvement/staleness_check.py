@@ -39,8 +39,8 @@ def git_dirty_paths(repo_root: Path) -> set[str]:
         result = subprocess.run(
             ["git", "status", "--short"], cwd=repo_root,
             capture_output=True, text=True, timeout=10,
-        )
-    except Exception:
+        check=False)
+    except (OSError, subprocess.SubprocessError):
         return set()
     if result.returncode != 0:
         return set()

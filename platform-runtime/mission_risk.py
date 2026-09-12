@@ -39,7 +39,7 @@ Risk bands:
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -144,7 +144,7 @@ def calculate_mission_risk_score(mission: dict) -> dict:
 
     # --- Age component ---
     open_date = _parse_open_date(mission_id, mission.get("timestamp", ""))
-    age_days  = (date.today() - open_date).days if open_date else None
+    age_days  = (datetime.now(timezone.utc).date() - open_date).days if open_date else None
 
     age_score = 0
     if age_days is not None:
@@ -171,8 +171,8 @@ def calculate_mission_risk_score(mission: dict) -> dict:
         if status in ("completed", "closed") and not check_lesson_captured(mission_id):
             gov_score += 5
             reasons.append("Missing lesson learned")
-    except Exception:
-        pass
+    except Exception as _exc:  # noqa: BLE001 - best-effort lesson-captured check, already logged
+        log.debug("[mission_risk] best-effort step failed, continuing: %s", _exc)
 
     if _missing_validation(mission_id):
         gov_score += 5
@@ -206,13 +206,13 @@ def _parse_open_date(mission_id: str, timestamp: str) -> date | None:
     for p in parts:
         if len(p) == 8 and p.isdigit():
             try:
-                return datetime.strptime(p, "%Y%m%d").date()
+                return datetime.strptime(p, "%Y%m%d").replace(tzinfo=timezone.utc).date()
             except ValueError:
                 continue
     if timestamp:
         for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d"):
             try:
-                return datetime.strptime(timestamp[:16], fmt).date()
+                return datetime.strptime(timestamp[:16], fmt).replace(tzinfo=timezone.utc).date()
             except ValueError:
                 continue
     return None
@@ -228,11 +228,9 @@ def _missing_validation(mission_id: str) -> bool:
             if mission_id in f.name:
                 text = f.read_text()
                 indicators = ["validation", "validated", "acceptance criteria", "test passed"]
-                if not any(ind in text.lower() for ind in indicators):
-                    return True
-                return False
-    except Exception:
-        pass
+                return bool(not any(ind in text.lower() for ind in indicators))
+    except Exception as _exc:  # noqa: BLE001 - best-effort validation-file scan, already logged
+        log.debug("[mission_risk] best-effort step failed, continuing: %s", _exc)
     return False
 
 
@@ -250,7 +248,7 @@ def get_top_risk_missions(limit: int = 10) -> list[dict]:
     try:
         from captain_notifications import _read_mission_index
         missions = _read_mission_index()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - mission index read failure, already logged
         log.warning("[risk] Failed to read mission index: %s", exc)
         return []
 
@@ -300,6 +298,6 @@ def format_risk_brief_block(limit: int = 3) -> str:
             emoji = r["band_emoji"]
             lines.append(f"  • {emoji} *{r['mission_id']}* — {r['score']}/100 ({r['band']}) — {r['reasons'][0] if r['reasons'] else ''}")
         return "\n".join(lines)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort brief block, already logged
         log.debug("[risk] Brief block failed: %s", exc)
         return ""

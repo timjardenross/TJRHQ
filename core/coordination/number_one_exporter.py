@@ -37,7 +37,7 @@ import json
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from number_one import CoordinationConfig, NumberOne
@@ -49,14 +49,17 @@ def _git_last_modified(file_ref: str, repo_root: Path) -> str:
         result = subprocess.run(
             ["git", "log", "--follow", "--format=%ai", "--", file_ref],
             cwd=str(repo_root),
-            capture_output=True, text=True, timeout=5
+            capture_output=True, text=True, timeout=5,
+            check=False,
         )
         first_line = result.stdout.strip().splitlines()[0] if result.stdout.strip() else None
         if first_line:
-            # git outputs "2026-06-05 23:15:47 +1000" — convert to ISO
-            dt = datetime.strptime(first_line[:19], "%Y-%m-%d %H:%M:%S")
-            return dt.isoformat() + "Z"
-    except Exception:
+            # git outputs "2026-06-05 23:15:47 +1000" (commit-local offset) — parse the
+            # offset too (previously it was silently truncated off and mislabeled "Z"/UTC)
+            # and normalize to UTC for consistent comparison with other timestamps.
+            dt = datetime.strptime(first_line, "%Y-%m-%d %H:%M:%S %z")
+            return dt.astimezone(timezone.utc).isoformat()
+    except Exception:  # noqa: BLE001,S110 - best-effort git-metadata lookup; failure just means no last-modified timestamp
         pass
     return None
 
@@ -66,7 +69,9 @@ sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
 sys.path.insert(0, str(_REPO_ROOT / "core" / "knowledge"))
 
 try:
-    from models import RecommendationPackage
+    from models import (
+        RecommendationPackage,  # noqa: F401 - availability probe, only ImportError matters
+    )
     from recommendation_engine import generate_recommendation_package
     _RECOMMENDATIONS_AVAILABLE = True
 except ImportError:
@@ -79,8 +84,12 @@ except ImportError:
     _READINESS_AVAILABLE = False
 
 try:
-    from lesson_capture import backfill_lessons_to_supabase
-    from supabase_client import is_configured as _supabase_configured
+    from lesson_capture import (
+        backfill_lessons_to_supabase,  # noqa: F401 - availability probe, only ImportError matters
+    )
+    from supabase_client import (
+        is_configured as _supabase_configured,  # noqa: F401 - availability probe, only ImportError matters
+    )
     _LESSONS_AVAILABLE = True
 except ImportError:
     _LESSONS_AVAILABLE = False
@@ -88,7 +97,9 @@ except ImportError:
 try:
     sys.path.insert(0, str(_REPO_ROOT / "core" / "intelligence"))
     from intelligence_reporter import run_all_reports as _run_intelligence_reports
-    from readiness_history import persist_readiness_snapshot as _persist_readiness
+    from readiness_history import (
+        persist_readiness_snapshot as _persist_readiness,  # noqa: F401 - availability probe, only ImportError matters
+    )
     _INTELLIGENCE_AVAILABLE = True
 except ImportError:
     _INTELLIGENCE_AVAILABLE = False
@@ -113,7 +124,7 @@ def _fetch_command_memory_mission_ids() -> set[str]:
         from command_memory_integration import get_active_missions
         missions = get_active_missions()
         return {m["id"] for m in missions if m.get("id")}
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort Command Memory dedup lookup; failure just means no dedup filtering
         return set()
 
 
@@ -130,7 +141,7 @@ def _load_engineering_handoffs_safe() -> list[dict]:
     try:
         cm_ids = _fetch_command_memory_mission_ids()
         return load_engineering_handoffs(command_memory_mission_ids=cm_ids)
-    except Exception as e:  # pragma: no cover - defensive; ingestion is advisory
+    except Exception as e:  # pragma: no cover - defensive; ingestion is advisory  # noqa: BLE001 - already logged (print) and documented advisory-only fallback
         print(f"⚠️  Engineering handoff ingestion skipped (non-fatal): {e}")
         return []
 
@@ -142,7 +153,7 @@ def _summarise_engineering_handoffs_safe(missions: list[dict]) -> dict:
         return empty
     try:
         return summarise_engineering_handoffs(missions)
-    except Exception as e:  # pragma: no cover - defensive; reporting is advisory
+    except Exception as e:  # pragma: no cover - defensive; reporting is advisory  # noqa: BLE001 - already logged (print) and documented advisory-only fallback
         print(f"⚠️  Engineering handoff summary skipped (non-fatal): {e}")
         return empty
 
@@ -159,7 +170,7 @@ class NumberOneExporter:
     def export_brief(
         self,
         missions: list[dict],
-        routing_results: dict = None
+        routing_results: dict | None = None
     ) -> bool:
         """Export coordination brief to JSON."""
         try:
@@ -222,14 +233,14 @@ class NumberOneExporter:
             print(f"✅ Exported brief to {output_file}")
             return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export brief: {e}")
             return False
 
     def export_queue(
         self,
         missions: list[dict],
-        routing_results: dict = None
+        routing_results: dict | None = None
     ) -> bool:
         """Export work queue to JSON."""
         try:
@@ -237,7 +248,7 @@ class NumberOneExporter:
 
             # Convert to dicts for JSON serialization
             queue_dict = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "items": [
                     {
                         "mission_id": item.mission_id,
@@ -264,14 +275,14 @@ class NumberOneExporter:
             print(f"✅ Exported queue to {output_file}")
             return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export queue: {e}")
             return False
 
     def export_escalations(
         self,
         missions: list[dict],
-        routing_results: dict = None
+        routing_results: dict | None = None
     ) -> bool:
         """Export escalations to JSON."""
         try:
@@ -279,7 +290,7 @@ class NumberOneExporter:
 
             # Convert to dicts for JSON serialization
             escalations_dict = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "escalations": [
                     {
                         "escalation_type": esc.escalation_type,
@@ -301,7 +312,7 @@ class NumberOneExporter:
             print(f"✅ Exported escalations to {output_file}")
             return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export escalations: {e}")
             return False
 
@@ -314,14 +325,14 @@ class NumberOneExporter:
                 json.dump(blockers, f, indent=2)
             print(f"✅ Exported blockers to {output_file}")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export blockers: {e}")
             # Write empty valid JSON so consumers don't fail
             try:
                 with open(self.output_dir / "blockers.json", "w") as f:
-                    json.dump({"timestamp": datetime.utcnow().isoformat(), "total_blockers": 0,
+                    json.dump({"timestamp": datetime.now(timezone.utc).isoformat(), "total_blockers": 0,
                                "critical": [], "high": [], "normal": [], "error": str(e)}, f, indent=2)
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 
@@ -331,19 +342,19 @@ class NumberOneExporter:
         """Export health-capacity-adjusted work queue to JSON."""
         try:
             health_queue = self.engine.get_health_adjusted_queue(missions, capacity_status)
-            health_queue["exported_at"] = datetime.utcnow().isoformat()
+            health_queue["exported_at"] = datetime.now(timezone.utc).isoformat()
             output_file = self.output_dir / "health_queue.json"
             with open(output_file, "w") as f:
                 json.dump(health_queue, f, indent=2)
             print(f"✅ Exported health queue to {output_file}")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export health queue: {e}")
             try:
                 with open(self.output_dir / "health_queue.json", "w") as f:
-                    json.dump({"exported_at": datetime.utcnow().isoformat(), "capacity_status": "Unknown",
+                    json.dump({"exported_at": datetime.now(timezone.utc).isoformat(), "capacity_status": "Unknown",
                                "queue": [], "recommended_focus": [], "advisory": "Unavailable", "error": str(e)}, f, indent=2)
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 
@@ -355,10 +366,10 @@ class NumberOneExporter:
             print("⚠️  recommendation_engine not available — skipping recommendations export")
             try:
                 with open(self.output_dir / "recommendations.json", "w") as f:
-                    json.dump({"assembled_at": datetime.utcnow().isoformat() + "Z",
+                    json.dump({"assembled_at": datetime.now(timezone.utc).isoformat(),
                                "recommendations": [], "health_constraints_applied": False,
                                "total_active_missions": 0, "unavailable": True}, f, indent=2)
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return True
         try:
@@ -388,14 +399,14 @@ class NumberOneExporter:
                 json.dump(pkg_dict, f, indent=2)
             print(f"✅ Exported recommendations to {output_file}")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export recommendations: {e}")
             try:
                 with open(self.output_dir / "recommendations.json", "w") as f:
-                    json.dump({"assembled_at": datetime.utcnow().isoformat() + "Z",
+                    json.dump({"assembled_at": datetime.now(timezone.utc).isoformat(),
                                "recommendations": [], "health_constraints_applied": False,
                                "total_active_missions": 0, "error": str(e)}, f, indent=2)
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 
@@ -410,14 +421,14 @@ class NumberOneExporter:
             print("⚠️  readiness_score not available — skipping readiness export")
             try:
                 with open(self.output_dir / "readiness.json", "w") as f:
-                    json.dump({"exported_at": datetime.utcnow().isoformat(), "unavailable": True}, f, indent=2)
-            except Exception:
+                    json.dump({"exported_at": datetime.now(timezone.utc).isoformat(), "unavailable": True}, f, indent=2)
+            except Exception:  # noqa: BLE001,S110 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return True
         try:
             result = compute_readiness_score(capacity_score, "Green", missions, escalations or [])
             readiness_dict = {
-                "exported_at": datetime.utcnow().isoformat(),
+                "exported_at": datetime.now(timezone.utc).isoformat(),
                 "score": result.score,
                 "status": result.status,
                 "health_component": result.health_component,
@@ -432,13 +443,13 @@ class NumberOneExporter:
                 json.dump(readiness_dict, f, indent=2)
             print(f"✅ Exported readiness to {output_file}")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export readiness: {e}")
             try:
                 with open(self.output_dir / "readiness.json", "w") as f:
-                    json.dump({"exported_at": datetime.utcnow().isoformat(),
+                    json.dump({"exported_at": datetime.now(timezone.utc).isoformat(),
                                "score": 0, "status": "Unknown", "error": str(e)}, f, indent=2)
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 
@@ -494,7 +505,7 @@ class NumberOneExporter:
                                 "mission_id": mission_id if mission_id not in ("—", "", "N/A") else None,
                             })
             payload = {
-                "exported_at": datetime.utcnow().isoformat(),
+                "exported_at": datetime.now(timezone.utc).isoformat(),
                 "total": len(lessons),
                 "lessons": lessons,
             }
@@ -502,13 +513,13 @@ class NumberOneExporter:
                 json.dump(payload, f, indent=2)
             print(f"✅ Exported lessons to {output_file} ({len(lessons)} entries)")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - export CLI: outer boundary must not crash the whole run; already logged (print)
             print(f"❌ Failed to export lessons: {e}")
             try:
                 with open(output_file, "w") as f:
-                    json.dump({"exported_at": datetime.utcnow().isoformat(),
+                    json.dump({"exported_at": datetime.now(timezone.utc).isoformat(),
                                "total": 0, "lessons": [], "error": str(e)}, f, indent=2)
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 
@@ -629,7 +640,7 @@ class NumberOneExporter:
         missions = []
         for line in lines:
             line = line.strip()
-            if not line.startswith("|") or line.startswith("| Mission ID") or line.startswith("|---"):
+            if not line.startswith("|") or line.startswith(("| Mission ID", "|---")):
                 continue
             cols = [c.strip() for c in line.split("|")[1:-1]]
             if len(cols) < 4:
@@ -718,7 +729,7 @@ class NumberOneExporter:
         try:
             _run_intelligence_reports(dry_run=False, persist_readiness=True)
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logged (print); intelligence reporting is explicitly non-blocking/advisory
             print(f"⚠️  Intelligence reporting failed (non-fatal): {e}")
             return True  # never block the main export
 
@@ -802,7 +813,7 @@ def main():
     if args.watch:
         print(f"👁  Watch mode active — regenerating every {args.interval}s (Ctrl+C to stop)")
         while True:
-            print(f"\n[{datetime.utcnow().strftime('%H:%M:%S')}] Running export cycle...")
+            print(f"\n[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] Running export cycle...")
             _run_once()
             time.sleep(args.interval)
     else:

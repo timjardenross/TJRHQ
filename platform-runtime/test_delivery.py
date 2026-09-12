@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for the EDO delivery engine (MSN-EDO-001 → EDO-002/004/008).
 
 Covers: lifecycle mapping + transition validation + hygiene normalisation;

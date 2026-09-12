@@ -99,14 +99,14 @@ def _send_telegram(text: str) -> tuple[bool, str | None]:
     try:
         with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url is api.telegram.org with a fixed path template, TELEGRAM_BOT_TOKEN is a trusted env credential - reviewed 2026-09-12
             return True, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Telegram send failure; error surfaced to caller in the returned tuple, not swallowed
         return False, f"{type(exc).__name__}: {exc}"
 
 
 def _read_state() -> dict[str, Any]:
     try:
         return json.loads(_STATE_FILE.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception:  # noqa: BLE001 - state file read; documented degrade-to-empty-state on any read/parse failure
         return {}
 
 
@@ -114,7 +114,7 @@ def _write_state(state: dict[str, Any]) -> None:
     try:
         _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         _STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - already documented best-effort: a failed debounce write must not crash the dead-man's switch
         pass  # best-effort - a failed debounce write must not crash the switch
 
 
@@ -134,7 +134,7 @@ def check() -> dict[str, Any]:
         state_rows = _supabase_get(
             "verification_state?select=computed_at&order=computed_at.desc&limit=1"
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase read failure surfaced to caller as a 'blind' verification result, not swallowed
         return {"blind": True, "reason": f"could not read Supabase: {exc}", "alerted": False}
 
     reg = registry[0] if registry else {"expected_cadence_minutes": 5, "grace_period_minutes": 15}
@@ -160,7 +160,7 @@ def check() -> dict[str, Any]:
             last_alert_dt = datetime.fromisoformat(last_alert)
             cooldown_elapsed = (now - last_alert_dt).total_seconds() > (_COOLDOWN_MINUTES * 60)
         if cooldown_elapsed:
-            ok, err = _send_telegram(
+            ok, _err = _send_telegram(
                 "I can't verify anything right now. "
                 f"{reason}. Treat silence as unknown, not as calm."
             )

@@ -53,7 +53,8 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - supabase client init, best-effort
+        log.debug("[resource_conflict] Supabase unavailable: %s", exc)
         return None
 
 
@@ -65,7 +66,8 @@ def _mission_owner_map() -> dict[str, str]:
     try:
         res = c.raw_client.table("missions").select("id,owner,status,priority").limit(500).execute()
         return {str(r.get("id") or ""): str(r.get("owner") or "") for r in (res.data or [])}
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - mission owner lookup, best-effort, defaults to empty
+        log.debug("[resource_conflict] mission_owner_map failed: %s", exc)
         return {}
 
 
@@ -76,7 +78,8 @@ def _mission_priority_map() -> dict[str, str]:
     try:
         res = c.raw_client.table("missions").select("id,priority").limit(500).execute()
         return {str(r.get("id") or ""): str(r.get("priority") or "P3").upper() for r in (res.data or [])}
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - mission priority lookup, best-effort, defaults to empty
+        log.debug("[resource_conflict] mission_priority_map failed: %s", exc)
         return {}
 
 

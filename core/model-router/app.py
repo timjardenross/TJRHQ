@@ -85,7 +85,7 @@ try:
     from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
     _configure_tracing("model-router")
     _ROUTER_TRACING_AVAILABLE = True
-except Exception:
+except Exception:  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
     _ROUTER_TRACING_AVAILABLE = False
 
 
@@ -117,14 +117,14 @@ def _emit_router_span(task_type: str, model: str, duration_ms: int, success: boo
             },
         ):
             pass  # span closes immediately; timing is recorded in attributes
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - tracing is best-effort observability; must never break the router it's instrumenting
         pass
 
-_PORT = int(os.environ.get("MODEL_ROUTER_PORT", 8891))
+_PORT = int(os.environ.get("MODEL_ROUTER_PORT", "8891"))
 _HOST = os.environ.get("MODEL_ROUTER_HOST", "127.0.0.1")
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
 _LOG_FILE = Path(__file__).parent / "call_log.jsonl"
-_LOG_LIMIT = int(os.environ.get("MODEL_ROUTER_LOG_LIMIT", 200))
+_LOG_LIMIT = int(os.environ.get("MODEL_ROUTER_LOG_LIMIT", "200"))
 
 # ── Model catalogue ──────────────────────────────────────────────────────────
 
@@ -424,7 +424,7 @@ def _ollama_status() -> dict[str, Any]:
     try:
         with urllib.request.urlopen(f"{_OLLAMA_BASE}/api/ps", timeout=5) as resp:  # nosec B310 - url built from OLLAMA_BASE_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
             return json.loads(resp.read().decode())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - status probe; error is returned to the caller in the response dict, not swallowed
         return {"error": str(exc)}
 
 
@@ -433,7 +433,7 @@ def _ollama_tags() -> dict[str, Any]:
     try:
         with urllib.request.urlopen(f"{_OLLAMA_BASE}/api/tags", timeout=5) as resp:  # nosec B310 - url built from OLLAMA_BASE_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
             return json.loads(resp.read().decode())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - status probe; error is returned to the caller in the response dict, not swallowed
         return {"error": str(exc)}
 
 
@@ -448,7 +448,7 @@ def _log_call(entry: dict[str, Any]) -> None:
     try:
         with _LOG_LOCK, _LOG_FILE.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("call log write failed: %s", exc)
 
 
@@ -677,7 +677,7 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
         log.error("task=%s model=%s route_tier=%s error=%s", task_type, model, route_tier, exc)
         return {"success": False, "task_type": task_type, "model": model, "error": str(exc),
                 "duration_ms": duration_ms, "route_tier": route_tier, "route_reason": route_reason or None}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level dispatch boundary; catches anything the specific urllib.error branch above doesn't, already logged via log.error() and returned in the response
         duration_ms = int((time.time() - t0) * 1000)
         _log_call({"ts": datetime.now(timezone.utc).isoformat(), "task_type": task_type, "model": model,
                    "duration_ms": duration_ms, "success": False, "error": str(exc),

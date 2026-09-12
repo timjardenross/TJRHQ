@@ -225,7 +225,7 @@ def _store_findings(report: FindingsReport) -> None:
                 ),
                 owner=f"{FINDING_OWNER_PREFIX}{report.investigation_id}",
             )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort findings store, already logged
         log.debug("[investigation.findings] Store findings failed: %s", exc)
 
 
@@ -323,7 +323,7 @@ def get_findings(investigation_id: str) -> FindingsReport | None:
 
         return report
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort findings lookup, already logged
         log.debug("[investigation.findings] get_findings failed: %s", exc)
         return None
 

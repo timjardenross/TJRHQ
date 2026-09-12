@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-0098 personal/strategic intelligence modules:
 data_quality, wellness, operating_picture, strategic, forecast, daily_brief.
 

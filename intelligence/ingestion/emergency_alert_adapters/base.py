@@ -90,9 +90,13 @@ def parse_dmy_datetime(value: str | None) -> str | None:
     source's own format doesn't match what its docs describe."""
     if not value:
         return None
+    # KNOWN GAP (flagged, not guessed): these DD/MM/YYYY sources (NSW RFS,
+    # VIC Emergency) carry no timezone/offset in the string either — same
+    # unresolved ambiguity as act_esa.py's ACT format. Presumed local
+    # Australian time but unverified per-source; do not silently treat as UTC.
     for fmt in ("%d/%m/%Y %I:%M:%S %p", "%d/%m/%Y %H:%M:%S"):
         try:
-            return datetime.strptime(value.strip(), fmt).isoformat()
+            return datetime.strptime(value.strip(), fmt).isoformat()  # noqa: DTZ007 - source has no offset info; flagged above, not resolved
         except ValueError:
             continue
     return None

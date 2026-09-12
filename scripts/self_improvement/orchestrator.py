@@ -127,7 +127,7 @@ class SelfImprovementOrchestrator:
             finding.setdefault("evidence_strength", confidence_to_evidence_strength(finding.get("confidence", 0.0)))
             try:
                 classified_findings.append(self.policy.classify_finding(finding))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-finding classification loop; classify_finding()'s exception surface is unpredictable (policy.py rule evaluation), one bad finding must not abort classifying the rest, already collected into the errors list
                 errors.append({"finding_id": finding.get("finding_id"), "error": str(exc)})
         log.info(f"Classified: {len(classified_findings)} valid, {len(errors)} errors")
         with open(run_dir / "findings_classified.json", "w") as f:

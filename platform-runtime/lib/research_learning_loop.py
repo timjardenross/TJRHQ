@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -49,7 +49,7 @@ _STATUS_TO_OUTCOME = {
 
 
 def generate_research_decision_id() -> str:
-    return f"DEC-RES-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
+    return f"DEC-RES-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
 
 
 def record_research_lifecycle_event(
@@ -74,7 +74,7 @@ def record_research_lifecycle_event(
     decision_outcomes_status = status if status in ("success", "partial") else "failed"
     provider_name = (provider_path or [None])[0]
     notes = (recommendation or research_topic)[:500]
-    captured_at = datetime.utcnow().isoformat()
+    captured_at = datetime.now(timezone.utc).isoformat()
 
     try:
         client = CommanderSupabaseClient()
@@ -158,8 +158,8 @@ def record_research_lifecycle_event(
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat("decisions", status="ok", detail="source=research-learning-loop")
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
+            log.debug("[lib.research_learning_loop] best-effort step failed, continuing: %s", _exc)
 
         # Emit research-learning after all three DB writes succeed (commander_decisions,
         # decision_outcomes, decision_records). This is the authoritative moment a
@@ -180,8 +180,8 @@ def record_research_lifecycle_event(
                     "research_topic_length": len(research_topic),
                 },
             )
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
+            log.debug("[lib.research_learning_loop] best-effort step failed, continuing: %s", _exc)
 
         # 4. quality_scores — ties decision_outcomes + decision_records together.
         # QualityScoring/FeedbackLoops need the raw supabase-py client (they call
@@ -207,7 +207,7 @@ def record_research_lifecycle_event(
                 "[research-learning-loop] Scored: mission_id=%s outcome_id=%s decision_id=%s",
                 mission_id, outcome_bigint_id, decision_id,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (scoring/feedback skipped)
             log.warning("[research-learning-loop] scoring/feedback skipped: %s", exc)
 
         # Emit research-learning-intelligence after quality scoring — this is when
@@ -229,8 +229,8 @@ def record_research_lifecycle_event(
                     "provider_name": provider_name,
                 },
             )
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
+            log.debug("[lib.research_learning_loop] best-effort step failed, continuing: %s", _exc)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (decision/outcome chain write failed)
         log.warning("[research-learning-loop] decision/outcome chain write failed: %s", exc)

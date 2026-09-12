@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -48,7 +48,7 @@ class CapacityAction:
 
     def __post_init__(self):
         if self.emitted_at is None:
-            self.emitted_at = datetime.utcnow()
+            self.emitted_at = datetime.now(timezone.utc)
 
 
 # ── Gate ──────────────────────────────────────────────────────────────────────
@@ -205,7 +205,7 @@ class CapacityGate:
                 ),
                 owner="human_systems",
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[capacity-gate] Audit log failed (non-blocking): %s", exc)
 
 

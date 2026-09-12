@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Human Systems Proactive Scheduler / Job-Runner (WP7, HSF-001 §7.2).
 
 Turns the Human Systems Officer from a purely reactive command into a proactive
@@ -114,13 +115,13 @@ def _build_message(job: str):
     raise ValueError(f"unknown job: {job}")
 
 
-def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+def _record_heartbeat(status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort."""
     try:
         sys.path.insert(0, str(_BOT_DIR.parent / "core" / "platform"))
         from heartbeat import record_heartbeat
         record_heartbeat("human_systems", status=status, detail=detail, error_message=error_message)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (record_heartbeat failed (non-critical))
         log.debug("[heartbeat] record_heartbeat failed (non-critical): %s", exc)
 
 
@@ -156,8 +157,8 @@ def _publish_core_event(job: str, message, report: dict) -> None:
             recommended_action=message.title,
             metrics={"job": job, "delivered": report.get("delivered"), "dry_run": report.get("dry_run")},
         )
-    except Exception:
-        pass
+    except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
+        log.debug("[human_systems_scheduler] best-effort step failed, continuing: %s", _exc)
 
 
 def run_job(job: str, *, dry_run: bool = False, record: bool = True) -> dict:
@@ -180,7 +181,7 @@ def run_job(job: str, *, dry_run: bool = False, record: bool = True) -> dict:
                     output_class=message.output_class, summary=message.title,
                     source="scheduler",
                 )
-            except Exception as exc:  # pragma: no cover
+            except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort step, already logged (memory record failed)
                 log.warning("[human-systems-scheduler] memory record failed: %s", exc)
 
         result = delivery.deliver(message, dry_run=dry_run)
@@ -206,7 +207,7 @@ def _timezone():
     try:
         from zoneinfo import ZoneInfo
         return ZoneInfo(tz_name)
-    except Exception:  # pragma: no cover - fall back to scheduler default (UTC)
+    except (ImportError, KeyError):  # pragma: no cover - fall back to scheduler default (UTC)
         return None
 
 
@@ -224,7 +225,7 @@ def _start_daemon():
     for job in JOBS:
         env_key, default = _CRON_DEFAULTS[job]
         parts = os.environ.get(env_key, default).split()
-        kw = dict(minute=parts[0], hour=parts[1], day=parts[2], month=parts[3], day_of_week=parts[4])
+        kw = {"minute": parts[0], "hour": parts[1], "day": parts[2], "month": parts[3], "day_of_week": parts[4]}
         if tz:
             kw["timezone"] = tz
         scheduler.add_job(

@@ -239,7 +239,7 @@ class ImprovementBudgetEngine:
                 if str(r.get("status") or "").lower() in _ACTIVE_STATUSES
             ]
             return len(active)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort active-count lookup, already logged
             log.debug("[improvement.budget] Active count unavailable: %s", exc)
             return 0
 
@@ -264,8 +264,8 @@ class ImprovementBudgetEngine:
                 ),
                 owner="improvement_budget:human_systems",
             )
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort human systems budget note, already logged
+            log.debug("[lib.improvement.budget] best-effort step failed, continuing: %s", _exc)
 
     def _log_budget_exception(self, capacity_status: str, active_count: int) -> None:
         try:
@@ -281,8 +281,8 @@ class ImprovementBudgetEngine:
                 ),
                 owner="improvement_budget:captain_override",
             )
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort captain override budget note, already logged
+            log.debug("[lib.improvement.budget] best-effort step failed, continuing: %s", _exc)
 
 
 def get_current_budget(

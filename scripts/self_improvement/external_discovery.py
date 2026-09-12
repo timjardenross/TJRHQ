@@ -44,7 +44,7 @@ def _get_json(url: str, timeout: int) -> dict[str, Any] | None:
     except (urllib.error.URLError, TimeoutError) as exc:
         log.warning(f"GitHub API network error for {url}: {exc}")
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - final catch-all after the specific HTTPError/URLError branches above; the GitHub API response-parsing surface beyond network errors is unpredictable, already logged and returns None
         log.warning(f"GitHub API unexpected error for {url}: {exc}")
         return None
 

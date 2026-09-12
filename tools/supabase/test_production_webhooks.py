@@ -33,13 +33,13 @@ class ProductionWebhookTester:
             latency = (time.time() - start) * 1000
             is_healthy = response.status_code == 200
             return is_healthy, latency
-        except Exception:
+        except Exception:  # noqa: BLE001 - test-fixture health-probe — any connection/timeout error means 'unhealthy', which is exactly the (False, -1.0) sentinel this returns; legitimate blanket except in a test helper
             return False, -1.0
 
     def test_slack_webhook(
         self,
         signing_secret: str,
-        payload: dict = None
+        payload: dict | None = None
     ) -> tuple[bool, float, int]:
         """Test Slack webhook endpoint.
 
@@ -92,13 +92,13 @@ class ProductionWebhookTester:
             latency = (time.time() - start) * 1000
             success = response.status_code == 200
             return success, latency, response.status_code
-        except Exception:
+        except Exception:  # noqa: BLE001 - test-fixture webhook probe — any failure mode collapses to the same (False, -1.0, 0) sentinel this test asserts against; legitimate blanket except in a test helper
             return False, -1.0, 0
 
     def test_github_webhook(
         self,
         secret: str,
-        payload: dict = None
+        payload: dict | None = None
     ) -> tuple[bool, float, int]:
         """Test GitHub webhook endpoint.
 
@@ -150,13 +150,13 @@ class ProductionWebhookTester:
             latency = (time.time() - start) * 1000
             success = response.status_code == 200
             return success, latency, response.status_code
-        except Exception:
+        except Exception:  # noqa: BLE001 - test-fixture webhook probe — any failure mode collapses to the same (False, -1.0, 0) sentinel this test asserts against; legitimate blanket except in a test helper
             return False, -1.0, 0
 
     def test_notion_webhook(
         self,
         secret: str,
-        payload: dict = None
+        payload: dict | None = None
     ) -> tuple[bool, float, int]:
         """Test Notion webhook endpoint.
 
@@ -211,7 +211,7 @@ class ProductionWebhookTester:
             latency = (time.time() - start) * 1000
             success = response.status_code == 200
             return success, latency, response.status_code
-        except Exception:
+        except Exception:  # noqa: BLE001 - test-fixture webhook probe — any failure mode collapses to the same (False, -1.0, 0) sentinel this test asserts against; legitimate blanket except in a test helper
             return False, -1.0, 0
 
     def run_all_tests(

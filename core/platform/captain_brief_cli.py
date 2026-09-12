@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Captain Brief CLI (MSN-0315 Phase 1C) — the first live consumer bridge.
 
 `CaptainBriefDocument` (MSN-0313) is pure Python with no HTTP surface. This

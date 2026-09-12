@@ -1,10 +1,11 @@
+#!/usr/bin/env python3
 """
 Tests for WP1 (escalation_manager), WP2 (alert_metrics), WP3 (mission_risk)
 """
 
 import sys
 import unittest
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -34,7 +35,7 @@ class _InMemorySupabaseClient:
         rows = list(self._tables.get(table, []))
         # Apply simple eq/is.null/not.in filters (good enough for tests)
         for part in qs.split("&"):
-            if not part or part.startswith("select=") or part.startswith("order=") or part.startswith("limit="):
+            if not part or part.startswith(("select=", "order=", "limit=")):
                 continue
             if "=is.null" in part:
                 col = part.split("=is.null")[0]
@@ -51,7 +52,7 @@ class _InMemorySupabaseClient:
         return rows
 
     def _patch(self, query: str, payload: dict) -> bool:
-        table, _, qs = query.partition("?")
+        table, _, _qs = query.partition("?")
         store = self._tables.get(table, [])
         # Find matching rows and update
         matched = self.get(query)
@@ -105,15 +106,15 @@ class TestEscalationManagerCadence(unittest.TestCase):
 
     def test_repeat_phase_every_7_days(self):
         # notification_count=3, last_notified 6 days ago — not due
-        last = (datetime.now() - timedelta(days=6)).isoformat(timespec="seconds")
-        first = (datetime.now() - timedelta(days=14)).isoformat(timespec="seconds")
+        last = (datetime.now(timezone.utc) - timedelta(days=6)).isoformat(timespec="seconds")
+        first = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat(timespec="seconds")
         row = self._row(first, 3, last)
-        self.assertFalse(self.em._should_notify_now(row, date.today()))
+        self.assertFalse(self.em._should_notify_now(row, datetime.now(timezone.utc).date()))
 
         # last_notified 7 days ago — due
-        last7 = (datetime.now() - timedelta(days=7)).isoformat(timespec="seconds")
+        last7 = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat(timespec="seconds")
         row7 = self._row(first, 3, last7)
-        self.assertTrue(self.em._should_notify_now(row7, date.today()))
+        self.assertTrue(self.em._should_notify_now(row7, datetime.now(timezone.utc).date()))
 
     def test_severity_progression(self):
         from captain_notifications import (
@@ -342,10 +343,10 @@ class TestMissionRiskScoring(unittest.TestCase):
         # old > new. Made relative to today, like the already-correct
         # sibling test_risk_band_critical below, so this doesn't silently
         # break again on a future run.
-        old_date = (date.today() - timedelta(days=25)).strftime("%Y%m%d")
-        new_date = (date.today() - timedelta(days=1)).strftime("%Y%m%d")
-        old = self._mission(id=f"M-{old_date}-000001", timestamp=f"{(date.today() - timedelta(days=25)).isoformat()} 09:00")
-        new = self._mission(id=f"M-{new_date}-000001", timestamp=f"{(date.today() - timedelta(days=1)).isoformat()} 09:00")
+        old_date = (date.today() - timedelta(days=25)).strftime("%Y%m%d")  # noqa: DTZ011 - test-relative day offset, not a real timestamp - reviewed 2026-09-12
+        new_date = (date.today() - timedelta(days=1)).strftime("%Y%m%d")  # noqa: DTZ011 - test-relative day offset, not a real timestamp - reviewed 2026-09-12
+        old = self._mission(id=f"M-{old_date}-000001", timestamp=f"{(date.today() - timedelta(days=25)).isoformat()} 09:00")  # noqa: DTZ011 - test-relative day offset, not a real timestamp - reviewed 2026-09-12
+        new = self._mission(id=f"M-{new_date}-000001", timestamp=f"{(date.today() - timedelta(days=1)).isoformat()} 09:00")  # noqa: DTZ011 - test-relative day offset, not a real timestamp - reviewed 2026-09-12
         r_old = self.mr.calculate_mission_risk_score(old)
         r_new = self.mr.calculate_mission_risk_score(new)
         self.assertGreater(r_old["score"], r_new["score"])
@@ -375,7 +376,7 @@ class TestMissionRiskScoring(unittest.TestCase):
         # which had aged past the ≥21-day max age bucket by the time this
         # ran, regardless of the timestamp override. Fixed by overriding
         # both to a genuinely recent relative date.
-        recent = date.today() - timedelta(days=1)
+        recent = date.today() - timedelta(days=1)  # noqa: DTZ011 - test-relative day offset, not a real timestamp - reviewed 2026-09-12
         r = self.mr.calculate_mission_risk_score(
             self._mission(
                 id=f"M-{recent.strftime('%Y%m%d')}-000001",
@@ -387,7 +388,7 @@ class TestMissionRiskScoring(unittest.TestCase):
 
     def test_risk_band_critical(self):
         # BLOCKED(40) + age≥21d(30) + Critical priority(20) = 90 → Critical band
-        old_ts = (date.today() - timedelta(days=25)).strftime("%Y-%m-%d") + " 09:00"
+        old_ts = (datetime.now(timezone.utc).date() - timedelta(days=25)).strftime("%Y-%m-%d") + " 09:00"
         r = self.mr.calculate_mission_risk_score(
             self._mission(status="BLOCKED", priority="Critical", timestamp=old_ts,
                           id="M-20260101-000001")

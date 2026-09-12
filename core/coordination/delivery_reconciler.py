@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Delivery Lifecycle Reconciler — make every item's state TRUE and VISIBLE.
 
 The M-20260617 audit found the delivery pipeline lets work die silently: draft
@@ -259,14 +260,13 @@ def reconcile(apply: bool = False) -> dict[str, Any]:
                 # checks GitHub itself. Left un-stamped, a handoff whose PR the
                 # Captain already merged keeps nagging as "Awaiting Review"
                 # forever. Stamp it the moment live GitHub state shows merged.
-                if pr["state"] == "merged" and raw_status.upper() != "MERGED":
-                    if apply:
-                        try:
-                            _stamp_handoff(p, {"Batch Status": "MERGED"})
-                            actions_taken.append(
-                                f"{p.stem}: Batch Status → MERGED (PR #{pr['number']} merged)")
-                        except OSError as exc:
-                            actions_taken.append(f"{p.stem}: FAILED to stamp MERGED ({exc})")
+                if pr["state"] == "merged" and raw_status.upper() != "MERGED" and apply:
+                    try:
+                        _stamp_handoff(p, {"Batch Status": "MERGED"})
+                        actions_taken.append(
+                            f"{p.stem}: Batch Status → MERGED (PR #{pr['number']} merged)")
+                    except OSError as exc:
+                        actions_taken.append(f"{p.stem}: FAILED to stamp MERGED ({exc})")
             elif raw_status.upper() == "DELIVERED":
                 bucket, evidence = "AWAITING_REVIEW", "delivered, PR state unknown"
             elif raw_status.upper() == "FAILED":
@@ -311,7 +311,7 @@ def format_ledger(ledger: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+def _record_heartbeat(status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """Chief Engineer 2026-08-09 EOD alert verification: 'engineering_handoff'
     (this reconciler, deploy/delivery-reconciler.timer every 15 min) had zero
     record_heartbeat() call sites despite being a live, actively-scheduled
@@ -320,7 +320,7 @@ def _record_heartbeat(status: str, detail: str = None, error_message: str = None
         sys.path.insert(0, str(REPO_ROOT / "core" / "platform"))
         from heartbeat import record_heartbeat
         record_heartbeat("engineering_handoff", status=status, detail=detail, error_message=error_message)
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - already documented: best-effort telemetry heartbeat, never raises
         pass
 
 

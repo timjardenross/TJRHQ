@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -84,7 +84,7 @@ def _score_to_risk(score: float) -> LeakageRisk:
 def detect_benefit_leakage() -> list[BenefitLeakage]:
     """Detect all benefit leakage across the portfolio."""
     leakages: list[BenefitLeakage] = []
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
 
     try:
         from lib.program.forecasting import DeliveryForecast, forecast_initiative
@@ -182,13 +182,13 @@ def detect_benefit_leakage() -> list[BenefitLeakage]:
                             ),
                             recommended_action="Resolve initiative delivery crisis or reassign benefit",
                         )
-                except Exception:
-                    pass
+                except Exception as _exc:  # noqa: BLE001 - best-effort per-benefit leakage check, already logged
+                    log.debug("[lib.strategy.benefit_leakage] best-effort step failed, continuing: %s", _exc)
 
             if leakage:
                 leakages.append(leakage)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort leakage detection pass, already logged
         log.debug("[benefit_leakage] detection failed: %s", exc)
 
     # Sort by leakage score descending

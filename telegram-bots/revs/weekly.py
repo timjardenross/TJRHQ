@@ -99,7 +99,6 @@ async def send_weekly_review(bot, client, user: dict) -> None:
     week_end = week_start + dt.timedelta(days=6)
     checkins = db.checkins_between(client, user["id"], week_start, week_end)
 
-    prev_reviews = db.recent_weekly_reviews(client, user["id"], limit=1)
     # prev matched/logged not persisted on the review row in this schema;
     # trend rows 5/6 fall back to "else" (row 7) until a future migration
     # adds a snapshot column — acceptable degradation, not a safety gap.

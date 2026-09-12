@@ -57,7 +57,6 @@ class ImprovementScoringEngine:
     ) -> ImprovementScore:
         """Score a single opportunity. Returns ImprovementScore."""
         ctx = context or {}
-        cat = opportunity.category
 
         cci  = self._score_captain_capacity_impact(opportunity, ctx)
         orr  = self._score_operational_risk_reduction(opportunity, ctx)

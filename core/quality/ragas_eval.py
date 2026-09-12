@@ -389,14 +389,14 @@ def get_context(question: str, document_type: str | None = None, limit: int = 5)
             chunks = [r.get("snippet") or "" for r in results if r.get("snippet")]
             if chunks:
                 return chunks, "live-supabase-semantic"
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[ragas-eval] semantic retrieval failed (%s); trying keyword path", exc)
         results = rk.keyword_results(client, question, document_type, limit)
         chunks = [r.get("snippet") or "" for r in results if r.get("snippet")]
         if chunks:
             return chunks, "live-supabase-keyword"
         log.warning("[ragas-eval] Supabase reachable but returned no chunks; using repo-doc fallback context")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[ragas-eval] live retrieval unavailable (%s); using repo-doc fallback context", exc)
     return _FALLBACK_CONTEXTS, "fallback-repo-docs"
 
@@ -436,7 +436,7 @@ def generate_answer(question: str, contexts: list[str]) -> tuple[str, str]:
             if answer:
                 return answer, "live-model-router"
             log.warning("[ragas-eval] Model Router returned an empty answer; using fixture answer")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[ragas-eval] Model Router generation failed (%s); using fixture answer", exc)
     else:
         log.warning("[ragas-eval] %s; using fixture answer", msg)

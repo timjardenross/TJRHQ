@@ -9,7 +9,7 @@ import json
 import tempfile
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -47,7 +47,7 @@ class ProductionMetricsCollector:
     def __init__(self):
         """Initialize metrics collector."""
         self.events: list[WebhookEvent] = []
-        self.start_time = datetime.now()
+        self.start_time = datetime.now(timezone.utc)
 
     def record_event(
         self,
@@ -91,7 +91,7 @@ class ProductionMetricsCollector:
         if not self.events:
             return MetricsSnapshot(
                 period_start=self.start_time.isoformat(),
-                period_end=datetime.now().isoformat(),
+                period_end=datetime.now(timezone.utc).isoformat(),
                 total_events=0,
                 events_by_platform={},
                 avg_latency_ms=0.0,
@@ -131,7 +131,7 @@ class ProductionMetricsCollector:
 
         return MetricsSnapshot(
             period_start=self.start_time.isoformat(),
-            period_end=datetime.now().isoformat(),
+            period_end=datetime.now(timezone.utc).isoformat(),
             total_events=len(self.events),
             events_by_platform=events_by_platform,
             avg_latency_ms=avg_latency,
@@ -200,7 +200,7 @@ STATUS: {"✅ PRODUCTION READY" if snapshot.success_rate >= 99 and snapshot.avg_
         data = {
             "collection_period": {
                 "start": self.start_time.isoformat(),
-                "end": datetime.now().isoformat()
+                "end": datetime.now(timezone.utc).isoformat()
             },
             "events": [asdict(e) for e in self.events],
             "metrics": asdict(self.get_metrics_snapshot())

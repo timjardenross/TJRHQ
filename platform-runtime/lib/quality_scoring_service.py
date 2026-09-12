@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -153,7 +153,7 @@ class QualityScore:
     provider_route: str | None = None
 
     # Timestamps
-    scored_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    scored_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     created_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -284,7 +284,7 @@ class QualityScoring:
             )
             return quality_score
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort hallucination scoring, already logged
             log.warning(
                 f"[quality-scoring] score_output() failed, returning None: "
                 f"{type(exc).__name__}: {str(exc)[:120]}"
@@ -335,7 +335,7 @@ class QualityScoring:
 
         # Use provided timestamp or current time
         if scored_at is None:
-            scored_at = datetime.utcnow().isoformat()
+            scored_at = datetime.now(timezone.utc).isoformat()
 
         # Create quality score record
         quality_score = QualityScore(
@@ -382,7 +382,7 @@ class QualityScoring:
                         "[quality-scoring→b1d] No feedback signal (no delta or error)"
                     )
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - best-effort feedback generation, already logged
                 log.error(
                     f"[quality-scoring→b1d] Error generating feedback: "
                     f"{type(e).__name__}: {str(e)[:100]}"
@@ -430,7 +430,7 @@ class QualityScoring:
             )
             return qualities
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort provider quality query, already logged
             log.error(
                 f"[quality-scoring] Failed to retrieve provider quality: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -473,7 +473,7 @@ class QualityScoring:
             log.debug(f"[quality-scoring] Retrieved quality for {len(qualities)} models")
             return qualities
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort model quality query, already logged
             log.error(
                 f"[quality-scoring] Failed to retrieve model quality: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -515,7 +515,7 @@ class QualityScoring:
             log.debug(f"[quality-scoring] Retrieved quality for {len(qualities)} routes")
             return qualities
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort route quality query, already logged
             log.error(
                 f"[quality-scoring] Failed to retrieve route quality: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -627,5 +627,5 @@ class QualityScoring:
         Returns:
             Unique, sortable quality score ID
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime("SCO-%Y%m%d-%H%M%S")

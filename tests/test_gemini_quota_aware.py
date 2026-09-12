@@ -277,23 +277,25 @@ class TestGeminiQuotaAware:
                 error_message="Daily quota exhausted"
             )
 
-        with patch("research_delegator.call_gemini_2_5_flash_lite_research", side_effect=mock_gemini_with_quota):
-            with patch("research_delegator.call_ollama_research") as mock_ollama:
-                mock_ollama.return_value = ResearchOutcome(
-                    status="success",
-                    provider="ollama",
-                    findings="Ollama fallback"
-                )
+        with (
+            patch("research_delegator.call_gemini_2_5_flash_lite_research", side_effect=mock_gemini_with_quota),
+            patch("research_delegator.call_ollama_research") as mock_ollama,
+        ):
+            mock_ollama.return_value = ResearchOutcome(
+                status="success",
+                provider="ollama",
+                findings="Ollama fallback"
+            )
 
-                result = delegate_research_task(task_description="Test no retries")
+            result = delegate_research_task(task_description="Test no retries")
 
-                # Verify: Gemini called exactly once (no retries)
-                assert call_count["gemini"] == 1
-                log.info("✓ Gemini called exactly 1 time (no retries on daily quota)")
+            # Verify: Gemini called exactly once (no retries)
+            assert call_count["gemini"] == 1
+            log.info("✓ Gemini called exactly 1 time (no retries on daily quota)")
 
-                # Verify: Ollama fallback used
-                assert result.provider == "ollama"
-                log.info("✓ Ollama fallback successful")
+            # Verify: Ollama fallback used
+            assert result.provider == "ollama"
+            log.info("✓ Ollama fallback successful")
 
 
 def run_tests():
@@ -324,7 +326,7 @@ def run_tests():
         except AssertionError as e:
             failed += 1
             log.error(f"❌ FAILED: {test_func.__name__}: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test-runner harness: must catch any failure from a test function to tally it and continue
             failed += 1
             log.error(f"❌ ERROR: {test_func.__name__}: {e}")
 

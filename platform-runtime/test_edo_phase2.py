@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-EDO-002 — delivery maturity phase.
 
 WP2 execution package generator (governance gates, no autonomous merge);
@@ -65,7 +66,7 @@ class TestExecution(unittest.TestCase):
         self.assertNotIn("merged", text.lower())
 
     def test_missing_id(self):
-        pkg, reason = execution.build_execution_package({"title": "x", "status": "Designed"}, plan_approved=True)
+        pkg, _reason = execution.build_execution_package({"title": "x", "status": "Designed"}, plan_approved=True)
         self.assertIsNone(pkg)
 
     def test_dispatch_payload(self):

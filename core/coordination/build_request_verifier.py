@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Build-Request Execution Verifier — MSN-0356 (Decide: Outcome Verification Gap).
 
 Every `build_request_inbox` row that reaches `status='approved'` is currently
@@ -207,8 +208,8 @@ def verify_legacy_create_mission(row: dict, missions: list[dict]) -> tuple[str, 
     detail = f"no mission matches candidate id {candidate_id!r}" if candidate_id else "no mission title matches closely enough"
     return (
         "not_found_downstream",
-        f"{detail}; cannot distinguish never-attempted from silently-failed — "
-        "no execution-attempt record exists for this pre-MSN-0352 row",
+        (f"{detail}; cannot distinguish never-attempted from silently-failed — "
+         "no execution-attempt record exists for this pre-MSN-0352 row"),
     )
 
 
@@ -277,8 +278,8 @@ def verify_request(row: dict, missions: list[dict], decisions: list[dict]) -> di
         else:
             status, evidence = (
                 "out_of_scope",
-                f"{phrase} — not mission-creation-shaped; use core.coordination.delivery_reconciler "
-                "for general engineering/PR-lifecycle verification of this row",
+                (f"{phrase} — not mission-creation-shaped; use core.coordination.delivery_reconciler "
+                 "for general engineering/PR-lifecycle verification of this row"),
             )
         path = "legacy (pre-MSN-0352, no action_type)"
 

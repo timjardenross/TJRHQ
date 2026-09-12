@@ -89,7 +89,7 @@ def handle_map(
     # Write to overrides.yaml
     try:
         _write_override(section, source_id, target_id)
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Failed to write override, already logged
         log.error("[map] Failed to write override: %s", exc)
         return f":warning: Could not write to overrides.yaml: `{type(exc).__name__}`"
 
@@ -100,7 +100,7 @@ def handle_map(
         sync_note = f"Graph updated: {sync_result.edges_upserted} edges"
         if sync_result.errors:
             sync_note += f" (warnings: {', '.join(sync_result.errors)})"
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Sync after map failed, already logged
         log.warning("[map] Sync after map failed: %s", exc)
         sync_note = "Graph sync pending — run `sync.py` to apply"
 
@@ -200,5 +200,6 @@ def _unmapped_count() -> str:
         ids = ", ".join(f"`{n.node_id}`" for n in unmapped[:5])
         suffix = f" (+{len(unmapped) - 5} more)" if len(unmapped) > 5 else ""
         return f":information_source: {len(unmapped)} unmapped mission(s): {ids}{suffix}"
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - unmapped-mission count, best-effort display
+        log.debug("[map] unmapped mission count failed: %s", exc)
         return ""

@@ -180,7 +180,7 @@ def detect_patterns() -> list[Pattern]:
     for detector in _DETECTORS:
         try:
             patterns.extend(detector())
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001,S112 - per-detector isolation; one detector's failure must not stop the others from running
             continue
     patterns.sort(key=lambda p: (p.signal == "caution", p.frequency), reverse=True)
     return patterns

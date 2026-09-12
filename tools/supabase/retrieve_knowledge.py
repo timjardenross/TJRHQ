@@ -157,7 +157,7 @@ def keyword_results(client: SupabaseClient, query: str, document_type: str | Non
     }
     try:
         return client.rpc("keyword_search_documents", payload) or []
-    except Exception:
+    except Exception:  # noqa: BLE001 - RPC search failure — delegates to fallback_search() right here, not a silent no-op
         return fallback_search(client, query, document_type, limit)
 
 

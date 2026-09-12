@@ -10,8 +10,12 @@ import os
 import urllib.error
 import urllib.request
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from core.platform.priority_engine import PriorityInputs, PriorityScore, score_event
+
+if TYPE_CHECKING:
+    from core.llm.provider_chain import LLMCallResult
 from intelligence.config import SUPABASE_KEY, SUPABASE_URL
 from intelligence.models import (
     RankedEvent,
@@ -65,7 +69,7 @@ def _post(table: str, payload: dict, on_conflict: str | None = None) -> dict | N
         detail = exc.read().decode("utf-8", errors="replace")
         log.error("Supabase insert failed (%s): HTTP %s: %s", table, exc.code, detail)
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase insert wrapper — caller sees None and handles it; every failure mode (network, timeout, bad payload) is already logged
         log.error("Supabase insert failed (%s): %s", table, exc)
         return None
 
@@ -88,7 +92,7 @@ def patch_row(table: str, match: str, payload: dict) -> dict:
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             result = json.loads(resp.read())
             return result[0] if isinstance(result, list) and result else (result or {})
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase patch wrapper — caller sees {} and handles it; already logged
         log.error("Supabase patch failed (%s): %s", table, exc)
         return {}
 
@@ -107,8 +111,8 @@ def _publish_core_event(event_type: str, **kwargs) -> None:
             sys.path.insert(0, str(repo_root))
         from core.platform.event_bus import publish_event
         publish_event(event_type, domain="operational-resilience-intelligence", source="intelligence_store", **kwargs)
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort event-bus publish; a bus outage must never block the underlying persistence operation
+        log.debug("[intelligence_store] Failed to publish %s event: %s", event_type, exc)
 
 
 # Part 2 of the 2026-08-09 Telegram usefulness + outage-alerts design
@@ -435,7 +439,7 @@ def _call_blast_radius_llm(
                 "[outage-alert] blast-radius LLM (%s) returned unparseable output: %r",
                 name, result.text,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-provider blast-radius LLM attempt inside a fallback chain — one provider failing must not abort the chain; already logged
             log.warning("[outage-alert] blast-radius LLM provider %s failed: %s", name, exc)
     return None, None, None, None
 
@@ -459,7 +463,7 @@ def _passes_blast_radius_check(event: RankedEvent, event_id: str | None) -> bool
     try:
         from intelligence.governance.llm_cost_governance import LLMCostGovernance
         cost_governor = LLMCostGovernance()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort cost-governor init, explicitly logged as 'proceeding ungoverned' — a governance-optional degrade path, not a silent swallow
         log.warning("[outage-alert] cost governor unavailable, proceeding ungoverned: %s", exc)
 
     if cost_governor is not None:
@@ -590,7 +594,7 @@ def _maybe_push_outage_alert(event: RankedEvent, event_id: str | None) -> None:
             transport=Transport.TELEGRAM,
         )
         _log_outage_alert_fired(event, event_id, result)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort outage-alert push check, already logged with the event id
         log.warning("[outage-alert] push check failed for event %s: %s", event_id, exc)
 
 
@@ -639,7 +643,7 @@ def _log_outage_alert_fired(event: RankedEvent, event_id: str | None, result) ->
                 "error": result.error,
             },
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort audit log write, explicitly logged as non-blocking
         log.warning(
             "[outage-alert] audit log write failed (non-blocking) for event %s: %s",
             event_id, exc,
@@ -654,7 +658,7 @@ def _get(path: str) -> list:
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return json.loads(resp.read())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase query wrapper — caller sees [] and handles it; already logged
         log.error("Supabase query failed (%s): %s", path, exc)
         return []
 
@@ -1052,7 +1056,7 @@ def save_event(event: RankedEvent, ori: dict | None = None,
                     priority_score.total_score,
                     priority_score.explanation,
                 )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort priority scoring, explicitly logged as non-blocking
             log.warning(
                 "[priority-engine] scoring failed for event_type=%s (non-blocking): %s",
                 event.event_type,
@@ -1141,7 +1145,7 @@ def link_events_to_brief(event_ids: list[str], brief_id: str) -> None:
         try:
             with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
                 pass
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort event-to-brief linking, already logged with both ids
             log.warning("Could not link event %s to brief %s: %s", eid, brief_id, exc)
 
 

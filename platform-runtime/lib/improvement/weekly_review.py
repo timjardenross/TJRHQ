@@ -90,7 +90,7 @@ def run_weekly_improvement_review(ctx: Any) -> WeeklyImprovementBrief:
             "[improvement.weekly] %d opportunities: %d High, %d Medium, %d Low",
             len(opportunities), len(brief.high_band), len(brief.medium_band), len(brief.low_band),
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - review collection, already logged
         log.warning("[improvement.weekly] Review collection failed: %s", exc)
         return brief
 
@@ -104,7 +104,7 @@ def run_weekly_improvement_review(ctx: Any) -> WeeklyImprovementBrief:
     try:
         from lib.improvement.validation import get_improvement_outcomes
         brief.outcomes_this_week = get_improvement_outcomes(limit=5)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - outcomes retrieval, best-effort, already logged
         log.debug("[improvement.weekly] Outcome retrieval skipped: %s", exc)
 
     return brief
@@ -125,7 +125,7 @@ def _create_high_band_missions(brief: WeeklyImprovementBrief) -> None:
     """Create missions for High-band opportunities after D-057 checks."""
     try:
         from command_memory_integration import create_mission_from_officer
-        from lib.improvement.framework import ImprovementBand, d057_check
+        from lib.improvement.framework import d057_check
     except ImportError as exc:
         log.warning("[improvement.weekly] Cannot import mission creation tools: %s", exc)
         return
@@ -169,7 +169,7 @@ def _create_high_band_missions(brief: WeeklyImprovementBrief) -> None:
                 )
             else:
                 brief.missions_failed += 1
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - isolate one opportunity's mission creation failure, already logged
             log.warning(
                 "[improvement.weekly] Mission creation failed for %s: %s",
                 opp.source_officer, exc,
@@ -199,7 +199,7 @@ def _log_medium_band_decisions(brief: WeeklyImprovementBrief) -> None:
                 ),
                 owner=f"improvement:{opp.source_officer}",
             )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - medium-band decision logging, best-effort, already logged
         log.debug("[improvement.weekly] Medium-band decision log skipped: %s", exc)
 
 
@@ -218,8 +218,8 @@ def format_weekly_brief(brief: WeeklyImprovementBrief) -> str:
         "*WEEKLY IMPROVEMENT REVIEW*",
         f"_{brief.reviewed_at.strftime('%Y-%m-%d')} — D-057 Continuous Improvement First_",
         "",
-        f"*Summary:* {brief.total_opportunities} observations | "
-        f"{len(brief.high_band)} High | {len(brief.medium_band)} Medium | {len(brief.low_band)} Low",
+        (f"*Summary:* {brief.total_opportunities} observations | "
+        f"{len(brief.high_band)} High | {len(brief.medium_band)} Medium | {len(brief.low_band)} Low"),
         f"*Missions created:* {len(brief.missions_created)}"
         + (f" | {brief.missions_failed} failed" if brief.missions_failed else ""),
         "",

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for intelligence/ingestion/ori_brief_parser.py (USS-TJR-MSN-0074 WP2).
 

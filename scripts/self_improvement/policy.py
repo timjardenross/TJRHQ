@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Deterministic policy engine for self-improvement classification.
 
@@ -145,9 +146,8 @@ class PolicyEngine:
                     num_files = impact.get("affected_components", [])
                     if len(num_files) < threshold:
                         return False
-            elif key == "reversibility":
-                if finding.get("reversibility") != value:
-                    return False
+            elif key == "reversibility" and finding.get("reversibility") != value:
+                return False
             # Add more matching logic as needed
 
         return True
@@ -218,7 +218,7 @@ class PolicyEngine:
                     config = json.load(f)
                 log.info(f"Loaded policy from {policy_file}")
                 return config
-            except Exception as exc:
+            except (OSError, json.JSONDecodeError) as exc:
                 log.error(f"Failed to load policy: {exc}")
                 return {"categories": {}}
 
@@ -231,7 +231,7 @@ class PolicyEngine:
             return config
         except ImportError:
             log.warning("PyYAML not available; policy loading will use defaults")
-        except Exception as exc:
+        except (OSError, yaml.YAMLError) as exc:
             log.error(f"Failed to load policy: {exc}")
 
         # Return minimal default policy

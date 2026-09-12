@@ -24,7 +24,7 @@ Public API:
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ class ProviderHealth:
         """
         self._provider_status[provider_name] = False
         self._failure_reasons[provider_name] = reason
-        self._failure_times[provider_name] = datetime.utcnow().isoformat()
+        self._failure_times[provider_name] = datetime.now(timezone.utc).isoformat()
         log.warning(f"[provider-health] Provider marked unavailable: {provider_name} ({reason})")
 
     def is_available(self, provider_name: str) -> bool:

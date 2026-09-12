@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """USS-TJR-MSN-0339 WP5 — Operational Intelligence Validation Suite.
 
 A standing, replay-based regression detector so a future Telstra-class
@@ -441,17 +442,17 @@ CASES = [
 # programme's lowest-priority gap to fill.
 KNOWN_GAPS = [
     "No banking/regulatory negative control case (lowest priority — MSN-0338 §5 already confirmed this path works)",
-    "No LIVE (non-replay) AWS-active-incident or bushfire case exists in production data yet — "
-    "both cases above are real historical text replayed offline, not a currently-collectible live row; "
-    "swap in a live row here the day a real one exists.",
-    "FIXED (MSN-0343, 2026-07-08): some GCP security bulletins (GCP-2026-025/027/029/039, real cross-platform "
-    "GKE bulletins with genuine CVEs) misclassified as technology_outage instead of cyber because the plural "
-    "'vulnerabilities' in their boilerplate didn't substring-match the classifier's singular 'vulnerability' "
-    "keyword. intelligence/classification/classifier.py's cyber _EVENT_TYPE_RULES entry now matches the "
-    "'vulnerabilit' stem, covering both forms. Fix is forward-only — the GCP-2026-025/027/029/039 rows already "
-    "in intelligence_events retain their original (wrong) classification from ingestion time; not retroactively "
-    "reclassified, since doing so correctly requires re-running the full classify() pipeline per row, not just "
-    "flipping event_type. The next real ingestion of a similar bulletin will classify correctly.",
+    ("No LIVE (non-replay) AWS-active-incident or bushfire case exists in production data yet — "
+     "both cases above are real historical text replayed offline, not a currently-collectible live row; "
+     "swap in a live row here the day a real one exists."),
+    ("FIXED (MSN-0343, 2026-07-08): some GCP security bulletins (GCP-2026-025/027/029/039, real cross-platform "
+     "GKE bulletins with genuine CVEs) misclassified as technology_outage instead of cyber because the plural "
+     "'vulnerabilities' in their boilerplate didn't substring-match the classifier's singular 'vulnerability' "
+     "keyword. intelligence/classification/classifier.py's cyber _EVENT_TYPE_RULES entry now matches the "
+     "'vulnerabilit' stem, covering both forms. Fix is forward-only — the GCP-2026-025/027/029/039 rows already "
+     "in intelligence_events retain their original (wrong) classification from ingestion time; not retroactively "
+     "reclassified, since doing so correctly requires re-running the full classify() pipeline per row, not just "
+     "flipping event_type. The next real ingestion of a similar bulletin will classify correctly."),
 ]
 
 
@@ -460,7 +461,7 @@ def run_suite() -> SuiteReport:
     for case_fn in CASES:
         try:
             results.append(case_fn())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-test-case failure inside a suite runner — one bad case must not abort the suite; captured into the returned SuiteReport.results
             results.append(_fail(case_fn.__name__, "unknown", "collectible", f"case raised {type(exc).__name__}: {exc}"))
     return SuiteReport(generated_at=datetime.now(timezone.utc).isoformat(), results=results)
 

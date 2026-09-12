@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0180 — Tests for /handoff_engineering Telegram command.
 
 Seven tests covering:

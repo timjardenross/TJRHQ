@@ -7,7 +7,7 @@ Purpose: Validate semantic search, event listeners, and knowledge pack generatio
 """
 
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from embedding_generation import EmbeddingGenerator, EmbeddingResult
 from event_listeners import (
@@ -163,7 +163,7 @@ class TestEventListeners(unittest.TestCase):
             source="slack",
             event_type="message_posted",
             event_id="evt_001",
-            timestamp=datetime.now(),
+            timestamp=datetime.now(timezone.utc),
             actor="user123",
             payload={"text": "Test message"}
         )
@@ -179,7 +179,7 @@ class TestEventListeners(unittest.TestCase):
             source="slack",
             event_type="message_posted",
             event_id="evt_001",
-            timestamp=datetime.now(),
+            timestamp=datetime.now(timezone.utc),
             actor="captain",
             payload={"text": "Should we migrate to Kubernetes?"}
         )
@@ -196,7 +196,7 @@ class TestEventListeners(unittest.TestCase):
             source="github",
             event_type="pr_opened",
             event_id="evt_002",
-            timestamp=datetime.now(),
+            timestamp=datetime.now(timezone.utc),
             actor="dev",
             payload={"title": "Add caching layer for API"}
         )
@@ -213,7 +213,7 @@ class TestEventListeners(unittest.TestCase):
             source="slack",
             event_type="message_posted",
             event_id="evt_003",
-            timestamp=datetime.now(),
+            timestamp=datetime.now(timezone.utc),
             actor="user",
             payload={"text": "Test"}
         )
@@ -233,8 +233,8 @@ class TestKnowledgePacks(unittest.TestCase):
                 title="ADR-001: Kubernetes",
                 content="Kubernetes migration decision...",
                 category="adr",
-                created_at=datetime.now() - timedelta(days=10),
-                updated_at=datetime.now() - timedelta(days=10),
+                created_at=datetime.now(timezone.utc) - timedelta(days=10),
+                updated_at=datetime.now(timezone.utc) - timedelta(days=10),
                 tags=["infrastructure"]
             ),
             Document(
@@ -242,8 +242,8 @@ class TestKnowledgePacks(unittest.TestCase):
                 title="DEC-015: Defer Kafka",
                 content="Defer Kafka upgrade to Q4...",
                 category="decision",
-                created_at=datetime.now() - timedelta(days=5),
-                updated_at=datetime.now() - timedelta(days=2),
+                created_at=datetime.now(timezone.utc) - timedelta(days=5),
+                updated_at=datetime.now(timezone.utc) - timedelta(days=2),
                 tags=["messaging"]
             ),
         ]
@@ -290,7 +290,7 @@ class TestKnowledgePacks(unittest.TestCase):
         gen = DifferentialPackGenerator()
         # First review should include all docs
         pack1 = gen.generate("Chief Engineer", self.docs)
-        initial_count = len(pack1.documents)
+        self.assertEqual(len(pack1.documents), len(self.docs))
 
         # Second review immediately after should show 0 changes
         pack2 = gen.generate("Chief Engineer", self.docs)
@@ -304,7 +304,7 @@ class TestKnowledgePacks(unittest.TestCase):
 
         # Update a document
         updated_docs = self.docs.copy()
-        updated_docs[0].updated_at = datetime.now()
+        updated_docs[0].updated_at = datetime.now(timezone.utc)
 
         # Second review should detect update
         pack2 = gen.generate("Captain", updated_docs)

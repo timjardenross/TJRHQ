@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Operating Picture Engine — USS TJR MSN-0200 (P1E).
 
@@ -17,7 +18,7 @@ import json
 import logging
 import os
 import urllib.request
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 log = logging.getLogger("operating-picture")
 
@@ -40,7 +41,7 @@ def _sb_get(table: str, query: str = "") -> list[dict]:
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=8) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
             return json.loads(resp.read())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("Supabase fetch failed (%s): %s", table, exc)
         return []
 
@@ -48,7 +49,7 @@ def _sb_get(table: str, query: str = "") -> list[dict]:
 # ── Section builders ──────────────────────────────────────────────────────────
 
 def _build_health_section() -> dict:
-    today = date.today().isoformat()
+    today = datetime.now().astimezone().date().isoformat()
 
     # Captain's log entry
     log_rows = _sb_get(

@@ -31,7 +31,7 @@ import logging
 import re
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -114,14 +114,14 @@ def record_outcome(initiative_id: str, value: str, evidence: str = "") -> bool:
             statement=f"{_OUTCOME_STATEMENT} {initiative_id}: {str(value)[:60]}",
             rationale=(
                 f"INITIATIVE: {initiative_id} | VALUE: {str(value)[:80]} | "
-                f"MEASURED: {datetime.utcnow().isoformat()} | EVIDENCE: {evidence[:120]}"
+                f"MEASURED: {datetime.now(timezone.utc).isoformat()} | EVIDENCE: {evidence[:120]}"
             ),
             owner=f"{OUTCOME_OWNER_PREFIX}{initiative_id}",
         )
         # Keep the initiative's current value in sync
         update_initiative(initiative_id, current=str(value)[:80])
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - outcome recording, best-effort, already logged
         log.debug("[strategy.outcomes] record_outcome failed: %s", exc)
         return False
 
@@ -156,7 +156,7 @@ def get_outcome_history(initiative_id: str, limit: int = 30) -> list[OutcomeMeas
                 evidence=parts.get("EVIDENCE", ""),
             ))
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - outcome history fetch, best-effort, already logged
         log.debug("[strategy.outcomes] get_outcome_history failed: %s", exc)
         return []
 

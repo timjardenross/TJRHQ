@@ -49,7 +49,7 @@ class CloudPrimaryAvailableTest(unittest.TestCase):
     def test_fallback_complex_uses_preferred_cloud_when_available(self):
         policy = dict(app.TASK_POLICY["fallback-complex"])
         with patch.object(app, "_available_model_names", return_value={app.MODEL_CLOUD}):
-            resolved, tier, reason = app._resolve_cloud_escalation("fallback-complex", policy)
+            resolved, tier, _reason = app._resolve_cloud_escalation("fallback-complex", policy)
         self.assertEqual(resolved["model"], app.MODEL_CLOUD)
         self.assertEqual(tier, "cloud_primary")
 
@@ -63,7 +63,7 @@ class CloudPrimaryUnavailableTest(unittest.TestCase):
     def test_falls_back_to_alternate_cloud_not_local(self):
         policy = dict(app.TASK_POLICY["escalate"])
         with patch.object(app, "_available_model_names", return_value={app.MODEL_CLOUD_ALT}):
-            resolved, tier, reason = app._resolve_cloud_escalation("escalate", policy)
+            resolved, tier, _reason = app._resolve_cloud_escalation("escalate", policy)
         self.assertEqual(resolved["model"], app.MODEL_CLOUD_ALT)
         self.assertEqual(tier, "cloud_alt")
         self.assertNotEqual(resolved["model"], app.MODEL_LARGE)
@@ -71,7 +71,7 @@ class CloudPrimaryUnavailableTest(unittest.TestCase):
     def test_fallback_complex_also_prefers_alternate_cloud(self):
         policy = dict(app.TASK_POLICY["fallback-complex"])
         with patch.object(app, "_available_model_names", return_value={app.MODEL_CLOUD_ALT}):
-            resolved, tier, reason = app._resolve_cloud_escalation("fallback-complex", policy)
+            resolved, tier, _reason = app._resolve_cloud_escalation("fallback-complex", policy)
         self.assertEqual(resolved["model"], app.MODEL_CLOUD_ALT)
         self.assertEqual(tier, "cloud_alt")
 
@@ -94,7 +94,7 @@ class BothCloudsUnavailableTest(unittest.TestCase):
     def test_fallback_complex_degrades_to_safe_local_never_model_large(self):
         policy = dict(app.TASK_POLICY["fallback-complex"])
         with patch.object(app, "_available_model_names", return_value=set()):
-            resolved, tier, reason = app._resolve_cloud_escalation("fallback-complex", policy)
+            resolved, tier, _reason = app._resolve_cloud_escalation("fallback-complex", policy)
         self.assertEqual(resolved["model"], app.MODEL_ESCALATION_SAFE_LOCAL)
         self.assertNotEqual(resolved["model"], app.MODEL_LARGE)
         self.assertEqual(tier, "local_safe_degraded")
@@ -109,7 +109,7 @@ class BothCloudsUnavailableTest(unittest.TestCase):
             "_available_model_names",
             return_value={"qwen3.5:9b", "gemma3:4b", "mistral-small3.2:24b"},
         ):
-            resolved, tier, reason = app._resolve_cloud_escalation("escalate", policy)
+            resolved, tier, _reason = app._resolve_cloud_escalation("escalate", policy)
         self.assertEqual(resolved["model"], app.MODEL_ESCALATION_SAFE_LOCAL)
         self.assertEqual(tier, "local_safe_degraded")
 
@@ -167,11 +167,13 @@ class RunTaskExceptionPathTest(unittest.TestCase):
     blocks, which this test locks in structurally."""
 
     def test_ollama_failure_after_resolution_returns_explicit_failure_not_model_large(self):
-        with patch.object(app, "_available_model_names", return_value=set()):
-            with patch.object(
+        with (
+            patch.object(app, "_available_model_names", return_value=set()),
+            patch.object(
                 app, "_ollama_generate", side_effect=TimeoutError("simulated: timed out")
-            ) as mocked_generate:
-                result = app._run_task("escalate", "does the captain need this now?", {})
+            ) as mocked_generate,
+        ):
+            result = app._run_task("escalate", "does the captain need this now?", {})
 
         self.assertFalse(result["success"])
         self.assertEqual(result["model"], app.MODEL_ESCALATION_SAFE_LOCAL)

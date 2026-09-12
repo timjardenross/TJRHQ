@@ -145,7 +145,7 @@ def _parse_bom_issued_at(text: str) -> str | None:
     cleaned = raw.replace(f" {tz_match.group(1)}", "")
     try:
         from datetime import datetime
-        naive = datetime.strptime(cleaned, "%I:%M %p on %A %d %B %Y")
+        naive = datetime.strptime(cleaned, "%I:%M %p on %A %d %B %Y")  # noqa: DTZ007 - offset applied explicitly on the next line from the parsed abbreviation
         return naive.replace(tzinfo=timezone(offset)).isoformat()
     except ValueError:
         return None
@@ -173,7 +173,7 @@ def _fetch_detail(link: str, pubdate_raw: str) -> dict:
                         .replace("&lt;", "<").replace("&gt;", ">"))
             text = _BLANK_LINES_RE.sub("\n\n", text).strip()
             result = {"issued_at": issued_at, "body": text or None}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort detail-page fetch, already logged; caller falls back to the documented {issued_at: None, body: None} shape
         log.warning("[bom_warnings] detail fetch failed for %s: %s", link, exc)
         result = {"issued_at": None, "body": None}
 

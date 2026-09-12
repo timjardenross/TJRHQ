@@ -86,7 +86,7 @@ def fetch_health_signals(hours: int = 24, limit: int = 10) -> DomainFetchResult:
     since = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
     try:
         rows = store.load_assessed_health_signals(since, limit=limit)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logged as explicitly non-fatal; caller receives a structured DomainFetchResult(available=False)
         log.warning("Health OSINT assessed-signal fetch failed (non-fatal, domain marked unavailable): %s", exc)
         return DomainFetchResult(domain="health", available=False, signals=[], error=str(exc))
 
@@ -113,7 +113,7 @@ def fetch_health_signals(hours: int = 24, limit: int = 10) -> DomainFetchResult:
 def fetch_emergency_alerts(limit: int = 10) -> DomainFetchResult:
     try:
         rows = store.load_active_emergency_alerts(limit=limit)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logged as explicitly non-fatal; caller receives a structured DomainFetchResult(available=False)
         log.warning("Emergency Alert Hub assessed-alert fetch failed (non-fatal, domain marked unavailable): %s", exc)
         return DomainFetchResult(domain="emergency", available=False, signals=[], error=str(exc))
 

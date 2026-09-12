@@ -12,7 +12,7 @@ Quadrants:
 """
 
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from .models import (
@@ -109,7 +109,7 @@ class PriorityAnalyzer:
         total = len(matrix.critical) + len(matrix.strategic) + len(matrix.routine) + len(matrix.delegate)
 
         # Assess workload
-        critical_ratio = len(matrix.critical) / total if total > 0 else 0
+        len(matrix.critical) / total if total > 0 else 0
         if len(matrix.critical) > 10:
             workload = "overload"
         elif len(matrix.critical) > 5:
@@ -172,7 +172,7 @@ class PriorityAnalyzer:
                 ).order("due_date", desc=False).execute()
 
                 commitments = [Commitment(**row) for row in result.data]
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.error(f"Failed to fetch commitments: {e}")
                 return []
 
@@ -184,7 +184,7 @@ class PriorityAnalyzer:
             key=lambda c: (
                 -self._score_urgency(c),  # Negative for descending
                 -self._score_importance(c),
-                c.due_date or datetime.max,
+                c.due_date or date.max,  # due_date is a date (not datetime); date.max keeps the sort key type-consistent
             )
         )
 
@@ -227,7 +227,7 @@ class PriorityAnalyzer:
         if commitment.due_date is None:
             return 0.3  # Low urgency if no deadline
 
-        days_until_due = (commitment.due_date - datetime.now().date()).days
+        days_until_due = (commitment.due_date - datetime.now().astimezone().date()).days
 
         if days_until_due < 0:
             return 1.0  # Overdue
@@ -273,7 +273,7 @@ class PriorityAnalyzer:
         if self.context_manager:
             priorities = self.context_manager.get_priorities()
             commitment_lower = commitment.title.lower()
-            for priority_name in priorities.keys():
+            for priority_name in priorities:
                 if priority_name.lower() in commitment_lower:
                     base_score = min(1.0, base_score + 0.2)
 

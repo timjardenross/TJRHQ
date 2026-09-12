@@ -113,7 +113,7 @@ def _expire_stale(source_key: str, run_started_at: str) -> int:
             f"alerts?source_key=eq.{source_key}&is_active=eq.true"
             f"&last_seen_at=lt.{urllib.parse.quote(run_started_at, safe='')}&select=id"
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort stale-alerts read, already logged; caller treats 0 as 'nothing expired this run'
         log.warning("[emergency-alerts] %s: failed to read stale alerts: %s", source_key, exc)
         return 0
     if not existing:
@@ -125,7 +125,7 @@ def _expire_stale(source_key: str, run_started_at: str) -> int:
             f"alerts?id=in.({ids})",
             body={"is_active": False, "status": "expired"},
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort expire-stale-alerts write, already logged
         log.warning("[emergency-alerts] %s: failed to expire %d stale alert(s): %s", source_key, len(existing), exc)
         return 0
     return len(existing)
@@ -144,7 +144,7 @@ def _send_emergency_warning_emails(source_key: str) -> int:
             "&is_active=eq.true&emergency_email_sent_at=is.null"
             "&select=id,headline,jurisdiction,location,description,canonical_url,issued_at"
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort unnotified-warnings read, already logged; caller treats 0 as 'nothing to notify'
         log.warning("[emergency-alerts] %s: failed to read unnotified emergency warnings: %s", source_key, exc)
         return 0
 
@@ -165,7 +165,7 @@ def _send_emergency_warning_emails(source_key: str) -> int:
         try:
             _supabase_request("PATCH", f"alerts?id=eq.{row['id']}", body={"emergency_email_sent_at": datetime.now(timezone.utc).isoformat()})
             sent += 1
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-alert notification-flag write inside a loop — one bad write must not abort the batch, already logged with the alert id
             log.warning("[emergency-alerts] %s: sent email but failed to mark alert %s notified — may re-send next run: %s", source_key, row["id"], exc)
     return sent
 
@@ -180,7 +180,7 @@ def run_source(source_key: str) -> dict:
 
     try:
         alerts = adapter.fetch()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - per-source fetch job boundary — already logged + heartbeat-recorded with latency
         latency_ms = int((time.monotonic() - t0) * 1000)
         record_heartbeat(domain_key, status="failed", error_message=str(exc)[:500], latency_ms=latency_ms)
         log.warning("[emergency-alerts] %s: fetch failed: %s", source_key, exc)
@@ -206,7 +206,7 @@ def run_source(source_key: str) -> dict:
 
     try:
         _upsert_batch(rows)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - per-source upsert job boundary — already logged + heartbeat-recorded with latency
         latency_ms = int((time.monotonic() - t0) * 1000)
         record_heartbeat(domain_key, status="failed", error_message=f"upsert failed: {exc}"[:500], latency_ms=latency_ms)
         log.warning("[emergency-alerts] %s: upsert failed: %s", source_key, exc)

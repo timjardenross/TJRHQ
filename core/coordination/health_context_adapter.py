@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +36,7 @@ def _get_captains_log_live():
         from capacity_score import compute_capacity_score
         from supabase_client import is_configured, supabase_get
         return supabase_get, is_configured, compute_capacity_score
-    except Exception:
+    except Exception:  # noqa: BLE001 - optional health-module import; (None, None, None) signals unavailability to the caller
         return None, None, None
 
 
@@ -115,7 +115,7 @@ def build_health_context(summary_dict: dict[str, Any], timestamp: str | None = N
 
     Always returns a valid package — missing fields default to None/unknown.
     """
-    assembled_at = timestamp or (datetime.utcnow().isoformat() + "Z")
+    assembled_at = timestamp or (datetime.now(timezone.utc).isoformat())
 
     reflection = summary_dict.get("weekly_reflection", {})
     trend = extract_trends(summary_dict)
@@ -428,7 +428,7 @@ def build_health_context_from_captains_log(
     trend_direction — pre-computed pain trend (improving/stable/worsening)
     capacity_score  — pre-computed capacity score (0–100)
     """
-    assembled = assembled_at or (datetime.utcnow().isoformat() + "Z")
+    assembled = assembled_at or (datetime.now(timezone.utc).isoformat())
 
     if not entry:
         return HealthContextPackage(
@@ -516,8 +516,7 @@ def build_health_context_live(assembled_at: str | None = None) -> HealthContextP
 
     if supabase_get and is_configured and is_configured():
         try:
-            from datetime import date
-            today = date.today().isoformat()
+            today = datetime.now().astimezone().date().isoformat()
             rows = supabase_get(
                 f"captains_log_entries?log_date=eq.{today}&limit=1"
             )
@@ -543,7 +542,7 @@ def build_health_context_live(assembled_at: str | None = None) -> HealthContextP
                     compute_pain_trend,
                     encode_energy,
                 )
-                since = (date.today() - timedelta(days=6)).isoformat()
+                since = (datetime.now().astimezone().date() - timedelta(days=6)).isoformat()
                 recent = supabase_get(
                     f"captains_log_entries?log_date=gte.{since}&order=log_date.asc&limit=7"
                 )
@@ -553,7 +552,7 @@ def build_health_context_live(assembled_at: str | None = None) -> HealthContextP
                 energy_vals = [encode_energy(r["energy"]) for r in recent if r.get("energy")]
                 result_e = compute_energy_trend(energy_vals)
                 energy_trend_direction = None if result_e == "insufficient_data" else result_e
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - best-effort trend computation; None trend direction is a valid 'insufficient data' outcome
                 pass
 
             # Compute capacity score
@@ -565,7 +564,7 @@ def build_health_context_live(assembled_at: str | None = None) -> HealthContextP
                 entry, trend_direction, cap_score, assembled_at,
                 energy_trend=energy_trend_direction,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - already documented: fall through to the legacy Health-Summary.md path
             pass  # fall through to legacy path
 
     # Legacy fallback: read Health-Summary.md

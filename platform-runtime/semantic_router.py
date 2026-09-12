@@ -502,7 +502,7 @@ def enhance_router_with_semantic(legacy_routing: dict[str, Any]) -> dict[str, An
     enhanced = dict(legacy_routing)
 
     # Add semantic analysis
-    primary = enhanced.get("assigned_specialists", ["Executive Officer (XO)"])[0]
+    enhanced.get("assigned_specialists", ["Executive Officer (XO)"])[0]
     text = enhanced.get("_original_text", "")
 
     if text:

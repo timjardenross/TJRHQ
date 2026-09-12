@@ -8,7 +8,7 @@ Returns BlockerContextPackage objects with cascade analysis.
 from __future__ import annotations
 
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -160,7 +160,7 @@ def _blocker_age(m: dict[str, Any]) -> int:
     try:
         dt_str = since.replace("Z", "+00:00")
         dt = datetime.fromisoformat(dt_str).replace(tzinfo=None)
-        return max(0, (datetime.utcnow() - dt).days)
+        return max(0, (datetime.now(timezone.utc) - dt).days)
     except (ValueError, AttributeError):
         return 0
 

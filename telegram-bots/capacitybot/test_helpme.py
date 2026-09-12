@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for /helpme — MY CAPACITY TODAY V02 WP04 + WP05.
 
@@ -147,12 +148,12 @@ def _make_update_and_context(callback_data: str):
 
 
 def _intervention(iid, **overrides):
-    base = dict(
-        intervention_id=iid, title=iid, full_description=iid, button_label=iid,
-        target_states=["overwhelmed"], capacity_allowed=["green", "orange", "red"],
-        stimulation_effect="neutral", pain_compatible=True, executive_effort="low",
-        estimated_minutes=10, requires_followup=True,
-    )
+    base = {
+        "intervention_id": iid, "title": iid, "full_description": iid, "button_label": iid,
+        "target_states": ["overwhelmed"], "capacity_allowed": ["green", "orange", "red"],
+        "stimulation_effect": "neutral", "pain_compatible": True, "executive_effort": "low",
+        "estimated_minutes": 10, "requires_followup": True,
+    }
     base.update(overrides)
     return base
 
@@ -191,7 +192,7 @@ def test_helpme_callback_flat_goes_straight_to_offer():
     from telegram_bots.capacitybot.app import handle_helpme_callback
 
     app_module._supabase = _make_db(interventions=[_intervention("move_5", target_states=["flat"])])
-    update, context, query = _make_update_and_context("ch|s=flat")
+    update, context, _query = _make_update_and_context("ch|s=flat")
     asyncio.run(handle_helpme_callback(update, context))
 
     check("offers an intervention directly (no extra question)",
@@ -236,7 +237,7 @@ def test_offer_skip_excludes_and_reoffers():
         _intervention("a", target_states=["overwhelmed"]),
         _intervention("b", target_states=["overwhelmed"]),
     ])
-    update, context, query = _make_update_and_context("chi|s=overwhelmed|iid=a|act=skip")
+    update, context, _query = _make_update_and_context("chi|s=overwhelmed|iid=a|act=skip")
     context.user_data["helpme_ctx"] = {"capacity_state": None, "stimulation_state": None, "pain_state": None}
     context.user_data["helpme_seen"] = []
 
@@ -268,7 +269,7 @@ def test_offer_accept_logs_event_and_schedules_reminder():
 
     db = _make_db(interventions=[_intervention("quiet_10", requires_followup=True, estimated_minutes=10)])
     app_module._supabase = db
-    update, context, query = _make_update_and_context("chi|s=overwhelmed|iid=quiet_10|act=accept")
+    update, context, _query = _make_update_and_context("chi|s=overwhelmed|iid=quiet_10|act=accept")
     context.user_data["helpme_ctx"] = {"capacity_state": "red", "stimulation_state": "high", "pain_state": None}
 
     asyncio.run(handle_helpme_offer_callback(update, context))
@@ -289,7 +290,7 @@ def test_offer_accept_no_followup_skips_reminder():
 
     db = _make_db(interventions=[_intervention("maintain", requires_followup=False)])
     app_module._supabase = db
-    update, context, query = _make_update_and_context("chi|s=unknown|iid=maintain|act=accept")
+    update, context, _query = _make_update_and_context("chi|s=unknown|iid=maintain|act=accept")
     context.user_data["helpme_ctx"] = {"capacity_state": "green", "stimulation_state": None, "pain_state": None}
 
     asyncio.run(handle_helpme_offer_callback(update, context))
@@ -331,7 +332,7 @@ def test_reassessment_skip_writes_nulls_not_the_string_skip():
 
     db = _make_db()
     app_module._supabase = db
-    update, context, query = _make_update_and_context("chr|ev=77|o=worse|ca=skip|ua=skip")
+    update, context, _query = _make_update_and_context("chr|ev=77|o=worse|ca=skip|ua=skip")
     asyncio.run(handle_helpme_reassessment_callback(update, context))
     payload = db.table("capacity_intervention_events").update.call_args[0][0]
     check("capacity_after is None, not the literal string 'skip'", payload.get("capacity_after") is None)

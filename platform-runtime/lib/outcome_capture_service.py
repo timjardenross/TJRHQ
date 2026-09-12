@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -74,7 +74,7 @@ class DecisionOutcome:
     implementation_notes: str | None = None
 
     # Timestamps
-    outcome_timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    outcome_timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     created_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -160,7 +160,7 @@ class OutcomeCapture:
 
         # Use provided timestamp or current time
         if outcome_timestamp is None:
-            outcome_timestamp = datetime.utcnow().isoformat()
+            outcome_timestamp = datetime.now(timezone.utc).isoformat()
 
         # Create outcome record
         outcome = DecisionOutcome(
@@ -174,7 +174,7 @@ class OutcomeCapture:
         # Persist if client available
         if self.supabase_client:
             try:
-                response = (
+                (
                     self.supabase_client.table("decision_outcomes")
                     .insert(outcome.to_dict())
                     .execute()
@@ -208,7 +208,7 @@ class OutcomeCapture:
                         else:
                             log.warning("[outcome-capture→b1c] Quality scoring returned None")
 
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - best-effort quality scoring, already logged
                         log.error(
                             f"[outcome-capture→b1c] Quality scoring failed: "
                             f"{type(e).__name__}: {str(e)[:100]}"
@@ -217,7 +217,7 @@ class OutcomeCapture:
 
                 return outcome
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - DB write failure, already logged
                 log.error(
                     f"[outcome-capture] Failed to record outcome: {type(e).__name__}: {str(e)[:100]}"
                 )
@@ -265,7 +265,7 @@ class OutcomeCapture:
                 log.debug(f"[outcome-capture] Outcome not found: {outcome_id}")
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - DB read failure, already logged
             log.error(
                 f"[outcome-capture] Failed to retrieve outcome: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -314,7 +314,7 @@ class OutcomeCapture:
             )
             return outcomes
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - DB read failure, already logged
             log.error(
                 f"[outcome-capture] Failed to retrieve outcomes: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -365,7 +365,7 @@ class OutcomeCapture:
             )
             return outcomes
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - DB read failure, already logged
             log.error(
                 f"[outcome-capture] Failed to retrieve outcomes by status: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -381,5 +381,5 @@ class OutcomeCapture:
         Returns:
             Unique, sortable outcome ID
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime("OUT-%Y%m%d-%H%M%S")

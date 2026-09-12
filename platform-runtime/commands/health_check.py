@@ -29,7 +29,7 @@ def _make_supabase():
     try:
         from tools.supabase.client import CommanderSupabaseClient
         return CommanderSupabaseClient()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.warning("[health-check] Supabase client unavailable: %s", exc)
         return None
 
@@ -366,7 +366,7 @@ def handle_health_check_submit(values: dict, user_id: str, client) -> None:
             ).execute()
             saved = True
             log.info("[health-check] Upserted health_daily_logs for %s", today)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - upsert fallback to insert, already logged
             log.error("[health-check] Supabase upsert failed: %s", exc)
             # Fall back to insert
             result = db.insert("health_daily_logs", payload)
@@ -383,8 +383,8 @@ def handle_health_check_submit(values: dict, user_id: str, client) -> None:
             sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
             from heartbeat import record_heartbeat
             record_heartbeat("health_daily_logs", status="ok", detail=f"log_date={today}")
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort heartbeat recording, already logged
+            log.debug("[commands.health_check] best-effort step failed, continuing: %s", _exc)
 
     # ── Build confirmation message ────────────────────────────────────────────
     ns_label = {
@@ -419,5 +419,5 @@ def handle_health_check_submit(values: dict, user_id: str, client) -> None:
 
     try:
         client.chat_postMessage(channel=user_id, text=dm_text)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Slack DM send, already logged
         log.error("[health-check] DM failed: %s", exc)

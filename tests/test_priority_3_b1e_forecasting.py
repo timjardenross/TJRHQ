@@ -147,7 +147,6 @@ def test_priority_3_trend_persistence():
 
     # Strong upward trend
     upward_scores = [3.0, 3.1, 3.2, 3.3, 3.4]
-    upward_slope = 0.1
 
     moving_with_trend = sum(1 for i in range(1, len(upward_scores))
                            if upward_scores[i] >= upward_scores[i-1])
@@ -300,7 +299,7 @@ def test_priority_3_integration():
     log.info("\nStep 2: Generate Forecasts")
     forecasts = {}
     for provider, data in provider_quality.items():
-        slope, intercept, r2 = fit_linear_model(data['scores'])
+        slope, intercept, _r2 = fit_linear_model(data['scores'])
         forecast = forecast_values(slope, intercept, len(data['scores']), 5)
 
         confidence = 'high' if data['count'] >= 20 else 'medium' if data['count'] >= 10 else 'low'
@@ -372,12 +371,12 @@ if __name__ == '__main__':
 
         if passed == total:
             log.info("\n🎯 PRIORITY 3 FORECASTING: COMPLETE")
-            exit(0)
+            sys.exit(0)
         else:
-            exit(1)
+            sys.exit(1)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level test-script wrapper: catch any error to log it and exit non-zero rather than crash with a raw traceback
         log.error(f"❌ Test error: {e}")
         import traceback
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)

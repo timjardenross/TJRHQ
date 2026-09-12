@@ -74,7 +74,7 @@ if __name__ == "__main__":
             passed += 1
         except AssertionError as e:
             print(f"  FAIL  {t.__name__}: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - ad-hoc test runner: must keep going through every test regardless of failure type
             print(f"  ERROR {t.__name__}: {e}")
     print(f"\n{passed}/{len(tests)} tests passed")
     sys.exit(0 if passed == len(tests) else 1)

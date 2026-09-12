@@ -20,6 +20,8 @@ import logging
 import os
 import time
 
+log = logging.getLogger(__name__)
+
 try:
     import sys as _sys
     _sys.path.insert(0, '/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
@@ -28,10 +30,9 @@ try:
     from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
     _configure_tracing("mistral-agent-client")
     _TRACING_AVAILABLE = True
-except Exception:
+except Exception as _tracing_exc:  # noqa: BLE001 - best-effort tracing setup, optional capability
+    log.debug("[mistral_agent_client] tracing setup unavailable: %s", _tracing_exc)
     _TRACING_AVAILABLE = False
-
-log = logging.getLogger(__name__)
 
 # Canonical agent names used throughout the pipeline
 AGENT_RESEARCH     = "research"
@@ -188,8 +189,8 @@ def call_agent(
                     try:
                         span.set_attribute("mistral.duration_ms", elapsed)
                         span.set_attribute("mistral.success", bool(text))
-                    except Exception:
-                        pass
+                    except Exception as _exc:  # noqa: BLE001 - best-effort span attribute set, already logged
+                        log.debug("[lib.mistral_agent_client] best-effort step failed, continuing: %s", _exc)
 
                 if text:
                     log.info(
@@ -208,7 +209,7 @@ def call_agent(
                 )
                 return None
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort agent call, already logged below
             elapsed = int((time.monotonic() - start) * 1000)
             exc_str = str(exc)
             retryable = any(c in exc_str for c in ("429", "503", "502", "500", "timeout"))
@@ -298,5 +299,6 @@ def _debug_outputs(response) -> str:
             else:
                 summary.append(f"[{i}]role={role} content={type(content).__name__}:{repr(content)[:60]}")
         return " | ".join(summary)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort diagnostic summary, never blocks logging
+        log.debug("[mistral_agent_client] _debug_outputs failed: %s", exc)
         return "debug_error"

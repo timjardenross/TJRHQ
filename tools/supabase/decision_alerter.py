@@ -163,6 +163,6 @@ def load_alerts(limit: int = 20) -> list[dict[str, Any]]:
     for path in sorted(ALERT_DIR.glob("*.json"), reverse=True)[:limit]:
         try:
             records.append(json.loads(path.read_text(encoding="utf-8")))
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S112 - one malformed alert file must not abort the listing
             continue
     return records

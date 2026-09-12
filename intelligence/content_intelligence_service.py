@@ -62,7 +62,7 @@ def _get(path: str) -> list:
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return json.loads(resp.read())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase GET wrapper — caller sees [] and handles it; already logged
         log.error("Supabase query failed (%s): %s", path, exc)
         return []
 
@@ -81,7 +81,7 @@ def _post(table: str, payload: dict, on_conflict: str | None = None) -> dict | N
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             result = json.loads(resp.read())
             return result[0] if isinstance(result, list) else result
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase POST wrapper — caller sees None and handles it; already logged
         log.error("Supabase insert failed (%s): %s", table, exc)
         return None
 
@@ -204,10 +204,16 @@ class ContentIntelligenceService:
             return 0
 
         source_meta = _load_source_metadata()
-        approved_sources = _load_approved_source_ids()
+        # KNOWN GAP (flagged, not fixed here — MSN-0370 is a ruff-triage
+        # pass, not a governance-policy change): this loads the
+        # terms_reviewed=true governance gate but the result is never
+        # applied to filter `events` below, so content_signals can be
+        # written from sources that haven't cleared terms review. Left as
+        # a real behavior change requiring a policy decision, not a lint
+        # fix — flag for a follow-up mission.
+        approved_sources = _load_approved_source_ids()  # noqa: F841 - see KNOWN GAP comment above
         mission_keywords = _load_active_mission_keywords()
 
-        scored: list[tuple[ContentScore, float]] = []
         ori_rank_map: dict[str, float] = {}
         scoreable: list[ContentScore] = []
 

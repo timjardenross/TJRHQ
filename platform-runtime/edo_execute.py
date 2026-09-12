@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """EDO execution runner (MSN-EDO-002 WP2 / EDO-006).
 
 The bridge invoked by the EDO execution workflow: takes an approved mission,

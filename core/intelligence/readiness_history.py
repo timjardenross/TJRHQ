@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from statistics import mean, stdev
 from typing import Any
@@ -59,7 +59,7 @@ def _fetch_recovery_confidence_today() -> int | None:
             return None
         checkins = rows[0].get("checkins_today", 0) or 0
         return 100 if checkins > 0 else 0
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: None on any read failure
         return None
 
 
@@ -82,7 +82,7 @@ def persist_readiness_snapshot(
     Returns True if local write succeeded.
     """
     _READINESS_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    today = date.today().isoformat()
+    today = datetime.now().astimezone().date().isoformat()
 
     snapshot = _build_snapshot(readiness_dict, health_entry, today)
 
@@ -90,7 +90,7 @@ def persist_readiness_snapshot(
     local_path = _READINESS_LOG_DIR / f"{today}.json"
     try:
         local_path.write_text(json.dumps(snapshot, indent=2, default=str), encoding="utf-8")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         print(f"[readiness_history] Local write failed: {exc}")
         return False
 
@@ -117,7 +117,7 @@ def persist_readiness_snapshot(
                 },
                 on_conflict="assessment_date",
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             print(f"[readiness_history] Supabase upsert failed (non-fatal): {exc}")
 
     # ── Event Bus emission (best-effort, non-blocking, MSN-0305) ────────────
@@ -152,7 +152,7 @@ def persist_readiness_snapshot(
             recommended_action=(snapshot.get("recommended_focus") or [None])[0]
                 if isinstance(snapshot.get("recommended_focus"), list) else None,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - best-effort recommendation-event emission; not required for the snapshot persist to succeed
         pass
 
     return True
@@ -211,7 +211,7 @@ def load_readiness_history(days: int = 30) -> list[dict[str, Any]]:
     Returns list sorted by assessment_date ascending.
     """
     _READINESS_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    cutoff = date.today() - timedelta(days=days)
+    cutoff = datetime.now().astimezone().date() - timedelta(days=days)
     snapshots = []
 
     for f in sorted(_READINESS_LOG_DIR.glob("*.json")):
@@ -221,7 +221,7 @@ def load_readiness_history(days: int = 30) -> list[dict[str, Any]]:
             snap_date = date.fromisoformat(snap_date_str[:10])
             if snap_date >= cutoff:
                 snapshots.append(snap)
-        except Exception:
+        except Exception:  # noqa: BLE001,S112 - best-effort per-file snapshot read; one corrupt/malformed snapshot must not lose the rest
             continue
 
     return sorted(snapshots, key=lambda s: s.get("assessment_date", ""))
@@ -251,7 +251,7 @@ def compute_readiness_trends(history: list[dict[str, Any]]) -> dict[str, Any]:
     scores   = [s["readiness_score"] for s in history if s.get("readiness_score") is not None]
     statuses = [s["readiness_status"] for s in history if s.get("readiness_status")]
 
-    today = date.today()
+    today = datetime.now().astimezone().date()
     last_7d  = [s for s in history if _days_ago(s, today) <= 7  and s.get("readiness_score")]
     last_30d = [s for s in history if _days_ago(s, today) <= 30 and s.get("readiness_score")]
 
@@ -364,6 +364,4 @@ def _detect_recovery(history: list[dict]) -> bool:
     statuses = [s.get("readiness_status") for s in recent]
     if "Red" in statuses[:-1] and statuses[-1] == "Amber":
         return True
-    if "Amber" in statuses[:-1] and statuses[-1] == "Green":
-        return True
-    return False
+    return bool("Amber" in statuses[:-1] and statuses[-1] == "Green")

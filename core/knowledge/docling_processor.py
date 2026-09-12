@@ -63,7 +63,7 @@ def _extract_tables(doc) -> list[dict]:
             df = table.export_to_dataframe()
             if df is not None and not df.empty:
                 tables.append(df.to_dict())
-        except Exception:
+        except Exception:  # noqa: BLE001,S112 - best-effort per-table export; one malformed table must not lose the rest
             continue
     return tables
 
@@ -114,7 +114,7 @@ def extract_document(file_path: str | Path) -> dict | None:
         converter = DocumentConverter()
         result = converter.convert(str(path))
         doc = result.document
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already handled: PDF retry-with-fallback-pipeline logic follows in this except block
         if path.suffix.lower() in PDF_SUFFIXES:
             log.warning(
                 "docling standard PDF pipeline failed for %s (%s) — retrying "
@@ -126,7 +126,7 @@ def extract_document(file_path: str | Path) -> dict | None:
                 result = _convert_pdf_native(path)
                 doc = result.document
                 layout_fallback = True
-            except Exception as exc2:
+            except Exception as exc2:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.warning("docling native-PDF fallback also failed for %s: %s", path, exc2)
                 return None
         else:
@@ -135,7 +135,7 @@ def extract_document(file_path: str | Path) -> dict | None:
 
     try:
         text = doc.export_to_markdown()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("docling markdown export failed for %s: %s", path, exc)
         return None
 

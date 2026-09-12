@@ -1,6 +1,6 @@
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 # ============================================================================
@@ -31,7 +31,7 @@ class ContextPackage:
     # Identity
     entity_id: str
     entity_type: str
-    assembled_at: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    assembled_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     # Sections
     overview: dict[str, Any] = field(default_factory=dict)
@@ -77,7 +77,7 @@ class HealthTrendSummary:
 
 @dataclass
 class HealthContextPackage:
-    assembled_at: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    assembled_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     source_file: str = ""
     status_summary: HealthStatusSnapshot = field(default_factory=HealthStatusSnapshot)
     trend_summary: HealthTrendSummary = field(default_factory=HealthTrendSummary)
@@ -133,7 +133,7 @@ class BlockerContextPackage:
 @dataclass
 class DecisionContextPackage:
     decision_id: str
-    assembled_at: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    assembled_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     date: str = ""
     status: str = ""
     question: str = ""
@@ -164,7 +164,7 @@ class KeyDate:
 
 @dataclass
 class CaptainBriefContext:
-    assembled_at: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    assembled_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     date: str = ""
     source: str = "fresh"          # fresh | cached | stale
     health: HealthContextPackage | None = None
@@ -209,7 +209,7 @@ class BlockersSummary:
 
 @dataclass
 class CaptainOperatingPictureContext:
-    assembled_at: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    assembled_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     source: str = "fresh"
     health_snapshot: dict[str, Any] = field(default_factory=dict)
     top_3_priorities: list[COPPriorityItem] = field(default_factory=list)
@@ -241,7 +241,7 @@ class RetrievalContextPackage:
 
 @dataclass
 class RecommendationPackage:
-    assembled_at: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    assembled_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     recommendations: list[Recommendation] = field(default_factory=list)
     health_constraints_applied: bool = False
     total_active_missions: int = 0

@@ -170,8 +170,8 @@ def run_research(item: dict) -> str | None:
             len(result.consolidated_findings),
         )
         return result.consolidated_findings or None
-    except Exception as exc:
-        log.error("[%s] Research pass failed: %s", item["id"][:8], exc, exc_info=True)
+    except Exception:
+        log.exception("[%s] Research pass failed", item["id"][:8])
         return None
 
 
@@ -240,7 +240,7 @@ def _call_mistral_agent(prompt: str) -> str | None:
                     ).strip()
                 return str(content).strip()
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("Mistral agent call failed: %s", exc)
         return None
 
@@ -271,7 +271,7 @@ def _call_mistral_direct(prompt: str) -> str | None:
         with urllib.request.urlopen(req, timeout=45) as resp:  # nosec B310 - url is a hardcoded Mistral API constant, not user input - reviewed 2026-09-12
             data = json.loads(resp.read())
         return data["choices"][0]["message"]["content"].strip()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("Mistral direct call failed: %s", exc)
         return None
 
@@ -282,7 +282,7 @@ def _call_mistral_batch_provider(prompt: str) -> str | None:
         from core.engineering.providers.mistral_batch import call as mistral_call
         text, _ = mistral_call(f"{_WRITING_SYSTEM_PROMPT}\n\n{prompt}")
         return text or None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("mistral_batch fallback failed: %s", exc)
         return None
 
@@ -367,8 +367,8 @@ def main() -> None:
                 ok += 1
             else:
                 failed += 1
-        except Exception as exc:
-            log.error("Unhandled error processing %s: %s", item.get("id", "?")[:8], exc, exc_info=True)
+        except Exception:
+            log.exception("Unhandled error processing %s", item.get("id", "?")[:8])
             failed += 1
         time.sleep(2)
 

@@ -128,8 +128,8 @@ class RelevanceGate:
                 passes_investigate=False,
                 passes_surface=False,
                 score=existing.get("relevance_score") or 0.0,
-                reasons=[f"Duplicate of {existing.get('opportunity_id')} "
-                         f"(state={existing.get('lifecycle_state')}) — no meaningful new evidence"],
+                reasons=[(f"Duplicate of {existing.get('opportunity_id')} "
+                         f"(state={existing.get('lifecycle_state')}) — no meaningful new evidence")],
                 is_duplicate=True,
                 duplicate_of=existing.get("opportunity_id"),
                 duplicate_disposition=existing.get("lifecycle_state"),

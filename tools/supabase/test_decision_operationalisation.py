@@ -111,7 +111,7 @@ def test_alert_emitted_for_strategic_decision() -> None:
     after = set(ALERT_DIR.glob("*.json"))
     created = after - before
     assert created, "No alert file was written for a strategic decision"
-    alert = json.loads(Path(list(created)[0]).read_text(encoding="utf-8"))
+    alert = json.loads(Path(next(iter(created))).read_text(encoding="utf-8"))
     assert alert["decision_id"] == "DEC-TEST-000001-abcdef"
     assert alert["decision_mode"] == "strategic"
     print("  PASS test_alert_emitted_for_strategic_decision")
@@ -156,7 +156,7 @@ def test_alert_failure_does_not_crash_runtime() -> None:
     """emit_decision_alert with a bad record must not raise."""
     try:
         emit_decision_alert({"decision_mode": "strategic"}, None)  # missing most fields
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - test assertion — explicitly re-raises as AssertionError with the caught exception's detail, not swallowed
         raise AssertionError(f"emit_decision_alert raised unexpectedly: {e}")
     print("  PASS test_alert_failure_does_not_crash_runtime")
 
@@ -570,7 +570,7 @@ def main() -> int:
     for test in tests:
         try:
             test()
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - test-runner harness — one failing test must not abort the rest of the suite; already printed + counted in failures
             print(f"  FAIL {test.__name__}: {error}")
             failures += 1
     print()

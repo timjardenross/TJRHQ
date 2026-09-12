@@ -195,7 +195,7 @@ def _judge(event: dict[str, Any]) -> tuple[str, str, str | None]:
                 return verdict, reason or f"(no reason given, via {name})", name
             log.warning("[suppression-audit] %s returned unrecognised verdict %r — treating as uncertain", name, verdict)
             return "UNCERTAIN", f"unrecognised model output via {name}", name
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-provider attempt inside a fallback chain — one provider failing must not abort the chain; already logged
             log.warning("[suppression-audit] provider %s failed for event %s: %s", name, event.get("event_id"), exc)
             continue
 

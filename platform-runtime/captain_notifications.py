@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -95,7 +95,7 @@ class NotificationConfig:
 
     def should_send(self, level: str = SEVERITY_INFO, is_routine: bool = False) -> bool:
         """Return True if a notification at this level should be sent now."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
 
         # Weekend suppression for routine notifications
         if is_routine and not self.weekend and now.weekday() >= 5:
@@ -114,11 +114,10 @@ class NotificationConfig:
             return False
 
         # Minimum level filter
-        if level in _SEVERITY_ORDER and self.level in _SEVERITY_ORDER:
-            if _SEVERITY_ORDER.index(level) < _SEVERITY_ORDER.index(self.level):
-                return False
-
-        return True
+        return not (
+            level in _SEVERITY_ORDER and self.level in _SEVERITY_ORDER
+            and _SEVERITY_ORDER.index(level) < _SEVERITY_ORDER.index(self.level)
+        )
 
 
 # Module-level singleton
@@ -153,14 +152,14 @@ def _parse_mission_open_date(mission_id: str, fallback_str: str = "") -> date | 
     for i, p in enumerate(parts):
         if len(p) == 8 and p.isdigit():
             try:
-                return datetime.strptime(p, "%Y%m%d").date()
+                return datetime.strptime(p, "%Y%m%d").replace(tzinfo=timezone.utc).date()
             except ValueError:
                 continue
     # Try fallback timestamp string (e.g. "2026-06-07 13:25")
     if fallback_str:
         for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d"):
             try:
-                return datetime.strptime(fallback_str[:16], fmt).date()
+                return datetime.strptime(fallback_str[:16], fmt).replace(tzinfo=timezone.utc).date()
             except ValueError:
                 continue
     return None
@@ -178,14 +177,17 @@ def _mission_last_activity(mission_id: str) -> datetime | None:
             capture_output=True,
             text=True,
             timeout=5,
+            check=False,
         )
         lines = [l.strip() for l in result.stdout.strip().splitlines() if l.strip()]
         if lines:
-            # Most recent commit first
+            # Most recent commit first — `%ci` format is "YYYY-MM-DD HH:MM:SS +ZZZZ";
+            # parse with %z (not truncated) so the result is tz-aware and comparable
+            # to `datetime.now(timezone.utc)` without a false offset.
             ts = lines[0]
-            return datetime.strptime(ts[:19], "%Y-%m-%d %H:%M:%S")
-    except Exception:
-        pass
+            return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S %z")
+    except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
+        log.debug("[captain_notifications] best-effort step failed, continuing: %s", _exc)
     return None
 
 
@@ -217,7 +219,7 @@ def _read_mission_index() -> list[dict]:
                     }
                     for r in rows
                 ]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (supabase mission read failed)
         log.warning("[notifications] Supabase mission read failed: %s", exc)
     return []
 
@@ -232,7 +234,7 @@ def get_mission_escalations() -> list[dict]:
     if not cfg.mission_escalations:
         return []
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     today = now.date()
     escalations = []
 
@@ -352,7 +354,7 @@ def get_forgotten_decisions() -> list[dict]:
     if not cfg.forgotten_decisions:
         return []
 
-    cutoff_date = date.today() - timedelta(days=cfg.decision_stale_days)
+    cutoff_date = datetime.now(timezone.utc).date() - timedelta(days=cfg.decision_stale_days)
     forgotten   = []
 
     # --- Governance decision register ---
@@ -376,19 +378,19 @@ def get_forgotten_decisions() -> list[dict]:
                         break
                 if dec_status in ("PROPOSED", "PENDING") and dec_date:
                     try:
-                        d = datetime.strptime(dec_date, "%Y-%m-%d").date()
+                        d = datetime.strptime(dec_date, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
                         if d <= cutoff_date:
                             forgotten.append({
                                 "id":       dec_id,
                                 "title":    dec_title,
                                 "date":     dec_date,
                                 "status":   dec_status,
-                                "age_days": (date.today() - d).days,
+                                "age_days": (datetime.now(timezone.utc).date() - d).days,
                                 "type":     "governance_decision",
                             })
                     except ValueError:
                         pass
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (decision register scan failed)
             log.warning("[notifications] Decision register scan failed: %s", exc)
 
     # --- ADRs awaiting validation ---
@@ -420,19 +422,19 @@ def get_forgotten_decisions() -> list[dict]:
                             break
                     if dec_date:
                         try:
-                            d = datetime.strptime(dec_date, "%Y-%m-%d").date()
+                            d = datetime.strptime(dec_date, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
                             if d <= cutoff_date:
                                 forgotten.append({
                                     "id":       f.stem,
                                     "title":    f.stem.replace("-", " "),
                                     "date":     dec_date,
                                     "status":   "Awaiting Validation",
-                                    "age_days": (date.today() - d).days,
+                                    "age_days": (datetime.now(timezone.utc).date() - d).days,
                                     "type":     "adr",
                                 })
                         except ValueError:
                             pass
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (adr scan failed in)
             log.warning("[notifications] ADR scan failed in %s: %s", adr_dir, exc)
         break  # use first valid ADR directory
 
@@ -451,7 +453,7 @@ def get_forgotten_decisions() -> list[dict]:
                             m = re.search(r"(\d{4}-\d{2}-\d{2})", nearby)
                             if m:
                                 try:
-                                    d = datetime.strptime(m.group(1), "%Y-%m-%d").date()
+                                    d = datetime.strptime(m.group(1), "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
                                     if d <= cutoff_date:
                                         # Extract cap ID if available
                                         cap_id_match = re.search(r"(CAP-\d+|C-\d+)", line)
@@ -461,13 +463,13 @@ def get_forgotten_decisions() -> list[dict]:
                                             "title":    line.strip()[:80],
                                             "date":     m.group(1),
                                             "status":   "Implemented — Not Validated",
-                                            "age_days": (date.today() - d).days,
+                                            "age_days": (datetime.now(timezone.utc).date() - d).days,
                                             "type":     "capability",
                                         })
                                 except ValueError:
                                     pass
                                 break
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (capability registry scan failed)
             log.warning("[notifications] Capability registry scan failed: %s", exc)
 
     # Deduplicate by id
@@ -591,9 +593,8 @@ def check_lesson_captured(mission_id: str) -> bool:
             for f in path.rglob("*.md"):
                 if mission_id in f.read_text():
                     return True
-        elif path.is_file():
-            if mission_id in path.read_text():
-                return True
+        elif path.is_file() and mission_id in path.read_text():
+            return True
     return False
 
 

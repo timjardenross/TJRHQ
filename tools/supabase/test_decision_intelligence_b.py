@@ -458,7 +458,7 @@ def main() -> int:
     for test in tests:
         try:
             test()
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - test-runner harness — one failing test must not abort the rest of the suite; already printed + counted in failures
             print(f"  FAIL {test.__name__}: {error}")
             failures += 1
     print()

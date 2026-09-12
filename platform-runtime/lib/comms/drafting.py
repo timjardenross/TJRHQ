@@ -74,7 +74,8 @@ def _default_llm(system: str, user: str) -> tuple[bool, str]:
     try:
         import llm  # reuse the bot's existing client (slack-bot/llm.py)
         return llm.ask_gemini_safe(system_prompt=system, user_prompt=user)
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - best-effort LLM call, degrades to scaffold
+        log.debug("[comms.drafting] default LLM call failed: %s", exc)
         return False, f"{type(exc).__name__}"
 
 
@@ -91,7 +92,8 @@ def generate_draft(opp, fmt_key: str | None = None, *, llm_fn=None) -> tuple[str
     system, user = build_prompts(opp, fmt_key)
     try:
         ok, text = fn(system, user)
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - best-effort injectable LLM call, degrades to scaffold
+        log.debug("[comms.drafting] llm_fn call failed: %s", exc)
         ok, text = False, f"{type(exc).__name__}"
     if ok and (text or "").strip():
         return "llm", _wrap(opp, fmt_key, text.strip())

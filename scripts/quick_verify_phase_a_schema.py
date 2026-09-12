@@ -81,7 +81,7 @@ def main():
             print("   → Schema changes are in place (migration applied)")
             sys.exit(0)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - one-shot diagnostic CLI script; the Supabase query surface is unpredictable, error is printed with remediation guidance and the script exits non-zero
         print(f"❌ Query failed: {exc}")
         print("   Check your SUPABASE_URL and SUPABASE_KEY credentials")
         sys.exit(1)
