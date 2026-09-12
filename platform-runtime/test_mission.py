@@ -48,7 +48,7 @@ def _seed_mission(registry: MissionRegistry, *, mission_id: str, title: str, des
     ]
     placeholders = ", ".join(["?"] * len(values))
     cursor.execute(
-        f"INSERT INTO missions ({', '.join(columns)}) VALUES ({placeholders})",
+        f"INSERT INTO missions ({', '.join(columns)}) VALUES ({placeholders})",  # nosec B608 - columns is a fixed literal list, values are parameterized
         values,
     )
     conn.commit()

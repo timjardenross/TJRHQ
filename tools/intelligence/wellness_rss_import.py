@@ -111,7 +111,7 @@ def _embedded_wellness_sources() -> list[SourceRecord]:
 def _parse_feed_xml(xml_bytes: bytes, source: SourceRecord, limit: int) -> list[IntelligenceItem]:
     """Minimal RSS/Atom parser using stdlib xml.etree (no feedparser dependency)."""
     import re
-    import xml.etree.ElementTree as ET
+    import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
     try:
         root = ET.fromstring(xml_bytes)
@@ -229,7 +229,7 @@ def _collect_rss(sources: list[SourceRecord], limit_per_source: int = 25) -> lis
         feed_url = source.rss_url or source.url
         try:
             req = urllib.request.Request(feed_url, headers=_UA)
-            with urllib.request.urlopen(req, timeout=20) as resp:
+            with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310 - feed_url sourced from this repo's own source registry, not raw user input
                 raw = resp.read()
         except Exception as exc:
             log.warning("[%s] fetch failed: %s", source.source_name, exc)

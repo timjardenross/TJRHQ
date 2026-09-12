@@ -31,7 +31,6 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _ADR_DIRS = [
     _REPO_ROOT / "core" / "governance" / "architecture-decision-records",
@@ -40,6 +39,13 @@ _ADR_DIRS = [
 _ADR_PATTERN = re.compile(r"\bADR-\d{3}\b", re.IGNORECASE)
 _STATUS_PATTERN = re.compile(r"^Status:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
 _TITLE_PATTERN = re.compile(r"^Title:\s*(.+)$", re.IGNORECASE | re.MULTILINE)
+# MADR 4.0.0 (docs/decisions/TEMPLATE-madr.md, adopted USS-TJR-MSN-0366
+# Stream 10) has no plain "Title: X" line -- the title is an H1 heading
+# instead (`# {title}`). _STATUS_PATTERN already matches MADR's YAML
+# frontmatter `status: "accepted"` case-insensitively (it just needed the
+# surrounding quotes stripped -- see _parse_adr), but title needs this
+# separate fallback pattern.
+_MADR_TITLE_PATTERN = re.compile(r"^#\s+(.+)$", re.MULTILINE)
 _SUPERSEDES_PATTERN = re.compile(r"supersedes?\s+(ADR-\d{3})", re.IGNORECASE)
 _CONFLICTS_PATTERN = re.compile(r"conflicts?\s+with\s+(ADR-\d{3})", re.IGNORECASE)
 
@@ -102,11 +108,11 @@ def _parse_adr(path: Path) -> ADRRecord | None:
         return None
     adr_id = id_match.group(1).upper()
 
-    title_match = _TITLE_PATTERN.search(content)
+    title_match = _TITLE_PATTERN.search(content) or _MADR_TITLE_PATTERN.search(content)
     title = title_match.group(1).strip() if title_match else path.stem
 
     status_match = _STATUS_PATTERN.search(content)
-    status = status_match.group(1).strip().lower() if status_match else "unknown"
+    status = status_match.group(1).strip().strip('"').strip().lower() if status_match else "unknown"
 
     references = [r.upper() for r in _ADR_PATTERN.findall(content) if r.upper() != adr_id]
     supersedes = [r.upper() for r in _SUPERSEDES_PATTERN.findall(content)]

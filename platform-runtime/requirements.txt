@@ -44,6 +44,11 @@ apscheduler>=3.10.0
 # "not installed" (confirmed via intelligence_source_health) until this line was added.
 feedparser>=6.0.0
 beautifulsoup4>=4.12.0
+# USS-TJR-MSN-0368 Stream 9: was only a transitive dep (pulled in by
+# something else) -- pinned explicitly now that emergency-alert-adapters/
+# health-signal/RSS XML parsing depends on it directly for XXE safety
+# (swapped from stdlib xml.etree.ElementTree, which is not defused).
+defusedxml>=0.7.1
 # 2026-07-10: core/context-assembly/context_service.py's `serve` command
 # (Flask HTTP bridge for Captain's Brief + Recommendations, deploy/
 # context-service.service) needs these - not previously declared here

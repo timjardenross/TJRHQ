@@ -293,7 +293,7 @@ def _doc_insert_sql(doc: dict) -> str:
         _lit(doc["classification"]), _json_lit(doc["raw_front_matter"]),
         _lit(doc["raw_markdown"]), _json_lit(doc["parse_warnings"]),
     ]
-    return (f"insert into ori_source_documents ({', '.join(cols)}) "
+    return (f"insert into ori_source_documents ({', '.join(cols)}) "  # nosec B608 - vals built via _lit()/_json_lit() which quote-escape, not raw interpolation
             f"values ({', '.join(vals)}) "
             f"on conflict (file_path, content_sha) do nothing;")
 
@@ -320,7 +320,7 @@ def _event_insert_sql(e, ori: dict) -> str:
         _lit(ori.get("regulatory_topic")), _json_lit(ori.get("resilience_themes")),
         _lit(ori.get("watch_item_status")), _lit(ori.get("executive_relevance")),
     ]
-    return (f"insert into intelligence_events ({', '.join(cols)}) "
+    return (f"insert into intelligence_events ({', '.join(cols)}) "  # nosec B608 - vals built via _lit()/_json_lit() which quote-escape, not raw interpolation
             f"values ({', '.join(vals)}) "
             f"on conflict (dedup_hash) do nothing;")
 

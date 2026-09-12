@@ -49,7 +49,7 @@ from __future__ import annotations
 
 import logging
 import re
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 from datetime import timedelta, timezone
 from email.utils import parsedate_to_datetime
 
@@ -95,7 +95,7 @@ def _http_get_bom(url: str) -> bytes:
     # its own browser-shaped one rather than the shared default.
     import urllib.request
     req = urllib.request.Request(url, headers={"User-Agent": _BROWSER_UA, "Accept": "*/*"})
-    with urllib.request.urlopen(req, timeout=20) as resp:
+    with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310 - url is this adapter's own fixed BOM feed constant, not user input
         return resp.read()
 
 
