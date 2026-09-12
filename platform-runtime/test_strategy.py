@@ -11,6 +11,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import patch
 
 _BOT_DIR = Path(__file__).resolve().parent
@@ -69,7 +70,7 @@ class TestDomainModel(unittest.TestCase):
 # ── WP3 mission alignment / orphan detection ──────────────────────────────────
 
 class TestAlignment(unittest.TestCase):
-    ROWS = [
+    ROWS: ClassVar[list] = [
         {"mission_id": "M1", "title": "Aligned", "status": "open", "strategic_objective_id": "OBJ-1"},
         {"mission_id": "M2", "title": "Orphan", "status": "in_progress", "strategic_objective_id": None},
         {"mission_id": "M3", "title": "Done", "status": "closed", "strategic_objective_id": None},

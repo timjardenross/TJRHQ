@@ -264,7 +264,6 @@ def _log_d057_check(officer: str, title: str, result: D057CheckResult) -> None:
         )
     except Exception as _exc:
         log.debug("[lib.improvement.framework] best-effort step failed, continuing: %s", _exc)
-        pass
 
 
 __all__ = [

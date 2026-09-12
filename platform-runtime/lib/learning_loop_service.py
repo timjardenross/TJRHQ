@@ -134,8 +134,8 @@ class LearningLoopService:
         recommendation_text: str,
         human_decision: str,
         decision_maker: str,
-        decision_reason: str = None,
-        decision_timestamp: datetime = None,
+        decision_reason: str | None = None,
+        decision_timestamp: datetime | None = None,
         provider_metadata: ProviderMetadata | None = None,
     ) -> DecisionRecord | None:
         """
@@ -202,7 +202,7 @@ class LearningLoopService:
 
         try:
             # Insert via Supabase (SERVICE_ROLE_KEY)
-            response = self.supabase.insert(
+            self.supabase.insert(
                 "decision_records",
                 decision_data,
             )
@@ -212,8 +212,8 @@ class LearningLoopService:
                 log.info(f"  Route: {provider_metadata.provider_route}")
             return DecisionRecord.from_dict(decision_data)
 
-        except Exception as e:
-            log.error(f"Failed to record decision: {e}", exc_info=True)
+        except Exception:
+            log.exception("Failed to record decision")
             return None
 
     def get_decision(self, decision_id: str) -> DecisionRecord | None:
@@ -238,8 +238,8 @@ class LearningLoopService:
                 return DecisionRecord.from_dict(response[0])
             return None
 
-        except Exception as e:
-            log.error(f"Failed to retrieve decision {decision_id}: {e}", exc_info=True)
+        except Exception:
+            log.exception("Failed to retrieve decision %s", decision_id)
             return None
 
     def get_decisions_for_mission(self, mission_id: str) -> list[DecisionRecord]:
@@ -264,8 +264,8 @@ class LearningLoopService:
             )
             return [DecisionRecord.from_dict(r) for r in (response or [])]
 
-        except Exception as e:
-            log.error(f"Failed to retrieve decisions for mission {mission_id}: {e}", exc_info=True)
+        except Exception:
+            log.exception("Failed to retrieve decisions for mission %s", mission_id)
             return []
 
     def record_outcome(
@@ -275,7 +275,7 @@ class LearningLoopService:
         result_summary: str,
         effectiveness_score: int | None = None,
         lessons_learned: str | None = None,
-        outcome_timestamp: datetime = None,
+        outcome_timestamp: datetime | None = None,
     ) -> DecisionOutcome | None:
         """
         Record the outcome of a decision.
@@ -304,9 +304,8 @@ class LearningLoopService:
         if outcome_status not in ["Pending", "In Progress", "Completed", "Failed"]:
             raise ValueError(f"Invalid outcome_status: {outcome_status}")
 
-        if effectiveness_score is not None:
-            if not 1 <= effectiveness_score <= 5:
-                raise ValueError("effectiveness_score must be 1-5 or None")
+        if effectiveness_score is not None and not 1 <= effectiveness_score <= 5:
+            raise ValueError("effectiveness_score must be 1-5 or None")
 
         # Default timestamp
         if outcome_timestamp is None:
@@ -341,7 +340,7 @@ class LearningLoopService:
 
         try:
             # Insert via Supabase
-            response = self.supabase.insert(
+            self.supabase.insert(
                 "decision_outcomes",
                 outcome_data,
             )
@@ -353,8 +352,8 @@ class LearningLoopService:
 
             return DecisionOutcome(**outcome_data)
 
-        except Exception as e:
-            log.error(f"Failed to record outcome: {e}", exc_info=True)
+        except Exception:
+            log.exception("Failed to record outcome")
             return None
 
     def get_outcome(self, outcome_id: str) -> DecisionOutcome | None:
@@ -371,8 +370,8 @@ class LearningLoopService:
                 return DecisionOutcome(**response[0])
             return None
 
-        except Exception as e:
-            log.error(f"Failed to retrieve outcome {outcome_id}: {e}", exc_info=True)
+        except Exception:
+            log.exception("Failed to retrieve outcome %s", outcome_id)
             return None
 
     def get_pending_decisions(self) -> list[str]:
@@ -400,8 +399,8 @@ class LearningLoopService:
             response = self.supabase.query(query)
             return [r["id"] for r in (response or [])]
 
-        except Exception as e:
-            log.error(f"Failed to get pending decisions: {e}", exc_info=True)
+        except Exception:
+            log.exception("Failed to get pending decisions")
             return []
 
     def _generate_decision_id(self) -> str:

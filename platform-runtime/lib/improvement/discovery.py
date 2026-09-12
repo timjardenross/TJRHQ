@@ -167,7 +167,7 @@ def _create_missions_within_budget(
     """
     try:
         from command_memory_integration import create_mission_from_officer
-        from lib.improvement.backlog import add_to_backlog, mark_backlog_item_processed
+        from lib.improvement.backlog import add_to_backlog
         from lib.improvement.budget import ImprovementBudgetEngine
         from lib.improvement.framework import d057_check
         from lib.improvement.scorecard import create_scorecard

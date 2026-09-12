@@ -253,7 +253,6 @@ def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: 
                     )
                 except Exception as _exc:
                     log.debug("[commands.mission_lifecycle] best-effort step failed, continuing: %s", _exc)
-                    pass
                 # ADR-024 second-pass audit: the 'missions' domain_registry row
                 # (migration 0071) has had zero record_heartbeat() calls anywhere
                 # in the repo since it was registered — verification_state has
@@ -267,7 +266,6 @@ def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: 
                     record_heartbeat("missions", status="ok", detail=f"status_changed:{new_status}")
                 except Exception as _exc:
                     log.debug("[commands.mission_lifecycle] best-effort step failed, continuing: %s", _exc)
-                    pass
                 return True, _event_id
         return False, None
     except Exception as exc:
@@ -476,10 +474,15 @@ def handle_mission_status(
     if db_row:
         return _format_mission_detail(db_row)
 
-    # Fallback: flat file
-    all_missions = _parse_registry()
+    # Fallback: flat file (Supabase unavailable or mission not found there)
+    try:
+        from mission_registry import load_registry_entries
+        all_missions = load_registry_entries()
+    except Exception as exc:
+        log.warning("[mission_lifecycle] flat-file registry fallback failed: %s", exc)
+        return f":x: Mission `{mission_id}` not found."
     for m in all_missions:
-        mid = m["id"].upper()
+        mid = (m.get("mission_id") or m.get("id") or "").upper()
         if mid in (mission_id, mission_id_full):
             return _format_mission_detail(m)
 

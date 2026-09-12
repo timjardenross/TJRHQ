@@ -246,7 +246,7 @@ class QualityForecasting:
             # Linear regression: y = m*x + b
             coeffs = np.polyfit(x, y, 1)
             slope = coeffs[0]
-            intercept = coeffs[1]
+            coeffs[1]
 
             # Calculate R² (quality of fit)
             y_pred = np.polyval(coeffs, x)
@@ -572,7 +572,7 @@ class QualityForecasting:
                 .execute()
             )
 
-            providers = list(set(p["provider_name"] for p in (response.data or [])))
+            providers = list({p["provider_name"] for p in (response.data or [])})
 
             routing_order = []
 

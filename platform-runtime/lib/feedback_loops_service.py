@@ -199,7 +199,7 @@ class FeedbackLoops:
         # Persist if client available
         if self.supabase_client:
             try:
-                response = (
+                (
                     self.supabase_client.table("feedback_signals")
                     .insert(signal.to_dict())
                     .execute()

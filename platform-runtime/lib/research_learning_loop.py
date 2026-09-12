@@ -160,7 +160,6 @@ def record_research_lifecycle_event(
             record_heartbeat("decisions", status="ok", detail="source=research-learning-loop")
         except Exception as _exc:
             log.debug("[lib.research_learning_loop] best-effort step failed, continuing: %s", _exc)
-            pass
 
         # Emit research-learning after all three DB writes succeed (commander_decisions,
         # decision_outcomes, decision_records). This is the authoritative moment a
@@ -183,7 +182,6 @@ def record_research_lifecycle_event(
             )
         except Exception as _exc:
             log.debug("[lib.research_learning_loop] best-effort step failed, continuing: %s", _exc)
-            pass
 
         # 4. quality_scores — ties decision_outcomes + decision_records together.
         # QualityScoring/FeedbackLoops need the raw supabase-py client (they call
@@ -233,7 +231,6 @@ def record_research_lifecycle_event(
             )
         except Exception as _exc:
             log.debug("[lib.research_learning_loop] best-effort step failed, continuing: %s", _exc)
-            pass
 
     except Exception as exc:
         log.warning("[research-learning-loop] decision/outcome chain write failed: %s", exc)

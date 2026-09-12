@@ -266,7 +266,6 @@ class ImprovementBudgetEngine:
             )
         except Exception as _exc:
             log.debug("[lib.improvement.budget] best-effort step failed, continuing: %s", _exc)
-            pass
 
     def _log_budget_exception(self, capacity_status: str, active_count: int) -> None:
         try:
@@ -284,7 +283,6 @@ class ImprovementBudgetEngine:
             )
         except Exception as _exc:
             log.debug("[lib.improvement.budget] best-effort step failed, continuing: %s", _exc)
-            pass
 
 
 def get_current_budget(

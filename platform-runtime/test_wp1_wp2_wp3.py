@@ -35,7 +35,7 @@ class _InMemorySupabaseClient:
         rows = list(self._tables.get(table, []))
         # Apply simple eq/is.null/not.in filters (good enough for tests)
         for part in qs.split("&"):
-            if not part or part.startswith("select=") or part.startswith("order=") or part.startswith("limit="):
+            if not part or part.startswith(("select=", "order=", "limit=")):
                 continue
             if "=is.null" in part:
                 col = part.split("=is.null")[0]

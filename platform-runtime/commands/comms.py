@@ -201,7 +201,6 @@ def _draft(rest: str) -> str:
         )
     except Exception as _exc:  # pragma: no cover
         log.debug("[commands.comms] best-effort step failed, continuing: %s", _exc)
-        pass
     return body
 
 

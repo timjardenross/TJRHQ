@@ -67,8 +67,8 @@ def generate_captains_brief(research_package: dict[str, Any]) -> str | None:
             log.warning("[briefing-officer] Empty response from Mistral agent")
             return None
 
-    except Exception as e:
-        log.error(f"[briefing-officer] FAILED - {type(e).__name__}: {e}", exc_info=True)
+    except Exception:
+        log.exception("[briefing-officer] FAILED")
         return None
 
 

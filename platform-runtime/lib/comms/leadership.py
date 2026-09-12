@@ -54,8 +54,8 @@ def compose_leadership_brief(candidates: list, lessons: list, *,
     if not lead and not lessons:
         lines += [
             "No leadership insights surfaced yet.",
-            "_As outcomes are captured with a leadership / operational-resilience lens, "
-            "insights appear here automatically. Capture closes the gap._",
+            ("_As outcomes are captured with a leadership / operational-resilience lens, "
+            "insights appear here automatically. Capture closes the gap._"),
         ]
         return "\n".join(lines)
 
@@ -80,8 +80,8 @@ def compose_leadership_brief(candidates: list, lessons: list, *,
 
     lines += [
         "",
-        f"_Generate an internal draft with `/comms draft <n>` (executive insight / leadership note / "
-        f"resilience observation). {OFFICER} scaffolds; the Captain approves. Internal audiences only._",
+        (f"_Generate an internal draft with `/comms draft <n>` (executive insight / leadership note / "
+        f"resilience observation). {OFFICER} scaffolds; the Captain approves. Internal audiences only._"),
     ]
     return "\n".join(lines)
 
@@ -208,8 +208,8 @@ def compose_leadership_insight(outcomes: list, lessons: list, *, date_str: str |
         for r in recs[:4]:
             lines.append(f"• {r['recommendation']} — _evidence: {r['evidence']} outcomes · "
                          f"confidence {r['confidence']}_")
-    lines += ["", "_Sources retained per outcome. `/comms draft <n>` for an internal draft. "
-              "Captain approves; nothing published._"]
+    lines += ["", ("_Sources retained per outcome. `/comms draft <n>` for an internal draft. "
+              "Captain approves; nothing published._")]
     return "\n".join(lines)
 
 

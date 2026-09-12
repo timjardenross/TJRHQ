@@ -259,7 +259,6 @@ def _build_delivery_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
                 fc = forecast_initiative(init.initiative_id)
             except Exception as _exc:
                 log.debug("[lib.strategy.roadmaps] best-effort step failed, continuing: %s", _exc)
-                pass
 
             status = "blocked" if init.initiative_id in blocked else (
                 fc.forecast.value if fc else "unknown"

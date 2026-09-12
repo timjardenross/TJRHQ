@@ -140,7 +140,6 @@ def _learning_note(init: Initiative) -> str:
             return f"{len(relevant)} lesson(s) linked to this objective."
     except Exception as _exc:
         log.debug("[lib.strategy.strategic_review] best-effort step failed, continuing: %s", _exc)
-        pass
     return "No specific lessons captured yet."
 
 
@@ -306,8 +305,8 @@ def format_strategic_dashboard(dash: StrategicDashboard) -> str:
     hs = dash.health_summary
     lines = [
         "*:dart: STRATEGIC OUTCOMES*",
-        f"  Initiatives: {dash.total_initiatives} "
-        f"(:large_green_circle:{hs.get('green',0)} :large_yellow_circle:{hs.get('amber',0)} :red_circle:{hs.get('red',0)})",
+        (f"  Initiatives: {dash.total_initiatives} "
+        f"(:large_green_circle:{hs.get('green',0)} :large_yellow_circle:{hs.get('amber',0)} :red_circle:{hs.get('red',0)})"),
     ]
     if dash.objectives:
         lines.append(f"  Active objectives: {len(dash.objectives)}")

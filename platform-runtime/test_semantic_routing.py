@@ -230,7 +230,7 @@ def interactive_mode():
                 break
 
             if user_input.lower() == "test":
-                success = run_tests()
+                run_tests()
                 continue
 
             # Route the request

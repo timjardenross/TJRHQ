@@ -34,7 +34,7 @@ _RISK_EMOJI = {"RED": "🔴", "AMBER": "🟡", "GREEN": "🟢", "UNKNOWN": "⚪"
 _STATUS_EMOJI = {"LIVE": "🟢", "CACHED": "🟡", "STALE": "🟠", "PARTIAL": "🟡", "FAILED": "🔴"}
 
 
-def _auth_headers(extra: dict = None) -> dict:
+def _auth_headers(extra: dict | None = None) -> dict:
     """Base headers + backend API key (Mission 7 — backend requires X-Api-Key)."""
     headers = {"Accept": "application/json", "User-Agent": "USS-TJR-Slack-Bot/1.0"}
     if extra:
@@ -60,7 +60,7 @@ def _get(path: str) -> dict:
         raise RuntimeError(f"API unavailable ({exc})") from exc
 
 
-def _post(path: str, payload: dict = None) -> dict:
+def _post(path: str, payload: dict | None = None) -> dict:
     url = f"{API_BASE}{path}"
     body = json.dumps(payload or {}).encode()
     req = urllib.request.Request(
@@ -313,6 +313,6 @@ def handle_resilience_brief(text: str, respond) -> None:
                 "View full cockpit: http://localhost:8080/or-intelligence.html"
             )
         )
-    except Exception as exc:
-        log.error("[resilience-brief] Unexpected error: %s", exc, exc_info=True)
+    except Exception:
+        log.exception("[resilience-brief] Unexpected error")
         respond(text=":warning: OR Intelligence Brief — unexpected error. Check runtime logs.")

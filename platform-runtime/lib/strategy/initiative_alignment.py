@@ -114,7 +114,7 @@ def run_alignment_scan() -> AlignmentReport:
         else:
             by_objective.setdefault(init.objective_id, []).append(init)
 
-    for obj_id, group in by_objective.items():
+    for group in by_objective.values():
         for i in range(len(group)):
             for j in range(i + 1, len(group)):
                 a, b = group[i], group[j]
@@ -206,8 +206,8 @@ def traceability_for_mission(mission_id: str) -> dict[str, Any]:
 def format_alignment(report: AlignmentReport) -> str:
     if not report.has_findings and report.total_missions == 0:
         return "_Strategic alignment: no data available._"
-    lines = [f"*Strategic Alignment:* {report.coverage_pct:.0%} mission coverage "
-             f"({report.linked_missions}/{report.total_missions} traced to initiatives)"]
+    lines = [(f"*Strategic Alignment:* {report.coverage_pct:.0%} mission coverage "
+             f"({report.linked_missions}/{report.total_missions} traced to initiatives)")]
     if report.orphan_missions:
         lines.append(f"  :warning: {len(report.orphan_missions)} orphan mission(s)")
     if report.orphan_improvements:

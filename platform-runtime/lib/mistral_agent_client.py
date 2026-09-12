@@ -190,7 +190,6 @@ def call_agent(
                         span.set_attribute("mistral.success", bool(text))
                     except Exception as _exc:
                         log.debug("[lib.mistral_agent_client] best-effort step failed, continuing: %s", _exc)
-                        pass
 
                 if text:
                     log.info(

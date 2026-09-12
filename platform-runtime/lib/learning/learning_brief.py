@@ -108,7 +108,6 @@ def assemble_learning_brief(ctx: Any = None) -> LearningBrief:
             brief.high_confidence_findings = len(getattr(ctx, "high_confidence_findings", []) or [])
     except Exception as _exc:
         log.debug("[lib.learning.learning_brief] best-effort step failed, continuing: %s", _exc)
-        pass
 
     # Decision-quality insight
     brief.decision_quality_note = _decision_quality_note(brief)

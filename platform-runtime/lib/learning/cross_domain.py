@@ -205,7 +205,6 @@ def _store_opportunity(opp: CrossDomainOpportunity) -> None:
                     return
         except Exception as _exc:
             log.debug("[lib.learning.cross_domain] best-effort step failed, continuing: %s", _exc)
-            pass
 
         log_decision_to_command_memory(
             statement=f"{_CROSS_DOMAIN_STATEMENT} {opp.title[:80]}",
@@ -265,7 +264,6 @@ def route_to_improvement_backlog(opp: CrossDomainOpportunity) -> bool:
             )
         except Exception as _exc:
             log.debug("[lib.learning.cross_domain] best-effort step failed, continuing: %s", _exc)
-            pass
 
         return add_to_backlog(improvement)
 

@@ -243,7 +243,7 @@ class AdaptiveRoutingService:
 
     def suggest_routing(
         self,
-        decision_id: str = None,
+        decision_id: str | None = None,
     ) -> list[tuple[str, float]]:
         """
         Suggest routing order with quality scores.

@@ -109,7 +109,7 @@ def _summarise(rows: list[dict]) -> str:
     # Dominant nervous system state (most frequent)
     dominant_ns = max(ns_counts, key=ns_counts.get) if ns_counts else None
     dysregulated_days = ns_counts.get("dysregulated", 0)
-    calm_days = ns_counts.get("calm", 0)
+    ns_counts.get("calm", 0)
 
     avg_sleep = sum(sleep_hours_list) / len(sleep_hours_list) if sleep_hours_list else None
 

@@ -125,7 +125,7 @@ def _create_high_band_missions(brief: WeeklyImprovementBrief) -> None:
     """Create missions for High-band opportunities after D-057 checks."""
     try:
         from command_memory_integration import create_mission_from_officer
-        from lib.improvement.framework import ImprovementBand, d057_check
+        from lib.improvement.framework import d057_check
     except ImportError as exc:
         log.warning("[improvement.weekly] Cannot import mission creation tools: %s", exc)
         return
@@ -218,8 +218,8 @@ def format_weekly_brief(brief: WeeklyImprovementBrief) -> str:
         "*WEEKLY IMPROVEMENT REVIEW*",
         f"_{brief.reviewed_at.strftime('%Y-%m-%d')} — D-057 Continuous Improvement First_",
         "",
-        f"*Summary:* {brief.total_opportunities} observations | "
-        f"{len(brief.high_band)} High | {len(brief.medium_band)} Medium | {len(brief.low_band)} Low",
+        (f"*Summary:* {brief.total_opportunities} observations | "
+        f"{len(brief.high_band)} High | {len(brief.medium_band)} Medium | {len(brief.low_band)} Low"),
         f"*Missions created:* {len(brief.missions_created)}"
         + (f" | {brief.missions_failed} failed" if brief.missions_failed else ""),
         "",

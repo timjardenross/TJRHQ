@@ -11,6 +11,7 @@ import sys
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import patch
 
 _BOT_DIR = Path(__file__).resolve().parent
@@ -132,11 +133,11 @@ class TestControlTower(unittest.TestCase):
 # ── WP3 ───────────────────────────────────────────────────────────────────────
 
 class TestRecommendationPackage(unittest.TestCase):
-    LOAD = MissionLoad(open_count=2, open_titles=["X"],
+    LOAD: ClassVar[MissionLoad] = MissionLoad(open_count=2, open_titles=["X"],
                        priorities=[Priority("P1", "Memory", "Active")], data_available=True)
-    HARD = {"energy": "low", "mood": "low", "nervous_system_state": "dysregulated",
+    HARD: ClassVar[dict] = {"energy": "low", "mood": "low", "nervous_system_state": "dysregulated",
             "sleep_hours": 4.5, "sleep_quality": "poor", "captain_capacity_rating": "Red"}
-    GOOD = {"energy": "high", "mood": "positive", "nervous_system_state": "calm",
+    GOOD: ClassVar[dict] = {"energy": "high", "mood": "positive", "nervous_system_state": "calm",
             "sleep_hours": 8, "sleep_quality": "good", "captain_capacity_rating": "Green"}
 
     def _snap(self, r):

@@ -369,7 +369,7 @@ def handle_mission_register_draft(
         log.error("[mission-register-draft] Mistral Mission Scribe failed: %s — %s", type(exc).__name__, exc)
         llm_output = _raw_fallback_mission_text(text, proposed_id)
 
-    markdown = generate_mission_file_draft(text, llm_output, proposed_id)
+    generate_mission_file_draft(text, llm_output, proposed_id)
     slug = _make_slug(text)
     filename = f"{proposed_id}-{slug}.md"
 

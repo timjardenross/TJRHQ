@@ -327,7 +327,7 @@ class ResearchMemoryRetriever:
 
         try:
             # Increment reuse_count
-            response = self.supabase.table("research_memory") \
+            self.supabase.table("research_memory") \
                 .update({"reuse_count": self.supabase.rpc("increment_reuse_count", {"entry_id": entry_id})}) \
                 .eq("id", entry_id) \
                 .execute()

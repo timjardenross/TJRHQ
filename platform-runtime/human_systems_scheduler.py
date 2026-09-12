@@ -115,7 +115,7 @@ def _build_message(job: str):
     raise ValueError(f"unknown job: {job}")
 
 
-def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+def _record_heartbeat(status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort."""
     try:
         sys.path.insert(0, str(_BOT_DIR.parent / "core" / "platform"))
@@ -159,7 +159,6 @@ def _publish_core_event(job: str, message, report: dict) -> None:
         )
     except Exception as _exc:
         log.debug("[human_systems_scheduler] best-effort step failed, continuing: %s", _exc)
-        pass
 
 
 def run_job(job: str, *, dry_run: bool = False, record: bool = True) -> dict:
@@ -226,7 +225,7 @@ def _start_daemon():
     for job in JOBS:
         env_key, default = _CRON_DEFAULTS[job]
         parts = os.environ.get(env_key, default).split()
-        kw = dict(minute=parts[0], hour=parts[1], day=parts[2], month=parts[3], day_of_week=parts[4])
+        kw = {"minute": parts[0], "hour": parts[1], "day": parts[2], "month": parts[3], "day_of_week": parts[4]}
         if tz:
             kw["timezone"] = tz
         scheduler.add_job(

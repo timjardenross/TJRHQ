@@ -27,19 +27,7 @@ class MemorySmokeTest(unittest.TestCase):
             decisions_dir = repo_root / "knowledge" / "decisions"
             decisions_dir.mkdir(parents=True)
             (decisions_dir / "DEC-SMOKE.md").write_text(
-                "\n".join([
-                    "Decision ID: DEC-SMOKE",
-                    "Status: Approved",
-                    "",
-                    "Decision:",
-                    "Use the canonical mission registry as source of truth.",
-                    "",
-                    "Rationale:",
-                    "Avoid duplicate work and improve governance recall.",
-                    "",
-                    "Related:",
-                    "Superseded by DEC-SMOKE-2.",
-                ]),
+                "Decision ID: DEC-SMOKE\nStatus: Approved\n\nDecision:\nUse the canonical mission registry as source of truth.\n\nRationale:\nAvoid duplicate work and improve governance recall.\n\nRelated:\nSuperseded by DEC-SMOKE-2.",
                 encoding="utf-8",
             )
 

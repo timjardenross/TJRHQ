@@ -114,11 +114,10 @@ class NotificationConfig:
             return False
 
         # Minimum level filter
-        if level in _SEVERITY_ORDER and self.level in _SEVERITY_ORDER:
-            if _SEVERITY_ORDER.index(level) < _SEVERITY_ORDER.index(self.level):
-                return False
-
-        return True
+        return not (
+            level in _SEVERITY_ORDER and self.level in _SEVERITY_ORDER
+            and _SEVERITY_ORDER.index(level) < _SEVERITY_ORDER.index(self.level)
+        )
 
 
 # Module-level singleton
@@ -178,6 +177,7 @@ def _mission_last_activity(mission_id: str) -> datetime | None:
             capture_output=True,
             text=True,
             timeout=5,
+            check=False,
         )
         lines = [l.strip() for l in result.stdout.strip().splitlines() if l.strip()]
         if lines:
@@ -188,7 +188,6 @@ def _mission_last_activity(mission_id: str) -> datetime | None:
             return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S %z")
     except Exception as _exc:
         log.debug("[captain_notifications] best-effort step failed, continuing: %s", _exc)
-        pass
     return None
 
 
@@ -594,9 +593,8 @@ def check_lesson_captured(mission_id: str) -> bool:
             for f in path.rglob("*.md"):
                 if mission_id in f.read_text():
                     return True
-        elif path.is_file():
-            if mission_id in path.read_text():
-                return True
+        elif path.is_file() and mission_id in path.read_text():
+            return True
     return False
 
 

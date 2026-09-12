@@ -173,7 +173,6 @@ def calculate_mission_risk_score(mission: dict) -> dict:
             reasons.append("Missing lesson learned")
     except Exception as _exc:
         log.debug("[mission_risk] best-effort step failed, continuing: %s", _exc)
-        pass
 
     if _missing_validation(mission_id):
         gov_score += 5
@@ -229,12 +228,9 @@ def _missing_validation(mission_id: str) -> bool:
             if mission_id in f.name:
                 text = f.read_text()
                 indicators = ["validation", "validated", "acceptance criteria", "test passed"]
-                if not any(ind in text.lower() for ind in indicators):
-                    return True
-                return False
+                return bool(not any(ind in text.lower() for ind in indicators))
     except Exception as _exc:
         log.debug("[mission_risk] best-effort step failed, continuing: %s", _exc)
-        pass
     return False
 
 

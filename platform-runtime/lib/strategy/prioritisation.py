@@ -154,7 +154,6 @@ def score_initiative(
             capacity_score = max(0.0, capacity_score - 1.5)
     except Exception as _exc:
         log.debug("[lib.strategy.prioritisation] best-effort step failed, continuing: %s", _exc)
-        pass
 
     # ── Dimension 5: Risk Reduction (0–10) ────────────────────────────────────
     risk_score = 3.0   # baseline — all initiatives reduce some risk
@@ -167,7 +166,6 @@ def score_initiative(
             signals.append(f"{len(risk_benefits)} risk-reduction benefit(s)")
     except Exception as _exc:
         log.debug("[lib.strategy.prioritisation] best-effort step failed, continuing: %s", _exc)
-        pass
     if resilience_risk == "RED":
         risk_score = min(10.0, risk_score + 3.0)
         signals.append("RED resilience — risk reduction urgent")
@@ -187,7 +185,6 @@ def score_initiative(
             signals.append(f"{outcome_threats} outcome-threatening risk(s)")
     except Exception as _exc:
         log.debug("[lib.strategy.prioritisation] best-effort step failed, continuing: %s", _exc)
-        pass
     if init.review_overdue:
         urgency_score = min(10.0, urgency_score + 1.5)
         signals.append("review overdue")

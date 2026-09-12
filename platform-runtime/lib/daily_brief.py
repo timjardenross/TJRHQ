@@ -218,7 +218,7 @@ def compose_daily_brief(
 
     lines += [
         "",
-        "_One picture, one action. React with 👍 (helpful) / 😐 (neutral) / 👎 (not "
-        "helpful), or `/hs feedback helpful|neutral|not`, so the system learns._",
+        ("_One picture, one action. React with 👍 (helpful) / 😐 (neutral) / 👎 (not "
+        "helpful), or `/hs feedback helpful|neutral|not`, so the system learns._"),
     ]
     return "\n".join(lines)

@@ -153,7 +153,7 @@ def handle_research_request_with_slack(
         Slack-formatted markdown response string (or queue position message)
     """
 
-    global _research_lock, _research_queue, _research_executing, _slack_say_func
+    global _slack_say_func
 
     # Store say function globally so queue processor can use it
     _slack_say_func = say
@@ -195,7 +195,7 @@ def handle_research_request(
         Slack-formatted markdown response string (or queue position message)
     """
 
-    global _research_lock, _research_queue, _research_executing
+    global _research_executing
 
     log.info(
         "[research] Handling research request: user=%s channel=%s topic_len=%d",
@@ -439,8 +439,6 @@ def _execute_research_mission(
     # Step 3: Execute new research mission (prior research not reusable)
     log.info("[research] Starting new research mission (executing)")
     try:
-        global _provider_health
-
         # MSN-0055C WP2: Reset provider health for new mission
         _provider_health.reset()
         log.debug("[research] Provider health tracker reset for new mission")
@@ -502,8 +500,6 @@ def _execute_research_mission(
 
 def _process_research_queue() -> None:
     """Process queued research requests one by one and post results to Slack (MSN-0054E-FIX)."""
-    global _research_lock, _research_queue, _slack_say_func
-
     while len(_research_queue) > 0:
         # Acquire lock for next queued mission
         _research_lock.acquire()
@@ -570,8 +566,6 @@ def _post_queued_mission_result(
     Posts to original thread if available, otherwise to channel.
     Failures are logged but do not crash the bot.
     """
-    global _slack_say_func
-
     if not _slack_say_func:
         log.warning(
             "[research-queue] Cannot post result: no Slack say() function available. "
@@ -752,22 +746,6 @@ def _queue_mission_logging(result, user_id: str | None) -> None:
 
     try:
         # MSN-0056: Save research outcome to memory
-        research_memory = {
-            "mission_id": result.mission_id,
-            "research_topic": result.research_topic,
-            "research_date": result.timestamp,
-            "task_breakdown": result.task_breakdown or [],
-            "tasks_executed": result.task_count,
-            "tasks_completed": result.tasks_completed,
-            "status": result.status,
-            "consolidated_findings": result.consolidated_findings,
-            "recommendation": result.recommendation,
-            "confidence_level": result.confidence,
-            "providers_used": result.provider_paths or [],
-            "primary_provider": result.primary_provider,
-            "execution_status": "success" if result.status == "success" else "partial" if result.status == "partial" else "failed",
-            "researcher_id": user_id or "slack-bot",
-        }
 
         # TODO: Phase 5 implementation
         # Persist to memory system (e.g., Supabase research_memory table)
@@ -918,7 +896,6 @@ def _persist_research_memory(result, user_id: str | None) -> None:
             )
         except Exception as _exc:
             log.debug("[commands.research_command] best-effort step failed, continuing: %s", _exc)
-            pass
     except Exception as exc:
         log.warning("[research] Failed to persist research memory (non-blocking): %s", exc)
 

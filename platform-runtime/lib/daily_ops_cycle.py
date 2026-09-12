@@ -571,7 +571,6 @@ def _step_learning_review(ctx: CycleContext) -> None:
                     lessons_created += 1
             except Exception as _exc:
                 log.debug("[lib.daily_ops_cycle] best-effort step failed, continuing: %s", _exc)
-                pass
         ctx.lessons_generated_this_cycle = lessons_created
         ctx.lesson_candidates_pending = get_lesson_candidate_count(pending_only=True)
 
@@ -638,7 +637,6 @@ def _step_strategic_outcomes(ctx: CycleContext, *, monthly_review: bool = False)
                 refresh_initiative_health(init.initiative_id, inputs)
             except Exception as _exc:
                 log.debug("[lib.daily_ops_cycle] best-effort step failed, continuing: %s", _exc)
-                pass
 
         # Dashboard (WP7)
         dash = build_strategic_dashboard(inputs)
@@ -1394,7 +1392,7 @@ def _format_improvement_discovery_section(ctx: CycleContext) -> str:
         active  = budget.get("active_improvement_missions", "?")
         maximum = budget.get("max_improvement_missions", "?")
         cap_st  = budget.get("capacity_status", "?")
-        label   = budget.get("status_label", "")
+        budget.get("status_label", "")
         created = ctx.improvement_missions_created
         drained = ctx.improvement_backlog_drained
         backlog = ctx.improvement_backlog_count

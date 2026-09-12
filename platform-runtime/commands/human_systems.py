@@ -197,7 +197,7 @@ def handle_human_systems(text: str, user_id: str | None = None, channel_id: str 
               "capacity-review", "creview", "xo", "effectiveness")
     # A bare keyword ("plan", "review") is a direct command. Anything else —
     # including "help me build a…" — is treated as a natural-language ask first.
-    is_direct = command in _verbs and not (command == "help")
+    is_direct = command in _verbs and command != "help"
     if not is_direct:
         mapped = _natural_intent(raw)
         if mapped:
@@ -265,9 +265,9 @@ def _today(_rest: str) -> str:
         lines.append(f"• *{d.label}:* {d.band} — {d.driver}.")
     lines += [
         "",
-        "*What matters most today:* pick one anchor that fits this capacity and "
+        ("*What matters most today:* pick one anchor that fits this capacity and "
         "pace the rest around it. A practical next step could be `/hs plan "
-        f"{'low-capacity' if snap.overall_band in ('limited', 'depleted') else 'movement'}`.",
+        f"{'low-capacity' if snap.overall_band in ('limited', 'depleted') else 'movement'}`."),
     ]
     return safety.frame("\n".join(lines))
 
@@ -370,7 +370,7 @@ def _xo(request: str) -> str:
 
 def _domains() -> str:
     lines = ["*Human Systems — Six Domains*", ""]
-    for key, meta in framework.DOMAINS.items():
+    for meta in framework.DOMAINS.values():
         lines.append(f"• *{meta['label']}* — {meta['purpose']}")
     lines += [
         "",

@@ -315,7 +315,6 @@ def handle_recovery_pulse_submit(values: dict, user_id: str, client: Any) -> Non
             record_heartbeat("recovery_pulses", status="ok", detail=f"pulse_type={pulse_type} source=slack")
         except Exception as _exc:
             log.debug("[commands.recovery_pulse] best-effort step failed, continuing: %s", _exc)
-            pass
 
     meta = _PULSE_META.get(pulse_type, _PULSE_META["morning"])
     status_icon = ":white_check_mark:" if saved else ":warning:"
@@ -337,7 +336,6 @@ def handle_recovery_pulse_submit(values: dict, user_id: str, client: Any) -> Non
             lines += ["", confidence_text]
     except Exception as _exc:
         log.debug("[commands.recovery_pulse] best-effort step failed, continuing: %s", _exc)
-        pass
 
     try:
         client.chat_postMessage(channel=user_id, text="\n".join(lines))

@@ -45,8 +45,8 @@ def compose_weekly_brief(opportunities: list, *, date_str: str | None = None,
     if not pub:
         lines += [
             "No publishable opportunities surfaced from Command Memory this week.",
-            "_As missions complete, decisions are recorded, and research lands, "
-            "opportunities will appear here automatically._",
+            ("_As missions complete, decisions are recorded, and research lands, "
+            "opportunities will appear here automatically._"),
         ]
         return "\n".join(lines)
 
@@ -74,7 +74,7 @@ def compose_weekly_brief(opportunities: list, *, date_str: str | None = None,
 
     lines += [
         "",
-        f"_Generate a draft with `/comms draft <n>`. {OFFICER} scaffolds; "
-        "the Captain writes, edits, and publishes._",
+        (f"_Generate a draft with `/comms draft <n>`. {OFFICER} scaffolds; "
+        "the Captain writes, edits, and publishes._"),
     ]
     return "\n".join(lines)

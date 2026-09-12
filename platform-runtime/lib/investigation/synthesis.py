@@ -208,7 +208,7 @@ def synthesize_findings(
     ]
 
     # Compose headline
-    high = [p for p in integrated.supporting_perspectives if p.confidence >= 0.75]
+    [p for p in integrated.supporting_perspectives if p.confidence >= 0.75]
     integrated.headline = (
         f"{len(integrated.supporting_perspectives)} officer(s) converge on "
         f"'{consensus_action}' ({integrated.confidence_label} confidence)"
@@ -398,8 +398,8 @@ def format_integrated_finding(finding: IntegratedFinding) -> str:
     lines = [
         f"*Integrated Finding ({finding.investigation_id}):*",
         f"  {finding.headline}",
-        f"  Confidence: {finding.confidence_label} ({finding.integrated_confidence:.0%}) "
-        f"across {finding.officer_count} officer(s)",
+        (f"  Confidence: {finding.confidence_label} ({finding.integrated_confidence:.0%}) "
+        f"across {finding.officer_count} officer(s)"),
         f"  Consensus action: `{finding.consensus_action}`",
     ]
     if finding.supporting_evidence:

@@ -47,7 +47,6 @@ try:
     configure_tracing("daily-operations-cycle")
 except Exception as _exc:
     log.debug("[lib.officers.daily_operations_cycle] best-effort step failed, continuing: %s", _exc)
-    pass
 
 
 # ── Output data class ─────────────────────────────────────────────────────────

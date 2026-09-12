@@ -32,10 +32,6 @@ def get_model_router_url() -> str:
     return os.getenv("MODEL_ROUTER_URL", DEFAULT_MODEL_ROUTER_URL).rstrip("/")
 
 
-def get_gemini_model() -> str:
-    return os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
-
-
 def get_ollama_base_url() -> str:
     return os.getenv("OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL).rstrip("/")
 
@@ -78,10 +74,6 @@ def is_ollama_available() -> bool:
             return 200 <= response.status < 300
     except Exception:
         return False
-
-
-def is_gemini_available() -> bool:
-    return bool(os.getenv("GEMINI_API_KEY"))
 
 
 def is_router_available() -> bool:
@@ -224,29 +216,6 @@ def generate_with_ollama(prompt: str, system_prompt: str | None = None, model: s
     content = (body.get("message") or {}).get("content", "")
     if not content.strip():
         raise LLMUnavailableError("Ollama returned an empty response.")
-    return content.strip()
-
-
-def generate_with_gemini(prompt: str, system_prompt: str | None = None) -> str:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise LLMUnavailableError("Gemini credentials are not configured.")
-
-    try:
-        import google.generativeai as genai
-
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            get_gemini_model(),
-            system_instruction=system_prompt or None,
-        )
-        response = model.generate_content(prompt)
-        content = (getattr(response, "text", "") or "")
-    except Exception as error:
-        raise LLMUnavailableError(f"Gemini unavailable: {type(error).__name__}") from error
-
-    if not content.strip():
-        raise LLMUnavailableError("Gemini returned an empty response.")
     return content.strip()
 
 

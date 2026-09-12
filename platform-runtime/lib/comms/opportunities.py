@@ -186,7 +186,6 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
         out += outcome_opportunities(_gather_outcome_candidates(limit_per_source))
     except Exception as _exc:  # pragma: no cover
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
-        pass
 
     c = _client()
     if c is None:
@@ -202,7 +201,6 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
                                          body=str(body or ""), quality=quality))
         except Exception as _exc:  # pragma: no cover
             log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
-            pass
 
     # Missions → case studies / behind-the-scenes.
     try:
@@ -211,7 +209,6 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
                 quality=r.get("outcome_rating"))
     except Exception as _exc:
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
-        pass
     # Lessons learned → lessons posts.
     try:
         for r in _q(c, "lessons_learned", "lesson_id,title,lesson_text,future_guidance", limit_per_source):
@@ -219,7 +216,6 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
                 f"{r.get('lesson_text','')} {r.get('future_guidance','')}")
     except Exception as _exc:
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
-        pass
     # Decisions → leadership lessons.
     try:
         for r in _q(c, "decisions", "id,decision_type,reasoning,outcome,outcome_quality", limit_per_source):
@@ -227,14 +223,12 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
                 f"{r.get('reasoning','')} {r.get('outcome','')}", quality=r.get("outcome_quality"))
     except Exception as _exc:
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
-        pass
     # Capabilities → behind-the-scenes builds.
     try:
         for r in _q(c, "capabilities", "id,name,purpose", limit_per_source):
             add("capability", r.get("id"), r.get("name"), r.get("purpose"))
     except Exception as _exc:
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
-        pass
     # Research → insight articles.
     try:
         for r in _q(c, "research_memory", "mission_id,original_question,consolidated_findings,recommendation", limit_per_source):
@@ -242,7 +236,6 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
                 f"{r.get('consolidated_findings','')} {r.get('recommendation','')}")
     except Exception as _exc:
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
-        pass
     # ADRs → framework explanations.
     try:
         for r in _q(c, "architecture_records", "id,title,problem_statement,decision_summary", limit_per_source):
@@ -250,7 +243,6 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
                 f"{r.get('problem_statement','')} {r.get('decision_summary','')}")
     except Exception as _exc:
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
-        pass
     # Resilience briefs → industry commentary.
     try:
         for r in _q(c, "intelligence_briefs", "brief_id,executive_snapshot,bottom_line", limit_per_source):
@@ -258,7 +250,6 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
                 f"{r.get('executive_snapshot','')} {r.get('bottom_line','')}")
     except Exception as _exc:
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
-        pass
     # Strategic objectives → executive insight (SPC-001 tie-in).
     try:
         for r in _q(c, "strategic_objectives", "objective_id,title,description,status", limit_per_source):
@@ -266,7 +257,6 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
                 add("objective", r.get("objective_id"), r.get("title"), r.get("description"))
     except Exception as _exc:
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
-        pass
 
     if publishable_only:
         out = [o for o in out if o.is_publishable]

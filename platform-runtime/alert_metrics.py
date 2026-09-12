@@ -111,7 +111,6 @@ def get_notification_metrics(days: int | None = 7) -> dict:
                 )
             except Exception as _exc:
                 log.debug("[alert_metrics] best-effort step failed, continuing: %s", _exc)
-                pass
 
     except Exception as exc:
         log.warning("[metrics] Metrics computation failed: %s", exc)
@@ -139,7 +138,7 @@ def _avg_time_between_event_types(
 ) -> float | None:
     """Compute average hours between two event types for the same escalation_id."""
     durations = []
-    for eid, evs in events_by_key.items():
+    for evs in events_by_key.values():
         from_events = sorted(
             [e for e in evs if e.get("event_type") == from_type],
             key=lambda e: e.get("event_at", ""),

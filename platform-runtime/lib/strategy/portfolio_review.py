@@ -206,8 +206,8 @@ def format_portfolio_review(review: PortfolioReview) -> str:
 
     lines = [
         f"*Portfolio Review (D-064):* {review.headline}",
-        f"  Portfolio value realised: {review.portfolio_value_pct:.0%} | "
-        f"Initiatives: {review.total_initiatives}",
+        (f"  Portfolio value realised: {review.portfolio_value_pct:.0%} | "
+        f"Initiatives: {review.total_initiatives}"),
         "",
     ]
 

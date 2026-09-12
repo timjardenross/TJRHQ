@@ -100,8 +100,8 @@ def effectiveness_report(rows: list[dict] | None = None) -> str:
         gl = adj.get("_global")
         if gl is not None:
             tilt = "up" if gl > 1 else "down" if gl < 1 else "neutral"
-            lines += ["", f"_Learned confidence tilt: {tilt} (×{gl}). Advisory only — "
-                      "the system recommends; you decide._"]
+            lines += ["", (f"_Learned confidence tilt: {tilt} (×{gl}). Advisory only — "
+                      "the system recommends; you decide._")]
     return "\n".join(lines)
 
 

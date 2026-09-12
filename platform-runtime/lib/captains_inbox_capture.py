@@ -79,7 +79,6 @@ class _SupabaseInsert:
                 self._client = create_client(self.url, self.key)
             except Exception as _exc:
                 log.debug("[lib.captains_inbox_capture] best-effort step failed, continuing: %s", _exc)
-                pass
 
     def enabled(self) -> bool:
         return bool(self.url and self.key)
@@ -187,4 +186,3 @@ def alert_capture_failure(client: Any, channel: str, thread_ts: str) -> None:
         )
     except Exception as _exc:
         log.debug("[lib.captains_inbox_capture] best-effort step failed, continuing: %s", _exc)
-        pass

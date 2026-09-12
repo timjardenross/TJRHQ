@@ -139,7 +139,7 @@ def cycle_time_stats(rows: list[dict]) -> dict:
     if not vals:
         return {"count": 0, "avg": None, "median": None, "p90": None}
     s = sorted(vals)
-    p90 = s[min(len(s) - 1, int(round(0.9 * (len(s) - 1))))]
+    p90 = s[min(len(s) - 1, round(0.9 * (len(s) - 1)))]
     return {"count": len(vals), "avg": round(mean(vals), 1),
             "median": round(median(vals), 1), "p90": round(p90, 1)}
 

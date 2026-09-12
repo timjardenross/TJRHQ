@@ -22,6 +22,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+# Reuse the Human Systems command's data helpers (single source of fetch logic).
 from lib import daily_brief
 from lib.comms import opportunities as _comms
 from lib.delivery import data as ddata
@@ -33,7 +34,6 @@ from lib.intel import ori as _ori
 from lib.strategy import alignment as _alignment
 from lib.strategy import objectives as _strategy
 
-# Reuse the Human Systems command's data helpers (single source of fetch logic).
 from commands.human_systems import _delivery_context, _fetch_rows, _today_row
 
 
@@ -103,7 +103,6 @@ def build_brief() -> str:
         )
     except Exception as _exc:
         log.debug("[commands.brief] best-effort step failed, continuing: %s", _exc)
-        pass
 
     # EDO control tower (reused, not rebuilt).
     tower = None
@@ -166,7 +165,6 @@ def build_brief() -> str:
             )
     except Exception as _exc:
         log.debug("[commands.brief] best-effort step failed, continuing: %s", _exc)
-        pass
 
     # MSN-0328 Wave 3: poll the canonical pipeline back so this brief's own
     # just-emitted event (above) is available for compose_daily_brief() to
@@ -253,8 +251,8 @@ def _strategy_view() -> str:
         lines.append(f"• [{o.priority}] *{o.title}* — _{o.domain}_")
         lines.append(f"    ↳ {o.progress_label()}")
     if snap.orphan_count:
-        lines += ["", f"⚠️ {snap.orphan_count} open mission(s) not yet aligned to an "
-                  "objective — review at the fortnightly objective check."]
+        lines += ["", (f"⚠️ {snap.orphan_count} open mission(s) not yet aligned to an "
+                  "objective — review at the fortnightly objective check.")]
     lines += ["", "_Strategy advises the daily decision; capacity stays first (D-055)._"]
     return "\n".join(lines)
 

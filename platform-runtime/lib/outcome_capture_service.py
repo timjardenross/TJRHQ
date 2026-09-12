@@ -174,7 +174,7 @@ class OutcomeCapture:
         # Persist if client available
         if self.supabase_client:
             try:
-                response = (
+                (
                     self.supabase_client.table("decision_outcomes")
                     .insert(outcome.to_dict())
                     .execute()

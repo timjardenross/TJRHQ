@@ -103,7 +103,6 @@ def analyse_capability_gaps() -> list[CapabilityGap]:
                 ))
         except Exception as _exc:
             log.debug("[lib.strategy.capability_gaps] best-effort step failed, continuing: %s", _exc)
-            pass
 
     # Gap 2: Weak capabilities (active but maturity ≤ 2)
     for cap in caps:
@@ -123,7 +122,6 @@ def analyse_capability_gaps() -> list[CapabilityGap]:
                 ))
         except Exception as _exc:
             log.debug("[lib.strategy.capability_gaps] best-effort step failed, continuing: %s", _exc)
-            pass
 
     # Gap 3: Over-invested capabilities (maturity 4-5, no objective linkage)
     for cap in caps:
@@ -141,7 +139,6 @@ def analyse_capability_gaps() -> list[CapabilityGap]:
                 ))
         except Exception as _exc:
             log.debug("[lib.strategy.capability_gaps] best-effort step failed, continuing: %s", _exc)
-            pass
 
     # Gap 4: Unsupported objectives (from capability mapping)
     try:

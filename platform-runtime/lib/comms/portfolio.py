@@ -79,7 +79,6 @@ def record_content(*, content_id: str, title: str, pillar: str | None = None,
                 )
             except Exception as _exc:
                 log.debug("[lib.comms.portfolio] best-effort step failed, continuing: %s", _exc)
-                pass
         return ok
     except Exception as exc:  # pragma: no cover
         log.warning("[comms.portfolio] record_content failed: %s", exc)

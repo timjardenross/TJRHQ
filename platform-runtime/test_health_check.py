@@ -125,7 +125,6 @@ class TestSubmitPayloadSafety(unittest.TestCase):
         with patch("commands.health_check._make_supabase", return_value=mock_db):
             handle_health_check_submit(values, user_id="U1", client=MagicMock())
 
-        payload = mock_db.raw_client.table.call_args
         upsert_call = mock_db.raw_client.table.return_value.upsert.call_args
         sent_payload = upsert_call[0][0]
         self.assertNotIn("diagnosis", sent_payload)

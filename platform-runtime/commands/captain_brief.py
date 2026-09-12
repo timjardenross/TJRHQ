@@ -84,6 +84,7 @@ def _fetch(context_name: str) -> dict[str, Any] | None:
                 text=True,
                 timeout=20,
                 cwd=str(_REPO_ROOT),
+                check=False,
             )
             if result.returncode == 0 and result.stdout.strip():
                 data = json.loads(result.stdout)

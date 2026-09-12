@@ -269,8 +269,8 @@ def format_constraint_report(report: PortfolioConstraintReport) -> str:
     }
     lines = [
         f"*Portfolio Delivery Constraints ({len(report.constraints)} identified):*",
-        f"  Portfolio risk: {report.portfolio_risk.upper()} | "
-        f"{report.critical_count} critical · {report.high_count} high",
+        (f"  Portfolio risk: {report.portfolio_risk.upper()} | "
+        f"{report.critical_count} critical · {report.high_count} high"),
     ]
     for c in report.constraints[:6]:
         icon = risk_icons.get(c.severity, "•")

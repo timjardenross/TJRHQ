@@ -219,7 +219,6 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
             recent_lessons = int(getattr(lr, "count", None) or 0)
         except Exception as _exc:
             log.debug("[lib.learning.knowledge_quality] best-effort step failed, continuing: %s", _exc)
-            pass
         recent_candidates = 0
         try:
             cr = rc.table("decisions").select("id", count="exact").like(
@@ -228,7 +227,6 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
             recent_candidates = int(getattr(cr, "count", None) or 0)
         except Exception as _exc:
             log.debug("[lib.learning.knowledge_quality] best-effort step failed, continuing: %s", _exc)
-            pass
         # Freshness saturates at 5 recent knowledge events
         score.documentation_freshness = _safe_ratio(recent_lessons + recent_candidates, 5)
     except Exception as exc:
@@ -258,7 +256,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
 def format_knowledge_quality(score: KnowledgeQualityScore) -> str:
     """Format the knowledge quality score as Slack-ready text."""
     def bar(v: float) -> str:
-        filled = int(round(v * 5))
+        filled = round(v * 5)
         return "█" * filled + "░" * (5 - filled)
 
     lines = [

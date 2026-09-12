@@ -135,7 +135,7 @@ def get_mission_gemini_quota(mission_id: str) -> MissionGeminiQuota:
 def call_mistral_research(
     task_description: str,
     timeout_sec: int = 60,
-    mission_id: str = None,
+    mission_id: str | None = None,
 ) -> ResearchOutcome:
     """
     Call the Mistral Research Agent as primary provider for task execution.
@@ -194,7 +194,7 @@ def call_legacy_research_routing(
 def call_ollama_research(
     task_description: str,
     timeout_sec: int = 120,
-    ollama_url: str = None
+    ollama_url: str | None = None
 ) -> ResearchOutcome:
     """Submit research task to qwen3:8b via Ollama (local fallback).
 
@@ -386,7 +386,7 @@ def call_gemini_2_flash_research(
                         error_message=f"Rate limited (retried, failed): {str(retry_error)[:100]}"
                     )
             else:
-                raise gemini_error
+                raise
 
         findings = response.text if response.text else "No findings returned"
 
@@ -532,7 +532,7 @@ def call_gemini_2_5_flash_lite_research(
                             fallback_reason="gemini_rate_limited"
                         )
             else:
-                raise gemini_error
+                raise
 
         findings = response.text if response.text else "No findings returned"
 
@@ -711,12 +711,11 @@ def delegate_research_task(
             continue
 
         # MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Skip Gemini if quota exhausted
-        if provider_id.startswith("gemini") and mission_quota:
-            if not mission_quota.can_use_gemini():
-                reason = "mission_quota_exhausted" if mission_quota.gemini_calls_made >= GEMINI_MAX_CALLS_PER_MISSION else "daily_quota_exceeded"
-                providers_skipped.append(f"{provider_id}({reason})")
-                log.debug(f"[QUOTA-AWARE] {provider_id}: Skipping - {reason}. Calls: {mission_quota.gemini_calls_made}/{GEMINI_MAX_CALLS_PER_MISSION}")
-                continue
+        if provider_id.startswith("gemini") and mission_quota and not mission_quota.can_use_gemini():
+            reason = "mission_quota_exhausted" if mission_quota.gemini_calls_made >= GEMINI_MAX_CALLS_PER_MISSION else "daily_quota_exceeded"
+            providers_skipped.append(f"{provider_id}({reason})")
+            log.debug(f"[QUOTA-AWARE] {provider_id}: Skipping - {reason}. Calls: {mission_quota.gemini_calls_made}/{GEMINI_MAX_CALLS_PER_MISSION}")
+            continue
 
         providers_attempted.append(provider_id)
         log.info(f"[QUOTA-AWARE] Provider chain: Attempting {provider_name}")

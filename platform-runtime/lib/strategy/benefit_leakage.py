@@ -184,7 +184,6 @@ def detect_benefit_leakage() -> list[BenefitLeakage]:
                         )
                 except Exception as _exc:
                     log.debug("[lib.strategy.benefit_leakage] best-effort step failed, continuing: %s", _exc)
-                    pass
 
             if leakage:
                 leakages.append(leakage)

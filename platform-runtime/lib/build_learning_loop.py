@@ -198,7 +198,6 @@ def record_build_lifecycle_event(
                 record_heartbeat("decisions", status="ok", detail=f"source=build-learning-loop event_type={event_type}")
             except Exception as _exc:
                 log.debug("[lib.build_learning_loop] best-effort step failed, continuing: %s", _exc)
-                pass
         else:
             log.warning("[build-learning-loop] decision_records write failed: %s", dr_result.error)
 

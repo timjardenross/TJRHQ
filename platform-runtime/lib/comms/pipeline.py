@@ -232,7 +232,6 @@ def get_pipeline_status() -> dict[str, Any]:
             return status
     except Exception as _exc:
         log.debug("[lib.comms.pipeline] best-effort step failed, continuing: %s", _exc)
-        pass
 
     # Fallback: direct table query
     try:

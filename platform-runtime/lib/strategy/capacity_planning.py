@@ -107,7 +107,6 @@ def assess_portfolio_capacity(
                             owners_seen[owner] = owners_seen.get(owner, 0) + 1
             except Exception as _exc:
                 log.debug("[lib.strategy.capacity_planning] best-effort step failed, continuing: %s", _exc)
-                pass
 
             try:
                 fc = forecast_initiative(init.initiative_id)
@@ -115,7 +114,6 @@ def assess_portfolio_capacity(
                     demand.forecast = fc.forecast.value
             except Exception as _exc:
                 log.debug("[lib.strategy.capacity_planning] best-effort step failed, continuing: %s", _exc)
-                pass
 
             demand.demand_score = min(10.0, demand.mission_count * 0.8 + demand.blocked_count * 2.0)
             demand_items.append(demand)
@@ -190,7 +188,6 @@ def assess_portfolio_capacity(
                     )
         except Exception as _exc:
             log.debug("[lib.strategy.capacity_planning] best-effort step failed, continuing: %s", _exc)
-            pass
 
     log.info(
         "[capacity_planning] state=%s util=%.0f%% missions=%d blocked=%d conflicts=%d",
@@ -211,10 +208,10 @@ def format_capacity_plan(plan: PortfolioCapacityPlan) -> str:
     icon = state_icons.get(plan.state, "•")
     lines = [
         f"*Portfolio Capacity Plan:* {icon} {plan.state.value.replace('_', ' ').upper()}",
-        f"  Utilisation: {plan.utilisation_pct:.0%} | "
+        (f"  Utilisation: {plan.utilisation_pct:.0%} | "
         f"{plan.total_initiatives} initiatives | "
         f"{plan.total_active_missions} missions | "
-        f"{plan.total_blocked_missions} blocked",
+        f"{plan.total_blocked_missions} blocked"),
     ]
     if plan.overloaded_owners:
         lines.append(f"  :warning: Overloaded owners: {', '.join(plan.overloaded_owners[:4])}")
