@@ -26,6 +26,19 @@ This file is intentionally a short pointer, not a full contributor guide.
   write-ups produced against specific bots and workbenches, kept as a historical record of
   past findings and decisions.
 
+## Writing a new decision record (ADR)
+
+If you're about to write up an architectural decision, start from the MADR
+template at `docs/decisions/TEMPLATE-madr.md` (Markdown Architectural
+Decision Records format, adopted format-only under USS-TJR-MSN-0366 Stream
+10 — no new tool or dependency, just a target shape) instead of inventing
+a one-off structure. See
+`docs/decisions/EXAMPLE-ADR-001-model-router-cloud-escalation-degrade-chain.md`
+for a filled-out real example, and `platform-runtime/adr_conflict_detector.py`
+for the (currently separate) tool that scans an older, plainer ADR shape
+elsewhere in the repo — consolidating the two is scoped to a later
+ADR-consolidation mission, not something to improvise now.
+
 ## Working in this repo
 
 - Prefer the existing skill for a task over writing new persona/process instructions from
