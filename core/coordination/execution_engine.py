@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -136,7 +136,7 @@ class NumberOneExecutionEngine:
             log.warning("[exec-engine] Authority check failed (non-blocking): %s", exc)
 
         days = review_days or self.REVIEW_DATE_DEFAULT_DAYS
-        review_date = datetime.utcnow() + timedelta(days=days)
+        review_date = datetime.now(timezone.utc) + timedelta(days=days)
 
         action = AssignmentAction(
             mission_id=mission_id,
@@ -245,7 +245,7 @@ class NumberOneExecutionEngine:
         Organises missions by state, surfaces escalations and recent assignments.
         This is the primary Number One contribution to the daily Captain brief.
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         escalations = escalations or []
         assignments = assignments or []
 
@@ -361,7 +361,7 @@ class NumberOneExecutionEngine:
                     action.mission_id,
                     {
                         "owner": action.assigned_to,
-                        "updated_at": datetime.utcnow().isoformat() + "Z",
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
                         "updated_by": "number_one",
                     }
                 )

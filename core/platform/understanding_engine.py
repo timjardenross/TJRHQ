@@ -23,12 +23,12 @@ matching this platform's established orchestrator convention
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
 from core.platform.attention_engine import AttentionDecision
-import itertools
 
 
 @dataclass

@@ -14,7 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -91,7 +91,7 @@ def run_calibration(days: int = 30) -> dict[str, Any]:
     if not is_configured():
         return {"error": "Supabase not configured", "success": False}
 
-    since = (date.today() - timedelta(days=days - 1)).isoformat()
+    since = (datetime.now().astimezone().date() - timedelta(days=days - 1)).isoformat()
     entries = supabase_get(
         f"captains_log_entries?log_date=gte.{since}&order=log_date.asc&limit={days}"
     )
@@ -143,7 +143,7 @@ def run_calibration(days: int = 30) -> dict[str, Any]:
     weighting_review_flag = consecutive_low >= GOVERNANCE_TRIGGER_DAYS
 
     summary: dict[str, Any] = {
-        "summary_date": date.today().isoformat(),
+        "summary_date": datetime.now().astimezone().date().isoformat(),
         "window_days": days,
         "total_days_compared": n,
         "agreement_count": agreed_count,

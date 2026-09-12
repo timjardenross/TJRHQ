@@ -51,7 +51,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 log = logging.getLogger(__name__)
@@ -121,7 +121,7 @@ class NotificationResult:
     transport: Transport
     attempts: int
     error: str | None = None
-    sent_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    sent_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     message_id: int | None = None  # Telegram message_id, when the transport returns one.
     # Apprise's fan-out notify() call returns a bare bool across every
     # config URL it holds, not a per-message id the way Telegram's

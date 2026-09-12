@@ -36,7 +36,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -397,7 +397,7 @@ class ResearchOrchestrator:
     def __init__(self, config: ResearchConfig | None = None):
         """Initialize orchestrator."""
         self.config = config or ResearchConfig()
-        self.current_time = datetime.utcnow()
+        self.current_time = datetime.now(timezone.utc)
 
     def run_research_mission(
         self,
@@ -442,7 +442,7 @@ class ResearchOrchestrator:
                 mission_id=mission_id,
                 research_topic=research_topic,
                 status="error",
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 task_breakdown=[],
                 task_count=0,
                 tasks_completed=0,
@@ -472,7 +472,7 @@ class ResearchOrchestrator:
                 mission_id=mission_id,
                 research_topic=research_topic,
                 status="error",
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 task_breakdown=[t.description for t in tasks],
                 task_count=len(tasks),
                 tasks_completed=0,
@@ -637,7 +637,7 @@ class ResearchOrchestrator:
             mission_id=mission_id,
             research_topic=research_topic,
             status=status,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             task_breakdown=[t.description for t in tasks],
             task_count=len(tasks),
             tasks_completed=tasks_completed,
@@ -1713,12 +1713,12 @@ CONFIDENCE: [0.0-1.0]"""
 
     def _generate_mission_id(self) -> str:
         """Generate mission ID (MSN-YYYYMMDD-HHMMSS)."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime("MSN-%Y%m%d-%H%M%S")
 
     def _generate_task_id(self, mission_id: str, order_index: int) -> str:
         """Generate task ID (RES-YYYYMMDD-HHMMSS-NN)."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime(f"RES-%Y%m%d-%H%M%S-{order_index:02d}")
 
     def _collect_errors(self, tasks: list[ResearchTask]) -> list[str]:

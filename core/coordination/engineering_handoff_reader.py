@@ -23,7 +23,7 @@ prioritisation logic with no engine changes.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -175,14 +175,17 @@ def _coerce_approved_at(value: str | None, fallback_path: Path) -> str:
     """
     if value:
         try:
-            dt = datetime.strptime(value.strip()[:19], "%Y-%m-%d %H:%M:%S")
-            return dt.isoformat() + "Z"
+            # Handoff writer emits this field as a UTC wall-clock string (no offset in
+            # source data); tag it explicitly as UTC to match the "+Z" convention this
+            # function already used, without changing the represented instant.
+            dt = datetime.strptime(value.strip()[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+            return dt.isoformat()
         except ValueError:
             pass
     try:
-        return datetime.utcfromtimestamp(fallback_path.stat().st_mtime).isoformat() + "Z"
+        return datetime.fromtimestamp(fallback_path.stat().st_mtime, tz=timezone.utc).isoformat()
     except OSError:
-        return datetime.utcnow().isoformat() + "Z"
+        return datetime.now(timezone.utc).isoformat()
 
 
 def _normalise_to_mission(

@@ -19,7 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -120,7 +120,7 @@ def run_analysis(days: int = 45) -> dict[str, Any]:
     if not is_configured():
         return {"error": "Supabase not configured", "success": False}
 
-    since = (date.today() - timedelta(days=days - 1)).isoformat()
+    since = (datetime.now().astimezone().date() - timedelta(days=days - 1)).isoformat()
     entries = supabase_get(
         f"captains_log_entries?log_date=gte.{since}&order=log_date.asc&limit={days}"
     )

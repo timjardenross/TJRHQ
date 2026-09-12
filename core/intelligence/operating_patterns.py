@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import sys
 from collections import Counter, defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from statistics import mean
 from typing import Any
@@ -45,7 +45,7 @@ _WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
 def _load_health(days: int = 90) -> list[dict[str, Any]]:
     if not _SUPABASE_OK or not is_configured():
         return []
-    since = (date.today() - timedelta(days=days)).isoformat()
+    since = (datetime.now().astimezone().date() - timedelta(days=days)).isoformat()
     try:
         return supabase_get(
             f"captains_log_entries?log_date=gte.{since}&order=log_date.asc&limit={days}"

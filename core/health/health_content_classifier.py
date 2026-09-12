@@ -14,7 +14,7 @@ Usage:
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 
@@ -194,7 +194,7 @@ class HealthContentClassifier:
             self.suppressed_signals.append({
                 "insight_id": insight_id,
                 "reason": reason,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             })
             return None
 
@@ -255,7 +255,7 @@ class HealthContentClassifier:
         log.info(f"Validating classifier on {days}-day sample (max {sample_size} signals)")
 
         # Fetch recent health insights
-        since = datetime.utcnow() - timedelta(days=days)
+        since = datetime.now(timezone.utc) - timedelta(days=days)
         since_iso = since.isoformat()
 
         try:

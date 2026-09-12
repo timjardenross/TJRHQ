@@ -81,7 +81,7 @@ def next_lesson_id() -> str:
 
 
 def _format_lesson_block(lesson_id: str, inp: LessonInput) -> str:
-    recorded = inp.date_recorded or date.today().isoformat()
+    recorded = inp.date_recorded or datetime.now().astimezone().date().isoformat()
     lines = [f"\n## {lesson_id}\n"]
     lines.append(f"### Title\n\n{inp.title.strip()}\n")
     lines.append(f"### Date\n\n{recorded}\n")
@@ -121,7 +121,7 @@ def _upsert_to_supabase(lesson_id: str, inp: LessonInput) -> bool:
     """Upsert lesson record to lessons_learned Supabase table."""
     if not is_configured():
         return False
-    recorded = inp.date_recorded or date.today().isoformat()
+    recorded = inp.date_recorded or datetime.now().astimezone().date().isoformat()
     row = {
         "lesson_id":      lesson_id,
         "title":          inp.title.strip(),
@@ -149,7 +149,7 @@ def _write_knowledge_record(lesson_id: str, inp: LessonInput) -> bool:
     record_path = _KNOWLEDGE_MISSIONS_DIR / f"{inp.mission_id}-knowledge-record.md"
     if record_path.exists():
         return False  # Don't overwrite existing records
-    recorded = inp.date_recorded or date.today().isoformat()
+    recorded = inp.date_recorded or datetime.now().astimezone().date().isoformat()
     content = f"""# Knowledge Record — {inp.mission_id}
 
 | Field | Value |

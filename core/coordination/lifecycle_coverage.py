@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import sys
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from core.coordination import delivery_reconciler as dr
@@ -73,7 +73,7 @@ def build_coverage(ledger: dict[str, Any] | None = None) -> dict[str, Any]:
     }
 
     return {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "total_items": len(all_items),
         "classified": len(all_items) - len(unclassified),
         "stage_counts": stage_counts,

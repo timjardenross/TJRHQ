@@ -3,7 +3,7 @@ Tests for recommendation_engine — WP5
 """
 
 import sys
-from datetime import date, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "core" / "context-assembly"))
@@ -40,7 +40,7 @@ def _mission(id="MSN-0001", priority="P1", status="ACTIVE", due_days=None, domai
         "dependencies": dependencies or [],
     }
     if due_days is not None:
-        m["due_date"] = str(date.today() + timedelta(days=due_days))
+        m["due_date"] = str(datetime.now().astimezone().date() + timedelta(days=due_days))
     if next_action:
         m["next_action"] = next_action
     return m
@@ -184,16 +184,16 @@ class TestCheckHealthConstraints:
 class TestDeadlineUrgency:
 
     def test_overdue(self):
-        assert _deadline_urgency(str(date.today() - timedelta(days=1))) == "high"
+        assert _deadline_urgency(str(datetime.now().astimezone().date() - timedelta(days=1))) == "high"
 
     def test_today(self):
-        assert _deadline_urgency(str(date.today())) == "high"
+        assert _deadline_urgency(str(datetime.now().astimezone().date())) == "high"
 
     def test_this_week(self):
-        assert _deadline_urgency(str(date.today() + timedelta(days=5))) == "medium"
+        assert _deadline_urgency(str(datetime.now().astimezone().date() + timedelta(days=5))) == "medium"
 
     def test_next_month(self):
-        assert _deadline_urgency(str(date.today() + timedelta(days=30))) == "low"
+        assert _deadline_urgency(str(datetime.now().astimezone().date() + timedelta(days=30))) == "low"
 
     def test_no_due_date(self):
         assert _deadline_urgency(None) == "none"

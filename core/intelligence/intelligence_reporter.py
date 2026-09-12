@@ -161,8 +161,7 @@ def _fetch_todays_health_entry() -> dict[str, Any] | None:
         from supabase_client import is_configured, supabase_get
         if not is_configured():
             return None
-        from datetime import date
-        today = date.today().isoformat()
+        today = datetime.now().astimezone().date().isoformat()
         rows = supabase_get(f"captains_log_entries?log_date=eq.{today}&limit=1")
         if rows:
             return rows[0]
@@ -194,7 +193,7 @@ def _fetch_todays_health_entry() -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 
 def _write_report(name: str, data: dict[str, Any], dry_run: bool = False) -> bool:
-    data["_generated_at"] = datetime.utcnow().isoformat() + "Z"
+    data["_generated_at"] = datetime.now(timezone.utc).isoformat()
     data["_report"] = name
 
     if dry_run:
@@ -517,7 +516,7 @@ def run_all_reports(dry_run: bool = False, persist_readiness: bool = True) -> di
         "reports_ok": ok_count,
         "reports_total": len(_REPORTS),
         "results": results,
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
 

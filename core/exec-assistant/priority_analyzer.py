@@ -12,7 +12,7 @@ Quadrants:
 """
 
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from .models import (
@@ -184,7 +184,7 @@ class PriorityAnalyzer:
             key=lambda c: (
                 -self._score_urgency(c),  # Negative for descending
                 -self._score_importance(c),
-                c.due_date or datetime.max,
+                c.due_date or date.max,  # due_date is a date (not datetime); date.max keeps the sort key type-consistent
             )
         )
 
@@ -227,7 +227,7 @@ class PriorityAnalyzer:
         if commitment.due_date is None:
             return 0.3  # Low urgency if no deadline
 
-        days_until_due = (commitment.due_date - datetime.now().date()).days
+        days_until_due = (commitment.due_date - datetime.now().astimezone().date()).days
 
         if days_until_due < 0:
             return 1.0  # Overdue

@@ -5,7 +5,7 @@ This is the "brain" that learns your working style and makes it better over time
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -80,7 +80,7 @@ class ContextManager:
             "key": key,
             "value": value,
             "source": source.value,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # Upsert to database
@@ -157,7 +157,7 @@ class ContextManager:
             "key": person_name,
             "value": context,
             "source": ContextSource.MANUAL.value,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         try:
@@ -203,7 +203,7 @@ class ContextManager:
             "key": framework_name,
             "value": rules,
             "source": ContextSource.MANUAL.value,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         try:
@@ -259,7 +259,7 @@ class ContextManager:
             },
             "source": ContextSource.LEARNED.value,
             "confidence": strength,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         try:

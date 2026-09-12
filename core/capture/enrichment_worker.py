@@ -248,7 +248,7 @@ def _auto_route_personal(item: dict, suggestion: dict, dry_run: bool = False) ->
     import datetime as _dt
     item_id   = item["id"]
     raw_text  = (item.get("raw_text") or item.get("title") or "").strip()
-    today     = _dt.date.today().isoformat()
+    today     = _dt.datetime.now().astimezone().date().isoformat()
 
     log.info("[%s] Auto-routing personal capture → captains_log_entries", item_id[:8])
 
@@ -467,7 +467,7 @@ def _safe_parse_summary(raw) -> dict:
 
 def _now() -> str:
     import datetime
-    return datetime.datetime.utcnow().isoformat() + "Z"
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
 # ── Batch runner ──────────────────────────────────────────────────────────────

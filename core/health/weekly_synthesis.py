@@ -94,7 +94,7 @@ _MIGRATION_009_COLS = frozenset({
 def _fetch_week_entries(days: int = 7) -> list[dict[str, Any]]:
     """Fetch entries from the unified analytics view (WP-2).
     Falls back to captains_log_entries if the view does not yet exist."""
-    since = (date.today() - timedelta(days=days - 1)).isoformat()
+    since = (datetime.now().astimezone().date() - timedelta(days=days - 1)).isoformat()
     try:
         rows = supabase_get(
             f"analytics_health_daily"
@@ -126,7 +126,7 @@ def _modal(values: list[str]) -> str | None:
 
 def _fetch_baseline_entries(days: int = 30) -> list[dict[str, Any]]:
     """Fetch up to `days` days of entries for baseline computation."""
-    since = (date.today() - timedelta(days=days - 1)).isoformat()
+    since = (datetime.now().astimezone().date() - timedelta(days=days - 1)).isoformat()
     try:
         rows = supabase_get(
             f"analytics_health_daily"
@@ -1329,7 +1329,7 @@ def run_synthesis(days: int = 7, update_health_summary: bool = True) -> dict[str
 
     entries = _fetch_week_entries(days)
 
-    week_start = (date.today() - timedelta(days=days - 1)).isoformat()
+    week_start = (datetime.now().astimezone().date() - timedelta(days=days - 1)).isoformat()
     n = len(entries)
 
     if n < MIN_DAYS_FOR_SYNTHESIS:

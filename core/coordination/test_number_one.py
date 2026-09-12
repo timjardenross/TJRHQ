@@ -14,7 +14,7 @@ Run: python3 test_number_one.py
 """
 
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from number_one import (
     ConfidenceBand,
@@ -39,7 +39,7 @@ def create_test_mission(
     assigned_role: str = None,
 ) -> dict:
     """Create a test mission dict."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if last_updated is None:
         last_updated = now
 
@@ -173,7 +173,7 @@ class TestNumberOne:
         print("-" * 80)
 
         # Create missions with various follow-up triggers
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         stale_date = now - timedelta(days=6)  # 6 days old
         recent_date = now - timedelta(days=1)  # 1 day old
 
@@ -297,7 +297,7 @@ class TestNumberOne:
         print("TEST 5: Daily Brief Generation")
         print("-" * 80)
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         missions = [
             create_test_mission("P0-A", Priority.P0, MissionStatus.ACTIVE),
             create_test_mission("P1-B", Priority.P1, MissionStatus.ACTIVE),
@@ -347,7 +347,7 @@ class TestNumberOne:
         print("TEST 6: XO Escalation Engine")
         print("-" * 80)
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         missions = [
             # Critical: Blocked P0
             create_test_mission("P0-BLOCKED", Priority.P0, MissionStatus.BLOCKED),
@@ -416,7 +416,7 @@ class TestNumberOne:
         print("TEST 9: BLOCKED_OPS ('Blocked') status treated as blocked (regression)")
         print("-" * 80)
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         missions = [
             create_test_mission("P0-BLOCKED-OPS", Priority.P0, MissionStatus.BLOCKED_OPS),
             create_test_mission("P1-LONG-BLOCKED-OPS", Priority.P1, MissionStatus.BLOCKED_OPS,

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -115,7 +115,7 @@ def build_health_context(summary_dict: dict[str, Any], timestamp: str | None = N
 
     Always returns a valid package — missing fields default to None/unknown.
     """
-    assembled_at = timestamp or (datetime.utcnow().isoformat() + "Z")
+    assembled_at = timestamp or (datetime.now(timezone.utc).isoformat())
 
     reflection = summary_dict.get("weekly_reflection", {})
     trend = extract_trends(summary_dict)
@@ -428,7 +428,7 @@ def build_health_context_from_captains_log(
     trend_direction — pre-computed pain trend (improving/stable/worsening)
     capacity_score  — pre-computed capacity score (0–100)
     """
-    assembled = assembled_at or (datetime.utcnow().isoformat() + "Z")
+    assembled = assembled_at or (datetime.now(timezone.utc).isoformat())
 
     if not entry:
         return HealthContextPackage(
@@ -516,8 +516,7 @@ def build_health_context_live(assembled_at: str | None = None) -> HealthContextP
 
     if supabase_get and is_configured and is_configured():
         try:
-            from datetime import date
-            today = date.today().isoformat()
+            today = datetime.now().astimezone().date().isoformat()
             rows = supabase_get(
                 f"captains_log_entries?log_date=eq.{today}&limit=1"
             )
@@ -543,7 +542,7 @@ def build_health_context_live(assembled_at: str | None = None) -> HealthContextP
                     compute_pain_trend,
                     encode_energy,
                 )
-                since = (date.today() - timedelta(days=6)).isoformat()
+                since = (datetime.now().astimezone().date() - timedelta(days=6)).isoformat()
                 recent = supabase_get(
                     f"captains_log_entries?log_date=gte.{since}&order=log_date.asc&limit=7"
                 )

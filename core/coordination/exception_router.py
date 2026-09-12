@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -256,7 +256,7 @@ def format_captain_brief(
     """
     lines = [
         "*CAPTAIN EXECUTIVE BRIEF*",
-        f"_{datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC_",
+        f"_{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC_",
         "",
     ]
 

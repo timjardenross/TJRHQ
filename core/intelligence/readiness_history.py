@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from statistics import mean, stdev
 from typing import Any
@@ -82,7 +82,7 @@ def persist_readiness_snapshot(
     Returns True if local write succeeded.
     """
     _READINESS_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    today = date.today().isoformat()
+    today = datetime.now().astimezone().date().isoformat()
 
     snapshot = _build_snapshot(readiness_dict, health_entry, today)
 
@@ -211,7 +211,7 @@ def load_readiness_history(days: int = 30) -> list[dict[str, Any]]:
     Returns list sorted by assessment_date ascending.
     """
     _READINESS_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    cutoff = date.today() - timedelta(days=days)
+    cutoff = datetime.now().astimezone().date() - timedelta(days=days)
     snapshots = []
 
     for f in sorted(_READINESS_LOG_DIR.glob("*.json")):
@@ -251,7 +251,7 @@ def compute_readiness_trends(history: list[dict[str, Any]]) -> dict[str, Any]:
     scores   = [s["readiness_score"] for s in history if s.get("readiness_score") is not None]
     statuses = [s["readiness_status"] for s in history if s.get("readiness_status")]
 
-    today = date.today()
+    today = datetime.now().astimezone().date()
     last_7d  = [s for s in history if _days_ago(s, today) <= 7  and s.get("readiness_score")]
     last_30d = [s for s in history if _days_ago(s, today) <= 30 and s.get("readiness_score")]
 

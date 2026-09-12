@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -180,13 +180,13 @@ class NumberOneMemoryAdapter:
             return False
         try:
             payload = {
-                "id": brief.get("brief_id") or f"NUM1-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+                "id": brief.get("brief_id") or f"NUM1-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
                 "mission_id": brief.get("mission_id") or "",
                 "summary": brief.get("summary") or "",
                 "recommendations": brief.get("recommendations") or [],
                 "confidence": float(brief.get("confidence") or 0.0),
                 "query_hash": _compute_query_hash(brief.get("summary", "") + str(brief.get("mission_id", ""))),
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
                 "source": "number-one",
             }
             result = self.supabase.insert("number_one_memory", payload)
@@ -222,7 +222,7 @@ class NumberOneMemoryAdapter:
                 response = (
                     sb.table("research_memory")
                     .select("*")
-                    .gt("created_at", (datetime.utcnow() - timedelta(days=180)).isoformat())
+                    .gt("created_at", (datetime.now(timezone.utc) - timedelta(days=180)).isoformat())
                     .limit(5)
                     .execute()
                 )

@@ -17,7 +17,7 @@ import json
 import logging
 import os
 import urllib.request
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 log = logging.getLogger("operating-picture")
 
@@ -48,7 +48,7 @@ def _sb_get(table: str, query: str = "") -> list[dict]:
 # ── Section builders ──────────────────────────────────────────────────────────
 
 def _build_health_section() -> dict:
-    today = date.today().isoformat()
+    today = datetime.now().astimezone().date().isoformat()
 
     # Captain's log entry
     log_rows = _sb_get(

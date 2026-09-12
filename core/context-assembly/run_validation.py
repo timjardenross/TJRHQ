@@ -24,7 +24,7 @@ Usage:
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -35,7 +35,7 @@ from loaders import load_corpus
 OUT = Path(__file__).parent / "validation_output"
 OUT.mkdir(exist_ok=True)
 
-GENERATED = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+GENERATED = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 MISSION_IDS = ["MSN-0001", "MSN-0004", "MSN-0008", "MSN-0009",
                "MSN-0011", "MSN-0015A", "MSN-0031"]
 

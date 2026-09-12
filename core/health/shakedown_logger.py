@@ -11,7 +11,7 @@ a summary. The review generator reads all 7 days of events.
 Public API:
     log_event(job_id, status, detail, delivered_to)
     read_events(since_date=None, until_date=None) -> list[dict]
-    get_day_summary(day=date.today()) -> dict
+    get_day_summary(day=datetime.now().astimezone().date()) -> dict
 """
 
 from __future__ import annotations
@@ -93,7 +93,7 @@ def read_events(
 def get_day_summary(day: date = None) -> dict:
     """Compile a summary dict for a given day from event log."""
     if day is None:
-        day = date.today()
+        day = datetime.now().astimezone().date()
     events = read_events(since_date=day, until_date=day)
 
     by_job: dict[str, list[dict]] = {}

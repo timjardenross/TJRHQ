@@ -25,8 +25,9 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from _local_import_advisory import import_sibling as _import_sibling
 import itertools
+
+from _local_import_advisory import import_sibling as _import_sibling
 
 _outcomes = _import_sibling("outcomes")
 

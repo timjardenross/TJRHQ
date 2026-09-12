@@ -66,7 +66,7 @@ def compose_captain_brief(
     )
 
     return CaptainBriefContext(
-        assembled_at=datetime.utcnow().isoformat() + "Z",
+        assembled_at=datetime.now(timezone.utc).isoformat(),
         date=today,
         source=source,
         health=health,

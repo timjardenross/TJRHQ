@@ -273,7 +273,7 @@ def generate_all_outputs():
         recs = []
 
     outputs = {
-        "health.json": get_health() if health else {"data_quality": "missing", "assembled_at": datetime.utcnow().isoformat() + "Z"},
+        "health.json": get_health() if health else {"data_quality": "missing", "assembled_at": datetime.now(timezone.utc).isoformat()},
         "recommendations.json": get_recommendations(missions, health),
         "blockers.json": get_blockers(missions),
         "captain-brief.json": get_captain_brief(missions, recs),
@@ -958,7 +958,7 @@ def main():
         print(json.dumps(result, indent=2, default=str))
 
     except Exception as e:
-        print(json.dumps({"error": str(e), "assembled_at": datetime.utcnow().isoformat() + "Z"}))
+        print(json.dumps({"error": str(e), "assembled_at": datetime.now(timezone.utc).isoformat()}))
         sys.exit(1)
 
 

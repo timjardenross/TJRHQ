@@ -37,7 +37,7 @@ import json
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from number_one import CoordinationConfig, NumberOne
@@ -53,9 +53,11 @@ def _git_last_modified(file_ref: str, repo_root: Path) -> str:
         )
         first_line = result.stdout.strip().splitlines()[0] if result.stdout.strip() else None
         if first_line:
-            # git outputs "2026-06-05 23:15:47 +1000" — convert to ISO
-            dt = datetime.strptime(first_line[:19], "%Y-%m-%d %H:%M:%S")
-            return dt.isoformat() + "Z"
+            # git outputs "2026-06-05 23:15:47 +1000" (commit-local offset) — parse the
+            # offset too (previously it was silently truncated off and mislabeled "Z"/UTC)
+            # and normalize to UTC for consistent comparison with other timestamps.
+            dt = datetime.strptime(first_line, "%Y-%m-%d %H:%M:%S %z")
+            return dt.astimezone(timezone.utc).isoformat()
     except Exception:
         pass
     return None
@@ -66,7 +68,9 @@ sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
 sys.path.insert(0, str(_REPO_ROOT / "core" / "knowledge"))
 
 try:
-    from models import RecommendationPackage  # noqa: F401 - availability probe, only ImportError matters
+    from models import (
+        RecommendationPackage,  # noqa: F401 - availability probe, only ImportError matters
+    )
     from recommendation_engine import generate_recommendation_package
     _RECOMMENDATIONS_AVAILABLE = True
 except ImportError:
@@ -79,8 +83,12 @@ except ImportError:
     _READINESS_AVAILABLE = False
 
 try:
-    from lesson_capture import backfill_lessons_to_supabase  # noqa: F401 - availability probe, only ImportError matters
-    from supabase_client import is_configured as _supabase_configured  # noqa: F401 - availability probe, only ImportError matters
+    from lesson_capture import (
+        backfill_lessons_to_supabase,  # noqa: F401 - availability probe, only ImportError matters
+    )
+    from supabase_client import (
+        is_configured as _supabase_configured,  # noqa: F401 - availability probe, only ImportError matters
+    )
     _LESSONS_AVAILABLE = True
 except ImportError:
     _LESSONS_AVAILABLE = False
@@ -88,7 +96,9 @@ except ImportError:
 try:
     sys.path.insert(0, str(_REPO_ROOT / "core" / "intelligence"))
     from intelligence_reporter import run_all_reports as _run_intelligence_reports
-    from readiness_history import persist_readiness_snapshot as _persist_readiness  # noqa: F401 - availability probe, only ImportError matters
+    from readiness_history import (
+        persist_readiness_snapshot as _persist_readiness,  # noqa: F401 - availability probe, only ImportError matters
+    )
     _INTELLIGENCE_AVAILABLE = True
 except ImportError:
     _INTELLIGENCE_AVAILABLE = False
@@ -237,7 +247,7 @@ class NumberOneExporter:
 
             # Convert to dicts for JSON serialization
             queue_dict = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "items": [
                     {
                         "mission_id": item.mission_id,
@@ -279,7 +289,7 @@ class NumberOneExporter:
 
             # Convert to dicts for JSON serialization
             escalations_dict = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "escalations": [
                     {
                         "escalation_type": esc.escalation_type,
@@ -319,7 +329,7 @@ class NumberOneExporter:
             # Write empty valid JSON so consumers don't fail
             try:
                 with open(self.output_dir / "blockers.json", "w") as f:
-                    json.dump({"timestamp": datetime.utcnow().isoformat(), "total_blockers": 0,
+                    json.dump({"timestamp": datetime.now(timezone.utc).isoformat(), "total_blockers": 0,
                                "critical": [], "high": [], "normal": [], "error": str(e)}, f, indent=2)
             except Exception:
                 pass
@@ -331,7 +341,7 @@ class NumberOneExporter:
         """Export health-capacity-adjusted work queue to JSON."""
         try:
             health_queue = self.engine.get_health_adjusted_queue(missions, capacity_status)
-            health_queue["exported_at"] = datetime.utcnow().isoformat()
+            health_queue["exported_at"] = datetime.now(timezone.utc).isoformat()
             output_file = self.output_dir / "health_queue.json"
             with open(output_file, "w") as f:
                 json.dump(health_queue, f, indent=2)
@@ -341,7 +351,7 @@ class NumberOneExporter:
             print(f"❌ Failed to export health queue: {e}")
             try:
                 with open(self.output_dir / "health_queue.json", "w") as f:
-                    json.dump({"exported_at": datetime.utcnow().isoformat(), "capacity_status": "Unknown",
+                    json.dump({"exported_at": datetime.now(timezone.utc).isoformat(), "capacity_status": "Unknown",
                                "queue": [], "recommended_focus": [], "advisory": "Unavailable", "error": str(e)}, f, indent=2)
             except Exception:
                 pass
@@ -355,7 +365,7 @@ class NumberOneExporter:
             print("⚠️  recommendation_engine not available — skipping recommendations export")
             try:
                 with open(self.output_dir / "recommendations.json", "w") as f:
-                    json.dump({"assembled_at": datetime.utcnow().isoformat() + "Z",
+                    json.dump({"assembled_at": datetime.now(timezone.utc).isoformat(),
                                "recommendations": [], "health_constraints_applied": False,
                                "total_active_missions": 0, "unavailable": True}, f, indent=2)
             except Exception:
@@ -392,7 +402,7 @@ class NumberOneExporter:
             print(f"❌ Failed to export recommendations: {e}")
             try:
                 with open(self.output_dir / "recommendations.json", "w") as f:
-                    json.dump({"assembled_at": datetime.utcnow().isoformat() + "Z",
+                    json.dump({"assembled_at": datetime.now(timezone.utc).isoformat(),
                                "recommendations": [], "health_constraints_applied": False,
                                "total_active_missions": 0, "error": str(e)}, f, indent=2)
             except Exception:
@@ -410,14 +420,14 @@ class NumberOneExporter:
             print("⚠️  readiness_score not available — skipping readiness export")
             try:
                 with open(self.output_dir / "readiness.json", "w") as f:
-                    json.dump({"exported_at": datetime.utcnow().isoformat(), "unavailable": True}, f, indent=2)
+                    json.dump({"exported_at": datetime.now(timezone.utc).isoformat(), "unavailable": True}, f, indent=2)
             except Exception:
                 pass
             return True
         try:
             result = compute_readiness_score(capacity_score, "Green", missions, escalations or [])
             readiness_dict = {
-                "exported_at": datetime.utcnow().isoformat(),
+                "exported_at": datetime.now(timezone.utc).isoformat(),
                 "score": result.score,
                 "status": result.status,
                 "health_component": result.health_component,
@@ -436,7 +446,7 @@ class NumberOneExporter:
             print(f"❌ Failed to export readiness: {e}")
             try:
                 with open(self.output_dir / "readiness.json", "w") as f:
-                    json.dump({"exported_at": datetime.utcnow().isoformat(),
+                    json.dump({"exported_at": datetime.now(timezone.utc).isoformat(),
                                "score": 0, "status": "Unknown", "error": str(e)}, f, indent=2)
             except Exception:
                 pass
@@ -494,7 +504,7 @@ class NumberOneExporter:
                                 "mission_id": mission_id if mission_id not in ("—", "", "N/A") else None,
                             })
             payload = {
-                "exported_at": datetime.utcnow().isoformat(),
+                "exported_at": datetime.now(timezone.utc).isoformat(),
                 "total": len(lessons),
                 "lessons": lessons,
             }
@@ -506,7 +516,7 @@ class NumberOneExporter:
             print(f"❌ Failed to export lessons: {e}")
             try:
                 with open(output_file, "w") as f:
-                    json.dump({"exported_at": datetime.utcnow().isoformat(),
+                    json.dump({"exported_at": datetime.now(timezone.utc).isoformat(),
                                "total": 0, "lessons": [], "error": str(e)}, f, indent=2)
             except Exception:
                 pass
@@ -802,7 +812,7 @@ def main():
     if args.watch:
         print(f"👁  Watch mode active — regenerating every {args.interval}s (Ctrl+C to stop)")
         while True:
-            print(f"\n[{datetime.utcnow().strftime('%H:%M:%S')}] Running export cycle...")
+            print(f"\n[{datetime.now(timezone.utc).strftime('%H:%M:%S')}] Running export cycle...")
             _run_once()
             time.sleep(args.interval)
     else:

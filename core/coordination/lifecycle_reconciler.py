@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -181,7 +181,7 @@ def build_recommendations(ledger: dict[str, Any] | None = None) -> dict[str, Any
     recommendations.sort(key=lambda r: (_stage_rank.get(r["stage"], 9), str(r["id"])))
 
     return {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "stage_counts": stage_counts,
         "recommendations": recommendations,
         "source": {

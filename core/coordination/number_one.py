@@ -28,7 +28,7 @@ Design:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -269,7 +269,7 @@ class NumberOne:
     def __init__(self, config: CoordinationConfig | None = None):
         """Initialize Number One."""
         self.config = config or CoordinationConfig()
-        self.current_time = datetime.utcnow()
+        self.current_time = datetime.now(timezone.utc)
         self.memory_adapter = NumberOneMemoryAdapter() if NumberOneMemoryAdapter else None
 
     def request_advisory_support(self, mission: dict[str, Any]) -> dict[str, Any]:
@@ -957,7 +957,7 @@ def _to_priority(value: str | None) -> Priority:
 def _parse_iso_datetime(datetime_str: str | None) -> datetime:
     """Parse ISO 8601 datetime string to naive UTC datetime."""
     if not datetime_str:
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
     try:
         # Parse with timezone info, then convert to naive UTC
         dt = datetime.fromisoformat(datetime_str.replace("Z", "+00:00"))
@@ -966,7 +966,7 @@ def _parse_iso_datetime(datetime_str: str | None) -> datetime:
             return dt.replace(tzinfo=None)
         return dt
     except (ValueError, AttributeError):
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
 
 
 # ============================================================================

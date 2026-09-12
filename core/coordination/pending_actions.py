@@ -25,7 +25,7 @@ CLI:
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from core.coordination import delivery_reconciler as dr
@@ -78,7 +78,7 @@ def build_pending_actions(
                    + len(ready_for_engineering))
 
     return {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "spine": {s.value: spine.get(s.value, 0) for s in LIFECYCLE_SPINE},
         "totals": {
             "needs_human": needs_human,
@@ -105,7 +105,7 @@ def register(app, route: str = "/api/dashboard/pending-actions") -> Any:
     """
     def _view():
         from flask import jsonify
-        now = datetime.now().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         try:
             payload = build_pending_actions()
             payload["engineering_review"] = payload.get("engineering_review", [])

@@ -32,7 +32,7 @@ from __future__ import annotations
 import json
 import sys
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -159,7 +159,7 @@ def build_prep_packages(
 
     packages.sort(key=lambda p: str(p["id"]))
     return {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "count": len(packages),
         "linkage_gaps": linkage_gaps,
         "packages": packages,
