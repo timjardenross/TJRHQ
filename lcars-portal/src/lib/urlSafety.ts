@@ -16,6 +16,12 @@ import net from 'node:net';
  * issues its own separate resolution) — acceptable for a single-Captain
  * tool where the "attacker" is the same person who already has shell
  * access to this VM, not a defense against a hostile third party.
+ *
+ * The caller must also re-validate every redirect hop (see
+ * validateHop / preview/route.ts) — a page under attacker control can
+ * return a Location header pointing at a private address, which would
+ * otherwise bypass this check entirely (fetch's own redirect handling
+ * doesn't know about it).
  */
 export function isSafeUrl(raw: string): { ok: true; url: URL } | { ok: false; reason: string } {
   let url: URL;
@@ -50,7 +56,8 @@ function isPrivateIp(ip: string, family: 4 | 6): boolean {
   if (lower === '::1') return true; // loopback
   if (lower.startsWith('fe80:') || lower.startsWith('fe8') || lower.startsWith('fe9') || lower.startsWith('fea') || lower.startsWith('feb')) return true; // link-local
   if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // unique local (RFC4193)
-  if (lower.startsWith('::ffff:127.')) return true; // IPv4-mapped loopback
+  const mappedV4 = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (mappedV4) return isPrivateIp(mappedV4[1], 4); // any IPv4-mapped address, not just loopback
   return false;
 }
 
@@ -76,6 +83,17 @@ export async function rejectPrivateTarget(hostname: string): Promise<string | nu
   } catch {
     return 'Could not resolve hostname.';
   }
+}
+
+/** Validates a candidate hop (initial URL or a redirect target): must be a
+ * valid http(s) URL and its hostname must not resolve to a private target.
+ * Returns the parsed URL on success, or a rejection reason. */
+export async function validateHop(raw: string): Promise<{ ok: true; url: URL } | { ok: false; reason: string }> {
+  const check = isSafeUrl(raw);
+  if (!check.ok) return check;
+  const privateReason = await rejectPrivateTarget(check.url.hostname);
+  if (privateReason) return { ok: false, reason: privateReason };
+  return { ok: true, url: check.url };
 }
 
 /** Hostname stripped of a leading "www." — used for the vendor suggestion. */
