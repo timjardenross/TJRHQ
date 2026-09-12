@@ -258,6 +258,40 @@ jobs:
           fi
           exit "$code"
 
+  # USS-TJR-MSN-0366 Stream 8. Advisory only (continue-on-error) — this repo
+  # already has a hand-rolled dead-code checker (tools/verify_dead_code.py,
+  # a per-path evidence report a human/agent runs on demand) but nothing
+  # that runs automatically on every PR and scans the whole tree at once.
+  # Vulture catches a materially different — and narrower — class of thing
+  # than verify_dead_code.py: unused imports/functions/classes/variables it
+  # can see by static analysis of the Python it's given, not "is this path
+  # referenced anywhere" (verify_dead_code.py's job) and not "is this whole
+  # module unreachable from a real entry point" (neither tool does that —
+  # see reports/vulture/README.md's writeup of the commander_runtime.py/
+  # router.py cluster for why: Vulture only saw the one true external entry
+  # point as unused, not the mutually-referencing modules beneath it).
+  # Always runs (not gated by the paths-filter matrix above) since dead-code
+  # scanning benefits from seeing the whole tree, not just this PR's diff.
+  # `continue-on-error: true` so a finding never blocks merge; read the job
+  # output to see what it found. Real findings from the first run are
+  # triaged in reports/vulture/.
+  vulture:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install vulture
+        run: pip install vulture
+
+      - name: Run vulture (advisory — findings do not fail the build)
+        run: |
+          vulture core/ intelligence/ platform-runtime/ .vulture_whitelist.py --min-confidence 60
+
   actionlint:
     runs-on: ubuntu-latest
     steps:
