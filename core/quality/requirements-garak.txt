@@ -1,0 +1,17 @@
+# garak (LLM vulnerability scanner), isolated from platform-runtime/requirements.txt.
+#
+# garak==0.17.0 hard-requires openai<3.0 in its own package metadata, while
+# platform-runtime/requirements.txt needs openai>=3.x for the live Phoenix/
+# pydantic-ai-slim tracing chain. pip's resolver correctly refuses to install
+# both in one environment (confirmed: a real ResolutionImpossible error, not
+# a theoretical concern) — so garak gets its own venv instead.
+#
+# Install into a dedicated venv, not platform-runtime/.venv:
+#   python3 -m venv platform-runtime/.venv-garak
+#   platform-runtime/.venv-garak/bin/pip install -r core/quality/requirements-garak.txt
+#
+# core/quality/garak_gate.py and tools/garak_sweep.sh both invoke the garak
+# binary from this dedicated venv by absolute path — they do not need to
+# import garak in-process, so keeping it out of the main venv costs nothing
+# at runtime.
+garak==0.17.0

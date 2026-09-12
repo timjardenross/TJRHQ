@@ -13,8 +13,12 @@ original GAP-1 design doc and the sweep script itself), rather than inventing
 a second pattern:
   - Target:      the local Model Router at http://127.0.0.1:8891
                  (see core/model-router/app.py, deploy/model-router.service).
-  - Tooling:     garak installed in platform-runtime/.venv (`pip install garak`,
-                 see platform-runtime/requirements.txt).
+  - Tooling:     garak installed in its own dedicated venv,
+                 platform-runtime/.venv-garak (see
+                 core/quality/requirements-garak.txt — garak hard-requires
+                 openai<3.0, which conflicts with the openai>=3.x
+                 platform-runtime/requirements.txt itself needs, so it is
+                 deliberately kept out of the main venv).
   - Reports:     saved under reports/garak/, one timestamped file per run.
   - Preflight:   warn (don't hard-fail) if the router doesn't answer /health —
                  garak will surface connection errors as its own failures.
@@ -72,8 +76,12 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-VENV_PYTHON = REPO_ROOT / "platform-runtime" / ".venv" / "bin" / "python3"
-VENV_GARAK = REPO_ROOT / "platform-runtime" / ".venv" / "bin" / "garak"
+# garak lives in its own dedicated venv, not platform-runtime/.venv — it
+# hard-requires openai<3.0, which conflicts with the openai>=3.x the rest of
+# platform-runtime needs (Phoenix/pydantic-ai-slim). See
+# core/quality/requirements-garak.txt for the full explanation.
+VENV_PYTHON = REPO_ROOT / "platform-runtime" / ".venv-garak" / "bin" / "python3"
+VENV_GARAK = REPO_ROOT / "platform-runtime" / ".venv-garak" / "bin" / "garak"
 REPORT_DIR = REPO_ROOT / "reports" / "garak"
 
 DEFAULT_ROUTER_URL = os.environ.get("ROUTER_URL", "http://127.0.0.1:8891")
@@ -189,11 +197,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if not VENV_PYTHON.exists():
-        _log(f"ERROR: platform-runtime venv not found at {VENV_PYTHON}")
+        _log(f"ERROR: dedicated garak venv not found at {VENV_PYTHON.parent.parent}. Run:")
+        _log(f"  python3 -m venv {VENV_PYTHON.parent.parent}")
+        _log(f"  {VENV_PYTHON.parent}/pip install -r core/quality/requirements-garak.txt")
         return 2
     if not VENV_GARAK.exists():
-        _log("ERROR: garak not installed in venv. Run:")
-        _log(f"  {VENV_PYTHON.parent}/pip install -r platform-runtime/requirements.txt")
+        _log("ERROR: garak not installed in the dedicated venv. Run:")
+        _log(f"  {VENV_PYTHON.parent}/pip install -r core/quality/requirements-garak.txt")
         return 2
 
     args.report_dir.mkdir(parents=True, exist_ok=True)

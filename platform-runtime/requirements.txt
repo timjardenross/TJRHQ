@@ -7,15 +7,23 @@ h11==0.16.0
 httpcore==1.0.9
 httpx==0.28.1
 idna==3.18
-jiter==0.15.0
-openai==2.41.0
+# 2026-09-12: anyio==4.15.1 (bumped in PR #112 for graphiti-core/mem0ai)
+# requires typing_extensions>=4.16.0 — was pinned at 4.15.0, an unresolvable
+# conflict a clean `pip install -r` always hits (first caught for real by
+# python-ci's first live run, PR #176). Bumped together with jiter (openai's
+# real minimum) and openai itself (the live Phoenix/pydantic-ai-slim chain
+# needs >=3.x; verified against the actually-running platform, USS-TJR-MSN-0365
+# incident response). garak, which needs openai<3.0, is deliberately NOT in
+# this file for exactly this reason — see core/quality/requirements-garak.txt.
+jiter==0.16.0
+openai==3.13.0
 pydantic==2.13.4
 pydantic_core==2.46.4
 python-dotenv==1.2.1
 sniffio==1.3.1
 tqdm==4.67.3
 typing-inspection==0.4.4
-typing_extensions==4.15.0
+typing_extensions==4.16.0
 numpy>=1.26.0
 # Pin to v1.x: the code uses the v1 API (`from mistralai import Mistral`,
 # `client.beta.conversations.start`). v2.x ships an incompatible package layout
@@ -63,9 +71,13 @@ deepeval>=4.1.10
 # server) — that was never meant to serve production traffic and had no
 # concurrency/process-management guarantees under deploy/context-service.service.
 gunicorn>=23.0.0
-# 2026-09-12: core/quality/garak_gate.py (USS-TJR-MSN-0365 Stream C) — garak
-# pre-activation gate that probe-sweeps the local Model Router (:8891) before
-# a config is activated. GAP 1's other half (see OSS-Gap-Solutions-2026-08-23.md
-# Option A); deepeval above covers per-output scoring, this covers the
-# system-level vulnerability sweep. Pinned to the current PyPI release.
-garak==0.17.0
+# garak (core/quality/garak_gate.py, tools/garak_sweep.sh) is intentionally
+# NOT declared here — see core/quality/requirements-garak.txt and its own
+# dedicated venv (platform-runtime/.venv-garak/). garak==0.17.0 hard-requires
+# openai<3.0 in its own package metadata; this file needs openai>=3.x for the
+# Phoenix/pydantic-ai-slim chain. pip's resolver correctly refuses to install
+# both together — confirmed via a real ResolutionImpossible error, not a
+# guess — so garak gets its own isolated dependency universe instead of an
+# unresolvable shared one. Found during USS-TJR-MSN-0365's incident response
+# (2026-09-12) after a live venv reached this exact inconsistent state via
+# incremental installs that bypassed the resolver.
