@@ -420,16 +420,25 @@ jobs:
           detect-secrets scan --baseline .secrets.baseline
           python3 tools/check_new_secrets.py
 
-      # Soft gate (visible, non-blocking): ruff-check + bandit. Flips to
-      # blocking once Stream 9's triage lands (179 Medium bandit findings
-      # fixed/suppressed, ruff's 3,420 auto-fixable findings landed as their
-      # own isolated formatting PR) -- until then this only reports drift so
-      # new code doesn't silently add to the pile without anyone seeing it.
-      - name: pre-commit (lint/security — informational until Stream 9 lands)
+      # Bandit: blocking (USS-TJR-MSN-0369). Was informational pending this
+      # mission's triage -- 180 Medium findings fixed/suppressed with dated
+      # reasons, fresh `bandit -ll` now shows 0 unaddressed Medium findings
+      # repo-wide. Safe to actually gate merges instead of only reporting.
+      - name: pre-commit (security — blocking)
+        run: pre-commit run --all-files bandit
+
+      # Ruff: still informational. This mission's Stream 2 landed the
+      # 3,420-finding auto-fixable subset as its own isolated PR, but ~3,395
+      # findings remain (`ruff check .` at last count) that need manual
+      # judgment file-by-file -- explicitly out of scope for this mission.
+      # Flipping this to blocking now would fail CI on every commit against
+      # pre-existing, untouched files, not just new drift. Flip once a
+      # follow-up mission triages (fixes or rule-level suppresses) the
+      # remainder; until then this only reports drift so new code doesn't
+      # silently add to the pile unseen.
+      - name: pre-commit (lint — informational until ruff manual triage lands)
         continue-on-error: true
-        run: |
-          pre-commit run --all-files ruff-check
-          pre-commit run --all-files bandit
+        run: pre-commit run --all-files ruff-check
 
   actionlint:
     runs-on: ubuntu-latest

@@ -24,7 +24,7 @@ class NudgeRateLimiter:
     """In-memory rate limiter for task nudges (single-process)."""
 
     def __init__(self):
-        self.db_path = os.environ.get("ADHD_NUDGE_DB", "/tmp/adhd_nudges.db")
+        self.db_path = os.environ.get("ADHD_NUDGE_DB", "/tmp/adhd_nudges.db")  # nosec B108 - env-overridable rate-limiter cache, not sensitive data; single-process default matches other schedulers' convention - reviewed 2026-09-12
         self._init_db()
 
     def _init_db(self):
@@ -144,7 +144,7 @@ def _fetch_stalled_tasks(threshold_ts: str) -> list[dict]:
     }
     try:
         req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url is built from SUPABASE_URL env config, not user input - reviewed 2026-09-12
             return json.loads(resp.read())
     except Exception as exc:
         log.error("[TaskNudge] Failed to fetch stalled tasks: %s", exc)

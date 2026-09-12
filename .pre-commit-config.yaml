@@ -11,6 +11,26 @@
 #     pip install pre-commit
 #     pre-commit install
 # Only then do these hooks actually run on `git commit`.
+#
+# USS-TJR-MSN-0369 update: bandit's backlog is now triaged (0 unaddressed
+# Medium findings repo-wide) and CI's bandit step is blocking. Ruff's
+# backlog is only partly triaged -- the 3,420-finding auto-fixable subset
+# landed as its own PR, but ~3,395 findings remain that need manual
+# judgment file-by-file, so CI's ruff-check step stays informational
+# (continue-on-error) for now.
+#
+# LOCAL pre-commit still hard-blocks on both ruff-check and bandit (unlike
+# CI, which only gates bandit) -- so editing any file that still carries
+# pre-existing, unrelated ruff findings will block your commit even though
+# your own change is fine. If that happens and the findings are genuinely
+# pre-existing and out of scope for what you're doing, it's fine to run:
+#     SKIP=ruff-check git commit -m "..."
+# (or `SKIP=ruff-check,bandit` if bandit also flags something pre-existing
+# and unrelated -- bandit should be rare now that its backlog is clear).
+# Never skip gitleaks or detect-secrets this way -- those stay hard-blocking
+# for a reason. This convention goes away once a follow-up mission finishes
+# triaging ruff's remaining manual-judgment findings and CI's ruff-check
+# step also flips to blocking.
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.7
