@@ -217,9 +217,8 @@ class TestContextEnricher:
         f = missions_dir / "USS-TJR-MSN-0048-Track-Untracked-Code.md"
         f.write_text("## Objective\nBring all unregistered code under governance.", encoding="utf-8")
 
-        with patch("core.engineering.context_enricher._REPO_ROOT", tmp_path):
-            with patch("core.engineering.context_enricher._MISSION_DIRS", ["Missions/Active"]):
-                body = context_enricher._load_mission_file("USS-TJR-MSN-0048", "Track Untracked Code")
+        with patch("core.engineering.context_enricher._REPO_ROOT", tmp_path), patch("core.engineering.context_enricher._MISSION_DIRS", ["Missions/Active"]):
+            body = context_enricher._load_mission_file("USS-TJR-MSN-0048", "Track Untracked Code")
 
         assert body is not None
         assert "Objective" in body
@@ -235,9 +234,8 @@ class TestContextEnricher:
         missions_dir.mkdir(parents=True)
         (missions_dir / "MSN-0048-some-title.md").write_text("content", encoding="utf-8")
 
-        with patch("core.engineering.context_enricher._REPO_ROOT", tmp_path):
-            with patch("core.engineering.context_enricher._MISSION_DIRS", ["Missions/Active"]):
-                body = context_enricher._load_mission_file("USS-TJR-MSN-0048", "Track Untracked Code")
+        with patch("core.engineering.context_enricher._REPO_ROOT", tmp_path), patch("core.engineering.context_enricher._MISSION_DIRS", ["Missions/Active"]):
+            body = context_enricher._load_mission_file("USS-TJR-MSN-0048", "Track Untracked Code")
         assert body == "content"
 
     # ── Keyword extraction ────────────────────────────────────────────────────
@@ -293,30 +291,26 @@ class TestContextEnricher:
 
     def test_enrich_always_returns_string(self):
         ctx = self._make_ctx()
-        with patch("core.engineering.context_enricher._load_mission_file", return_value=None):
-            with patch("core.engineering.context_enricher._find_relevant_files", return_value=[]):
-                with patch("core.engineering.context_enricher._run_git_status", return_value="clean"):
-                    result = context_enricher.enrich(ctx)
+        with patch("core.engineering.context_enricher._load_mission_file", return_value=None), patch("core.engineering.context_enricher._find_relevant_files", return_value=[]), patch("core.engineering.context_enricher._run_git_status", return_value="clean"):
+            result = context_enricher.enrich(ctx)
         assert isinstance(result, str)
         assert len(result) > 0
 
     def test_enrich_includes_anti_hallucination(self):
         ctx = self._make_ctx()
-        with patch("core.engineering.context_enricher._load_mission_file", return_value=None):
-            with patch("core.engineering.context_enricher._find_relevant_files", return_value=[]):
-                result = context_enricher.enrich(ctx)
+        with patch("core.engineering.context_enricher._load_mission_file", return_value=None), patch("core.engineering.context_enricher._find_relevant_files", return_value=[]):
+            result = context_enricher.enrich(ctx)
         assert "do not invent" in result.lower() or "anti-hallucination" in result.lower()
 
     def test_enrich_includes_mission_body_when_found(self):
         ctx = self._make_ctx()
-        with patch("core.engineering.context_enricher._load_mission_file", return_value="## Objective\nTest content"):
-            with patch("core.engineering.context_enricher._find_relevant_files", return_value=[]):
-                result = context_enricher.enrich(ctx)
+        with patch("core.engineering.context_enricher._load_mission_file", return_value="## Objective\nTest content"), patch("core.engineering.context_enricher._find_relevant_files", return_value=[]):
+            result = context_enricher.enrich(ctx)
         assert "## Objective" in result
 
     def test_enrich_includes_file_list_when_found(self):
         ctx = self._make_ctx()
-        with patch("core.engineering.context_enricher._load_mission_file", return_value=None):
+        with patch("core.engineering.context_enricher._load_mission_file", return_value=None):  # noqa: SIM117 - merging would span a multi-line patch()/pytest.raises() call across a combined `with (...)`; kept as nested for readability, no behavior difference
             with patch("core.engineering.context_enricher._find_relevant_files",
                        return_value=["core/engineering/engineering_router.py"]):
                 result = context_enricher.enrich(ctx)
@@ -324,27 +318,23 @@ class TestContextEnricher:
 
     def test_enrich_no_file_found_says_so(self):
         ctx = self._make_ctx()
-        with patch("core.engineering.context_enricher._load_mission_file", return_value=None):
-            with patch("core.engineering.context_enricher._find_relevant_files", return_value=[]):
-                result = context_enricher.enrich(ctx)
+        with patch("core.engineering.context_enricher._load_mission_file", return_value=None), patch("core.engineering.context_enricher._find_relevant_files", return_value=[]):
+            result = context_enricher.enrich(ctx)
         assert "no mission file found" in result.lower() or "no matching source files" in result.lower()
 
     def test_enrich_includes_git_status_for_untracked_mission(self):
         ctx = self._make_ctx(title="Track Untracked Code")
-        with patch("core.engineering.context_enricher._load_mission_file", return_value=None):
-            with patch("core.engineering.context_enricher._find_relevant_files", return_value=[]):
-                with patch("core.engineering.context_enricher._run_git_status",
-                           return_value=" M core/foo.py\n?? bar.py") as mock_git:
-                    result = context_enricher.enrich(ctx)
+        with patch("core.engineering.context_enricher._load_mission_file", return_value=None), patch("core.engineering.context_enricher._find_relevant_files", return_value=[]):  # noqa: SIM117 - merging would span a multi-line patch()/pytest.raises() call across a combined `with (...)`; kept as nested for readability, no behavior difference
+            with patch("core.engineering.context_enricher._run_git_status",
+                       return_value=" M core/foo.py\n?? bar.py") as mock_git:
+                result = context_enricher.enrich(ctx)
         mock_git.assert_called_once()
         assert "core/foo.py" in result
 
     def test_enrich_skips_git_status_for_unrelated_mission(self):
         ctx = self._make_ctx(title="Research to Recommendation Pipeline")
-        with patch("core.engineering.context_enricher._load_mission_file", return_value=None):
-            with patch("core.engineering.context_enricher._find_relevant_files", return_value=[]):
-                with patch("core.engineering.context_enricher._run_git_status") as mock_git:
-                    context_enricher.enrich(ctx)
+        with patch("core.engineering.context_enricher._load_mission_file", return_value=None), patch("core.engineering.context_enricher._find_relevant_files", return_value=[]), patch("core.engineering.context_enricher._run_git_status") as mock_git:
+            context_enricher.enrich(ctx)
         mock_git.assert_not_called()
 
     # ── Acceptance criteria (per spec) ────────────────────────────────────────
@@ -356,12 +346,11 @@ class TestContextEnricher:
         git status was not provided.
         """
         ctx = self._make_ctx("USS-TJR-MSN-0048", "Track Untracked Code")
-        with patch("core.engineering.context_enricher._load_mission_file", return_value=None):
-            with patch("core.engineering.context_enricher._find_relevant_files", return_value=[]):
-                # Simulate git returning real output
-                with patch("core.engineering.context_enricher._run_git_status",
-                           return_value=" M core/foo.py"):
-                    result = context_enricher.enrich(ctx)
+        with patch("core.engineering.context_enricher._load_mission_file", return_value=None), patch("core.engineering.context_enricher._find_relevant_files", return_value=[]):  # noqa: SIM117 - merging would span a multi-line patch()/pytest.raises() call across a combined `with (...)`; kept as nested for readability, no behavior difference
+            # Simulate git returning real output
+            with patch("core.engineering.context_enricher._run_git_status",
+                       return_value=" M core/foo.py"):
+                result = context_enricher.enrich(ctx)
         has_git_findings = "core/foo.py" in result
         says_not_provided = "git status" in result.lower() or "not provided" in result.lower()
         assert has_git_findings or says_not_provided
@@ -373,7 +362,7 @@ class TestContextEnricher:
         that no repo context was found.
         """
         ctx = self._make_ctx("USS-TJR-MSN-0056", "Research-to-Recommendation Pipeline")
-        with patch("core.engineering.context_enricher._load_mission_file", return_value=None):
+        with patch("core.engineering.context_enricher._load_mission_file", return_value=None):  # noqa: SIM117 - merging would span a multi-line patch()/pytest.raises() call across a combined `with (...)`; kept as nested for readability, no behavior difference
             # Simulate finder returning a real file
             with patch("core.engineering.context_enricher._find_relevant_files",
                        return_value=["core/coordination/research_orchestration.py"]):
@@ -474,45 +463,35 @@ class TestRouter:
         )
 
     def test_mistral_backend_success(self, tmp_path):
-        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):
-            with patch("core.engineering.providers.mistral_batch.call", return_value=("Plan text here", "mistral-small-2503")):
-                with patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
-                    resp = engineering_router.route(self._make_request(Backend.MISTRAL))
+        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT), patch("core.engineering.providers.mistral_batch.call", return_value=("Plan text here", "mistral-small-2503")), patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
+            resp = engineering_router.route(self._make_request(Backend.MISTRAL))
         assert resp.success is True
         assert resp.backend == "mistral"
         assert resp.output_text == "Plan text here"
         assert resp.model_used == "mistral-small-2503"
 
     def test_ollama_backend_success(self, tmp_path):
-        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):
-            with patch("core.engineering.providers.vm_ollama.call", return_value=("Plan from Ollama", "qwen2.5-coder:7b")):
-                with patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
-                    resp = engineering_router.route(self._make_request(Backend.VM_OLLAMA))
+        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT), patch("core.engineering.providers.vm_ollama.call", return_value=("Plan from Ollama", "qwen2.5-coder:7b")), patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
+            resp = engineering_router.route(self._make_request(Backend.VM_OLLAMA))
         assert resp.success is True
         assert resp.backend == "vm-ollama"
         assert "Ollama" in resp.provider_label
 
     def test_mistral_failure_captured(self, tmp_path):
-        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):
-            with patch("core.engineering.providers.mistral_batch.call", side_effect=RuntimeError("API key not set")):
-                with patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
-                    resp = engineering_router.route(self._make_request(Backend.MISTRAL))
+        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT), patch("core.engineering.providers.mistral_batch.call", side_effect=RuntimeError("API key not set")), patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
+            resp = engineering_router.route(self._make_request(Backend.MISTRAL))
         assert resp.success is False
         assert "API key not set" in resp.error
 
     def test_ollama_failure_captured(self, tmp_path):
-        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):
-            with patch("core.engineering.providers.vm_ollama.call", side_effect=RuntimeError("not reachable")):
-                with patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
-                    resp = engineering_router.route(self._make_request(Backend.VM_OLLAMA))
+        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT), patch("core.engineering.providers.vm_ollama.call", side_effect=RuntimeError("not reachable")), patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
+            resp = engineering_router.route(self._make_request(Backend.VM_OLLAMA))
         assert resp.success is False
         assert "not reachable" in resp.error
 
     def test_evidence_always_written_on_failure(self, tmp_path):
-        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):
-            with patch("core.engineering.providers.mistral_batch.call", side_effect=RuntimeError("boom")):
-                with patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
-                    engineering_router.route(self._make_request(Backend.MISTRAL))
+        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT), patch("core.engineering.providers.mistral_batch.call", side_effect=RuntimeError("boom")), patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
+            engineering_router.route(self._make_request(Backend.MISTRAL))
         files = list(tmp_path.glob("*.json"))
         assert len(files) == 1
 
@@ -524,10 +503,8 @@ class TestRouter:
             for p in Path(_REPO).rglob("*.py")
             if "evidence" not in str(p) and "__pycache__" not in str(p)
         }
-        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):
-            with patch("core.engineering.providers.mistral_batch.call", return_value=("ok", "mistral-small-2503")):
-                with patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
-                    engineering_router.route(self._make_request(Backend.MISTRAL))
+        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT), patch("core.engineering.providers.mistral_batch.call", return_value=("ok", "mistral-small-2503")), patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
+            engineering_router.route(self._make_request(Backend.MISTRAL))
         for p, mtime in mtime_before.items():
             assert os.path.getmtime(p) == mtime, f"File was mutated: {p}"
 
@@ -560,11 +537,10 @@ class TestMistralProvider:
 
     def test_raises_without_api_key(self):
         from core.engineering.providers import mistral_batch
-        with patch("core.engineering.providers.mistral_batch.Mistral", MagicMock()):
-            with patch.dict(os.environ, {}, clear=False):
-                os.environ.pop("MISTRAL_API_KEY", None)
-                with pytest.raises(RuntimeError, match="MISTRAL_API_KEY"):
-                    mistral_batch.call("hello")
+        with patch("core.engineering.providers.mistral_batch.Mistral", MagicMock()), patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("MISTRAL_API_KEY", None)
+            with pytest.raises(RuntimeError, match="MISTRAL_API_KEY"):
+                mistral_batch.call("hello")
 
     def test_uses_default_model(self):
         from core.engineering.providers import mistral_batch
@@ -574,9 +550,8 @@ class TestMistralProvider:
         )
         p1, p2 = self._passthrough_guardrails()
         # Mistral is a module-level name in mistral_batch; patch there (mistralai v2 is a namespace package)
-        with patch.dict(os.environ, {"MISTRAL_API_KEY": "test-key"}):
-            with patch("core.engineering.providers.mistral_batch.Mistral", return_value=mock_client), p1, p2:
-                text, model = mistral_batch.call("hello")
+        with patch.dict(os.environ, {"MISTRAL_API_KEY": "test-key"}), patch("core.engineering.providers.mistral_batch.Mistral", return_value=mock_client), p1, p2:
+            text, model = mistral_batch.call("hello")
         assert text == "response text"
         assert model == mistral_batch.DEFAULT_MODEL
 
@@ -587,9 +562,8 @@ class TestMistralProvider:
             choices=[MagicMock(message=MagicMock(content="ok"))]
         )
         p1, p2 = self._passthrough_guardrails()
-        with patch.dict(os.environ, {"MISTRAL_API_KEY": "test-key"}):
-            with patch("core.engineering.providers.mistral_batch.Mistral", return_value=mock_client), p1, p2:
-                _text, model = mistral_batch.call("hello", model="mistral-large-2411")
+        with patch.dict(os.environ, {"MISTRAL_API_KEY": "test-key"}), patch("core.engineering.providers.mistral_batch.Mistral", return_value=mock_client), p1, p2:
+            _text, model = mistral_batch.call("hello", model="mistral-large-2411")
         assert model == "mistral-large-2411"
         call_kwargs = mock_client.chat.complete.call_args
         assert call_kwargs.kwargs["model"] == "mistral-large-2411"
@@ -606,9 +580,8 @@ class TestVMOllamaProvider:
 
     def test_raises_when_not_reachable(self):
         from core.engineering.providers import vm_ollama
-        with patch("core.engineering.providers.vm_ollama.check_connectivity", return_value=(False, "refused")):
-            with pytest.raises(RuntimeError, match="connectivity check failed"):
-                vm_ollama.call("hello")
+        with patch("core.engineering.providers.vm_ollama.check_connectivity", return_value=(False, "refused")), pytest.raises(RuntimeError, match="connectivity check failed"):
+            vm_ollama.call("hello")
 
     def test_call_success(self):
 
@@ -617,9 +590,8 @@ class TestVMOllamaProvider:
         mock_resp.read.return_value = json.dumps({"response": "plan output"}).encode()
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
-        with patch("core.engineering.providers.vm_ollama.check_connectivity", return_value=(True, "ok")):
-            with patch("urllib.request.urlopen", return_value=mock_resp):
-                text, _model = vm_ollama.call("hello")
+        with patch("core.engineering.providers.vm_ollama.check_connectivity", return_value=(True, "ok")), patch("urllib.request.urlopen", return_value=mock_resp):
+            text, _model = vm_ollama.call("hello")
         assert text == "plan output"
 
     def test_default_model_used(self):
@@ -634,9 +606,8 @@ class TestVMOllamaProvider:
             mock.__exit__ = MagicMock(return_value=False)
             return mock
 
-        with patch("core.engineering.providers.vm_ollama.check_connectivity", return_value=(True, "ok")):
-            with patch("urllib.request.urlopen", side_effect=fake_urlopen):
-                vm_ollama.call("hello")
+        with patch("core.engineering.providers.vm_ollama.check_connectivity", return_value=(True, "ok")), patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            vm_ollama.call("hello")
         assert captured["body"]["model"] == vm_ollama.DEFAULT_MODEL
 
 
@@ -672,10 +643,8 @@ class TestGeminiProvider:
         mock_response.text = "Gemini plan output"
         mock_model.generate_content.return_value = mock_response
 
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
-            with patch("google.generativeai.configure"):
-                with patch("google.generativeai.GenerativeModel", return_value=mock_model):
-                    text, model = gemini.call("hello")
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}), patch("google.generativeai.configure"), patch("google.generativeai.GenerativeModel", return_value=mock_model):
+            text, model = gemini.call("hello")
         assert text == "Gemini plan output"
         assert model == gemini.DEFAULT_MODEL
 
@@ -686,10 +655,8 @@ class TestGeminiProvider:
         mock_response.text = "ok"
         mock_model.generate_content.return_value = mock_response
 
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
-            with patch("google.generativeai.configure"):
-                with patch("google.generativeai.GenerativeModel", return_value=mock_model) as mock_cls:
-                    gemini.call("hello", model="gemini-2.5-pro")
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}), patch("google.generativeai.configure"), patch("google.generativeai.GenerativeModel", return_value=mock_model) as mock_cls:
+            gemini.call("hello", model="gemini-2.5-pro")
         mock_cls.assert_called_with("gemini-2.5-pro")
 
     def test_raises_on_empty_response(self):
@@ -700,11 +667,8 @@ class TestGeminiProvider:
         mock_response.parts = []
         mock_model.generate_content.return_value = mock_response
 
-        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
-            with patch("google.generativeai.configure"):
-                with patch("google.generativeai.GenerativeModel", return_value=mock_model):
-                    with pytest.raises(RuntimeError, match="empty response"):
-                        gemini.call("hello")
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}), patch("google.generativeai.configure"), patch("google.generativeai.GenerativeModel", return_value=mock_model), pytest.raises(RuntimeError, match="empty response"):
+            gemini.call("hello")
 
     def test_router_gemini_backend_success(self, tmp_path):
         """Router dispatches to Gemini and records success."""
@@ -715,7 +679,7 @@ class TestGeminiProvider:
             model=None,
             mission_context=_make_context("USS-TJR-MSN-0056"),
         )
-        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):
+        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):  # noqa: SIM117 - merging would span a multi-line patch()/pytest.raises() call across a combined `with (...)`; kept as nested for readability, no behavior difference
             with patch("core.engineering.providers.gemini.call",
                        return_value=("Gemini plan output", "gemini-2.5-flash")):
                 with patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
@@ -733,7 +697,7 @@ class TestGeminiProvider:
             model=None,
             mission_context=_make_context("USS-TJR-MSN-0056"),
         )
-        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):
+        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):  # noqa: SIM117 - merging would span a multi-line patch()/pytest.raises() call across a combined `with (...)`; kept as nested for readability, no behavior difference
             with patch("core.engineering.providers.gemini.call",
                        side_effect=RuntimeError("GEMINI_API_KEY not set")):
                 with patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
@@ -792,7 +756,7 @@ class TestValidateResponse:
             model=None,
             mission_context=_make_context("USS-TJR-MSN-0056"),
         )
-        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):
+        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):  # noqa: SIM117 - merging would span a multi-line patch()/pytest.raises() call across a combined `with (...)`; kept as nested for readability, no behavior difference
             with patch("core.engineering.providers.gemini.call",
                        return_value=("Edit /src/pipeline.py to fix it.", "gemini-2.5-flash")):
                 with patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
@@ -812,7 +776,7 @@ class TestModelRouterProvider:
 
     def test_raises_when_not_reachable(self):
         from core.engineering.providers import model_router
-        with patch("core.engineering.providers.model_router.check_connectivity",
+        with patch("core.engineering.providers.model_router.check_connectivity",  # noqa: SIM117 - merging would span a multi-line patch()/pytest.raises() call across a combined `with (...)`; kept as nested for readability, no behavior difference
                    return_value=(False, "connection refused")):
             with pytest.raises(RuntimeError, match="connectivity check failed"):
                 model_router.call("hello")
@@ -823,7 +787,7 @@ class TestModelRouterProvider:
         mock_resp.read.return_value = json.dumps({"response": "plan from router"}).encode()
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
-        with patch("core.engineering.providers.model_router.check_connectivity",
+        with patch("core.engineering.providers.model_router.check_connectivity",  # noqa: SIM117 - merging would span a multi-line patch()/pytest.raises() call across a combined `with (...)`; kept as nested for readability, no behavior difference
                    return_value=(True, "ok")):
             with patch("urllib.request.urlopen", return_value=mock_resp):
                 text, _model = model_router.call("hello")
@@ -835,7 +799,7 @@ class TestModelRouterProvider:
         mock_resp.read.return_value = json.dumps({"content": "plan via content key"}).encode()
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
-        with patch("core.engineering.providers.model_router.check_connectivity",
+        with patch("core.engineering.providers.model_router.check_connectivity",  # noqa: SIM117 - merging would span a multi-line patch()/pytest.raises() call across a combined `with (...)`; kept as nested for readability, no behavior difference
                    return_value=(True, "ok")):
             with patch("urllib.request.urlopen", return_value=mock_resp):
                 text, _ = model_router.call("hello")
@@ -847,7 +811,7 @@ class TestModelRouterProvider:
         mock_resp.read.return_value = json.dumps({"response": ""}).encode()
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
-        with patch("core.engineering.providers.model_router.check_connectivity",
+        with patch("core.engineering.providers.model_router.check_connectivity",  # noqa: SIM117 - merging would span a multi-line patch()/pytest.raises() call across a combined `with (...)`; kept as nested for readability, no behavior difference
                    return_value=(True, "ok")):
             with patch("urllib.request.urlopen", return_value=mock_resp):
                 with pytest.raises(RuntimeError, match="empty response"):
@@ -862,7 +826,7 @@ class TestModelRouterProvider:
         }).encode()
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
-        with patch("core.engineering.providers.model_router.check_connectivity",
+        with patch("core.engineering.providers.model_router.check_connectivity",  # noqa: SIM117 - merging would span a multi-line patch()/pytest.raises() call across a combined `with (...)`; kept as nested for readability, no behavior difference
                    return_value=(True, "ok")):
             with patch("urllib.request.urlopen", return_value=mock_resp):
                 _, model = model_router.call("hello")
@@ -885,7 +849,7 @@ class TestRouterBackendRouter:
             model=None,
             mission_context=_make_context(),
         )
-        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):
+        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):  # noqa: SIM117 - merging would span a multi-line patch()/pytest.raises() call across a combined `with (...)`; kept as nested for readability, no behavior difference
             with patch("core.engineering.providers.model_router.call",
                        return_value=("Plan via router", "qwen3-coder:30b")):
                 with patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):
@@ -903,7 +867,7 @@ class TestRouterBackendRouter:
             model=None,
             mission_context=_make_context(),
         )
-        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):
+        with patch("core.engineering.context_enricher.enrich", return_value=_STUB_ENRICHMENT):  # noqa: SIM117 - merging would span a multi-line patch()/pytest.raises() call across a combined `with (...)`; kept as nested for readability, no behavior difference
             with patch("core.engineering.providers.model_router.call",
                        side_effect=RuntimeError("Model Router connectivity check failed")):
                 with patch("core.engineering.output_writer._EVIDENCE_DIR", tmp_path):

@@ -34,9 +34,9 @@ def create_test_mission(
     mission_id: str,
     priority: Priority = Priority.P1,
     status: MissionStatus = MissionStatus.ACTIVE,
-    blockers: list = None,
-    last_updated: datetime = None,
-    assigned_role: str = None,
+    blockers: list | None = None,
+    last_updated: datetime | None = None,
+    assigned_role: str | None = None,
 ) -> dict:
     """Create a test mission dict."""
     now = datetime.now(timezone.utc)

@@ -224,7 +224,7 @@ class ContextManager:
         pattern_name: str,
         value: bool = True,
         strength: float = 0.7,
-        description: str = None
+        description: str | None = None
     ) -> ExecutiveContext:
         """
         Learn a pattern from your feedback.

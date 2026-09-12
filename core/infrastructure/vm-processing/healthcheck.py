@@ -143,7 +143,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+def _record_heartbeat(status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort."""
     try:
         repo_root = _HERE.parents[2]  # .../vm-processing -> infrastructure -> core -> repo root

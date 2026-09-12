@@ -294,7 +294,7 @@ def load_captain_profile() -> dict[str, Any]:
     }
 
 
-def load_corpus(missions_override_dir: Path = None) -> dict[str, Any]:
+def load_corpus(missions_override_dir: Path | None = None) -> dict[str, Any]:
     """
     Load everything into a single dict keyed by entity type.
 

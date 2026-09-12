@@ -56,7 +56,7 @@ class RemoteTransport:
         )
         return self.run_remote_script(f"mkdir -p {quoted}")
 
-    def run_remote_script(self, script: str, stdin_text: str = None):
+    def run_remote_script(self, script: str, stdin_text: str | None = None):
         # ssh concatenates all trailing argv elements with spaces and re-parses
         # the result with the remote login shell before our intended "bash -c
         # <script>" ever runs — passing them as separate argv items (the old

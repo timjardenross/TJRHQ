@@ -90,7 +90,7 @@ def read_events(
     return events
 
 
-def get_day_summary(day: date = None) -> dict:
+def get_day_summary(day: date | None = None) -> dict:
     """Compile a summary dict for a given day from event log."""
     if day is None:
         day = datetime.now().astimezone().date()

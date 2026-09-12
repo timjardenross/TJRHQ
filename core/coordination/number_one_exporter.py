@@ -169,7 +169,7 @@ class NumberOneExporter:
     def export_brief(
         self,
         missions: list[dict],
-        routing_results: dict = None
+        routing_results: dict | None = None
     ) -> bool:
         """Export coordination brief to JSON."""
         try:
@@ -239,7 +239,7 @@ class NumberOneExporter:
     def export_queue(
         self,
         missions: list[dict],
-        routing_results: dict = None
+        routing_results: dict | None = None
     ) -> bool:
         """Export work queue to JSON."""
         try:
@@ -281,7 +281,7 @@ class NumberOneExporter:
     def export_escalations(
         self,
         missions: list[dict],
-        routing_results: dict = None
+        routing_results: dict | None = None
     ) -> bool:
         """Export escalations to JSON."""
         try:

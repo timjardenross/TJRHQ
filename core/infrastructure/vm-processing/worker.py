@@ -404,7 +404,7 @@ class ProcessingWorker:
 
     # -- helpers -----------------------------------------------------------
 
-    def _log_event(self, current: dict, event: str, detail: str = None) -> list:
+    def _log_event(self, current: dict, event: str, detail: str | None = None) -> list:
         log = list(current.get("processing_log") or [])
         log.append({"event": event, "detail": detail, "at": _now()})
         return log
@@ -593,7 +593,7 @@ def cmd_process(args) -> int:
     return 1 if result["failed"] else 0
 
 
-def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+def _record_heartbeat(status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort."""
     try:
         if str(_REPO_ROOT) not in sys.path:

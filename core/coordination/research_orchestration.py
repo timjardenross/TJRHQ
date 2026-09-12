@@ -194,7 +194,7 @@ def _call_stage(
     agent_name: str,
     prompt: str,
     timeout_sec: int = 30,
-    mission_id: str = None,
+    mission_id: str | None = None,
 ) -> _StageOutcome:
     """
     Mistral-first stage call with automatic fallback to the legacy provider chain.

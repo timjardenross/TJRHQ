@@ -312,7 +312,7 @@ def format_ledger(ledger: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+def _record_heartbeat(status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """Chief Engineer 2026-08-09 EOD alert verification: 'engineering_handoff'
     (this reconciler, deploy/delivery-reconciler.timer every 15 min) had zero
     record_heartbeat() call sites despite being a live, actively-scheduled

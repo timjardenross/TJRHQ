@@ -189,7 +189,7 @@ def get_health() -> dict:
     return pkg.to_dict()
 
 
-def get_recommendations(missions: list = None, health: HealthContextPackage = None) -> dict:
+def get_recommendations(missions: list | None = None, health: HealthContextPackage = None) -> dict:
     if missions is None:
         missions = _load_missions()
     if health is None:
@@ -201,14 +201,14 @@ def get_recommendations(missions: list = None, health: HealthContextPackage = No
     return pkg.to_dict()
 
 
-def get_blockers(missions: list = None) -> list:
+def get_blockers(missions: list | None = None) -> list:
     if missions is None:
         missions = _load_missions()
     pkgs = assemble_blockers(missions)
     return [p.to_dict() for p in pkgs]
 
 
-def get_captain_brief(missions: list = None, recommendations: list = None) -> dict:
+def get_captain_brief(missions: list | None = None, recommendations: list | None = None) -> dict:
     if missions is None:
         missions = _load_missions()
     if recommendations is None:
@@ -226,7 +226,7 @@ def get_captain_brief(missions: list = None, recommendations: list = None) -> di
     return brief.to_dict()
 
 
-def get_operating_picture(missions: list = None, recommendations: list = None) -> dict:
+def get_operating_picture(missions: list | None = None, recommendations: list | None = None) -> dict:
     if missions is None:
         missions = _load_missions()
     if recommendations is None:
