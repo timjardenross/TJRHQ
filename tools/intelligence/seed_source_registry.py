@@ -1631,7 +1631,7 @@ SOURCES = [
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.85,
         "active":             True,
-        "notes":              "MIT open access RSS. Covers management, leadership, AI strategy. Signal discovery only — title/summary/url.",
+        "notes":              "MIT open access RSS. Covers management, leadership, AI strategy. Signal discovery only — title/summary/url. Also covers leadership, organisational performance, and human capability — rigorous and practitioner-focused (merged from a duplicate entry found under USS-TJR-MSN-0368's watchlist activation — the same source_name/url/source_type had been added twice, under 'thought_leadership' and 'wellness' respectively, which broke seed_source_registry.py's batch upsert for all 163 sources, not just these two; see _upsert()'s dedupe guard below).",
         "content_expectation": "continuous",
         "useful_life_days": 365,
         "terms_reviewed": True,
@@ -1733,7 +1733,7 @@ SOURCES = [
         "jurisdiction":       "GLOBAL",
         "confidence_weight":  0.80,
         "active":             True,
-        "notes":              "SSIR public RSS. Open-access journal. Sustainable performance, human-centred leadership.",
+        "notes":              "SSIR public RSS. Open-access journal. Sustainable performance, human-centred leadership. Also covers evidence-based research on human potential, wellbeing at scale, and purposeful high-impact leadership (merged from a duplicate entry, same root cause as the MIT Sloan Management Review merge above — see USS-TJR-MSN-0368's watchlist activation notes there).",
         "content_expectation": "continuous",
         "useful_life_days": 180,
         "terms_reviewed": True,
@@ -1935,23 +1935,9 @@ SOURCES = [
         "terms_reviewed": True,
         "content_source": True,
     },
-    {
-        "source_name":        "MIT Sloan Management Review",
-        "category":           "wellness",
-        "priority_rank":      56,
-        "url":                "https://sloanreview.mit.edu",
-        "rss_url":            "https://sloanreview.mit.edu/feed/",
-        "api_endpoint":       None,
-        "source_type":        "rss",
-        "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.85,
-        "active":             True,
-        "notes":              "Leadership, organisational performance, and human capability — rigorous and practitioner-focused",
-        "content_expectation": "continuous",
-        "useful_life_days": 28,
-        "terms_reviewed": True,
-        "content_source": True,
-    },
+    # Duplicate "MIT Sloan Management Review" entry (same source_name/url/
+    # source_type, category="wellness") removed here -- merged into the
+    # surviving "thought_leadership" entry above. See that entry's notes.
     {
         "source_name":        "Positive Psychology",
         "category":           "wellness",
@@ -2105,23 +2091,10 @@ SOURCES = [
         "terms_reviewed": True,
         "content_source": True,
     },
-    {
-        "source_name":        "Stanford Social Innovation Review",
-        "category":           "wellness",
-        "priority_rank":      73,
-        "url":                "https://ssir.org",
-        "rss_url":            "https://ssir.org/site/rss_2.0",
-        "api_endpoint":       None,
-        "source_type":        "rss",
-        "jurisdiction":       "GLOBAL",
-        "confidence_weight":  0.78,
-        "active":             True,
-        "notes":              "Evidence-based research on human potential, wellbeing at scale, and purposeful high-impact leadership",
-        "content_expectation": "continuous",
-        "useful_life_days": 28,
-        "terms_reviewed": True,
-        "content_source": True,
-    },
+    # Duplicate "Stanford Social Innovation Review" entry (same
+    # source_name/url/source_type, category="wellness") removed here --
+    # merged into the surviving "thought_leadership" entry above. See that
+    # entry's notes.
     {
         "source_name":        "Cambridge Wellbeing Institute",
         "category":           "wellness",
@@ -2798,8 +2771,27 @@ def _upsert(rows: list[dict]) -> tuple[int, int]:
 
     new_rows    = []
     update_rows = []
+    seen_names: set[str] = set()
     for row in rows:
         r = dict(row)
+        # 2026-09-12 fix (USS-TJR-MSN-0368 watchlist activation): two exact
+        # source_name/url/source_type duplicates in SOURCES (MIT Sloan
+        # Management Review, Stanford Social Innovation Review -- both
+        # merged above) mapped to the same existing source_id and landed in
+        # the same update_rows batch. PostgREST turns one batch into a
+        # single `INSERT ... ON CONFLICT (source_id) DO UPDATE` statement,
+        # and Postgres refuses to apply DO UPDATE to the same conflict
+        # target twice within one statement -- so that single duplicate
+        # failed the entire 163-row update batch, not just the 2 duplicate
+        # rows. Dedupe by source_name before batching so a third mission
+        # re-adding an existing feed degrades to a loud warning instead of
+        # silently failing every other source's update in the same run.
+        if r["source_name"] in seen_names:
+            print(f"  ⚠️  Duplicate source_name in SOURCES, dropping: {r['source_name']!r} "
+                  f"(url={r.get('url')!r}) -- would have broken the whole batch upsert",
+                  file=sys.stderr)
+            continue
+        seen_names.add(r["source_name"])
         # PostgREST batch POSTs require every object in the array to have the
         # same key set (PGRST102) — normalise optional fields not every SOURCES
         # entry sets explicitly.
