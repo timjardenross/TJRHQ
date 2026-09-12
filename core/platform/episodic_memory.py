@@ -14,7 +14,9 @@ Responsibilities:
 Non-responsibilities:
 - Does NOT replace the existing research_command._persist_research_memory
   write path. store_memory is additive alongside it.
-- Does NOT activate memory_graph.py (Option B, explicitly deferred).
+- Does NOT itself call memory_graph.py — that deferral (Option B) is now
+  resolved elsewhere: core/platform/unified_memory.py's RELATIONSHIPS recall
+  path is memory_graph.py's real caller (2026-09-12), not this module.
 - Decay (prune old zero-reuse rows) is handled by a scheduler job in
   intelligence/scheduler.py, not here.
 """

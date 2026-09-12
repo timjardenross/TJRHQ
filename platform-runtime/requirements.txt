@@ -45,6 +45,10 @@ flask-cors>=4.0.0
 # which something else in this codebase still needs — both coexist fine,
 # confirmed live, different import namespaces).
 graphiti-core[falkordblite,google-genai]>=0.29.0
+# 2026-09-06: core/platform/unified_memory.py's mem0 backend for SEMANTIC/
+# FACTUAL recall (_Mem0Backend) — already installed and merged, just never
+# declared here.
+mem0ai>=2.0.18
 arize-phoenix
 opentelemetry-sdk
 opentelemetry-exporter-otlp-proto-http
