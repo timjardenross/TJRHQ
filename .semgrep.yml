@@ -1,0 +1,147 @@
+# Semgrep configuration for TJRHQ.
+#
+# USS-TJR-MSN-0366, Stream 1: "Stage 2A: New Open-Source Tool Adoption" —
+# Semgrep OSS CLI is net-new here. Nothing in this repo ran Semgrep before
+# this file. It is complementary to, not a replacement for, the existing
+# pre-commit stack (.pre-commit-config.yaml: ruff, bandit, gitleaks,
+# detect-secrets):
+#
+#   - bandit only ever covers Python. lcars-portal/ (the Next.js/TypeScript
+#     frontend, and the only place most of this platform's Supabase API
+#     routes actually live) has had zero SAST coverage until this file.
+#   - Neither bandit nor ruff can express a custom, platform-specific rule.
+#     Both are fixed, general-purpose rulesets — there is no "add a rule for
+#     our own Supabase RLS-adjacent risk pattern" mechanism in either one.
+#     Semgrep's YAML rule format is exactly that mechanism, which is the
+#     actual reason this tool (and not just "more bandit") was chosen for
+#     this stream.
+#
+# Usage (see .github/workflows/python-ci.yml's `semgrep` job for the CI
+# invocation this mirrors):
+#
+#   pip install semgrep
+#   semgrep scan --config=p/python --config=p/javascript \
+#                --config=p/typescript --config=p/security-audit \
+#                --config=.semgrep.yml
+#
+# Registry rulesets (p/python, p/javascript, p/typescript, p/security-audit)
+# are passed as separate --config flags on the CLI rather than pulled in via
+# an `extends:`/`include:` key in this file — Semgrep's own config schema
+# has no such key; a single YAML file is one flat `rules:` list, and
+# combining local + registry rules is done by passing multiple --config
+# values to one `semgrep scan` invocation (they merge). This file therefore
+# holds ONLY the custom, this-repo-specific ruleset; the registry rulesets
+# above are the general Python/JS/TS/security coverage layer and are
+# referenced from CI, not duplicated here.
+#
+# KNOWN LIMITATION (see knowledge/missions/SEMGREP-CI-20260912-knowledge-
+# record.md for the full account): the sandbox this file was authored and
+# tested in cannot reach semgrep.dev at all (outbound proxy policy — only
+# pypi.org/npmjs/jsr/crates/anthropic hosts are allowlisted here), so the
+# registry configs above were NEVER actually executed or verified from this
+# environment. Only the local `custom/` rules in this file (no network
+# needed) were run and confirmed to produce real findings against this
+# repo. A real CI runner (github-hosted, unrestricted egress) should reach
+# semgrep.dev fine, but that is unverified from here — flag it if the CI
+# step's registry-config fetch fails the same way.
+#
+# Custom rules below target real RLS-adjacent risk patterns found by
+# grepping this actual codebase for `service_role` / `SUPABASE_SERVICE_ROLE_KEY`
+# usage (169 files matched) and template-literal-built PostgREST filter
+# strings in lcars-portal — not hypothetical Supabase misuse patterns.
+
+rules:
+  - id: custom.rls.postgrest-filter-string-injection
+    languages: [typescript, javascript]
+    severity: WARNING
+    message: >
+      A Supabase/PostgREST filter (.or()/.ilike()/.filter()/.match()) is being
+      built from a template literal containing an interpolated value. Supabase's
+      PostgREST filter syntax is itself a small query language (operators,
+      commas, and parentheses are meaningful), so an unescaped, user-controlled
+      value placed inside one of these strings can widen the filter beyond what
+      was intended (e.g. inject `,other_column.eq.x` to add another OR-branch,
+      or unbalanced parens to change grouping) — RLS row policies still apply,
+      but the filter the app THINKS it is sending and the filter PostgREST
+      actually receives can diverge. Real examples of this exact shape already
+      exist in this repo, e.g. lcars-portal/src/app/api/health-osint/library/route.ts
+      (`query.or(\`title.ilike.%${q}%,description.ilike.%${q}%\`)`, `q` is a raw
+      searchParams value) and lcars-portal/src/lib/ask.ts. Prefer chained,
+      parameterized filter calls (.ilike('title', pattern)) or Supabase's
+      `.or()` with values passed as separate arguments/bind params over
+      building the filter string yourself; at minimum, strip/escape
+      `,()."'` from any value before interpolating it into one of these calls.
+    metadata:
+      category: security
+      subcategory: [supabase-rls-adjacent]
+      references:
+        - https://postgrest.org/en/stable/references/api/tables_views.html#operators
+      mission: USS-TJR-MSN-0366
+    patterns:
+      - pattern-either:
+          - pattern: $Q.or(`...${$X}...`)
+          - pattern: $Q.ilike(`...${$X}...`)
+          - pattern: $Q.filter(`...${$X}...`)
+          - pattern: $Q.match(`...${$X}...`)
+          - pattern: $Q.or(`...${$X}...`, ...)
+
+  - id: custom.rls.service-role-key-client-js
+    languages: [typescript, javascript]
+    severity: INFO
+    message: >
+      A Supabase client is being constructed with SUPABASE_SERVICE_ROLE_KEY.
+      The service_role key bypasses Row Level Security entirely on every
+      table, not just the ones this code path intends to touch — so any
+      authorization this route is supposed to enforce (e.g. "this row belongs
+      to the requesting user/session") has to be implemented explicitly in
+      application code, because the database will not do it for a
+      service_role query. This repo already has ~15+ Next.js API routes under
+      lcars-portal/src/app/api/** that build a fresh service_role client
+      inline per-route (see lcars-portal/src/lib/supabase-service-role.ts's
+      own docstring, which documents exactly this bypass for core_events).
+      This rule is advisory, not proof of a bug: confirm the route (a) checks
+      requireSession()/an equivalent auth check before this client is used,
+      and (b) either has no notion of per-row ownership (fine) or explicitly
+      re-checks ownership itself (e.g. `.eq('user_id', session.user.id)`)
+      before using this client to read/update/delete a row addressed by
+      caller-supplied input (a route param, a body field) — RLS will not
+      catch a missing check here the way it would for an anon/authenticated
+      client.
+    metadata:
+      category: security
+      subcategory: [supabase-rls-adjacent]
+      mission: USS-TJR-MSN-0366
+    patterns:
+      - pattern-either:
+          - pattern: createClient($URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+          - pattern: createClient($URL, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+          - pattern: createClient($URL, process.env.SUPABASE_SERVICE_ROLE_KEY, $OPTS)
+
+  - id: custom.rls.service-role-key-client-py
+    languages: [python]
+    severity: INFO
+    message: >
+      A Supabase client is being constructed with a service_role key read
+      from SUPABASE_SERVICE_ROLE_KEY. Same risk as the TypeScript/JS version
+      of this rule: service_role bypasses RLS on every table unconditionally,
+      so any per-caller authorization this code needs has to be enforced in
+      Python, not left to the database. Real example already in this repo:
+      tools/supabase/client.py's CommanderSupabaseClient reads
+      SUPABASE_SERVICE_ROLE_KEY into self.key and passes it straight to
+      create_client() with no scoping. Contrast with
+      telegram-bots/xo/scoped_supabase.py, which documents (in its own
+      module docstring, citing the Chief Engineer's
+      xo-bot-service-role-decision.md) a deliberate, reviewed decision to
+      move a similar bot off service_role onto a scoped Postgres role — that
+      write-up is the right model for triaging a hit from this rule: is the
+      broad access actually needed and reviewed, or should this be narrower?
+    metadata:
+      category: security
+      subcategory: [supabase-rls-adjacent]
+      mission: USS-TJR-MSN-0366
+    patterns:
+      - pattern-either:
+          - pattern: create_client($URL, $KEY)
+      - pattern-inside: |
+          $KEY = ....get("SUPABASE_SERVICE_ROLE_KEY", ...)
+          ...

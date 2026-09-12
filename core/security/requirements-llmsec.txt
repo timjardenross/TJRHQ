@@ -1,0 +1,45 @@
+# PII redaction (Presidio) + LLM input/output guardrails (NeMo Guardrails),
+# isolated from platform-runtime/requirements.txt -- USS-TJR-MSN-0366
+# Stream 5. Same reasoning as core/quality/requirements-garak.txt: this
+# feature is used by core/model-router/app.py, which the file's own
+# docstring states runs "under system Python with no external deps" (only
+# stdlib, plus an OPTIONAL sys.path-inserted OTel import that no-ops on
+# failure) -- pulling spacy/numpy/pydantic/onnxruntime/etc. straight into
+# that process would turn a zero-dependency router into one with a large,
+# version-sensitive dependency graph, and would risk exactly the kind of
+# silent cross-venv version clash documented in
+# knowledge/missions/BROWSER-USE-OSINT-ADAPTER-20260912-knowledge-record.md
+# (that incident: a straight `pip install` into the shared platform-runtime
+# venv silently downgraded anthropic/google-genai underneath two other
+# already-wired features).
+#
+# No conflict was found against platform-runtime/requirements.txt itself
+# (checked 2026-09-12): presidio-analyzer/presidio-anonymizer resolved
+# cleanly pulling in their own pydantic==2.13.5 (platform-runtime pins
+# 2.13.4 -- close but not identical) and spacy/numpy/thinc, none of which
+# platform-runtime/requirements.txt pins to an incompatible range; nemo-
+# guardrails==0.24.0 resolved cleanly too and does NOT pull in langchain at
+# all (its built-in "ollama" engine talks to Ollama's OpenAI-compatible
+# /v1 endpoint directly -- see core/security/guardrails/config/config.yml).
+# The isolation here is a deliberate blast-radius decision for the
+# stdlib-only router, not a forced one -- unlike garak's actual openai<3.0
+# vs openai>=3.x ResolutionImpossible conflict.
+#
+# Install into a dedicated venv, not platform-runtime/.venv:
+#   python3 -m venv platform-runtime/.venv-llmsec
+#   platform-runtime/.venv-llmsec/bin/pip install -r core/security/requirements-llmsec.txt
+#   # Presidio's default NLP engine downloads a spacy model on first use if
+#   # none is installed (en_core_web_lg, ~400MB) -- explicitly install the
+#   # small model instead (core/security/_llmsec_worker.py's AnalyzerEngine
+#   # is configured to use en_core_web_sm, not the default):
+#   platform-runtime/.venv-llmsec/bin/pip install \
+#     https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+#
+# core/security/llm_guardrails.py (stdlib-only, safe to import from
+# core/model-router/app.py) invokes core/security/_llmsec_worker.py from
+# this dedicated venv by absolute path via subprocess -- same "isolated
+# venv invoked by absolute path" shape core/quality/garak_gate.py already
+# uses for garak, just returning JSON over stdio instead of a CLI report.
+presidio-analyzer
+presidio-anonymizer
+nemoguardrails

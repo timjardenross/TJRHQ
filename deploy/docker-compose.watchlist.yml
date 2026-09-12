@@ -1,0 +1,81 @@
+# USS-TJR-MSN-0366 Stream 6 — watchlist execution engine.
+#
+# Two single-process, SQLite-backed, third-party OSS containers that give
+# intelligence/watchlist/ (previously tracker-only, no live collection) a
+# real execution engine:
+#   - changedetection.io: persistent diff-watching of specific pages.
+#   - Uptime Kuma:         first-party direct up/down probing.
+#
+# Neither container talks to this platform's collection pipeline directly.
+# Each does its own real polling/probing on its own schedule and fires its
+# own webhook notification on a real event (a detected diff, or an up/down
+# transition) at a small stdlib-only receiver running on the HOST (not
+# containerized — see the two systemd units below, matching this repo's
+# existing single-process Python daemon convention, e.g.
+# deploy/mint-server.service):
+#   - intelligence/watchlist/changedetection_webhook.py  (host port 8765)
+#   - intelligence/watchlist/uptime_kuma_webhook.py       (host port 8766)
+# Each receiver normalises the real payload and appends it to
+# intelligence/watchlist/webhook_queue.py's on-disk queue; the matching
+# adapter (intelligence/ingestion/changedetection_adapter.py /
+# uptime_kuma_adapter.py), registered in collection_engine.py's
+# `_ADAPTER_MAP` under source_type "changedetection" / "uptime_kuma",
+# drains that queue on the next scheduled collection cycle — the SAME
+# collection entry point every other source in this codebase feeds
+# (see downdetector_adapter.py). See
+# knowledge/missions/CHANGEDETECTION-UPTIME-KUMA-20260912-knowledge-record.md
+# for the real target(s) this was verified against and what did/didn't
+# work from this deployment host's network.
+#
+# `extra_hosts: host.docker.internal:host-gateway` is required on Linux
+# (Docker Desktop adds this automatically; a plain Linux dockerd does not)
+# so each container can reach the host-run webhook receivers by that name
+# — both notification URLs below are configured against
+# host.docker.internal, not a container-network hostname, because the
+# receivers are NOT part of this compose stack.
+#
+# TLS note (see the knowledge record for the full explanation): this
+# deployment host's network egress goes through a transparent,
+# certificate-re-terminating egress gateway. Neither image ships that
+# gateway's CA by default, so BOTH containers are pointed at a copy of it
+# mounted from the host (see deploy/watchlist-data/*/egress-ca-bundle.crt
+# — copied from /root/.ccr/ca-bundle.crt, NOT committed to this repo; a
+# real production host without that gateway does not need this file or
+# these env vars at all).
+#
+# Bring up:   cd deploy && docker compose -f docker-compose.watchlist.yml up -d
+# Tear down:  cd deploy && docker compose -f docker-compose.watchlist.yml down
+
+services:
+  changedetection:
+    image: dgtlmoon/changedetection.io:latest
+    container_name: changedetection.io
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./watchlist-data/changedetection-data:/datastore
+    environment:
+      BASE_URL: "http://localhost:5000"
+      # Only needed on a host that sits behind a TLS-intercepting egress
+      # gateway (see note above) — drop these three on a normal host.
+      REQUESTS_CA_BUNDLE: /datastore/egress-ca-bundle.crt
+      SSL_CERT_FILE: /datastore/egress-ca-bundle.crt
+      CURL_CA_BUNDLE: /datastore/egress-ca-bundle.crt
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./watchlist-data/uptime-kuma-data:/app/data
+    environment:
+      # Only needed behind the same TLS-intercepting egress gateway —
+      # Node.js's own trust store, drop on a normal host.
+      NODE_EXTRA_CA_CERTS: /app/data/egress-ca-bundle.crt
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
