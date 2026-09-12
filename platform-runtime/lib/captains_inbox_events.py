@@ -69,9 +69,9 @@ def _dispatch(capture_event: dict, client) -> None:
                 try:
                     from core.inbox.orchestrator import process_captured_item
                     process_captured_item(item_id)
-                except Exception as orch_exc:
+                except Exception as orch_exc:  # noqa: BLE001 - best-effort orchestration handoff, already logged
                     log.warning("[captains-inbox] Orchestration failed (non-blocking): %s", orch_exc)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort item capture, already logged
             _health["capture_failures"] += 1
             log.error("[captains-inbox] Permanent capture failure: %s", exc)
             alert_capture_failure(client, channel, thread_ts)
@@ -108,7 +108,7 @@ def register_captains_inbox_handlers(app) -> None:
         try:
             info = client.files_info(file=file_id)
             file_data = info.get("file", {})
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort Slack file lookup, already logged
             logger.warning("[captains-inbox] files_info failed for %s: %s", file_id, exc)
             file_data = {}
 

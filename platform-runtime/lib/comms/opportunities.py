@@ -162,7 +162,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.warning("[comms.opportunities] Supabase unavailable: %s", exc)
         return None
 
@@ -184,7 +184,7 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
     # client and already excludes not_for_publication and internal/personal_story.
     try:
         out += outcome_opportunities(_gather_outcome_candidates(limit_per_source))
-    except Exception as _exc:  # pragma: no cover
+    except Exception as _exc:  # pragma: no cover  # noqa: BLE001 - best-effort outcome-derived opportunities step, already logged
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
 
     c = _client()
@@ -199,7 +199,7 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
         try:
             out.append(build_opportunity(kind, ref=str(ref or ""), title=str(title or ""),
                                          body=str(body or ""), quality=quality))
-        except Exception as _exc:  # pragma: no cover
+        except Exception as _exc:  # pragma: no cover  # noqa: BLE001 - best-effort opportunity build, already logged
             log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
 
     # Missions → case studies / behind-the-scenes.
@@ -207,55 +207,55 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
         for r in _q(c, "missions", "mission_id,title,description,status,outcome_rating", limit_per_source):
             add("mission", r.get("mission_id"), r.get("title"), r.get("description"),
                 quality=r.get("outcome_rating"))
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort missions source, already logged
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
     # Lessons learned → lessons posts.
     try:
         for r in _q(c, "lessons_learned", "lesson_id,title,lesson_text,future_guidance", limit_per_source):
             add("lesson", r.get("lesson_id"), r.get("title"),
                 f"{r.get('lesson_text','')} {r.get('future_guidance','')}")
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort lessons-learned source, already logged
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
     # Decisions → leadership lessons.
     try:
         for r in _q(c, "decisions", "id,decision_type,reasoning,outcome,outcome_quality", limit_per_source):
             add("decision", r.get("id"), r.get("decision_type"),
                 f"{r.get('reasoning','')} {r.get('outcome','')}", quality=r.get("outcome_quality"))
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort decisions source, already logged
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
     # Capabilities → behind-the-scenes builds.
     try:
         for r in _q(c, "capabilities", "id,name,purpose", limit_per_source):
             add("capability", r.get("id"), r.get("name"), r.get("purpose"))
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort capabilities source, already logged
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
     # Research → insight articles.
     try:
         for r in _q(c, "research_memory", "mission_id,original_question,consolidated_findings,recommendation", limit_per_source):
             add("research", r.get("mission_id"), r.get("original_question"),
                 f"{r.get('consolidated_findings','')} {r.get('recommendation','')}")
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort research source, already logged
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
     # ADRs → framework explanations.
     try:
         for r in _q(c, "architecture_records", "id,title,problem_statement,decision_summary", limit_per_source):
             add("ADR", r.get("id"), r.get("title"),
                 f"{r.get('problem_statement','')} {r.get('decision_summary','')}")
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort ADRs source, already logged
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
     # Resilience briefs → industry commentary.
     try:
         for r in _q(c, "intelligence_briefs", "brief_id,executive_snapshot,bottom_line", limit_per_source):
             add("resilience", r.get("brief_id"), "Operational resilience briefing",
                 f"{r.get('executive_snapshot','')} {r.get('bottom_line','')}")
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort resilience briefs source, already logged
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
     # Strategic objectives → executive insight (SPC-001 tie-in).
     try:
         for r in _q(c, "strategic_objectives", "objective_id,title,description,status", limit_per_source):
             if str(r.get("status") or "").lower() == "active":
                 add("objective", r.get("objective_id"), r.get("title"), r.get("description"))
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort objectives source, already logged
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
 
     if publishable_only:
@@ -273,6 +273,6 @@ def _gather_outcome_candidates(limit: int) -> list[dict]:
             sys.path.insert(0, kp)
         from outcome_capture import get_content_candidates  # type: ignore
         return get_content_candidates(limit=limit)
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort outcome candidates fetch, already logged
         log.debug("[comms.opportunities] outcome candidates unavailable: %s", exc)
         return []

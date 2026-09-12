@@ -72,7 +72,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Supabase unavailable, already logged
         log.warning("[comms.pipeline] Supabase unavailable: %s", exc)
         return None
 
@@ -121,7 +121,7 @@ def advance(
         row = rows[0]
         current_state = str(row.get("status") or "opportunity").lower()
         title = row.get("title", "")
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Failed to fetch content state, already logged
         log.warning("[comms.pipeline] Failed to fetch content state: %s", exc)
         return None
 
@@ -147,7 +147,7 @@ def advance(
             "[comms.pipeline] %s: '%s' → '%s' (trigger=%s, actor=%s)",
             content_id, current_state, new_state, trigger, actor
         )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - State write failed, already logged
         log.warning("[comms.pipeline] State write failed: %s", exc)
         return None
 
@@ -174,7 +174,7 @@ def advance(
                 },
                 mission_id=content_id,
             )
-        except Exception as exc:
+        except Exception as exc: # noqa: BLE001 - Audit event recording failed, already logged
             log.warning("[comms.pipeline] Audit event recording failed (non-blocking): %s", exc)
 
     # SUOC Wave 1: feed Captain approval decisions into the learning loop
@@ -189,7 +189,7 @@ def advance(
                 new_state=new_state,
                 actor=actor,
             )
-        except Exception as exc:
+        except Exception as exc: # noqa: BLE001 - Learning loop recording failed, already logged
             log.warning("[comms.pipeline] Learning loop recording failed (non-blocking): %s", exc)
 
     return current_state, new_state
@@ -207,7 +207,7 @@ def archive_content(content_id: str, actor: str) -> bool:
         }).eq("id", content_id).execute()
         log.info("[comms.pipeline] Content %s archived by %s", content_id, actor)
         return True
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Archive failed, already logged
         log.warning("[comms.pipeline] Archive failed: %s", exc)
         return False
 
@@ -230,8 +230,8 @@ def get_pipeline_status() -> dict[str, Any]:
             status["available"] = True
             status["ready_to_publish"] = status.get("ready_to_publish", 0)
             return status
-    except Exception as _exc:
-        log.debug("[lib.comms.pipeline] best-effort step failed, continuing: %s", _exc)
+    except Exception as _exc:  # noqa: BLE001 - comms_pipeline view query, falls through to fallback path
+        log.debug("[lib.comms.pipeline] comms_pipeline view query failed, continuing: %s", _exc)
 
     # Fallback: direct table query
     try:
@@ -244,7 +244,7 @@ def get_pipeline_status() -> dict[str, Any]:
         counts["available"] = True
         counts["ready_to_publish"] = counts.get("ready_to_publish", 0)
         return counts
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Status query failed, already logged
         log.warning("[comms.pipeline] Status query failed: %s", exc)
         return {"available": False}
 
@@ -259,7 +259,7 @@ def get_ready_to_publish() -> list[dict[str, Any]]:
             "id,title,pillar,format,notes,updated_at"
         ).eq("status", "ready_to_publish").execute()
         return list(res.data or [])
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Ready-to-publish query failed, already logged
         log.warning("[comms.pipeline] Ready-to-publish query failed: %s", exc)
         return []
 
@@ -288,7 +288,7 @@ def _log_transition(
             ),
             owner=f"comms:{actor}",
         )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Audit log failed, already logged
         log.warning("[comms.pipeline] Audit log failed (non-blocking): %s", exc)
 
 

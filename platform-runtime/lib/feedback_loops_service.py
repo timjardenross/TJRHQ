@@ -215,7 +215,7 @@ class FeedbackLoops:
 
                 return signal
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - best-effort feedback signal generation, already logged
                 log.error(
                     f"[feedback-loops] Failed to generate feedback: {type(e).__name__}: {str(e)[:100]}"
                 )
@@ -268,7 +268,7 @@ class FeedbackLoops:
                 log.debug(f"[feedback-loops] No quality data found for provider: {provider_name}")
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort provider quality query, already logged
             log.error(
                 f"[feedback-loops] Failed to retrieve provider quality: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -308,7 +308,7 @@ class FeedbackLoops:
             )
             return routing_order
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort routing suggestion query, already logged
             log.error(
                 f"[feedback-loops] Failed to suggest routing: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -364,7 +364,7 @@ class FeedbackLoops:
                     avg = response.data[0].get("avg_effectiveness")
                     if avg is not None:
                         return float(avg)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - best-effort baseline lookup, already logged
                 log.debug(
                     f"[feedback-loops] Could not get baseline for {provider_name}: {e}"
                 )
@@ -463,7 +463,7 @@ class FeedbackLoops:
                 f"avg={round(avg_effectiveness, 1)}, trend={trend}"
             )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort provider quality update, already logged
             log.error(
                 f"[feedback-loops] Failed to update provider quality: {type(e).__name__}: {str(e)[:100]}"
             )

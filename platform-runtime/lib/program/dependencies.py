@@ -87,7 +87,8 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort optional Supabase client init
+        log.debug("[program.dependencies] Supabase client init failed: %s", exc)
         return None
 
 
@@ -180,7 +181,7 @@ def add_dependency(
         )
         log.info("[program.dependencies] Added: %s %s %s", from_id, dt.value, to_id)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (add_dependency failed)
         log.debug("[program.dependencies] add_dependency failed: %s", exc)
         return False
 
@@ -199,7 +200,7 @@ def get_dependencies(node_id: str) -> list[Dependency]:
         )
         out = [_row_to_dependency(r) for r in (res.data or [])]
         return [d for d in out if d]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_dependencies failed)
         log.debug("[program.dependencies] get_dependencies failed: %s", exc)
         return []
 
@@ -218,7 +219,7 @@ def get_all_dependencies() -> list[Dependency]:
         )
         out = [_row_to_dependency(r) for r in (res.data or [])]
         return [d for d in out if d]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_all_dependencies failed)
         log.debug("[program.dependencies] get_all_dependencies failed: %s", exc)
         return []
 

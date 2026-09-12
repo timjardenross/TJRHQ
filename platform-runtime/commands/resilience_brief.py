@@ -97,7 +97,7 @@ def _fmtdate(iso: str) -> str:
     try:
         dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
         return dt.strftime("%-d %b %Y, %H:%M AEST")
-    except Exception:
+    except ValueError:
         return iso[:16]
 
 

@@ -31,7 +31,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged - pragma: no cover
         log.warning("[intel.knowledge] Supabase unavailable: %s", exc)
         return None
 
@@ -93,7 +93,7 @@ def relevant_knowledge(query: str, *, limit: int = 5) -> list[KnowledgeHit]:
         try:
             res = c.raw_client.table(table).select(select).limit(50).execute()
             rows = list(res.data or [])
-        except Exception as _exc:
+        except Exception as _exc:  # noqa: BLE001 - best-effort per-table fetch skip, already logged
             log.debug("[lib.intel.knowledge] best-effort step failed, continuing: %s", _exc)
             continue
         hit = best_hit(q, rows, kind, fields)

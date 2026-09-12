@@ -90,7 +90,7 @@ def _get_active_improvement_missions() -> list[dict[str, Any]]:
         rows = list(res.data or [])
         return [r for r in rows if str(r.get("status") or "").lower() in _ACTIVE]
 
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Active missions query failed, already logged
         log.debug("[improvement.portfolio] Active missions query failed: %s", exc)
         return []
 
@@ -111,21 +111,21 @@ def get_improvement_portfolio(capacity_status: str = "Unknown") -> ImprovementPo
     # Active missions
     try:
         portfolio.active_missions = _get_active_improvement_missions()
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Active missions failed, already logged
         log.warning("[improvement.portfolio] Active missions failed: %s", exc)
 
     # Budget
     try:
         from lib.improvement.budget import get_current_budget
         portfolio.budget = get_current_budget(capacity_status)
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Budget fetch failed, already logged
         log.warning("[improvement.portfolio] Budget fetch failed: %s", exc)
 
     # Backlog (fetch up to 20 highest-scored items)
     try:
         from lib.improvement.backlog import get_backlog
         portfolio.backlog_items = get_backlog(limit=20)
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Backlog fetch failed, already logged
         log.warning("[improvement.portfolio] Backlog fetch failed: %s", exc)
 
     log.info(

@@ -99,13 +99,13 @@ class CommandMemoryClient:
             detail = ""
             try:
                 detail = e.read().decode("utf-8")[:300]
-            except Exception as _exc:
+            except Exception as _exc:  # noqa: BLE001 - best-effort error-body decode for logging, already logged
                 log.debug("[command_memory_integration] best-effort step failed, continuing: %s", _exc)
             log.error(
                 f"[command-memory] HTTP {e.code} ({method} {path}): {detail}"
             )
             return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort HTTP request, already logged
             log.error(f"[command-memory] Request failed ({method} {path}): {e}")
             return None
 
@@ -172,7 +172,7 @@ class CommandMemoryClient:
             query = urllib.parse.urlencode(params, safe="*,().")
             result = self.request("GET", f"/rest/v1/{table}?{query}")
             return result if isinstance(result, list) else []
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort table query, already logged
             log.error(f"[command-memory] Query to {table} failed: {e}")
             return []
 
@@ -406,7 +406,7 @@ def create_mission_from_officer(
             approved=True, reason=reason,
             captain_override=captain_override,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort authority check, already logged
         log.warning("[command-memory] Authority check skipped (non-blocking): %s", exc)
 
     # Build mission ID

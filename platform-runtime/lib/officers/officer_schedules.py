@@ -252,7 +252,7 @@ def _get_schedule_state(activity_id: str) -> tuple[datetime | None, int]:
                 except ValueError:
                     pass
         return last_run, run_count
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort schedule state retrieval, already logged
         log.debug("[officer_schedules] State retrieval failed for %s: %s", activity_id, exc)
         return None, 0
 
@@ -288,7 +288,7 @@ def get_due_activities(ctx: Any = None) -> list[ScheduledActivity]:
                 next_due=next_due,
                 run_count=run_count,
             ))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort due-check per schedule, already logged
             log.debug("[officer_schedules] Due check failed for %s: %s", schedule.activity_id, exc)
     return [a for a in due if a.is_due]
 
@@ -331,7 +331,7 @@ def record_activity_run(activity_id: str) -> None:
             }).execute()
 
         log.info("[officer_schedules] Recorded run: %s (count=%d)", activity_id, new_count)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort run record write, already logged
         log.debug("[officer_schedules] Record run failed for %s: %s", activity_id, exc)
 
 

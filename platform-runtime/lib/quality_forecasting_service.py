@@ -311,7 +311,7 @@ class QualityForecasting:
 
             return forecast
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - effectiveness forecast, already logged
             log.error(
                 f"[quality-forecasting] Failed to forecast effectiveness: "
                 f"{type(e).__name__}: {str(e)[:100]}"
@@ -417,7 +417,7 @@ class QualityForecasting:
 
             return anomaly
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - anomaly detection, already logged
             log.error(
                 f"[quality-forecasting] Failed to detect anomalies: "
                 f"{type(e).__name__}: {str(e)[:100]}"
@@ -513,7 +513,7 @@ class QualityForecasting:
 
             return persistence
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - trend persistence analysis, already logged
             log.error(
                 f"[quality-forecasting] Failed to analyze trend: "
                 f"{type(e).__name__}: {str(e)[:100]}"
@@ -591,7 +591,7 @@ class QualityForecasting:
 
             return routing_order
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - proactive routing suggestion, already logged
             log.error(
                 f"[quality-forecasting] Failed to suggest routing: "
                 f"{type(e).__name__}: {str(e)[:100]}"

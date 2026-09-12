@@ -49,7 +49,7 @@ def log_collaboration_output(
         }
         with _LOG_FILE.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (failed to persist collaboration log entry)
         log.debug("[collaboration_log_consumer] failed to persist collaboration log entry: %s", exc)
 
 

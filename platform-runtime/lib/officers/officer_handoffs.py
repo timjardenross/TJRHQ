@@ -139,7 +139,8 @@ def _row_to_handoff(row: dict[str, Any]) -> HandoffRecord | None:
             context=parts.get("CONTEXT", ""),
             item_type=stmt,
         )
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - row parsing, best-effort, skips malformed rows
+        log.debug("[officer_handoffs] Row parse failed: %s", exc)
         return None
 
 
@@ -188,7 +189,7 @@ def create_handoff(
                 }).execute()
         log.info("[officer_handoffs] Created handoff %s: %s → %s (%d items)",
                  handoff_id, from_officer, to_officer, len(items))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - handoff persistence, best-effort, already logged
         log.debug("[officer_handoffs] Create failed: %s", exc)
     return hr
 
@@ -215,7 +216,7 @@ def accept_handoff(handoff_id: str, accepting_officer: str) -> bool:
         }).eq("owner", owner).execute()
         log.info("[officer_handoffs] Accepted %s by %s", handoff_id, accepting_officer)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - accept-handoff update, best-effort, already logged
         log.debug("[officer_handoffs] Accept failed %s: %s", handoff_id, exc)
         return False
 
@@ -235,7 +236,7 @@ def complete_handoff(handoff_id: str) -> bool:
         }).eq("owner", owner).execute()
         log.info("[officer_handoffs] Completed %s", handoff_id)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - complete-handoff update, best-effort, already logged
         log.debug("[officer_handoffs] Complete failed %s: %s", handoff_id, exc)
         return False
 
@@ -262,7 +263,7 @@ def get_pending_handoffs(officer: str) -> list[HandoffRecord]:
             hr = _row_to_handoff(row)
             if hr:
                 result.append(hr)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - pending-handoffs fetch, best-effort, already logged
         log.debug("[officer_handoffs] Get pending failed %s: %s", officer, exc)
     return result
 

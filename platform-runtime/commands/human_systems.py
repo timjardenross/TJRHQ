@@ -34,7 +34,7 @@ def _make_supabase():
     try:
         from tools.supabase.client import CommanderSupabaseClient
         return CommanderSupabaseClient()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.warning("[human-systems] Supabase client unavailable: %s", exc)
         return None
 
@@ -54,7 +54,7 @@ def _fetch_rows(days: int = 7) -> list[dict]:
             .execute()
         )
         return list(result.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort analytics data fetch, already logged
         log.error("[human-systems] data fetch failed: %s", exc)
         return []
 
@@ -85,11 +85,13 @@ def _delivery_context():
         from lib.delivery import analysis as danalysis
         from lib.delivery import data as ddata
         from lib.delivery import lifecycle as dlife
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - pragma: no cover - EDO delivery module optional
+        log.debug("[human-systems] Delivery module unavailable: %s", exc)
         return None, None
     try:
         rows = ddata.fetch_delivery_rows()
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - pragma: no cover - EDO delivery data optional
+        log.debug("[human-systems] Delivery rows unavailable: %s", exc)
         return None, None
     if not rows:
         return None, None
@@ -444,7 +446,7 @@ def _push(rest: str) -> str:
     try:
         from human_systems_scheduler import run_job  # lazy to avoid import cycle
         report = run_job(job, dry_run=True, record=False)
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - best-effort push preview generation, already logged - pragma: no cover
         log.warning("[human-systems] push preview failed: %s", exc)
         return "Couldn't generate that preview right now."
     if report.get("skipped"):

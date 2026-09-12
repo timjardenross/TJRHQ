@@ -238,7 +238,7 @@ def batch_process_officer_review(supabase_client: Any) -> list[ProcessResult]:
         try:
             r = process_officer_review(row["id"], supabase_client)
             results.append(r)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort per-note processing, already logged
             log.warning("[notebook-officer] Failed to process note %s: %s", row["id"], exc)
             results.append(ProcessResult(note_id=row["id"], error=str(exc)))
     return results

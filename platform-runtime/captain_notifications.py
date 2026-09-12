@@ -186,7 +186,7 @@ def _mission_last_activity(mission_id: str) -> datetime | None:
             # to `datetime.now(timezone.utc)` without a false offset.
             ts = lines[0]
             return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S %z")
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
         log.debug("[captain_notifications] best-effort step failed, continuing: %s", _exc)
     return None
 
@@ -219,7 +219,7 @@ def _read_mission_index() -> list[dict]:
                     }
                     for r in rows
                 ]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (supabase mission read failed)
         log.warning("[notifications] Supabase mission read failed: %s", exc)
     return []
 
@@ -390,7 +390,7 @@ def get_forgotten_decisions() -> list[dict]:
                             })
                     except ValueError:
                         pass
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (decision register scan failed)
             log.warning("[notifications] Decision register scan failed: %s", exc)
 
     # --- ADRs awaiting validation ---
@@ -434,7 +434,7 @@ def get_forgotten_decisions() -> list[dict]:
                                 })
                         except ValueError:
                             pass
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (adr scan failed in)
             log.warning("[notifications] ADR scan failed in %s: %s", adr_dir, exc)
         break  # use first valid ADR directory
 
@@ -469,7 +469,7 @@ def get_forgotten_decisions() -> list[dict]:
                                 except ValueError:
                                     pass
                                 break
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (capability registry scan failed)
             log.warning("[notifications] Capability registry scan failed: %s", exc)
 
     # Deduplicate by id

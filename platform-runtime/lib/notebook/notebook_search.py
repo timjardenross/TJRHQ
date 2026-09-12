@@ -108,7 +108,7 @@ def _search_table(
             col, vals = status_filter
             q = q.not_.in_(col, [v for v in vals])
         return q.limit(limit).execute().data or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (failed to query)
         log.warning("[notebook-search] Failed to query %s: %s", table, exc)
         return []
 
@@ -260,7 +260,7 @@ def search(
                     excerpt=_excerpt(row.get("rationale") or "", tokens),
                     relevance=score,
                 ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (failed to query command_memory)
         log.warning("[notebook-search] Failed to query command_memory: %s", exc)
 
     hits.sort(key=lambda h: h.relevance, reverse=True)

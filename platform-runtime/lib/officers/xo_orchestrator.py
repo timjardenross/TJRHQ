@@ -274,7 +274,7 @@ def _persist_synthesis(synthesis: XOSynthesis) -> None:
                 "decision_type": "xo_synthesis",
                 "status": "active",
             }).execute()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort orchestrator persist, already logged
         log.debug("[xo_orchestrator] Persist failed: %s", exc)
 
 

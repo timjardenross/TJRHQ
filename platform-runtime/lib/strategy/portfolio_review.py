@@ -137,7 +137,7 @@ def generate_portfolio_review(inputs: dict[str, Any] | None = None) -> Portfolio
                     ),
                 })
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-initiative risk assessment, already logged
             log.debug("[strategy.portfolio_review] failed for %s: %s", init.initiative_id, exc)
 
     # Q6: Strategic opportunities from alignment scan
@@ -157,7 +157,7 @@ def generate_portfolio_review(inputs: dict[str, Any] | None = None) -> Portfolio
             review.opportunities.append(
                 f"Strategic alignment is {alignment.coverage_pct:.0%} — {gap}% of work lacks initiative linkage"
             )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - alignment scan failed, already logged
         log.debug("[strategy.portfolio_review] alignment scan failed: %s", exc)
 
     cross_opps = inputs.get("cross_domain_opportunities", [])

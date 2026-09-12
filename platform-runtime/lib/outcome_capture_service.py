@@ -208,7 +208,7 @@ class OutcomeCapture:
                         else:
                             log.warning("[outcome-capture→b1c] Quality scoring returned None")
 
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - best-effort quality scoring, already logged
                         log.error(
                             f"[outcome-capture→b1c] Quality scoring failed: "
                             f"{type(e).__name__}: {str(e)[:100]}"
@@ -217,7 +217,7 @@ class OutcomeCapture:
 
                 return outcome
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - DB write failure, already logged
                 log.error(
                     f"[outcome-capture] Failed to record outcome: {type(e).__name__}: {str(e)[:100]}"
                 )
@@ -265,7 +265,7 @@ class OutcomeCapture:
                 log.debug(f"[outcome-capture] Outcome not found: {outcome_id}")
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - DB read failure, already logged
             log.error(
                 f"[outcome-capture] Failed to retrieve outcome: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -314,7 +314,7 @@ class OutcomeCapture:
             )
             return outcomes
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - DB read failure, already logged
             log.error(
                 f"[outcome-capture] Failed to retrieve outcomes: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -365,7 +365,7 @@ class OutcomeCapture:
             )
             return outcomes
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - DB read failure, already logged
             log.error(
                 f"[outcome-capture] Failed to retrieve outcomes by status: {type(e).__name__}: {str(e)[:100]}"
             )

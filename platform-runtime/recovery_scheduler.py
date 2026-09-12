@@ -62,7 +62,7 @@ def _dispatch_check(slack_client: Any) -> None:
         db = CommanderSupabaseClient()
         if not db.is_enabled():
             return
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.warning("[recovery-scheduler] Supabase unavailable: %s", exc)
         return
 
@@ -82,7 +82,7 @@ def _dispatch_check(slack_client: Any) -> None:
         conf     = 100 if checkins > 0 else 0
         pulses   = checkins
         level    = _escalation_level(conf, pulses)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort status fetch, already logged
         log.error("[recovery-scheduler] status fetch failed: %s", exc)
         return
 
@@ -93,7 +93,8 @@ def _dispatch_check(slack_client: Any) -> None:
     try:
         from zoneinfo import ZoneInfo as _ZI
         today = datetime.now(_ZI("Australia/Brisbane")).strftime("%Y-%m-%d")
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort timezone lookup, falls back to UTC
+        log.debug("[recovery-scheduler] Brisbane timezone lookup failed, using UTC: %s", exc)
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     bar_filled = int(conf / 10)
     bar        = "█" * bar_filled + "░" * (10 - bar_filled)
@@ -115,7 +116,7 @@ def _dispatch_check(slack_client: Any) -> None:
     try:
         slack_client.chat_postMessage(channel=user_id, text=msg)
         log.info("[recovery-scheduler] L%d alert sent", level)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Slack DM, already logged
         log.error("[recovery-scheduler] DM failed: %s", exc)
 
 

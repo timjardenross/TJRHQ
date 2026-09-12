@@ -143,7 +143,7 @@ class AdaptiveRoutingService:
 
             return rankings
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort ranking build, already logged
             log.error(
                 f"[adaptive-routing] Error getting provider quality: "
                 f"{type(e).__name__}: {str(e)[:100]}"

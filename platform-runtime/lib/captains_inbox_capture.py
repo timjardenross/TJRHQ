@@ -77,7 +77,7 @@ class _SupabaseInsert:
             try:
                 from supabase import create_client
                 self._client = create_client(self.url, self.key)
-            except Exception as _exc:
+            except Exception as _exc:  # noqa: BLE001 - optional supabase-py client init, falls back to urllib, already logged
                 log.debug("[lib.captains_inbox_capture] best-effort step failed, continuing: %s", _exc)
 
     def enabled(self) -> bool:
@@ -173,7 +173,7 @@ def ack_to_slack(client: Any, channel: str, thread_ts: str) -> None:
             thread_ts=thread_ts,
             text="✅ Captured to intelligence registry.",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Slack ack, non-blocking, already logged
         log.warning("[captains-inbox] Slack ack failed (non-critical): %s", exc)
 
 
@@ -184,5 +184,5 @@ def alert_capture_failure(client: Any, channel: str, thread_ts: str) -> None:
             thread_ts=thread_ts,
             text="🚨 Capture failed after 3 retries. Contact Number One.",
         )
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - Slack failure-alert send, non-blocking, already logged
         log.debug("[lib.captains_inbox_capture] best-effort step failed, continuing: %s", _exc)

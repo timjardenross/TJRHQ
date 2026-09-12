@@ -77,7 +77,7 @@ def _build_research_supabase_client():
         raw_client = client.raw_client
         if raw_client is not None:
             return raw_client
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Supabase client unavailable for research memory, already logged
         log.warning("[research] Supabase client unavailable for research memory: %s", exc)
     return None
 
@@ -90,7 +90,7 @@ def _build_mission_registry_memory_adapter():
         )
 
         return MissionRegistryMemoryAdapter()
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Mission registry memory adapter unavailable, already logged
         log.warning("[research] Mission registry memory adapter unavailable: %s", exc)
         return None
 
@@ -103,7 +103,7 @@ def _build_decision_registry_memory_adapter():
         )
 
         return DecisionRegistryMemoryAdapter()
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Decision registry memory adapter unavailable, already logged
         log.warning("[research] Decision registry memory adapter unavailable: %s", exc)
         return None
 
@@ -313,7 +313,7 @@ def _execute_research_mission(
             details={"recommendation": retrieval_result.recommendation},
         )
 
-    except Exception as e:
+    except Exception as e: # noqa: BLE001 - Memory retrieval failed, already logged
         log.warning("[research] Memory retrieval failed (non-blocking): %s", e)
         retrieval_result = None
         # Continue with new research; retrieval failure does not block execution
@@ -352,7 +352,7 @@ def _execute_research_mission(
                     memory_type="mission",
                     details={"related_count": len(registry_context.related_missions)},
                 )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Mission registry lookup failed, already logged
         log.warning("[research] Mission registry lookup failed (non-blocking): %s", exc)
 
     decision_registry_note = ""
@@ -390,7 +390,7 @@ def _execute_research_mission(
                         memory_type="decision",
                         details={"conflict_count": len(decision_context.conflict_warnings)},
                     )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Decision registry lookup failed, already logged
         log.warning("[research] Decision registry lookup failed (non-blocking): %s", exc)
 
     if retrieval_result and retrieval_result.recommendation in ("REUSE", "REUSE_WITH_NOTE"):
@@ -455,7 +455,7 @@ def _execute_research_mission(
             result.primary_provider,
         )
 
-    except Exception as e:
+    except Exception as e: # noqa: BLE001 - Orchestration failed, already logged
         log.error("[research] Orchestration failed: %s — %s", type(e).__name__, e)
         return (
             "❌ Research mission failed.\n"
@@ -535,7 +535,7 @@ def _process_research_queue() -> None:
                     user_id=mission["user_id"],
                 )
 
-        except Exception as e:
+        except Exception as e: # noqa: BLE001 - Queued mission execution failed, already logged
             log.error("[research-queue] Queued mission execution failed: %s", e)
             message_text = f"❌ Research mission failed: {str(e)[:100]}"
 
@@ -596,7 +596,7 @@ def _post_queued_mission_result(
             channel_id, result_thread_ts, user_id,
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - queued mission result posting, already logged
         log.error(
             "[research-queue] Failed to post queued mission result: %s — %s",
             type(e).__name__, e,
@@ -762,7 +762,7 @@ def _queue_mission_logging(result, user_id: str | None) -> None:
             result.confidence * 100
         )
 
-    except Exception as e:
+    except Exception as e: # noqa: BLE001 - Failed to save mission outcome to memory, already logged
         log.warning("[research] Failed to save mission outcome to memory: %s", e)
         # Non-blocking: research already delivered to user; memory save is auxiliary
 
@@ -813,7 +813,7 @@ def _queue_mission_logging_reuse(
             confidence,
         )
 
-    except Exception as e:
+    except Exception as e: # noqa: BLE001 - Failed to log reuse event, already logged
         log.warning("[research-reuse] Failed to log reuse event: %s", e)
         # Non-blocking: reuse already delivered to user; metrics logging is auxiliary
 
@@ -836,7 +836,7 @@ def _record_research_learning_loop(result, user_id: str | None) -> None:
             provider_path=result.provider_paths or [],
             user_id=user_id,
         )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Learning loop recording failed, already logged
         log.warning("[research] Learning loop recording failed (non-blocking): %s", exc)
 
 
@@ -894,9 +894,9 @@ def _persist_research_memory(result, user_id: str | None) -> None:
                 confidence=round(float(result.confidence or 0.0) * 100) if result.confidence else None,
                 recommended_action=result.recommendation or None,
             )
-        except Exception as _exc:
-            log.debug("[commands.research_command] best-effort step failed, continuing: %s", _exc)
-    except Exception as exc:
+        except Exception as _exc:  # noqa: BLE001 - Captain Brief event publish, non-blocking
+            log.debug("[commands.research_command] publish_event(research.memory_persisted) failed, continuing: %s", _exc)
+    except Exception as exc: # noqa: BLE001 - Failed to persist research memory, already logged
         log.warning("[research] Failed to persist research memory (non-blocking): %s", exc)
 
 
@@ -949,7 +949,7 @@ def _attach_episodic_embedding(result) -> None:
 
         client.table("research_memory").update({"embedding": vector}).eq("id", row_id).execute()
         log.info("[research] Episodic embedding attached to memory row %s", row_id)
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - _attach_episodic_embedding failed, already logged
         log.warning("[research] _attach_episodic_embedding failed (non-blocking): %s", exc)
 
 

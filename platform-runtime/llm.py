@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import urllib.error
 import urllib.request
+
+log = logging.getLogger(__name__)
 
 DEFAULT_PROVIDER = "auto"
 DEFAULT_MODEL_ROUTER_URL = "http://127.0.0.1:8891"
@@ -72,7 +75,8 @@ def is_ollama_available() -> bool:
         )
         with urllib.request.urlopen(request, timeout=60) as response:  # nosec B310 - url built from OLLAMA_BASE_URL env var (internal router base), not user input - reviewed 2026-09-12
             return 200 <= response.status < 300
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - ollama health probe, unreachable is a normal "unavailable" outcome
+        log.debug("[llm] Ollama availability probe failed: %s", exc)
         return False
 
 
@@ -84,7 +88,8 @@ def is_router_available() -> bool:
         )
         with urllib.request.urlopen(req, timeout=3) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL env var (internal router base), not user input - reviewed 2026-09-12
             return 200 <= resp.status < 300
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - model router health probe, unreachable is a normal "unavailable" outcome
+        log.debug("[llm] Model router availability probe failed: %s", exc)
         return False
 
 
@@ -319,7 +324,8 @@ def ask_commander_safe(system_prompt: str, user_prompt: str) -> tuple[bool, str]
         return True, ask_commander(system_prompt=system_prompt, user_prompt=user_prompt)
     except LLMUnavailableError as error:
         return False, str(error)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - best-effort commander call, failure surfaced to caller as (False, reason)
+        log.debug("[llm] ask_commander_safe failed: %s", error)
         return False, f"{type(error).__name__}"
 
 
@@ -342,7 +348,8 @@ def ask_commander_for_specialists(
         )
     except LLMUnavailableError as error:
         return False, str(error)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - best-effort specialist commander call, failure surfaced to caller as (False, reason)
+        log.debug("[llm] ask_commander_for_specialists failed: %s", error)
         return False, f"{type(error).__name__}"
 
 
@@ -421,5 +428,6 @@ def ask_gemini_safe(system_prompt: str, user_prompt: str) -> tuple[bool, str]:
         return True, generate_with_gemini(prompt=user_prompt, system_prompt=system_prompt)
     except LLMUnavailableError as error:
         return False, str(error)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - best-effort Gemini call, failure surfaced to caller as (False, reason)
+        log.debug("[llm] ask_gemini_safe failed: %s", error)
         return False, f"{type(error).__name__}"

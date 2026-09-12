@@ -83,7 +83,7 @@ class ModelRouterLatencyAnalyzer:
                 start = time.time()
                 try:
                     _, model_label = router_call(prompt)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - best-effort latency sample, already logged
                     log.error(f"Model Router call failed: {exc}")
                     continue
                 elapsed = time.time() - start

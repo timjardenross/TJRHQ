@@ -26,7 +26,7 @@ def _make_supabase():
     try:
         from tools.supabase.client import CommanderSupabaseClient
         return CommanderSupabaseClient()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.warning("[health-brief] Supabase client unavailable: %s", exc)
         return None
 
@@ -48,7 +48,7 @@ def _fetch_recent_logs(db, days: int = 7) -> list[dict]:
             .execute()
         )
         return list(result.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort data fetch, already logged
         log.error("[health-brief] Data fetch failed: %s", exc)
         return []
 
@@ -180,7 +180,7 @@ def _llm_synthesis(raw_summary: str) -> str | None:
         from llm import generate_with_gemini
         prompt = f"Weekly health data:\n\n{raw_summary}\n\nProvide a Medical Officer interpretation."
         return generate_with_gemini(prompt=prompt, system_prompt=_MEDICAL_OFFICER_SYSTEM)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort LLM enrichment, already logged
         log.warning("[health-brief] LLM synthesis unavailable: %s", exc)
         return None
 
@@ -207,5 +207,5 @@ def handle_health_brief(user_id: str, client) -> None:
     try:
         client.chat_postMessage(channel=user_id, text=dm_text)
         log.info("[health-brief] Brief delivered to user=%s (%d rows)", user_id, len(rows))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Slack DM, already logged
         log.error("[health-brief] DM failed: %s", exc)

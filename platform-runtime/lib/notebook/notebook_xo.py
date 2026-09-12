@@ -188,7 +188,7 @@ def inject_into_xo_brief(
                     "mission_id":  None,
                     "description": f"Opportunity cluster: avg strategic score {top_opp.avg_strategic_score:.0%}, {top_opp.count} notes.",
                 })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (pattern injection failed (non-blocking))
             log.warning("[notebook-xo] Pattern injection failed (non-blocking): %s", exc)
 
     return injected

@@ -114,7 +114,8 @@ def _count(client, table: str, *, like: tuple[str, str] | None = None,
             q = q.ilike(ilike[0], ilike[1])
         res = q.execute()
         return int(getattr(res, "count", None) or 0)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort count query, defaults to 0
+        log.debug("[learning.knowledge_quality] count query failed for %s: %s", table, exc)
         return 0
 
 
@@ -129,7 +130,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
             score.notes.append("Command Memory unavailable — scores are zero.")
             return score
         rc = c.raw_client
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - client init failure, recorded in score.notes
         score.notes.append(f"Client unavailable: {exc}")
         return score
 
@@ -145,7 +146,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
                 if len(str(r.get("rationale") or "").strip()) >= _MIN_RATIONALE_LEN
             )
             score.decision_rationale_coverage = _safe_ratio(substantive, len(rows))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
         score.notes.append(f"decision_rationale: {exc}")
 
     # 2. Mission outcome coverage — completed missions with a lesson candidate or outcome note
@@ -164,7 +165,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
             score.lesson_coverage = score.mission_outcome_coverage  # lessons track outcomes
         else:
             score.notes.append("No completed missions to score.")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
         score.notes.append(f"mission_outcome: {exc}")
 
     # 3. Investigation outcome coverage — closed investigations with OUTCOME recorded
@@ -182,7 +183,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
             score.investigation_outcome_coverage = 1.0 if invs else 0.0
             if not invs:
                 score.notes.append("No investigations recorded yet.")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
         score.notes.append(f"investigation_outcome: {exc}")
 
     # 4. ADR coverage — architecture_records vs architecture-flagged decisions
@@ -195,7 +196,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
             score.adr_coverage = 1.0
         else:
             score.notes.append("No architecture records found.")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
         score.notes.append(f"adr_coverage: {exc}")
 
     # 5. Knowledge reuse rate — lesson reuse events vs lessons
@@ -205,7 +206,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
         cand_count = _count(rc, "decisions", like=("owner", "lesson_candidate:%"))
         denom = max(lesson_count + cand_count, 1)
         score.knowledge_reuse_rate = _safe_ratio(reuse_count, denom)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
         score.notes.append(f"reuse_rate: {exc}")
 
     # 6. Documentation freshness — lessons/ADR activity in last 30 days
@@ -217,7 +218,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
                 "created_at", cutoff
             ).execute()
             recent_lessons = int(getattr(lr, "count", None) or 0)
-        except Exception as _exc:
+        except Exception as _exc:  # noqa: BLE001 - best-effort recent-lessons count, already logged
             log.debug("[lib.learning.knowledge_quality] best-effort step failed, continuing: %s", _exc)
         recent_candidates = 0
         try:
@@ -225,11 +226,11 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
                 "owner", "lesson_candidate:%"
             ).gte("created_at", cutoff).execute()
             recent_candidates = int(getattr(cr, "count", None) or 0)
-        except Exception as _exc:
+        except Exception as _exc:  # noqa: BLE001 - best-effort recent-candidates count, already logged
             log.debug("[lib.learning.knowledge_quality] best-effort step failed, continuing: %s", _exc)
         # Freshness saturates at 5 recent knowledge events
         score.documentation_freshness = _safe_ratio(recent_lessons + recent_candidates, 5)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
         score.notes.append(f"freshness: {exc}")
 
     # 7. Knowledge fragmentation health — consolidation indicator
@@ -243,7 +244,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
             score.knowledge_fragmentation_health = _safe_ratio(promoted, total)
         else:
             score.knowledge_fragmentation_health = 0.5  # neutral when no data
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
         score.notes.append(f"fragmentation: {exc}")
 
     log.info(

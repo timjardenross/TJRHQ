@@ -144,7 +144,8 @@ def _build_strategic_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
         for init in initiatives:
             try:
                 ps = score_initiative(init.initiative_id)
-            except Exception:
+            except Exception as _exc:  # noqa: BLE001 - best-effort initiative scoring, continues without a score
+                log.debug("[roadmaps] score_initiative failed for %s: %s", init.initiative_id, _exc)
                 ps = None
             priority = "high" if (ps and ps.composite_score >= 7.0) else "medium"
             horizon = _assign_horizon(roadmap, today, init)
@@ -158,7 +159,7 @@ def _build_strategic_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
                 owner=getattr(init, "owner", ""),
                 signals=[f"Score {ps.composite_score:.1f}" if ps else ""],
             ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort strategic roadmap build, already logged
         log.debug("[roadmaps] strategic roadmap data unavailable: %s", exc)
 
     roadmap.summary = (
@@ -203,7 +204,7 @@ def _build_capability_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
                 priority=fp.priority.value,
                 signals=[f"H{fp.horizon} · {fp.priority.value}"],
             ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort capability roadmap build, already logged
         log.debug("[roadmaps] capability roadmap data unavailable: %s", exc)
 
     roadmap.summary = f"Capability roadmap: {len(roadmap.items)} capability/ies plotted"
@@ -237,7 +238,7 @@ def _build_architecture_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> Non
                 owner=entity.owner,
                 signals=[entity.entity_type.value, entity.state.value],
             ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort architecture roadmap build, already logged
         log.debug("[roadmaps] architecture roadmap data unavailable: %s", exc)
 
     roadmap.summary = f"Architecture roadmap: {len(roadmap.items)} entity/ies across current/transition/target"
@@ -257,7 +258,7 @@ def _build_delivery_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
             fc = None
             try:
                 fc = forecast_initiative(init.initiative_id)
-            except Exception as _exc:
+            except Exception as _exc:  # noqa: BLE001 - best-effort initiative forecast, continues without a forecast
                 log.debug("[lib.strategy.roadmaps] best-effort step failed, continuing: %s", _exc)
 
             status = "blocked" if init.initiative_id in blocked else (
@@ -279,7 +280,7 @@ def _build_delivery_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
                 signals=[fc.forecast.value if fc else "no forecast",
                          "BLOCKED" if init.initiative_id in blocked else ""],
             ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort delivery roadmap build, already logged
         log.debug("[roadmaps] delivery roadmap data unavailable: %s", exc)
 
     roadmap.summary = f"Delivery roadmap: {len(roadmap.items)} initiative(s) sequenced"

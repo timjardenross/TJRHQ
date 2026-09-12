@@ -112,7 +112,7 @@ def handle_mission_capture(
         else:
             result += "\n\n:warning: Could not reach Command Memory — saved locally only"
         return result
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - LLM generation, falls back to template capture, already logged
         log.error("[mission-capture] Generation failed: %s — %s", type(exc).__name__, exc)
         return _fallback_capture(text)
 
@@ -147,7 +147,7 @@ def _persist_mission_capture(
             description=description,
         )
         return saved
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Command Memory persist, non-blocking, already logged
         log.warning("[mission-capture] Failed to persist to Command Memory: %s", e)
         return False
         # Non-blocking: mission capture still returned to user

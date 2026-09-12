@@ -83,7 +83,7 @@ def analyse_capability_gaps() -> list[CapabilityGap]:
         caps = list_capabilities()
         for c in caps:
             maturity_map[c.capability_id] = c.maturity.value
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort capability lookup, already logged
         log.debug("[capability_gaps] capabilities unavailable: %s", exc)
 
     # Gap 1: Missing capabilities (STATUS=REQUIRED)
@@ -101,7 +101,7 @@ def analyse_capability_gaps() -> list[CapabilityGap]:
                     recommendation=f"Initiate capability build for '{cap.name}'",
                     escalate_to="xo",
                 ))
-        except Exception as _exc:
+        except Exception as _exc:  # noqa: BLE001 - best-effort gap escalation append, already logged
             log.debug("[lib.strategy.capability_gaps] best-effort step failed, continuing: %s", _exc)
 
     # Gap 2: Weak capabilities (active but maturity ≤ 2)
@@ -120,7 +120,7 @@ def analyse_capability_gaps() -> list[CapabilityGap]:
                     recommendation=f"Investment needed to mature '{cap.name}' to Managed level",
                     escalate_to="number_one",
                 ))
-        except Exception as _exc:
+        except Exception as _exc:  # noqa: BLE001 - best-effort gap escalation append, already logged
             log.debug("[lib.strategy.capability_gaps] best-effort step failed, continuing: %s", _exc)
 
     # Gap 3: Over-invested capabilities (maturity 4-5, no objective linkage)
@@ -137,7 +137,7 @@ def analyse_capability_gaps() -> list[CapabilityGap]:
                     recommendation=f"Review '{cap.name}' — redirect investment or link to strategic objective",
                     escalate_to="number_one",
                 ))
-        except Exception as _exc:
+        except Exception as _exc:  # noqa: BLE001 - best-effort gap escalation append, already logged
             log.debug("[lib.strategy.capability_gaps] best-effort step failed, continuing: %s", _exc)
 
     # Gap 4: Unsupported objectives (from capability mapping)
@@ -153,7 +153,7 @@ def analyse_capability_gaps() -> list[CapabilityGap]:
                 recommendation=f"Register capabilities for objective '{obj_id}'",
                 escalate_to="xo",
             ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort capability mapping lookup, already logged
         log.debug("[capability_gaps] capability_mapping unavailable: %s", exc)
 
     # Gap 5: Threatening gaps — weak/missing caps linked to at-risk initiatives
@@ -178,7 +178,7 @@ def analyse_capability_gaps() -> list[CapabilityGap]:
                             recommendation=f"Urgently mature or resource '{cap.name}' — initiative outcome at stake",
                             escalate_to="captain",
                         ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort delivery-risk lookup, already logged
         log.debug("[capability_gaps] delivery_risk unavailable: %s", exc)
 
     # De-dupe + sort

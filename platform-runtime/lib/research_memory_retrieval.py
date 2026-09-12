@@ -47,7 +47,7 @@ class ResearchMemoryEntry:
             created = datetime.fromisoformat(self.created_at)
             age = datetime.now(timezone.utc) - created
             return age.days
-        except Exception:
+        except (ValueError, TypeError):
             return 999  # Treat unparseable dates as very old
 
     @property
@@ -151,7 +151,7 @@ class ResearchMemoryRetriever:
                 reason=reason
             )
 
-        except Exception as e:
+        except Exception as e: # noqa: BLE001 - Retrieval failed: {e}, already logged
             log.error(f"[KB-RETRIEVE] Retrieval failed: {e}")
             return RetrievalResult(
                 found=False,
@@ -188,7 +188,7 @@ class ResearchMemoryRetriever:
             log.debug(f"[KB-RETRIEVE] Found {len(entries)} non-stale entries")
             return entries
 
-        except Exception as e:
+        except Exception as e: # noqa: BLE001 - Query failed: {e}, already logged
             log.warning(f"[KB-RETRIEVE] Query failed: {e}")
             return []
 
@@ -243,7 +243,7 @@ class ResearchMemoryRetriever:
                 if score > 0:
                     scored.append((score, entry))
 
-            except Exception as e:
+            except Exception as e: # noqa: BLE001 - Failed to score candidate: {e}, already logged
                 log.debug(f"[KB-RETRIEVE] Failed to score candidate: {e}")
                 continue
 
@@ -335,6 +335,6 @@ class ResearchMemoryRetriever:
             log.debug(f"[KB-RETRIEVE] Incremented reuse count for {entry_id}")
             return True
 
-        except Exception as e:
+        except Exception as e: # noqa: BLE001 - Failed to increment reuse count: {e}, already logged
             log.warning(f"[KB-RETRIEVE] Failed to increment reuse count: {e}")
             return False

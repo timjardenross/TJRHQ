@@ -203,7 +203,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (supabase unavailable)
         log.debug("[strategy.initiatives] Supabase unavailable: %s", exc)
         return None
 
@@ -255,7 +255,7 @@ def create_initiative(
         log.info("[strategy.initiatives] Created %s — %s (objective %s)", init_id, title[:60], objective_id)
         return init_id
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (create_initiative failed)
         log.warning("[strategy.initiatives] create_initiative failed: %s", exc)
         return None
 
@@ -305,7 +305,7 @@ def update_initiative(initiative_id: str, **fields: Any) -> bool:
         c.raw_client.table("decisions").update(update).eq("id", rows[0]["id"]).execute()
         return True
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (update_initiative failed)
         log.debug("[strategy.initiatives] update_initiative failed: %s", exc)
         return False
 
@@ -324,7 +324,7 @@ def get_initiative(initiative_id: str) -> Initiative | None:
         )
         rows = list(res.data or [])
         return _row_to_initiative(rows[0]) if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_initiative failed)
         log.debug("[strategy.initiatives] get_initiative failed: %s", exc)
         return None
 
@@ -353,7 +353,7 @@ def list_initiatives(include_closed: bool = False, limit: int = 100) -> list[Ini
                 continue
             out.append(init)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (list_initiatives failed)
         log.debug("[strategy.initiatives] list_initiatives failed: %s", exc)
         return []
 
@@ -390,7 +390,7 @@ def link_mission(initiative_id: str, mission_id: str) -> bool:
             owner=owner,
         )
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (link_mission failed)
         log.debug("[strategy.initiatives] link_mission failed: %s", exc)
         return False
 
@@ -413,7 +413,7 @@ def get_linked_missions(initiative_id: str) -> list[str]:
                 if seg.startswith("MISSION: "):
                     out.append(seg[len("MISSION: "):].strip())
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_linked_missions failed)
         log.debug("[strategy.initiatives] get_linked_missions failed: %s", exc)
         return []
 

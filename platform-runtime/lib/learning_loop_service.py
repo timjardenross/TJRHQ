@@ -438,7 +438,7 @@ class LearningLoopService:
             log.info(f"Decision {decision_id} enqueued for followup on {scheduled_for}")
             return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - followup enqueue, best-effort, already logged
             log.warning(f"Failed to enqueue followup for {decision_id}: {e}")
             return False
 

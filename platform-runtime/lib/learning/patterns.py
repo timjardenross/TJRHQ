@@ -143,7 +143,7 @@ def _fetch_recent_text(lookback_days: int) -> list[str]:
         for row in mres.data or []:
             texts.append(f"{row.get('title','')} {row.get('status','')}".lower())
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort text fetch for pattern scan, already logged
         log.debug("[learning.patterns] fetch_recent_text failed: %s", exc)
     return texts
 
@@ -217,7 +217,7 @@ def _register_pattern(pattern: OrganisationalPattern) -> None:
                         ),
                     }).eq("id", existing.data[0]["id"]).execute()
                     return
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort registry update, already logged
             log.debug("[learning.patterns] Pattern update skipped: %s", exc)
 
         log_decision_to_command_memory(
@@ -232,7 +232,7 @@ def _register_pattern(pattern: OrganisationalPattern) -> None:
             ),
             owner=owner,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort pattern registration, already logged
         log.debug("[learning.patterns] register_pattern failed: %s", exc)
 
 
@@ -276,7 +276,7 @@ def get_known_patterns(limit: int = 20) -> list[OrganisationalPattern]:
             ))
         return patterns
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort registry read, already logged
         log.debug("[learning.patterns] get_known_patterns failed: %s", exc)
         return []
 
@@ -314,7 +314,7 @@ def pattern_to_investigation(pattern: OrganisationalPattern) -> str | None:
             log.info("[learning.patterns] Pattern '%s' → investigation %s", pattern.theme, inv_id)
         return inv_id
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort investigation open, already logged
         log.debug("[learning.patterns] pattern_to_investigation failed: %s", exc)
         return None
 

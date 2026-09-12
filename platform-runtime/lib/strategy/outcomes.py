@@ -121,7 +121,7 @@ def record_outcome(initiative_id: str, value: str, evidence: str = "") -> bool:
         # Keep the initiative's current value in sync
         update_initiative(initiative_id, current=str(value)[:80])
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - outcome recording, best-effort, already logged
         log.debug("[strategy.outcomes] record_outcome failed: %s", exc)
         return False
 
@@ -156,7 +156,7 @@ def get_outcome_history(initiative_id: str, limit: int = 30) -> list[OutcomeMeas
                 evidence=parts.get("EVIDENCE", ""),
             ))
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - outcome history fetch, best-effort, already logged
         log.debug("[strategy.outcomes] get_outcome_history failed: %s", exc)
         return []
 

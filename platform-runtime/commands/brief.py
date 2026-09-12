@@ -51,7 +51,7 @@ def build_brief() -> str:
     ori_signal = None
     try:
         ori_signal = _ori.fetch_ori_signal()
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort step, already logged (ori signal unavailable)
         log.warning("[brief] ORI signal unavailable: %s", exc)
 
     # MSN-SPC-001 WP4/WP6: strategic snapshot + gentle prioritisation signal.
@@ -65,7 +65,7 @@ def build_brief() -> str:
                 active_objectives=f.active_objectives, top_objective=f.top_objective,
                 top_domain=f.top_domain, alignment_weight=f.alignment_weight,
             )
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort step, already logged (strategic snapshot unavailable)
         log.warning("[brief] strategic snapshot unavailable: %s", exc)
 
     # Pass today's notes so a red flag escalates; ORI risk feeds the decision (WP4).
@@ -101,7 +101,7 @@ def build_brief() -> str:
                 "escalation": pkg.escalation,
             },
         )
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
         log.debug("[commands.brief] best-effort step failed, continuing: %s", _exc)
 
     # EDO control tower (reused, not rebuilt).
@@ -110,21 +110,21 @@ def build_brief() -> str:
         drows = ddata.fetch_delivery_rows()
         if drows:
             tower = forecast.control_tower(drows)
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort step, already logged (control tower unavailable)
         log.warning("[brief] control tower unavailable: %s", exc)
 
     # MSN-XO-003 WP3: relevant prior knowledge (reused from Command Memory).
     knowledge_hits = None
     try:
         knowledge_hits = _knowledge.relevant_knowledge(f"{pkg.primary} {snapshot.headline}")
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort step, already logged (knowledge unavailable)
         log.warning("[brief] knowledge unavailable: %s", exc)
 
     # COMMS-001 WP5: surface the top publishable opportunity (reused engine).
     comms_opps = None
     try:
         comms_opps = _comms.gather_opportunities()
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort step, already logged (comms opportunities unavailable)
         log.warning("[brief] comms opportunities unavailable: %s", exc)
 
     # MSN-0328 Wave 3: snapshot-on-read emission for the remaining aggregate
@@ -163,7 +163,7 @@ def build_brief() -> str:
                     "orphan_count": strat_snapshot.orphan_count,
                 },
             )
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
         log.debug("[commands.brief] best-effort step failed, continuing: %s", _exc)
 
     # MSN-0328 Wave 3: poll the canonical pipeline back so this brief's own
@@ -179,7 +179,8 @@ def build_brief() -> str:
         from core.platform.event_bus import poll_events
         polled_events = poll_events(limit=50)
         canonical_doc = assemble_captain_brief_document(polled_events)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort canonical brief assembly
+        log.debug("[brief] Canonical brief document assembly failed: %s", exc)
         polled_events = []
 
     # USS-TJR-MSN-0339 WP2: an INTERRUPT_NOW classification, computed above,
@@ -193,7 +194,7 @@ def build_brief() -> str:
         try:
             from core.platform.interrupt_dispatcher import dispatch_interrupt_now
             dispatch_interrupt_now(polled_events, canonical_doc.interrupt_now)
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort step, already logged (interrupt dispatch failed)
             log.warning("[brief] interrupt dispatch failed: %s", exc)
 
     body = daily_brief.compose_daily_brief(
@@ -228,7 +229,7 @@ def _strategy_view() -> str:
     """`/brief strategy` — what objectives are currently active (SPC-001 WP4)."""
     try:
         snap = _strategy.fetch_snapshot()
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort step, already logged (strategy view unavailable)
         log.warning("[brief] strategy view unavailable: %s", exc)
         snap = None
 
@@ -268,7 +269,8 @@ def _count(table: str, **eq) -> int:
             q = q.eq(k, v)
         res = q.execute()
         return getattr(res, "count", None) or len(res.data or [])
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort adoption telemetry count
+        log.debug("[brief] _count(%s) failed: %s", table, exc)
         return 0
 
 

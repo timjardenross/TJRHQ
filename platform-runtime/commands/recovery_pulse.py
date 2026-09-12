@@ -31,7 +31,7 @@ def _make_supabase():
     try:
         from tools.supabase.client import CommanderSupabaseClient
         return CommanderSupabaseClient()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.warning("[recovery-pulse] Supabase client unavailable: %s", exc)
         return None
 
@@ -54,7 +54,8 @@ def _suggested_pulse_type() -> str:
     # Use local time from the server if available, fallback to UTC heuristic
     try:
         local_hour = datetime.now(timezone.utc).hour
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort local-hour lookup, falls back to UTC hour
+        log.debug("[recovery-pulse] local hour lookup failed, using UTC: %s", exc)
         local_hour = hour
     if local_hour < 11:
         return "morning"
@@ -298,7 +299,7 @@ def handle_recovery_pulse_submit(values: dict, user_id: str, client: Any) -> Non
             ).execute()
             saved = True
             log.info("[recovery-pulse] Upserted %s pulse for %s", pulse_type, today)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort pulse upsert, already logged
             log.error("[recovery-pulse] Supabase upsert failed: %s", exc)
     else:
         log.warning("[recovery-pulse] Supabase unavailable — pulse not persisted")
@@ -313,7 +314,7 @@ def handle_recovery_pulse_submit(values: dict, user_id: str, client: Any) -> Non
             sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
             from heartbeat import record_heartbeat
             record_heartbeat("recovery_pulses", status="ok", detail=f"pulse_type={pulse_type} source=slack")
-        except Exception as _exc:
+        except Exception as _exc:  # noqa: BLE001 - best-effort heartbeat record, already logged
             log.debug("[commands.recovery_pulse] best-effort step failed, continuing: %s", _exc)
 
     meta = _PULSE_META.get(pulse_type, _PULSE_META["morning"])
@@ -334,12 +335,12 @@ def handle_recovery_pulse_submit(values: dict, user_id: str, client: Any) -> Non
         confidence_text = _get_confidence_line(db, today)
         if confidence_text:
             lines += ["", confidence_text]
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort confidence summary append, already logged
         log.debug("[commands.recovery_pulse] best-effort step failed, continuing: %s", _exc)
 
     try:
         client.chat_postMessage(channel=user_id, text="\n".join(lines))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Slack DM, already logged
         log.error("[recovery-pulse] DM failed: %s", exc)
 
 
@@ -371,7 +372,7 @@ def _get_confidence_line(db: Any, today: str) -> str | None:
             state = row.get("latest_capacity_state")
             state_line = f"  ·  latest capacity: {state}" if state else ""
             return f"*Capacity check-ins today:* {label}{state_line}"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort capacity check-in fetch, already logged
         log.debug("[recovery-pulse] capacity check-in fetch failed: %s", exc)
     return None
 
@@ -388,5 +389,5 @@ def send_confidence_summary(user_id: str, client: Any) -> None:
             channel=user_id,
             text=f"*Recovery Confidence — {today}*\n\n{confidence_text}\n\nLog a pulse: `/recovery-pulse`",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Slack DM, already logged
         log.error("[recovery-pulse] send_confidence_summary DM failed: %s", exc)

@@ -72,7 +72,7 @@ def _fetch(context_name: str) -> dict[str, Any] | None:
                 source = (envelope.get("metadata") or {}).get("source", "api")
                 log.info("[captain-brief] API hit: %s (source=%s)", context_name, source)
                 return data
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - API fetch, falls back to CLI, already logged
             log.warning("[captain-brief] API unavailable for %s (%s) — CLI fallback", context_name, exc)
 
     # 2. Fall back to spawning context_service.py directly
@@ -91,7 +91,7 @@ def _fetch(context_name: str) -> dict[str, Any] | None:
                 log.info("[captain-brief] CLI fallback succeeded: %s", context_name)
                 return data
             log.warning("[captain-brief] CLI non-zero for %s: %s", context_name, result.stderr[:200])
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - CLI fallback fetch, best-effort, already logged
             log.warning("[captain-brief] CLI failed for %s: %s", context_name, exc)
 
     return None
@@ -379,7 +379,7 @@ def fetch_and_format_captain_brief() -> list[dict]:
         return _format_brief_degraded(f"Could not reach {_ENDPOINT['captain-brief']}")
     try:
         return _format_brief_blocks(data)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - brief block formatting, degrades to fallback view, already logged
         log.error("[captain-brief] Formatting failed: %s", exc)
         return _format_brief_degraded(f"Formatting error: {type(exc).__name__}")
 
@@ -391,7 +391,7 @@ def fetch_and_format_operating_picture() -> list[dict]:
         return _format_cop_degraded(f"Could not reach {_ENDPOINT['operating-picture']}")
     try:
         return _format_cop_blocks(data)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - operating-picture block formatting, degrades to fallback view, already logged
         log.error("[operating-picture] Formatting failed: %s", exc)
         return _format_cop_degraded(f"Formatting error: {type(exc).__name__}")
 

@@ -125,7 +125,7 @@ Keep it brief. Captain needs direction, not details.
 """
         return brief_input
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort step, already logged (failed to build prompt: {e})
         log.error(f"[briefing] Failed to build prompt: {e}")
         return "Generate a brief summary of the attached research."
 

@@ -175,7 +175,7 @@ def handle_decision_log(
             result += "\n".join(lines)
 
         return result
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort decision log generation, already logged
         log.error("[decision-log] Generation failed: %s — %s", type(exc).__name__, exc)
         return _fallback_entry(text)
 
@@ -220,7 +220,7 @@ def handle_save_decision(
             system_prompt=_SYSTEM_PROMPT,
         )
         log.info("[decision-log-save] LLM output received (%d chars)", len(llm_output))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort LLM generation, already logged
         log.error("[decision-log-save] LLM failed: %s — %s", type(exc).__name__, exc)
         llm_output = _raw_fallback_text(text)
 
@@ -247,7 +247,7 @@ def handle_save_decision(
                 rationale=rationale,
                 user_id=user_id or "slack-bot",
             )
-        except Exception as exc:  # pragma: no cover - non-blocking safety net
+        except Exception as exc:  # noqa: BLE001 - best-effort command memory write, already logged  # pragma: no cover - non-blocking safety net
             log.error("[decision-log-save] Command Memory write failed: %s", exc)
             saved = False
 

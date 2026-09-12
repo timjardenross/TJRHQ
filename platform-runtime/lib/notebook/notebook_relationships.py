@@ -60,7 +60,7 @@ def find_related(
             "recommended_route, assigned_officers"
         ).eq("id", note_id).single().execute()
         note = result.data
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort note fetch, already logged
         log.warning("[notebook-relationships] Failed to fetch note %s: %s", note_id, exc)
         return RelatedContent(note_id=note_id, note_title="")
 
@@ -94,7 +94,7 @@ def find_related(
                     relevance=score,
                     url_hint="/captains-notebook",
                 ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort related-notes query, already logged
         log.warning("[notebook-relationships] notebook notes query failed: %s", exc)
 
     # Missions
@@ -114,7 +114,7 @@ def find_related(
                     relevance=score,
                     url_hint="/missions",
                 ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort related-missions query, already logged
         log.warning("[notebook-relationships] missions query failed: %s", exc)
 
     # Decisions
@@ -133,7 +133,7 @@ def find_related(
                     excerpt=_excerpt(row.get("rationale") or "", tokens),
                     relevance=score,
                 ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort related-decisions query, already logged
         log.warning("[notebook-relationships] decisions query failed: %s", exc)
 
     # Lessons
@@ -152,7 +152,7 @@ def find_related(
                     excerpt=_excerpt(row.get("lesson_text") or "", tokens),
                     relevance=score,
                 ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort related-lessons query, already logged
         log.warning("[notebook-relationships] lessons query failed: %s", exc)
 
     hits.sort(key=lambda h: h.relevance, reverse=True)

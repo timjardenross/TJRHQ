@@ -91,7 +91,7 @@ def _load_mission_dossier(mission_id: str) -> dict:
             if candidate.exists():
                 dossier["mission_file_content"] = candidate.read_text(encoding="utf-8")[:_MAX_REF_CHARS]
                 break
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dossier file read, already logged
         log.debug("[mission_lifecycle] dossier: mission file read failed: %s", exc)
 
     # 3. Read the reference file from the index
@@ -101,7 +101,7 @@ def _load_mission_dossier(mission_id: str) -> dict:
             ref_file = _REPO_ROOT / ref_path
             if ref_file.exists():
                 dossier["reference_content"] = ref_file.read_text(encoding="utf-8")[:_MAX_REF_CHARS]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort dossier file read, already logged
         log.debug("[mission_lifecycle] dossier: reference file read failed: %s", exc)
 
     return dossier
@@ -158,7 +158,7 @@ def _supabase_missions(status_filter: str | None = None, order: str = "created_a
             qs += f"&status=ilike.{status_filter}"
         rows = client.get(qs)
         return rows or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase fetch, already logged
         log.debug("[mission_lifecycle] Supabase unavailable: %s", exc)
         return []
 
@@ -177,7 +177,7 @@ def _supabase_get_mission(mission_id: str) -> dict | None:
             if rows:
                 return rows[0]
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase lookup, already logged
         log.debug("[mission_lifecycle] Supabase get_mission failed: %s", exc)
         return None
 
@@ -251,7 +251,7 @@ def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: 
                         time_sensitivity=_time_sensitivity_from_due_date(due_date),
                         linked_missions=[mid_try], recommended_action=new_status,
                     )
-                except Exception as _exc:
+                except Exception as _exc:  # noqa: BLE001 - best-effort event publish, already logged
                     log.debug("[commands.mission_lifecycle] best-effort step failed, continuing: %s", _exc)
                 # ADR-024 second-pass audit: the 'missions' domain_registry row
                 # (migration 0071) has had zero record_heartbeat() calls anywhere
@@ -264,11 +264,11 @@ def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: 
                         sys.path.insert(0, str(_REPO_ROOT))
                     from core.platform.heartbeat import record_heartbeat
                     record_heartbeat("missions", status="ok", detail=f"status_changed:{new_status}")
-                except Exception as _exc:
+                except Exception as _exc:  # noqa: BLE001 - best-effort heartbeat record, already logged
                     log.debug("[commands.mission_lifecycle] best-effort step failed, continuing: %s", _exc)
                 return True, _event_id
         return False, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase status update, already logged
         log.debug("[mission_lifecycle] Supabase status update failed: %s", exc)
         return False, None
 
@@ -297,7 +297,7 @@ def _write_transition_audit(mission_id: str, from_status: str, to_status: str, u
                 "note":             note or None,
                 "source":           "slack-bot",
             })
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort transition audit write, already logged
         log.warning("[mission_lifecycle] Supabase transition record failed: %s", exc)
 
     # Secondary: local JSON backup (non-authoritative)
@@ -313,7 +313,7 @@ def _write_transition_audit(mission_id: str, from_status: str, to_status: str, u
             "transitioned_at": now_iso,
             "note":            note or None,
         }, indent=2))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort local backup write, already logged
         log.warning("[mission_lifecycle] Local transition backup write failed: %s", exc)
 
 
@@ -478,7 +478,7 @@ def handle_mission_status(
     try:
         from mission_registry import load_registry_entries
         all_missions = load_registry_entries()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort flat-file fallback, already logged
         log.warning("[mission_lifecycle] flat-file registry fallback failed: %s", exc)
         return f":x: Mission `{mission_id}` not found."
     for m in all_missions:
@@ -504,7 +504,8 @@ def _closure_outcome_prompt(mission_id: str, title: str) -> str | None:
             sys.path.insert(0, kp)
         from outcome_capture import closure_prompt  # type: ignore
         return closure_prompt("mission", mission_id, title)
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - best-effort closure prompt, never blocks closure  # pragma: no cover
+        log.debug("[mission_lifecycle] closure outcome prompt failed: %s", exc)
         return None
 
 
@@ -673,7 +674,7 @@ def handle_mission_close(
                 mission_dossier=dossier_text,
                 closing_note=note,
             )
-        except Exception as _qa_exc:
+        except Exception as _qa_exc:  # noqa: BLE001 - best-effort QA advisory, already logged
             log.warning("[mission_lifecycle] QA Validation Officer block error: %s", _qa_exc)
             qa_block = "\n\n:white_check_mark: *QA Validation Officer Pre-Closure Review*\n_:robot_face: Agent advisory unavailable._"
 
@@ -694,7 +695,7 @@ def handle_mission_close(
                     f"missions?mission_id=eq.{mid_full}",
                     {"closed_at": datetime.now(timezone.utc).isoformat()},
                 )
-        except Exception as _ca_exc:
+        except Exception as _ca_exc:  # noqa: BLE001 - best-effort closed_at stamp, already logged
             log.warning("[mission_lifecycle] closed_at stamp failed: %s", _ca_exc)
 
     # Write closure log
@@ -711,7 +712,7 @@ def handle_mission_close(
             "closing_note": note or None,
         }, indent=2))
         closed_in_file = True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort closure log write, already logged
         log.warning("[mission_lifecycle] Closure log write failed: %s", exc)
 
     if closed_in_db:

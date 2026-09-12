@@ -45,7 +45,7 @@ for p in (str(_BOT), str(_REPO_ROOT)):
 try:
     from platform_runtime.lib.telemetry import configure_tracing
     configure_tracing("daily-operations-cycle")
-except Exception as _exc:
+except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
     log.debug("[lib.officers.daily_operations_cycle] best-effort step failed, continuing: %s", _exc)
 
 
@@ -120,7 +120,7 @@ def _step_research_scan(ctx: Any, result: OfficerCycleResult) -> None:
                     len(episodic_memories),
                     ori_risk,
                 )
-        except Exception as ep_exc:
+        except Exception as ep_exc:  # noqa: BLE001 - best-effort step, already logged (episodic memory recall failed (non-blocking))
             log.debug("[officer_cycle] Episodic memory recall failed (non-blocking): %s", ep_exc)
 
         from core.platform.unified_memory import MemoryType, recall
@@ -147,7 +147,7 @@ def _step_research_scan(ctx: Any, result: OfficerCycleResult) -> None:
                 ori_risk,
                 len(episodic_memories),
             )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (research scan failed)
         log.debug("[officer_cycle] Research scan failed: %s", exc)
 
 
@@ -171,7 +171,7 @@ def _step_knowledge_capture(ctx: Any, result: OfficerCycleResult) -> None:
             result.officer_signals.append(signal)
             log.info("[officer_cycle] Knowledge capture: %d candidates, %d patterns",
                      lesson_candidates, len(patterns))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (knowledge capture failed)
         log.debug("[officer_cycle] Knowledge capture failed: %s", exc)
 
 
@@ -198,7 +198,7 @@ def _step_operational_review(ctx: Any, missions: list[dict[str, Any]], result: O
             result.officer_signals.append(signal)
             log.info("[officer_cycle] Operational review: idle=%d, blocked=%d, risks=%d",
                      len(idle), blocked, delivery_risks)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (operational review failed)
         log.debug("[officer_cycle] Operational review failed: %s", exc)
 
 
@@ -221,7 +221,7 @@ def _step_readiness_assessment(ctx: Any, result: OfficerCycleResult) -> None:
         result.officer_signals.append(signal)
         log.info("[officer_cycle] Readiness: status=%s, score=%s, actions=%d",
                  capacity_status, capacity_score, len(actions))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (readiness assessment failed)
         log.debug("[officer_cycle] Readiness assessment failed: %s", exc)
 
 
@@ -262,13 +262,13 @@ def _step_engineering_assessment(ctx: Any, result: OfficerCycleResult) -> None:
                     "[officer_cycle] Engineering assessment: %d validation pattern(s) surfaced",
                     len(patterns),
                 )
-        except Exception as pat_exc:
+        except Exception as pat_exc:  # noqa: BLE001 - best-effort step, already logged (pattern library fetch failed (non-blocking))
             log.debug("[officer_cycle] Pattern library fetch failed (non-blocking): %s", pat_exc)
 
         result.officer_signals.append(signal)
         log.info("[officer_cycle] Engineering: blocked=%d, in_progress=%d, debt=%d, gaps=%d",
                  blocked, in_progress, tech_debt, cap_gaps)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (engineering assessment failed)
         log.debug("[officer_cycle] Engineering assessment failed: %s", exc)
 
 
@@ -303,7 +303,7 @@ def _step_assignment_resolution(ctx: Any, missions: list[dict[str, Any]], result
         result.assignments_made = assigned
         if assigned:
             log.info("[officer_cycle] Assignment resolution: %d mission(s) assigned", assigned)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (assignment resolution failed)
         log.debug("[officer_cycle] Assignment resolution failed: %s", exc)
 
 
@@ -342,7 +342,7 @@ def _step_escalation_processing(ctx: Any, result: OfficerCycleResult) -> None:
         if advanced:
             log.info("[officer_cycle] Escalation processing: %d advanced, %d to Captain",
                      advanced, captain_items)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (escalation processing failed)
         log.debug("[officer_cycle] Escalation processing failed: %s", exc)
 
 
@@ -360,7 +360,7 @@ def _step_xo_synthesis(ctx: Any, result: OfficerCycleResult) -> None:
         result.xo_synthesis_available = bool(summary)
         result.cycle_summary = summary
         log.info("[officer_cycle] XO synthesis complete: risk_level=%s", synthesis.risk_level)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (xo synthesis failed)
         log.debug("[officer_cycle] XO synthesis failed: %s", exc)
         if result.officer_signals:
             result.cycle_summary = _format_fallback_summary(result)
@@ -409,7 +409,7 @@ def _evaluate_triggers_and_act(ctx: Any, result: OfficerCycleResult) -> None:
         handoffs = process_handoffs(trigger_results, ctx)
         result.handoffs_created = len(handoffs)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (trigger evaluation failed)
         log.debug("[officer_cycle] Trigger evaluation failed: %s", exc)
 
 
@@ -430,13 +430,13 @@ def _run_due_scheduled_activities(ctx: Any, result: OfficerCycleResult) -> None:
             try:
                 record_activity_run(activity.schedule.activity_id)
                 result.activities_run += 1
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (activity run record failed)
                 log.debug("[officer_cycle] Activity run record failed %s: %s",
                           activity.schedule.activity_id, exc)
 
         if due:
             log.info("[officer_cycle] %d/%d scheduled activities run", result.activities_run, len(due))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (scheduled activities check failed)
         log.debug("[officer_cycle] Scheduled activities check failed: %s", exc)
 
 

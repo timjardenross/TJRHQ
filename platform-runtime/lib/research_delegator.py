@@ -286,7 +286,7 @@ Keep response concise but informative."""
             error_message=f"Ollama HTTP {e.code}: {e.reason}"
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort step, already logged (ollama research failed: {e})
         log.error(f"Ollama research failed: {e}")
         return ResearchOutcome(
             status="error",
@@ -378,7 +378,7 @@ def call_gemini_2_flash_research(
                         )
                     )
                     log.info("Gemini 2 Flash retry succeeded")
-                except Exception as retry_error:
+                except Exception as retry_error:  # noqa: BLE001 - best-effort step, already logged (gemini 2 flash retry failed: {retry_error}. will try)
                     log.warning(f"Gemini 2 Flash retry failed: {retry_error}. Will try next provider.")
                     return ResearchOutcome(
                         status="rate_limited",
@@ -411,7 +411,7 @@ def call_gemini_2_flash_research(
             error_message=f"Gemini 2 Flash API error: {e!s}"
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort step, already logged (gemini 2 flash research failed: {e})
         log.error(f"Gemini 2 Flash research failed: {e}")
         return ResearchOutcome(
             status="error",
@@ -523,7 +523,7 @@ def call_gemini_2_5_flash_lite_research(
                             )
                         )
                         log.info("Gemini 2.5 Flash Lite retry succeeded")
-                    except Exception as retry_error:
+                    except Exception as retry_error:  # noqa: BLE001 - best-effort step, already logged (gemini 2.5 flash lite retry failed: {retry_error}. will)
                         log.warning(f"Gemini 2.5 Flash Lite retry failed: {retry_error}. Will try next provider.")
                         return ResearchOutcome(
                             status="rate_limited",
@@ -557,7 +557,7 @@ def call_gemini_2_5_flash_lite_research(
             error_message=f"Gemini 2.5 Flash Lite API error: {e!s}"
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort step, already logged (gemini 2.5 flash lite research failed: {e})
         log.error(f"Gemini 2.5 Flash Lite research failed: {e}")
         return ResearchOutcome(
             status="error",
@@ -668,7 +668,7 @@ def delegate_research_task(
                     f"[msp-0060b] Adaptive routing active: "
                     f"order={adaptive_provider_order}"
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort step, already logged (adaptive routing unavailable (using default order): {type(e).__name__})
             log.warning(
                 f"[msp-0060b] Adaptive routing unavailable (using default order): {type(e).__name__}"
             )
@@ -699,7 +699,7 @@ def delegate_research_task(
             if len(reordered) > 0:
                 providers = reordered
                 log.info(f"[msp-0060b] Reordered providers by quality: {[p[0] for p in providers]}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort step, already logged (provider reordering failed, using default: {e})
             log.warning(f"[msp-0060b] Provider reordering failed, using default: {e}")
 
     for provider_id, provider_name, provider_func in providers:
@@ -809,7 +809,8 @@ def is_provider_available(provider: str) -> bool:
             )
             with urllib.request.urlopen(request, timeout=5) as response:  # nosec B310 - endpoint built from OLLAMA_BASE_URL env var (internal router base) plus a fixed literal path, not user input - reviewed 2026-09-12
                 return response.status == 200
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - best-effort Ollama availability probe
+            log.debug("[research_delegator] Ollama availability check failed: %s", exc)
             return False
 
     return False

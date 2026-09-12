@@ -284,7 +284,7 @@ class QualityScoring:
             )
             return quality_score
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort hallucination scoring, already logged
             log.warning(
                 f"[quality-scoring] score_output() failed, returning None: "
                 f"{type(exc).__name__}: {str(exc)[:120]}"
@@ -382,7 +382,7 @@ class QualityScoring:
                         "[quality-scoring→b1d] No feedback signal (no delta or error)"
                     )
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - best-effort feedback generation, already logged
                 log.error(
                     f"[quality-scoring→b1d] Error generating feedback: "
                     f"{type(e).__name__}: {str(e)[:100]}"
@@ -430,7 +430,7 @@ class QualityScoring:
             )
             return qualities
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort provider quality query, already logged
             log.error(
                 f"[quality-scoring] Failed to retrieve provider quality: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -473,7 +473,7 @@ class QualityScoring:
             log.debug(f"[quality-scoring] Retrieved quality for {len(qualities)} models")
             return qualities
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort model quality query, already logged
             log.error(
                 f"[quality-scoring] Failed to retrieve model quality: {type(e).__name__}: {str(e)[:100]}"
             )
@@ -515,7 +515,7 @@ class QualityScoring:
             log.debug(f"[quality-scoring] Retrieved quality for {len(qualities)} routes")
             return qualities
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort route quality query, already logged
             log.error(
                 f"[quality-scoring] Failed to retrieve route quality: {type(e).__name__}: {str(e)[:100]}"
             )

@@ -115,7 +115,8 @@ def _row_to_followup(row: dict[str, Any]) -> FollowUp | None:
             status=_try_enum(FollowUpStatus, parts.get("STATUS", ""), FollowUpStatus.PENDING),
             check_count=int(parts.get("CHECKS", "0") or "0"),
         )
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort row parse, malformed rows skipped
+        log.debug("[officer_followups] Row parse failed: %s", exc)
         return None
 
 
@@ -167,7 +168,7 @@ def register_follow_up(
                 }).execute()
         log.info("[officer_followups] Registered follow-up %s: %s due %s",
                  follow_up_id, mission_id, due_date.date())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort follow-up registration, already logged
         log.debug("[officer_followups] Register failed %s: %s", mission_id, exc)
     return fu
 
@@ -193,7 +194,7 @@ def check_follow_ups() -> list[FollowUp]:
             if fu and fu.is_overdue:
                 overdue.append(fu)
         log.info("[officer_followups] %d overdue follow-up(s) detected", len(overdue))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort overdue check, already logged
         log.debug("[officer_followups] Check failed: %s", exc)
     return overdue
 
@@ -208,7 +209,7 @@ def resolve_follow_up(follow_up_id: str) -> None:
         owner = f"{_FOLLOWUP_OWNER_PREFIX}{follow_up_id}"
         c.raw_client.table("decisions").update({"status": "resolved"}).eq("owner", owner).execute()
         log.info("[officer_followups] Resolved follow-up %s", follow_up_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort follow-up resolve, already logged
         log.debug("[officer_followups] Resolve failed %s: %s", follow_up_id, exc)
 
 
@@ -233,7 +234,7 @@ def list_officer_follow_ups(officer: str) -> list[FollowUp]:
             fu = _row_to_followup(row)
             if fu:
                 result.append(fu)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort follow-up listing, already logged
         log.debug("[officer_followups] List failed for %s: %s", officer, exc)
     return result
 

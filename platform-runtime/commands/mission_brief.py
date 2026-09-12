@@ -280,7 +280,7 @@ def handle_mission_brief(
         output = _normalize_brief_output(output)
         log.info("[mission-brief] Brief generated (%d chars)", len(output))
         return f"*MISSION IMPLEMENTATION BRIEF*\n\n```{output}```"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort LLM brief generation, already logged
         log.error("[mission-brief] Mistral Mission Scribe failed: %s — %s", type(exc).__name__, exc)
         return _fallback_brief(text)
 
@@ -365,7 +365,7 @@ def handle_mission_register_draft(
             f"{_REGISTER_SYSTEM_PROMPT}\n\nMission ID: {proposed_id}\n\nUser request:\n{text}"
         )
         log.info("[mission-register-draft] LLM draft received (%d chars)", len(llm_output))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort LLM draft generation, already logged
         log.error("[mission-register-draft] Mistral Mission Scribe failed: %s — %s", type(exc).__name__, exc)
         llm_output = _raw_fallback_mission_text(text, proposed_id)
 
@@ -433,7 +433,7 @@ def handle_save_mission_file(
         llm_output = _call_mistral_mission_scribe(
             f"{_REGISTER_SYSTEM_PROMPT}\n\nMission ID: {proposed_id}\n\nUser request:\n{text}"
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort LLM draft generation, already logged
         log.error("[mission-register-save] Mistral Mission Scribe failed: %s — %s", type(exc).__name__, exc)
         llm_output = _raw_fallback_mission_text(text, proposed_id)
 
@@ -462,7 +462,7 @@ def handle_save_mission_file(
                     title=title,
                     user_id=user_id or "unknown",
                 )
-            except Exception as exc:  # pragma: no cover - non-blocking safety net
+            except Exception as exc:  # pragma: no cover - non-blocking safety net  # noqa: BLE001 - best-effort Command Memory write, already logged
                 log.error("[mission-register-save] Command Memory write failed: %s", exc)
 
         return (
@@ -619,7 +619,8 @@ def _read_next_mission_id() -> tuple[str, str | None]:
         return "USS-TJR-MSN-XXXX", f"Mission index file not found: {exc}"
     except ValueError as exc:
         return "USS-TJR-MSN-XXXX", f"Could not parse next ID: {exc}"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - unexpected index-read failure, surfaced to caller
+        log.debug("[mission-brief] Unexpected error reading mission index: %s", exc)
         return "USS-TJR-MSN-XXXX", f"Unexpected error reading index: {exc}"
 
 
@@ -766,7 +767,8 @@ def save_engineering_handoff_from_build_record(
     try:
         from lib.build_learning_loop import generate_build_decision_id
         decision_id = generate_build_decision_id()
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort decision-id generation, falls back
+        log.debug("[mission-brief] generate_build_decision_id failed, using fallback: %s", exc)
         decision_id = f"DEC-REC-{timestamp}"
     build_record["decision_id"] = decision_id
     slug = _make_slug(mission_title)
@@ -821,7 +823,7 @@ def save_engineering_handoff_from_build_record(
             user_id=approver_user_id,
             thread_ts=thread_ts,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort learning-loop write, already logged
         log.warning("[mission-brief] Learning loop event write skipped: %s", exc)
 
     try:
@@ -837,7 +839,7 @@ def xo_can_approve(context: dict[str, str]) -> tuple[bool, str]:
 
         decision = _xo_can_approve(context)
         return decision.approved, decision.decision_reason
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - fail-secure policy check, already logged
         log.warning("[xo-guard] XO system policy check failed (fail secure): %s", exc)
         return False, f"Policy evaluation failed: {type(exc).__name__}"
 
@@ -1138,7 +1140,7 @@ def claim_engineering_handoff_batch(handoff_path: str, batch_group: str) -> bool
                 batch_actor=batch_group,
                 notes="Engineering handoff claimed for batch processing.",
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort learning-loop write, already logged
             log.warning("[mission-brief] Learning loop claim event skipped: %s", exc)
         return True
     except OSError:
@@ -1220,7 +1222,7 @@ def update_engineering_handoff_batch_status(handoff_path: str, status: str) -> b
                 batch_actor=batch_group,
                 notes=f"Batch status advanced to {status}.",
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort learning-loop write, already logged
             log.warning("[mission-brief] Learning loop advance event skipped: %s", exc)
         return True
     except OSError:
@@ -1380,7 +1382,7 @@ def save_build_record_to_memory(
             log.info("[mission-brief] Build record saved to Supabase memory")
         else:
             log.warning("[mission-brief] Supabase memory save skipped/failed: %s", result.error)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase memory persist, already logged
         log.warning("[mission-brief] Failed to persist build record to Supabase memory: %s", exc)
 
 

@@ -158,7 +158,7 @@ def record_research_lifecycle_event(
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat("decisions", status="ok", detail="source=research-learning-loop")
-        except Exception as _exc:
+        except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
             log.debug("[lib.research_learning_loop] best-effort step failed, continuing: %s", _exc)
 
         # Emit research-learning after all three DB writes succeed (commander_decisions,
@@ -180,7 +180,7 @@ def record_research_lifecycle_event(
                     "research_topic_length": len(research_topic),
                 },
             )
-        except Exception as _exc:
+        except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
             log.debug("[lib.research_learning_loop] best-effort step failed, continuing: %s", _exc)
 
         # 4. quality_scores — ties decision_outcomes + decision_records together.
@@ -207,7 +207,7 @@ def record_research_lifecycle_event(
                 "[research-learning-loop] Scored: mission_id=%s outcome_id=%s decision_id=%s",
                 mission_id, outcome_bigint_id, decision_id,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (scoring/feedback skipped)
             log.warning("[research-learning-loop] scoring/feedback skipped: %s", exc)
 
         # Emit research-learning-intelligence after quality scoring — this is when
@@ -229,8 +229,8 @@ def record_research_lifecycle_event(
                     "provider_name": provider_name,
                 },
             )
-        except Exception as _exc:
+        except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
             log.debug("[lib.research_learning_loop] best-effort step failed, continuing: %s", _exc)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (decision/outcome chain write failed)
         log.warning("[research-learning-loop] decision/outcome chain write failed: %s", exc)

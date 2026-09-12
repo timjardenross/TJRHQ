@@ -187,7 +187,7 @@ def _generate_draft(text: str) -> str:
         output = generate_response(prompt=text, system_prompt=_SYSTEM_PROMPT)
         log.info("[github-issue-draft] Draft generated (%d chars)", len(output))
         return output
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (generation failed)
         log.error("[github-issue-draft] Generation failed: %s — %s", type(exc).__name__, exc)
         return _fallback_draft_text(text)
 
@@ -267,14 +267,14 @@ def create_github_issue(draft_text: str, source_text: str = ""):
             json={"title": title, "body": body},
             timeout=15,
         )
-    except Exception as exc:  # network / requests errors — fail safe
+    except Exception as exc:  # network / requests errors — fail safe  # noqa: BLE001 - best-effort step, already logged (request failed)
         log.error("[github-issue-save] Request failed: %s — %s", type(exc).__name__, exc)
         return False, f"request failed ({type(exc).__name__})"
 
     if resp.status_code == 201:
         try:
             html_url = resp.json().get("html_url", "(created)")
-        except Exception:
+        except ValueError:
             html_url = "(created)"
         log.info("[github-issue-save] Created issue: %s", html_url)
         return True, html_url

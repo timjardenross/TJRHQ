@@ -40,7 +40,7 @@ def _client():
         if not client.is_enabled():
             return None
         return client
-    except Exception as exc:  # pragma: no cover - environment dependent
+    except Exception as exc:  # pragma: no cover - environment dependent # noqa: BLE001 - Supabase unavailable, already logged
         log.warning("[human-systems.memory] Supabase unavailable: %s", exc)
         return None
 
@@ -78,7 +78,7 @@ def record_recommendation(
     try:
         result = client.insert(REC_TABLE, payload)
         return bool(getattr(result, "ok", False))
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover # noqa: BLE001 - record_recommendation failed, already logged
         log.warning("[human-systems.memory] record_recommendation failed: %s", exc)
         return False
 
@@ -118,7 +118,7 @@ def record_feedback(
     try:
         result = client.insert(FEEDBACK_TABLE, payload)
         return bool(getattr(result, "ok", False))
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover # noqa: BLE001 - record_feedback failed, already logged
         log.warning("[human-systems.memory] record_feedback failed: %s", exc)
         return False
 
@@ -148,7 +148,7 @@ def record_pattern(
     try:
         result = client.insert(PATTERN_TABLE, payload)
         return bool(getattr(result, "ok", False))
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover # noqa: BLE001 - record_pattern failed, already logged
         log.warning("[human-systems.memory] record_pattern failed: %s", exc)
         return False
 
@@ -169,7 +169,7 @@ def record_friction(*, friction_key: str, description: str, lever: str, confiden
     try:
         result = client.insert(FRICTION_TABLE, payload)
         return bool(getattr(result, "ok", False))
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover # noqa: BLE001 - record_friction failed, already logged
         log.warning("[human-systems.memory] record_friction failed: %s", exc)
         return False
 
@@ -188,7 +188,7 @@ def get_recent_patterns(limit: int = 10) -> list[dict]:
             .execute()
         )
         return list(result.data or [])
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover # noqa: BLE001 - get_recent_patterns failed, already logged
         log.warning("[human-systems.memory] get_recent_patterns failed: %s", exc)
         return []
 
@@ -208,6 +208,6 @@ def get_effective_interventions(limit: int = 10) -> list[dict]:
             .execute()
         )
         return list(result.data or [])
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover # noqa: BLE001 - get_effective_interventions failed, already logged
         log.warning("[human-systems.memory] get_effective_interventions failed: %s", exc)
         return []

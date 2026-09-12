@@ -29,7 +29,7 @@ def _make_supabase():
     try:
         from tools.supabase.client import CommanderSupabaseClient
         return CommanderSupabaseClient()
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Supabase client unavailable, already logged
         log.warning("[health-event] Supabase client unavailable: %s", exc)
         return None
 
@@ -267,5 +267,5 @@ def handle_health_event_submit(values: dict, user_id: str, client) -> None:
 
     try:
         client.chat_postMessage(channel=user_id, text=dm_text)
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - DM failed, already logged
         log.error("[health-event] DM failed: %s", exc)

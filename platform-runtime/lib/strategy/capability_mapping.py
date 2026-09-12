@@ -85,7 +85,7 @@ def build_capability_map() -> CapabilityMap:
         total = len(obj_ids)
         cm.total_objectives_covered = len(covered_obj_ids & obj_ids)
         cm.coverage_pct = cm.total_objectives_covered / total if total else 0.0
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (objectives unavailable)
         log.debug("[capability_mapping] objectives unavailable: %s", exc)
 
     cm.duplicate_pairs = _find_duplicate_pairs(caps)

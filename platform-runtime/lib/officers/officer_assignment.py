@@ -165,7 +165,7 @@ def assign_mission(
             "[officer_assignment] %s assigned %s to %s (by %s)",
             mission_type or "mission", mission_id, target_officer, assigning_officer,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - mission-assignment decision record write, already logged
         log.debug("[officer_assignment] Record failed %s: %s", mission_id, exc)
 
     return AssignmentDecision(
@@ -207,7 +207,7 @@ def get_assignment(mission_id: str) -> AssignmentDecision | None:
             assigned_by=parts.get("ASSIGNED_BY", ""),
             rationale=parts.get("RATIONALE", ""),
         )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Get assignment failed, already logged
         log.debug("[officer_assignment] Get assignment failed %s: %s", mission_id, exc)
         return None
 

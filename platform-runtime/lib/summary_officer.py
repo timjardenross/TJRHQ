@@ -33,7 +33,7 @@ def call_summary_officer(research_package: dict[str, Any]) -> dict[str, Any]:
             "implications": "",
             "research_package": research_package,
         }
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - summary generation failed, already logged
         log.warning("[summary-officer] summary generation failed: %s", exc)
         return {
             "status": "error",

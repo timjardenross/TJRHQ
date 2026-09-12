@@ -105,14 +105,14 @@ def assess_portfolio_capacity(
                     for owner in (getattr(m, "owner", "") for m in (wbs.missions or [])):
                         if owner:
                             owners_seen[owner] = owners_seen.get(owner, 0) + 1
-            except Exception as _exc:
+            except Exception as _exc:  # noqa: BLE001 - best-effort WBS/mission gather per initiative, already logged
                 log.debug("[lib.strategy.capacity_planning] best-effort step failed, continuing: %s", _exc)
 
             try:
                 fc = forecast_initiative(init.initiative_id)
                 if fc:
                     demand.forecast = fc.forecast.value
-            except Exception as _exc:
+            except Exception as _exc:  # noqa: BLE001 - best-effort forecast gather per initiative, already logged
                 log.debug("[lib.strategy.capacity_planning] best-effort step failed, continuing: %s", _exc)
 
             demand.demand_score = min(10.0, demand.mission_count * 0.8 + demand.blocked_count * 2.0)
@@ -123,7 +123,7 @@ def assess_portfolio_capacity(
         # Owners with > 3 concurrent missions = overloaded
         plan.overloaded_owners = [owner for owner, count in owners_seen.items() if count > 3]
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort initiative/wbs demand build, already logged
         log.debug("[capacity_planning] initiative/wbs data unavailable: %s", exc)
 
     # ── Resource conflict count ───────────────────────────────────────────────
@@ -134,7 +134,7 @@ def assess_portfolio_capacity(
         high_conflicts = [c for c in conflicts if c.severity == "high"]
         if high_conflicts:
             plan.signals.append(f"{len(high_conflicts)} high-severity resource conflict(s)")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort resource conflict detection, already logged
         log.debug("[capacity_planning] resource conflict data unavailable: %s", exc)
 
     # ── Utilisation estimate ──────────────────────────────────────────────────
@@ -186,7 +186,7 @@ def assess_portfolio_capacity(
                     plan.signals.append(
                         f"Accelerating top initiative displaces {ta.displaced_count} other(s)"
                     )
-        except Exception as _exc:
+        except Exception as _exc:  # noqa: BLE001 - best-effort displacement tradeoff check, already logged
             log.debug("[lib.strategy.capacity_planning] best-effort step failed, continuing: %s", _exc)
 
     log.info(

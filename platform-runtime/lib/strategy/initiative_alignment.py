@@ -83,7 +83,8 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort optional Supabase client init
+        log.debug("[strategy.initiative_alignment] Supabase client init failed: %s", exc)
         return None
 
 
@@ -141,7 +142,7 @@ def run_alignment_scan() -> AlignmentReport:
                     report.orphan_improvements.append(mid)
                 else:
                     report.orphan_missions.append(mid)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (mission scan failed)
         log.debug("[strategy.alignment] mission scan failed: %s", exc)
 
     # Orphan investigations (open investigations with no initiative context)
@@ -162,7 +163,7 @@ def run_alignment_scan() -> AlignmentReport:
             # Investigation is "aligned" if its context references an initiative/objective
             if "initiative" not in rationale.lower() and "objective" not in rationale.lower():
                 report.orphan_investigations.append(inv_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (investigation scan failed)
         log.debug("[strategy.alignment] investigation scan failed: %s", exc)
 
     log.info(

@@ -47,7 +47,7 @@ def _age(row: dict) -> int:
     try:
         d = datetime.fromisoformat(str(created).replace("Z", "+00:00")).date()
         return (datetime.now(timezone.utc).date() - d).days
-    except Exception:
+    except (ValueError, TypeError):
         return 0
 
 

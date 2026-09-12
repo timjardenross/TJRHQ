@@ -42,7 +42,7 @@ def _age(row: dict) -> int:
         return 0
     try:
         return (datetime.now(timezone.utc).date() - datetime.fromisoformat(str(c).replace("Z", "+00:00")).date()).days
-    except Exception:
+    except (ValueError, TypeError):
         return 0
 
 
@@ -111,7 +111,7 @@ def _closed_date(row: dict):
         return None
     try:
         return datetime.fromisoformat(str(c).replace("Z", "+00:00")).date()
-    except Exception:
+    except (ValueError, TypeError):
         return None
 
 

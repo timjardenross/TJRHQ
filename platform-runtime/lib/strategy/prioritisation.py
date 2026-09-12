@@ -115,7 +115,7 @@ def score_initiative(
         benefit_score += min(5.0, avg_realised * 5.0)
         if bcount:
             signals.append(f"{bcount} benefit(s) ({avg_realised:.0%} realised)")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort benefit lookup, already logged
         log.debug("[strategy.prioritisation] benefit lookup failed: %s", exc)
 
     # ── Dimension 3: Delivery Confidence (0–10) ───────────────────────────────
@@ -135,7 +135,7 @@ def score_initiative(
             delivery_score = delivery_score * 0.7 + fr.confidence * 3.0
             delivery_score = round(min(10.0, delivery_score), 1)
             signals.append(f"forecast: {fr.forecast.value}")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort forecast lookup, already logged
         log.debug("[strategy.prioritisation] forecast lookup failed: %s", exc)
 
     # ── Dimension 4: Capacity Availability (0–10) ─────────────────────────────
@@ -152,7 +152,7 @@ def score_initiative(
             signals.append("high-severity resource conflict")
         elif any(c.severity == "medium" for c in init_conflicts):
             capacity_score = max(0.0, capacity_score - 1.5)
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort capacity conflict scoring, already logged
         log.debug("[lib.strategy.prioritisation] best-effort step failed, continuing: %s", _exc)
 
     # ── Dimension 5: Risk Reduction (0–10) ────────────────────────────────────
@@ -164,7 +164,7 @@ def score_initiative(
         if risk_benefits:
             risk_score += min(4.0, len(risk_benefits) * 2.0)
             signals.append(f"{len(risk_benefits)} risk-reduction benefit(s)")
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort risk-benefit scoring, already logged
         log.debug("[lib.strategy.prioritisation] best-effort step failed, continuing: %s", _exc)
     if resilience_risk == "RED":
         risk_score = min(10.0, risk_score + 3.0)
@@ -183,7 +183,7 @@ def score_initiative(
         if outcome_threats:
             urgency_score = min(10.0, urgency_score + outcome_threats * 2.0)
             signals.append(f"{outcome_threats} outcome-threatening risk(s)")
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort urgency scoring, already logged
         log.debug("[lib.strategy.prioritisation] best-effort step failed, continuing: %s", _exc)
     if init.review_overdue:
         urgency_score = min(10.0, urgency_score + 1.5)
@@ -231,7 +231,7 @@ def rank_initiatives(inputs: dict[str, Any] | None = None) -> list[PriorityScore
             s = score_initiative(init.initiative_id, inputs)
             if s:
                 scores.append(s)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort per-initiative scoring, already logged
             log.debug("[strategy.prioritisation] score failed for %s: %s", init.initiative_id, exc)
     scores.sort(key=lambda s: s.composite_score, reverse=True)
     return scores

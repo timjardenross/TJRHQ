@@ -171,7 +171,7 @@ def calculate_mission_risk_score(mission: dict) -> dict:
         if status in ("completed", "closed") and not check_lesson_captured(mission_id):
             gov_score += 5
             reasons.append("Missing lesson learned")
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort lesson-captured check, already logged
         log.debug("[mission_risk] best-effort step failed, continuing: %s", _exc)
 
     if _missing_validation(mission_id):
@@ -229,7 +229,7 @@ def _missing_validation(mission_id: str) -> bool:
                 text = f.read_text()
                 indicators = ["validation", "validated", "acceptance criteria", "test passed"]
                 return bool(not any(ind in text.lower() for ind in indicators))
-    except Exception as _exc:
+    except Exception as _exc:  # noqa: BLE001 - best-effort validation-file scan, already logged
         log.debug("[mission_risk] best-effort step failed, continuing: %s", _exc)
     return False
 
@@ -248,7 +248,7 @@ def get_top_risk_missions(limit: int = 10) -> list[dict]:
     try:
         from captain_notifications import _read_mission_index
         missions = _read_mission_index()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - mission index read failure, already logged
         log.warning("[risk] Failed to read mission index: %s", exc)
         return []
 
@@ -298,6 +298,6 @@ def format_risk_brief_block(limit: int = 3) -> str:
             emoji = r["band_emoji"]
             lines.append(f"  • {emoji} *{r['mission_id']}* — {r['score']}/100 ({r['band']}) — {r['reasons'][0] if r['reasons'] else ''}")
         return "\n".join(lines)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort brief block, already logged
         log.debug("[risk] Brief block failed: %s", exc)
         return ""

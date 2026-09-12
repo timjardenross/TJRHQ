@@ -146,7 +146,8 @@ def run_notebook_pipeline(supabase_client: Any) -> PipelineResult:
             r = advance_to_officer_review(row["id"], supabase_client)
             if r.get("status") == "advanced":
                 result.advanced_to_officer_review.append(row["id"])
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-note pipeline step, captured into result.errors
+            log.debug("[notebook-router] CAPTURED→OFFICER_REVIEW %s failed: %s", row["id"], exc)
             result.errors.append(f"CAPTURED→OFFICER_REVIEW {row['id']}: {exc}")
 
     # Stage 2: OFFICER_REVIEW → NUMBER_ONE_REVIEW
@@ -158,7 +159,8 @@ def run_notebook_pipeline(supabase_client: Any) -> PipelineResult:
             r = process_officer_review(row["id"], supabase_client)
             if r.new_status == "NUMBER_ONE_REVIEW":
                 result.advanced_to_number_one.append(row["id"])
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-note pipeline step, captured into result.errors
+            log.debug("[notebook-router] OFFICER_REVIEW→NUMBER_ONE_REVIEW %s failed: %s", row["id"], exc)
             result.errors.append(f"OFFICER_REVIEW→NUMBER_ONE_REVIEW {row['id']}: {exc}")
 
     # Stage 3: NUMBER_ONE_REVIEW → READY_FOR_ROUTING
@@ -170,7 +172,8 @@ def run_notebook_pipeline(supabase_client: Any) -> PipelineResult:
             r = triage_note(row["id"], supabase_client)
             if not r.error:
                 result.advanced_to_ready.append(row["id"])
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-note pipeline step, captured into result.errors
+            log.debug("[notebook-router] NUMBER_ONE_REVIEW→READY_FOR_ROUTING %s failed: %s", row["id"], exc)
             result.errors.append(f"NUMBER_ONE_REVIEW→READY_FOR_ROUTING {row['id']}: {exc}")
 
     log.info(

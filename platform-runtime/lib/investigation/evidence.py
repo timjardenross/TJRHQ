@@ -98,7 +98,7 @@ def _collect_from_decisions(
             if len(package.items) >= 8:
                 break
 
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Decision evidence failed, already logged
         log.debug("[investigation.evidence] Decision evidence failed: %s", exc)
 
 
@@ -136,7 +136,7 @@ def _collect_from_missions(
                     confidence=conf,
                 ))
 
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Mission evidence failed, already logged
         log.debug("[investigation.evidence] Mission evidence failed: %s", exc)
 
 
@@ -173,7 +173,7 @@ def _collect_from_context(
             confidence=conf,
         ))
 
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Context evidence failed, already logged
         log.debug("[investigation.evidence] Context evidence failed: %s", exc)
 
 
@@ -198,7 +198,7 @@ def _store_evidence(package: EvidencePackage) -> None:
             ),
             owner=f"{EVIDENCE_OWNER_PREFIX}{package.investigation_id}",
         )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Store evidence failed, already logged
         log.debug("[investigation.evidence] Store evidence failed: %s", exc)
 
 
@@ -270,7 +270,7 @@ def get_evidence(investigation_id: str) -> EvidencePackage:
                 confidence=0.5,
             ))
 
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - get_evidence failed, already logged
         log.debug("[investigation.evidence] get_evidence failed: %s", exc)
     return package
 

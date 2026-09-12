@@ -100,7 +100,8 @@ def _derive_signals(ctx: Any) -> dict[str, bool]:
         signals["pattern_capacity"]       = "capacity_overload" in themes
         signals["pattern_knowledge_gap"]  = "knowledge_gap" in themes
         signals["pattern_arch_debt"]      = "architectural_debt" in themes
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort pattern registry lookup, defaults applied
+        log.debug("[learning.cross_domain] Pattern registry unavailable: %s", exc)
         signals.update({
             "pattern_delivery_delay": False,
             "pattern_capacity": False,
@@ -203,7 +204,7 @@ def _store_opportunity(opp: CrossDomainOpportunity) -> None:
                 )
                 if res.data:
                     return
-        except Exception as _exc:
+        except Exception as _exc:  # noqa: BLE001 - best-effort duplicate-check short-circuit, already logged
             log.debug("[lib.learning.cross_domain] best-effort step failed, continuing: %s", _exc)
 
         log_decision_to_command_memory(
@@ -218,7 +219,7 @@ def _store_opportunity(opp: CrossDomainOpportunity) -> None:
             ),
             owner=CROSS_DOMAIN_OWNER,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort opportunity storage, already logged
         log.debug("[learning.cross_domain] store_opportunity failed: %s", exc)
 
 
@@ -262,12 +263,12 @@ def route_to_improvement_backlog(opp: CrossDomainOpportunity) -> bool:
                 strategic_alignment=round(opp.confidence * 6),
                 implementation_effort=5,
             )
-        except Exception as _exc:
+        except Exception as _exc:  # noqa: BLE001 - best-effort backlog item construction, already logged
             log.debug("[lib.learning.cross_domain] best-effort step failed, continuing: %s", _exc)
 
         return add_to_backlog(improvement)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort route to improvement backlog, already logged
         log.debug("[learning.cross_domain] route_to_improvement_backlog failed: %s", exc)
         return False
 

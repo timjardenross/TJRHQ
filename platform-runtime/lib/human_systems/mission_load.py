@@ -61,7 +61,7 @@ def _supabase():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:  # pragma: no cover - environment dependent
+    except Exception as exc:  # pragma: no cover - environment dependent # noqa: BLE001 - Supabase unavailable, already logged
         log.warning("[mission-load] Supabase unavailable: %s", exc)
         return None
 
@@ -80,7 +80,7 @@ def fetch_open_missions() -> tuple[int, list[str]]:
         ]
         titles = [str(r.get("title", "")).strip() for r in open_rows if r.get("title")]
         return len(open_rows), titles
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - mission fetch failed, already logged
         log.error("[mission-load] mission fetch failed: %s", exc)
         return 0, []
 
@@ -93,7 +93,7 @@ def load_priorities(path: Path | None = None) -> list[Priority]:
     path = path or PRIORITIES_FILE
     try:
         text = path.read_text(encoding="utf-8")
-    except Exception:
+    except (OSError, UnicodeDecodeError):
         return []
     priorities: list[Priority] = []
     in_scale = False

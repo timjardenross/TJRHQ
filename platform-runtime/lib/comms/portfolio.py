@@ -35,7 +35,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() else None
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort client init, already logged
         log.warning("[comms.portfolio] Supabase unavailable: %s", exc)
         return None
 
@@ -77,10 +77,10 @@ def record_content(*, content_id: str, title: str, pillar: str | None = None,
                     "comms.content_recorded", domain="content-intelligence",
                     source="comms-portfolio", recommended_action=title,
                 )
-            except Exception as _exc:
+            except Exception as _exc:  # noqa: BLE001 - best-effort event bus publish, already logged
                 log.debug("[lib.comms.portfolio] best-effort step failed, continuing: %s", _exc)
         return ok
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - DB write failure, already logged
         log.warning("[comms.portfolio] record_content failed: %s", exc)
         return False
 
@@ -106,7 +106,7 @@ def fetch_portfolio(*, status: str = "published", limit: int = 50) -> list[Portf
                               status=str(r.get("status") or ""),
                               strategic_domain=r.get("strategic_domain"))
                 for r in (res.data or [])]
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - DB read failure, already logged
         log.warning("[comms.portfolio] fetch_portfolio failed: %s", exc)
         return []
 
@@ -123,6 +123,6 @@ def pipeline_summary() -> dict[str, int]:
             s = str(r.get("status") or "unknown")
             counts[s] = counts.get(s, 0) + 1
         return counts
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - DB read failure, already logged
         log.warning("[comms.portfolio] pipeline_summary failed: %s", exc)
         return {}

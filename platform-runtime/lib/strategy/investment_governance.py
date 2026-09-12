@@ -91,7 +91,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (supabase unavailable)
         log.debug("[investment_governance] Supabase unavailable: %s", exc)
         return None
 
@@ -206,7 +206,7 @@ def register_investment(
         )
         log.info("[investment_governance] Registered %s — %s (%s)", inv_id, name[:60], approval_status.value)
         return inv_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (register_investment failed)
         log.warning("[investment_governance] register_investment failed: %s", exc)
         return None
 
@@ -236,7 +236,7 @@ def update_investment(investment_id: str, **fields: Any) -> bool:
                 setattr(inv, k, v)
         c.raw_client.table("decisions").update({"rationale": _build_rationale(inv)}).eq("id", rows[0]["id"]).execute()
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (update_investment failed)
         log.debug("[investment_governance] update_investment failed: %s", exc)
         return False
 
@@ -255,7 +255,7 @@ def get_investment(investment_id: str) -> Investment | None:
         )
         rows = list(res.data or [])
         return _row_to_investment(rows[0]) if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (get_investment failed)
         log.debug("[investment_governance] get_investment failed: %s", exc)
         return None
 
@@ -294,7 +294,7 @@ def list_investments(
                 continue
             out.append(inv)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (list_investments failed)
         log.debug("[investment_governance] list_investments failed: %s", exc)
         return []
 
