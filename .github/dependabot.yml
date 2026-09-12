@@ -1,0 +1,77 @@
+version: 2
+
+updates:
+  # --- Python (pip) ecosystems: one entry per directory with a requirements.txt ---
+  - package-ecosystem: "pip"
+    directory: "/core/infrastructure/mac-collector"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "pip"
+    directory: "/core/infrastructure/vm-processing"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "pip"
+    directory: "/core/infrastructure/vm-transfer"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "pip"
+    directory: "/platform-runtime"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "pip"
+    directory: "/scripts/self_improvement"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "pip"
+    directory: "/services/revs-content-agents"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "pip"
+    directory: "/telegram-bots/capacitybot"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "pip"
+    directory: "/telegram-bots/revs"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "pip"
+    directory: "/telegram-bots/xo"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "pip"
+    directory: "/tools/supabase"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # --- JavaScript/TypeScript (npm) ---
+  - package-ecosystem: "npm"
+    directory: "/lcars-portal"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+
+  # --- Keep the workflow actions themselves up to date ---
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
