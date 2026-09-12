@@ -36,13 +36,27 @@ from commands.mission_lifecycle import (
 
 class TestValidTransitions(unittest.TestCase):
     def test_all_statuses_covered(self):
-        expected = {"Idea", "Planned", "Active", "Blocked", "Review", "Completed", "Closed"}
+        # 2026-09-12: updated to the real governance status vocabulary
+        # (must match missions_status_check in Supabase, see issue #187 /
+        # USS-TJR-MSN-0368 migration 0200) -- the old 7-state
+        # Idea/Planned/Active/Blocked/Review/Completed/Closed set this
+        # test asserted was a stale, superseded vocabulary that no longer
+        # matched _VALID_TRANSITIONS, silently never caught because a
+        # separate bug (test_health_event.py's bad import) was aborting
+        # pytest collection for this whole directory before this test
+        # ever ran.
+        expected = {
+            "Idea", "Designed", "Approved for Engineering", "Implemented",
+            "Tested", "Awaiting Number One Review", "Validated",
+            "Awaiting XO Approval", "Awaiting Captain Approval", "Approved",
+            "Closed", "Blocked", "Archived", "Requires Rework",
+        }
         self.assertEqual(_VALID_TRANSITIONS, expected)
 
     def test_lower_lookup(self):
         self.assertEqual(_VALID_TRANSITIONS_LOWER["idea"], "Idea")
-        self.assertEqual(_VALID_TRANSITIONS_LOWER["planned"], "Planned")
-        self.assertEqual(_VALID_TRANSITIONS_LOWER["active"], "Active")
+        self.assertEqual(_VALID_TRANSITIONS_LOWER["designed"], "Designed")
+        self.assertEqual(_VALID_TRANSITIONS_LOWER["blocked"], "Blocked")
 
 
 class TestFormatIdeaList(unittest.TestCase):
@@ -95,36 +109,36 @@ class TestHandleMissionStatus(unittest.TestCase):
         self.assertIn("Unknown status", result)
         self.assertIn("limbo", result)
 
-    @patch("commands.mission_lifecycle._supabase_update_mission_status", return_value=True)
+    @patch("commands.mission_lifecycle._supabase_update_mission_status", return_value=(True, "evt-test-001"))
     @patch("commands.mission_lifecycle._supabase_missions", return_value=[
         {"id": "MSN-0001", "title": "Test", "status": "Idea"}
     ])
     @patch("commands.mission_lifecycle._write_transition_audit")
     def test_transition_success(self, mock_audit, _mock_sb, _mock_update):
-        result = handle_mission_status("MSN-0001 planned", "U001")
+        result = handle_mission_status("MSN-0001 designed", "U001")
         self.assertIn("Idea", result)
-        self.assertIn("Planned", result)
+        self.assertIn("Designed", result)
         self.assertIn("MSN-0001", result)
         mock_audit.assert_called_once()
 
-    @patch("commands.mission_lifecycle._supabase_update_mission_status", return_value=False)
+    @patch("commands.mission_lifecycle._supabase_update_mission_status", return_value=(False, None))
     @patch("commands.mission_lifecycle._supabase_missions", return_value=[])
     @patch("commands.mission_lifecycle._write_transition_audit")
     def test_transition_supabase_unavailable(self, mock_audit, _mock_sb, _mock_update):
-        result = handle_mission_status("MSN-0001 active", "U001")
+        result = handle_mission_status("MSN-0001 designed", "U001")
         self.assertIn("recorded locally", result)
         mock_audit.assert_called_once()
 
     def test_case_insensitive_status(self):
         with (
-            patch("commands.mission_lifecycle._supabase_update_mission_status", return_value=True),
+            patch("commands.mission_lifecycle._supabase_update_mission_status", return_value=(True, "evt-test-002")),
             patch("commands.mission_lifecycle._supabase_missions", return_value=[
                 {"id": "MSN-0001", "title": "T", "status": "Idea"}
             ]),
             patch("commands.mission_lifecycle._write_transition_audit"),
         ):
-            result = handle_mission_status("MSN-0001 ACTIVE")
-            self.assertIn("Active", result)
+            result = handle_mission_status("MSN-0001 DESIGNED")
+            self.assertIn("Designed", result)
 
 
 class TestTransitionAudit(unittest.TestCase):

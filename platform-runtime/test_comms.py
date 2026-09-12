@@ -81,7 +81,22 @@ class TestOpportunityEngine(unittest.TestCase):
         self.assertEqual(o.strategic_domain, "Career & Professional Impact")
 
     def test_gather_graceful_offline(self):
-        with patch.object(opp, "_client", return_value=None):
+        # 2026-09-12: gather_opportunities() has two independent data
+        # sources -- outcome_capture (MSN-0078 bridge, has its own graceful
+        # client, deliberately still consulted even when Command Memory is
+        # offline -- see that function's own inline comment) and Command
+        # Memory itself (gated by _client()). Patching only _client left
+        # the outcome source live, so this "offline" test was actually
+        # exercising real production data (17 real opportunities) instead
+        # of the empty list it asserted -- pre-existing, unrelated to
+        # anything else fixed in this pass, just never caught before
+        # because test_health_event.py's collection-abort bug (fixed
+        # separately) prevented this whole file from ever running. Patch
+        # both sources to genuinely represent "everything offline".
+        with (
+            patch.object(opp, "_client", return_value=None),
+            patch.object(opp, "_gather_outcome_candidates", return_value=[]),
+        ):
             self.assertEqual(opp.gather_opportunities(), [])
 
 

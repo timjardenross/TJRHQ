@@ -14,7 +14,6 @@ Covers:
 from __future__ import annotations
 
 import sys
-import tempfile
 import types
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -101,34 +100,12 @@ class TestEngineeringHandoffsDirDefined:
         assert mb._ENGINEERING_HANDOFFS_DIR.parent.name == "Missions"
 
 
-# ---------------------------------------------------------------------------
-# WP2 — _parse_router_args detects mission IDs correctly
-# ---------------------------------------------------------------------------
-
-class TestParseRouterArgs:
-    def setup_method(self):
-        self.mb = _import_mission_brief()
-
-    def test_mission_id_detected_full(self):
-        mid, backend, mode = self.mb._parse_router_args("USS-TJR-MSN-0056 --backend mistral --mode implementation")
-        assert mid == "USS-TJR-MSN-0056"
-        assert backend == "mistral"
-        assert mode == "implementation"
-
-    def test_mission_id_detected_bare(self):
-        mid, backend, mode = self.mb._parse_router_args("MSN-0056")
-        assert mid == "USS-TJR-MSN-0056"
-
-    def test_free_text_returns_none(self):
-        mid, backend, mode = self.mb._parse_router_args("build a dashboard widget for mission status")
-        assert mid is None
-
-    def test_free_text_defaults(self):
-        mid, backend, mode = self.mb._parse_router_args("add health check command")
-        assert mid is None
-        assert backend == "mistral"
-        assert mode == "plan"
-
+# WP2 (_parse_router_args) removed 2026-09-12: the Slack-only /build
+# --backend/--mode router-args syntax it tested no longer exists in
+# commands/mission_brief.py -- confirmed removed in "Remove Slack
+# integration platform-wide; Telegram is now the sole transport"
+# (commit 38e554352). This test class aborted with AttributeError on
+# every run since; see USS-TJR-MSN-0368's CI investigation.
 
 # ---------------------------------------------------------------------------
 # WP3 — handle_build_brief routes via handle_mission_brief (no duplication)
@@ -185,280 +162,18 @@ class TestBuildBriefDoesNotDuplicateRouter:
         )
 
 
-# ---------------------------------------------------------------------------
-# WP4 — router_meta persisted in build record
-# ---------------------------------------------------------------------------
-
-class TestBuildRecordRouterMeta:
-    def setup_method(self):
-        self.mb = _import_mission_brief()
-
-    def test_router_meta_written_to_record(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)):
-                path = self.mb.save_build_record(
-                    request_text="MSN-0056 --backend gemini --mode review",
-                    brief_text="Routed brief content",
-                    github_summary="Preview",
-                    thread_ts="ts1",
-                    router_meta={"mission_id": "USS-TJR-MSN-0056", "backend": "gemini", "mode": "review"},
-                )
-                content = (Path(tmpdir) / Path(path).name).read_text()
-
-        assert "USS-TJR-MSN-0056" in content
-        assert "gemini" in content
-        assert "review" in content
-        assert "Engineering Router Metadata" in content
-
-    def test_no_router_meta_section_for_free_text(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)):
-                path = self.mb.save_build_record(
-                    request_text="add a health check command",
-                    brief_text="Plain brief",
-                    github_summary="Preview",
-                    router_meta=None,
-                )
-                content = (Path(tmpdir) / Path(path).name).read_text()
-
-        assert "Engineering Router Metadata" not in content
-
-
-# ---------------------------------------------------------------------------
-# WP5 — Engineering Handoff includes Mission ID and router metadata
-# ---------------------------------------------------------------------------
-
-class TestEngineeringHandoffRouterMeta:
-    def setup_method(self):
-        self.mb = _import_mission_brief()
-
-    def _make_build_record(self, with_router=True):
-        record = {
-            "record_path": "Missions/Build-Records/BUILD-test.md",
-            "request_text": "Build request text",
-            "channel_id": "C123",
-            "thread_ts": "ts1",
-            "mission_title": "Test Handoff",
-        }
-        if with_router:
-            record["router_mission_id"] = "USS-TJR-MSN-0056"
-            record["router_backend"] = "mistral"
-            record["router_mode"] = "implementation"
-        return record
-
-    def _patch_handoff(self, tmpdir_path):
-        """Return a context manager stack that patches paths and lazy imports."""
-        import contextlib
-
-        # record_build_lifecycle_event is imported lazily inside the function body
-        # via `from lib.build_learning_loop import record_build_lifecycle_event`.
-        # Patch the stub module attribute directly.
-        return contextlib.ExitStack().__enter__  # placeholder — use inline patches below
-
-    def test_handoff_includes_mission_id(self):
-        import lib.build_learning_loop as bll
-        with tempfile.TemporaryDirectory() as tmpdir:
-            orig_bll = bll.record_build_lifecycle_event
-            bll.record_build_lifecycle_event = MagicMock()
-            try:
-                with (
-                    patch.object(self.mb, "_ENGINEERING_HANDOFFS_DIR", Path(tmpdir)),
-                    patch.object(self.mb, "_REPO_ROOT", Path(tmpdir)),
-                ):
-                    result = self.mb.save_engineering_handoff_from_build_record(
-                        self._make_build_record(with_router=True),
-                        approver_user_id="U99",
-                    )
-                    content = (Path(tmpdir) / Path(result["handoff_path"]).name).read_text()
-            finally:
-                bll.record_build_lifecycle_event = orig_bll
-
-        assert "USS-TJR-MSN-0056" in content
-        assert "mistral" in content
-        assert "implementation" in content
-        assert "Engineering Router Metadata" in content
-        assert "ADR-030" in content
-
-    def test_handoff_mission_id_unassigned_for_free_text(self):
-        import lib.build_learning_loop as bll
-        with tempfile.TemporaryDirectory() as tmpdir:
-            orig_bll = bll.record_build_lifecycle_event
-            bll.record_build_lifecycle_event = MagicMock()
-            try:
-                with (
-                    patch.object(self.mb, "_ENGINEERING_HANDOFFS_DIR", Path(tmpdir)),
-                    patch.object(self.mb, "_REPO_ROOT", Path(tmpdir)),
-                ):
-                    result = self.mb.save_engineering_handoff_from_build_record(
-                        self._make_build_record(with_router=False),
-                        approver_user_id="U99",
-                    )
-                    content = (Path(tmpdir) / Path(result["handoff_path"]).name).read_text()
-            finally:
-                bll.record_build_lifecycle_event = orig_bll
-
-        assert "Mission ID: unassigned" in content
-        assert "Engineering Router Metadata" not in content
-
-    def test_handoff_file_created_without_nameerror(self):
-        """Core regression: _ENGINEERING_HANDOFFS_DIR must not raise NameError."""
-        import lib.build_learning_loop as bll
-        with tempfile.TemporaryDirectory() as tmpdir:
-            orig_bll = bll.record_build_lifecycle_event
-            bll.record_build_lifecycle_event = MagicMock()
-            try:
-                with (
-                    patch.object(self.mb, "_ENGINEERING_HANDOFFS_DIR", Path(tmpdir)),
-                    patch.object(self.mb, "_REPO_ROOT", Path(tmpdir)),
-                ):
-                    try:
-                        result = self.mb.save_engineering_handoff_from_build_record(
-                            self._make_build_record(with_router=False),
-                            approver_user_id="U99",
-                        )
-                    except NameError as exc:
-                        raise AssertionError(f"NameError raised — bug not fixed: {exc}") from exc
-
-                    assert result and result.get("handoff_path"), "Expected a non-empty handoff path"
-                    files = list(Path(tmpdir).glob("ENG-HANDOFF-*.md"))
-                    assert len(files) == 1, f"Expected exactly one ENG-HANDOFF file, got {files}"
-            finally:
-                bll.record_build_lifecycle_event = orig_bll
-
-
-# ---------------------------------------------------------------------------
-# WP6 — find_build_record_by_thread recovers router metadata
-# ---------------------------------------------------------------------------
-
-class TestFindBuildRecordRouterMeta:
-    def setup_method(self):
-        self.mb = _import_mission_brief()
-
-    def test_router_meta_recovered_from_record(self):
-        content = (
-            "# Build Record\n\n"
-            "- Timestamp: 2026-06-14 12:00:00\n"
-            "- User ID: U1\n"
-            "- Channel ID: C1\n\n"
-            "- Thread TS: ts_test\n\n"
-            "## Request\n\nMSN-0056 --backend mistral --mode implementation\n\n"
-            "## Mission Implementation Brief\n\n"
-            "```text\nMission Title: Test\n```\n\n"
-            "## Engineering Router Metadata\n\n"
-            "- Mission ID: USS-TJR-MSN-0056\n"
-            "- Backend: mistral\n"
-            "- Mode: implementation\n\n"
-            "## GitHub Handoff Summary\n\npreview\n"
-        )
-        with tempfile.TemporaryDirectory() as tmpdir:
-            p = Path(tmpdir) / "BUILD-20260614-120000-msn-0056.md"
-            p.write_text(content)
-            with patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)):
-                with patch.object(self.mb, "_REPO_ROOT", Path(tmpdir)):
-                    record = self.mb.find_build_record_by_thread("ts_test")
-
-        assert record is not None
-        assert record.get("router_mission_id") == "USS-TJR-MSN-0056"
-        assert record.get("router_backend") == "mistral"
-        assert record.get("router_mode") == "implementation"
-
-    def test_no_router_meta_for_plain_record(self):
-        content = (
-            "# Build Record\n\n"
-            "- Timestamp: 2026-06-14 12:00:00\n"
-            "- User ID: U1\n"
-            "- Channel ID: C1\n\n"
-            "- Thread TS: ts_plain\n\n"
-            "## Request\n\nadd a health check\n\n"
-            "## Mission Implementation Brief\n\n"
-            "```text\nMission Title: Health Check\n```\n\n"
-            "## GitHub Handoff Summary\n\npreview\n"
-        )
-        with tempfile.TemporaryDirectory() as tmpdir:
-            p = Path(tmpdir) / "BUILD-20260614-120001-health-check.md"
-            p.write_text(content)
-            with patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)):
-                with patch.object(self.mb, "_REPO_ROOT", Path(tmpdir)):
-                    record = self.mb.find_build_record_by_thread("ts_plain")
-
-        assert record is not None
-        assert "router_mission_id" not in record
-        assert "router_backend" not in record
-        assert "router_mode" not in record
-
-
-# ---------------------------------------------------------------------------
-# WP4 — E2E closure regression tests
-# (M-20260614-ENGINEERING-HANDOFF-E2E-CLOSURE)
-# ---------------------------------------------------------------------------
-
-class TestSaveEngineeringHandoffReturnsDict:
-    """save_engineering_handoff_from_build_record() must return a dict."""
-
-    def setup_method(self):
-        self.mb = _import_mission_brief()
-
-    def _make_build_record(self, tmpdir: str) -> dict:
-        return {
-            "mission_title": "Test Mission",
-            "request_text": "do something",
-            "user_id": "U_TEST",
-            "channel_id": "C_TEST",
-            "thread_ts": "ts_wp4",
-            "record_path": "Missions/Build-Records/BUILD-stub.md",
-            "decision_id": "DEC-REC-WP4-000000",
-        }
-
-    def test_returns_dict_with_handoff_path_and_decision_id(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp = Path(tmpdir)
-            (tmp / "Missions" / "Engineering-Handoffs").mkdir(parents=True)
-            build_rec = self._make_build_record(tmpdir)
-
-            bll = sys.modules["lib.build_learning_loop"]
-            orig = getattr(bll, "record_build_lifecycle_event", None)
-            bll.record_build_lifecycle_event = MagicMock()
-            try:
-                with patch.object(self.mb, "_ENGINEERING_HANDOFFS_DIR", tmp / "Missions" / "Engineering-Handoffs"):
-                    with patch.object(self.mb, "_REPO_ROOT", tmp):
-                        result = self.mb.save_engineering_handoff_from_build_record(
-                            build_record=build_rec,
-                            approver_user_id="U_APPROVER",
-                        )
-            finally:
-                if orig is not None:
-                    bll.record_build_lifecycle_event = orig
-
-        assert isinstance(result, dict), "Expected dict, got " + type(result).__name__
-        assert "handoff_path" in result
-        assert "decision_id" in result
-        assert isinstance(result["handoff_path"], str)
-        assert isinstance(result["decision_id"], str)
-        # The stub generate_build_decision_id returns "DEC-REC-STUB-000000"
-        assert result["decision_id"]  # non-empty
-
-    def test_handoff_path_is_relative(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp = Path(tmpdir)
-            (tmp / "Missions" / "Engineering-Handoffs").mkdir(parents=True)
-            build_rec = self._make_build_record(tmpdir)
-
-            bll = sys.modules["lib.build_learning_loop"]
-            orig = getattr(bll, "record_build_lifecycle_event", None)
-            bll.record_build_lifecycle_event = MagicMock()
-            try:
-                with patch.object(self.mb, "_ENGINEERING_HANDOFFS_DIR", tmp / "Missions" / "Engineering-Handoffs"):
-                    with patch.object(self.mb, "_REPO_ROOT", tmp):
-                        result = self.mb.save_engineering_handoff_from_build_record(
-                            build_record=build_rec,
-                            approver_user_id="U_APPROVER",
-                        )
-            finally:
-                if orig is not None:
-                    bll.record_build_lifecycle_event = orig
-
-        # Path must not be absolute (relative_to(_REPO_ROOT) succeeded)
-        assert not Path(result["handoff_path"]).is_absolute()
+# WP4 (TestBuildRecordRouterMeta), WP5 (TestEngineeringHandoffRouterMeta),
+# WP6 (TestFindBuildRecordRouterMeta), and the WP4-E2E-closure
+# TestSaveEngineeringHandoffReturnsDict class were all removed 2026-09-12
+# for the same reason as WP2 above: they test a router_meta kwarg on
+# save_build_record() and a dict return from
+# save_engineering_handoff_from_build_record() that no longer exist --
+# both functions were simplified (router_meta kwarg dropped;
+# save_engineering_handoff_from_build_record now returns a plain str
+# path, not a dict) as part of the same Slack-removal cleanup that
+# deleted _parse_router_args. Confirmed by reading the current real
+# signatures in commands/mission_brief.py before removing these classes,
+# not assumed from the failures alone.
 
 
 class TestCommandMemoryStatusDefault:
