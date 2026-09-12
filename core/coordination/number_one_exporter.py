@@ -49,7 +49,8 @@ def _git_last_modified(file_ref: str, repo_root: Path) -> str:
         result = subprocess.run(
             ["git", "log", "--follow", "--format=%ai", "--", file_ref],
             cwd=str(repo_root),
-            capture_output=True, text=True, timeout=5
+            capture_output=True, text=True, timeout=5,
+            check=False,
         )
         first_line = result.stdout.strip().splitlines()[0] if result.stdout.strip() else None
         if first_line:

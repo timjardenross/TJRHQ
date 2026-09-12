@@ -110,6 +110,7 @@ def _invoke_worker(command: str, payload: dict[str, Any]) -> dict[str, Any]:
             capture_output=True,
             text=True,
             timeout=_WORKER_TIMEOUT_S,
+            check=False,
         )
     except subprocess.TimeoutExpired as exc:
         raise GuardrailsUnavailableError(f"llmsec worker timed out on command={command}") from exc

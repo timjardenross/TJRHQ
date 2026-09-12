@@ -367,6 +367,7 @@ def _systemd_state(service: str) -> str:
         r = subprocess.run(
             ["systemctl", "is-active", service],
             capture_output=True, text=True, timeout=5,
+            check=False,
         )
         return r.stdout.strip()  # "active", "inactive", "failed", "activating", etc.
     except Exception:  # noqa: BLE001 - systemctl probe; 'unknown' is a valid status value alongside active/inactive/failed

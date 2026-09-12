@@ -340,6 +340,7 @@ def _run_cortex(args: list[str]) -> str | None:
             capture_output=True,
             text=True,
             timeout=_CORTEX_TIMEOUT_SECS,
+            check=False,
         )
         if result.returncode != 0:
             log.warning(
@@ -430,6 +431,7 @@ def _run_git_status() -> str:
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         )
         output = result.stdout.strip()
         if not output:

@@ -148,6 +148,7 @@ def diff_applies(diff_text: str, repo_root: Path | None = None) -> bool:
             proc = subprocess.run(
                 ["git", "-C", str(root), "apply", "--check", "--recount", fh.name],
                 capture_output=True, text=True, timeout=30,
+                check=False,
             )
         if proc.returncode != 0:
             log.info("[github_pr] diff does not apply: %s", proc.stderr.strip()[:200])
@@ -304,6 +305,7 @@ def open_files_pr(
         diff_proc = subprocess.run(
             ["git", "-C", str(worktree), "diff", "--cached"],
             capture_output=True, text=True, timeout=30,
+            check=False,
         )
         diff_text = diff_proc.stdout
         _git(worktree, "-c", "user.name=Mistral Batch Coder",
@@ -408,7 +410,7 @@ def _resolve_base_ref(root: Path, base: str) -> str:
     resort (caller surfaces the git error)."""
     try:  # best-effort refresh so the PR is cut from current remote state
         subprocess.run(["git", "-C", str(root), "fetch", "--quiet", "origin", base],
-                       capture_output=True, text=True, timeout=60)
+                       capture_output=True, text=True, timeout=60, check=False)
     except (subprocess.SubprocessError, OSError):
         pass
     for candidate in (f"origin/{base}", base, "origin/HEAD"):
