@@ -95,7 +95,7 @@ def extract_domain(url: str) -> str:
         host = host.split("@")[-1].split(":")[0].lower()  # strip creds + port
         host = host.removeprefix("www.")
         return host
-    except Exception as exc:  # pragma: no cover - defensive
+    except Exception as exc:  # pragma: no cover - defensive  # noqa: BLE001 - explicitly marked defensive above (pragma: no cover) — malformed URL falls back to empty host string, already logged
         log.warning("source_tier: failed to parse url %r: %s", url, exc)
         return ""
 

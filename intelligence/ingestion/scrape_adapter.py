@@ -320,8 +320,8 @@ class ScrapeAdapter(BaseSourceAdapter):
                     from dateutil import parser as dateparser
                     dt = dateparser.parse(m.group(1))
                     return dt.replace(tzinfo=timezone.utc) if dt else None
-                except Exception:
-                    pass
+                except Exception as exc:  # noqa: BLE001 - best-effort regex-pattern date probe; a non-matching pattern just tries the next one
+                    log.debug("[scrape_adapter] Pattern %r date parse failed: %s", pat, exc)
 
         # Try <time> element
         time_el = el.find("time")
@@ -331,6 +331,6 @@ class ScrapeAdapter(BaseSourceAdapter):
                 from dateutil import parser as dateparser
                 dt = dateparser.parse(dt_str)
                 return dt.replace(tzinfo=timezone.utc) if dt else None
-            except Exception:
-                pass
+            except Exception as exc:  # noqa: BLE001 - best-effort <time> element parse; falls through to None (caller treats as "no date found")
+                log.debug("[scrape_adapter] <time> element date parse failed: %s", exc)
         return None

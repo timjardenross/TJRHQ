@@ -9,7 +9,7 @@ Purpose: Listen for events (Slack messages, GitHub PRs, Notion updates) and surf
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -57,7 +57,7 @@ class EventListener(ABC):
         for handler in self.handlers:
             try:
                 handler(event, context)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-handler dispatch inside a notify loop — one bad handler must not block other registered handlers from running; already printed
                 print(f"❌ Handler error: {e}")
 
 
@@ -212,7 +212,7 @@ if __name__ == "__main__":
         source="slack",
         event_type="message_posted",
         event_id="evt_001",
-        timestamp=datetime.now(),
+        timestamp=datetime.now(timezone.utc),
         actor="captain-tjr",
         payload={"text": "Should we defer the Kafka migration?"}
     )

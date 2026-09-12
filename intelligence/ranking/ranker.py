@@ -58,7 +58,7 @@ def _load_srs_scores():
         scores = store.get_source_reliability_scores()
         _SRS_CACHE = {s["source_id"]: s["reliability_score"] for s in scores}
         log.debug(f"Loaded SRS scores for {len(_SRS_CACHE)} sources")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort SRS cache load, already logged; explicitly documented fallback to default 0.75
         log.warning(f"Failed to load SRS scores (will use default 0.75): {e}")
         _SRS_CACHE = {}
 

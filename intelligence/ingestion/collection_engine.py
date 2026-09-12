@@ -95,7 +95,7 @@ def collect_all(
                 items, health = future.result()
                 all_items.extend(items)
                 all_health.append(health)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-source future-result retrieval inside a ThreadPoolExecutor loop — one bad source must not abort the batch; already logged
                 log.error("Unexpected error collecting %s: %s", source.source_name, exc)
 
     # Persist health records (non-blocking; individual failures logged inside store)
@@ -129,7 +129,7 @@ def collect_all(
                 "sources_total": len(all_health),
             },
         )
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort event-bus publish; a bus outage must never block/fail the actual collection result
+        log.debug("[collection_engine] Failed to publish collection_run_completed event: %s", exc)
 
     return all_items, all_health

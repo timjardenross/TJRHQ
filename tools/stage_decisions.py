@@ -33,8 +33,8 @@ def _load_all() -> list[dict]:
             d = json.loads(f.read_text())
             d["_file"] = f
             decisions.append(d)
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - one malformed decision file must not abort the whole listing
+            print(f"[stage_decisions] Skipping unreadable decision file {f}: {exc}", file=sys.stderr)
     return decisions
 
 

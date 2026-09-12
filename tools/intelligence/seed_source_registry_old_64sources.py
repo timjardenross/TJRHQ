@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 WP-ORI-2: Source Registry Seed Script
 Populates intelligence_source_registry with all approved sources.
@@ -979,7 +980,8 @@ def _fetch_existing_ids() -> dict:
                 if r["source_name"] not in seen:
                     seen[r["source_name"]] = r["source_id"]
             return seen
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase lookup; caller treats {} as "no existing sources found" (legacy/superseded script, kept for reference — see seed_source_registry.py)
+        print(f"  ⚠️  Could not fetch existing source registry: {exc}", file=sys.stderr)
         return {}
 
 
@@ -1027,7 +1029,7 @@ def _upsert(rows: list[dict]) -> tuple[int, int]:
             body_err = exc.read().decode()
             print(f"  ✗ Supabase HTTP {exc.code}: {body_err[:300]}", file=sys.stderr)
             return 0, len(batch)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-batch upsert inside a CLI seeding loop, already printed with the batch failure count returned to the caller
             print(f"  ✗ Error: {exc}", file=sys.stderr)
             return 0, len(batch)
 

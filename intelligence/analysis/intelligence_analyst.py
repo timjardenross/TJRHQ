@@ -25,7 +25,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, ClassVar
 
 log = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ class DualPathScoringResult:
 def _clamp(value: Any) -> int:
     """Coerce a model/heuristic value to an int in [1, 5]; default 3 on garbage."""
     try:
-        v = int(round(float(value)))
+        v = round(float(value))
     except (TypeError, ValueError):
         return 3
     return max(_MIN, min(_MAX, v))
@@ -179,7 +179,7 @@ class IntelligenceAnalyst:
             try:
                 from intelligence.brief.llm_provider import LLMProvider
                 self._llm = LLMProvider()
-            except Exception as exc:  # pragma: no cover
+            except Exception as exc:  # pragma: no cover  # noqa: BLE001 - optional LLM-provider init; already logged, caller falls back to the deterministic heuristic path
                 log.warning("IntelligenceAnalyst: LLMProvider unavailable (%s)", exc)
                 self._llm = None
         return self._llm
@@ -234,7 +234,7 @@ class IntelligenceAnalyst:
                 llm_result = self._score_via_llm(signal)
                 if llm_result is not None:
                     llm_result = _downgrade_if_resolved(llm_result, signal)
-            except Exception as exc:  # pragma: no cover — _score_via_llm already guards this
+            except Exception as exc:  # pragma: no cover — _score_via_llm already guards this  # noqa: BLE001 - already logged into notes['llm_error'] — surfaced to the caller's scoring result, not swallowed
                 notes["llm_error"] = str(exc)
             latency_ms = int((time.monotonic() - start) * 1000)
 
@@ -295,7 +295,7 @@ class IntelligenceAnalyst:
             # (~2-3s) and was confirmed live as a 13-14x latency spike for
             # zero quality benefit on this task (HQ Status Usage tab data).
             raw, provider = llm.generate(self._build_prompt(signal), use_mistral_pipeline=False)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort LLM generate call, already logged; caller falls back to the heuristic path per the returned None
             log.warning("IntelligenceAnalyst: LLM generate failed (%s)", exc)
             return None
         if not raw:
@@ -332,8 +332,8 @@ class IntelligenceAnalyst:
         return breakdown
 
     # ── Heuristic path (deterministic, never fails) ──────────────────────────
-    _IMPACT = {"low": 2, "medium": 3, "high": 5, "": 2, None: 2}
-    _ESSENTIAL_EVENTS = {
+    _IMPACT: ClassVar[dict] = {"low": 2, "medium": 3, "high": 5, "": 2, None: 2}
+    _ESSENTIAL_EVENTS: ClassVar[set[str]] = {
         "telecom_outage", "payments_disruption", "energy_disruption",
         "technology_outage", "cyber", "transport_disruption",
     }

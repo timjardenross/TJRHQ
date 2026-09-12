@@ -187,7 +187,7 @@ def _find_decision_path(decision_id: str) -> Path | None:
             record = json.loads(path.read_text(encoding="utf-8"))
             if record.get("decision_id") == decision_id:
                 return path
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S112 - one malformed decision file must not abort the scan
             continue
     return None
 
@@ -209,7 +209,7 @@ def load_decisions(decision_mode: str | None = None) -> list[dict[str, Any]]:
                 record["status"] = "Proposed"
             if decision_mode is None or record.get("decision_mode") == decision_mode:
                 records.append(record)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S112 - one malformed decision file must not abort the listing
             continue
     return records
 

@@ -23,7 +23,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Bootstrap .env
@@ -74,16 +74,12 @@ def test_source(source: dict, timeout: int = 15) -> SourceTest:
 
     # Determine what to test
     test_url = None
-    test_type = None
     if source_type == "rss" and rss_url:
         test_url = rss_url
-        test_type = "RSS"
     elif source_type == "api" and api_endpoint:
         test_url = api_endpoint
-        test_type = "API"
     elif source_type == "scrape" and url:
         test_url = url
-        test_type = "SCRAPE"
     else:
         return SourceTest(
             source_name=name,
@@ -224,7 +220,7 @@ def test_source(source: dict, timeout: int = 15) -> SourceTest:
             recommendation=recommendation
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - per-source test inside an audit loop — one bad source must not abort the audit; returns a structured SourceTest(error=...) result
         latency_ms = (time.time() - start) * 1000
         return SourceTest(
             source_name=name,
@@ -369,7 +365,7 @@ Examples:
     # Save JSON
     if args.output:
         output_data = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "total_tested": len(results),
             "summary": {
                 "pass": len(passed),

@@ -125,7 +125,7 @@ def load_mission_candidates(status: str | None = None) -> list[dict[str, Any]]:
             record = json.loads(path.read_text(encoding="utf-8"))
             if status is None or record.get("status") == status:
                 records.append(record)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S112 - one malformed mission-candidate file must not abort the listing
             continue
     return records
 
@@ -163,7 +163,7 @@ def _find_mission_path(mission_candidate_id: str) -> Path | None:
             record = json.loads(path.read_text(encoding="utf-8"))
             if record.get("mission_candidate_id") == mission_candidate_id:
                 return path
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S112 - one malformed mission-candidate file must not abort the scan
             continue
     return None
 

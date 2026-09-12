@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0179 — Tests for /operating_picture Telegram command.
 
 Five tests covering:

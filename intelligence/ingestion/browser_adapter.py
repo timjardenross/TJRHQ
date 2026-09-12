@@ -66,7 +66,7 @@ class BrowserAdapter(ScrapeAdapter):
             result = subprocess.run(
                 [str(_WORKER_VENV_PYTHON), str(_WORKER_SCRIPT), url,
                  "--timeout-seconds", str(_BROWSER_TIMEOUT_SECONDS)],
-                capture_output=True, text=True, timeout=_BROWSER_TIMEOUT_SECONDS + 30,
+                capture_output=True, text=True, check=False, timeout=_BROWSER_TIMEOUT_SECONDS + 30,
             )
         except subprocess.TimeoutExpired as exc:
             raise RuntimeError(f"Browser fetch subprocess timed out: {exc}") from exc

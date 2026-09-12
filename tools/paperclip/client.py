@@ -254,5 +254,5 @@ def _warn(msg: str) -> None:
     """Print a non-blocking warning — never raises."""
     try:
         print(f"[paperclip] Warning: {msg}")
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001, S110 - printing a warning must never itself raise/crash the caller
         pass

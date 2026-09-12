@@ -79,7 +79,7 @@ class TaskDecomposer:
                 if result:
                     log.info("Task decomposed via %s", name)
                     return result
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-provider attempt inside a fallback chain — one provider failing must not abort the chain; already logged
                 log.warning("TaskDecomposer %s failed: %s", name, exc)
 
         log.warning("All decomposition providers failed — no micro-action suggested")

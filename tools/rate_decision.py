@@ -38,7 +38,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -86,7 +86,6 @@ def _find_d_decision(decision_id: str) -> str | None:
     if not _DECISION_REGISTER.exists():
         return None
     content = _DECISION_REGISTER.read_text(encoding="utf-8", errors="replace")
-    pattern = rf"\b({re.escape(decision_id)})\b(.{{0,400}}?)(?=\n[A-Z]{{2,}}|\Z)"
     import re
     m = re.search(rf"^{re.escape(decision_id)}[:\s].+", content, re.MULTILINE)
     if m:
@@ -113,7 +112,7 @@ def _rate_governance(decision_id: str, quality: int, notes: str) -> None:
         "outcome_quality": quality,
         "quality_label": QUALITY_LABELS[quality],
         "notes":         notes,
-        "rated_date":    date.today().isoformat(),
+        "rated_date":    datetime.now().astimezone().date().isoformat(),
         "rated_at":      datetime.now(timezone.utc).isoformat(),
     }
     _append_rating(record)
@@ -138,7 +137,7 @@ def _rate_supabase(uuid: str, quality: int, notes: str) -> None:
         supabase_upsert("decisions", row, on_conflict="id")
         print(f"  ✅ Decision {uuid[:8]}... rated {quality}/5 — {QUALITY_LABELS[quality]}")
         _outcome_followup(uuid)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - interactive CLI top-level boundary — prints the failure and exits non-zero, already surfaced to the operator
         print(f"  ❌ Supabase update failed: {exc}")
         sys.exit(1)
 

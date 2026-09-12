@@ -46,7 +46,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _run(cmd: list[str], cwd: Path | None = None) -> str:
-    result = subprocess.run(cmd, cwd=cwd or _REPO_ROOT, capture_output=True, text=True)
+    result = subprocess.run(cmd, cwd=cwd or _REPO_ROOT, capture_output=True, text=True, check=False)
     return result.stdout.strip()
 
 

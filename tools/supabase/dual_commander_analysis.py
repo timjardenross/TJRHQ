@@ -7,7 +7,8 @@ Purpose: Analyze dual commander evaluation runs and generate recommendations
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from typing import ClassVar
 
 
 @dataclass
@@ -38,7 +39,7 @@ class DualCommanderAnalyzer:
     """Analyze dual commander evaluation patterns."""
 
     # Decision type keywords
-    DECISION_TYPES = {
+    DECISION_TYPES: ClassVar[dict] = {
         "policy": [
             "policy",
             "governance",
@@ -108,7 +109,7 @@ class DualCommanderAnalyzer:
                     "Ensure varied question types (policy, technical, operational, strategic)",
                     f"Re-analyze after reaching {min_runs} runs",
                 ],
-                analysis_timestamp=datetime.now(),
+                analysis_timestamp=datetime.now(timezone.utc),
             )
 
         # Count wins
@@ -161,13 +162,13 @@ class DualCommanderAnalyzer:
             confidence=confidence,
             reasoning=reasoning,
             next_steps=next_steps,
-            analysis_timestamp=datetime.now(),
+            analysis_timestamp=datetime.now(timezone.utc),
         )
 
     def _classify_decision_types(self, runs: list[dict]) -> dict[str, dict[str, float]]:
         """Classify each run's decision by type; calculate win rates per type."""
 
-        classification = {dtype: {"qwen": 0, "deepseek": 0, "tie": 0, "total": 0} for dtype in self.DECISION_TYPES.keys()}
+        classification = {dtype: {"qwen": 0, "deepseek": 0, "tie": 0, "total": 0} for dtype in self.DECISION_TYPES}
 
         for run in runs:
             decision_text = (run.get("decision_text") or "") + " " + (run.get("captain_notes") or "")
@@ -242,7 +243,7 @@ class DualCommanderAnalyzer:
         """Check if models have complementary strengths (one excels in different areas)."""
 
         # Look for >60% win rate in any single decision type
-        for dtype, rates in decision_types.items():
+        for rates in decision_types.values():
             if rates.get("qwen", 0) > 0.60 or rates.get("deepseek", 0) > 0.60:
                 return True
 
@@ -340,7 +341,7 @@ class DualCommanderAnalyzer:
             steps = [
                 f"Run {20 - total_runs} more evaluations",
                 "Ensure varied question types across policy, technical, operational, strategic",
-                f"Target completion: {(datetime.now() + timedelta(days=14)).strftime('%Y-%m-%d')}",
+                f"Target completion: {(datetime.now(timezone.utc) + timedelta(days=14)).strftime('%Y-%m-%d')}",
                 "Re-analyze after reaching 20 runs",
             ]
 

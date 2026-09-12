@@ -26,7 +26,7 @@ import sys
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -137,7 +137,7 @@ class EvaluationHarness:
             req = urllib.request.Request(url, headers=_headers())
             with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
                 signals = json.loads(resp.read())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - generic Supabase fetch wrapper — caller sees [] and handles it; already logged
             log.error(f"Failed to fetch signals: {exc}")
             return []
 
@@ -166,7 +166,7 @@ class EvaluationHarness:
                             # QA status: approved/rejected/pending
                             qa_approved = qa_entry.get("status") == "approved"
                             qa_timestamp = qa_entry.get("timestamp")
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - per-brief lookup inside a batch loop — one bad brief must not abort the batch; already logged, leaves qa_approved/timestamp as None
                     log.debug(f"Failed to fetch brief {brief_id}: {exc}")
 
             evaluations.append(
@@ -259,7 +259,7 @@ class EvaluationHarness:
         if not evaluations:
             log.error("No signals with dual scores found")
             return EvaluationReport(
-                report_date=datetime.utcnow().isoformat(),
+                report_date=datetime.now(timezone.utc).isoformat(),
                 period_start=start_date.isoformat(),
                 period_end=end_date.isoformat(),
                 total_signals=0,
@@ -326,7 +326,7 @@ class EvaluationHarness:
                 )
 
         return EvaluationReport(
-            report_date=datetime.utcnow().isoformat(),
+            report_date=datetime.now(timezone.utc).isoformat(),
             period_start=start_date.isoformat(),
             period_end=end_date.isoformat(),
             total_signals=len(evaluations),
@@ -345,8 +345,8 @@ def main():
     )
     parser.add_argument(
         "--start-date",
-        type=lambda s: datetime.strptime(s, "%Y-%m-%d").date(),
-        default=date.today() - timedelta(days=14),
+        type=lambda s: datetime.strptime(s, "%Y-%m-%d").replace(tzinfo=timezone.utc).date(),
+        default=datetime.now(timezone.utc).date() - timedelta(days=14),
         help="Start date (YYYY-MM-DD), default 14 days ago",
     )
     parser.add_argument(

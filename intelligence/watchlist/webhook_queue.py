@@ -79,7 +79,7 @@ def append_signal(queue_name: str, record: dict) -> None:
         line = json.dumps(record, default=str)
         with _lock_for(queue_name), open(path, "a", encoding="utf-8") as f:
             f.write(line + "\n")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic queue-append wrapper, already logged; a write failure means this webhook event is dropped, an accepted degrade per this queue's best-effort design
         log.error("[webhook_queue] failed to append to %s: %s", queue_name, exc)
 
 
@@ -98,7 +98,7 @@ def drain_signals(queue_name: str, source_url: str | None = None) -> list[dict]:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 lines = [ln for ln in f.read().splitlines() if ln.strip()]
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - generic queue-read wrapper — caller sees [] and handles it; already logged
             log.error("[webhook_queue] failed to read %s: %s", queue_name, exc)
             return []
 
@@ -107,7 +107,7 @@ def drain_signals(queue_name: str, source_url: str | None = None) -> list[dict]:
         for ln in lines:
             try:
                 rec = json.loads(ln)
-            except Exception:
+            except Exception:  # noqa: BLE001 - per-line parse inside a batch loop — one malformed line must not abort the drain; already logged and the line is dropped
                 log.warning("[webhook_queue] dropping unparseable line in %s", queue_name)
                 continue
             if source_url is None or rec.get("source_url") == source_url:
@@ -117,7 +117,7 @@ def drain_signals(queue_name: str, source_url: str | None = None) -> list[dict]:
 
         try:
             _atomic_rewrite(path, remaining)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort rewrite-after-drain, already logged; comment below documents the accepted at-most-once-more-reread tradeoff
             log.error(
                 "[webhook_queue] failed to rewrite %s after drain (matched "
                 "records are still returned this once, but may be re-read "
@@ -152,5 +152,6 @@ def peek_count(queue_name: str) -> int:
     try:
         with open(path, "r", encoding="utf-8") as f:
             return sum(1 for ln in f if ln.strip())
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - read-only health-check/debug helper; caller treats 0 as "queue empty or unreadable", worth a trace either way
+        log.debug("[webhook_queue] failed to count %s: %s", queue_name, exc)
         return 0

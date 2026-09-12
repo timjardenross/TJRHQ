@@ -36,7 +36,7 @@ def check(providers: list[str]) -> int:
     for provider in providers:
         try:
             usage = external_fetch_budget.current_usage(provider)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-provider usage check inside a CLI reporting loop — one bad provider must not abort the report; already printed + non-zero exit_code set
             print(f"{provider:<12}COULD NOT READ USAGE: {exc}")
             exit_code = 1
             continue

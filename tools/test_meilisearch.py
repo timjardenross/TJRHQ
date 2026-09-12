@@ -41,7 +41,7 @@ def _wait_for_meilisearch() -> bool:
             response = requests.get(f"{_MEILISEARCH_URL}/health", timeout=2)
             if response.status_code == 200 and response.json().get("status") == "available":
                 return True
-        except Exception:
+        except Exception:  # noqa: BLE001, S110 - polling loop; connection refused / not-ready is expected until the service comes up, retried below
             pass
         time.sleep(0.5)
     return False

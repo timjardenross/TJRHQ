@@ -56,6 +56,6 @@ def notify_published(brief: dict) -> bool:
             + f'<p><a href="{_BRIEFS_PAGE_URL}">Read it on the Briefs page →</a></p>'
         )
         return send_email(to=_BRIEF_EMAIL_TO, subject=subject, html=html, from_addr=_BRIEF_EMAIL_FROM)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort email send, already logged; caller sees False and treats it as non-blocking
         log.warning("[brief-published-notifier] failed to send: %s", exc)
         return False
