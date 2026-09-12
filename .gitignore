@@ -102,3 +102,7 @@ data/self-improvement/review/opportunities.jsonl
 .mcp.json
 CLAUDE.md
 .github/copilot-instructions.md
+
+# Local git worktrees created by parallel Claude Code subagents — ephemeral
+# per-session checkouts, not repo content.
+.claude/worktrees/

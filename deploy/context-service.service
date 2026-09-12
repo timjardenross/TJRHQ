@@ -20,6 +20,17 @@
 # flask-cors added to platform-runtime/requirements.txt (see this session's
 # work) and installed into that same venv before first start.
 #
+# 2026-09-12: ExecStart now runs gunicorn directly (from this same venv)
+# against the context_service:create_app() WSGI factory, replacing
+# `python context_service.py serve`'s underlying flask_app.run() call —
+# the Werkzeug dev server, never meant for production traffic. `serve`
+# still works standalone for local dev (it now execs this same gunicorn
+# command itself, see _run_gunicorn() in context_service.py), but this
+# unit talks to gunicorn directly so `systemctl status context-service`
+# shows real gunicorn worker processes. Needs `gunicorn` installed into
+# platform-runtime's venv (added to platform-runtime/requirements.txt in
+# the same change) before first start after this lands.
+#
 # Binds 127.0.0.1 only, deliberately — this must NOT be exposed as a raw
 # HTTP port on the public internet. Route a public HTTPS path through the
 # existing Caddy reverse proxy to 127.0.0.1:5001 (Caddy config lives on the
@@ -37,7 +48,7 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=/opt/starship-endeavour
 EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
-ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/python core/context-assembly/context_service.py serve --host 127.0.0.1 --port 5001
+ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/gunicorn --bind 127.0.0.1:5001 --chdir /opt/starship-endeavour/core/context-assembly --pythonpath /opt/starship-endeavour/core/context-assembly --worker-class gthread --workers 1 --threads 4 --timeout 300 "context_service:create_app()"
 Restart=always
 RestartSec=10
 StandardOutput=journal
