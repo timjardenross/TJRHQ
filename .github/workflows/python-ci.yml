@@ -246,6 +246,43 @@ jobs:
             pip install -r "${{ matrix.req }}"
           fi
 
+      # USS-TJR-MSN-0366 Stream 5 follow-up (flagged by review on PR #180):
+      # all 9 tests in core/security/test_llm_guardrails.py — the platform's
+      # highest-strategic-value new control — were skipping in this job,
+      # not passing, because platform-runtime/.venv-llmsec (Presidio +
+      # NeMo Guardrails, deliberately isolated from this job's own
+      # dependencies per requirements-llmsec.txt's header) was never
+      # provisioned here. None of those 9 tests need a live model (the
+      # injection/output-rail cases use NeMo's own FakeLLMModel via
+      # fake_responses — see that test file's module docstring), so
+      # provisioning this venv is sufficient to run the WHOLE suite for
+      # real in CI, not just the model-free subset. Gated to the `core`
+      # matrix entry only — no other entry imports core/security/.
+      - name: Cache llmsec venv
+        if: matrix.name == 'core'
+        uses: actions/cache@v4
+        with:
+          path: platform-runtime/.venv-llmsec
+          key: llmsec-venv-${{ hashFiles('core/security/requirements-llmsec.txt') }}
+
+      - name: Provision llmsec venv (Presidio + NeMo Guardrails)
+        if: matrix.name == 'core'
+        run: |
+          if [ ! -x platform-runtime/.venv-llmsec/bin/python3 ]; then
+            python3 -m venv platform-runtime/.venv-llmsec
+            platform-runtime/.venv-llmsec/bin/pip install --upgrade pip
+            platform-runtime/.venv-llmsec/bin/pip install -r core/security/requirements-llmsec.txt
+            # Presidio's default NLP engine would otherwise download the
+            # 400MB en_core_web_lg on first use; _llmsec_worker.py is
+            # configured for the small model instead (see its NlpEngineProvider
+            # config) — installed explicitly so first-use never hits the
+            # network mid-test.
+            platform-runtime/.venv-llmsec/bin/pip install \
+              https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+          else
+            echo "platform-runtime/.venv-llmsec restored from cache, skipping install."
+          fi
+
       - name: Run pytest (${{ matrix.name }})
         run: |
           set +e
