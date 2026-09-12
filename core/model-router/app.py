@@ -13,7 +13,7 @@ Endpoints:
     POST /api/model/intelligence-brief  gemini-flash-latest  (cloud, GEMINI_API_KEY — moved 2026-08-23, local mistral-small3.2:24b too slow on this CPU-only box)
     POST /api/model/xo-response         mistral-small  keep_alive 15m
     POST /api/model/embed               nomic-embed    keep_alive 1m
-    POST /api/model/escalate            mistral-small  keep_alive 15m
+    POST /api/model/escalate            glm-5.3:cloud -> glm-5.2:cloud -> gemma3:4b (FND-001)
     POST /api/model/billing-report       gemini-flash-latest  (cloud, GEMINI_BILLING_API_KEY)
     POST /api/model/self-improvement-analyse   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/self-improvement-critique  gemini-flash-latest  (cloud, GEMINI_API_KEY)
@@ -105,7 +105,11 @@ _LOG_LIMIT = int(os.environ.get("MODEL_ROUTER_LOG_LIMIT", 200))
 # ── Model catalogue ──────────────────────────────────────────────────────────
 
 MODEL_MID   = "gemma3:4b"          # fast classifier / XO chat / summariser
-MODEL_LARGE = "mistral-small3.2:24b" # intelligence briefs / synthesis
+MODEL_LARGE = "mistral-small3.2:24b" # HEAVY / DELIBERATE local capability for scheduled,
+                                       # cost-budgeted task types (e.g. intelligence-signals) that
+                                       # explicitly accept its multi-minute CPU-only latency. MUST NOT
+                                       # be used as an automatic cloud-unavailability fallback (FND-001,
+                                       # 2026-09-12) — see MODEL_ESCALATION_SAFE_LOCAL.
 MODEL_EMBED = "nomic-embed-text:latest"  # embeddings — matches Ollama's own canonical tag
                                           # (self-improvement audit FND-002, 2026-08-29:
                                           # bare "nomic-embed-text" never actually broke
@@ -116,12 +120,33 @@ MODEL_EMBED = "nomic-embed-text:latest"  # embeddings — matches Ollama's own c
                                           # it every cycle. Cosmetic fix, verified via
                                           # call_log.jsonl: embed calls were 0-failure
                                           # before this change too.
-MODEL_CLOUD = "glm-5.3:cloud"         # cloud fallback (no keep_alive)
-                                       # NOTE: bumped from glm-5.2:cloud 2026-09-08 on GLM 5.3's
-                                       # release (Ollama Cloud, US/EU, zero data retention). Verify
-                                       # this tag is actually pulled/served (`ollama list` /
-                                       # `ollama pull glm-5.3:cloud`) before relying on it in prod —
-                                       # fall back to glm-5.2:cloud if 5.3 isn't live yet.
+MODEL_CLOUD = "glm-5.3:cloud"         # preferred cloud escalation target (no keep_alive)
+                                       # FND-001 root cause (2026-09-08 - 2026-09-12): bumped from
+                                       # glm-5.2:cloud on GLM 5.3's release, but `ollama pull
+                                       # glm-5.3:cloud` was never actually run on this host — the tag
+                                       # was configured here without ever being registered, so
+                                       # _available_model_names() correctly reported it absent on
+                                       # EVERY call and correctly fell through to its only fallback,
+                                       # MODEL_LARGE — a 24B CPU-only model this host cannot serve
+                                       # within any real timeout (see MODEL_ESCALATION_SAFE_LOCAL
+                                       # below). Confirmed live via call_log.jsonl (repeated 300s
+                                       # "escalate" timeouts) and independently confirmed the tag
+                                       # itself is genuine and fast once pulled (`ollama pull
+                                       # glm-5.3:cloud` succeeds; a real generate call completed in
+                                       # ~1.8s). This was a registration/naming-drift defect, not a
+                                       # liveness gap in the model itself — see _resolve_cloud_escalation()
+                                       # for the fix (a real degrade chain instead of one all-or-nothing
+                                       # local fallback).
+MODEL_CLOUD_ALT = "glm-5.2:cloud"     # approved alternate cloud target for escalate/fallback-complex,
+                                       # used only when MODEL_CLOUD isn't registered on this host.
+                                       # Confirmed live 2026-09-12 (PR #113's real Dual Commander run).
+MODEL_ESCALATION_SAFE_LOCAL = "gemma3:4b"  # the ONLY local model an automatic cloud-degrade path may
+                                       # select. Deliberately MODEL_MID, not MODEL_LARGE: this host has
+                                       # no GPU, 8 CPU cores, and Ollama runs with -np 1 (no parallel
+                                       # request slots), so MODEL_LARGE (mistral-small3.2:24b) routinely
+                                       # takes minutes under real load — safe for a deliberate, scheduled
+                                       # task that budgets for it (e.g. intelligence-signals), never safe
+                                       # as something an availability check reaches for automatically.
 MODEL_CODE  = "qwen2.5-coder:7b"      # engineering review
 MODEL_GEMINI = "gemini-flash-latest"  # billing reports (Gemini API, not Ollama)
 
@@ -212,13 +237,9 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # to GLM cloud instead since this task doesn't need the Gemini-specific
     # provider branch. keep_alive "0" matches the MODEL_CLOUD convention used
     # by fallback-complex below (no local model stays resident for a cloud call).
-    # If MODEL_CLOUD (glm-5.3:cloud) isn't pulled/available yet, _run_task()
-    # falls this back to local MODEL_LARGE — see the "escalate:" check there.
-    # fallback-complex gets the identical guard (self-improvement audit
-    # FND-001, 2026-09-08: this task type was left hardcoded to MODEL_CLOUD
-    # with no availability check when escalate/engineering-review got theirs
-    # in the same 2026-09-08 GLM 5.3 migration, so a call here would hard-fail
-    # instead of degrading like its siblings while glm-5.3:cloud isn't pulled).
+    # escalate/fallback-complex both route through _resolve_cloud_escalation()'s
+    # shared degrade chain: MODEL_CLOUD -> MODEL_CLOUD_ALT -> MODEL_ESCALATION_SAFE_LOCAL
+    # (never MODEL_LARGE automatically — see FND-001, resolved 2026-09-12).
     "escalate":              {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 300},
     "fallback-complex":      {"model": MODEL_CLOUD, "keep_alive": "0",   "timeout": 120},
     # keep_alive raised to 20m (from 10m, MSN-1788771576677): mission-engineering-dispatch.timer
@@ -445,6 +466,58 @@ def _available_model_names() -> set[str]:
     return names
 
 
+_CLOUD_ESCALATION_TASK_TYPES = ("escalate", "fallback-complex")
+
+
+def _resolve_cloud_escalation(task_type: str, policy: dict[str, Any]) -> tuple[dict[str, Any], str, str]:
+    """Shared degrade chain for cloud-first task types (escalate, fallback-complex):
+
+        preferred cloud (MODEL_CLOUD)
+            -> approved alternate cloud (MODEL_CLOUD_ALT)
+            -> host-safe local fallback (MODEL_ESCALATION_SAFE_LOCAL)
+
+    FND-001 (introduced 2026-09-08, detected by self-improvement on
+    2026-09-10 and 2026-09-11, root-caused and fixed 2026-09-12): the
+    previous version of this guard had exactly one fallback step — straight
+    to MODEL_LARGE (mistral-small3.2:24b) — and it fired on every single
+    call, because MODEL_CLOUD (glm-5.3:cloud) had been configured here
+    without ever being pulled/registered on this host. The guard never
+    failed at its actual job: _available_model_names() correctly reported
+    the tag absent every time. The defect was that its only fallback
+    destination was itself unsafe to select automatically — a 24B CPU-only
+    model on a no-GPU, 8-core host running Ollama with -np 1, which
+    call_log.jsonl shows repeatedly hit the full 300s timeout under real
+    load. MODEL_LARGE stays available for OTHER, deliberate task types that
+    budget for its latency explicitly; this path must never reach for it
+    automatically again.
+
+    Returns (possibly-modified policy, route_tier, route_reason) so the
+    caller can log which tier actually served the request. route_tier is
+    one of "cloud_primary", "cloud_alt", "local_safe_degraded".
+    """
+    available = _available_model_names()
+
+    def _is_available(name: str) -> bool:
+        return name in available or name.split(":")[0] in available
+
+    if _is_available(MODEL_CLOUD):
+        return policy, "cloud_primary", ""
+
+    if _is_available(MODEL_CLOUD_ALT):
+        log.info("%s: %s not available, falling back to alternate cloud %s", task_type, MODEL_CLOUD, MODEL_CLOUD_ALT)
+        return {**policy, "model": MODEL_CLOUD_ALT}, "cloud_alt", f"{MODEL_CLOUD} unavailable"
+
+    log.info(
+        "%s: neither %s nor %s available, degrading to host-safe local %s (NOT %s - see FND-001)",
+        task_type, MODEL_CLOUD, MODEL_CLOUD_ALT, MODEL_ESCALATION_SAFE_LOCAL, MODEL_LARGE,
+    )
+    return (
+        {**policy, "model": MODEL_ESCALATION_SAFE_LOCAL, "keep_alive": "5m"},
+        "local_safe_degraded",
+        f"{MODEL_CLOUD} and {MODEL_CLOUD_ALT} both unavailable",
+    )
+
+
 def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, Any]:
     """Execute routing policy and return result dict."""
     policy = TASK_POLICY.get(task_type)
@@ -458,30 +531,12 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             log.info("engineering-review: %s not installed, falling back to %s", MODEL_CODE, MODEL_CLOUD)
             policy = {**policy, "model": MODEL_CLOUD, "keep_alive": "0"}
 
-    # escalate: prefer MODEL_CLOUD (glm-5.3:cloud), fall back to local
-    # MODEL_LARGE (mistral-small3.2:24b) if the GLM 5.3 cloud tag isn't
-    # pulled/available yet on this host (e.g. not yet live on the Ollama
-    # Cloud account, or 5.3 hasn't been verified/pulled — see MODEL_CLOUD's
-    # definition comment above). Keeps escalate from going fully dark on a
-    # brand-new model tag; degrades to the slower local tier instead, same
-    # as it behaved before this migration.
-    if task_type == "escalate":
-        available = _available_model_names()
-        if MODEL_CLOUD not in available and MODEL_CLOUD.split(":")[0] not in available:
-            log.info("escalate: %s not available, falling back to %s", MODEL_CLOUD, MODEL_LARGE)
-            policy = {**policy, "model": MODEL_LARGE, "keep_alive": "15m"}
-
-    # fallback-complex: same guard as escalate above. This task type was
-    # missed when escalate/engineering-review got their availability checks
-    # in the 2026-09-08 GLM 5.3 migration (self-improvement audit FND-001,
-    # 2026-09-08) — it was left hardcoded to MODEL_CLOUD, so any call would
-    # hard-fail against Ollama instead of degrading to the local tier while
-    # glm-5.3:cloud isn't pulled/available on this host.
-    if task_type == "fallback-complex":
-        available = _available_model_names()
-        if MODEL_CLOUD not in available and MODEL_CLOUD.split(":")[0] not in available:
-            log.info("fallback-complex: %s not available, falling back to %s", MODEL_CLOUD, MODEL_LARGE)
-            policy = {**policy, "model": MODEL_LARGE, "keep_alive": "15m"}
+    # escalate / fallback-complex: shared cloud-first degrade chain — see
+    # _resolve_cloud_escalation()'s docstring for FND-001's full history.
+    route_tier = "n/a"
+    route_reason = ""
+    if task_type in _CLOUD_ESCALATION_TASK_TYPES:
+        policy, route_tier, route_reason = _resolve_cloud_escalation(task_type, policy)
 
     model = policy["model"]
     keep_alive = policy.get("keep_alive", "n/a")
@@ -551,6 +606,8 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             "duration_ms": duration_ms,
             "escalated": escalated,
             "escalation_reason": escalation_reason,
+            "route_tier": route_tier,
+            "route_reason": route_reason,
             "token_info": token_info,
             "prompt_len": len(prompt),
             "response_len": len(response_text),
@@ -558,7 +615,10 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
         }
         _log_call(entry)
         _emit_router_span(task_type, model, duration_ms, True)
-        log.info("task=%s model=%s duration_ms=%d escalated=%s", task_type, model, duration_ms, escalated)
+        log.info(
+            "task=%s model=%s duration_ms=%d escalated=%s route_tier=%s",
+            task_type, model, duration_ms, escalated, route_tier,
+        )
 
         result = {
             "success": True,
@@ -568,6 +628,8 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             "response": response_text,
             "duration_ms": duration_ms,
             "escalated": escalated,
+            "route_tier": route_tier,
+            "route_reason": route_reason if route_reason else None,
             "escalation_reason": escalation_reason if escalation_reason else None,
             "token_info": token_info,
         }
@@ -578,15 +640,19 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
     except urllib.error.URLError as exc:
         duration_ms = int((time.time() - t0) * 1000)
         _log_call({"ts": datetime.now(timezone.utc).isoformat(), "task_type": task_type, "model": model,
-                   "duration_ms": duration_ms, "success": False, "error": str(exc)})
-        log.error("task=%s model=%s error=%s", task_type, model, exc)
-        return {"success": False, "task_type": task_type, "model": model, "error": str(exc), "duration_ms": duration_ms}
+                   "duration_ms": duration_ms, "success": False, "error": str(exc),
+                   "route_tier": route_tier, "route_reason": route_reason})
+        log.error("task=%s model=%s route_tier=%s error=%s", task_type, model, route_tier, exc)
+        return {"success": False, "task_type": task_type, "model": model, "error": str(exc),
+                "duration_ms": duration_ms, "route_tier": route_tier, "route_reason": route_reason or None}
     except Exception as exc:
         duration_ms = int((time.time() - t0) * 1000)
         _log_call({"ts": datetime.now(timezone.utc).isoformat(), "task_type": task_type, "model": model,
-                   "duration_ms": duration_ms, "success": False, "error": str(exc)})
-        log.error("task=%s model=%s unexpected=%s", task_type, model, exc)
-        return {"success": False, "task_type": task_type, "model": model, "error": str(exc), "duration_ms": duration_ms}
+                   "duration_ms": duration_ms, "success": False, "error": str(exc),
+                   "route_tier": route_tier, "route_reason": route_reason})
+        log.error("task=%s model=%s route_tier=%s unexpected=%s", task_type, model, route_tier, exc)
+        return {"success": False, "task_type": task_type, "model": model, "error": str(exc),
+                "duration_ms": duration_ms, "route_tier": route_tier, "route_reason": route_reason or None}
 
 
 # ── HTTP handler ──────────────────────────────────────────────────────────────
