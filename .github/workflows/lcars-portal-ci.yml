@@ -20,9 +20,9 @@ jobs:
       run:
         working-directory: lcars-portal
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           # 2026-08-11: 18.18.0 was too old for vitest's rolldown bundler
           # (imports node:util's styleText export, not available until
@@ -58,9 +58,9 @@ jobs:
       run:
         working-directory: lcars-portal
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24.18.0"
           cache: "npm"
@@ -84,7 +84,7 @@ jobs:
     # not-yet-migrated instances.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: python3 tools/check_notification_senders.py
 
   config-loader-gate:
@@ -98,7 +98,7 @@ jobs:
     # positive) — see tools/check_config_loaders.py.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: python3 tools/check_config_loaders.py
 
   workbench-registry-gate:
@@ -110,5 +110,5 @@ jobs:
     # tools/check_workbench_registry.py.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: python3 tools/check_workbench_registry.py

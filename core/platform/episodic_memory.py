@@ -78,7 +78,7 @@ def embed_text(text: str) -> Optional[list[float]]:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=_EMBED_TIMEOUT_SECONDS) as resp:
+        with urllib.request.urlopen(req, timeout=_EMBED_TIMEOUT_SECONDS) as resp:  # nosec B310 - req.url is the hardcoded _MODEL_ROUTER_EMBED_URL localhost constant, not user input - reviewed 2026-09-12
             body = json.loads(resp.read().decode())
     except urllib.error.URLError as exc:
         log.warning("[episodic-memory] Model Router unreachable for embedding: %s", exc)

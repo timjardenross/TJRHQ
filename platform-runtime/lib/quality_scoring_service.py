@@ -90,7 +90,7 @@ if _DEEPEVAL_AVAILABLE:
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=300) as resp:
+            with urllib.request.urlopen(req, timeout=300) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL env var (internal router base) plus a fixed literal path, not user input - reviewed 2026-09-12
                 data = json.loads(resp.read())
             if not data.get("success"):
                 raise RuntimeError(f"model-router escalate call failed: {data}")

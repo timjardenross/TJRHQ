@@ -76,7 +76,7 @@ def persist_health_mission_correlations(
         headers["Prefer"] = "return=minimal"
         body = json.dumps(payload).encode()
         req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return resp.status == 201
     except Exception as exc:
         log.error(f"Failed to persist health-mission correlations: {exc}")
@@ -156,7 +156,7 @@ def get_latest_correlations(supabase_url: Optional[str] = None, supabase_key: Op
         # Fetch the most recent correlation result
         url = f"{supabase_url}/rest/v1/intelligence_health_correlations?order=computed_at.desc&limit=1"
         req = urllib.request.Request(url, headers=_headers())
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             data = json.loads(resp.read())
             return data[0] if data else None
     except Exception as exc:

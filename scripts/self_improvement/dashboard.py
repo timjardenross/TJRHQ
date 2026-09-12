@@ -8,6 +8,7 @@ Runs on http://localhost:8892
 
 import json
 import logging
+import os
 import re
 import sys
 from pathlib import Path
@@ -626,4 +627,11 @@ def api_status():
 
 if __name__ == "__main__":
     log.info("Starting Self-Improvement Dashboard on http://localhost:8892")
-    app.run(host="0.0.0.0", port=8892, debug=False)
+    # 2026-09-12: was "0.0.0.0" (B104). No evidence of any caller reaching this
+    # from outside the VM — every doc reference (docs/self-improvement/README.md,
+    # OPERATIONS.md, VM-DEPLOYMENT.md) describes it as http://127.0.0.1:8892 only,
+    # there's no systemd unit exposing it wider, and the app has no auth at all,
+    # so wide binding would be an unauthenticated findings-review API reachable
+    # from the network. Narrowed to loopback; override via DASHBOARD_HOST if a
+    # real cross-host caller ever needs it (would also need auth added first).
+    app.run(host=os.environ.get("DASHBOARD_HOST", "127.0.0.1"), port=8892, debug=False)

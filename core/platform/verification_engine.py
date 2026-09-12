@@ -65,7 +65,7 @@ def _check_command_centre_backend() -> bool:
     """Same probe as core/coordination/command_bus.py's _backend_healthy()."""
     try:
         req = urllib.request.Request(_BACKEND_HEALTH_URL)
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 - url is COMMAND_CENTRE_HEALTH_URL env var (defaults to fixed localhost:5000/health), not user input - reviewed 2026-09-12
             data = json.loads(resp.read().decode("utf-8"))
             return data.get("status") == "operational"
     except Exception:

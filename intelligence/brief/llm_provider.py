@@ -194,7 +194,7 @@ class LLMProvider:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
+            with urllib.request.urlopen(req, timeout=60) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL config constant, not user input - reviewed 2026-09-12
                 data = json.loads(resp.read())
         except Exception as exc:
             raise RuntimeError(f"Model Router unavailable: {exc}") from exc
@@ -531,7 +531,7 @@ class LLMProvider:
                 },
                 method="POST",
             )
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - req.url is the hardcoded https://api.mistral.ai/v1/chat/completions literal, not user input - reviewed 2026-09-12
                 data = json.loads(resp.read())
             text = data["choices"][0]["message"]["content"].strip()
             log.info("[pipeline] %s direct completions fallback succeeded (%d chars)", stage, len(text))

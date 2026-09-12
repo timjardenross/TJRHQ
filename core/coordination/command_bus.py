@@ -374,7 +374,7 @@ def _systemd_state(service: str) -> str:
 
 def _backend_healthy() -> bool:
     try:
-        with urllib.request.urlopen(_BACKEND_HEALTH_URL, timeout=5) as r:
+        with urllib.request.urlopen(_BACKEND_HEALTH_URL, timeout=5) as r:  # nosec B310 - url is BACKEND_HEALTH_URL env var with fixed localhost default, not user input - reviewed 2026-09-12
             data = json.load(r)
             return data.get("status") == "operational"
     except Exception:

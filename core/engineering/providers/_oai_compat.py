@@ -34,7 +34,7 @@ def _request_once(url: str, api_key: str, payload: dict, *, label: str, timeout:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - base_url is a generic param, but all callers (qwen.py, kimi.py) source it from a fixed env-driven internal base URL, not end-user input - reviewed 2026-09-12
             raw = resp.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         body = ""

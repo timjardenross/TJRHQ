@@ -79,7 +79,7 @@ def _sb_get(path: str) -> list[dict]:
         f"{SUPABASE_URL}/rest/v1/{path}",
         headers={**_sb_headers(), "Prefer": ""},
     )
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
         return json.loads(resp.read())
 
 
@@ -94,7 +94,7 @@ def _sb_patch(table: str, match: dict, update: dict) -> None:
         method="PATCH",
         headers={**_sb_headers(), "Prefer": "", "Content-Length": str(len(payload))},
     )
-    with urllib.request.urlopen(req, timeout=15):
+    with urllib.request.urlopen(req, timeout=15):  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
         pass
 
 
@@ -268,7 +268,7 @@ def _call_mistral_direct(prompt: str) -> Optional[str]:
             },
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=45) as resp:
+        with urllib.request.urlopen(req, timeout=45) as resp:  # nosec B310 - url is a hardcoded Mistral API constant, not user input - reviewed 2026-09-12
             data = json.loads(resp.read())
         return data["choices"][0]["message"]["content"].strip()
     except Exception as exc:

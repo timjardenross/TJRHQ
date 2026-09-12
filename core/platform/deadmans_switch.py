@@ -68,7 +68,7 @@ def _supabase_get(path: str, timeout: int = 10) -> List[Dict[str, Any]]:
             "Accept": "application/json",
         },
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
         parsed = json.loads(resp.read().decode("utf-8"))
     return parsed if isinstance(parsed, list) else [parsed]
 
@@ -97,7 +97,7 @@ def _send_telegram(text: str) -> tuple[bool, Optional[str]]:
     payload = json.dumps({"chat_id": chat_id, "text": text}).encode()
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=10):
+        with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url is api.telegram.org with a fixed path template, TELEGRAM_BOT_TOKEN is a trusted env credential - reviewed 2026-09-12
             return True, None
     except Exception as exc:
         return False, f"{type(exc).__name__}: {exc}"

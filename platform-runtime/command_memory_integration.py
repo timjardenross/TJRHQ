@@ -90,7 +90,7 @@ class CommandMemoryClient:
                 method=method,
                 headers=self._headers(extra_headers),
             )
-            with urllib.request.urlopen(request, timeout=10) as response:
+            with urllib.request.urlopen(request, timeout=10) as response:  # nosec B310 - url is built from self.url (SUPABASE_URL env var) plus a fixed internal REST path, not user input - reviewed 2026-09-12
                 data = response.read().decode("utf-8")
                 return json.loads(data) if data else None
         except urllib.error.HTTPError as e:

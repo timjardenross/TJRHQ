@@ -108,7 +108,7 @@ def test_source(source: dict, timeout: int = 15) -> SourceTest:
         req = urllib.request.Request(test_url, headers={
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         })
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - test_url sourced from this file's imported SOURCES registry (seed_source_registry.py), not user input - reviewed 2026-09-12
             latency_ms = (time.time() - start) * 1000
             body = resp.read(1024).decode("utf-8", errors="ignore")  # First 1KB
 

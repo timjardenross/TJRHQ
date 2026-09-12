@@ -63,7 +63,7 @@ def _rest_get(url: str, key: str, table: str, params: dict[str, str]) -> list[di
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=20) as r:
+        with urllib.request.urlopen(req, timeout=20) as r:  # nosec B310 - url built from SUPABASE_URL env var (via _env_creds), fixed REST endpoint - reviewed 2026-09-12
             return json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         log.warning("[hierarchy-index] %s GET failed: HTTP %s", table, exc.code)
@@ -89,7 +89,7 @@ def _rest_upsert(url: str, key: str, table: str, rows: list[dict[str, Any]]) -> 
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=30):
+        with urllib.request.urlopen(req, timeout=30):  # nosec B310 - url built from SUPABASE_URL env var (via _env_creds), fixed REST endpoint - reviewed 2026-09-12
             return True
     except urllib.error.HTTPError as exc:
         detail = ""

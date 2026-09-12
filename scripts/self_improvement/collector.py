@@ -287,7 +287,7 @@ class ModelRouterAudit:
         """Check if Model Router is reachable."""
         try:
             import urllib.request
-            response = urllib.request.urlopen(f"{self.router_url}/health", timeout=2)
+            response = urllib.request.urlopen(f"{self.router_url}/health", timeout=2)  # nosec B310 - router_url defaults to fixed http://127.0.0.1:8891 literal, only overridable via an operator CLI flag, not user input - reviewed 2026-09-12
             return response.status == 200
         except Exception:
             return False
@@ -296,7 +296,7 @@ class ModelRouterAudit:
         """Get status from Model Router."""
         try:
             import urllib.request
-            response = urllib.request.urlopen(f"{self.router_url}/api/model/status", timeout=5)
+            response = urllib.request.urlopen(f"{self.router_url}/api/model/status", timeout=5)  # nosec B310 - router_url defaults to fixed http://127.0.0.1:8891 literal, only overridable via an operator CLI flag, not user input - reviewed 2026-09-12
             return json.loads(response.read().decode())
         except Exception as exc:
             return {"error": str(exc)}

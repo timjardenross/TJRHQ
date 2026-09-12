@@ -52,7 +52,7 @@ class EmbeddingClient:
             headers={"Content-Type": "application/json"},
         )
         try:
-            with urllib.request.urlopen(request, timeout=120) as response:
+            with urllib.request.urlopen(request, timeout=120) as response:  # nosec B310 - url built from self.base_url (OLLAMA_BASE_URL env var with fixed default), not user input - reviewed 2026-09-12
                 body = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8")
@@ -76,7 +76,7 @@ class EmbeddingClient:
             },
         )
         try:
-            with urllib.request.urlopen(request, timeout=60) as response:
+            with urllib.request.urlopen(request, timeout=60) as response:  # nosec B310 - url built from self.base_url (MISTRAL_BASE_URL env var with fixed default), not user input - reviewed 2026-09-12
                 body = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8")

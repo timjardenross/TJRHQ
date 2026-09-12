@@ -75,7 +75,7 @@ class LLMCostGovernance:
             url = (f"{self.supabase_url}/rest/v1/llm_cost_governance"
                    f"?task_type=eq.{task_type}&select=*")
             req = urllib.request.Request(url, headers=self._headers())
-            with urllib.request.urlopen(req, timeout=5) as resp:
+            with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 - self.supabase_url is always the SUPABASE_URL env var / config constant passed by internal callers, not user input - reviewed 2026-09-12
                 data = json.loads(resp.read())
                 config = data[0] if data else None
                 if config:
@@ -96,7 +96,7 @@ class LLMCostGovernance:
             url = (f"{self.supabase_url}/rest/v1/llm_daily_costs"
                    f"?cost_date=eq.{today}&task_type=eq.{task_type}")
             req = urllib.request.Request(url, headers=self._headers())
-            with urllib.request.urlopen(req, timeout=5) as resp:
+            with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 - self.supabase_url is always the SUPABASE_URL env var / config constant passed by internal callers, not user input - reviewed 2026-09-12
                 data = json.loads(resp.read())
                 if data:
                     row = data[0]
@@ -245,7 +245,7 @@ class LLMCostGovernance:
             headers["Prefer"] = "return=minimal"
             body = json.dumps(payload).encode()
             req = urllib.request.Request(url, data=body, headers=headers, method="POST")
-            with urllib.request.urlopen(req, timeout=5) as resp:
+            with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 - self.supabase_url is always the SUPABASE_URL env var / config constant passed by internal callers, not user input - reviewed 2026-09-12
                 return resp.status == 201
         except Exception as exc:
             log.warning(f"Failed to log LLM call: {exc}")

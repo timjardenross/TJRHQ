@@ -58,7 +58,7 @@ def _call_router(prompt: str, system_prompt: str | None = None) -> str | None:
         headers={"Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=_ROUTER_TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=_ROUTER_TIMEOUT) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL env var with fixed local default, not user input - reviewed 2026-09-12
             body = json.loads(resp.read())
         content = (body.get("response") or body.get("content") or "").strip()
         if content:
@@ -93,7 +93,7 @@ def _call_cloud(prompt: str, system_prompt: str | None = None) -> str | None:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=_CLOUD_TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=_CLOUD_TIMEOUT) as resp:  # nosec B310 - url built from OLLAMA_BASE_URL env var with fixed default, not user input - reviewed 2026-09-12
             body = json.loads(resp.read())
         content = (body.get("message") or {}).get("content", "").strip()
         if content:

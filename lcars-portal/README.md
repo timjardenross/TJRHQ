@@ -95,6 +95,25 @@ alongside the Command Centre backend.
 the `lcars-portal/` directory; the default build command (`next build`) and
 output are used as-is.
 
+`vercel.json`'s `ignoreCommand` skips the build entirely when a push doesn't
+touch anything under this directory (TJRHQ is a large multi-service monorepo
+where most commits — Python services, docs, other bots — never touch the
+portal). This assumes the Vercel project's Root Directory is set to
+`lcars-portal/` (per Option B above), which makes the ignore command run
+with this directory as its working directory. It compares against
+`VERCEL_GIT_PREVIOUS_SHA` (the last successfully-deployed commit on the
+branch) rather than just `HEAD^`, so a multi-commit push is diffed in
+full — falling back to `HEAD^` only for the very first push after this
+config lands, when that variable isn't set yet.
+
+`vercel.json` also disables automatic deployments for `dependabot/**`
+branches outright (`git.deploymentEnabled`) — those are the single
+biggest source of noise (a bump to some unrelated Python service's
+`requirements.txt` still triggered a full portal deployment before this),
+and GitHub Actions CI already validates them. A Dependabot bump that does
+touch `lcars-portal/` (e.g. a JS dependency) still gets validated by CI
+and picked up by the next production deploy once merged to `main`.
+
 **Port note:** 3100 is chosen to avoid collisions with existing services
 (Dashy `8000`, Command Centre backend `5050`, Slack bot `3001`).
 

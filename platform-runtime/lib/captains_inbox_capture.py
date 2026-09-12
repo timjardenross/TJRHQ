@@ -109,7 +109,7 @@ class _SupabaseInsert:
             },
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - endpoint built from SUPABASE_URL env var plus this file's own fixed "captured_items" table literal, not user input - reviewed 2026-09-12
             return json.loads(resp.read())[0] if resp.status in (200, 201) else {}
 
 

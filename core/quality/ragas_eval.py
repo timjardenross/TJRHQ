@@ -142,7 +142,7 @@ def check_model_router() -> tuple[bool, str]:
     core/engineering/providers/model_router.py::check_connectivity()."""
     url = f"{_MODEL_ROUTER_URL}/health"
     try:
-        with urllib.request.urlopen(url, timeout=_MODEL_ROUTER_CONNECT_TIMEOUT) as resp:
+        with urllib.request.urlopen(url, timeout=_MODEL_ROUTER_CONNECT_TIMEOUT) as resp:  # nosec B310 - url derived from MODEL_ROUTER_URL env var / fixed http://127.0.0.1:8891 constant, not user input - reviewed 2026-09-12
             data = json.loads(resp.read().decode())
         return True, f"Model Router reachable at {_MODEL_ROUTER_URL}: status={data.get('status', 'ok')}"
     except Exception as exc:  # noqa: BLE001 - deliberately broad, this must never raise
@@ -183,7 +183,7 @@ class ModelRouterLLM(LLM):
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+        with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # nosec B310 - self.router_url defaults to MODEL_ROUTER_URL env var / fixed localhost constant, not user input - reviewed 2026-09-12
             data = json.loads(resp.read())
         if not data.get("success"):
             raise RuntimeError(f"model-router escalate call failed: {data}")

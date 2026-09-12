@@ -212,7 +212,7 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
                 headers={"Content-Type": "application/json"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=300) as resp:
+            with urllib.request.urlopen(req, timeout=300) as resp:  # nosec B310 - url built from self.base_url, a fixed local model-router constant, not user input - reviewed 2026-09-12
                 response_data = json.loads(resp.read().decode())
 
             duration_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
@@ -392,7 +392,7 @@ Output ONLY valid JSON:
     def health_check(self) -> bool:
         """Check if Model Router is healthy."""
         try:
-            with urllib.request.urlopen(f"{self.base_url}/health", timeout=2) as resp:
+            with urllib.request.urlopen(f"{self.base_url}/health", timeout=2) as resp:  # nosec B310 - url built from self.base_url, a fixed local model-router constant, not user input - reviewed 2026-09-12
                 return resp.status == 200
         except Exception as exc:
             log.error(f"Health check failed: {exc}")
@@ -401,7 +401,7 @@ Output ONLY valid JSON:
     def get_router_status(self) -> dict[str, Any]:
         """Get router status (loaded models, routing policy)."""
         try:
-            with urllib.request.urlopen(f"{self.base_url}/api/model/status", timeout=5) as resp:
+            with urllib.request.urlopen(f"{self.base_url}/api/model/status", timeout=5) as resp:  # nosec B310 - url built from self.base_url, a fixed local model-router constant, not user input - reviewed 2026-09-12
                 return json.loads(resp.read().decode())
         except Exception as exc:
             log.error(f"Failed to get router status: {exc}")

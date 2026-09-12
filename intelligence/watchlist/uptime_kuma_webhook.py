@@ -158,7 +158,7 @@ class _Handler(BaseHTTPRequestHandler):
 
 def run(port: int = DEFAULT_PORT) -> None:
     logging.basicConfig(level=logging.INFO)
-    server = ThreadingHTTPServer(("0.0.0.0", port), _Handler)
+    server = ThreadingHTTPServer(("0.0.0.0", port), _Handler)  # nosec B104 - must be reachable from the Uptime Kuma Docker container at host.docker.internal, which requires listening on all interfaces, not just loopback (see deploy/watchlist-uptime-kuma-webhook.service and docker-compose.watchlist.yml) - reviewed 2026-09-12
     log.info("[uptime_kuma_webhook] listening on 0.0.0.0:%d%s", port, WEBHOOK_PATH)
     try:
         server.serve_forever()

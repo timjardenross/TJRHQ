@@ -54,7 +54,7 @@ def _get(path: str) -> list:
     url = f"{_SUPABASE_URL}/rest/v1/{path}"
     req = urllib.request.Request(url, headers=_headers(), method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
             return json.loads(resp.read())
     except Exception as exc:
         log.error("Supabase query failed (%s): %s", path, exc)
@@ -71,7 +71,7 @@ def _post_batch(table: str, rows: list) -> Optional[list]:
     body = json.dumps(rows).encode()
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
             return json.loads(resp.read())
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode(errors="replace")
@@ -99,7 +99,7 @@ def _log_batch_operation(result: dict) -> None:
         req = urllib.request.Request(
             url, data=json.dumps(row).encode(), headers=_headers(), method="POST"
         )
-        with urllib.request.urlopen(req, timeout=10):
+        with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
             pass
     except Exception as exc:
         log.warning("Audit log write failed (non-fatal): %s", exc)

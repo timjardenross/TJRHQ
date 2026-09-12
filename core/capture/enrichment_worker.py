@@ -140,7 +140,7 @@ def _sb_get(path: str) -> list[dict]:
         f"{SUPABASE_URL}/rest/v1/{path}",
         headers={**_sb_headers(), "Prefer": ""},
     )
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
         return json.loads(resp.read())
 
 
@@ -155,7 +155,7 @@ def _sb_patch(table: str, match: dict, update: dict) -> None:
         method="PATCH",
         headers={**_sb_headers(), "Content-Length": str(len(payload)), "Prefer": ""},
     )
-    with urllib.request.urlopen(req, timeout=10):
+    with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
         pass
 
 
@@ -172,7 +172,7 @@ def _sb_insert(table: str, record: dict) -> dict:
         method="POST",
         headers={**_sb_headers(), "Content-Length": str(len(payload))},
     )
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
         rows = json.loads(resp.read())
     return rows[0] if rows else {}
 
@@ -196,7 +196,7 @@ def _call_llm(text: str) -> dict:
         method="POST",
         headers=headers,
     )
-    with urllib.request.urlopen(req, timeout=25) as resp:
+    with urllib.request.urlopen(req, timeout=25) as resp:  # nosec B310 - url built from OLLAMA_BASE env var, fixed local/internal endpoint - reviewed 2026-09-12
         body = json.loads(resp.read())
 
     content = (body.get("message") or {}).get("content", "").strip()

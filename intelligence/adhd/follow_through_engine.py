@@ -147,7 +147,7 @@ def _pg_get(path_and_query: str, count_exact: bool = False) -> tuple[list[dict],
     headers = _pg_headers({"Prefer": "count=exact"} if count_exact else None)
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             rows = json.loads(resp.read() or b"[]")
             total = None
             if count_exact:
@@ -172,7 +172,7 @@ def _pg_patch(table: str, row_id: str, payload: dict) -> bool:
         headers=_pg_headers({"Prefer": "return=minimal"}),
     )
     try:
-        with urllib.request.urlopen(req, timeout=15):
+        with urllib.request.urlopen(req, timeout=15):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return True
     except Exception as exc:
         log.error("[FollowThrough] PATCH %s/%s failed: %s", table, row_id, exc)
@@ -189,7 +189,7 @@ def _pg_post(table: str, payload: dict) -> bool:
         headers=_pg_headers({"Prefer": "return=minimal"}),
     )
     try:
-        with urllib.request.urlopen(req, timeout=15):
+        with urllib.request.urlopen(req, timeout=15):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return True
     except Exception as exc:
         log.error("[FollowThrough] POST %s failed: %s", table, exc)

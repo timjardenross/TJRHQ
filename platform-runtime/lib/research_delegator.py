@@ -248,7 +248,7 @@ Keep response concise but informative."""
         log.info(f"Calling Ollama (qwen3:8b) for research")
 
         # Make request with timeout
-        with urllib.request.urlopen(request, timeout=timeout_sec) as response:
+        with urllib.request.urlopen(request, timeout=timeout_sec) as response:  # nosec B310 - endpoint built from OLLAMA_BASE_URL env var (internal router base) plus a fixed literal path, not user input - reviewed 2026-09-12
             response_data = json.loads(response.read().decode("utf-8"))
             findings = response_data.get("response", "No findings returned")
 
@@ -808,7 +808,7 @@ def is_provider_available(provider: str) -> bool:
                 f"{ollama_url}/api/tags",
                 method="GET"
             )
-            with urllib.request.urlopen(request, timeout=5) as response:
+            with urllib.request.urlopen(request, timeout=5) as response:  # nosec B310 - endpoint built from OLLAMA_BASE_URL env var (internal router base) plus a fixed literal path, not user input - reviewed 2026-09-12
                 return response.status == 200
         except Exception:
             return False

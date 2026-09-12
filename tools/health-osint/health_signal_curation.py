@@ -202,7 +202,7 @@ def _call_model_router(prompt: str) -> Optional[str]:
     req = urllib.request.Request(
         url, data=body, headers={"Content-Type": "application/json"}, method="POST",
     )
-    with urllib.request.urlopen(req, timeout=20) as resp:
+    with urllib.request.urlopen(req, timeout=20) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL env var with fixed default, not user input - reviewed 2026-09-12
         data = json.loads(resp.read())
     if not data.get("success"):
         raise RuntimeError(data.get("error") or "Model Router returned success=false")

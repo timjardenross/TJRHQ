@@ -70,7 +70,7 @@ jobs:
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -219,7 +219,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
@@ -315,7 +315,7 @@ jobs:
   vulture:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
@@ -341,7 +341,7 @@ jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:
@@ -387,46 +387,38 @@ jobs:
       # detect-secrets-hook only knows about *that batch's* filenames, and
       # its should_update_baseline() trims the loaded baseline down to
       # just those files before comparing, so any batch boundary makes
-      # findings for files outside it look like they "disappeared" --
-      # confirmed via a diagnostic diff showing two real, unrelated
-      # tools/supabase/test_*.py findings vanish on every CI run, never
-      # locally (a longer $GITHUB_WORKSPACE checkout path than local
-      # sandboxes apparently tips CI over the batching threshold that
-      # local runs stay under). `detect-secrets scan` (the base CLI) does
-      # its own internal, unbatched file discovery with no command-line
-      # argument list involved at all, so it can't hit this.
+      # findings for files outside it look like they "disappeared".
+      #
+      # Switching to the base CLI does NOT fully fix this, though (found
+      # while landing this on PR #190): a plain `detect-secrets scan
+      # --baseline .secrets.baseline` on this same tree still occasionally
+      # fails to re-find two already-tracked, already-reviewed
+      # (is_verified: false) "IBM Cloud IAM Key" fixture findings in
+      # tools/supabase/test_decision_intelligence.py and
+      # test_decision_operationalisation.py under a fresh CI checkout --
+      # reproducible in CI, never locally with an identical command, so
+      # something about detect-secrets' own file-scanning under that
+      # environment (not the pre-commit/hook layer) is still involved.
+      # Root cause undetermined; tracked as a detect-secrets-side gap in
+      # #189 rather than re-litigated here.
+      #
+      # What actually matters for a "blocking secrets gate" is catching a
+      # NEW leak, not an existing, already-reviewed finding failing to
+      # re-detect for scanner reasons -- so tools/check_new_secrets.py only
+      # fails the build on a finding (filename + hashed_secret) that is
+      # NOT already in the committed baseline. A finding merely missing
+      # from this run's output (vs. HEAD's baseline) is not a leak by
+      # definition -- it can only shrink what's already been reviewed.
+      # (Kept as a standalone script rather than an inline `run: |` block:
+      # detect-secrets' own YAML transformer treats a long block scalar as
+      # one flattened value, which made the inline version trip its own
+      # Secret Keyword plugin as it grew -- a false positive on the
+      # checking script itself, confirmed while adding this on PR #190.)
       - name: detect-secrets (secrets scan — blocking)
         run: |
           pip install "detect-secrets==1.5.0"
           detect-secrets scan --baseline .secrets.baseline
-
-          python3 - <<'PY'
-          import json
-          import subprocess
-          import sys
-
-          def normalized(text: str) -> str:
-              data = json.loads(text)
-              data.pop("generated_at", None)  # always differs, never meaningful
-              return json.dumps(data, sort_keys=True, indent=2)
-
-          old = subprocess.run(
-              ["git", "show", "HEAD:.secrets.baseline"],
-              capture_output=True, text=True, check=True,
-          ).stdout
-          with open(".secrets.baseline") as f:
-              new = f.read()
-
-          if normalized(old) != normalized(new):
-              print(
-                  "detect-secrets found a real difference (new/changed "
-                  "finding) beyond the timestamp -- review and commit the "
-                  "updated .secrets.baseline:"
-              )
-              subprocess.run(["git", "diff", ".secrets.baseline"])
-              sys.exit(1)
-          print("detect-secrets: no new or changed findings.")
-          PY
+          python3 tools/check_new_secrets.py
 
       # Soft gate (visible, non-blocking): ruff-check + bandit. Flips to
       # blocking once Stream 9's triage lands (179 Medium bandit findings
@@ -442,7 +434,7 @@ jobs:
   actionlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Lints every workflow file present, not just this one — covers
       # Stream E's scorecard.yml too once/if it lands, without hardcoding
@@ -481,7 +473,7 @@ jobs:
   semgrep:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v5
         with:

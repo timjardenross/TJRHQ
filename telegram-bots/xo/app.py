@@ -1346,7 +1346,7 @@ async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "degrading to plain quick-capture, no active-session check or intent scoring"
         )
 
-    vc.VOICE_TMP_DIR.mkdir(parents=True, exist_ok=True)
+    vc.VOICE_TMP_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
     audio_path = str(vc.VOICE_TMP_DIR / f"tg_{msg.message_id}.oga")
     try:
         tg_file = await msg.voice.get_file()
@@ -1657,7 +1657,7 @@ def _ft_call_decompose(title: str) -> str | None:
         headers={"Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=_FT_DECOMPOSE_TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=_FT_DECOMPOSE_TIMEOUT) as resp:  # nosec B310 - url built from _FT_MODEL_ROUTER_URL env var with fixed local default; the Telegram-typed task title is sent only in the POST body, never in the URL - reviewed 2026-09-12
             body = json.loads(resp.read())
         action = (body.get("action") or "").strip()
         return action or None

@@ -81,7 +81,7 @@ def _supabase_request(method: str, path: str, body: Optional[dict] = None, extra
     if extra_headers:
         headers.update(extra_headers)
     req = urllib.request.Request(url, data=data, method=method, headers=headers)
-    with urllib.request.urlopen(req, timeout=timeout):
+    with urllib.request.urlopen(req, timeout=timeout):  # nosec B310 - url is built from SUPABASE_URL env var (_URL), always https - reviewed 2026-09-12
         return
 
 

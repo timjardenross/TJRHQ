@@ -365,7 +365,7 @@ def _sb_post_events(events: list[dict], dry_run: bool = False) -> int:
     existing_hashes: set[str] = set()
     try:
         req = urllib.request.Request(check_url, headers={**headers, "Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
             rows = json.loads(resp.read())
             existing_hashes = {r["dedup_hash"] for r in rows}
     except Exception as e:
@@ -389,7 +389,7 @@ def _sb_post_events(events: list[dict], dry_run: bool = False) -> int:
             headers={**headers, "Prefer": "return=minimal"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
             resp.read()
         return len(payload)
 

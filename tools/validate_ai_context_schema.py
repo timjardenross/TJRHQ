@@ -65,7 +65,7 @@ def check_column(table: str, col: str) -> bool:
     url = f"{SUPABASE_URL}/rest/v1/{table}?select={col}&limit=0"
     req = urllib.request.Request(url, headers=HEADERS)
     try:
-        with urllib.request.urlopen(req, timeout=10):
+        with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url built from SUPABASE_URL env var and a fixed table name from this file's own DECLARED_QUERIES dict, not user input - reviewed 2026-09-12
             return True
     except urllib.error.HTTPError as e:
         if e.code == 400:

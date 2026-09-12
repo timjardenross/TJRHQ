@@ -368,7 +368,7 @@ def ollama_synthesis(
         headers={"Content-Type": "application/json"},
     )
     timeout = float(os.environ.get("COMMANDER_SYNTHESIS_TIMEOUT_SECONDS", "30"))
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with urllib.request.urlopen(request, timeout=timeout) as response:  # nosec B310 - url built from OLLAMA_BASE_URL env var with fixed default, not user input - reviewed 2026-09-12
         body = json.loads(response.read().decode("utf-8"))
     return strip_thinking(body.get("response") or body.get("thinking") or "")
 

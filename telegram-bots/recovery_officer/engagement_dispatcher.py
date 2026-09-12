@@ -408,7 +408,7 @@ class _StandaloneTelegramBot:
         req = urllib.request.Request(
             url, data=payload, headers={"Content-Type": "application/json"}, method="POST",
         )
-        with urllib.request.urlopen(req, timeout=10):
+        with urllib.request.urlopen(req, timeout=10):  # nosec B310 - url is the fixed Telegram Bot API endpoint, token from env, not user input - reviewed 2026-09-12
             pass
 
 
