@@ -52,16 +52,23 @@ services:
     container_name: changedetection.io
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      # USS-TJR-MSN-0368 activation: host port 5000 is already bound by
+      # this VM's real Command Centre backend
+      # (core/command-centre/backend/app.js) -- remapped to 5050 on the
+      # host side; the container's own internal port stays 5000.
+      - "5050:5000"
     volumes:
       - ./watchlist-data/changedetection-data:/datastore
     environment:
-      BASE_URL: "http://localhost:5000"
-      # Only needed on a host that sits behind a TLS-intercepting egress
-      # gateway (see note above) — drop these three on a normal host.
-      REQUESTS_CA_BUNDLE: /datastore/egress-ca-bundle.crt
-      SSL_CERT_FILE: /datastore/egress-ca-bundle.crt
-      CURL_CA_BUNDLE: /datastore/egress-ca-bundle.crt
+      BASE_URL: "http://localhost:5050"
+      # USS-TJR-MSN-0368 activation: this host has no TLS-intercepting
+      # egress gateway (confirmed 2026-09-12 -- plain `curl https://...`
+      # works directly, no CA bundle file present) so the three
+      # REQUESTS_CA_BUNDLE/SSL_CERT_FILE/CURL_CA_BUNDLE vars the sandbox
+      # needed are dropped here rather than left pointing at a path that
+      # doesn't exist on this host (which would break the container's own
+      # outbound HTTPS, not just no-op). Re-add them, pointed at a real
+      # mounted CA file, if this ever runs behind an intercepting gateway.
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -73,9 +80,5 @@ services:
       - "3001:3001"
     volumes:
       - ./watchlist-data/uptime-kuma-data:/app/data
-    environment:
-      # Only needed behind the same TLS-intercepting egress gateway —
-      # Node.js's own trust store, drop on a normal host.
-      NODE_EXTRA_CA_CERTS: /app/data/egress-ca-bundle.crt
     extra_hosts:
       - "host.docker.internal:host-gateway"
