@@ -78,6 +78,14 @@ data/memory_graph.db*
 core/voice/chatterbox-venv/
 core/voice/cache/
 
+# Kokoro TTS (core/voice/tts_kokoro.py, USS-TJR-MSN-0366 Stream 7) — same
+# gap, ignored up front this time. kokoro-venv/ is the isolated venv
+# (ONNX Runtime, no torch/CUDA); kokoro-models/ holds the ~340MB model
+# weights downloaded from GitHub Releases (see tts_kokoro.py's header
+# comment for why not huggingface.co) — binary, regenerable, not source.
+core/voice/kokoro-venv/
+core/voice/kokoro-models/
+
 # data/self-improvement/review/: the self-improvement engine's live review
 # state — mutated continuously between cycles as findings get reviewed
 # (decisions.jsonl, opportunities.jsonl) or a cycle runs (.evolution_cycle.lock).
