@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import logging
 import re
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
 from .base import CanonicalAlert, http_get, parse_rfc822_datetime
 

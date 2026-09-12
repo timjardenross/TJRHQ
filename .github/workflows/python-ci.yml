@@ -258,6 +258,50 @@ jobs:
           fi
           exit "$code"
 
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pre-commit envs
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - run: pip install pre-commit
+
+      # USS-TJR-MSN-0368 Stream 8: CI-side enforcement of the pre-commit
+      # config that Stream D of USS-TJR-MSN-0365 wired up but never gated on
+      # (hooks were opt-in per contributor's local `pre-commit install`
+      # only). Split into a hard gate and a soft one rather than one
+      # `pre-commit run --all-files`, because ruff-check and bandit have a
+      # real pre-existing findings backlog on this 930-file monorepo
+      # (6,861 ruff / 2,795 bandit at last count -- see
+      # knowledge/OSS-Gap-Solutions-2026-08-23.md and this mission's Stream
+      # 9 record) that gating on immediately would turn red on day one for
+      # reasons unrelated to whoever's PR triggered the run.
+      #
+      # Hard gate (blocks the PR): gitleaks + detect-secrets. Both already
+      # pass clean repo-wide today -- nothing to triage, purely a secrets
+      # tripwire, so there's no reason to let a new leak merge in the
+      # meantime.
+      - name: pre-commit (secrets scan — blocking)
+        run: pre-commit run --all-files gitleaks detect-secrets
+
+      # Soft gate (visible, non-blocking): ruff-check + bandit. Flips to
+      # blocking once Stream 9's triage lands (179 Medium bandit findings
+      # fixed/suppressed, ruff's 3,420 auto-fixable findings landed as their
+      # own isolated formatting PR) -- until then this only reports drift so
+      # new code doesn't silently add to the pile without anyone seeing it.
+      - name: pre-commit (lint/security — informational until Stream 9 lands)
+        continue-on-error: true
+        run: pre-commit run --all-files ruff-check bandit
+
   actionlint:
     runs-on: ubuntu-latest
     steps:

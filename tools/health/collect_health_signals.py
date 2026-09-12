@@ -36,7 +36,7 @@ import logging
 import argparse
 import urllib.request
 import urllib.parse
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -251,7 +251,7 @@ class HealthCollector:
         })
         url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?{params}"
         try:
-            with urllib.request.urlopen(url, timeout=15) as resp:
+            with urllib.request.urlopen(url, timeout=15) as resp:  # nosec B310 - hardcoded eutils.ncbi.nlm.nih.gov URL, not user input
                 import json
                 ids = json.loads(resp.read()).get("esearchresult", {}).get("idlist", [])
         except Exception as e:
@@ -264,7 +264,7 @@ class HealthCollector:
 
         efetch_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={','.join(ids)}&retmode=xml"
         try:
-            with urllib.request.urlopen(efetch_url, timeout=20) as resp:
+            with urllib.request.urlopen(efetch_url, timeout=20) as resp:  # nosec B310 - hardcoded eutils.ncbi.nlm.nih.gov URL, not user input
                 xml_data = resp.read()
         except Exception as e:
             logger.error(f"PubMed efetch failed for {health_domain}: {e}")
@@ -327,7 +327,7 @@ class HealthCollector:
         params = urllib.parse.urlencode({"query.term": query, "pageSize": self.per_domain_limit, "sort": "LastUpdatePostDate:desc"})
         url = f"https://clinicaltrials.gov/api/v2/studies?{params}"
         try:
-            with urllib.request.urlopen(url, timeout=15) as resp:
+            with urllib.request.urlopen(url, timeout=15) as resp:  # nosec B310 - hardcoded clinicaltrials.gov URL, not user input
                 import json
                 data = json.loads(resp.read())
         except Exception as e:
@@ -389,7 +389,7 @@ class HealthCollector:
         # curl with no UA / a browser UA did not).
         req = urllib.request.Request(feed["url"], headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"})
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - feed["url"] sourced from this file's own fixed feed registry, not user input
                 xml_data = resp.read()
         except Exception as e:
             logger.error(f"RSS fetch failed for {feed['source_name']}: {e}")
