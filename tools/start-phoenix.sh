@@ -34,6 +34,34 @@ if ! "${VENV_PYTHON}" -c "import phoenix" 2>/dev/null; then
   exit 1
 fi
 
+# All 7 instrumented call sites import "platform_runtime.lib.telemetry"
+# (underscore) — but the directory on disk is "platform-runtime" (hyphen),
+# so that import has never actually resolved (silently swallowed by each
+# call site's own try/except ImportError, matching GAP 2's "silently
+# dropped" symptom). Two symlinks close that gap: one at the repo root
+# for the sys.path.insert(_REPO_ROOT) pattern (intelligence/scheduler.py,
+# telegram-bots/xo/app.py, platform-runtime/lib/officers/daily_operations_cycle.py),
+# one inside this venv's site-packages for the pattern that inserts that
+# path directly (core/model-router/app.py, core/llm/provider_chain.py,
+# platform-runtime/lib/mistral_agent_client.py — these run under system
+# Python, not this venv, so they reach platform_runtime only via that
+# site-packages symlink). The repo-root symlink is tracked in git; the
+# venv-internal one is not (.venv/ is gitignored) and must be recreated
+# after any fresh venv build — this check makes that self-healing rather
+# than a second silent gap.
+REPO_ROOT_LINK="${REPO_ROOT}/platform_runtime"
+if [[ ! -e "${REPO_ROOT_LINK}" ]]; then
+  ln -s platform-runtime "${REPO_ROOT_LINK}"
+  echo "Created ${REPO_ROOT_LINK} -> platform-runtime (repo-root import shim)"
+fi
+
+VENV_SITE_PACKAGES="$("${VENV_PYTHON}" -c 'import site; print(site.getsitepackages()[0])')"
+VENV_LINK="${VENV_SITE_PACKAGES}/platform_runtime"
+if [[ ! -e "${VENV_LINK}" ]]; then
+  ln -s "${REPO_ROOT}/platform-runtime" "${VENV_LINK}"
+  echo "Created ${VENV_LINK} -> ${REPO_ROOT}/platform-runtime (venv import shim)"
+fi
+
 mkdir -p "$(dirname "${LOG_FILE}")"
 
 echo "Starting Phoenix on port 6006 — UI at http://localhost:6006"

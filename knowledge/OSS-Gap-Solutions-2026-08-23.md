@@ -48,7 +48,21 @@ Each section: gap found in audit → OSS options → pick one.
 
 ---
 
-## GAP 2 — LLM Observability not running (Arize Phoenix instrumented, silent)
+## GAP 2 — LLM Observability — RESOLVED 2026-09-12
+
+Phoenix is now live: `deploy/phoenix.service` (systemd, enabled, `:6006`), started
+and verified end-to-end (a real `router.classify-capture` trace from
+`core/model-router/app.py` appeared in the Phoenix UI). See
+`knowledge/missions/PHOENIX-TRACING-COLLECTOR-LIVE-20260912-knowledge-record.md`
+for the fix — the actual gap was two things, not one: no systemd unit (as
+below), AND all 7 `configure_tracing()` call sites import
+`platform_runtime.lib.telemetry` (underscore) while the directory on disk is
+`platform-runtime` (hyphen), so every one of them had been silently failing
+its own import and no span had ever reached Phoenix from any of the 7 sites.
+Fixed via two symlinks (repo-root + venv site-packages), self-healed in
+`tools/start-phoenix.sh` — no call site touched.
+
+Original framing, kept for context (accurate as far as it went):
 
 `arize-phoenix 20.3.0` installed. `configure_tracing()` in 3 modules. `start-phoenix.sh` exists. No systemd unit. Spans silently dropped.
 

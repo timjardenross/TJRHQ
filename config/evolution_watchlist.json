@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "last_updated": "2026-09-06",
+  "last_updated": "2026-09-12",
   "_comment": "HQ Evolution external-discovery watchlist (spec section 9/43). Each topic must answer 'why is this relevant to TJR HQ?' before being searched — no generic tech-trend scanning. `gap_hypothesis` is exactly that — a HYPOTHESIS, not a settled fact — validated against current repo evidence by state_validation.py before any external search happens (`validation`, when present; omitted where no honest deterministic check exists, which validates as 'unclear' and still proceeds cautiously). github_query uses GitHub's search-qualifiers syntax (https://docs.github.com/search-github/searching-on-github).",
   "topics": [
     {
@@ -45,7 +45,7 @@
       "github_query": "llm observability tracing topic:llmops",
       "gap_hypothesis": "core/model-router/call_log.jsonl is a flat, unrotated, unaggregated append-only log with no queryable tracing.",
       "validation_question": "Does any script or service rotate or aggregate call_log.jsonl yet?",
-      "why_relevant": "An unbounded flat log makes routing/latency/cost regressions invisible to both operators and this cycle's own discovery evidence, and risks unbounded disk growth.",
+      "why_relevant": "Arize Phoenix now provides live, queryable LLM tracing (deploy/phoenix.service, :6006, since 2026-09-12) — routing/latency/cost regressions are no longer invisible to operators. core/model-router/call_log.jsonl itself remains a separate, still-real gap: flat, unrotated, unaggregated, unbounded disk growth risk.",
       "validation": {"check_type": "presence_resolves", "pattern": "call_log\\.jsonl", "paths": ["deploy", "core/infrastructure"]}
     },
     {
