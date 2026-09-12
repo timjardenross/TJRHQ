@@ -298,6 +298,9 @@ class TestNarrativeIntelligence(unittest.TestCase):
                 "concerns": [],
                 "positive_improvements": ["progress"],
                 "summary": "Test summary",
+                "pain_trigger_patterns": [],
+                "pain_reliever_patterns": [],
+                "effective_coping_strategies": [],
             }),
             "gemini-2.5-flash",
         )
