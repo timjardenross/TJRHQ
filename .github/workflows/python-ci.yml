@@ -1,0 +1,277 @@
+name: Python CI
+
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+
+# USS-TJR-MSN-0365 Stream F. This repo had no Python pytest/lint CI at all
+# before this file — lcars-portal-ci.yml is Node/npm-focused (plus a few
+# standalone `python3 tools/check_*.py` gate jobs unrelated to pytest).
+#
+# Design notes (from actually inspecting the tree, not assuming a layout):
+#
+# - Python code and tests are scattered, not uniform: some dirs have their
+#   own requirements.txt, some don't; some have real pytest tests, some have
+#   zero (or have a file *named* test_*.py that's actually a demo/CLI script
+#   with no `def test_*` — see intelligence/analysis/test_shadow_mode_scoring.py
+#   and services/transcription/test_transcribe.py, both confirmed locally to
+#   collect 0 pytest items). Every `run pytest` step below tolerates pytest's
+#   "no tests collected" exit code (5) as a pass rather than a failure, so
+#   directories with nothing to gate yet don't break CI, and start gating
+#   automatically the moment someone adds a real `def test_*` there.
+#
+# - core/infrastructure/{mac-collector,vm-processing,vm-transfer} each ship
+#   their own requirements.txt AND their own same-named sibling modules
+#   (each has its own config.py). core/infrastructure/mac-collector/tests/
+#   conftest.py documents, in its own words, that running these as one
+#   combined `pytest core/` process lets whichever subsystem's config.py
+#   imports first silently win for the rest of the run for every other
+#   subsystem's `from config import ...`. Confirmed by reading that
+#   conftest's _force_local_module() docstring. So each of the three infra
+#   subsystems gets its own matrix entry / own process / own requirements
+#   install, and the main `core` entry explicitly --ignores all three —
+#   never combined into one pytest invocation.
+#
+# - intelligence/ has no requirements.txt of its own; its (only, non-test)
+#   import surface overlaps with platform-runtime's declared deps (openai,
+#   pydantic, feedparser, beautifulsoup4, etc.), so it installs
+#   platform-runtime/requirements.txt as a fallback rather than going
+#   uninstalled.
+#
+# - services/revs-content-agents ships its own pytest.ini (pythonpath = .,
+#   for its `from src...` imports) — invoked as
+#   `services/revs-content-agents/tests` so pytest's own ini-discovery
+#   (walking up from the given test path) finds it regardless of the
+#   workflow's cwd.
+#
+# - telegram-bots/recovery_officer and telegram-bots/wellness_officer have
+#   neither a requirements.txt nor any tests today; telegram-bots/revs has
+#   a requirements.txt but no tests; services/transcription has a
+#   script-style test file but no requirements.txt. All four still get a
+#   `changes` filter (so the paths-filter output is accurate) and a matrix
+#   entry (so future tests there are picked up for free), they just have
+#   nothing to install / nothing to fail on today.
+#
+# Verified locally before this file was ever pushed: `python -m pytest
+# telegram-bots/xo -q` (14 passed) and `python -m pytest
+# core/health/test_capacity_score.py -q` (18 passed) both against real,
+# installed dependencies; a deliberately-introduced bug in
+# core/health/capacity_score.py's Green threshold produced a genuine
+# `1 failed, 17 passed` / exit 1 before being reverted. See the PR
+# description for the full transcript.
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            platform_runtime:
+              - 'platform-runtime/**'
+            core:
+              - 'core/**'
+              - '!core/infrastructure/mac-collector/**'
+              - '!core/infrastructure/vm-processing/**'
+              - '!core/infrastructure/vm-transfer/**'
+            core_infra_mac_collector:
+              - 'core/infrastructure/mac-collector/**'
+            core_infra_vm_processing:
+              - 'core/infrastructure/vm-processing/**'
+            core_infra_vm_transfer:
+              - 'core/infrastructure/vm-transfer/**'
+            intelligence:
+              - 'intelligence/**'
+            telegram_capacitybot:
+              - 'telegram-bots/capacitybot/**'
+            telegram_recovery_officer:
+              - 'telegram-bots/recovery_officer/**'
+            telegram_revs:
+              - 'telegram-bots/revs/**'
+            telegram_wellness_officer:
+              - 'telegram-bots/wellness_officer/**'
+            telegram_xo:
+              - 'telegram-bots/xo/**'
+            services_revs_content_agents:
+              - 'services/revs-content-agents/**'
+            services_transcription:
+              - 'services/transcription/**'
+
+      # Turns the list of changed filter-names into a pytest matrix
+      # (name/dir/req per entry). Directories with no changes are simply
+      # absent from `changes` and never enter the matrix — this is the
+      # "skip directories with no changes" mechanism, not a separate `if:`
+      # per matrix job.
+      - name: Build test matrix
+        id: build-matrix
+        env:
+          CHANGED: ${{ steps.filter.outputs.changes }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          changed = json.loads(os.environ["CHANGED"])
+
+          # filter name -> {name, dir (pytest args), req (requirements.txt
+          # path, or "" if the directory has none)}
+          entries = {
+              "platform_runtime": {
+                  "name": "platform-runtime",
+                  "dir": "platform-runtime",
+                  "req": "platform-runtime/requirements.txt",
+              },
+              "core": {
+                  "name": "core",
+                  "dir": (
+                      "core "
+                      "--ignore=core/infrastructure/mac-collector "
+                      "--ignore=core/infrastructure/vm-processing "
+                      "--ignore=core/infrastructure/vm-transfer"
+                  ),
+                  "req": "platform-runtime/requirements.txt",
+              },
+              "core_infra_mac_collector": {
+                  "name": "core-infrastructure-mac-collector",
+                  "dir": "core/infrastructure/mac-collector",
+                  "req": "core/infrastructure/mac-collector/requirements.txt",
+              },
+              "core_infra_vm_processing": {
+                  "name": "core-infrastructure-vm-processing",
+                  "dir": "core/infrastructure/vm-processing",
+                  "req": "core/infrastructure/vm-processing/requirements.txt",
+              },
+              "core_infra_vm_transfer": {
+                  "name": "core-infrastructure-vm-transfer",
+                  "dir": "core/infrastructure/vm-transfer",
+                  "req": "core/infrastructure/vm-transfer/requirements.txt",
+              },
+              "intelligence": {
+                  "name": "intelligence",
+                  "dir": "intelligence",
+                  # No requirements.txt of its own — falls back to
+                  # platform-runtime's (see header comment).
+                  "req": "platform-runtime/requirements.txt",
+              },
+              "telegram_capacitybot": {
+                  "name": "telegram-bots-capacitybot",
+                  "dir": "telegram-bots/capacitybot",
+                  "req": "telegram-bots/capacitybot/requirements.txt",
+              },
+              "telegram_recovery_officer": {
+                  "name": "telegram-bots-recovery_officer",
+                  "dir": "telegram-bots/recovery_officer",
+                  "req": "",
+              },
+              "telegram_revs": {
+                  "name": "telegram-bots-revs",
+                  "dir": "telegram-bots/revs",
+                  "req": "telegram-bots/revs/requirements.txt",
+              },
+              "telegram_wellness_officer": {
+                  "name": "telegram-bots-wellness_officer",
+                  "dir": "telegram-bots/wellness_officer",
+                  "req": "",
+              },
+              "telegram_xo": {
+                  "name": "telegram-bots-xo",
+                  "dir": "telegram-bots/xo",
+                  "req": "telegram-bots/xo/requirements.txt",
+              },
+              "services_revs_content_agents": {
+                  "name": "services-revs-content-agents",
+                  "dir": "services/revs-content-agents/tests",
+                  "req": "services/revs-content-agents/requirements.txt",
+              },
+              "services_transcription": {
+                  "name": "services-transcription",
+                  "dir": "services/transcription",
+                  "req": "",
+              },
+          }
+
+          include = [entries[name] for name in changed if name in entries]
+          matrix = {"include": include}
+
+          print(f"Changed filters: {changed}")
+          print(f"Matrix: {json.dumps(matrix, indent=2)}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"matrix={json.dumps(matrix)}\n")
+          PY
+
+  test:
+    needs: changes
+    if: needs.changes.outputs.matrix != '' && fromJSON(needs.changes.outputs.matrix).include[0] != null
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Cached per-directory: the key is this entry's own requirements.txt
+      # hash (or a shared/fallback file's hash where the directory has none
+      # of its own — see header comment), so one directory's dependency
+      # install never invalidates another's cache.
+      - name: Cache pip
+        if: matrix.req != ''
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ matrix.name }}-${{ hashFiles(matrix.req) }}
+          restore-keys: |
+            pip-${{ matrix.name }}-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+          if [ -n "${{ matrix.req }}" ]; then
+            pip install -r "${{ matrix.req }}"
+          fi
+
+      - name: Run pytest (${{ matrix.name }})
+        run: |
+          set +e
+          python -m pytest ${{ matrix.dir }} -q
+          code=$?
+          set -e
+          if [ "$code" -eq 5 ]; then
+            echo "No tests collected under ${{ matrix.dir }} — not yet covered, not a failure."
+            exit 0
+          fi
+          exit "$code"
+
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Lints every workflow file present, not just this one — covers
+      # Stream E's scorecard.yml too once/if it lands, without hardcoding
+      # a filename here.
+      - name: Install actionlint
+        run: |
+          curl -sSL -o /tmp/actionlint.tar.gz \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz
+          mkdir -p /tmp/actionlint-bin
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp/actionlint-bin actionlint
+
+      - name: Run actionlint
+        run: /tmp/actionlint-bin/actionlint .github/workflows/*.yml
