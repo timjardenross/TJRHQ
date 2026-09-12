@@ -23,7 +23,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Bootstrap .env
@@ -369,7 +369,7 @@ Examples:
     # Save JSON
     if args.output:
         output_data = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "total_tested": len(results),
             "summary": {
                 "pass": len(passed),

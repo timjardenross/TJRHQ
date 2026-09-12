@@ -25,7 +25,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -105,13 +105,15 @@ def _build_classified_event(row: dict):
     def _dt(s: str | None) -> datetime | None:
         if not s:
             return None
+        # All supported source formats represent UTC instants (explicit +00:00/Z
+        # offset, or a naive-but-known-UTC timestamp from this pipeline).
         for fmt in ("%Y-%m-%dT%H:%M:%S.%f+00:00", "%Y-%m-%dT%H:%M:%S+00:00",
                     "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S"):
             try:
-                return datetime.strptime(s[:26], fmt[:len(s[:26])])
+                return datetime.strptime(s[:26], fmt[:len(s[:26])]).replace(tzinfo=timezone.utc)
             except ValueError:
                 continue
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
 
     return ClassifiedEvent(
         event_id=row["event_id"],
@@ -124,7 +126,7 @@ def _build_classified_event(row: dict):
         raw_summary=row.get("raw_summary"),
         canonical_url=None,
         published_at=None,
-        collected_at=datetime.utcnow(),
+        collected_at=datetime.now(timezone.utc),
         dedup_hash="",
         event_type=row.get("event_type", "other"),
         geography=row.get("geography", "GLOBAL"),

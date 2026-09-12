@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def persist_health_mission_correlations(
         }
 
     payload = {
-        "computed_at": datetime.utcnow().isoformat() + "Z",
+        "computed_at": datetime.now(timezone.utc).isoformat(),
         "status": results.get("status"),
         "n_health_entries": results.get("n_health_entries"),
         "n_mission_days": results.get("n_mission_days"),

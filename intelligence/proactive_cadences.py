@@ -40,7 +40,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ _KNOWLEDGE_WATCH_DIRS = ["knowledge", "governance", "Captains-Log"]
 
 def _today() -> date:
     """Return today as a date in local (system) time."""
-    return date.today()
+    return datetime.now().astimezone().date()
 
 
 def _today_iso() -> str:
@@ -122,7 +122,8 @@ def _get_pending_decisions() -> list[dict]:
                         "question": data.get("question") or data.get("title") or "(no title)",
                         "date": data.get("date") or data.get("timestamp", "")[:10],
                     })
-            except Exception:
+            except Exception as exc:  # noqa: BLE001 - best-effort per-file parse; one bad decision file must not abort the scan
+                log.debug("[proactive] Skipping unreadable decision file %s: %s", f, exc)
                 continue
         return pending[:10]
     except Exception as exc:
@@ -131,7 +132,7 @@ def _get_pending_decisions() -> list[dict]:
 
 
 def _get_stale_knowledge_files(limit: int = 10) -> list[dict]:
-    cutoff = datetime.now().timestamp() - (_KNOWLEDGE_STALENESS_DAYS * 86400)
+    cutoff = datetime.now(timezone.utc).timestamp() - (_KNOWLEDGE_STALENESS_DAYS * 86400)
     stale = []
     for rel in _KNOWLEDGE_WATCH_DIRS:
         base = _REPO_ROOT / rel
@@ -141,7 +142,7 @@ def _get_stale_knowledge_files(limit: int = 10) -> list[dict]:
             try:
                 mtime = path.stat().st_mtime
                 if mtime < cutoff:
-                    age_days = int((datetime.now().timestamp() - mtime) / 86400)
+                    age_days = int((datetime.now(timezone.utc).timestamp() - mtime) / 86400)
                     stale.append({"path": str(path.relative_to(_REPO_ROOT)), "age_days": age_days})
             except OSError:
                 continue
@@ -154,7 +155,7 @@ def _get_decisions_overdue_outcome(limit: int = 8) -> list[dict]:
     decisions_dir = _REPO_ROOT / "knowledge" / "decisions"
     if not decisions_dir.exists():
         return []
-    cutoff = datetime.now().timestamp() - (_DECISION_OUTCOME_DAYS * 86400)
+    cutoff = datetime.now(timezone.utc).timestamp() - (_DECISION_OUTCOME_DAYS * 86400)
     overdue = []
     for path in sorted(decisions_dir.glob("*.md")):
         try:
@@ -169,7 +170,7 @@ def _get_decisions_overdue_outcome(limit: int = 8) -> list[dict]:
                 continue
             id_match = _re.search(r"decision id:\s*(DEC-\S+)", content, _re.IGNORECASE)
             dec_id = id_match.group(1).upper() if id_match else path.stem
-            age_days = int((datetime.now().timestamp() - mtime) / 86400)
+            age_days = int((datetime.now(timezone.utc).timestamp() - mtime) / 86400)
             overdue.append({"id": dec_id, "age_days": age_days})
         except OSError:
             continue
@@ -257,7 +258,7 @@ def _get_idea_missions() -> list[dict]:
 def _format_idea_review(missions: list[dict]) -> str:
     if not missions:
         return ""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     lines = [
         "Number One — Fortnightly Idea Review",
         f"Cycle: {_today().strftime('%Y-%m-%d')}",
@@ -272,7 +273,9 @@ def _format_idea_review(missions: list[dict]) -> str:
         age_str = ""
         if created_raw:
             try:
-                created = datetime.fromisoformat(created_raw.replace("Z", "+00:00").replace("+00:00", ""))
+                created = datetime.fromisoformat(created_raw.replace("Z", "+00:00"))
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=timezone.utc)
                 age_days = (now - created).days
                 age_str = f" · {age_days}d old"
                 if age_days >= 28:

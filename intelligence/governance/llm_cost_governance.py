@@ -18,7 +18,7 @@ import logging
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class LLMCostGovernance:
         # Use in-memory cache to avoid hammering Supabase on every call
         if not force_refresh and task_type in self._config_cache:
             if self._last_config_load and \
-               (datetime.utcnow() - self._last_config_load).total_seconds() < 300:
+               (datetime.now(timezone.utc) - self._last_config_load).total_seconds() < 300:
                 return self._config_cache.get(task_type)
 
         try:
@@ -79,7 +79,7 @@ class LLMCostGovernance:
                 config = data[0] if data else None
                 if config:
                     self._config_cache[task_type] = config
-                    self._last_config_load = datetime.utcnow()
+                    self._last_config_load = datetime.now(timezone.utc)
                 return config
         except Exception as exc:
             log.warning(f"Failed to fetch cost governance config: {exc}")

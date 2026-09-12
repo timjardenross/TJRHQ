@@ -26,7 +26,7 @@ import sys
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -259,7 +259,7 @@ class EvaluationHarness:
         if not evaluations:
             log.error("No signals with dual scores found")
             return EvaluationReport(
-                report_date=datetime.utcnow().isoformat(),
+                report_date=datetime.now(timezone.utc).isoformat(),
                 period_start=start_date.isoformat(),
                 period_end=end_date.isoformat(),
                 total_signals=0,
@@ -326,7 +326,7 @@ class EvaluationHarness:
                 )
 
         return EvaluationReport(
-            report_date=datetime.utcnow().isoformat(),
+            report_date=datetime.now(timezone.utc).isoformat(),
             period_start=start_date.isoformat(),
             period_end=end_date.isoformat(),
             total_signals=len(evaluations),
@@ -345,8 +345,8 @@ def main():
     )
     parser.add_argument(
         "--start-date",
-        type=lambda s: datetime.strptime(s, "%Y-%m-%d").date(),
-        default=date.today() - timedelta(days=14),
+        type=lambda s: datetime.strptime(s, "%Y-%m-%d").replace(tzinfo=timezone.utc).date(),
+        default=datetime.now(timezone.utc).date() - timedelta(days=14),
         help="Start date (YYYY-MM-DD), default 14 days ago",
     )
     parser.add_argument(

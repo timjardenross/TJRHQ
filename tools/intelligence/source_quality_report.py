@@ -12,7 +12,7 @@ Usage:
 
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent.parent
@@ -125,7 +125,7 @@ def generate_report(csv_format: bool = False):
         print(f"  TIER 4 (unreliable):   {tier4_count} sources ({tier4_count/total_active*100:.0f}%)")
         print(f"\nAverage accuracy:        {avg_accuracy:.0%}")
         print(f"Average FP rate:         {avg_fp_rate:.0%}")
-        print(f"\nREPORT GENERATED:        {datetime.utcnow().isoformat()}Z")
+        print(f"\nREPORT GENERATED:        {datetime.now(timezone.utc).isoformat()}")
         print("="*120 + "\n")
 
         print("INTERPRETATION")

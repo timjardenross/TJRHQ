@@ -16,7 +16,7 @@ Usage:
 import logging
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Setup logging
@@ -102,7 +102,7 @@ class SourceAccuracyValidator:
         """
 
         try:
-            cutoff_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
+            cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
             already_validated = (
                 self.supabase.table("intelligence_event_validation")
@@ -145,7 +145,7 @@ class SourceAccuracyValidator:
                     "validation_method": validation_method,
                     "validation_detail": validation_detail,
                     "event_published_at": event_published_at,
-                    "validated_at": datetime.utcnow().isoformat(),
+                    "validated_at": datetime.now(timezone.utc).isoformat(),
                     "validated_by": "system"
                 }).execute()
 
@@ -170,7 +170,7 @@ class SourceAccuracyValidator:
                 self.supabase.table("intelligence_event_validation")
                 .select("is_accurate")
                 .eq("source_id", source_id)
-                .gt("validated_at", (datetime.utcnow() - timedelta(days=30)).isoformat())
+                .gt("validated_at", (datetime.now(timezone.utc) - timedelta(days=30)).isoformat())
                 .execute()
             )
 
@@ -205,7 +205,7 @@ class SourceAccuracyValidator:
                     "accuracy_ratio": accuracy_ratio,
                     "false_positive_rate": false_positive_rate,
                     "accuracy_sample_size": sample_size,
-                    "accuracy_last_updated": datetime.utcnow().isoformat()
+                    "accuracy_last_updated": datetime.now(timezone.utc).isoformat()
                 }).eq("source_id", source_id).execute()
 
             return True
