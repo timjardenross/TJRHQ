@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for the Phase A HTTP-governance dispatcher (workflow/api.py) and the
 escalation watchdog (workflow/escalation.py).

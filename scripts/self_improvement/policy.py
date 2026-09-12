@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Deterministic policy engine for self-improvement classification.
 

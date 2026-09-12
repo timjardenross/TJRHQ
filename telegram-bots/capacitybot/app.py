@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MY CAPACITY TODAY Bot — @tjrmindbody_capacitybot
 
 Standalone capacity-tracking companion. Split out of telegram-bots/xo/app.py

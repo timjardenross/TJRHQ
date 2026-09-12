@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for Intelligence Maturity Phase 2
 Mission: M-20260613-INTELLIGENCE-MATURITY-PHASE2

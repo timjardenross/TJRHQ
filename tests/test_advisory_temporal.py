@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-0095 (temporal/patterns/episodic/signals) and MSN-0096
 (triggers/escalation/opportunities/notifications/advisory_health/proactive).
 

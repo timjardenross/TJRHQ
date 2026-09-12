@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for /guide — MY CAPACITY TODAY V02 WP08.
 

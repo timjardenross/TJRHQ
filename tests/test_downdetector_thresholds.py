@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for intelligence/ingestion/downdetector_thresholds.py — the
 LLM-learned per-source Downdetector report-count threshold (Captain

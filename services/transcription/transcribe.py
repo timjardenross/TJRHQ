@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Local voice transcription using faster-whisper.
 USS-TJR Unified Capture Pipeline — CPU-only, no external API.

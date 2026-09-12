@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """XO Bot — @Starship_endeavour_xO_bot
 
 Executive Officer: Captain's primary Telegram companion.

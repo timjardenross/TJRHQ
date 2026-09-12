@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Cognitive Core Regression Harness (MSN-0329 Phase 4, Objective 6).
 
 Representative scenarios, re-run as prompts/thresholds/domain coverage

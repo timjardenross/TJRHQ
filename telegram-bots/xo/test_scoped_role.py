@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Standalone pre-cutover verification for the xo_bot scoped Supabase role.
 
 Run this AFTER SUPABASE_JWT_SECRET (or a pre-minted XO_BOT_SCOPED_TOKEN) and

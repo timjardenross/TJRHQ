@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Capture Contract Tests — MSN-XXXX Unified Capture Pipeline
 =====================================================

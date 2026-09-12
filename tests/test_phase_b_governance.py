@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for Phase B crisis-mode governance actions (escalate / notify_telegram /
 stand_down), their dispatcher wiring, and the governance dispatch CLI bridge.

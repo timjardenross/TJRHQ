@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """REVS Telegram bot — entrypoint. Standalone service, own token, own
 Supabase role (migration 0147_revs_bot_scoped_role.sql) — deliberately NOT
 merged into telegram-bots/xo/app.py. See README.md for why.

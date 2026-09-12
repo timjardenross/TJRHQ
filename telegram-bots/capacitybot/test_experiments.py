@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for /experiment — V3 Mission 4: Personal Experiment Engine.
 

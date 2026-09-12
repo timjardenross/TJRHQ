@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for intelligence/analysis/intelligence_analyst.py (Phase A Stages 8–9).
 

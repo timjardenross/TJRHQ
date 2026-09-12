@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for the MSN-0093 advisory learning loop (outcomes, calibration,
 learning, metrics, and the XO/Number One consumption adapters).
 

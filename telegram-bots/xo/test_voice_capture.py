@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for voice_capture.py — USS-TJR Voice-to-Capture integration.
 

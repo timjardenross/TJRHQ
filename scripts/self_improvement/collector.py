@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Deterministic evidence collection for self-improvement analysis.
 

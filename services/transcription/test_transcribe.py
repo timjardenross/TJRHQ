@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Test suite for transcribe.py — runs without a real audio file.
 Tests validation logic. For a live transcription test, pass a real .ogg.

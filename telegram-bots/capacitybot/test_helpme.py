@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for /helpme — MY CAPACITY TODAY V02 WP04 + WP05.
 

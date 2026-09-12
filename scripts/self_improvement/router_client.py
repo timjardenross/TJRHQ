@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Model Router client for self-improvement analysis.
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for intelligence/governance/workflow_gate.py (Phase A §1.4).
 

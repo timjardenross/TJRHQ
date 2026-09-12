@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for fuzzy near-duplicate clustering (Phase A Stage 6) in
 intelligence/classification/deduplicator.py.

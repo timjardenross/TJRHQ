@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for intelligence/ingestion/phase_a_enrichment.py — the live-pipeline
 seam (source-tier + fuzzy dedup + heuristic scoring) used by the daily job.

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for the MSN-0092 Advisory Runtime (core/advisory).
 
 These run fully offline — the specialist pipeline degrades deterministically

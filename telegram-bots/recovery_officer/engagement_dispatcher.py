@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """D-055 Recovery Officer — Telegram engagement dispatcher.
 
 This module is bot-agnostic. Import it into any of the three existing
