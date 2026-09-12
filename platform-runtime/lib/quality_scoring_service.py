@@ -26,12 +26,12 @@ Public API:
 
 from __future__ import annotations
 
-import os
 import logging
-from dataclasses import dataclass, field, asdict
+import os
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Any, List
 from enum import Enum
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ if _DEEPEVAL_AVAILABLE:
         kwarg, which is exactly what HallucinationMetric needs here.
         """
 
-        def __init__(self, router_url: Optional[str] = None):
+        def __init__(self, router_url: str | None = None):
             self._router_url = (router_url or os.environ.get("MODEL_ROUTER_URL", "http://127.0.0.1:8891")).rstrip("/")
             super().__init__(model=None)
 
@@ -144,17 +144,17 @@ class QualityScore:
     decision_id: str
 
     # Scoring
-    effectiveness_score: Optional[float]  # 1.0 - 5.0
+    effectiveness_score: float | None  # 1.0 - 5.0
     scoring_reason: str
 
     # Attribution
-    provider_name: Optional[str] = None
-    model_name: Optional[str] = None
-    provider_route: Optional[str] = None
+    provider_name: str | None = None
+    model_name: str | None = None
+    provider_route: str | None = None
 
     # Timestamps
     scored_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    created_at: Optional[str] = None
+    created_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for Supabase insert."""
@@ -229,8 +229,8 @@ class QualityScoring:
         self,
         prompt: str,
         response: str,
-        context: Optional[List[str]] = None,
-    ) -> Optional[float]:
+        context: list[str] | None = None,
+    ) -> float | None:
         """
         Score an LLM output for hallucination using deepeval's HallucinationMetric.
 
@@ -262,7 +262,7 @@ class QualityScoring:
             )
             return None
 
-        grounding_context: List[str] = context if context is not None else []
+        grounding_context: list[str] = context if context is not None else []
 
         try:
             test_case = LLMTestCase(
@@ -296,13 +296,13 @@ class QualityScoring:
         outcome_id: str,
         decision_id: str,
         outcome_status: str,
-        implementation_notes: Optional[str] = None,
-        provider_name: Optional[str] = None,
-        model_name: Optional[str] = None,
-        provider_route: Optional[str] = None,
-        scored_at: Optional[str] = None,
+        implementation_notes: str | None = None,
+        provider_name: str | None = None,
+        model_name: str | None = None,
+        provider_route: str | None = None,
+        scored_at: str | None = None,
         feedback_loops=None,
-    ) -> Optional[QualityScore]:
+    ) -> QualityScore | None:
         """
         Score outcome for effectiveness.
 
@@ -350,68 +350,46 @@ class QualityScoring:
             scored_at=scored_at,
         )
 
-        # Persist if client available
-        if self.supabase_client:
+        # NOTE: quality_scores table was dropped in migration
+        # 0183_drop_retired_dead_tables.sql (2026-09-01) as part of retiring
+        # the whole B1C/B1D/B1E Learning Loop chain — nothing live calls
+        # score_outcome() (build/research/comms learning loops and
+        # outcome_capture_service are all unreachable from any running
+        # service). This no longer persists; it just computes the score and
+        # runs the in-memory B1D feedback signal, matching the rest of that
+        # retired chain instead of silently failing on every call.
+        log.debug(f"[quality-scoring] Outcome scored (not persisted): {score_id}")
+
+        if feedback_loops and score is not None:
             try:
-                response = (
-                    self.supabase_client.table("quality_scores")
-                    .insert(quality_score.to_dict())
-                    .execute()
+                signal = feedback_loops.generate_feedback(
+                    score_id=score_id,
+                    decision_id=decision_id,
+                    provider_name=provider_name,
+                    effectiveness_score=score,
+                    model_name=model_name,
+                    provider_route=provider_route
                 )
 
-                log.info(
-                    f"[quality-scoring] Outcome scored: score_id={score_id}, "
-                    f"outcome_id={outcome_id}, effectiveness={score}"
-                )
-
-                # ====================================================================
-                # B1D INTEGRATION: Generate feedback signal from quality score
-                # ====================================================================
-                if feedback_loops and score is not None:
-                    try:
-                        signal = feedback_loops.generate_feedback(
-                            score_id=score_id,
-                            decision_id=decision_id,
-                            provider_name=provider_name,
-                            effectiveness_score=score,
-                            model_name=model_name,
-                            provider_route=provider_route
-                        )
-
-                        if signal:
-                            log.info(
-                                f"[quality-scoring→b1d] Feedback signal generated: "
-                                f"signal_id={signal.id}, action={signal.suggested_action}, "
-                                f"delta={signal.effectiveness_delta:+.1f}"
-                            )
-                        else:
-                            log.debug(
-                                f"[quality-scoring→b1d] No feedback signal (no delta or error)"
-                            )
-
-                    except Exception as e:
-                        log.error(
-                            f"[quality-scoring→b1d] Error generating feedback: "
-                            f"{type(e).__name__}: {str(e)[:100]}"
-                        )
-                        # Don't block quality scoring if feedback fails (non-critical)
-
-                elif not feedback_loops and score is not None:
-                    log.debug(
-                        f"[quality-scoring→b1d] Feedback loops not configured, "
-                        f"skipping B1D integration"
+                if signal:
+                    log.info(
+                        f"[quality-scoring→b1d] Feedback signal generated: "
+                        f"signal_id={signal.id}, action={signal.suggested_action}, "
+                        f"delta={signal.effectiveness_delta:+.1f}"
                     )
-
-                return quality_score
+                else:
+                    log.debug(
+                        "[quality-scoring→b1d] No feedback signal (no delta or error)"
+                    )
 
             except Exception as e:
                 log.error(
-                    f"[quality-scoring] Failed to score outcome: {type(e).__name__}: {str(e)[:100]}"
+                    f"[quality-scoring→b1d] Error generating feedback: "
+                    f"{type(e).__name__}: {str(e)[:100]}"
                 )
-                return None
-        else:
-            log.debug(f"[quality-scoring] Outcome scored (not persisted): {score_id}")
-            return quality_score
+                # Don't block quality scoring if feedback fails (non-critical)
+
+        return quality_score
 
     def get_provider_quality(self) -> list[ProviderQuality]:
         """
@@ -544,8 +522,8 @@ class QualityScoring:
             return []
 
     def _calculate_score(
-        self, outcome_status: str, implementation_notes: Optional[str] = None
-    ) -> Optional[float]:
+        self, outcome_status: str, implementation_notes: str | None = None
+    ) -> float | None:
         """
         Calculate effectiveness score based on outcome status.
 
@@ -603,7 +581,7 @@ class QualityScoring:
             log.warning(f"[quality-scoring] Unknown outcome status: {outcome_status}")
             return None
 
-    def _generate_reason(self, score: Optional[float], outcome_status: str) -> str:
+    def _generate_reason(self, score: float | None, outcome_status: str) -> str:
         """
         Generate explanation for effectiveness score.
 
