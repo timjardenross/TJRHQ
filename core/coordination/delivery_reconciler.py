@@ -267,6 +267,19 @@ def reconcile(apply: bool = False) -> dict[str, Any]:
                                 f"{p.stem}: Batch Status → MERGED (PR #{pr['number']} merged)")
                         except OSError as exc:
                             actions_taken.append(f"{p.stem}: FAILED to stamp MERGED ({exc})")
+                # Same mechanical fix, other direction: a PR closed without
+                # merging left its handoff frozen at DELIVERED forever (the
+                # reader below never checks GitHub itself) — confirmed live
+                # on PR #83/#84 (closed 2026-09-09, still read DELIVERED on
+                # 2026-09-12). Stamp REJECTED the moment live state shows closed.
+                elif pr["state"] == "closed" and raw_status.upper() != "REJECTED":
+                    if apply:
+                        try:
+                            _stamp_handoff(p, {"Batch Status": "REJECTED"})
+                            actions_taken.append(
+                                f"{p.stem}: Batch Status → REJECTED (PR #{pr['number']} closed unmerged)")
+                        except OSError as exc:
+                            actions_taken.append(f"{p.stem}: FAILED to stamp REJECTED ({exc})")
             elif raw_status.upper() == "DELIVERED":
                 bucket, evidence = "AWAITING_REVIEW", "delivered, PR state unknown"
             elif raw_status.upper() == "FAILED":

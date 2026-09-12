@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Tests for the 2026-09-07 "stamp MERGED on the handoff file" fix to
-core/coordination/delivery_reconciler.py.
+"""Tests for the "stamp handoff file from live PR state" fixes to
+core/coordination/delivery_reconciler.py (2026-09-07: MERGED; 2026-09-12: REJECTED).
 
 Bug: engineering_handoff_reader.py (which feeds the Engineering Handoffs
 page and the Captain's review reminders) only ever trusts a handoff's own
 `Batch Status` stamp — it never checks GitHub. delivery_reconciler.py
 already reconciles missions against live PR state and mechanically closes
-them out on merge (apply=True), but never did the equivalent for
-engineering handoffs: their `.md` files were left un-stamped forever, so
-a handoff whose PR the Captain had already merged kept nagging as
-"Awaiting Review" indefinitely.
+them out on merge (apply=True), but left two gaps in the handoff file
+itself: a merged PR left its handoff un-stamped forever, and — confirmed
+live on PR #83/#84, closed unmerged 2026-09-09 but still reading DELIVERED
+on 2026-09-12 — a PR closed *without* merging left its handoff frozen at
+DELIVERED forever too, since only the merged branch ever wrote back to the
+file. Both directions are now stamped mechanically.
 
 Never touches real GitHub or Supabase: `_github_prs` and `_supabase` are
 monkeypatched in every test; handoff files live under a scratch tmp_path,
@@ -88,6 +90,40 @@ def test_already_stamped_merged_is_left_alone(tmp_path):
     ])
     prs = {"fix/handoff-3": {"number": 58, "state": "merged",
                               "url": "https://github.com/timjardenross/TJRHQ/pull/58"}}
+
+    ledger = _reconcile_with(tmp_path, prs, apply=True)
+
+    assert ledger["actions_taken"] == []  # idempotent — no repeated stamping
+    assert handoff.read_text(encoding="utf-8").count("Batch Status:") == 1
+
+
+def test_stamps_rejected_batch_status_when_github_shows_the_pr_closed_unmerged(tmp_path):
+    handoff = _write_handoff(tmp_path, "ENG-HANDOFF-SD-FND-005", [
+        "# Engineering Handoff",
+        "- Batch Status: DELIVERED",
+        "- PR Branch: fix/handoff-5",
+        "- PR URL: https://github.com/timjardenross/TJRHQ/pull/60",
+    ])
+    prs = {"fix/handoff-5": {"number": 60, "state": "closed",
+                              "url": "https://github.com/timjardenross/TJRHQ/pull/60"}}
+
+    ledger = _reconcile_with(tmp_path, prs, apply=True)
+
+    assert any("Batch Status → REJECTED" in a for a in ledger["actions_taken"])
+    assert "Batch Status: REJECTED" in handoff.read_text(encoding="utf-8")
+    item = next(i for i in ledger["items"] if i["id"] == "ENG-HANDOFF-SD-FND-005")
+    assert item["bucket"] == "REJECTED"
+
+
+def test_already_stamped_rejected_is_left_alone(tmp_path):
+    handoff = _write_handoff(tmp_path, "ENG-HANDOFF-SD-FND-006", [
+        "# Engineering Handoff",
+        "- Batch Status: REJECTED",
+        "- PR Branch: fix/handoff-6",
+        "- PR URL: https://github.com/timjardenross/TJRHQ/pull/61",
+    ])
+    prs = {"fix/handoff-6": {"number": 61, "state": "closed",
+                              "url": "https://github.com/timjardenross/TJRHQ/pull/61"}}
 
     ledger = _reconcile_with(tmp_path, prs, apply=True)
 
