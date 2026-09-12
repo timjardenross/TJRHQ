@@ -44,7 +44,7 @@ flask-cors>=4.0.0
 # client dependency (distinct from the older google-generativeai above,
 # which something else in this codebase still needs — both coexist fine,
 # confirmed live, different import namespaces).
-graphiti-core[falkordblite,google-genai]>=0.29.0
+graphiti-core[falkordblite,google-genai]>=0.30.2
 # 2026-09-06: core/platform/unified_memory.py's mem0 backend for SEMANTIC/
 # FACTUAL recall (_Mem0Backend) — already installed and merged, just never
 # declared here.
