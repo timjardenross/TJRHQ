@@ -50,6 +50,7 @@ import {
   Activity,
   Lightbulb,
   GitPullRequest,
+  ShoppingCart,
 } from 'lucide-react';
 
 export interface WorkbenchEntry {
@@ -129,6 +130,12 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     title: 'Physical Readiness',
     description: 'Exercise library and workout history — a read-only record of what you\'ve done. Session generation and readiness check-in were retired (Captain directive, 2026-08-10/11); Recovery Pulse is the single source for capacity/stats now.',
     icon: Dumbbell,
+  },
+  {
+    href: '/shopping-list-workbench',
+    title: 'Shopping List',
+    description: 'Everything worth buying, wishlist to purchased — manually prioritised, filterable by category/status/recipient/occasion, with per-currency subtotals.',
+    icon: ShoppingCart,
   },
   {
     href: '/content-workbench',
