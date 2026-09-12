@@ -11,7 +11,7 @@ telemetry) and with optional contextual annotations (sleep, pain, anxiety, etc.)
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 _TZ = ZoneInfo("Australia/Brisbane")
@@ -43,8 +43,9 @@ def _current_time_of_day() -> str:
     """Suggest a time of day based on current hour."""
     try:
         local_hour = datetime.now(_TZ).hour
-    except Exception:
-        local_hour = datetime.now().hour
+    except Exception as exc:  # noqa: BLE001 - zoneinfo lookup failure is an environment quirk; falls back to aware UTC rather than crashing the time-of-day suggestion
+        log.debug("Brisbane zoneinfo lookup failed, falling back to UTC hour: %s", exc)
+        local_hour = datetime.now(timezone.utc).hour
     if local_hour < 14:
         return "morning"
     if local_hour < 18:
@@ -151,7 +152,7 @@ async def write_mood_entry(
         if notes:
             payload["notes"] = notes
 
-        res = db.table("mood_chart").upsert(
+        db.table("mood_chart").upsert(
             payload,
             on_conflict="log_date,time_of_day",
         ).execute()
@@ -162,12 +163,12 @@ async def write_mood_entry(
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat("mood_chart", status="ok", detail=f"tod={time_of_day} mood={mood_score} source=telegram")
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - best-effort telemetry heartbeat, must never fail the primary mood-entry write
+            log.debug("mood_chart heartbeat record failed: %s", exc)
 
         return True, None
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase upsert surface is unpredictable, already logged
         error_msg = str(exc)
         log.error("mood entry upsert failed: %s | tod=%s mood=%d", exc, time_of_day, mood_score)
         return False, error_msg

@@ -104,7 +104,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - supabase client init, best-effort, already logged
         log.debug("[dependency_management] Supabase unavailable: %s", exc)
         return None
 
@@ -184,7 +184,7 @@ def register_dependency(
         )
         log.info("[dependency_management] Registered %s: %s → %s (%s)", dep_id, from_id, to_id, dep_type.value)
         return dep_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - dependency registration, already logged
         log.warning("[dependency_management] register_dependency failed: %s", exc)
         return None
 
@@ -209,7 +209,7 @@ def list_dependencies(limit: int = 500) -> list[PortfolioDependency]:
             if d:
                 out.append(d)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - dependency listing, best-effort, already logged
         log.debug("[dependency_management] list_dependencies failed: %s", exc)
         return []
 
@@ -306,7 +306,7 @@ def analyse_dependencies() -> PortfolioDependencyReport:
             wbs = build_wbs(init.initiative_id)
             if wbs and wbs.blocked_missions and init.initiative_id not in report.blocked_initiative_ids:
                 report.blocked_initiative_ids.append(init.initiative_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - WBS mission-level supplement, best-effort, already logged
         log.debug("[dependency_management] wbs supplement failed: %s", exc)
 
     log.info(

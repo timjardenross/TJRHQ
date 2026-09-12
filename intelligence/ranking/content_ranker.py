@@ -61,7 +61,7 @@ def _type_adjusted_decay(collected_at_iso: str, useful_life_days: int) -> float:
         if collected.tzinfo is None:
             collected = collected.replace(tzinfo=timezone.utc)
         days_old = (datetime.now(timezone.utc) - collected).total_seconds() / 86400
-    except Exception:
+    except Exception:  # noqa: BLE001 - unparseable/malformed collected_at timestamp; falls back to the documented neutral mid-decay default (0.50) rather than crash a batch scoring pass
         return 0.50
 
     if useful_life_days <= 0:

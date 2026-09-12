@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -117,7 +117,7 @@ def analyse_note(
 
     finding: dict[str, Any] = {
         "officer":           officer,
-        "analysed_at":       datetime.utcnow().isoformat(),
+        "analysed_at":       datetime.now(timezone.utc).isoformat(),
         "relevance":         relevance,
         "matched_keywords":  matched[:10],
         "recommendation":    _derive_finding(officer, content, matched),
@@ -238,7 +238,7 @@ def batch_process_officer_review(supabase_client: Any) -> list[ProcessResult]:
         try:
             r = process_officer_review(row["id"], supabase_client)
             results.append(r)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort per-note processing, already logged
             log.warning("[notebook-officer] Failed to process note %s: %s", row["id"], exc)
             results.append(ProcessResult(note_id=row["id"], error=str(exc)))
     return results

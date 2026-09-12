@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for capacity_today.py — MY CAPACITY TODAY (V02 WP01).
 

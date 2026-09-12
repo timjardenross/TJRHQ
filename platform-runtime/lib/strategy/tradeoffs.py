@@ -94,8 +94,8 @@ def analyse_tradeoff(
         ps = score_initiative(initiative_id, inputs)
         if ps:
             target_priority = ps.composite_score
-    except Exception:
-        pass
+    except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
+        log.debug("[lib.strategy.tradeoffs] best-effort step failed, continuing: %s", _exc)
 
     # Estimate value gain from accelerating target
     try:
@@ -104,8 +104,8 @@ def analyse_tradeoff(
         if target_vr and target_vr.total_count > 0:
             # Acceleration captures ~20% more of unrealised benefit sooner
             target_benefit_gain = (1.0 - target_vr.overall_realisation_pct) * 0.2
-    except Exception:
-        pass
+    except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
+        log.debug("[lib.strategy.tradeoffs] best-effort step failed, continuing: %s", _exc)
 
     # Identify capacity displacements (lowest-priority others lose resource)
     capacity_status = str(inputs.get("capacity_status", "") or "")
@@ -142,10 +142,10 @@ def analyse_tradeoff(
 
                     if displaced_init.objective_id and displaced_init.objective_id != init.objective_id:
                         opp_cost.append(displaced_init.objective_id)
-                except Exception:
-                    pass
+                except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
+                    log.debug("[lib.strategy.tradeoffs] best-effort step failed, continuing: %s", _exc)
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (displacement scoring failed)
             log.debug("[strategy.tradeoffs] displacement scoring failed: %s", exc)
 
     # Dependency unlocks: does this initiative unblock others?
@@ -155,7 +155,7 @@ def analyse_tradeoff(
         for other in others:
             if initiative_id in dep_graph.get(other.initiative_id, set()):
                 dep_unlocks.append(other.initiative_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (dependency unlock check failed)
         log.debug("[strategy.tradeoffs] dependency unlock check failed: %s", exc)
 
     # Net benefit: gain from target - loss from displaced + unlock bonus

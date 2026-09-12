@@ -42,7 +42,7 @@ import logging
 import sys
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import IntEnum
 from pathlib import Path
 from typing import Any
@@ -114,7 +114,7 @@ class EscalationItem:
     def is_overdue(self) -> bool:
         if self.resolved or self.resolve_by is None:
             return False
-        return datetime.utcnow() > self.resolve_by
+        return datetime.now(timezone.utc) > self.resolve_by
 
     @property
     def route_hint(self) -> str:
@@ -174,11 +174,12 @@ def _row_to_escalation(row: dict[str, Any]) -> EscalationItem | None:
             title=title,
             level=level,
             reason=parts.get("REASON", ""),
-            escalated_at=_dt(parts.get("ESCALATED_AT", "")) or datetime.utcnow(),
+            escalated_at=_dt(parts.get("ESCALATED_AT", "")) or datetime.now(timezone.utc),
             resolve_by=_dt(parts.get("RESOLVE_BY", "")),
             resolved=resolved,
         )
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - malformed escalation row, skip and return None
+        log.debug("[officer_escalations] Row parse failed: %s", exc)
         return None
 
 
@@ -195,7 +196,7 @@ def create_escalation(
     """Create a new escalation starting at L0 Observe."""
     esc_id = uuid.uuid4().hex[:12]
     level = EscalationLevel.L0_OBSERVE
-    resolve_by = datetime.utcnow() + timedelta(days=level.days_before_advance) if level.days_before_advance else None
+    resolve_by = datetime.now(timezone.utc) + timedelta(days=level.days_before_advance) if level.days_before_advance else None
     ei = EscalationItem(
         esc_id=esc_id,
         officer=officer,
@@ -228,7 +229,7 @@ def create_escalation(
                     "status": "active",
                 }).execute()
         log.info("[officer_escalations] Created L0 escalation %s: %s/%s", esc_id, officer, item_type)
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Create failed, already logged
         log.debug("[officer_escalations] Create failed: %s", exc)
     return ei
 
@@ -253,21 +254,21 @@ def advance_escalation(esc_id: str) -> EscalationItem | None:
 
         new_level = EscalationLevel(ei.level.value + 1)
         ei.level = new_level
-        ei.escalated_at = datetime.utcnow()
+        ei.escalated_at = datetime.now(timezone.utc)
         ei.resolve_by = (
-            datetime.utcnow() + timedelta(days=new_level.days_before_advance)
+            datetime.now(timezone.utc) + timedelta(days=new_level.days_before_advance)
             if new_level.days_before_advance else None
         )
 
         c.raw_client.table("decisions").update({
             "statement": f"[OFFICER ESC] L{new_level.value} {ei.officer}: {ei.item_type}",
             "rationale": _build_rationale(ei),
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("owner", owner).execute()
 
         log.info("[officer_escalations] Advanced %s to %s", esc_id, new_level.label)
         return ei
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Advance failed, already logged
         log.debug("[officer_escalations] Advance failed %s: %s", esc_id, exc)
         return None
 
@@ -281,7 +282,7 @@ def resolve_escalation(esc_id: str) -> None:
             owner = f"{_ESC_OWNER_PREFIX}{esc_id}"
             c.raw_client.table("decisions").update({"status": "resolved"}).eq("owner", owner).execute()
         log.info("[officer_escalations] Resolved %s", esc_id)
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Resolve failed, already logged
         log.debug("[officer_escalations] Resolve failed %s: %s", esc_id, exc)
 
 
@@ -305,7 +306,7 @@ def get_overdue_escalations() -> list[EscalationItem]:
             ei = _row_to_escalation(row)
             if ei and ei.is_overdue and not ei.resolved:
                 overdue.append(ei)
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Get overdue failed, already logged
         log.debug("[officer_escalations] Get overdue failed: %s", exc)
     return overdue
 

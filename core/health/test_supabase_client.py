@@ -87,9 +87,8 @@ class TestSupabaseGet(unittest.TestCase):
         self.assertIsInstance(result, list)
 
     def test_get_raises_runtime_on_http_error(self):
-        with patch("urllib.request.urlopen", side_effect=_http_error(403)):
-            with self.assertRaises(RuntimeError) as ctx:
-                self.sc.supabase_get("health_daily_logs")
+        with patch("urllib.request.urlopen", side_effect=_http_error(403)), self.assertRaises(RuntimeError) as ctx:
+            self.sc.supabase_get("health_daily_logs")
         self.assertIn("403", str(ctx.exception))
 
     def test_get_raises_when_unconfigured(self):
@@ -118,9 +117,8 @@ class TestSupabaseUpsert(unittest.TestCase):
         self.assertEqual(result, saved)
 
     def test_upsert_raises_on_http_error(self):
-        with patch("urllib.request.urlopen", side_effect=_http_error(409, "conflict")):
-            with self.assertRaises(RuntimeError):
-                self.sc.supabase_upsert("health_daily_logs", {}, on_conflict="log_date")
+        with patch("urllib.request.urlopen", side_effect=_http_error(409, "conflict")), self.assertRaises(RuntimeError):
+            self.sc.supabase_upsert("health_daily_logs", {}, on_conflict="log_date")
 
     def test_upsert_includes_on_conflict_in_url(self):
         """Verify on_conflict is sent as a URL query parameter (PostgREST v10+)."""
@@ -176,9 +174,8 @@ class TestSupabaseInsert(unittest.TestCase):
         self.assertNotIn("merge-duplicates", captured["prefer"])
 
     def test_insert_raises_on_http_error(self):
-        with patch("urllib.request.urlopen", side_effect=_http_error(400, "bad request")):
-            with self.assertRaises(RuntimeError):
-                self.sc.supabase_insert("health_events", {})
+        with patch("urllib.request.urlopen", side_effect=_http_error(400, "bad request")), self.assertRaises(RuntimeError):
+            self.sc.supabase_insert("health_events", {})
 
     def test_insert_raises_when_unconfigured(self):
         with patch.object(self.sc, "_URL", ""), self.assertRaises(RuntimeError):

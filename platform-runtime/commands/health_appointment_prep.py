@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import date, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -70,8 +70,8 @@ def _get_upcoming_appointments(lead_days: int) -> list[dict]:
         if not is_configured():
             log.warning("[appt-prep] Supabase not configured — skipping appointment check")
             return []
-        today = date.today().isoformat()
-        cutoff = (date.today() + timedelta(days=lead_days)).isoformat()
+        today = datetime.now(timezone.utc).date().isoformat()
+        cutoff = (datetime.now(timezone.utc).date() + timedelta(days=lead_days)).isoformat()
         rows = supabase_get(
             f"health_events"
             f"?event_type=eq.appointment"
@@ -80,7 +80,7 @@ def _get_upcoming_appointments(lead_days: int) -> list[dict]:
             f"&order=event_date.asc"
         )
         return rows or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort appointment query, already logged
         log.error("[appt-prep] Failed to query upcoming appointments: %s", exc)
         return []
 
@@ -92,7 +92,7 @@ def _get_next_appointment() -> dict | None:
         from supabase_client import is_configured, supabase_get
         if not is_configured():
             return None
-        today = date.today().isoformat()
+        today = datetime.now(timezone.utc).date().isoformat()
         rows = supabase_get(
             f"health_events"
             f"?event_type=eq.appointment"
@@ -101,7 +101,7 @@ def _get_next_appointment() -> dict | None:
             f"&limit=1"
         )
         return rows[0] if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort appointment query, already logged
         log.error("[appt-prep] Failed to query next appointment: %s", exc)
         return None
 
@@ -112,7 +112,7 @@ def _get_health_summary_period(days: int = 7) -> dict:
         from supabase_client import is_configured, supabase_get
         if not is_configured():
             return {}
-        cutoff = (date.today() - timedelta(days=days)).isoformat()
+        cutoff = (datetime.now(timezone.utc).date() - timedelta(days=days)).isoformat()
         rows = supabase_get(
             f"analytics_health_daily"
             f"?log_date=gte.{cutoff}"
@@ -137,7 +137,7 @@ def _get_health_summary_period(days: int = 7) -> dict:
             "amber_days": statuses.count("AMBER") + statuses.count("Amber"),
             "green_days": statuses.count("GREEN") + statuses.count("Green"),
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort health summary aggregation, already logged
         log.error("[appt-prep] Failed to get health summary: %s", exc)
         return {}
 
@@ -148,8 +148,8 @@ def _get_recent_health_events(since_days: int = 30) -> list[dict]:
         from supabase_client import is_configured, supabase_get
         if not is_configured():
             return []
-        cutoff = (date.today() - timedelta(days=since_days)).isoformat()
-        today = date.today().isoformat()
+        cutoff = (datetime.now(timezone.utc).date() - timedelta(days=since_days)).isoformat()
+        today = datetime.now(timezone.utc).date().isoformat()
         rows = supabase_get(
             f"health_events"
             f"?event_date=gte.{cutoff}"
@@ -159,7 +159,7 @@ def _get_recent_health_events(since_days: int = 30) -> list[dict]:
             f"&limit=10"
         )
         return rows or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort recent events query, already logged
         log.error("[appt-prep] Failed to get recent health events: %s", exc)
         return []
 
@@ -177,7 +177,7 @@ def _get_pending_followups() -> list[dict]:
             "&limit=10"
         )
         return rows or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort follow-up query, already logged
         log.error("[appt-prep] Failed to get pending follow-ups: %s", exc)
         return []
 
@@ -317,7 +317,7 @@ def _post(client, text: str) -> bool:
     try:
         client.chat_postMessage(channel=channel, text=text)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Slack delivery, already logged
         log.error("[appt-prep] Slack post failed: %s", exc)
         return False
 
@@ -348,7 +348,7 @@ def check_upcoming_appointments(client, lead_days: int = _LEAD_DAYS) -> int:
                 posted += 1
                 log.info("[appt-prep] Appointment prep brief posted for %s on %s",
                          appt.get("title", "appointment"), appt.get("event_date", ""))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort brief generation per appointment, already logged
             log.error("[appt-prep] Brief generation failed: %s", exc)
 
     return posted
@@ -380,7 +380,7 @@ def handle_health_prep(ack, command, client):
         brief = _generate_prep_brief(appointment, health_summary, recent_events, follow_ups)
         client.chat_postMessage(channel=user_id, text=brief)
         log.info("[appt-prep] /health-prep brief delivered to %s", user_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort slash command handling, already logged
         log.error("[appt-prep] /health-prep failed: %s", exc)
         client.chat_postMessage(
             channel=user_id,

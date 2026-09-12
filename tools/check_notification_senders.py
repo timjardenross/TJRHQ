@@ -68,7 +68,7 @@ _ALLOWLIST = {
 def main() -> int:
     out = subprocess.run(
         ["git", "grep", "-lE", _PATTERN.pattern, "--", "*.py"],
-        cwd=_REPO_ROOT, capture_output=True, text=True,
+        cwd=_REPO_ROOT, capture_output=True, text=True, check=False,
     )
     # Exclude this script itself — it matches its own pattern string as a
     # literal, not an actual raw sender.

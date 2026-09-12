@@ -34,7 +34,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass
-from datetime import date
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -103,7 +103,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.debug("[benefits_realisation] Supabase unavailable: %s", exc)
         return None
 
@@ -169,7 +169,7 @@ def advance_benefit_lifecycle(
         from command_memory_integration import log_decision_to_command_memory
         c = _client()
         owner_key = f"{BENEFIT_RL_OWNER_PREFIX}{benefit_id}"
-        today = date.today().isoformat()
+        today = datetime.now(timezone.utc).date().isoformat()
 
         # Check if record exists
         existing_rec = get_benefit_lifecycle(benefit_id)
@@ -224,7 +224,7 @@ def advance_benefit_lifecycle(
         )
         log.info("[benefits_realisation] %s advanced to %s", benefit_id, new_status.value)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort lifecycle advance, already logged
         log.warning("[benefits_realisation] advance_benefit_lifecycle failed: %s", exc)
         return False
 
@@ -243,7 +243,7 @@ def get_benefit_lifecycle(benefit_id: str) -> BenefitRealisationRecord | None:
         )
         rows = list(res.data or [])
         return _row_to_record(rows[0]) if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort lifecycle lookup, already logged
         log.debug("[benefits_realisation] get_benefit_lifecycle failed: %s", exc)
         return None
 
@@ -274,7 +274,7 @@ def list_benefit_lifecycles(
                 continue
             out.append(r)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort lifecycle listing, already logged
         log.debug("[benefits_realisation] list_benefit_lifecycles failed: %s", exc)
         return []
 

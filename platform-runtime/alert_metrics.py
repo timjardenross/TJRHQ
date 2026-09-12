@@ -109,10 +109,10 @@ def get_notification_metrics(days: int | None = 7) -> dict:
                 oldest_open_days = round(
                     (datetime.now(timezone.utc) - first).total_seconds() / 86400, 1
                 )
-            except Exception:
-                pass
+            except Exception as _exc:  # noqa: BLE001 - oldest-open-alert age calc, already logged
+                log.debug("[alert_metrics] oldest-open age calculation failed, continuing: %s", _exc)
 
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Metrics computation failed, already logged
         log.warning("[metrics] Metrics computation failed: %s", exc)
         return _empty_metrics(days, now_str)
 
@@ -138,7 +138,7 @@ def _avg_time_between_event_types(
 ) -> float | None:
     """Compute average hours between two event types for the same escalation_id."""
     durations = []
-    for eid, evs in events_by_key.items():
+    for evs in events_by_key.values():
         from_events = sorted(
             [e for e in evs if e.get("event_type") == from_type],
             key=lambda e: e.get("event_at", ""),
@@ -157,7 +157,8 @@ def _avg_time_between_event_types(
                 if t_to > t_from:
                     durations.append((t_to - t_from).total_seconds() / 3600)
                     break
-        except Exception:
+        except Exception as _exc:  # noqa: BLE001 - alert transition duration calc, already logged
+            log.debug("[alert_metrics] transition duration calculation failed, continuing: %s", _exc)
             continue
     return round(sum(durations) / len(durations), 1) if durations else None
 
@@ -232,6 +233,6 @@ def get_metrics_block_for_brief() -> str:
             f"{resolved_7} resolved (7d) | {resolved_30} resolved (30d) | "
             f"{rate}% resolution rate"
         )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Brief block failed, already logged
         log.debug("[metrics] Brief block failed: %s", exc)
         return ""

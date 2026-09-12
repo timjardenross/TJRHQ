@@ -534,7 +534,7 @@ def review_knowledge(ctx: Any) -> list[ImprovementOpportunity]:
                 expected_benefit="Decision quality improves; Command Memory becomes genuinely searchable",
             ))
 
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - knowledge review Supabase check skipped, already logged
         log.debug("[improvement] knowledge review Supabase check skipped: %s", exc)
 
     # Check from CycleContext signals
@@ -589,7 +589,7 @@ def run_all_reviews(ctx: Any) -> list[ImprovementOpportunity]:
             ops = fn(ctx)
             all_opportunities.extend(ops)
             log.debug("[improvement] %s review: %d opportunity/ies", officer, len(ops))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-officer review, already logged
             log.warning("[improvement] %s review failed (non-blocking): %s", officer, exc)
 
     return all_opportunities

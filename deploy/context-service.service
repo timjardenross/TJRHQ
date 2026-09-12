@@ -47,8 +47,10 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/opt/starship-endeavour
-EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
-ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/gunicorn --bind 127.0.0.1:5001 --chdir /opt/starship-endeavour/core/context-assembly --pythonpath /opt/starship-endeavour/core/context-assembly --worker-class gthread --workers 1 --threads 4 --timeout 300 "context_service:create_app()"
+# 2026-09-12 (USS-TJR-MSN-0371 Stream 3): cut over to Infisical, old
+# EnvironmentFile= kept commented as rollback.
+# EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/.venv/bin/gunicorn --bind 127.0.0.1:5001 --chdir /opt/starship-endeavour/core/context-assembly --pythonpath /opt/starship-endeavour/core/context-assembly --worker-class gthread --workers 1 --threads 4 --timeout 300 "context_service:create_app()"
 Restart=always
 RestartSec=10
 StandardOutput=journal

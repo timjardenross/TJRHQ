@@ -17,7 +17,7 @@ Public API:
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -45,7 +45,7 @@ def save_research_output(
     except OSError:
         return None
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     slug = _make_slug(topic)
     filename = f"RESEARCH-{now.strftime('%Y%m%d-%H%M%S')}-{slug}.md"
     path = _RESEARCH_DIR / filename

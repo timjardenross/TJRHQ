@@ -18,7 +18,7 @@ import logging
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
@@ -65,10 +65,9 @@ class LLMCostGovernance:
             return None
 
         # Use in-memory cache to avoid hammering Supabase on every call
-        if not force_refresh and task_type in self._config_cache:
-            if self._last_config_load and \
-               (datetime.utcnow() - self._last_config_load).total_seconds() < 300:
-                return self._config_cache.get(task_type)
+        if (not force_refresh and task_type in self._config_cache and self._last_config_load
+                and (datetime.now(timezone.utc) - self._last_config_load).total_seconds() < 300):
+            return self._config_cache.get(task_type)
 
         try:
             url = (f"{self.supabase_url}/rest/v1/llm_cost_governance"
@@ -79,9 +78,9 @@ class LLMCostGovernance:
                 config = data[0] if data else None
                 if config:
                     self._config_cache[task_type] = config
-                    self._last_config_load = datetime.utcnow()
+                    self._last_config_load = datetime.now(timezone.utc)
                 return config
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort config fetch, already logged; caller treats None as 'no governance config, proceed ungoverned'
             log.warning(f"Failed to fetch cost governance config: {exc}")
             return None
 
@@ -91,7 +90,10 @@ class LLMCostGovernance:
             return 0, 0.0
 
         try:
-            today = date.today().isoformat()
+            # Matches llm_daily_costs' cost_date, computed by the DB as
+            # current_date (server/DB timezone, effectively UTC) — use the
+            # same UTC calendar day here rather than host-local.
+            today = datetime.now(timezone.utc).date().isoformat()
             url = (f"{self.supabase_url}/rest/v1/llm_daily_costs"
                    f"?cost_date=eq.{today}&task_type=eq.{task_type}")
             req = urllib.request.Request(url, headers=self._headers())
@@ -101,7 +103,7 @@ class LLMCostGovernance:
                     row = data[0]
                     return int(row.get("call_count", 0)), float(row.get("total_cost_usd", 0.0))
                 return 0, 0.0
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort daily-cost fetch, already logged; caller treats (0, 0.0) as 'no spend recorded yet'
             log.warning(f"Failed to fetch daily costs: {exc}")
             return 0, 0.0
 
@@ -246,7 +248,7 @@ class LLMCostGovernance:
             req = urllib.request.Request(url, data=body, headers=headers, method="POST")
             with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 - self.supabase_url is always the SUPABASE_URL env var / config constant passed by internal callers, not user input - reviewed 2026-09-12
                 return resp.status == 201
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort call-logging write, already logged; a logging failure must not block the real LLM call it's recording
             log.warning(f"Failed to log LLM call: {exc}")
             return False
 

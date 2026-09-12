@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import urllib.error
 import urllib.request
+
+log = logging.getLogger(__name__)
 
 DEFAULT_PROVIDER = "auto"
 DEFAULT_MODEL_ROUTER_URL = "http://127.0.0.1:8891"
@@ -30,10 +33,6 @@ def get_llm_provider() -> str:
 
 def get_model_router_url() -> str:
     return os.getenv("MODEL_ROUTER_URL", DEFAULT_MODEL_ROUTER_URL).rstrip("/")
-
-
-def get_gemini_model() -> str:
-    return os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
 
 
 def get_ollama_base_url() -> str:
@@ -76,12 +75,9 @@ def is_ollama_available() -> bool:
         )
         with urllib.request.urlopen(request, timeout=60) as response:  # nosec B310 - url built from OLLAMA_BASE_URL env var (internal router base), not user input - reviewed 2026-09-12
             return 200 <= response.status < 300
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - ollama health probe, unreachable is a normal "unavailable" outcome
+        log.debug("[llm] Ollama availability probe failed: %s", exc)
         return False
-
-
-def is_gemini_available() -> bool:
-    return bool(os.getenv("GEMINI_API_KEY"))
 
 
 def is_router_available() -> bool:
@@ -92,7 +88,8 @@ def is_router_available() -> bool:
         )
         with urllib.request.urlopen(req, timeout=3) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL env var (internal router base), not user input - reviewed 2026-09-12
             return 200 <= resp.status < 300
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - model router health probe, unreachable is a normal "unavailable" outcome
+        log.debug("[llm] Model router availability probe failed: %s", exc)
         return False
 
 
@@ -227,29 +224,6 @@ def generate_with_ollama(prompt: str, system_prompt: str | None = None, model: s
     return content.strip()
 
 
-def generate_with_gemini(prompt: str, system_prompt: str | None = None) -> str:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise LLMUnavailableError("Gemini credentials are not configured.")
-
-    try:
-        import google.generativeai as genai
-
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            get_gemini_model(),
-            system_instruction=system_prompt or None,
-        )
-        response = model.generate_content(prompt)
-        content = (getattr(response, "text", "") or "")
-    except Exception as error:
-        raise LLMUnavailableError(f"Gemini unavailable: {type(error).__name__}") from error
-
-    if not content.strip():
-        raise LLMUnavailableError("Gemini returned an empty response.")
-    return content.strip()
-
-
 def generate_response(
     prompt: str,
     system_prompt: str | None = None,
@@ -350,7 +324,8 @@ def ask_commander_safe(system_prompt: str, user_prompt: str) -> tuple[bool, str]
         return True, ask_commander(system_prompt=system_prompt, user_prompt=user_prompt)
     except LLMUnavailableError as error:
         return False, str(error)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - best-effort commander call, failure surfaced to caller as (False, reason)
+        log.debug("[llm] ask_commander_safe failed: %s", error)
         return False, f"{type(error).__name__}"
 
 
@@ -373,7 +348,8 @@ def ask_commander_for_specialists(
         )
     except LLMUnavailableError as error:
         return False, str(error)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - best-effort specialist commander call, failure surfaced to caller as (False, reason)
+        log.debug("[llm] ask_commander_for_specialists failed: %s", error)
         return False, f"{type(error).__name__}"
 
 
@@ -452,5 +428,6 @@ def ask_gemini_safe(system_prompt: str, user_prompt: str) -> tuple[bool, str]:
         return True, generate_with_gemini(prompt=user_prompt, system_prompt=system_prompt)
     except LLMUnavailableError as error:
         return False, str(error)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - best-effort Gemini call, failure surfaced to caller as (False, reason)
+        log.debug("[llm] ask_gemini_safe failed: %s", error)
         return False, f"{type(error).__name__}"

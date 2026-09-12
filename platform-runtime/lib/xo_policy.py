@@ -7,7 +7,7 @@ decision, not as a human authorization check.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +25,7 @@ class XOPolicyDecision:
     resulting_state: str
     system_actor: str = "XO"
     requesting_user: str = ""
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     policy_trace: list[str] = field(default_factory=list)
     policy_sources: list[str] = field(default_factory=list)
 

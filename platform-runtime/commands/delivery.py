@@ -180,8 +180,8 @@ def _metrics() -> str:
         "*By state:* " + ", ".join(f"{k} {v}" for k, v in sorted(m["by_state"].items())),
     ]
     if m["pr_rate"] < 0.5 or m["outcome_rate"] < 0.5:
-        lines += ["", "_Low PR/outcome capture — delivery is happening off-system. "
-                  "Routing work through the instrumented flow will lift these._"]
+        lines += ["", ("_Low PR/outcome capture — delivery is happening off-system. "
+                  "Routing work through the instrumented flow will lift these._")]
     return "\n".join(lines)
 
 

@@ -199,7 +199,7 @@ def _refresh_threshold_cache() -> None:
     from intelligence.persistence import intelligence_store as store
     try:
         _threshold_cache = store.load_all_downdetector_thresholds()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort cache refresh, already logged; explicitly keeps the previous cache on failure
         log.warning(
             "[downdetector] threshold cache refresh failed, keeping previous "
             "cache (%d source(s)): %s", len(_threshold_cache), exc,
@@ -277,7 +277,7 @@ class DowndetectorAdapter(BaseSourceAdapter):
                 status=status,
                 report_count=report_count,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - explicitly documented above as best-effort logging that must never break real collection, already logged
             # Best-effort — a logging failure must never break real collection.
             log.warning(
                 "[%s] failed to log baseline observation: %s",

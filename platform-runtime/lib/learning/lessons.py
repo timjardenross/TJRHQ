@@ -42,7 +42,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -124,7 +124,7 @@ def generate_lesson_candidate(
                 )
                 if res.data:
                     return None
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - dedup lookup, best-effort, already logged
             log.debug("[learning.lessons] Lesson dedup skipped: %s", exc)
 
         candidate_id = log_decision_to_command_memory(
@@ -149,7 +149,7 @@ def generate_lesson_candidate(
             )
         return candidate_id
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - lesson candidate creation, best-effort, already logged
         log.debug("[learning.lessons] generate_lesson_candidate failed: %s", exc)
         return None
 
@@ -184,7 +184,7 @@ def lesson_from_investigation(investigation: Any) -> str | None:
             outcome=outcome_str,
             confidence=confidence,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - investigation-closure lesson gen, best-effort, already logged
         log.debug("[learning.lessons] lesson_from_investigation failed: %s", exc)
         return None
 
@@ -212,7 +212,7 @@ def lesson_from_mission(mission: dict[str, Any]) -> str | None:
             outcome=status,
             confidence=confidence,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - mission-closure lesson gen, best-effort, already logged
         log.debug("[learning.lessons] lesson_from_mission failed: %s", exc)
         return None
 
@@ -307,7 +307,7 @@ def get_lesson_candidates(
         candidates.sort(key=lambda x: x.confidence, reverse=True)
         return candidates[:limit]
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - candidate fetch, best-effort, already logged
         log.debug("[learning.lessons] get_lesson_candidates failed: %s", exc)
         return []
 
@@ -353,7 +353,7 @@ def promote_lesson_candidate(candidate_id: str) -> str | None:
         record = {
             "lesson_id": lesson_id,
             "title": cand.title[:200],
-            "date_recorded": date.today().isoformat(),
+            "date_recorded": datetime.now(timezone.utc).date().isoformat(),
             "context": cand.context,
             "lesson_text": cand.lesson_text,
             "outcome": cand.outcome,
@@ -376,7 +376,7 @@ def promote_lesson_candidate(candidate_id: str) -> str | None:
         log.info("[learning.lessons] Promoted candidate %s → lesson %s", candidate_id, lesson_id)
         return lesson_id
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - candidate promotion, already logged
         log.warning("[learning.lessons] promote_lesson_candidate failed: %s", exc)
         return None
 
@@ -389,10 +389,10 @@ def record_lesson_reuse(lesson_id: str, context: str = "") -> None:
         from command_memory_integration import log_decision_to_command_memory
         log_decision_to_command_memory(
             statement=f"[LESSON REUSE] {lesson_id}: {context[:80]}",
-            rationale=f"LESSON_ID: {lesson_id} | REUSED_AT: {datetime.utcnow().isoformat()} | CONTEXT: {context[:120]}",
+            rationale=f"LESSON_ID: {lesson_id} | REUSED_AT: {datetime.now(timezone.utc).isoformat()} | CONTEXT: {context[:120]}",
             owner=f"{LESSON_REUSE_OWNER_PREFIX}{lesson_id}",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - reuse-tracking write, best-effort, already logged
         log.debug("[learning.lessons] record_lesson_reuse failed: %s", exc)
 
 
@@ -410,7 +410,8 @@ def get_reuse_count(lesson_id: str) -> int:
             .execute()
         )
         return int(getattr(res, "count", None) or 0)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort reuse count, defaults to 0
+        log.debug("[learning.lessons] get_reuse_count failed: %s", exc)
         return 0
 
 

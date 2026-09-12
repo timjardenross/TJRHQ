@@ -83,7 +83,7 @@ def _build_event(
     provider: str = "",
     outcome: str = "",
     follow_up_required: bool = False,
-    follow_up_date: str = None,
+    follow_up_date: str | None = None,
     follow_up_notes: str = "",
 ) -> dict:
     """Validate and build a health_events row dict."""
@@ -119,7 +119,7 @@ def _build_event(
     }
 
 
-def _prompt(label: str, required: bool = False, choices: tuple = None, default: str = "") -> str:
+def _prompt(label: str, required: bool = False, choices: tuple | None = None, default: str = "") -> str:
     while True:
         suffix = f" [{default}]" if default else ""
         if choices:
@@ -183,7 +183,7 @@ def _interactive_add() -> None:
     try:
         supabase_upsert("health_events", event, on_conflict="id")
         print(f"\n  ✅ Event '{event['title']}' added successfully (id: {event['id'][:8]}...)")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - interactive CLI top-level boundary — prints the failure and exits non-zero, already surfaced to the operator
         print(f"\n  ❌ Failed to save: {exc}")
         sys.exit(1)
 
@@ -208,7 +208,7 @@ def _batch_add(json_path: str) -> None:
             supabase_upsert("health_events", event, on_conflict="id")
             print(f"  ✅ [{i}/{len(data)}] {event['event_date']} — {event['title']}")
             ok += 1
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-row batch-import loop — one bad row must not abort the batch; already printed + counted in `failed`
             print(f"  ❌ [{i}/{len(data)}] Failed: {exc}")
             failed += 1
 
@@ -219,7 +219,7 @@ def _list_events() -> None:
     """Print existing health events."""
     try:
         events = supabase_get("health_events?limit=50&order=event_date.desc")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - CLI list command — prints the failure and returns; already surfaced to the operator
         print(f"❌ Fetch failed: {exc}")
         return
 
@@ -266,7 +266,7 @@ def main() -> None:
             )
             supabase_upsert("health_events", event, on_conflict="id")
             print(f"✅ Event added: {event['title']} ({event['event_date']})")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - interactive CLI top-level boundary — prints the failure and exits non-zero, already surfaced to the operator
             print(f"❌ Failed: {exc}")
             sys.exit(1)
     else:

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -100,7 +100,7 @@ def build_lesson_record(
     mission_title: str,
     parsed: dict,
 ) -> LessonRecord:
-    date = datetime.now().strftime("%B %Y")
+    date = datetime.now(timezone.utc).strftime("%B %Y")
 
     # Extract entity IDs from outcome text
     all_text = " ".join(parsed.values())
@@ -267,27 +267,7 @@ def format_closure_prompt(mission_id: str) -> str:
 
 
 def format_lesson_captured_notice(lesson_id: str, mission_id: str) -> str:
-    return "\n".join([
-        "# LESSON CAPTURED",
-        "",
-        "## Lesson ID",
-        "",
-        lesson_id,
-        "",
-        "## Mission",
-        "",
-        mission_id,
-        "",
-        "## Status",
-        "",
-        "Lesson saved to `knowledge/Lessons-Learned.md`.",
-        "Knowledge record generated in `knowledge/missions/`.",
-        "",
-        "## Next Actions",
-        "",
-        "- Review the lesson at your next monthly retrospective.",
-        "- Check whether this lesson suggests a new ADR or capability update.",
-    ])
+    return f"# LESSON CAPTURED\n\n## Lesson ID\n\n{lesson_id}\n\n## Mission\n\n{mission_id}\n\n## Status\n\nLesson saved to `knowledge/Lessons-Learned.md`.\nKnowledge record generated in `knowledge/missions/`.\n\n## Next Actions\n\n- Review the lesson at your next monthly retrospective.\n- Check whether this lesson suggests a new ADR or capability update."
 
 
 def format_exception_closure_notice(mission_id: str, exception_note: str) -> str:

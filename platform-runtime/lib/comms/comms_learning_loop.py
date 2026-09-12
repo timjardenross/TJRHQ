@@ -11,14 +11,14 @@ human accept decisions.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
 
 def generate_comms_decision_id() -> str:
-    return f"DEC-COM-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
+    return f"DEC-COM-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
 
 
 def record_comms_approval_event(
@@ -45,7 +45,7 @@ def record_comms_approval_event(
         return
 
     notes = f"Content '{title}' advanced {old_state} -> {new_state}"
-    captured_at = datetime.utcnow().isoformat()
+    captured_at = datetime.now(timezone.utc).isoformat()
 
     try:
         client = CommanderSupabaseClient()
@@ -130,8 +130,8 @@ def record_comms_approval_event(
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat("decisions", status="ok", detail="source=comms-learning-loop")
-        except Exception:
-            pass
+        except Exception as _exc:  # noqa: BLE001 - best-effort heartbeat record, already logged
+            log.debug("[lib.comms.comms_learning_loop] best-effort step failed, continuing: %s", _exc)
 
         # 4. quality_scores — needs the RAW supabase-py client, not the wrapper.
         raw = client.raw_client
@@ -155,8 +155,8 @@ def record_comms_approval_event(
                 "[comms-learning-loop] Scored: content_id=%s outcome_id=%s decision_id=%s",
                 content_id, outcome_bigint_id, decision_id,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort quality scoring, already logged
             log.warning("[comms-learning-loop] scoring/feedback skipped: %s", exc)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort decision/outcome chain write, already logged
         log.warning("[comms-learning-loop] decision/outcome chain write failed: %s", exc)

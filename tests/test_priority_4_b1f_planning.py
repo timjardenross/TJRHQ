@@ -17,7 +17,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -208,7 +208,7 @@ def test_priority_4_automatic_routing():
         'id': 'DEC-AUTO-001',
         'provider_name': selected,
         'routing_method': 'automatic',
-        'timestamp': datetime.utcnow().isoformat()
+        'timestamp': datetime.now(timezone.utc).isoformat()
     }
 
     log.info(f"  Decision recorded: {decision['id']} → {decision['provider_name']}")
@@ -378,12 +378,12 @@ if __name__ == '__main__':
 
         if passed == total:
             log.info("\n🎯 PRIORITY 4 OPTIMIZATION: COMPLETE")
-            exit(0)
+            sys.exit(0)
         else:
-            exit(1)
+            sys.exit(1)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level test-script wrapper: catch any error to log it and exit non-zero rather than crash with a raw traceback
         log.error(f"❌ Test error: {e}")
         import traceback
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)

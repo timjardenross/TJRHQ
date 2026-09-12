@@ -52,7 +52,7 @@ class HierarchyMemoryAdapter:
                 from core.knowledge_navigation.index import get_graph
                 g = get_graph()
                 self._available = g.node_count() > 0
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.debug("[hierarchy-adapter] Navigation module not available: %s", exc)
                 self._available = False
         return self._available
@@ -89,7 +89,7 @@ class HierarchyMemoryAdapter:
                 context_block=f"\n\n{block}",
                 entity_ids_found=entity_ids,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[hierarchy-adapter] build_hierarchy_note failed: %s", exc)
             return HierarchyContext()
 

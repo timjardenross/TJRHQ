@@ -179,7 +179,7 @@ def classify_decision_mode(question: str) -> DecisionClassification:
     if provider == "ollama":
         try:
             return _llm_classify(question)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S110 - silent fallback — rules-based is always available (see docstring above)
             pass  # silent fallback — rules-based is always available
 
     return _rules_classify(question)

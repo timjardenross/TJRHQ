@@ -1,5 +1,5 @@
 ---
-status: "Reconstructed — medium confidence (partially unimplemented)"
+status: "Reconstructed — high confidence (test/implementation mismatch resolved USS-TJR-MSN-0370: stale test, not a missing feature)"
 date: 2026-09-12
 decision-makers: {unknown — reconstructed from code, not from a governance-log entry}
 consulted: {unknown}
@@ -76,6 +76,69 @@ section or update the test to match the real, current handoff format.
   runtime.
 
 ## More Information
+
+## Resolution (USS-TJR-MSN-0370, 2026-09-12)
+
+Follow-up mission to reconstruct the confirmation above and resolve the
+flagged gap. Verdict: **the test's expectations were stale, not
+`mission_brief.py`'s implementation.** Fixed `platform-runtime/test_build_router_alignment.py`
+to match the real, current code rather than adding the missing feature to
+`mission_brief.py`.
+
+Evidence gathered:
+
+* Running the test file (previously never run — see "Confirmation" above)
+  showed **12 of 23 tests failing**, not just the one cited. All 12 failures
+  traced to one root cause: a "mission ID routes through the Engineering
+  Router with backend/mode selection, free text uses Mistral Scribe" design
+  that the test file assumes throughout (`_parse_router_args`,
+  `save_build_record(..., router_meta=...)`, a `## Engineering Router
+  Metadata` section in build records/handoffs, a dict return from
+  `save_engineering_handoff_from_build_record()`).
+* Searched this repo's full git history (`git log --all -S`) for
+  `_parse_router_args` in `commands/mission_brief.py`: it has **never
+  existed** in that file at any point in history. It only ever appears in
+  test fixtures — including the earliest commit where the file was
+  introduced into this history at all, meaning the mismatch predates any
+  traceable change here (consistent with this repo's git history being
+  squash/sync-mangled, per prior missions' notes).
+* Found the actual precedent: `platform-runtime/tests/test_mission_brief_router_integration.py`
+  — a *sibling* test file exercising the exact same missing
+  `_parse_router_args`/router-integration surface — was already found and
+  **deliberately deleted** on 2026-09-08 (commit `38e554352`, "Remove Slack
+  integration platform-wide; Telegram is now the sole transport") as
+  orphaned Slack-only test debt. `test_build_router_alignment.py` tested the
+  identical abandoned integration but was overlooked in that same cleanup
+  pass — this mission is the belated other half of that cleanup.
+* Confirmed `commands/mission_brief.py` (and specifically
+  `save_engineering_handoff_from_build_record()`) has **zero live callers
+  anywhere in the repo** (`grep -rn` for both the module and the function
+  found none outside test files and the module's own docstring). The module
+  is dead code left behind by the Slack removal, in the same category the
+  2026-09-08 commit message explicitly flagged for `commands/health_appointment_prep.py`
+  ("real generation logic behind dead Slack Bolt command handlers... needs
+  its own pass").
+* `save_engineering_handoff_from_build_record()`'s own module-level public
+  API docstring already documents `-> str`, matching its real
+  implementation — the dict-return and router-metadata assumptions in the
+  test were never true of any live version of this function.
+
+Because there is no live caller anywhere depending on router metadata or a
+dict return, and no evidence this integration was ever completed (only
+assumed by tests), implementing the missing feature would mean building
+unrequested new behavior for dead code rather than fixing a real gap. Fixed
+`test_build_router_alignment.py` instead: removed the assertions/tests that
+depended on the non-existent `_parse_router_args`, `router_meta` kwarg, and
+"Engineering Router Metadata"/`ADR-030` handoff section (documented inline
+in the test file with this same evidence trail), and updated the
+NameError-regression and dict-return tests to assert the function's real,
+current `str` contract. All 14 remaining tests in the file pass.
+
+This does not change the load-bearing part of this ADR: the plan/review-vs-apply
+backend boundary in `core/engineering/providers/gemini.py` is real, current,
+and unaffected by this resolution — only the router-metadata handoff
+citation (always the "Bad / open gap" item above) has been resolved, as
+stale test debt.
 
 Evidence: `core/engineering/providers/gemini.py` (direct governance citation),
 `platform-runtime/test_build_router_alignment.py` (describes intended

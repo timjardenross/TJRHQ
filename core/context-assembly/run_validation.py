@@ -24,7 +24,7 @@ Usage:
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -35,7 +35,7 @@ from loaders import load_corpus
 OUT = Path(__file__).parent / "validation_output"
 OUT.mkdir(exist_ok=True)
 
-GENERATED = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+GENERATED = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 MISSION_IDS = ["MSN-0001", "MSN-0004", "MSN-0008", "MSN-0009",
                "MSN-0011", "MSN-0015A", "MSN-0031"]
 
@@ -205,7 +205,7 @@ def run_corpus_validation(corpus, packages):
         has_adrs        = bool(pkg.governing_adrs)
         has_deps        = bool(pkg.dependencies)
         has_caps        = bool(pkg.capabilities_built)
-        has_rels        = bool(pkg.relationships)
+        bool(pkg.relationships)
         # Traceability: every relationship has evidence text
         traceable = all(bool(r.evidence) for r in pkg.relationships) if pkg.relationships else None
         # Confidence proxy: avg relationship confidence
@@ -495,7 +495,7 @@ def build_number_one_brief(corpus, packages):
                 break
 
     # Top risk: governance traceability (no triggering decision)
-    no_decision_missions = [
+    [
         mid for mid, pkg in packages.items()
         if not pkg.triggering_decisions
     ]
@@ -717,7 +717,7 @@ def build_gap_analysis(corpus, packages):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def build_confidence_assessment(validation_data, packages):
-    n = validation_data["missions_assessed"]
+    validation_data["missions_assessed"]
     avg_c = validation_data["avg_completeness"]
     pct_adrs = validation_data["pct_with_governing_adrs"]
     pct_dec  = validation_data["pct_with_triggering_decision"]
@@ -972,8 +972,12 @@ def main():
           f"{len(corpus['adrs'])}ADR  {len(corpus['capabilities'])}CAP")
     print(f"  Packages built:    {len(packages)}")
     print(f"  Avg completeness:  {validation_data['avg_completeness']:.0%}")
-    print(f"  Captain Brief:     ✅ Generated ({sum(1 for l in open(p3_path) if l.startswith('##'))} sections)")
-    print(f"  Number One Brief:  ✅ Generated ({sum(1 for l in open(p4_path) if l.startswith('##'))} sections)")
+    with open(p3_path) as f:
+        p3_sections = sum(1 for l in f if l.startswith("##"))
+    with open(p4_path) as f:
+        p4_sections = sum(1 for l in f if l.startswith("##"))
+    print(f"  Captain Brief:     ✅ Generated ({p3_sections} sections)")
+    print(f"  Number One Brief:  ✅ Generated ({p4_sections} sections)")
     print(f"  Infrastructure:    {confidence['infrastructure_required']}")
     print("\n  ══════════════════════════════════")
     print(f"  RECOMMENDATION: {confidence['recommendation']}")

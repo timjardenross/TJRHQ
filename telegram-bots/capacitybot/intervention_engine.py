@@ -44,7 +44,7 @@ async def _fetch_candidates(db, capacity_state: str | None) -> list[dict]:
             query = query.contains("capacity_allowed", [capacity_state])
         res = query.execute()
         return res.data or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_interventions fetch failed: %s", exc)
         return []
 
@@ -68,7 +68,7 @@ async def _fetch_personal_outcomes(db, intervention_ids: list[str]) -> dict[str,
         for row in res.data or []:
             by_id.setdefault(row["intervention_id"], []).append(row["outcome"])
         return by_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.warning("capacity_intervention_events fetch failed (ranking continues unweighted): %s", exc)
         return {}
 
@@ -187,7 +187,7 @@ async def get_intervention(db, intervention_id: str) -> dict | None:
         res = db.table(TABLE).select("*").eq("intervention_id", intervention_id).limit(1).execute()
         rows = res.data or []
         return rows[0] if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_interventions lookup failed: %s", exc)
         return None
 
@@ -232,7 +232,7 @@ async def create_event(
         res = db.table(EVENTS_TABLE).insert(payload).execute()
         row = (res.data or [None])[0]
         return True, row, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_intervention_events insert failed: %s | payload=%s", exc, payload)
         return False, None, str(exc)
 
@@ -262,7 +262,7 @@ async def complete_reassessment(
     try:
         db.table(EVENTS_TABLE).update(payload).eq("id", event_id).execute()
         return True, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_intervention_events reassessment update failed: %s", exc)
         return False, str(exc)
 
@@ -285,7 +285,7 @@ async def personal_effectiveness_summary(db, min_sample: int = MIN_SAMPLE_FOR_WE
             row["intervention_id"]: row["title"]
             for row in (db.table(TABLE).select("intervention_id,title").execute()).data or []
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("personal_effectiveness_summary fetch failed: %s", exc)
         return []
 
@@ -384,7 +384,7 @@ async def intervention_context_by_state(db) -> list[dict]:
             row["intervention_id"]: row["title"]
             for row in (db.table(TABLE).select("intervention_id,title").execute()).data or []
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("intervention_context_by_state fetch failed: %s", exc)
         return []
 

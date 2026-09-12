@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for ADR-006 Phase 2A: Number One memory-aware oversight."""
 
 from __future__ import annotations

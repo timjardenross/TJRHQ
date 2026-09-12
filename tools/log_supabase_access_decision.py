@@ -10,7 +10,7 @@ Run with:
 
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Fleet Engineering Review 2026-08-11: ROOT here is tools/ (this file's own
@@ -41,7 +41,7 @@ def main():
         return False
 
     # Generate decision ID
-    ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     decision_id = f"DEC-{ts}"
 
     # Decision record

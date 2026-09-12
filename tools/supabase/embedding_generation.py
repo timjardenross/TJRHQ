@@ -8,7 +8,7 @@ Purpose: Generate embeddings for all document chunks using nomic-embed-text
 
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 import requests
 
@@ -79,7 +79,7 @@ class EmbeddingGenerator:
                 avg_time_per_chunk=0,
                 total_time=0,
                 failed_ids=[],
-                embedding_timestamp=datetime.now()
+                embedding_timestamp=datetime.now(timezone.utc)
             )
 
         # Filter chunks that need embedding
@@ -94,7 +94,6 @@ class EmbeddingGenerator:
         embedded_count = 0
         failed_count = 0
         failed_ids = []
-        batch_count = 0
 
         print(f"\n📊 Starting embedding generation for {len(chunks_to_embed)} chunks...")
         print(f"   Model: {self.model}")
@@ -102,9 +101,8 @@ class EmbeddingGenerator:
         print(f"   Skipping {len(skipped)} already-embedded chunks\n")
 
         # Process in batches
-        for i in range(0, len(chunks_to_embed), self.batch_size):
+        for batch_count, i in enumerate(range(0, len(chunks_to_embed), self.batch_size), start=1):
             batch = chunks_to_embed[i:i + self.batch_size]
-            batch_count += 1
             batch_start = time.time()
 
             for chunk in batch:
@@ -112,7 +110,7 @@ class EmbeddingGenerator:
                     embedding = self._embed_text(chunk['content'])
                     chunk['embedding'] = embedding
                     embedded_count += 1
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - per-chunk embed inside a batch loop — one bad chunk must not abort the batch; already printed + counted in failed_count/failed_ids
                     failed_ids.append(chunk['id'])
                     failed_count += 1
                     print(f"   ❌ Chunk {chunk['id']}: {str(e)[:50]}")
@@ -143,7 +141,7 @@ class EmbeddingGenerator:
             avg_time_per_chunk=avg_time,
             total_time=total_time,
             failed_ids=failed_ids,
-            embedding_timestamp=datetime.now()
+            embedding_timestamp=datetime.now(timezone.utc)
         )
 
     def _embed_text(self, text: str) -> list[float]:

@@ -62,7 +62,7 @@ def add_pattern(
             },
         )
         return result.ok
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[pattern-library] add_pattern failed (non-blocking): %s", exc)
         return False
 
@@ -80,7 +80,7 @@ def get_patterns(category: str | None = None) -> list[dict[str, Any]]:
             query = query.eq("pattern_category", category)
         result = query.execute()
         return list(result.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[pattern-library] get_patterns failed (non-blocking): %s", exc)
         return []
 

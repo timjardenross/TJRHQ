@@ -12,7 +12,7 @@ Red-flag escalation always overrides a routine push.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import datetime, timezone
 from statistics import mean
 
 from . import framework, safety
@@ -20,7 +20,7 @@ from . import framework, safety
 
 def _pick(*variants: str) -> str:
     """Return a variant deterministically by day — cycles through all, no repeat within len(variants) days."""
-    return variants[date.today().toordinal() % len(variants)]
+    return variants[datetime.now(timezone.utc).date().toordinal() % len(variants)]
 
 
 @dataclass

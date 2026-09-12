@@ -11,7 +11,7 @@ Samples recent events across risk levels and validates:
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from intelligence.persistence import intelligence_store
 
@@ -34,11 +34,11 @@ def enrichment_sample(days: int = 14, sample_per_level: int = SAMPLE_SIZE_PER_LE
     - event_id, raw_title, source_tier, score_breakdown, risk_rating, signal_status
     - dedup_hash, canonical_signal_id (for dedup analysis)
     """
-    since = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
     samples = {
         "period_days": days,
-        "sampled_at": datetime.utcnow().isoformat(),
+        "sampled_at": datetime.now(timezone.utc).isoformat(),
         "sample_size_per_level": sample_per_level,
         "events": {},
     }
@@ -64,7 +64,7 @@ def enrichment_sample(days: int = 14, sample_per_level: int = SAMPLE_SIZE_PER_LE
             if isinstance(sb, str):
                 try:
                     sb = json.loads(sb)
-                except:
+                except (json.JSONDecodeError, ValueError):
                     sb = None
 
             event_sample = {
@@ -86,7 +86,7 @@ def enrichment_sample(days: int = 14, sample_per_level: int = SAMPLE_SIZE_PER_LE
 
 def enrichment_stats(days: int = 14) -> dict:
     """Compute enrichment quality statistics."""
-    since = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
     log.info("Computing enrichment statistics...")
 

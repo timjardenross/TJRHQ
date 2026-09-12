@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -99,13 +99,13 @@ class CommandMemoryClient:
             detail = ""
             try:
                 detail = e.read().decode("utf-8")[:300]
-            except Exception:
-                pass
+            except Exception as _exc:  # noqa: BLE001 - best-effort error-body decode for logging, already logged
+                log.debug("[command_memory_integration] best-effort step failed, continuing: %s", _exc)
             log.error(
                 f"[command-memory] HTTP {e.code} ({method} {path}): {detail}"
             )
             return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort HTTP request, already logged
             log.error(f"[command-memory] Request failed ({method} {path}): {e}")
             return None
 
@@ -172,7 +172,7 @@ class CommandMemoryClient:
             query = urllib.parse.urlencode(params, safe="*,().")
             result = self.request("GET", f"/rest/v1/{table}?{query}")
             return result if isinstance(result, list) else []
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort table query, already logged
             log.error(f"[command-memory] Query to {table} failed: {e}")
             return []
 
@@ -220,10 +220,10 @@ def save_mission_to_command_memory(
         "id": mission_id,
         "title": title,
         "created_by": created_by,
-        "created_at": datetime.utcnow().isoformat() + "Z",
+        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
         "status": status,
         "owner": owner,
-        "updated_at": datetime.utcnow().isoformat() + "Z",
+        "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
         "updated_by": created_by,
     }
     if description is not None:
@@ -264,11 +264,11 @@ def log_decision_to_command_memory(
         "statement": statement,
         "rationale": rationale,
         "created_by": owner,
-        "created_at": datetime.utcnow().isoformat() + "Z",
+        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
         "owner": owner,
         "status": "Active",
         "alternatives": None,
-        "updated_at": datetime.utcnow().isoformat() + "Z",
+        "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
         "updated_by": owner,
     }
 
@@ -301,7 +301,7 @@ def update_mission_status_in_command_memory(
     client = get_client()
     updates = {
         "status": new_status,
-        "updated_at": datetime.utcnow().isoformat() + "Z",
+        "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
         "updated_by": user_id,
     }
 
@@ -406,7 +406,7 @@ def create_mission_from_officer(
             approved=True, reason=reason,
             captain_override=captain_override,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort authority check, already logged
         log.warning("[command-memory] Authority check skipped (non-blocking): %s", exc)
 
     # Build mission ID
@@ -432,12 +432,12 @@ def create_mission_from_officer(
         "id": mission_id,
         "title": title,
         "created_by": f"officer:{officer}",
-        "created_at": datetime.utcnow().isoformat() + "Z",
+        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
         "status": "Idea",
         "owner": recommended_owner or f"officer:{officer}",
         "description": description,
         "priority": priority,
-        "updated_at": datetime.utcnow().isoformat() + "Z",
+        "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
         "updated_by": f"officer:{officer}",
     }
 

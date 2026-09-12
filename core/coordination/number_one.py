@@ -27,17 +27,20 @@ Design:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 try:
     from core.coordination.number_one_memory_adapter import (
         MemoryContext,
         NumberOneMemoryAdapter,
     )
-except Exception:  # pragma: no cover - advisory-only fallback
+except Exception:  # pragma: no cover - advisory-only fallback  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
     NumberOneMemoryAdapter = None
     MemoryContext = None
 
@@ -229,10 +232,10 @@ class CoordinationConfig:
     LOW_CONFIDENCE = 0.0
 
     # Priority order for queuing
-    PRIORITY_ORDER = [Priority.P0, Priority.P1, Priority.P2, Priority.P3]
+    PRIORITY_ORDER = (Priority.P0, Priority.P1, Priority.P2, Priority.P3)
 
     # Status order within priority
-    STATUS_ORDER = [
+    STATUS_ORDER = (
         # D-008 active states (most-needs-attention first), then legacy, then terminal
         MissionStatus.AWAITING_XO_APPROVAL,
         MissionStatus.AWAITING_NUMBER_ONE_REVIEW,
@@ -251,7 +254,7 @@ class CoordinationConfig:
         MissionStatus.ARCHIVED,
         MissionStatus.CANCELLED,
         MissionStatus.COMPLETED,
-    ]
+    )
 
 
 # ============================================================================
@@ -269,7 +272,7 @@ class NumberOne:
     def __init__(self, config: CoordinationConfig | None = None):
         """Initialize Number One."""
         self.config = config or CoordinationConfig()
-        self.current_time = datetime.utcnow()
+        self.current_time = datetime.now(timezone.utc)
         self.memory_adapter = NumberOneMemoryAdapter() if NumberOneMemoryAdapter else None
 
     def request_advisory_support(self, mission: dict[str, Any]) -> dict[str, Any]:
@@ -866,7 +869,7 @@ class NumberOne:
             return None
         try:
             return self.memory_adapter.retrieve_context(missions, routing_results or {})
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one] memory retrieval failed (non-blocking): %s", exc)
             return None
 
@@ -887,7 +890,7 @@ class NumberOne:
                 "confidence": 0.0,
             }
             self.memory_adapter.persist_brief(payload)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one] memory persistence failed (non-blocking): %s", exc)
 
 
@@ -957,7 +960,7 @@ def _to_priority(value: str | None) -> Priority:
 def _parse_iso_datetime(datetime_str: str | None) -> datetime:
     """Parse ISO 8601 datetime string to naive UTC datetime."""
     if not datetime_str:
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
     try:
         # Parse with timezone info, then convert to naive UTC
         dt = datetime.fromisoformat(datetime_str.replace("Z", "+00:00"))
@@ -966,7 +969,7 @@ def _parse_iso_datetime(datetime_str: str | None) -> datetime:
             return dt.replace(tzinfo=None)
         return dt
     except (ValueError, AttributeError):
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
 
 
 # ============================================================================

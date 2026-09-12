@@ -59,8 +59,8 @@ def _grep(pattern: str, paths: list[str], repo_root: Path) -> list[str]:
         result = subprocess.run(
             ["grep", "-rlE", pattern, *existing] + _grep_exclude_args(),
             capture_output=True, text=True, timeout=_GREP_TIMEOUT_SECONDS,
-        )
-    except Exception as exc:
+        check=False)
+    except (OSError, subprocess.SubprocessError) as exc:
         log.warning(f"grep failed for pattern={pattern!r} paths={paths}: {exc}")
         return []
     if result.returncode not in (0, 1):  # 1 = no matches, still a clean run
@@ -138,7 +138,7 @@ def validate_topic(topic: dict[str, Any], repo_root: Path) -> dict[str, Any]:
         log.warning(f"Unknown validation check_type: {check_type!r}")
         return {"result": "unclear", "evidence": [], "reason": f"Unknown check_type {check_type!r}", "validated_at": validated_at}
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - dispatches across several distinct check_type validation paths with different failure surfaces; already logged and degrades to an honest 'unclear' result rather than crashing watchlist validation
         log.warning(f"Validation failed for topic {topic.get('id')}: {exc}")
         return {"result": "unclear", "evidence": [], "reason": f"Validation error: {exc}", "validated_at": validated_at}
 

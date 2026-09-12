@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Weighting Analysis — WP4
 
@@ -19,7 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -120,7 +121,7 @@ def run_analysis(days: int = 45) -> dict[str, Any]:
     if not is_configured():
         return {"error": "Supabase not configured", "success": False}
 
-    since = (date.today() - timedelta(days=days - 1)).isoformat()
+    since = (datetime.now().astimezone().date() - timedelta(days=days - 1)).isoformat()
     entries = supabase_get(
         f"captains_log_entries?log_date=gte.{since}&order=log_date.asc&limit={days}"
     )
@@ -137,7 +138,7 @@ def run_analysis(days: int = 45) -> dict[str, Any]:
         }
 
     captain_nums = [_captain_num(e) for e in paired]
-    valid_captain = [v for v in captain_nums if v is not None]
+    [v for v in captain_nums if v is not None]
 
     correlations: dict[str, float | None] = {}
     for var, (extractor, current_weight) in _EXTRACTORS.items():

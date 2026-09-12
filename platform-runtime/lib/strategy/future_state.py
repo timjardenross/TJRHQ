@@ -89,7 +89,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.debug("[future_state] Supabase unavailable: %s", exc)
         return None
 
@@ -210,7 +210,7 @@ def register_future_capability(
         )
         log.info("[future_state] Registered H%d future cap %s — %s", horizon, plan_id, name[:60])
         return plan_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort future-cap registration, already logged
         log.warning("[future_state] register_future_capability failed: %s", exc)
         return None
 
@@ -242,7 +242,7 @@ def list_future_capabilities(
             if p:
                 out.append(p)
         return out
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort future-cap list query, already logged
         log.debug("[future_state] list_future_capabilities failed: %s", exc)
         return []
 

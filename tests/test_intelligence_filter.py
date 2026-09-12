@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for intelligence/classification/filter.py
 
@@ -98,7 +99,7 @@ class TestOpinionSignal(unittest.TestCase):
 
     def test_analysis_prefix_suppressed(self):
         ev = _make_event(title="Analysis: What rising rates mean for the housing market")
-        suppressed, reason = should_suppress(ev)
+        suppressed, _reason = should_suppress(ev)
         self.assertTrue(suppressed)
 
 
@@ -112,7 +113,7 @@ class TestGenericNews(unittest.TestCase):
 
     def test_gallery_suppressed(self):
         ev = _make_event(title="Gallery: photos from the RBA press conference")
-        suppressed, reason = should_suppress(ev)
+        suppressed, _reason = should_suppress(ev)
         self.assertTrue(suppressed)
 
 
@@ -151,7 +152,7 @@ class TestCveBulletinSuppression(unittest.TestCase):
             title="Major bank confirms customer data breach affecting 2 million accounts",
             operational_relevance=0.55,
         )
-        suppressed, reason = should_suppress(ev)
+        suppressed, _reason = should_suppress(ev)
         self.assertFalse(suppressed)
 
 

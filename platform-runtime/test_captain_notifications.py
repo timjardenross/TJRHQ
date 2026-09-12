@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for captain_notifications — Proactive Captain Notification Framework
 """
@@ -5,7 +6,7 @@ Tests for captain_notifications — Proactive Captain Notification Framework
 import os
 import sys
 import unittest
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -84,7 +85,7 @@ class TestNotificationConfig(unittest.TestCase):
             cfg = NotificationConfig()
         # Quiet hours are 22-07; simulate midday so quiet hours don't interfere
         with patch("captain_notifications.datetime") as mock_dt:
-            mock_dt.now.return_value = datetime(2026, 6, 16, 10, 0)  # Monday 10:00
+            mock_dt.now.return_value = datetime(2026, 6, 16, 10, 0, tzinfo=timezone.utc)  # Monday 10:00
             self.assertFalse(cfg.should_send(SEVERITY_INFO))
             self.assertFalse(cfg.should_send(SEVERITY_WARNING))
             self.assertTrue(cfg.should_send(SEVERITY_ALERT))
@@ -94,7 +95,7 @@ class TestNotificationConfig(unittest.TestCase):
         with self._env(NOTIFICATION_LEVEL="INFO"):
             cfg = NotificationConfig()
         with patch("captain_notifications.datetime") as mock_dt:
-            mock_dt.now.return_value = datetime(2026, 6, 16, 23, 0)  # 23:00 — quiet
+            mock_dt.now.return_value = datetime(2026, 6, 16, 23, 0, tzinfo=timezone.utc)  # 23:00 — quiet
             self.assertFalse(cfg.should_send(SEVERITY_ALERT))
             self.assertTrue(cfg.should_send(SEVERITY_CRITICAL))  # CRITICAL breaks quiet
 
@@ -102,7 +103,7 @@ class TestNotificationConfig(unittest.TestCase):
         with self._env(NOTIFICATION_LEVEL="INFO", WEEKEND_NOTIFICATIONS="false"):
             cfg = NotificationConfig()
         with patch("captain_notifications.datetime") as mock_dt:
-            mock_dt.now.return_value = datetime(2026, 6, 14, 10, 0)  # Saturday 10:00
+            mock_dt.now.return_value = datetime(2026, 6, 14, 10, 0, tzinfo=timezone.utc)  # Saturday 10:00
             self.assertFalse(cfg.should_send(SEVERITY_INFO, is_routine=True))
             # Non-routine should still pass
             self.assertTrue(cfg.should_send(SEVERITY_INFO, is_routine=False))

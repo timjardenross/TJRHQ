@@ -284,7 +284,7 @@ def handle_ask_specialist(
         )
         log.info("[ask-specialist] Response received (%d chars)", len(output))
         return f"*SPECIALIST RESPONSE — {spec['title']}*\n\n```{output}```"
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Generation failed, already logged
         log.error("[ask-specialist] Generation failed: %s — %s", type(exc).__name__, exc)
         return _fallback_response(spec, question)
 

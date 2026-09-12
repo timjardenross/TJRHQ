@@ -74,7 +74,7 @@ def handle_mission_capture(
         Formatted Slack mrkdwn string ready to post.
     """
     import sys
-    from datetime import datetime
+    from datetime import datetime, timezone
     from pathlib import Path
     _bot_dir = Path(__file__).resolve().parent.parent
     if str(_bot_dir) not in sys.path:
@@ -102,7 +102,7 @@ def handle_mission_capture(
         log.info("[mission-capture] Capture generated (%d chars)", len(output))
 
         # MSN-0040A: Persist to Command Memory (non-blocking)
-        mission_id = f"M-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        mission_id = f"M-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
         title = _extract_title(output) or text.strip()[:100] or "Untitled Mission"
         saved = _persist_mission_capture(mission_id, title, user_id or "slack-bot", description=output)
 
@@ -112,7 +112,7 @@ def handle_mission_capture(
         else:
             result += "\n\n:warning: Could not reach Command Memory — saved locally only"
         return result
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - LLM generation, falls back to template capture, already logged
         log.error("[mission-capture] Generation failed: %s — %s", type(exc).__name__, exc)
         return _fallback_capture(text)
 
@@ -147,7 +147,7 @@ def _persist_mission_capture(
             description=description,
         )
         return saved
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Command Memory persist, non-blocking, already logged
         log.warning("[mission-capture] Failed to persist to Command Memory: %s", e)
         return False
         # Non-blocking: mission capture still returned to user

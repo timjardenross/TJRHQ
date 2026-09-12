@@ -185,8 +185,8 @@ def process_one(client: SupabaseClient | None, path: Path, dry_run: bool) -> dic
             source="docling-ingest", linked_documents=[document["id"]],
             recommended_action=relative,
         )
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort event-bus publish; a bus outage must never block a successful ingest
+        print(f"[docling_ingest] Failed to publish document_ingested event: {exc}", file=_sys.stderr)
 
     return {
         "document_id": document["id"],
@@ -211,7 +211,7 @@ def main() -> None:
     if not args.dry_run:
         try:
             client = SupabaseClient()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort client init with an explicit dry-run fallback right below, already printed
             print(f"Supabase not configured ({exc}) — running as dry-run instead.")
             args.dry_run = True
 

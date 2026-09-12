@@ -244,7 +244,7 @@ def sync_log_to_notion(log_path) -> None:
         from sync_collaboration_logs import sync_log_path
 
         sync_log_path(log_path)
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - best-effort Notion sync, already printed as a non-blocking warning
         print(f"Warning: Notion collaboration sync skipped: {error}")
 
 

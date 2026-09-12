@@ -85,7 +85,7 @@ import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -254,7 +254,7 @@ def check_and_increment(provider: str, *, today: date | None = None, timeout: in
         raise ValueError(f"Unknown external-fetch provider: {provider!r} (known: {sorted(PROVIDERS)})")
 
     budget = PROVIDERS[provider]
-    cycle_start, cycle_end = _cycle_bounds(today or date.today(), budget.anchor_day)
+    cycle_start, cycle_end = _cycle_bounds(today or datetime.now(timezone.utc).date(), budget.anchor_day)
 
     allowed, call_count = _rpc_try_increment(provider, cycle_start, cycle_end, budget.ceiling, timeout)
 
@@ -298,7 +298,7 @@ def current_usage(provider: str, *, today: date | None = None, timeout: int = 10
         )
 
     budget = PROVIDERS[provider]
-    cycle_start, cycle_end = _cycle_bounds(today or date.today(), budget.anchor_day)
+    cycle_start, cycle_end = _cycle_bounds(today or datetime.now(timezone.utc).date(), budget.anchor_day)
 
     url = (
         f"{_SUPABASE_URL.rstrip('/')}/rest/v1/external_fetch_usage"

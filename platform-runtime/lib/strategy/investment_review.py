@@ -75,7 +75,7 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
             f"{bc.title[:55]} (score {bc.composite_score:.1f}/10, {bc.outcome.value.replace('_', ' ')})"
             for bc in approved[:5]
         ]
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Q1 failed, already logged
         log.debug("[investment_review] Q1 failed: %s", exc)
 
     # ── Q2: Investments to stop ────────────────────────────────────────────────
@@ -91,7 +91,7 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
             f"{d.title[:55]} [{d.decision.value.upper()}] — {d.rationale[:50]}"
             for d in stop_decisions[:5]
         ]
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Q2 failed, already logged
         log.debug("[investment_review] Q2 failed: %s", exc)
 
     # ── Q3: Unrealised benefits ────────────────────────────────────────────────
@@ -103,7 +103,7 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
             f"{l.benefit_title[:50]} [{l.leakage_type.value}] — {l.description[:50]}"
             for l in leakages[:5]
         ]
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Q3 failed, already logged
         log.debug("[investment_review] Q3 failed: %s", exc)
 
     # ── Q4: Delivery constraints ───────────────────────────────────────────────
@@ -115,7 +115,7 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
             f"[{c.constraint_type.value.replace('_', ' ').upper()}] {c.description[:70]}"
             for c in constraint_report.constraints[:5]
         ]
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Q4 failed, already logged
         log.debug("[investment_review] Q4 failed: %s", exc)
 
     # ── Q5: Highest-risk investments ──────────────────────────────────────────
@@ -130,7 +130,7 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
             f"{bc.title[:50]} (score {bc.composite_score:.1f}) — {bc.risk_flags[0][:60]}"
             for bc in risky[:5]
         ]
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Q5 failed, already logged
         log.debug("[investment_review] Q5 failed: %s", exc)
 
     # ── Q6: Funding opportunities ─────────────────────────────────────────────
@@ -145,13 +145,13 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
             inv = None
             try:
                 inv = get_investment_for_initiative(ps.initiative_id)
-            except Exception:
-                pass
+            except Exception as _exc:  # noqa: BLE001 - per-initiative investment lookup, already logged
+                log.debug("[lib.strategy.investment_review] investment lookup failed for %s, continuing: %s", ps.initiative_id, _exc)
             inv_status = inv.approval_status.value if inv else "no investment registered"
             review.funding_opportunities.append(
                 f"{ps.title[:50]} (score {ps.composite_score:.1f}) — {inv_status}"
             )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Q6 failed, already logged
         log.debug("[investment_review] Q6 failed: %s", exc)
 
     # ── Headline ───────────────────────────────────────────────────────────────

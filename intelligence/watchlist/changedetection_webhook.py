@@ -111,9 +111,9 @@ def normalise_payload(body: dict) -> dict | None:
         f"persistent diff-watch (changedetection.io)"
     )
     summary_parts = [
-        f"[Watchlist signal type: changedetection-diff (persistent third-party "
-        f"diff-watch, not a vendor self-report)] changedetection.io detected a "
-        f"real content change on a watched page ({watch_url})."
+        (f"[Watchlist signal type: changedetection-diff (persistent third-party "
+         f"diff-watch, not a vendor self-report)] changedetection.io detected a "
+         f"real content change on a watched page ({watch_url}).")
     ]
     if diff_added:
         summary_parts.append(f"Added: {diff_added[:600]}")
@@ -148,7 +148,7 @@ class _Handler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length) if length else b""
         try:
             body = json.loads(raw.decode("utf-8")) if raw else {}
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - webhook HTTP handler — malformed body returns 400 to the sender, already logged
             log.warning("[changedetection_webhook] non-JSON body: %s", exc)
             self.send_response(400)
             self.end_headers()

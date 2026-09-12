@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for /distract + /protocols — MY CAPACITY TODAY V02 WP09.
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for voice_capture.py — USS-TJR Voice-to-Capture integration.
 
@@ -63,7 +64,7 @@ def test_classification_rules():
         ("the weather is nice",                   "unknown"),
     ]
     for text, expected in cases:
-        got, conf = classify_text(text)
+        got, _conf = classify_text(text)
         check(f"classify '{text[:40]}…' → {expected}", got == expected)
 
 

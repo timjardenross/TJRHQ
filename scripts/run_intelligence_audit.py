@@ -19,7 +19,7 @@ import argparse
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -91,7 +91,7 @@ def generate_audit_report(fidelity: dict, enrichment: dict, briefs: dict) -> str
     """Generate markdown audit report."""
     report = f"""# Intelligence Audit Report
 
-**Generated:** {datetime.utcnow().isoformat()}
+**Generated:** {datetime.now(timezone.utc).isoformat()}
 
 ---
 

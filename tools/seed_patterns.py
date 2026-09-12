@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Standalone seed script for the Operational Pattern Library.
 
 Seeds the 8 initial patterns defined in core/platform/operational_pattern_library.py

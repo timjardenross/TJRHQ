@@ -16,7 +16,7 @@ import config
 def _read(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8", errors="replace")
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: '' on any read failure
         return ""
 
 
@@ -294,7 +294,7 @@ def load_captain_profile() -> dict[str, Any]:
     }
 
 
-def load_corpus(missions_override_dir: Path = None) -> dict[str, Any]:
+def load_corpus(missions_override_dir: Path | None = None) -> dict[str, Any]:
     """
     Load everything into a single dict keyed by entity type.
 

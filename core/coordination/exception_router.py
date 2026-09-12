@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -46,7 +46,7 @@ CAPTAIN_ONLY: frozenset[str] = frozenset({
     "safety_issue",
     "priority_conflict",
     "resource_constraint",
-    "governance_exception",
+    "governance_exception",         # EXEC-010A L5 officer escalation reaching Captain level
     "mission_cancellation",
     "capacity_override",
     "cross_domain_conflict",
@@ -63,7 +63,6 @@ CAPTAIN_ONLY: frozenset[str] = frozenset({
     "investment_decision",          # EXEC-010 investment requiring Captain strategic sign-off
     "benefit_leakage_critical",     # EXEC-010 critical benefit leakage threatening strategic value
     "investment_review",            # EXEC-010 executive investment review escalation
-    "governance_exception",         # EXEC-010A L5 officer escalation reaching Captain level
     "officer_action_required",      # EXEC-010A officer action requiring Captain approval
 })
 
@@ -231,7 +230,7 @@ def classify_all(items: list[dict[str, Any]]) -> RoutedBrief:
                 Route.NUMBER_ONE: brief.number_one,
                 Route.OFFICER: brief.officer,
             }[decision.route].append(decision)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[exception-router] Failed to classify item %s: %s", item.get("type"), exc)
     return brief
 
@@ -256,7 +255,7 @@ def format_captain_brief(
     """
     lines = [
         "*CAPTAIN EXECUTIVE BRIEF*",
-        f"_{datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC_",
+        f"_{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC_",
         "",
     ]
 

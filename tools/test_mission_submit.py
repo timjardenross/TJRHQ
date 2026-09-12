@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0178 — Tests for /mission_submit Telegram command.
 
 Seven tests covering:

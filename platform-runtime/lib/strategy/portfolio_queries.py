@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -55,7 +55,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.warning("[strategy.portfolio] Supabase unavailable: %s", exc)
         return None
 
@@ -74,7 +74,7 @@ def missions_to_stop() -> list[dict[str, Any]]:
     if c is None:
         return []
     try:
-        cutoff = (datetime.utcnow() - timedelta(days=ORPHAN_STALE_DAYS)).isoformat() + "Z"
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=ORPHAN_STALE_DAYS)).isoformat() + "Z"
         res = c.raw_client.table("missions").select(
             "id,title,status,priority,owner,updated_at,strategic_objective_id"
         ).is_("strategic_objective_id", "null").lt("updated_at", cutoff).execute()
@@ -97,7 +97,7 @@ def missions_to_stop() -> list[dict[str, Any]]:
             }
             for r in candidates
         ]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort portfolio query, already logged
         log.warning("[strategy.portfolio] missions_to_stop failed: %s", exc)
         return []
 
@@ -128,7 +128,7 @@ def underfunded_objectives() -> list[dict[str, Any]]:
                     "reason": f"Only {open_count} active mission(s) — below threshold of {UNDERFUNDED_THRESHOLD}",
                 })
         return results
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort portfolio query, already logged
         log.warning("[strategy.portfolio] underfunded_objectives failed: %s", exc)
         return []
 
@@ -158,7 +158,7 @@ def overloaded_objectives() -> list[dict[str, Any]]:
                     "reason": f"{open_count} active missions — exceeds threshold of {OVERLOADED_THRESHOLD}",
                 })
         return results
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort portfolio query, already logged
         log.warning("[strategy.portfolio] overloaded_objectives failed: %s", exc)
         return []
 
@@ -184,7 +184,7 @@ def misaligned_missions() -> list[dict[str, Any]]:
             }
             for r in rows
         ]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort portfolio query, already logged
         log.warning("[strategy.portfolio] misaligned_missions failed: %s", exc)
         # Fallback: query missions directly
         try:
@@ -205,7 +205,8 @@ def misaligned_missions() -> list[dict[str, Any]]:
                 for r in rows
                 if str(r.get("status") or "").lower() not in _TERMINAL
             ]
-        except Exception:
+        except Exception as _fallback_exc:  # noqa: BLE001 - best-effort fallback query
+            log.debug("[strategy.portfolio] misaligned_missions fallback failed: %s", _fallback_exc)
             return []
 
 
@@ -236,7 +237,7 @@ def next_priority() -> dict[str, Any] | None:
             "priority": r.get("priority", "P3"),
             "reason": "Highest-priority unassigned mission ready for action",
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort portfolio query, already logged
         log.warning("[strategy.portfolio] next_priority failed: %s", exc)
         return None
 
@@ -307,8 +308,8 @@ def _log_portfolio_run(
             ),
             owner="strategic_planning",
         )
-    except Exception:
-        pass
+    except Exception as _exc:  # noqa: BLE001 - best-effort command memory log, already logged
+        log.debug("[lib.strategy.portfolio_queries] best-effort step failed, continuing: %s", _exc)
 
 
 __all__ = [

@@ -316,7 +316,7 @@ def create_slack_paperclip_issue(
 
     try:
         pc = PaperclipClient()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort client init, already logged
         msg = f"PaperclipClient init failed: {type(exc).__name__}"
         log.error("[paperclip-creator] %s — %s", msg, exc)
         return _failure(title, priority, assignee, msg)
@@ -334,7 +334,7 @@ def create_slack_paperclip_issue(
             priority=priority,
             assignee_agent_id=assignee["agent_id"],
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort API call, already logged
         msg = f"Paperclip API call raised {type(exc).__name__}"
         log.error("[paperclip-creator] %s — %s", msg, exc)
         return _failure(title, priority, assignee, msg)

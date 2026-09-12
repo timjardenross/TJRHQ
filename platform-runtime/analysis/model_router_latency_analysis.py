@@ -83,7 +83,7 @@ class ModelRouterLatencyAnalyzer:
                 start = time.time()
                 try:
                     _, model_label = router_call(prompt)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - best-effort latency sample, already logged
                     log.error(f"Model Router call failed: {exc}")
                     continue
                 elapsed = time.time() - start
@@ -104,8 +104,8 @@ class ModelRouterLatencyAnalyzer:
     def generate_recommendations(self, results: dict[str, dict[str, float]]) -> list[str]:
         """Plain-language next steps from a completed analyze_latency() run."""
         if not results:
-            return ["No successful Model Router calls to analyze — check connectivity "
-                    "(model_router.check_connectivity()) before tuning anything."]
+            return [("No successful Model Router calls to analyze — check connectivity "
+                    "(model_router.check_connectivity()) before tuning anything.")]
 
         recommendations: list[str] = []
 

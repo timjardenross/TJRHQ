@@ -133,7 +133,7 @@ class HealthSourceValidator:
                     "signal_id": signal_id, "source_id": source_id, "is_accurate": is_accurate,
                     "validation_method": method, "validation_detail": detail, "validated_by": "system",
                 }).execute()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-validation save inside a batch loop — one bad save must not abort the run; already logged + counted in self.errors
                 logger.error(f"Save validation failed for {signal_id}: {e}")
                 self.errors += 1
                 return
@@ -266,7 +266,7 @@ class HealthSourceValidator:
         if auto_registered:
             mq = self.recompute_avg_methodology_quality(source_id)
             if mq is not None:
-                avg_quality, n_quality = mq
+                avg_quality, _n_quality = mq
                 update["avg_methodology_quality"] = avg_quality
 
             new_reputation = self.recompute_publisher_reputation(source_id, current_reputation)

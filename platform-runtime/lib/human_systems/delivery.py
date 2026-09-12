@@ -68,7 +68,7 @@ def _send_telegram(text: str, token: str, chat_id: str) -> tuple[bool, str | Non
         return False, str(body.get("description") or "telegram_error")
     except urllib.error.HTTPError as exc:  # pragma: no cover - network dependent
         return False, f"HTTPError({exc.code})"
-    except Exception as exc:  # pragma: no cover - network dependent
+    except Exception as exc:  # noqa: BLE001 - documented "never raises" network contract, error type returned to caller - pragma: no cover - network dependent
         return False, type(exc).__name__
 
 

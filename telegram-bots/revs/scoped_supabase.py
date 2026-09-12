@@ -46,7 +46,7 @@ def resolve_scoped_auth() -> str | None:
     if secret:
         try:
             return mint_scoped_token(secret)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - JWT mint surface (bad secret/lib error) is unpredictable, already logged, and callers correctly fall back on None
             log.error("[scoped-supabase] failed to mint revs_bot token from SUPABASE_JWT_SECRET: %s", exc)
             return None
     preminted = os.environ.get("REVS_BOT_SCOPED_TOKEN", "").strip()
@@ -76,7 +76,7 @@ def build_scoped_client(supabase_url: str):
 
     try:
         client.table("revs_users").select("id").limit(1).execute()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - live Supabase verification query surface is unpredictable, already logged, and this is a deliberate fail-closed security check
         log.error(
             "[scoped-supabase] revs_bot token failed live verification "
             "(bad SUPABASE_JWT_SECRET/REVS_BOT_SCOPED_TOKEN, wrong signing "

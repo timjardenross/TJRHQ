@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0014A — Paperclip API Discovery Script.
 
 Non-destructive discovery: calls health, lists companies and agents.
@@ -41,7 +42,7 @@ def _get(path: str) -> Any:
         body = e.read().decode()
         try:
             return json.loads(body)
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort JSON-body parse of an HTTP error response; falls back to the raw body text, which is still returned to the caller
             return {"error": f"HTTP {e.code}", "body": body}
     except OSError as e:
         return {"error": f"Connection failed: {e}"}
@@ -133,7 +134,7 @@ def print_summary(companies: list[dict], agents: list[dict]) -> None:
     print("=" * 60)
 
     # Primary company = smallest issuePrefix (STA before STAA)
-    primary = sorted(companies, key=lambda c: len(c.get("issuePrefix", "ZZZ")))[0] if companies else None
+    primary = min(companies, key=lambda c: len(c.get("issuePrefix", "ZZZ"))) if companies else None
     if primary:
         print(f"\nPrimary companyId:  {primary['id']}")
         print(f"  name:   {primary['name']}")
@@ -169,7 +170,7 @@ def main() -> int:
     # Use primary company (shortest issuePrefix = original setup)
     primary_company = None
     if companies:
-        primary_company = sorted(companies, key=lambda c: len(c.get("issuePrefix", "ZZZ")))[0]
+        primary_company = min(companies, key=lambda c: len(c.get("issuePrefix", "ZZZ")))
 
     agents: list[dict] = []
     if primary_company:

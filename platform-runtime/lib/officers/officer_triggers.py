@@ -328,7 +328,7 @@ def evaluate_trigger(trigger: OfficerTrigger, ctx: Any) -> TriggerResult:
             officer=trigger.officer,
             trigger_type=trigger.trigger_type,
         )
-    except Exception as exc:
+    except Exception as exc: # noqa: BLE001 - Evaluation error, already logged
         log.debug("[officer_triggers] Evaluation error %s/%s: %s", trigger.officer, trigger.trigger_id, exc)
         return TriggerResult(
             fired=False,

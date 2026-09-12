@@ -75,7 +75,7 @@ def _latest_verification_state() -> dict | None:
     try:
         rows = supabase_get("verification_state?order=computed_at.desc&limit=1&select=*")
         return rows[0] if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[infra-narrative] failed to read verification_state: %s", exc)
         return None
 
@@ -110,7 +110,7 @@ def _degraded_domain_detail(degraded_domains: list[dict]) -> list[dict]:
         for row in rows:
             row["notes"] = notes_by_key.get(row["domain_key"])
         return rows
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[infra-narrative] failed to read domain_heartbeat_latest detail: %s", exc)
         return []
 
@@ -129,7 +129,7 @@ def _generate(prompt: str) -> str | None:
             if result:
                 log.info("[infra-narrative] generated via %s", name)
                 return result
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[infra-narrative] provider %s failed: %s", name, exc)
     log.warning("[infra-narrative] all providers failed — narrative unavailable")
     return None
@@ -152,7 +152,7 @@ def generate_infra_narrative() -> dict | None:
     if isinstance(degraded, str):
         try:
             degraded = json.loads(degraded)
-        except Exception:
+        except Exception:  # noqa: BLE001 - documented contract: [] on any parse failure of possibly-malformed stored JSON
             degraded = []
 
     if state == "sure" or not degraded:

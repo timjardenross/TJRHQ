@@ -122,14 +122,14 @@ class RSSAdapter(BaseSourceAdapter):
                     import time as _time
                     ts = _time.mktime(val)
                     return datetime.fromtimestamp(ts, tz=timezone.utc)
-                except Exception:
-                    pass
+                except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through
+                    log.debug("[rss_adapter] %s field failed mktime parse: %s", field, exc)
         # Fallback: try string fields
         for field in ("published", "updated"):
             val = entry.get(field)
             if val:
                 try:
                     return parsedate_to_datetime(val)
-                except Exception:
-                    pass
+                except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through
+                    log.debug("[rss_adapter] %s field failed RFC822 parse: %s", field, exc)
         return None

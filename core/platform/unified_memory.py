@@ -139,7 +139,7 @@ class _Mem0Backend:
             )
             self._available = False
             return False
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[unified-memory/mem0] initialisation failed (non-blocking): %s", exc)
             self._available = False
             return False
@@ -151,7 +151,7 @@ class _Mem0Backend:
         try:
             result = self._memory.add(text, user_id=user_id, metadata=metadata or {})
             return result if isinstance(result, dict) else {"results": result}
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[unified-memory/mem0] add failed (non-blocking): %s", exc)
             return {}
 
@@ -170,10 +170,10 @@ class _Mem0Backend:
             # Older mem0 version: user_id was a top-level kwarg.
             try:
                 results = self._memory.search(query, user_id=user_id, limit=limit)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.warning("[unified-memory/mem0] search (v1 fallback) failed (non-blocking): %s", exc)
                 return []
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[unified-memory/mem0] search failed (non-blocking): %s", exc)
             return []
         # mem0 returns either a list or {"results": [...]} depending on version
@@ -237,7 +237,7 @@ def remember(
         return {}
     try:
         return _mem0.add(text, user_id=user_id, metadata=metadata)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[unified-memory] remember failed (non-blocking): %s", exc)
         return {}
 
@@ -290,7 +290,7 @@ def recall(memory_type: MemoryType, **filters: Any) -> list[dict[str, Any]]:
             return _recall_relationships(filters)
         log.warning("[unified-memory] recall: unhandled memory_type %r", memory_type)
         return []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[unified-memory] recall failed (non-blocking): %s", exc)
         return []
 
@@ -316,7 +316,7 @@ def _recall_semantic(filters: dict[str, Any]) -> list[dict[str, Any]]:
         if isinstance(results, dict):
             return results.get("results", [])
         return list(results)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[unified-memory] semantic list failed (non-blocking): %s", exc)
         return []
 
@@ -353,7 +353,7 @@ def _recall_relationships(filters: dict[str, Any]) -> list[dict[str, Any]]:
     group_ids = filters.get("group_ids")
     try:
         return asyncio.run(memory_graph.search(query, num_results=num_results, group_ids=group_ids))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[unified-memory] relationships graph search failed (non-blocking): %s", exc)
         return _recall_table("knowledge_edges", filters, order_col="created_at")
 

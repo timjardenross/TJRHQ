@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Telstra PoC — Phase A end-to-end GO/NO-GO gate.
 

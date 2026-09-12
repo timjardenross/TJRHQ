@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -70,7 +70,7 @@ class RoadmapItem:
 class Roadmap:
     roadmap_type: RoadmapType
     view: RoadmapView
-    generated_at: str = field(default_factory=lambda: date.today().isoformat())
+    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).date().isoformat())
     items: list[RoadmapItem] = field(default_factory=list)
     horizon_labels: list[str] = field(default_factory=list)
     summary: str = ""
@@ -84,14 +84,14 @@ class Roadmap:
 
 
 def _current_quarter() -> str:
-    d = date.today()
+    d = datetime.now(timezone.utc).date()
     q = (d.month - 1) // 3 + 1
     return f"Q{q} {d.year}"
 
 
 def _quarter_labels(count: int = 4) -> list[str]:
     """Generate sequential quarter labels starting from current."""
-    d = date.today()
+    d = datetime.now(timezone.utc).date()
     q = (d.month - 1) // 3 + 1
     y = d.year
     labels: list[str] = []
@@ -111,7 +111,7 @@ def generate_roadmap(
 ) -> Roadmap:
     """Generate a roadmap derived from existing portfolio data."""
     inputs = inputs or {}
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     roadmap = Roadmap(roadmap_type=roadmap_type, view=view)
 
     if view == RoadmapView.QUARTERLY:
@@ -136,7 +136,7 @@ def generate_roadmap(
 
 def _build_strategic_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
     """Objectives + initiative placement on strategic timeline."""
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     try:
         from lib.strategy.initiatives import list_initiatives
         from lib.strategy.prioritisation import score_initiative
@@ -144,7 +144,8 @@ def _build_strategic_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
         for init in initiatives:
             try:
                 ps = score_initiative(init.initiative_id)
-            except Exception:
+            except Exception as _exc:  # noqa: BLE001 - best-effort initiative scoring, continues without a score
+                log.debug("[roadmaps] score_initiative failed for %s: %s", init.initiative_id, _exc)
                 ps = None
             priority = "high" if (ps and ps.composite_score >= 7.0) else "medium"
             horizon = _assign_horizon(roadmap, today, init)
@@ -158,7 +159,7 @@ def _build_strategic_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
                 owner=getattr(init, "owner", ""),
                 signals=[f"Score {ps.composite_score:.1f}" if ps else ""],
             ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort strategic roadmap build, already logged
         log.debug("[roadmaps] strategic roadmap data unavailable: %s", exc)
 
     roadmap.summary = (
@@ -203,7 +204,7 @@ def _build_capability_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
                 priority=fp.priority.value,
                 signals=[f"H{fp.horizon} · {fp.priority.value}"],
             ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort capability roadmap build, already logged
         log.debug("[roadmaps] capability roadmap data unavailable: %s", exc)
 
     roadmap.summary = f"Capability roadmap: {len(roadmap.items)} capability/ies plotted"
@@ -237,7 +238,7 @@ def _build_architecture_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> Non
                 owner=entity.owner,
                 signals=[entity.entity_type.value, entity.state.value],
             ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort architecture roadmap build, already logged
         log.debug("[roadmaps] architecture roadmap data unavailable: %s", exc)
 
     roadmap.summary = f"Architecture roadmap: {len(roadmap.items)} entity/ies across current/transition/target"
@@ -245,7 +246,7 @@ def _build_architecture_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> Non
 
 def _build_delivery_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
     """Delivery sequencing from forecast and dependency data."""
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     try:
         from lib.program.forecasting import DeliveryForecast, forecast_initiative
         from lib.strategy.dependency_management import detect_blocked_initiatives
@@ -257,8 +258,8 @@ def _build_delivery_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
             fc = None
             try:
                 fc = forecast_initiative(init.initiative_id)
-            except Exception:
-                pass
+            except Exception as _exc:  # noqa: BLE001 - best-effort initiative forecast, continues without a forecast
+                log.debug("[lib.strategy.roadmaps] best-effort step failed, continuing: %s", _exc)
 
             status = "blocked" if init.initiative_id in blocked else (
                 fc.forecast.value if fc else "unknown"
@@ -279,7 +280,7 @@ def _build_delivery_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
                 signals=[fc.forecast.value if fc else "no forecast",
                          "BLOCKED" if init.initiative_id in blocked else ""],
             ))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort delivery roadmap build, already logged
         log.debug("[roadmaps] delivery roadmap data unavailable: %s", exc)
 
     roadmap.summary = f"Delivery roadmap: {len(roadmap.items)} initiative(s) sequenced"

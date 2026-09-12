@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Attention Engine Drill — deliberately-invoked end-to-end pipeline test.
 
 Context (diagnosed, not guessed, 2026-08-22): `interrupt_now`

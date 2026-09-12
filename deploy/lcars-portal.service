@@ -13,7 +13,7 @@ WorkingDirectory=/opt/starship-endeavour/lcars-portal
 # launched `npm exec next start -p 3200` quietly took over serving
 # instead, unmanaged and not surviving a reboot. This unit was enabled
 # the whole time but pointed at a port nothing routed to.
-ExecStart=/opt/starship-endeavour/lcars-portal/node_modules/.bin/next start -p 3200
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/lcars-portal/node_modules/.bin/next start -p 3200
 # Restart=always (not on-failure) matches this repo's other persistent
 # daemons (see deploy/model-router.service) — a clean-exit hang is just as
 # much an outage as a crash for a request-serving process.
@@ -29,7 +29,13 @@ RestartSec=5
 # rather than a silent infinite crash-loop.
 StartLimitIntervalSec=120
 StartLimitBurst=6
-EnvironmentFile=/opt/starship-endeavour/lcars-portal/.env.local
+# 2026-09-12 (USS-TJR-MSN-0371 Stream 3): cut over to Infisical, old
+# EnvironmentFile= kept commented as rollback. NOTE: this only covers
+# server-side runtime env — NEXT_PUBLIC_* values are baked into the
+# client bundle at `next build` time, not read at `next start` runtime;
+# a future rebuild still needs its own env source for those (currently
+# .env.local at build time — not addressed by this cutover).
+# EnvironmentFile=/opt/starship-endeavour/lcars-portal/.env.local
 Environment=NODE_ENV=production
 StandardOutput=journal
 StandardError=journal

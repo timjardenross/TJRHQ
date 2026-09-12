@@ -34,7 +34,7 @@ def run(pdf_path, output_path, timeout: int = 600, language: str = "eng") -> Pat
     output_path.parent.mkdir(parents=True, exist_ok=True)
     cmd = ["ocrmypdf", "--skip-text", "--quiet", "--language", language, str(pdf_path), str(output_path)]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
     except subprocess.TimeoutExpired as exc:
         raise OCREngineError(f"ocrmypdf timed out after {timeout}s") from exc
 

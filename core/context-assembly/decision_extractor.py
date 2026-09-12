@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 import sys
-from datetime import date, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -50,7 +50,7 @@ def assemble_decision_context(decision_dict: dict[str, Any]) -> DecisionContextP
 
     return DecisionContextPackage(
         decision_id=decision_id,
-        assembled_at=datetime.utcnow().isoformat() + "Z",
+        assembled_at=datetime.now(timezone.utc).isoformat(),
         date=date_str,
         status=status,
         question=decision_dict.get("question", ""),
@@ -139,8 +139,8 @@ def _derive_urgency(decision_dict: dict[str, Any], pending: bool) -> str:
     date_str = decision_dict.get("date", "")
     if date_str:
         try:
-            decision_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-            age = (date.today() - decision_date).days
+            decision_date = datetime.strptime(date_str, "%Y-%m-%d").date()  # noqa: DTZ007 - date-only source string has no offset; reduced to .date() immediately, compared only to another .date()
+            age = (datetime.now().astimezone().date() - decision_date).days
             if age <= 1:
                 return "high"
             if age <= 7:

@@ -295,4 +295,4 @@ def test_end_to_end_learning_loop():
 
 if __name__ == '__main__':
     success = test_end_to_end_learning_loop()
-    exit(0 if success else 1)
+    sys.exit(0 if success else 1)

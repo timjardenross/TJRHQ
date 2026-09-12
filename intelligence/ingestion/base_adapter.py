@@ -70,7 +70,7 @@ class BaseSourceAdapter(ABC):
                     )
 
             log.info("[%s] collected %d items in %dms", self.source.source_name, len(items), elapsed)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - top-level per-source collection boundary — health.status/latency_ms are set right below from this except, not a silent swallow
             elapsed = int((time.monotonic() - started) * 1000)
             health.status = "failed"
             health.latency_ms = elapsed

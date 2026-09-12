@@ -7,7 +7,7 @@ Purpose: Synthesize analysis + quality scores into actionable recommendations
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from decision_quality_scorer import DecisionQualityScore
 from dual_commander_analysis import DualCommanderAnalysis
@@ -102,7 +102,7 @@ class CommanderDecisionSupport:
             detailed_recommendation=detailed,
             quality_metrics=quality_metrics,
             next_actions=next_actions,
-            recommendation_timestamp=datetime.now(),
+            recommendation_timestamp=datetime.now(timezone.utc),
         )
 
     def _detail_action(
@@ -131,8 +131,8 @@ class CommanderDecisionSupport:
                 "Set COMMANDER_PRIMARY_MODEL=deepseek-r1:14b in .env",
                 "Test with 5 real decisions before full cutover",
                 "Monitor logs and decision outcomes daily",
-                f"Schedule review on {(datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')}",
-                f"Final decision on {(datetime.now() + timedelta(days=trial_period)).strftime('%Y-%m-%d')}",
+                f"Schedule review on {(datetime.now(timezone.utc) + timedelta(days=7)).strftime('%Y-%m-%d')}",
+                f"Final decision on {(datetime.now(timezone.utc) + timedelta(days=trial_period)).strftime('%Y-%m-%d')}",
             ]
 
         elif action == "demote":
@@ -200,12 +200,12 @@ class CommanderDecisionSupport:
             success_criteria = [
                 f"Collect {20 - analysis.total_runs} more evaluation runs",
                 "Ensure varied decision types",
-                f"Target completion by {(datetime.now() + timedelta(days=14)).strftime('%Y-%m-%d')}",
+                f"Target completion by {(datetime.now(timezone.utc) + timedelta(days=14)).strftime('%Y-%m-%d')}",
             ]
             next_actions = [
                 f"Run {20 - analysis.total_runs} more dual commander evaluations",
                 "Prioritize varied question types (policy, technical, operational, strategic)",
-                f"Schedule re-analysis for {(datetime.now() + timedelta(days=14)).strftime('%Y-%m-%d')}",
+                f"Schedule re-analysis for {(datetime.now(timezone.utc) + timedelta(days=14)).strftime('%Y-%m-%d')}",
             ]
 
         return reasoning, trial_period, success_criteria, next_actions
@@ -252,7 +252,7 @@ class CommanderDecisionSupport:
         else:
             return (
                 f"After {analysis.total_runs} evaluations, insufficient data for confident recommendation. "
-                f"Need {20 - analysis.total_runs} more runs with varied decision types. Target: {(datetime.now() + timedelta(days=14)).strftime('%Y-%m-%d')}."
+                f"Need {20 - analysis.total_runs} more runs with varied decision types. Target: {(datetime.now(timezone.utc) + timedelta(days=14)).strftime('%Y-%m-%d')}."
             )
 
     def _build_detailed_recommendation(

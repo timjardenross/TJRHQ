@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import date, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ def _make_supabase():
     try:
         from tools.supabase.client import CommanderSupabaseClient
         return CommanderSupabaseClient()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged
         log.warning("[human-systems] Supabase client unavailable: %s", exc)
         return None
 
@@ -45,7 +45,7 @@ def _fetch_rows(days: int = 7) -> list[dict]:
     if db is None or not db.is_enabled() or db.raw_client is None:
         return []
     try:
-        since = (date.today() - timedelta(days=days)).isoformat()
+        since = (datetime.now(timezone.utc).date() - timedelta(days=days)).isoformat()
         result = (
             db.raw_client.table("analytics_health_daily")
             .select("*")
@@ -54,13 +54,13 @@ def _fetch_rows(days: int = 7) -> list[dict]:
             .execute()
         )
         return list(result.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort analytics data fetch, already logged
         log.error("[human-systems] data fetch failed: %s", exc)
         return []
 
 
 def _today_row(rows: list[dict]) -> dict | None:
-    today = date.today().isoformat()
+    today = datetime.now(timezone.utc).date().isoformat()
     for r in rows:
         if str(r.get("log_date")) == today:
             return r
@@ -85,11 +85,13 @@ def _delivery_context():
         from lib.delivery import analysis as danalysis
         from lib.delivery import data as ddata
         from lib.delivery import lifecycle as dlife
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - pragma: no cover - EDO delivery module optional
+        log.debug("[human-systems] Delivery module unavailable: %s", exc)
         return None, None
     try:
         rows = ddata.fetch_delivery_rows()
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - pragma: no cover - EDO delivery data optional
+        log.debug("[human-systems] Delivery rows unavailable: %s", exc)
         return None, None
     if not rows:
         return None, None
@@ -197,7 +199,7 @@ def handle_human_systems(text: str, user_id: str | None = None, channel_id: str 
               "capacity-review", "creview", "xo", "effectiveness")
     # A bare keyword ("plan", "review") is a direct command. Anything else —
     # including "help me build a…" — is treated as a natural-language ask first.
-    is_direct = command in _verbs and not (command == "help")
+    is_direct = command in _verbs and command != "help"
     if not is_direct:
         mapped = _natural_intent(raw)
         if mapped:
@@ -265,9 +267,9 @@ def _today(_rest: str) -> str:
         lines.append(f"• *{d.label}:* {d.band} — {d.driver}.")
     lines += [
         "",
-        "*What matters most today:* pick one anchor that fits this capacity and "
+        ("*What matters most today:* pick one anchor that fits this capacity and "
         "pace the rest around it. A practical next step could be `/hs plan "
-        f"{'low-capacity' if snap.overall_band in ('limited', 'depleted') else 'movement'}`.",
+        f"{'low-capacity' if snap.overall_band in ('limited', 'depleted') else 'movement'}`."),
     ]
     return safety.frame("\n".join(lines))
 
@@ -370,7 +372,7 @@ def _xo(request: str) -> str:
 
 def _domains() -> str:
     lines = ["*Human Systems — Six Domains*", ""]
-    for key, meta in framework.DOMAINS.items():
+    for meta in framework.DOMAINS.values():
         lines.append(f"• *{meta['label']}* — {meta['purpose']}")
     lines += [
         "",
@@ -444,7 +446,7 @@ def _push(rest: str) -> str:
     try:
         from human_systems_scheduler import run_job  # lazy to avoid import cycle
         report = run_job(job, dry_run=True, record=False)
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # noqa: BLE001 - best-effort push preview generation, already logged - pragma: no cover
         log.warning("[human-systems] push preview failed: %s", exc)
         return "Couldn't generate that preview right now."
     if report.get("skipped"):

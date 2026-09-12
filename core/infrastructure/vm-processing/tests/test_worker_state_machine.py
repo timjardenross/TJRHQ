@@ -73,7 +73,7 @@ def test_scan_creates_received_rows_and_is_idempotent(tmp_path, monkeypatch):
 
 
 def test_scan_handles_missing_received_dir(tmp_path, monkeypatch):
-    inbox_base, db, _, worker = _make_worker(tmp_path, monkeypatch)
+    inbox_base, _db, _, worker = _make_worker(tmp_path, monkeypatch)
     import shutil
     shutil.rmtree(inbox_base / "received")
     result = worker.scan()
@@ -113,7 +113,7 @@ def test_scan_records_canonical_path_for_symlinked_source(tmp_path, monkeypatch)
 # -- full pipeline ---------------------------------------------------------------
 
 def test_full_pipeline_text_file_reaches_awaiting_review(tmp_path, monkeypatch):
-    inbox_base, db, model_router, worker = _make_worker(tmp_path, monkeypatch)
+    inbox_base, db, _model_router, worker = _make_worker(tmp_path, monkeypatch)
     (inbox_base / "received" / "onedrive").mkdir(parents=True)
     (inbox_base / "received" / "onedrive" / "report.txt").write_text("hello")
     worker.scan()
@@ -196,7 +196,7 @@ def test_ocr_failure_marks_document_failed_with_reason(tmp_path, monkeypatch):
 
 
 def test_classify_failure_marks_failed_and_is_not_auto_retried(tmp_path, monkeypatch):
-    inbox_base, db, model_router, worker = _make_worker(
+    inbox_base, db, _model_router, worker = _make_worker(
         tmp_path, monkeypatch, fail_on={"classify"},
     )
     (inbox_base / "received" / "onedrive").mkdir(parents=True)
@@ -236,7 +236,7 @@ def test_missing_extracted_text_fails_before_calling_model_router(tmp_path, monk
 # -- status ---------------------------------------------------------------
 
 def test_status_summary_counts_by_status(tmp_path, monkeypatch):
-    inbox_base, db, _, worker = _make_worker(tmp_path, monkeypatch)
+    inbox_base, _db, _, worker = _make_worker(tmp_path, monkeypatch)
     (inbox_base / "received" / "onedrive").mkdir(parents=True)
     (inbox_base / "received" / "onedrive" / "a.txt").write_text("a")
     (inbox_base / "received" / "onedrive" / "b.txt").write_text("b")
@@ -301,7 +301,7 @@ def test_recreational_content_is_excluded_before_classify(tmp_path, monkeypatch)
 
 
 def test_excluded_document_is_terminal_and_not_reprocessed(tmp_path, monkeypatch):
-    inbox_base, db, _, worker = _make_worker(tmp_path, monkeypatch)
+    inbox_base, _db, _, worker = _make_worker(tmp_path, monkeypatch)
     (inbox_base / "received" / "onedrive").mkdir(parents=True)
     (inbox_base / "received" / "onedrive" / "book.mobi").write_bytes(b"fake")
     worker.scan()
@@ -334,7 +334,7 @@ def test_override_forces_excluded_document_back_into_pipeline(tmp_path, monkeypa
 
 
 def test_list_excluded_reports_reason_and_evidence(tmp_path, monkeypatch):
-    inbox_base, db, _, worker = _make_worker(tmp_path, monkeypatch)
+    inbox_base, _db, _, worker = _make_worker(tmp_path, monkeypatch)
     (inbox_base / "received" / "onedrive").mkdir(parents=True)
     (inbox_base / "received" / "onedrive" / "book.mobi").write_bytes(b"fake")
     (inbox_base / "received" / "onedrive" / "report.txt").write_text("a real document")
@@ -349,7 +349,7 @@ def test_list_excluded_reports_reason_and_evidence(tmp_path, monkeypatch):
 
 
 def test_status_summary_includes_excluded(tmp_path, monkeypatch):
-    inbox_base, db, _, worker = _make_worker(tmp_path, monkeypatch)
+    inbox_base, _db, _, worker = _make_worker(tmp_path, monkeypatch)
     (inbox_base / "received" / "onedrive").mkdir(parents=True)
     (inbox_base / "received" / "onedrive" / "book.mobi").write_bytes(b"fake")
     (inbox_base / "received" / "onedrive" / "report.txt").write_text("a real document")
@@ -380,7 +380,7 @@ def _make_failed_document(tmp_path, monkeypatch, max_retries=3):
 
 
 def test_retry_under_cap_sets_retry_pending_and_increments_count(tmp_path, monkeypatch):
-    inbox_base, db, model_router, worker, failed_row = _make_failed_document(tmp_path, monkeypatch)
+    _inbox_base, db, _model_router, worker, failed_row = _make_failed_document(tmp_path, monkeypatch)
 
     retried = worker.retry(failed_row["id"])
     assert retried["status"] == "retry_pending"
@@ -398,7 +398,7 @@ def test_full_retry_cycle_reaches_awaiting_review_with_fresh_chunks(tmp_path, mo
     """A retry_pending document must advance through retrying back to
     awaiting_review, with prior stale processing_chunks gone and new ones
     inserted without a unique-constraint collision."""
-    inbox_base, db, model_router, worker, failed_row = _make_failed_document(tmp_path, monkeypatch)
+    _inbox_base, db, model_router, worker, failed_row = _make_failed_document(tmp_path, monkeypatch)
 
     # Simulate a prior partial embed leaving a stale chunk behind.
     db.insert("processing_chunks", {
@@ -431,7 +431,7 @@ def test_full_retry_cycle_reaches_awaiting_review_with_fresh_chunks(tmp_path, mo
 
 
 def test_retry_that_fails_again_returns_to_plain_failed(tmp_path, monkeypatch):
-    inbox_base, db, model_router, worker, failed_row = _make_failed_document(tmp_path, monkeypatch)
+    _inbox_base, db, _model_router, worker, failed_row = _make_failed_document(tmp_path, monkeypatch)
 
     # Leave classify failing — the retry will fail again.
     worker.retry(failed_row["id"])
@@ -449,7 +449,7 @@ def test_retry_that_fails_again_returns_to_plain_failed(tmp_path, monkeypatch):
 
 
 def test_retry_at_cap_sets_permanently_failed_and_raises(tmp_path, monkeypatch):
-    inbox_base, db, model_router, worker, failed_row = _make_failed_document(tmp_path, monkeypatch, max_retries=1)
+    _inbox_base, db, _model_router, worker, failed_row = _make_failed_document(tmp_path, monkeypatch, max_retries=1)
 
     # First retry: under cap (retry_count 0 -> 1).
     worker.retry(failed_row["id"])
@@ -479,7 +479,7 @@ def test_retry_at_cap_sets_permanently_failed_and_raises(tmp_path, monkeypatch):
 
 
 def test_permanently_failed_is_terminal_and_not_reprocessed(tmp_path, monkeypatch):
-    inbox_base, db, model_router, worker, failed_row = _make_failed_document(tmp_path, monkeypatch, max_retries=0)
+    _inbox_base, db, _model_router, worker, failed_row = _make_failed_document(tmp_path, monkeypatch, max_retries=0)
 
     try:
         worker.retry(failed_row["id"])
@@ -495,7 +495,7 @@ def test_permanently_failed_is_terminal_and_not_reprocessed(tmp_path, monkeypatc
 
 
 def test_list_failed_reports_failed_and_permanently_failed(tmp_path, monkeypatch):
-    inbox_base, db, model_router, worker, failed_row = _make_failed_document(tmp_path, monkeypatch, max_retries=0)
+    inbox_base, _db, model_router, worker, failed_row = _make_failed_document(tmp_path, monkeypatch, max_retries=0)
     try:
         worker.retry(failed_row["id"])
     except ValueError:
@@ -520,7 +520,7 @@ def test_retry_all_requeues_under_cap_and_permanently_fails_at_cap(tmp_path, mon
     requeue the former, correctly permanently_fail the latter via the
     existing retry() cap logic, and not let one document's ValueError stop
     the rest of the sweep from being attempted."""
-    inbox_base, db, model_router, worker = _make_worker(
+    inbox_base, db, _model_router, worker = _make_worker(
         tmp_path, monkeypatch, fail_on={"classify"}, max_retries=1,
     )
     (inbox_base / "received" / "onedrive").mkdir(parents=True)
@@ -553,7 +553,7 @@ def test_retry_all_requeues_under_cap_and_permanently_fails_at_cap(tmp_path, mon
 
 
 def test_retry_all_is_noop_when_no_failed_documents(tmp_path, monkeypatch):
-    inbox_base, db, model_router, worker = _make_worker(tmp_path, monkeypatch)
+    inbox_base, _db, _model_router, worker = _make_worker(tmp_path, monkeypatch)
     (inbox_base / "received" / "onedrive").mkdir(parents=True)
     (inbox_base / "received" / "onedrive" / "report.txt").write_text("hello")
     worker.scan()
@@ -568,7 +568,7 @@ def test_retry_all_ignores_already_permanently_failed_documents(tmp_path, monkey
     document is already exhausted and calling retry() on it would just
     raise for no benefit; the sweep should skip it outright rather than
     counting it as an attempt."""
-    inbox_base, db, model_router, worker, failed_row = _make_failed_document(
+    _inbox_base, db, _model_router, worker, failed_row = _make_failed_document(
         tmp_path, monkeypatch, max_retries=0,
     )
     try:
@@ -663,7 +663,7 @@ def test_run_healthcheck_uses_worker_read_methods_end_to_end(tmp_path, monkeypat
     """Integration check that run_healthcheck() actually calls the real
     worker.status_summary()/list_failed() (via FakeSupabase) rather than
     querying the DB independently."""
-    inbox_base, db, model_router, worker, failed_row = _make_failed_document(
+    _inbox_base, _db, _model_router, worker, _failed_row = _make_failed_document(
         tmp_path, monkeypatch, max_retries=3,
     )
     report = run_healthcheck(worker, HealthThresholds())

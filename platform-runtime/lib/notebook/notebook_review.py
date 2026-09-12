@@ -266,7 +266,7 @@ def batch_triage(supabase_client: Any) -> list[TriageResult]:
         try:
             r = triage_note(row["id"], supabase_client)
             results.append(r)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort per-note triage, already logged
             log.warning("[notebook-review] Failed to triage note %s: %s", row["id"], exc)
     return results
 

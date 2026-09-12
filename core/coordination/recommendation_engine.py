@@ -23,7 +23,7 @@ Algorithm:
 from __future__ import annotations
 
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -34,13 +34,16 @@ sys.path.insert(0, str(_REPO_ROOT / "core" / "coordination"))
 from models import HealthContextPackage, Recommendation, RecommendationPackage
 
 try:
-    from intelligence_store import IntelligenceEvidence, get_intelligence_evidence
+    from intelligence_store import (  # noqa: F401 - availability probe, only ImportError matters
+        IntelligenceEvidence,
+        get_intelligence_evidence,
+    )
     _INTELLIGENCE_STORE_AVAILABLE = True
 except ImportError:
     _INTELLIGENCE_STORE_AVAILABLE = False
 
 try:
-    from number_one import (
+    from number_one import (  # noqa: F401 - availability probe, only ImportError matters
         TERMINAL_STATUSES,
         Mission,
         MissionStatus,
@@ -158,8 +161,8 @@ def _gather_evidence(mission_type: str, objective: str):
             pass
         # Minimal fallback
         class _NullEvidence:
-            applicable_lessons = []
-            similar_closed_missions = []
+            applicable_lessons = ()
+            similar_closed_missions = ()
             historical_outcome_score = None
             outcome_sample_size = 0
             evidence_summary = ""
@@ -272,7 +275,7 @@ def generate_recommendation_package(
     )
 
     return RecommendationPackage(
-        assembled_at=datetime.utcnow().isoformat() + "Z",
+        assembled_at=datetime.now(timezone.utc).isoformat(),
         recommendations=recs,
         health_constraints_applied=health_applied,
         total_active_missions=active_count,
@@ -313,7 +316,7 @@ def _due_date_score(due_date: str | None) -> float:
         return 0.0
     try:
         d = date.fromisoformat(str(due_date))
-        today = date.today()
+        today = datetime.now().astimezone().date()
         days_until = (d - today).days
         if days_until < 0:
             return 0.25  # Overdue
@@ -333,7 +336,7 @@ def _deadline_urgency(due_date: str | None) -> str:
         return "none"
     try:
         d = date.fromisoformat(str(due_date))
-        days = (d - date.today()).days
+        days = (d - datetime.now().astimezone().date()).days
         if days < 0:
             return "high"   # Overdue
         if days <= 3:
@@ -423,7 +426,7 @@ def _explain_recommendation(
     if due_date:
         try:
             d = date.fromisoformat(str(due_date))
-            days = (d - date.today()).days
+            days = (d - datetime.now().astimezone().date()).days
             if days < 0:
                 parts.append(f"overdue by {abs(days)} day{'s' if abs(days) != 1 else ''}")
             elif days == 0:

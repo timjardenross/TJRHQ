@@ -17,7 +17,7 @@ Tracks:
 import logging
 import os
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ class ResearchMetrics:
     consolidation_ms: int = 0
 
     # Metadata
-    mission_date: str = field(default_factory=lambda: datetime.utcnow().strftime("%Y-%m-%d"))
+    mission_date: str = field(default_factory=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%d"))
 
     def __post_init__(self):
         """Validate metrics after initialization."""
@@ -121,7 +121,7 @@ class ResearchMetrics:
                 "[research-metrics] Supabase client not available. "
                 "Metrics not persisted. (Install supabase-py)"
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(
                 f"[research-metrics] Failed to store metrics: {type(e).__name__}: {str(e)[:100]}"
             )

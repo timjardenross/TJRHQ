@@ -15,6 +15,6 @@ flagging the name as unused; it is never executed.
 #   core/infrastructure/mac-collector/db.py:71
 #   core/infrastructure/vm-transfer/transfer_db.py:78
 _exit_protocol = None
-_exit_protocol.exc_type
-_exit_protocol.exc_val
-_exit_protocol.exc_tb
+_exit_protocol.exc_type  # noqa: B018 - intentional dummy reference for vulture's usage graph, never executed - reviewed 2026-09-12
+_exit_protocol.exc_val  # noqa: B018 - intentional dummy reference for vulture's usage graph, never executed - reviewed 2026-09-12
+_exit_protocol.exc_tb  # noqa: B018 - intentional dummy reference for vulture's usage graph, never executed - reviewed 2026-09-12

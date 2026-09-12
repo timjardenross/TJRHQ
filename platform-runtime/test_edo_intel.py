@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-EDO-003 — Autonomous Delivery & Decision Intelligence.
 
 WP1 execution telemetry/backends/rollback; WP2 control tower (risk, throughput,
@@ -8,8 +9,9 @@ from __future__ import annotations
 
 import sys
 import unittest
-from datetime import date, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import patch
 
 _BOT_DIR = Path(__file__).resolve().parent
@@ -27,7 +29,7 @@ MISSION = {"mission_id": "MSN-0099", "title": "Improve dashboard", "status": "De
 
 
 def _d(n):
-    return (date.today() - timedelta(days=n)).isoformat()
+    return (datetime.now(timezone.utc).date() - timedelta(days=n)).isoformat()
 
 
 def _row(title, state_status, age, **kw):
@@ -53,7 +55,7 @@ ROWS = [
 
 class TestExecutionTelemetry(unittest.TestCase):
     def test_backend_default_and_validation(self):
-        art, reason = execution.prepare_dispatch(MISSION, plan_approved=True)
+        art, _reason = execution.prepare_dispatch(MISSION, plan_approved=True)
         self.assertEqual(art["backend"], "claude_code")
         self.assertIn("rollback", art)
         bad, why = execution.prepare_dispatch(MISSION, plan_approved=True, backend="nope")
@@ -131,11 +133,11 @@ class TestControlTower(unittest.TestCase):
 # ── WP3 ───────────────────────────────────────────────────────────────────────
 
 class TestRecommendationPackage(unittest.TestCase):
-    LOAD = MissionLoad(open_count=2, open_titles=["X"],
+    LOAD: ClassVar[MissionLoad] = MissionLoad(open_count=2, open_titles=["X"],
                        priorities=[Priority("P1", "Memory", "Active")], data_available=True)
-    HARD = {"energy": "low", "mood": "low", "nervous_system_state": "dysregulated",
+    HARD: ClassVar[dict] = {"energy": "low", "mood": "low", "nervous_system_state": "dysregulated",
             "sleep_hours": 4.5, "sleep_quality": "poor", "captain_capacity_rating": "Red"}
-    GOOD = {"energy": "high", "mood": "positive", "nervous_system_state": "calm",
+    GOOD: ClassVar[dict] = {"energy": "high", "mood": "positive", "nervous_system_state": "calm",
             "sleep_hours": 8, "sleep_quality": "good", "captain_capacity_rating": "Green"}
 
     def _snap(self, r):

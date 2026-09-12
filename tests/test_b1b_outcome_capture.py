@@ -542,7 +542,6 @@ class TestOutcomeCaptureIntegration:
 
         # Simulate B1A → B1B traceability
         mission_id = "MSN-0060B"
-        recommendation_id = "REC-20260610-142500"
         decision_id = "DEC-REC-20260610-143000"
 
         # Record outcome
@@ -613,7 +612,7 @@ def run_all_tests():
         except AssertionError as e:
             failed += 1
             log.error(f"❌ FAILED: {test_func.__name__}: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test-runner harness: must catch any failure from the test function to tally pass/fail and continue the run
             failed += 1
             log.error(f"❌ ERROR: {test_func.__name__}: {e}")
 
@@ -626,7 +625,7 @@ def run_all_tests():
         except AssertionError as e:
             failed += 1
             log.error(f"❌ FAILED: {test_func.__name__}: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test-runner harness: must catch any failure from the test function to tally pass/fail and continue the run
             failed += 1
             log.error(f"❌ ERROR: {test_func.__name__}: {e}")
 

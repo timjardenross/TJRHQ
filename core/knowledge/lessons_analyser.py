@@ -166,8 +166,8 @@ def analyse_lessons() -> dict[str, Any]:
     top_themes = list(recurring_themes.keys())[:5]
 
     findings: list[str] = [
-        f"Lessons library: {len(lessons)} lessons recorded ({len(success_patterns)} success, "
-        f"{len(failure_patterns)} failure patterns)."
+        (f"Lessons library: {len(lessons)} lessons recorded ({len(success_patterns)} success, "
+         f"{len(failure_patterns)} failure patterns).")
     ]
     if top_themes:
         findings.append(f"Recurring themes across lessons: {', '.join(top_themes)}.")

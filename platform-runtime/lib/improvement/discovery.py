@@ -114,7 +114,7 @@ def _run_daily_reviews(ctx: Any) -> tuple[list[str], list[ImprovementOpportunity
             opportunities.extend(ops)
             officers_run.append(officer)
             log.debug("[improvement.discovery] Daily review %s: %d opportunity/ies", officer, len(ops))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - isolate one officer's daily review failure, already logged
             log.warning("[improvement.discovery] Daily review %s failed: %s", officer, exc)
 
     return officers_run, opportunities
@@ -145,7 +145,7 @@ def _run_weekly_reviews(ctx: Any) -> tuple[list[str], list[ImprovementOpportunit
             opportunities.extend(ops)
             officers_run.append(officer)
             log.debug("[improvement.discovery] Weekly review %s: %d opportunity/ies", officer, len(ops))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - isolate one officer's weekly review failure, already logged
             log.warning("[improvement.discovery] Weekly review %s failed: %s", officer, exc)
 
     return officers_run, opportunities
@@ -167,7 +167,7 @@ def _create_missions_within_budget(
     """
     try:
         from command_memory_integration import create_mission_from_officer
-        from lib.improvement.backlog import add_to_backlog, mark_backlog_item_processed
+        from lib.improvement.backlog import add_to_backlog
         from lib.improvement.budget import ImprovementBudgetEngine
         from lib.improvement.framework import d057_check
         from lib.improvement.scorecard import create_scorecard
@@ -199,7 +199,7 @@ def _create_missions_within_budget(
             if not check.all_clear:
                 d057_clear = False
                 d057_reason = check.recommendation
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort D-057 pre-flight check, already logged
             log.debug("[improvement.discovery] D-057 check failed for %s: %s", opp.source_officer, exc)
 
         if not d057_clear:
@@ -213,7 +213,7 @@ def _create_missions_within_budget(
             continue
 
         # Budget gate (secondary check after pre-flight)
-        can_create, reason = engine.can_create_mission(budget, opp.category.value)
+        can_create, _reason = engine.can_create_mission(budget, opp.category.value)
         if not can_create:
             if add_to_backlog(opp):
                 result.backlog_items_added += 1
@@ -250,7 +250,7 @@ def _create_missions_within_budget(
                         baseline_state=opp.observation,
                         target_state=opp.expected_benefit,
                     )
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - best-effort scorecard creation, already logged
                     log.debug("[improvement.discovery] Scorecard creation skipped: %s", exc)
 
                 log.info(
@@ -260,7 +260,7 @@ def _create_missions_within_budget(
                 )
             else:
                 result.missions_failed += 1
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - isolate one opportunity's mission creation failure, already logged
             log.warning(
                 "[improvement.discovery] Mission creation failed for %s: %s",
                 opp.source_officer, exc,
@@ -322,7 +322,7 @@ def _drain_from_backlog(budget: Any, result: DiscoveryResult) -> None:
                             baseline_state=item.observation,
                             target_state=item.expected_benefit,
                         )
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 - best-effort scorecard creation, already logged
                         log.debug("[improvement.discovery] Backlog scorecard skipped: %s", exc)
 
                     log.info(
@@ -334,13 +334,13 @@ def _drain_from_backlog(budget: Any, result: DiscoveryResult) -> None:
                         "[improvement.discovery] Backlog mission creation failed for %s",
                         item.officer,
                     )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - isolate one backlog item's drain failure, already logged
                 log.warning(
                     "[improvement.discovery] Backlog drain error (%s): %s",
                     item.decision_id, exc,
                 )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort backlog drain, already logged
         log.debug("[improvement.discovery] Backlog drain skipped: %s", exc)
 
 
@@ -355,7 +355,7 @@ def _backlog_medium_band(medium_band: list[ImprovementOpportunity], result: Disc
             if add_to_backlog(opp):
                 result.backlog_items_added += 1
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort medium-band backlog write, already logged
         log.debug("[improvement.discovery] Medium-band backlog failed: %s", exc)
 
 
@@ -433,7 +433,7 @@ def run_discovery(
             result.budget.active_improvement_missions,
             result.budget.max_improvement_missions,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort budget lookup, already logged
         log.warning("[improvement.discovery] Budget unavailable: %s", exc)
 
     # Step 5: Create missions from High-band within budget; backlog the rest
@@ -453,7 +453,7 @@ def run_discovery(
                     "[improvement.discovery] %d High-band item(s) added to backlog — budget closed",
                     len(result.high_band),
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - best-effort high-band backlog write, already logged
                 log.warning("[improvement.discovery] High-band backlog failed: %s", exc)
                 result.missions_deferred += len(result.high_band)
 

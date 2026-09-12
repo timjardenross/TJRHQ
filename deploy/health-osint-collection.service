@@ -1,0 +1,17 @@
+[Unit]
+Description=USS TJR Health OSINT Collection (PubMed + ClinicalTrials.gov + RSS) + Validation + Recompute
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/starship-endeavour
+# 2026-09-12 (USS-TJR-MSN-0371 Stream 4): cut over to Infisical, old
+# EnvironmentFile= kept commented as rollback.
+# EnvironmentFile=/opt/starship-endeavour/.env
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/.venv/bin/python tools/health/collect_health_signals.py
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/.venv/bin/python tools/health/validate_health_source_accuracy.py
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/.venv/bin/python tools/health/recompute_health_signal_scores.py
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=health-osint-collection

@@ -107,9 +107,8 @@ def assemble_mission_context(mission_id: str, corpus: dict[str, Any]) -> Context
 
         elif rel.target_type == "mission":
             dep_mission = corpus["missions"].get(rel.target_id)
-            if dep_mission:
-                if rel.relationship_type in ("depends_on", "triggered_by"):
-                    pkg.dependencies.append(_ref(dep_mission, "mission"))
+            if dep_mission and rel.relationship_type in ("depends_on", "triggered_by"):
+                pkg.dependencies.append(_ref(dep_mission, "mission"))
 
         elif rel.target_type == "capability":
             cap = corpus["capabilities"].get(rel.target_id)
@@ -127,17 +126,16 @@ def assemble_mission_context(mission_id: str, corpus: dict[str, Any]) -> Context
             continue
         other_rels = extract_relationships(other_id, other.get("text", ""), corpus)
         for rel in other_rels:
-            if rel.target_id.upper() == mission_id.upper() and rel.relationship_type == "depends_on":
-                if rel.confidence >= config.CONFIDENCE_THRESHOLD:
-                    pkg.dependent_missions.append(_ref(other, "mission"))
+            if (rel.target_id.upper() == mission_id.upper() and rel.relationship_type == "depends_on"
+                    and rel.confidence >= config.CONFIDENCE_THRESHOLD):
+                pkg.dependent_missions.append(_ref(other, "mission"))
 
     # Reverse lookup: decisions that reference this mission
     for dec_id, dec in corpus["decisions"].items():
         dec_rels = extract_relationships(dec_id, dec.get("text", ""), corpus)
         for rel in dec_rels:
-            if rel.target_id.upper() == mission_id.upper():
-                if rel.confidence >= config.CONFIDENCE_THRESHOLD:
-                    pkg.related_decisions.append(_ref(dec, "decision"))
+            if rel.target_id.upper() == mission_id.upper() and rel.confidence >= config.CONFIDENCE_THRESHOLD:
+                pkg.related_decisions.append(_ref(dec, "decision"))
 
     # Deduplicate lists
     pkg.triggering_decisions = _dedup(pkg.triggering_decisions)
@@ -230,7 +228,7 @@ def assemble_health_context(health_summary_path=None) -> HealthContextPackage:
     try:
         live_fn = _health_live_fn()
         return live_fn()
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - documented: falls through to the legacy Health-Summary.md path on any live-path failure
         pass
 
     # Legacy fallback

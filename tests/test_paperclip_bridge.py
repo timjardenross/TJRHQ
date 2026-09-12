@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for MSN-0014B Paperclip Commander Bridge.
 
 Tests PaperclipClient and mission_bridge with mocked HTTP — no live Paperclip

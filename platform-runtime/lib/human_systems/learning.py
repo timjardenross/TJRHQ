@@ -32,7 +32,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001 - best-effort step, already logged (supabase unavailable)
         log.warning("[hs.learning] Supabase unavailable: %s", exc)
         return None
 
@@ -50,7 +50,7 @@ def fetch_effectiveness() -> list[dict]:
     try:
         return list((c.raw_client.table("recommendation_effectiveness")
                      .select("*").execute()).data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (fetch_effectiveness failed)
         log.warning("[hs.learning] fetch_effectiveness failed: %s", exc)
         return []
 
@@ -100,8 +100,8 @@ def effectiveness_report(rows: list[dict] | None = None) -> str:
         gl = adj.get("_global")
         if gl is not None:
             tilt = "up" if gl > 1 else "down" if gl < 1 else "neutral"
-            lines += ["", f"_Learned confidence tilt: {tilt} (×{gl}). Advisory only — "
-                      "the system recommends; you decide._"]
+            lines += ["", (f"_Learned confidence tilt: {tilt} (×{gl}). Advisory only — "
+                      "the system recommends; you decide._")]
     return "\n".join(lines)
 
 
@@ -112,7 +112,8 @@ def dispatch_summary() -> str:
         return "*Dispatch health*\nNo execution telemetry available."
     try:
         rows = list((c.raw_client.table("dispatch_health").select("*").execute()).data or [])
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort dispatch health read
+        log.debug("[human_systems.learning] dispatch_health read failed: %s", exc)
         return "*Dispatch health*\nNo execution telemetry available."
     if not rows:
         return "*Dispatch health*\nNo dispatches recorded yet."

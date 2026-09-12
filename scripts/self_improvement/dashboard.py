@@ -86,7 +86,7 @@ def load_findings():
             data = json.load(f)
         findings = data.get("findings", [])
         return findings, run_dir.name
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, AttributeError) as exc:
         log.error(f"Failed to load findings: {exc}")
         return [], None
 
@@ -105,7 +105,7 @@ def load_decisions():
                     finding_id = d.get("finding_id")
                     if finding_id:
                         decisions[finding_id] = d
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, AttributeError) as exc:
         log.error(f"Failed to load decisions: {exc}")
 
     return decisions
@@ -134,7 +134,7 @@ def load_finding_staleness(run_id):
                     finding_id = r.get("finding_id")
                     if finding_id:
                         results[finding_id] = r
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, AttributeError) as exc:
         log.error(f"Failed to load finding staleness: {exc}")
 
     return results
@@ -156,7 +156,7 @@ def load_remediation_results():
                     finding_id = r.get("finding_id")
                     if finding_id:
                         results[finding_id] = r
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, AttributeError) as exc:
         log.error(f"Failed to load remediation results: {exc}")
 
     return results
@@ -191,7 +191,7 @@ def save_decision(finding_id, decision, reasoning=""):
         "finding_id": finding_id,
         "decision": decision,
         "reasoning": reasoning,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     try:
@@ -199,7 +199,7 @@ def save_decision(finding_id, decision, reasoning=""):
             f.write(json.dumps(decision_record) + "\n")
         log.info(f"Saved decision for {finding_id}: {decision}")
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort append-only write; a failure here must not crash the decision-making request, caller already gets False + logged error
         log.error(f"Failed to save decision: {exc}")
         return False
 
@@ -303,7 +303,7 @@ def api_opportunities():
     """List current opportunities, optionally filtered by lifecycle_state
     (?state=discovered,investigating,proposed,...) — comma-separated."""
     state_filter = request.args.get("state")
-    states = set(s.strip() for s in state_filter.split(",")) if state_filter else None
+    states = {s.strip() for s in state_filter.split(",")} if state_filter else None
 
     opportunities = opportunity_store.all_current()
     if states:
@@ -386,7 +386,7 @@ def api_opportunity_decide():
     if decision_type in ("approve_improvement", "create_mission") and not existing.get("outcome_contract"):
         try:
             changes["outcome_contract"] = outcome_contract_module.build_outcome_contract(existing, REPO_ROOT)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - build_outcome_contract() is an external module call whose exception surface isn't fully known here; already logged, and a contract-build failure must not block the underlying decision from being recorded
             log.warning(f"Failed to build outcome contract for {opportunity_id}: {exc}")
 
     # Bridge to the existing, unmodified bounded-remediation engine (spec
@@ -445,7 +445,7 @@ def api_evolution_summary():
         try:
             with open(summary_file) as f:
                 cycle_summary = json.load(f)
-        except Exception as exc:
+        except (OSError, json.JSONDecodeError, AttributeError) as exc:
             log.warning(f"Failed to read evolution_summary.json: {exc}")
 
     current = opportunity_store.all_current()
@@ -519,7 +519,7 @@ def load_mission_dispatch_log():
                     mission_id = r.get("mission_id")
                     if mission_id:
                         entries[mission_id] = r
-    except Exception as exc:
+    except (OSError, json.JSONDecodeError, AttributeError) as exc:
         log.error(f"Failed to load mission dispatch log: {exc}")
 
     return entries
@@ -572,7 +572,7 @@ def api_engineering_handoffs():
             load_engineering_handoffs,
         )
         handoffs = load_engineering_handoffs(include_completed=include_completed)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - load_engineering_handoffs() exception surface owned by another module (core/); already logged and surfaced as a 503, broad catch intentional so this read-only status route never 500s
         log.error(f"Failed to load engineering handoffs: {exc}")
         return jsonify({"handoffs": [], "error": str(exc)}), 503
     return jsonify({"handoffs": handoffs})

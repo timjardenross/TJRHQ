@@ -92,7 +92,7 @@ async def fetch_protocols(db) -> list[dict]:
     try:
         res = db.table("capacity_rescue_protocols").select("*").eq("enabled", True).execute()
         return res.data or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_rescue_protocols fetch failed: %s", exc)
         return []
 
@@ -104,7 +104,7 @@ async def fetch_protocol(db, protocol_id) -> dict | None:
         res = db.table("capacity_rescue_protocols").select("*").eq("id", protocol_id).limit(1).execute()
         rows = res.data or []
         return rows[0] if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_rescue_protocols fetch by id failed: %s", exc)
         return None
 
@@ -115,7 +115,7 @@ async def fetch_protocol_steps(db, protocol_id) -> list[dict]:
     try:
         res = db.table("capacity_protocol_steps").select("*").eq("protocol_id", protocol_id).execute()
         return res.data or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_protocol_steps fetch failed: %s", exc)
         return []
 

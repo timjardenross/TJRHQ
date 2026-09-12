@@ -30,7 +30,7 @@ def _deserialize_event(event_dict: dict):
                 pass  # Leave as-is if parse fails
     return event_dict
 
-def backfill_events(batch_size: int = 100, limit: int = None) -> None:
+def backfill_events(batch_size: int = 100, limit: int | None = None) -> None:
     """Backfill enrichment for all TO_COLLECT events."""
     log.info("Fetching unenriched events (signal_status=TO_COLLECT)...")
     
@@ -66,7 +66,7 @@ def backfill_events(batch_size: int = 100, limit: int = None) -> None:
             stats = enrich_and_save(batch_objs, store)
             total_processed += stats["canonical"] + stats["duplicate"]
             log.info(f"  → canonical={stats['canonical']} duplicate={stats['duplicate']} failed={stats['failed']}")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-batch enrichment call; one bad batch's unpredictable failure must not abort the whole backfill run, already logged and skipped via continue
             log.error(f"Batch failed: {exc}")
             continue
         

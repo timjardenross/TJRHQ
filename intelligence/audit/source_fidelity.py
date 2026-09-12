@@ -10,7 +10,7 @@ Queries Supabase for:
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from intelligence.persistence import intelligence_store
 
@@ -28,7 +28,7 @@ def source_fidelity_report(days: int = 30) -> dict:
     - degraded_sources: sources with parse errors
     - signal_to_noise: overall ratio (events / items collected)
     """
-    since = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
     # Query 1: Items collected per source (last 30 days)
     log.info("Fetching source collection stats (last %d days)...", days)
@@ -103,7 +103,7 @@ def source_fidelity_report(days: int = 30) -> dict:
     # Compile report
     report = {
         "period_days": days,
-        "report_generated_at": datetime.utcnow().isoformat(),
+        "report_generated_at": datetime.now(timezone.utc).isoformat(),
         "total_sources": len(source_stats),
         "sources": {},
         "summary": {},

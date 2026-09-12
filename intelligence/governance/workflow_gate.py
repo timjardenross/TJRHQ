@@ -178,6 +178,6 @@ def log_mutation(
             },
             mission_id=mission_id,
         )
-    except Exception as exc:  # audit must never break the workflow
+    except Exception as exc:  # audit must never break the workflow  # noqa: BLE001 - explicitly documented above as 'audit must never break the workflow', already logged
         log.warning("log_mutation: audit write failed (%s); continuing", exc)
         return False

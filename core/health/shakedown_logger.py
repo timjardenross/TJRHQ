@@ -11,7 +11,7 @@ a summary. The review generator reads all 7 days of events.
 Public API:
     log_event(job_id, status, detail, delivered_to)
     read_events(since_date=None, until_date=None) -> list[dict]
-    get_day_summary(day=date.today()) -> dict
+    get_day_summary(day=datetime.now().astimezone().date()) -> dict
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ def log_event(
     try:
         with open(_LOG_FILE, "a") as f:
             f.write(json.dumps(record) + "\n")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[shakedown] Failed to write event log: %s", exc)
 
 
@@ -90,10 +90,10 @@ def read_events(
     return events
 
 
-def get_day_summary(day: date = None) -> dict:
+def get_day_summary(day: date | None = None) -> dict:
     """Compile a summary dict for a given day from event log."""
     if day is None:
-        day = date.today()
+        day = datetime.now().astimezone().date()
     events = read_events(since_date=day, until_date=day)
 
     by_job: dict[str, list[dict]] = {}
@@ -138,8 +138,8 @@ def format_day_summary_for_slack(summary: dict) -> str:
 
     lines = [
         f"{status_emoji} *Shakedown Day {day_n} — {summary['date']}*",
-        f"Events logged: {total}  ({len(jobs)} distinct job{'s' if len(jobs) != 1 else ''})  |  "
-        f"Success: {ok}  |  Failures: {fail}  |  Skipped: {skip}",
+        (f"Events logged: {total}  ({len(jobs)} distinct job{'s' if len(jobs) != 1 else ''})  |  "
+         f"Success: {ok}  |  Failures: {fail}  |  Skipped: {skip}"),
         "",
     ]
     if jobs:

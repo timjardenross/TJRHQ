@@ -281,20 +281,20 @@ _Generated: {brief.timestamp}_"""
                 text = line.strip()
 
                 # Stop at next section
-                if text and (":" in text) and not text.startswith("•") and not text.startswith("-"):
-                    if any(
-                        keyword in text.lower()
-                        for keyword in [
-                            "implications",
-                            "recommendation",
-                            "sources",
-                            "information",
-                        ]
-                    ):
-                        break
+                if (text and (":" in text) and not text.startswith("•") and not text.startswith("-")
+                        and any(
+                            keyword in text.lower()
+                            for keyword in [
+                                "implications",
+                                "recommendation",
+                                "sources",
+                                "information",
+                            ]
+                        )):
+                    break
 
                 # Extract bullet point
-                if text.startswith("•") or text.startswith("-") or text.startswith("*"):
+                if text.startswith(("•", "-", "*")):
                     clean_text = text.lstrip("•-* ").strip()
                     if clean_text:
                         findings.append(clean_text)

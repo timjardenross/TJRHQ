@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Tests for Intelligence Maturity Phase 2
 Mission: M-20260613-INTELLIGENCE-MATURITY-PHASE2
@@ -498,8 +499,8 @@ class TestEnhancedReadinessScore(unittest.TestCase):
         self.assertLessEqual(result.score, 100)
 
     def test_deadline_pressure_reduces_ops(self):
-        from datetime import date, timedelta
-        due_soon = (date.today() + timedelta(days=1)).isoformat()
+        from datetime import datetime, timedelta, timezone
+        due_soon = (datetime.now(timezone.utc).date() + timedelta(days=1)).isoformat()
         missions = [
             {"id": "M1", "priority": "P0", "status": "Designed",
              "due_date": due_soon, "title": "Urgent mission"},
@@ -522,7 +523,7 @@ class TestIntelligenceReporter(unittest.TestCase):
 
     def test_import_succeeds(self):
         try:
-            from intelligence_reporter import (
+            from intelligence_reporter import (  # noqa: F401 - importability itself is what this test asserts
                 _REPORTS,
                 run_all_reports,
                 run_single_report,
@@ -550,7 +551,7 @@ class TestIntelligenceReporter(unittest.TestCase):
         outputs_dir = _REPO_ROOT / "outputs"
         before = set(outputs_dir.glob("*.json")) if outputs_dir.exists() else set()
 
-        result = run_all_reports(dry_run=True, persist_readiness=False)
+        run_all_reports(dry_run=True, persist_readiness=False)
 
         after = set(outputs_dir.glob("*.json")) if outputs_dir.exists() else set()
         new_files = after - before

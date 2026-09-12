@@ -141,7 +141,7 @@ def _client():
         from tools.supabase.client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         return c if c.is_enabled() and c.raw_client is not None else None
-    except Exception as exc:  # pragma: no cover - environment dependent
+    except Exception as exc:  # noqa: BLE001 - best-effort Supabase client init, already logged  # pragma: no cover - environment dependent
         log.warning("[strategy.objectives] Supabase unavailable: %s", exc)
         return None
 
@@ -176,12 +176,13 @@ def fetch_snapshot() -> StrategicSnapshot:
     try:
         res = c.raw_client.table(PROGRESS_VIEW).select("*").execute()
         rows = list(res.data or [])
-    except Exception:
+    except Exception as _view_exc:  # noqa: BLE001 - best-effort progress-view read, falls back to table
+        log.debug("[strategy.objectives] progress view unavailable, falling back to table: %s", _view_exc)
         try:
             res = c.raw_client.table(OBJECTIVES_TABLE).select(
                 "objective_id, domain, title, status, priority").execute()
             rows = list(res.data or [])
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort fetch, already logged
             log.warning("[strategy.objectives] fetch failed: %s", exc)
             return StrategicSnapshot()
 
@@ -191,7 +192,8 @@ def fetch_snapshot() -> StrategicSnapshot:
     try:
         ores = c.raw_client.table(ORPHAN_VIEW).select("mission_id").execute()
         orphan_count = len(list(ores.data or []))
-    except Exception:
+    except Exception as _orphan_exc:  # noqa: BLE001 - best-effort orphan-count query, defaults to 0
+        log.debug("[strategy.objectives] orphan count query failed: %s", _orphan_exc)
         orphan_count = 0
 
     return StrategicSnapshot(

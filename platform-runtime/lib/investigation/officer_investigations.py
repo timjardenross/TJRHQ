@@ -85,7 +85,7 @@ def investigate_human_systems(ctx: Any) -> list[str]:
                 opened.append(inv_id)
                 log.info("[investigation.officers] human_systems opened: %s (Amber+blocked)", inv_id)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - human_systems trigger, best-effort, already logged
         log.warning("[investigation.officers] human_systems trigger failed: %s", exc)
     return opened
 
@@ -125,7 +125,7 @@ def investigate_ori(ctx: Any) -> list[str]:
                 opened.append(inv_id)
                 log.info("[investigation.officers] ori opened: %s (AMBER risk)", inv_id)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - ori trigger, best-effort, already logged
         log.warning("[investigation.officers] ori trigger failed: %s", exc)
     return opened
 
@@ -155,7 +155,7 @@ def investigate_number_one(ctx: Any) -> list[str]:
                 opened.append(inv_id)
                 log.info("[investigation.officers] number_one opened: %s (escalation buildup)", inv_id)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - number_one trigger, best-effort, already logged
         log.warning("[investigation.officers] number_one trigger failed: %s", exc)
     return opened
 
@@ -180,7 +180,7 @@ def investigate_engineering(ctx: Any) -> list[str]:
                 opened.append(inv_id)
                 log.info("[investigation.officers] engineering opened: %s (%d blocked)", inv_id, blocked)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - engineering trigger, best-effort, already logged
         log.warning("[investigation.officers] engineering trigger failed: %s", exc)
     return opened
 
@@ -203,7 +203,7 @@ def investigate_strategic_planning(ctx: Any) -> list[str]:
                 opened.append(inv_id)
                 log.info("[investigation.officers] strategic_planning opened: %s (%d orphans)", inv_id, orphan_count)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - strategic_planning trigger, best-effort, already logged
         log.warning("[investigation.officers] strategic_planning trigger failed: %s", exc)
     return opened
 
@@ -226,7 +226,7 @@ def investigate_communications(ctx: Any) -> list[str]:
                 opened.append(inv_id)
                 log.info("[investigation.officers] communications opened: %s (%d ready)", inv_id, comms_ready)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - communications trigger, best-effort, already logged
         log.warning("[investigation.officers] communications trigger failed: %s", exc)
     return opened
 
@@ -263,7 +263,7 @@ def investigate_knowledge(ctx: Any) -> list[str]:
                 opened.append(inv_id)
                 log.info("[investigation.officers] knowledge opened: %s (%d gaps)", inv_id, gap_count)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - knowledge trigger, best-effort, already logged
         log.warning("[investigation.officers] knowledge trigger failed: %s", exc)
     return opened
 
@@ -286,7 +286,7 @@ def run_all_investigation_triggers(ctx: Any) -> list[str]:
         try:
             opened = trigger_fn(ctx)
             all_opened.extend(opened)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - isolate one trigger's failure from the rest, already logged
             log.warning("[investigation.officers] Trigger %s failed: %s", trigger_fn.__name__, exc)
 
     # Domain triggers (run less frequently in practice but checked every cycle)
@@ -299,7 +299,7 @@ def run_all_investigation_triggers(ctx: Any) -> list[str]:
         try:
             opened = trigger_fn(ctx)
             all_opened.extend(opened)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - isolate one trigger's failure from the rest, already logged
             log.warning("[investigation.officers] Trigger %s failed: %s", trigger_fn.__name__, exc)
 
     if all_opened:

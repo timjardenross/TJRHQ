@@ -114,7 +114,7 @@ def split_front_matter(raw: str) -> tuple[dict, str]:
         loaded = yaml.safe_load(fm_block)
         if isinstance(loaded, dict):
             fm = loaded
-    except Exception:
+    except Exception:  # noqa: BLE001 - optional PyYAML import/parse — explicit key:value fallback parser implemented right below when missing/invalid
         # Minimal key: value fallback if PyYAML missing/invalid.
         for line in fm_block.splitlines():
             if ":" in line:
