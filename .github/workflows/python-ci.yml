@@ -309,3 +309,78 @@ jobs:
 
       - name: Run actionlint
         run: /tmp/actionlint-bin/actionlint .github/workflows/*.yml
+
+  # USS-TJR-MSN-0366 Stream 1. Net-new: nothing in this repo ran Semgrep
+  # before this job. Runs over the WHOLE tree in one pass, like actionlint
+  # above — not per-matrix-directory like the `test` job — because it is
+  # the only SAST coverage lcars-portal/ (Next.js/TypeScript) has at all;
+  # bandit (.pre-commit-config.yaml) only ever covers Python.
+  #
+  # Advisory only, deliberately: `continue-on-error: true` so a finding
+  # never blocks a PR. This is a first-pass adoption of a brand-new tool
+  # against an existing, previously-unscanned monorepo — the point right
+  # now is visibility into what Semgrep finds (including the custom
+  # RLS-adjacent rules in .semgrep.yml, see that file's header), not a new
+  # merge gate. Revisit once findings are triaged; see
+  # reports/semgrep/20260912-060349-findings.md for the first triage pass
+  # and knowledge/missions/SEMGREP-CI-20260912-knowledge-record.md for the
+  # full account of what did and didn't work standing this up.
+  #
+  # OSS CLI only, on purpose: no SEMGREP_APP_TOKEN, no `semgrep ci`, no
+  # login, no results uploaded to semgrep.dev — `semgrep scan` never
+  # touches a secret, matching this stream's "OSS-CLI, not the hosted
+  # product" scope. `permissions: contents: read` (workflow-level, above)
+  # is all this job needs — it only reads the checked-out tree.
+  semgrep:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Pinned exact version (not "pip install semgrep" unpinned) —
+      # verified locally against this repo at 1.177.0 before this job was
+      # written; an unpinned install could silently change findings out
+      # from under this advisory gate on a later run.
+      - name: Install semgrep
+        run: pip install semgrep==1.177.0
+
+      # Registry rulesets (p/python, p/javascript, p/typescript,
+      # p/security-audit) give general-purpose coverage; .semgrep.yml at
+      # the repo root holds this repo's own custom/ RLS-adjacent rules.
+      # They're combined as separate --config flags on one invocation —
+      # Semgrep's config format has no extends/include key to pull a
+      # registry ruleset into a local YAML file, so this is the actual
+      # supported way to run both together, not a workaround.
+      #
+      # NOTE: the registry configs (semgrep.dev) were unreachable from the
+      # sandbox this job was authored in (egress policy blocked
+      # semgrep.dev outright — see the knowledge record). They are
+      # expected to work fine from a normal GitHub-hosted runner's
+      # unrestricted egress, but that specific claim was NOT verified
+      # end-to-end before this job shipped — if this step's registry
+      # fetch ever fails in real CI, that's the first thing to check.
+      - name: Semgrep scan
+        run: |
+          semgrep scan \
+            --config=p/python \
+            --config=p/javascript \
+            --config=p/typescript \
+            --config=p/security-audit \
+            --config=.semgrep.yml \
+            --metrics=off \
+            --disable-version-check \
+            --error \
+            --output=semgrep-results.json \
+            --json
+
+      - name: Upload Semgrep results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-results
+          path: semgrep-results.json
+          retention-days: 30
