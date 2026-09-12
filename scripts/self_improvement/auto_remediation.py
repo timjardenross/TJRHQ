@@ -307,6 +307,15 @@ class AutoRemediationExecutor:
         self.repo_root = repo_root
         self.data_root = data_root
         self.result_file = data_root / "review" / "remediation_results.jsonl"
+        # LL-146 follow-up: the 03:00 hq-evolution.timer -> orchestrator.py
+        # cycle commits with whatever branch happens to be checked out on
+        # the VM, with no assertion and no push - commits landed silently
+        # wherever and never reached origin. Auto-remediation now refuses to
+        # commit unless the VM is on this dedicated branch, kept isolated
+        # from human-authored history on `main` so a human can periodically
+        # review and fast-forward/merge it in on their own schedule, rather
+        # than autonomous cycle-artifact commits mixing directly into main.
+        self.expected_branch = "self-improvement"
         # HandoffPRStrategy is the catch-all (always True) — must stay last,
         # so the narrower/free/direct strategies get first refusal. Also
         # kept as its own named reference (self.pr_strategy) so execute()
@@ -453,7 +462,37 @@ class AutoRemediationExecutor:
         working tree at cycle time into a "self-improvement: cycle ...
         artifacts"-labelled commit. `paths=None` keeps `-A` for the
         remediation-fix commit path, where the changed files aren't
-        tracked by the caller."""
+        tracked by the caller.
+
+        LL-146 follow-up: also refuses to commit unless the VM's currently
+        checked-out branch matches self.expected_branch. Without this, the
+        03:00 timer-driven cycle committed to whatever branch happened to be
+        checked out (main included) with no push, so the commits landed
+        silently and never reached origin. Fails closed: on a branch
+        mismatch, nothing is added or committed and None is returned. On a
+        successful commit, this now also pushes to origin so the commit
+        can't dangle locally-only the way LL-146's commits did; a push
+        failure is logged loudly (error level, sha included) but does not
+        undo the local commit or raise past this method.
+        """
+        try:
+            current_branch = subprocess.run(
+                ["git", "-C", str(self.repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
+                check=True, capture_output=True, text=True,
+            ).stdout.strip()
+        except subprocess.CalledProcessError as exc:
+            log.error(f"Git commit refused: could not determine current branch: {exc}")
+            return None
+
+        if current_branch != self.expected_branch:
+            log.error(
+                f"Git commit refused: expected branch {self.expected_branch!r} "
+                f"but VM is checked out on {current_branch!r}. Skipping add/commit "
+                f"entirely (LL-146: auto-remediation must never commit to an "
+                f"unexpected branch)."
+            )
+            return None
+
         try:
             add_cmd = ["git", "-C", str(self.repo_root), "add"]
             add_cmd += paths if paths else ["-A"]
@@ -472,10 +511,24 @@ class AutoRemediationExecutor:
                 check=True, capture_output=True, text=True,
             ).stdout.strip()
             log.info(f"Git commit: {message} ({sha[:8]})")
-            return sha
         except subprocess.CalledProcessError as exc:
             log.error(f"Git commit failed: {exc}")
             return None
+
+        try:
+            subprocess.run(
+                ["git", "-C", str(self.repo_root), "push", "origin", current_branch],
+                check=True, capture_output=True,
+            )
+            log.info(f"Pushed {sha[:8]} to origin/{current_branch}")
+        except subprocess.CalledProcessError as exc:
+            log.error(
+                f"Git push failed after local commit {sha[:8]} on {current_branch!r}: "
+                f"{exc}. Commit exists LOCALLY ONLY and was NOT pushed to origin - "
+                f"this needs manual attention or it will dangle exactly like LL-146."
+            )
+
+        return sha
 
     def git_revert(self, sha: str) -> bool:
         """Revert one commit by sha (creates a new commit, doesn't rewrite

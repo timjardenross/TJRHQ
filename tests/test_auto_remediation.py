@@ -266,5 +266,75 @@ class TestHandoffPRStrategyMessageSurfacesRealReason(unittest.TestCase):
         self.assertNotIn("no PR opened", result["message"])
 
 
+class TestGitCommitBranchCheckAndPush(unittest.TestCase):
+    """LL-146 follow-up: git_commit() must refuse to commit unless the VM is
+    on the expected branch (fail closed, no add/commit subprocess calls at
+    all), and must push after a successful commit on the expected branch —
+    no real git/subprocess calls, no real network push."""
+
+    def setUp(self):
+        self.tmpdir = Path(tempfile.mkdtemp())
+        self.executor = AutoRemediationExecutor(REPO_ROOT, self.tmpdir)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _fake_run(self, branch, commit_ok=True, push_ok=True, sha="deadbeef01"):
+        """Build a subprocess.run stand-in that dispatches on the git
+        subcommand so add/commit/push/rev-parse can each be asserted on
+        independently, matching this file's patch("auto_remediation.
+        subprocess.run", ...) convention elsewhere."""
+        import subprocess as _subprocess
+
+        def fake_run(cmd, *args, **kwargs):
+            if "rev-parse" in cmd and "--abbrev-ref" in cmd:
+                return type("R", (), {"stdout": branch + "\n", "returncode": 0})()
+            if "rev-parse" in cmd and "HEAD" in cmd:
+                return type("R", (), {"stdout": sha + "\n", "returncode": 0})()
+            if "commit" in cmd and not commit_ok:
+                raise _subprocess.CalledProcessError(1, cmd)
+            if "push" in cmd and not push_ok:
+                raise _subprocess.CalledProcessError(1, cmd)
+            return type("R", (), {"stdout": "", "returncode": 0})()
+
+        return fake_run
+
+    def test_refuses_to_commit_on_unexpected_branch(self):
+        self.assertEqual(self.executor.expected_branch, "self-improvement")
+        fake_run = self._fake_run(branch="main")
+
+        with patch("auto_remediation.subprocess.run", side_effect=fake_run) as mock_run:
+            result = self.executor.git_commit("test commit")
+
+        self.assertIsNone(result)
+        called_subcommands = [call.args[0] for call in mock_run.call_args_list]
+        self.assertTrue(all("add" not in cmd and "commit" not in cmd for cmd in called_subcommands),
+                         f"add/commit must never be invoked on the wrong branch, got: {called_subcommands}")
+
+    def test_commits_and_pushes_on_expected_branch(self):
+        fake_run = self._fake_run(branch="self-improvement", sha="cafef00d99")
+
+        with patch("auto_remediation.subprocess.run", side_effect=fake_run) as mock_run:
+            result = self.executor.git_commit("test commit")
+
+        self.assertEqual(result, "cafef00d99")
+        called_subcommands = [call.args[0] for call in mock_run.call_args_list]
+        self.assertTrue(any("add" in cmd for cmd in called_subcommands), "expected a git add call")
+        self.assertTrue(any("commit" in cmd for cmd in called_subcommands), "expected a git commit call")
+        self.assertTrue(any("push" in cmd for cmd in called_subcommands), "expected a git push call")
+
+    def test_push_failure_still_returns_sha_but_logs_loudly(self):
+        fake_run = self._fake_run(branch="self-improvement", push_ok=False, sha="abc12345")
+
+        with patch("auto_remediation.subprocess.run", side_effect=fake_run), \
+             patch("auto_remediation.log") as mock_log:
+            result = self.executor.git_commit("test commit")
+
+        self.assertEqual(result, "abc12345")
+        error_messages = " ".join(str(call.args[0]) for call in mock_log.error.call_args_list)
+        self.assertIn("abc12345", error_messages)
+        self.assertIn("not", error_messages.lower())
+
+
 if __name__ == "__main__":
     unittest.main()
