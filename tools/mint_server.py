@@ -26,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import id_registry
 
-_PORT = int(os.environ.get("MINT_PORT", 5052))
+_PORT = int(os.environ.get("MINT_PORT", "5052"))
 _HOST = os.environ.get("MINT_HOST", "127.0.0.1")  # localhost-only by default; override for debugging
 _VALID_PREFIXES = {"MSN", "BREQ", "DEC"}
 

@@ -26,6 +26,10 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from mistralai import Mistral
 
 from core.llm.provider_chain import (
     LLMCallResult,

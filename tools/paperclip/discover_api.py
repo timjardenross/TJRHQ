@@ -134,7 +134,7 @@ def print_summary(companies: list[dict], agents: list[dict]) -> None:
     print("=" * 60)
 
     # Primary company = smallest issuePrefix (STA before STAA)
-    primary = sorted(companies, key=lambda c: len(c.get("issuePrefix", "ZZZ")))[0] if companies else None
+    primary = min(companies, key=lambda c: len(c.get("issuePrefix", "ZZZ"))) if companies else None
     if primary:
         print(f"\nPrimary companyId:  {primary['id']}")
         print(f"  name:   {primary['name']}")
@@ -170,7 +170,7 @@ def main() -> int:
     # Use primary company (shortest issuePrefix = original setup)
     primary_company = None
     if companies:
-        primary_company = sorted(companies, key=lambda c: len(c.get("issuePrefix", "ZZZ")))[0]
+        primary_company = min(companies, key=lambda c: len(c.get("issuePrefix", "ZZZ")))
 
     agents: list[dict] = []
     if primary_company:

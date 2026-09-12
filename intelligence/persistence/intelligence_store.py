@@ -10,8 +10,12 @@ import os
 import urllib.error
 import urllib.request
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from core.platform.priority_engine import PriorityInputs, PriorityScore, score_event
+
+if TYPE_CHECKING:
+    from core.llm.provider_chain import LLMCallResult
 from intelligence.config import SUPABASE_KEY, SUPABASE_URL
 from intelligence.models import (
     RankedEvent,

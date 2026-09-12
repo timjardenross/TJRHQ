@@ -111,7 +111,7 @@ def test_alert_emitted_for_strategic_decision() -> None:
     after = set(ALERT_DIR.glob("*.json"))
     created = after - before
     assert created, "No alert file was written for a strategic decision"
-    alert = json.loads(Path(list(created)[0]).read_text(encoding="utf-8"))
+    alert = json.loads(Path(next(iter(created))).read_text(encoding="utf-8"))
     assert alert["decision_id"] == "DEC-TEST-000001-abcdef"
     assert alert["decision_mode"] == "strategic"
     print("  PASS test_alert_emitted_for_strategic_decision")

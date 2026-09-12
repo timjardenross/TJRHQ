@@ -958,8 +958,8 @@ def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
         ]
         lines = [
             "<b>⚡ CAPACITY THIS WEEK</b>",
-            f"  <code>{_confidence_bar(conf)}</code> Recovery confidence <b>{conf}%</b>"
-            f"  ·  {len(entries)} pulse(s) logged across {days_logged} day(s) (of {days})",
+            (f"  <code>{_confidence_bar(conf)}</code> Recovery confidence <b>{conf}%</b>"
+             f"  ·  {len(entries)} pulse(s) logged across {days_logged} day(s) (of {days})"),
         ]
         if signals_str:
             lines.append(f"  Latest: {' · '.join(signals_str)}")

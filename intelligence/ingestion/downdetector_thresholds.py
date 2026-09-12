@@ -221,8 +221,8 @@ def _build_threshold_prompt(source_name: str, sector: str, summary: HistorySumma
     lines = [
         f"Source: {source_name}",
         f"Sector: {sector}",
-        f"Real observation history: {summary.distinct_days} distinct days, "
-        f"{summary.quiet_count} quiet-status observations with a parsed report count.",
+        (f"Real observation history: {summary.distinct_days} distinct days, "
+         f"{summary.quiet_count} quiet-status observations with a parsed report count."),
     ]
     if summary.quiet_count:
         lines.append(

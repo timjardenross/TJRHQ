@@ -188,7 +188,7 @@ class SignalScoreRecomputer:
 
         to_insert = []
         confirm_counts = defaultdict(int)
-        for sector, bucket in by_sector.items():
+        for bucket in by_sector.values():
             bucket.sort(key=lambda e: e["_ts"])
             for a, b in combinations(bucket, 2):
                 if abs((a["_ts"] - b["_ts"]).days) > 3:

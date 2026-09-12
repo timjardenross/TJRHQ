@@ -442,17 +442,17 @@ CASES = [
 # programme's lowest-priority gap to fill.
 KNOWN_GAPS = [
     "No banking/regulatory negative control case (lowest priority — MSN-0338 §5 already confirmed this path works)",
-    "No LIVE (non-replay) AWS-active-incident or bushfire case exists in production data yet — "
-    "both cases above are real historical text replayed offline, not a currently-collectible live row; "
-    "swap in a live row here the day a real one exists.",
-    "FIXED (MSN-0343, 2026-07-08): some GCP security bulletins (GCP-2026-025/027/029/039, real cross-platform "
-    "GKE bulletins with genuine CVEs) misclassified as technology_outage instead of cyber because the plural "
-    "'vulnerabilities' in their boilerplate didn't substring-match the classifier's singular 'vulnerability' "
-    "keyword. intelligence/classification/classifier.py's cyber _EVENT_TYPE_RULES entry now matches the "
-    "'vulnerabilit' stem, covering both forms. Fix is forward-only — the GCP-2026-025/027/029/039 rows already "
-    "in intelligence_events retain their original (wrong) classification from ingestion time; not retroactively "
-    "reclassified, since doing so correctly requires re-running the full classify() pipeline per row, not just "
-    "flipping event_type. The next real ingestion of a similar bulletin will classify correctly.",
+    ("No LIVE (non-replay) AWS-active-incident or bushfire case exists in production data yet — "
+     "both cases above are real historical text replayed offline, not a currently-collectible live row; "
+     "swap in a live row here the day a real one exists."),
+    ("FIXED (MSN-0343, 2026-07-08): some GCP security bulletins (GCP-2026-025/027/029/039, real cross-platform "
+     "GKE bulletins with genuine CVEs) misclassified as technology_outage instead of cyber because the plural "
+     "'vulnerabilities' in their boilerplate didn't substring-match the classifier's singular 'vulnerability' "
+     "keyword. intelligence/classification/classifier.py's cyber _EVENT_TYPE_RULES entry now matches the "
+     "'vulnerabilit' stem, covering both forms. Fix is forward-only — the GCP-2026-025/027/029/039 rows already "
+     "in intelligence_events retain their original (wrong) classification from ingestion time; not retroactively "
+     "reclassified, since doing so correctly requires re-running the full classify() pipeline per row, not just "
+     "flipping event_type. The next real ingestion of a similar bulletin will classify correctly."),
 ]
 
 

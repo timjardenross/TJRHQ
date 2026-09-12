@@ -1211,8 +1211,8 @@ def _emergency_alert_hub_job() -> None:
         from intelligence.emergency_alerts import run_all
         results = run_all()
         log.info("Emergency Alert Hub collection complete: %s", results)
-    except Exception as exc:
-        log.error("Emergency Alert Hub collection failed: %s", exc, exc_info=True)
+    except Exception:
+        log.exception("Emergency Alert Hub collection failed")
 
 
 def _emergency_alert_summary_job() -> None:
@@ -1226,8 +1226,8 @@ def _emergency_alert_summary_job() -> None:
         from intelligence.emergency_alert_summary import run
         result = run()
         log.info("Emergency Alert Hub summary check complete: %s", result)
-    except Exception as exc:
-        log.error("Emergency Alert Hub summary job failed: %s", exc, exc_info=True)
+    except Exception:
+        log.exception("Emergency Alert Hub summary job failed")
 
 
 def _intraday_status_collection_job() -> None:

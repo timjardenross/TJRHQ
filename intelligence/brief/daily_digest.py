@@ -64,7 +64,7 @@ def _unwrap_if_json(text: str) -> str:
     backstop so a recurrence degrades to readable text instead of a raw
     JSON dump reaching Captain TJR's Telegram."""
     stripped = text.strip()
-    if not (stripped.startswith("{") or stripped.startswith("```")):
+    if not stripped.startswith(("{", "```")):
         return text
     match = _JSON_BLOCK_RE.search(stripped)
     if not match:

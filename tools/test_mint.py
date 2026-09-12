@@ -29,6 +29,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
+from typing_extensions import Self
+
 import id_registry
 
 PASS = "\033[32mPASS\033[0m"
@@ -63,7 +65,7 @@ class IsolatedCounter:
         self._orig_counter: Path | None = None
         self._orig_lock: Path | None = None
 
-    def __enter__(self) -> IsolatedCounter:
+    def __enter__(self) -> Self:
         self._tmpdir = tempfile.TemporaryDirectory(prefix="mint_test_")
         tmp = Path(self._tmpdir.name)
         counter_file = tmp / ".id-counters.json"

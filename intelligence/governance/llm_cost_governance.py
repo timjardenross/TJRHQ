@@ -65,10 +65,9 @@ class LLMCostGovernance:
             return None
 
         # Use in-memory cache to avoid hammering Supabase on every call
-        if not force_refresh and task_type in self._config_cache:
-            if self._last_config_load and \
-               (datetime.now(timezone.utc) - self._last_config_load).total_seconds() < 300:
-                return self._config_cache.get(task_type)
+        if (not force_refresh and task_type in self._config_cache and self._last_config_load
+                and (datetime.now(timezone.utc) - self._last_config_load).total_seconds() < 300):
+            return self._config_cache.get(task_type)
 
         try:
             url = (f"{self.supabase_url}/rest/v1/llm_cost_governance"

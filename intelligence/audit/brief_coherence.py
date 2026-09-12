@@ -73,13 +73,11 @@ def brief_sample(limit: int = 5, days: int = 30) -> dict:
         if isinstance(top_events, str):
             try:
                 top_events = json.loads(top_events)
-            except:
+            except (json.JSONDecodeError, ValueError):
                 top_events = []
 
         cps230 = brief.get("cps230_implications", "")
-        if isinstance(cps230, str):
-            cps230 = cps230
-        else:
+        if not isinstance(cps230, str):
             cps230 = json.dumps(cps230) if cps230 else ""
 
         brief_sample = {

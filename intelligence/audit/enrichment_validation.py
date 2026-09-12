@@ -64,7 +64,7 @@ def enrichment_sample(days: int = 14, sample_per_level: int = SAMPLE_SIZE_PER_LE
             if isinstance(sb, str):
                 try:
                     sb = json.loads(sb)
-                except:
+                except (json.JSONDecodeError, ValueError):
                     sb = None
 
             event_sample = {

@@ -104,7 +104,7 @@ class DualPathScoringResult:
 def _clamp(value: Any) -> int:
     """Coerce a model/heuristic value to an int in [1, 5]; default 3 on garbage."""
     try:
-        v = int(round(float(value)))
+        v = round(float(value))
     except (TypeError, ValueError):
         return 3
     return max(_MIN, min(_MAX, v))

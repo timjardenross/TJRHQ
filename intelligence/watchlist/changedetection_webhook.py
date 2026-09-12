@@ -111,9 +111,9 @@ def normalise_payload(body: dict) -> dict | None:
         f"persistent diff-watch (changedetection.io)"
     )
     summary_parts = [
-        f"[Watchlist signal type: changedetection-diff (persistent third-party "
-        f"diff-watch, not a vendor self-report)] changedetection.io detected a "
-        f"real content change on a watched page ({watch_url})."
+        (f"[Watchlist signal type: changedetection-diff (persistent third-party "
+         f"diff-watch, not a vendor self-report)] changedetection.io detected a "
+         f"real content change on a watched page ({watch_url}).")
     ]
     if diff_added:
         summary_parts.append(f"Added: {diff_added[:600]}")

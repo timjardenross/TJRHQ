@@ -61,9 +61,9 @@ def document_type(path: Path) -> str:
         return "ADR"
     if "/architecture/" in f"/{relative}" or relative.startswith("core/architecture"):
         return "Architecture"
-    if relative.startswith("specialists/") or relative.startswith("core/crew"):
+    if relative.startswith(("specialists/", "core/crew")):
         return "Crew"
-    if relative.startswith("Missions/") or relative.startswith("missions/"):
+    if relative.startswith(("Missions/", "missions/")):
         return "Mission"
     if "capabilit" in relative.lower():
         return "Capability"

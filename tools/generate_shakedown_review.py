@@ -138,9 +138,9 @@ def assess_notification_value(analysis: dict) -> list[dict]:
 
         # Noise assessment: daily alert jobs that never skip are potentially noisy
         noise = "low"
-        if meta["cadence"] == "daily" and job_id in {"stale_missions", "decision_review"}:
-            if skipped == 0 and delivered > 3:
-                noise = "potentially high — fires every day without skip"
+        if (meta["cadence"] == "daily" and job_id in {"stale_missions", "decision_review"}
+                and skipped == 0 and delivered > 3):
+            noise = "potentially high — fires every day without skip"
 
         assessments.append({
             "job_id": job_id,
@@ -172,14 +172,14 @@ def generate_recommendations(analysis: dict, days: int) -> list[str]:
         )
 
     if failures > 0:
-        failed_jobs = set(f["job_id"] for f in analysis["failures_detail"])
+        failed_jobs = {f["job_id"] for f in analysis["failures_detail"]}
         recs.append(
             f"Remediate {failures} job failure(s) in: {', '.join(sorted(failed_jobs))}. "
             "Check Supabase connectivity, Slack token permissions, and import paths."
         )
 
     if duplicates:
-        dup_jobs = set(d["job_id"] for d in duplicates)
+        dup_jobs = {d["job_id"] for d in duplicates}
         recs.append(
             f"Duplicate firings detected for: {', '.join(sorted(dup_jobs))}. "
             "Verify APScheduler replace_existing=True is effective after bot restarts."

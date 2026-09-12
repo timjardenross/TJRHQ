@@ -373,8 +373,8 @@ def main() -> int:
         run(days=args.days, dry_run=args.dry_run, backfill=args.backfill,
             emit_sql=args.emit_sql, source_id=args.source_id)
         return 0
-    except Exception as exc:
-        log.error("Sync failed: %s", exc, exc_info=True)
+    except Exception:
+        log.exception("Sync failed")
         return 1
 
 

@@ -94,7 +94,6 @@ class EmbeddingGenerator:
         embedded_count = 0
         failed_count = 0
         failed_ids = []
-        batch_count = 0
 
         print(f"\n📊 Starting embedding generation for {len(chunks_to_embed)} chunks...")
         print(f"   Model: {self.model}")
@@ -102,9 +101,8 @@ class EmbeddingGenerator:
         print(f"   Skipping {len(skipped)} already-embedded chunks\n")
 
         # Process in batches
-        for i in range(0, len(chunks_to_embed), self.batch_size):
+        for batch_count, i in enumerate(range(0, len(chunks_to_embed), self.batch_size), start=1):
             batch = chunks_to_embed[i:i + self.batch_size]
-            batch_count += 1
             batch_start = time.time()
 
             for chunk in batch:

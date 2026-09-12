@@ -228,8 +228,8 @@ def _write_review(rows: list[dict]) -> None:
         "- Set Decision to `SKIP` for missions that shouldn't be tagged",
         "- Run `python3 tools/hierarchy/approve_classifications.py` when done",
         "",
-        f"**Summary:** {len(rows)} missions | {len(high_conf)} high-confidence "
-        f"| {len(low_conf)} need review | {len(errors)} errors",
+        (f"**Summary:** {len(rows)} missions | {len(high_conf)} high-confidence "
+         f"| {len(low_conf)} need review | {len(errors)} errors"),
         "",
         "---",
         "",
