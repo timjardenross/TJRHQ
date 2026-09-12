@@ -1,0 +1,29 @@
+# Docling (IBM's open-source PDF/Word/HTML -> structured-markdown converter),
+# isolated from platform-runtime/requirements.txt. USS-TJR-MSN-0366 Stream 3.
+#
+# `pip install docling` pulls in torch + transformers as transitive
+# dependencies (docling's own layout/table/OCR ML models are torch-based) —
+# on Linux, a plain `pip install docling` resolves the CUDA build of torch
+# by default even though docling itself runs CPU-only, so a from-scratch
+# install of a dedicated venv comes to ~6.2GB (confirmed live, 2026-09-12).
+# platform-runtime/requirements.txt has no torch/transformers dependency
+# today (only numpy) — adding this would make every other tool that reads
+# that file carry a multi-GB ML dependency it doesn't use. Same shape of
+# problem core/quality/requirements-garak.txt exists to avoid, same fix.
+#
+# Install into a dedicated venv, not platform-runtime/.venv:
+#   python3 -m venv platform-runtime/.venv-docling
+#   platform-runtime/.venv-docling/bin/pip install -r core/knowledge/requirements-docling.txt
+#
+# To avoid the CUDA-torch download (recommended on a CPU-only host — this
+# pipeline never uses a GPU): install the CPU-only torch wheel first, then
+# docling will see the requirement already satisfied and won't pull the
+# CUDA build:
+#   platform-runtime/.venv-docling/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   platform-runtime/.venv-docling/bin/pip install -r core/knowledge/requirements-docling.txt
+#
+# core/knowledge/docling_processor.py and tools/supabase/docling_ingest.py
+# both invoke docling from this dedicated venv by absolute interpreter path
+# (see docling_ingest.py's shebang-selection comment) — neither needs
+# docling importable from platform-runtime/.venv itself.
+docling==2.126.0
