@@ -3,6 +3,10 @@
 USS-TJR-MSN — XO service_role decision, Option C implementation. See
 .claude/skills/bot-reviews/fixes-2026-08-09/xo-bot-service-role-decision.md
 and .../xo-bot-scoped-role-implemented.md for the full architecture record.
+Redesigned for USS-TJR-MSN-0370 — see
+knowledge/missions/USS-TJR-MSN-0370-supabase-investigation-knowledge-record.md
+for the full investigation (dependency-conflict trail, empirical proof,
+and why Dependabot PR #157's full 2.3.4 -> 2.31.0 bump is still blocked).
 
 XO has run on the `service_role` key since inception — it bypasses RLS on
 all 112 public tables even though the bot's own code only ever touches 13
@@ -15,34 +19,72 @@ custom `role` claim, signed with SUPABASE_JWT_SECRET, verified by
 Supabase's Kong+PostgREST gateway, no login/session/Supabase-Auth-user
 needed for a long-running service.
 
-Mechanism note (verified 2026-08-10, resolves the open question in the
-service-role decision doc): supabase-py 2.3.4's *public* API —
-`create_client(url, key, options=ClientOptions(headers={...}))` — does
-**not** let Authorization differ from apikey. `SyncClient.__init__` always
-overwrites `options.headers["Authorization"]` with `Bearer <key>` derived
-from the second positional arg (`_get_auth_headers()`), and the lazy
-`.postgrest` property re-applies the same fixed `self._auth_token` again
-on first access. Verified empirically: a deliberately-wrong Authorization
-passed via ClientOptions was silently discarded and replaced with the
-real key's bearer token.
+Mechanism history: on supabase-py 2.3.4 (the original pin), the *public*
+`create_client(url, key, options=ClientOptions(headers={...}))` API could
+not make Authorization differ from apikey — `SyncClient.__init__`
+unconditionally overwrote `options.headers["Authorization"]` with
+`Bearer <key>`, and the lazy `.postgrest` property re-applied the same
+fixed private `self._auth_token` again on first access. That version of
+this module worked around it by constructing the client with the anon key
+and then monkeypatching the private `client._auth_token` attribute before
+the first `.table(...)` call.
 
-What *does* work (also verified empirically, with a deliberately-wrong
-token that reached PostgREST and was rejected there — not by Kong for a
-bad apikey): constructing the client normally with the **anon** key (so
-Kong's apikey gateway check passes with a real project key, exactly as
-`SUPABASE_ANON_KEY` is used for in the retired bot's own comment), then
-overwriting the client's private `_auth_token` attribute *before* the
-first `.table(...)` call (which is what lazily builds the underlying
-postgrest-py client and applies `_auth_token` to its headers). This keeps
-every existing `.table(...).select()/.insert()/.update()/.delete().execute()`
-call site in app.py / voice_capture.py / engagement_dispatcher.py /
-wellness_officer/intelligence.py completely unchanged — only client
-*construction* changes.
+That hack is now DEAD: supabase-py removed the `SyncClient` name (renamed
+to `Client`) and the whole `_auth_token` mechanism it depended on
+somewhere around 2.5.0, and stopped exporting anything by that name by
+2.24.0. Verified by installing every relevant version from PyPI in a
+throwaway venv and reading `supabase/_sync/client.py` directly — there is
+no `_auth_token` attribute anywhere in the class from 2.5.0 onward.
 
-This relies on a private (underscore-prefixed) supabase-py attribute, so
-it is pinned to the currently-installed `supabase==2.3.4` behaviour
-(requirements.txt pins this exact version already). Re-verify against
-`SyncClient.__init__`/`.postgrest` source if that pin ever moves.
+The good news: **supabase-py fixed the underlying limitation properly, in
+its own public API, back in 2.4.3** (verified by installing 2.4.2 and
+2.4.3 side by side and diffing `_sync/client.py`). From 2.4.3 onward,
+`Client.__init__`'s `_get_auth_headers()` reads any Authorization the
+caller already put in `options.headers` and uses it as-is instead of
+overwriting it with a header derived from the key argument:
+
+    from supabase import create_client
+    from supabase.lib.client_options import ClientOptions
+
+    client = create_client(
+        supabase_url,
+        anon_key,                     # -> Kong apikey gateway check
+        options=ClientOptions(headers={"Authorization": f"Bearer {token}"}),
+    )
+
+apiKey and Authorization end up genuinely independent — empirically
+verified (not just read from source) with a live `create_client()` call
+whose resulting `client.postgrest.session.headers` had `apiKey ==
+anon_key` and `Authorization == f"Bearer {scoped_token}"` on supabase-py
+2.4.3, 2.7.4, 2.24.0 and 2.31.0 alike. No private attribute, no
+monkeypatch, no version-pinned internal to re-verify on every bump.
+
+Why this module still can't track supabase-py HEAD (or Dependabot PR
+#157's 2.31.0 target): python-telegram-bot 20.7 hard-pins
+`httpx~=0.25.2` (see requirements.txt). Starting with the transitive deps
+that ship alongside supabase-py ~2.8.1-2.9.x (postgrest>=0.17.0,
+gotrue>=2.9.0), those packages call `httpx.Client(..., proxy=...)` — the
+`proxy` (singular) kwarg that httpx only added in 0.26, replacing the old
+`proxies` (plural) kwarg. Under httpx<0.26 this crashes at client
+construction with `TypeError: Client.__init__() got an unexpected keyword
+argument 'proxy'`, reproduced live. supabase-py's OWN declared PyPI
+metadata bounds are not tight enough to catch this — its
+`httpx>=0.24,<0.28` claim is technically satisfied by httpx 0.25.2 while
+its pinned postgrest/gotrue at that release already require the newer
+`proxy` kwarg; the version bound and the runtime behaviour disagree.
+requirements.txt therefore pins `supabase==2.7.4` (the newest release
+whose OWN postgrest bound, `<0.17.0`, still keeps postgrest below that
+line) and `gotrue<2.9.0` explicitly, since supabase's own gotrue bound
+(`>=1.3,<3.0`) is loose enough that pip otherwise resolves the newest
+2.x gotrue and hits the same `proxy=` crash. This is a real, verified
+`pip install` ResolutionImpossible / live TypeError, not a hypothetical —
+see the knowledge record for the full version bisection.
+
+Bottom line for any future re-attempt at PR #157's full 2.31.0 bump: it
+needs python-telegram-bot upgraded past 20.7 to a version whose networking
+no longer needs httpx<0.26 first. That is a separate, larger piece of work
+(PTB's HTTPXRequest/proxy handling changed across major versions) and is
+explicitly out of scope for this module's fix.
 """
 
 from __future__ import annotations
@@ -126,15 +168,19 @@ def build_scoped_client(supabase_url: str):
         return None
 
     from supabase import create_client
+    from supabase.lib.client_options import ClientOptions
 
-    client = create_client(supabase_url, anon_key)
-    # See module docstring: this private-attribute patch is the only
-    # verified way (supabase-py 2.3.4) to give Authorization a different
-    # value than apikey while keeping the real .table() query builder API
-    # every call site already uses. Must happen before the first
-    # .table()/.postgrest access, which is why this function returns a
-    # ready-to-use client rather than a client the caller patches later.
-    client._auth_token = {"Authorization": f"Bearer {token}"}
+    # See module docstring: since supabase-py 2.4.3, passing Authorization
+    # via ClientOptions.headers is the public, supported way to give
+    # Authorization a different value than the apikey (derived from
+    # anon_key below) — no private-attribute patch needed. Every existing
+    # .table()/.postgrest call site is unaffected; only construction
+    # changes.
+    client = create_client(
+        supabase_url,
+        anon_key,
+        options=ClientOptions(headers={"Authorization": f"Bearer {token}"}),
+    )
 
     try:
         client.table("missions").select("mission_id").limit(1).execute()
