@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import sys
 from collections import Counter, defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from statistics import mean
 from typing import Any
@@ -356,12 +356,12 @@ def compute_sleep_lag_from_supabase(days: int = 60) -> dict[str, Any]:
             "correlations": {},
             "findings": ["Supabase not configured — cannot fetch health entries."],
         }
-    since = (date.today() - timedelta(days=days)).isoformat()
+    since = (datetime.now().astimezone().date() - timedelta(days=days)).isoformat()
     try:
         entries = supabase_get(
             f"captains_log_entries?log_date=gte.{since}&order=log_date.asc&limit={days}"
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - error surfaced to the caller in the returned status dict, not swallowed
         return {
             "status": "fetch_error",
             "error": str(exc),

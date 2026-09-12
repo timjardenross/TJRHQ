@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0066 Increment 3 — Triage Recommendation packages (Automation Points 1-2).
 
 For every work item parked at the CAPTURE stage (freshly-captured ideas and raw
@@ -30,7 +31,7 @@ from __future__ import annotations
 import json
 import sys
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -204,7 +205,7 @@ def build_triage_packages(
     packages.sort(key=lambda p: (-(p["risk"]["score"] or 0), str(p["id"])))
 
     return {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "count": len(packages),
         "packages": packages,
     }

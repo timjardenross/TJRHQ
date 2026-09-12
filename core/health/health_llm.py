@@ -59,7 +59,7 @@ def _load_captain_profile_excerpt() -> str:
             text, re.DOTALL,
         )
         return m.group(1).strip() if m else ""
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: '' on any parse failure
         return ""
 
 
@@ -103,7 +103,7 @@ class HealthLLMProvider:
                 if result:
                     log.info("Health LLM narrative generated via %s (%d chars)", name, len(result))
                     return result, name
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.warning("Health LLM provider %s failed: %s", name, exc)
 
         log.warning("All health LLM providers failed — narrative will use deterministic fallback")
@@ -153,6 +153,6 @@ def parse_llm_narrative(raw: str) -> dict | None:
             log.warning("LLM narrative missing keys: %s", missing)
             return None
         return {k: data[k] for k in _EXPECTED_KEYS}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("Failed to parse LLM health narrative JSON: %s", exc)
         return None

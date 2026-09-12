@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 core/security/llm_guardrails.py — LLM application security baseline for
 every real external-cloud-API dispatch point in this repo (USS-TJR-MSN-0366
@@ -111,6 +110,7 @@ def _invoke_worker(command: str, payload: dict[str, Any]) -> dict[str, Any]:
             capture_output=True,
             text=True,
             timeout=_WORKER_TIMEOUT_S,
+            check=False,
         )
     except subprocess.TimeoutExpired as exc:
         raise GuardrailsUnavailableError(f"llmsec worker timed out on command={command}") from exc

@@ -69,7 +69,7 @@ def record_audit_event(
         if not result.ok:
             log.warning("[audit-service] Write failed: %s", result.error)
         return result.ok
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[audit-service] record_audit_event failed (non-blocking): %s", exc)
         return False
 

@@ -36,7 +36,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -61,7 +61,7 @@ def _load_decision_profile_excerpt() -> str:
         dec = m2.group(1).strip() if m2 else ""
         combined = "\n\n".join(filter(None, [comm, dec]))
         return combined
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: '' on any parse failure
         return ""
 
 
@@ -149,17 +149,15 @@ try:
         log.debug(f"Loaded research_delegator from {_research_delegator_file}")
     else:
         log.error(f"Could not create spec for research_delegator at {_research_delegator_file}")
-except (ImportError, AttributeError, FileNotFoundError) as e:
-    log.error(
-        f"Failed to import research_delegator from {_research_delegator_file}: {e}",
-        exc_info=True
+except (ImportError, AttributeError, FileNotFoundError):
+    log.exception(
+        f"Failed to import research_delegator from {_research_delegator_file}"
     )
     call_legacy_research_routing = None
     call_gemini_2_5_flash_lite_research = None
-except Exception as e:
-    log.error(
-        f"Unexpected error loading research_delegator from {_research_delegator_file}: {type(e).__name__}: {e}",
-        exc_info=True
+except Exception:
+    log.exception(
+        f"Unexpected error loading research_delegator from {_research_delegator_file}"
     )
     call_legacy_research_routing = None
     call_gemini_2_5_flash_lite_research = None
@@ -194,7 +192,7 @@ def _call_stage(
     agent_name: str,
     prompt: str,
     timeout_sec: int = 30,
-    mission_id: str = None,
+    mission_id: str | None = None,
 ) -> _StageOutcome:
     """
     Mistral-first stage call with automatic fallback to the legacy provider chain.
@@ -397,7 +395,7 @@ class ResearchOrchestrator:
     def __init__(self, config: ResearchConfig | None = None):
         """Initialize orchestrator."""
         self.config = config or ResearchConfig()
-        self.current_time = datetime.utcnow()
+        self.current_time = datetime.now(timezone.utc)
 
     def run_research_mission(
         self,
@@ -442,7 +440,7 @@ class ResearchOrchestrator:
                 mission_id=mission_id,
                 research_topic=research_topic,
                 status="error",
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 task_breakdown=[],
                 task_count=0,
                 tasks_completed=0,
@@ -472,7 +470,7 @@ class ResearchOrchestrator:
                 mission_id=mission_id,
                 research_topic=research_topic,
                 status="error",
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 task_breakdown=[t.description for t in tasks],
                 task_count=len(tasks),
                 tasks_completed=0,
@@ -516,7 +514,7 @@ class ResearchOrchestrator:
                 log.warning("  Consolidation used fallback (timeout or error)")
             else:
                 log.info(f"  Consolidated {len([t for t in tasks if t.findings])} task findings")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Consolidation failed fatally: {e}. Using local fallback.")
             consolidation_fallback_used = True
             successful_tasks = [t for t in tasks if t.findings]
@@ -544,7 +542,7 @@ class ResearchOrchestrator:
         try:
             # NEW: Pass raw findings to decision framework for evidence grounding
             recommendation, confidence = self._generate_recommendation_with_fallback(raw_findings, tasks)
-        except Exception as rec_error:
+        except Exception as rec_error:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning(f"Recommendation generation failed: {rec_error}. Continuing without recommendation.")
             recommendation = None
             confidence = 0.0
@@ -578,7 +576,7 @@ class ResearchOrchestrator:
             try:
                 # Pass raw findings to decision framework for evidence grounding
                 recommendation, confidence = self._generate_recommendation_with_fallback(raw_findings, tasks)
-            except Exception as rec_error:
+            except Exception as rec_error:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.warning(f"Recommendation generation failed: {rec_error}. Continuing without recommendation.")
                 recommendation = None
                 confidence = 0.0
@@ -637,7 +635,7 @@ class ResearchOrchestrator:
             mission_id=mission_id,
             research_topic=research_topic,
             status=status,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             task_breakdown=[t.description for t in tasks],
             task_count=len(tasks),
             tasks_completed=tasks_completed,
@@ -675,8 +673,8 @@ class ResearchOrchestrator:
                 log.info("[briefing] Captain's Brief generated and attached to result")
             else:
                 log.warning("[briefing] Brief generation failed; caller will use fallback format")
-        except Exception as e:
-            log.error(f"[briefing] Failed to load/call briefing officer: {e}", exc_info=True)
+        except Exception:
+            log.exception("[briefing] Failed to load/call briefing officer")
             # Non-blocking: continue without brief
 
         # Step 7b: Optional summary/challenge enrichments from recovered specialist layer.
@@ -699,7 +697,7 @@ class ResearchOrchestrator:
             if summary_result.get("status") == "success":
                 result.captains_brief = result.captains_brief or summary_result.get("summary")
                 log.info("[summary] Summary officer enrichment completed")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"[summary] Optional summary enrichment skipped: {e}")
 
         try:
@@ -714,7 +712,7 @@ class ResearchOrchestrator:
             if challenge_result:
                 result.errors.append("challenge_review_attached")
                 log.info("[challenge] Risk & challenge enrichment completed")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"[challenge] Optional risk/challenge enrichment skipped: {e}")
 
         # MSN-0055C WP7: Persist metrics and log summary
@@ -757,7 +755,7 @@ class ResearchOrchestrator:
             List of task descriptions (2-3 tasks typically)
         """
 
-        ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         decompose_prompt = f"""You are a research planning expert. Break down the following research topic into 2-3 specific, actionable research tasks (maximum 3 to avoid rate limiting).
 
 Research Topic: {research_topic}
@@ -787,7 +785,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 if tasks:
                     log.info(f"Decomposition successful via {provider_name}: {len(tasks)} tasks")
                     return tasks[:3]  # Cap at 3 tasks
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.warning(f"Decomposition failed with {provider_name}: {e}. Trying next provider.")
                 continue
 
@@ -823,7 +821,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 log.info(f"[decompose] Mistral: SUCCESS — {len(tasks)} tasks")
             return tasks
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning(f"[decompose] Mistral: FAILED — {type(e).__name__}: {e}")
             return []
 
@@ -848,7 +846,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
             else:
                 log.error("[decompose] Gemini 2.5 Flash Lite: Empty response from API")
                 return []
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"[decompose] Gemini 2.5 Flash Lite: FAILED - {type(e).__name__}: {e}")
             return []
 
@@ -915,7 +913,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                     log.warning(f"Fallback decomposition produced {len(tasks)} tasks; capped at 3 (max for MVP)")
                 return capped_tasks
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Task decomposition failed: {e}")
             return []
 
@@ -928,7 +926,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
             parsed = json.loads(text)
             if isinstance(parsed, list):
                 return [str(item).strip() for item in parsed if str(item).strip()]
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - best-effort JSON-shape parse attempt; falls through to the substring-extraction attempt below
             pass
 
         start = text.find("[")
@@ -938,7 +936,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 parsed = json.loads(text[start : end + 1])
                 if isinstance(parsed, list):
                     return [str(item).strip() for item in parsed if str(item).strip()]
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - best-effort JSON-substring parse attempt; falls through to the line-based parser below
                 pass
 
         tasks = []
@@ -1084,9 +1082,9 @@ Provide only the consolidated summary, no headers or metadata."""
                 return consolidated
             else:
                 log.warning(f"Consolidation provider failed: {outcome.status}. Using local fallback.")
-                raise Exception("Legacy routing failed")
+                raise RuntimeError("Legacy routing failed")
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             # Consolidation timeout or error - use deterministic local fallback
             log.warning(f"Consolidation failed ({type(e).__name__}): {str(e)[:100]}. Using local fallback consolidation.")
 
@@ -1172,7 +1170,7 @@ Cost/Effort: [if relevant]"""
                 log.debug(f"Options extraction failed: {outcome.status}")
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Options extraction failed ({type(e).__name__}): {str(e)[:50]}")
             return None
 
@@ -1227,7 +1225,7 @@ Be specific with numbers/timelines where possible."""
                 log.debug(f"Trade-off analysis failed: {outcome.status}")
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Trade-off analysis failed ({type(e).__name__}): {str(e)[:50]}")
             return None
 
@@ -1280,7 +1278,7 @@ Format clearly. Be specific about probability and impact."""
                 log.debug(f"Risk assessment failed: {outcome.status}")
                 return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Risk assessment failed ({type(e).__name__}): {str(e)[:50]}")
             return None
 
@@ -1497,7 +1495,7 @@ CONFIDENCE: [0.0-1.0]"""
                     log.info("No recommendation generated from findings")
                     return None, 0.0
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning(f"Recommendation generation failed ({type(e).__name__}): {str(e)[:100]}. Continuing without recommendation.")
             return None, 0.0
 
@@ -1625,7 +1623,7 @@ CONFIDENCE: [0.0-1.0]"""
                 log.debug(f"Decision framework generation failed: {outcome.status}")
                 return None, 0.0
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Decision framework generation failed ({type(e).__name__}): {str(e)[:50]}")
             return None, 0.0
 
@@ -1703,7 +1701,7 @@ CONFIDENCE: [0.0-1.0]"""
                 log.debug(f"Flash Lite call failed: {outcome.status}")
                 return None, 0.0
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.debug(f"Recommendation failed ({type(e).__name__}): {str(e)[:50]}")
             return None, 0.0
 
@@ -1713,12 +1711,12 @@ CONFIDENCE: [0.0-1.0]"""
 
     def _generate_mission_id(self) -> str:
         """Generate mission ID (MSN-YYYYMMDD-HHMMSS)."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime("MSN-%Y%m%d-%H%M%S")
 
     def _generate_task_id(self, mission_id: str, order_index: int) -> str:
         """Generate task ID (RES-YYYYMMDD-HHMMSS-NN)."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime(f"RES-%Y%m%d-%H%M%S-{order_index:02d}")
 
     def _collect_errors(self, tasks: list[ResearchTask]) -> list[str]:

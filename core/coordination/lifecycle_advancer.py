@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0066 Increment 6 — Lifecycle Advancer (write-side, stops AT the gate).
 
 This is the one piece that *moves* an item rather than only observing it: once a
@@ -30,7 +31,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -85,11 +86,11 @@ def _audit(advanced: list[dict[str, Any]], ledger_dir: Path | None = None) -> No
     try:
         audit_dir = ledger_dir or _LEDGER_DIR
         audit_dir.mkdir(parents=True, exist_ok=True)
-        ts = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
         rec = {
             "transition": f"Capture -> {TRIAGE_READY}",
             "transitioned_by": "lifecycle_advancer (MSN-0066)",
-            "transitioned_at": datetime.utcnow().isoformat() + "Z",
+            "transitioned_at": datetime.now(timezone.utc).isoformat(),
             "note": "Auto-advanced to the approval gate after triage enrichment; "
                     "NOT approved — awaiting Captain/XO/Number One decision.",
             "items": [a["id"] for a in advanced],
@@ -132,7 +133,7 @@ def advance(
             "title": pkg.get("title", ""),
             "kind": pkg.get("kind", ""),
             "stage": TRIAGE_READY,
-            "advanced_at": datetime.utcnow().isoformat() + "Z",
+            "advanced_at": datetime.now(timezone.utc).isoformat(),
             "suggested_priority": pkg.get("suggested_priority", ""),
             "risk_band": (pkg.get("risk") or {}).get("band", ""),
             "is_likely_duplicate": pkg.get("is_likely_duplicate", False),
@@ -155,7 +156,7 @@ def advance(
         "advanced": len(newly),
         "already_ready": sum(1 for r in results if r["action"] == "already_triage_ready"),
         "results": results,
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -165,8 +166,8 @@ def format_advance(report: dict[str, Any]) -> str:
     newly = [r for r in report.get("results", []) if r["action"] in ("advanced", "would_advance")]
     if not newly:
         return f"Lifecycle advancer — nothing to advance ({report.get('already_ready', 0)} already Triage Ready)."
-    lines = [f"Lifecycle advancer — {verb} {len(newly)} item(s) to *Triage Ready* "
-             f"(awaiting Captain approval; NOT approved):"]
+    lines = [(f"Lifecycle advancer — {verb} {len(newly)} item(s) to *Triage Ready* "
+              f"(awaiting Captain approval; NOT approved):")]
     for r in newly:
         e = r["entry"]
         t = f" — {e['title']}" if e["title"] else ""

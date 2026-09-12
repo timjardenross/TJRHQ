@@ -23,6 +23,7 @@ matching this platform's established orchestrator convention
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -108,7 +109,7 @@ def _shared_mission_relationships(events: list[dict[str, Any]]) -> list[Relation
             (e for e in group if e.get("occurred_at")),
             key=lambda e: e["occurred_at"],
         )
-        for a, b in zip(ordered, ordered[1:]):
+        for a, b in itertools.pairwise(ordered):
             if a.get("domain") == b.get("domain"):
                 continue
             relationships.append(Relationship(

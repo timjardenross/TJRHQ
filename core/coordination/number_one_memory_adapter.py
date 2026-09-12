@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +24,7 @@ try:
         MissionRegistryMemoryContext,
         RelatedMission,
     )
-except Exception:  # pragma: no cover - advisory-only fallback
+except Exception:  # pragma: no cover - advisory-only fallback  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
     MissionRegistryMemoryAdapter = None
     MissionRegistryMemoryContext = None
     RelatedMission = None
@@ -35,7 +35,7 @@ try:
         DecisionRegistryMemoryContext,
         RelatedDecision,
     )
-except Exception:  # pragma: no cover - advisory-only fallback
+except Exception:  # pragma: no cover - advisory-only fallback  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
     DecisionRegistryMemoryAdapter = None
     DecisionRegistryMemoryContext = None
     RelatedDecision = None
@@ -58,7 +58,7 @@ def _build_supabase_client():
         client = CommanderSupabaseClient()
         if client.is_enabled():
             return client
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[number-one-memory] Supabase client unavailable: %s", exc)
     return None
 
@@ -180,18 +180,18 @@ class NumberOneMemoryAdapter:
             return False
         try:
             payload = {
-                "id": brief.get("brief_id") or f"NUM1-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+                "id": brief.get("brief_id") or f"NUM1-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
                 "mission_id": brief.get("mission_id") or "",
                 "summary": brief.get("summary") or "",
                 "recommendations": brief.get("recommendations") or [],
                 "confidence": float(brief.get("confidence") or 0.0),
                 "query_hash": _compute_query_hash(brief.get("summary", "") + str(brief.get("mission_id", ""))),
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
                 "source": "number-one",
             }
             result = self.supabase.insert("number_one_memory", payload)
             return bool(result.ok)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one-memory] persist failed: %s", exc)
             return False
 
@@ -217,12 +217,12 @@ class NumberOneMemoryAdapter:
         if sb is None:
             return self._retrieve_from_files(query_type, query_text)
         try:
-            query_hash = _compute_query_hash(query_text)
+            _compute_query_hash(query_text)
             if query_type == "research_memory":
                 response = (
                     sb.table("research_memory")
                     .select("*")
-                    .gt("created_at", (datetime.utcnow() - timedelta(days=180)).isoformat())
+                    .gt("created_at", (datetime.now(timezone.utc) - timedelta(days=180)).isoformat())
                     .limit(5)
                     .execute()
                 )
@@ -245,7 +245,7 @@ class NumberOneMemoryAdapter:
                 return [self._normalize_row(row, "adr") for row in (response.data or [])]
 
             return []
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one-memory] Supabase retrieval failed: %s", exc)
             return self._retrieve_from_files(query_type, query_text)
 
@@ -351,7 +351,7 @@ class NumberOneMemoryAdapter:
                 text=text,
                 limit=5,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one-memory] mission registry retrieval failed: %s", exc)
             return None
 
@@ -362,7 +362,7 @@ class NumberOneMemoryAdapter:
             titles = [str(m.get("title") or "") for m in missions if m.get("title")]
             objectives = [str(m.get("description") or m.get("objective") or "") for m in missions if m.get("description") or m.get("objective")]
             status = str(missions[0].get("status") or "") if missions else ""
-            specialist = str(missions[0].get("assigned_role") or "") if missions else ""
+            str(missions[0].get("assigned_role") or "") if missions else ""
             capability = str(missions[0].get("capability") or missions[0].get("domain") or "") if missions else ""
             adr_reference = str(missions[0].get("adr_reference") or missions[0].get("decision_log") or "") if missions else ""
             text = " ".join(filter(None, titles + objectives))
@@ -378,7 +378,7 @@ class NumberOneMemoryAdapter:
                 text=text,
                 limit=5,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one-memory] decision registry retrieval failed: %s", exc)
             return None
 

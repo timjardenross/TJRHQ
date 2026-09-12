@@ -37,7 +37,7 @@ def check_connectivity() -> tuple[bool, str]:
         req = urllib.request.urlopen(url, timeout=_CONNECT_TIMEOUT)  # nosec B310 - url built from MODEL_ROUTER_URL env var, fixed internal endpoint - reviewed 2026-09-12
         data = json.loads(req.read().decode())
         return True, f"Model Router reachable at {_base_url()}. Status: {data.get('status', 'ok')}"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already documented: 'Never raises' connectivity probe, error surfaced in the returned message
         return False, f"Model Router not reachable at {_base_url()}: {exc}"
 
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Calibration Engine — WP2
 
@@ -14,7 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -91,7 +92,7 @@ def run_calibration(days: int = 30) -> dict[str, Any]:
     if not is_configured():
         return {"error": "Supabase not configured", "success": False}
 
-    since = (date.today() - timedelta(days=days - 1)).isoformat()
+    since = (datetime.now().astimezone().date() - timedelta(days=days - 1)).isoformat()
     entries = supabase_get(
         f"captains_log_entries?log_date=gte.{since}&order=log_date.asc&limit={days}"
     )
@@ -125,7 +126,7 @@ def run_calibration(days: int = 30) -> dict[str, Any]:
         row["rolling_30d_pct"] = _compute_rolling_pct(paired_rows, idx, 30)
         try:
             supabase_upsert("capacity_calibration", row, "log_date")
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - already documented best-effort; don't abort the whole calibration run over one row's upsert
             pass  # best-effort; don't abort the whole run
 
     # Build summary
@@ -143,7 +144,7 @@ def run_calibration(days: int = 30) -> dict[str, Any]:
     weighting_review_flag = consecutive_low >= GOVERNANCE_TRIGGER_DAYS
 
     summary: dict[str, Any] = {
-        "summary_date": date.today().isoformat(),
+        "summary_date": datetime.now().astimezone().date().isoformat(),
         "window_days": days,
         "total_days_compared": n,
         "agreement_count": agreed_count,
@@ -158,7 +159,7 @@ def run_calibration(days: int = 30) -> dict[str, Any]:
 
     try:
         supabase_upsert("capacity_calibration_summary", summary, "summary_date")
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - best-effort summary upsert; the computed summary is still returned to the caller below
         pass
 
     summary["success"] = True
@@ -190,7 +191,7 @@ def get_calibration_summary() -> dict[str, Any] | None:
     try:
         rows = supabase_get("capacity_calibration_summary?order=summary_date.desc&limit=1")
         return rows[0] if rows else None
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: None on any read failure (no prior summary available)
         return None
 
 

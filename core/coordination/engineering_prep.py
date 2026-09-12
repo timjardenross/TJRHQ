@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0066 Increment 4 — Ready-for-Engineering prep + linkage surfacing (AP3/AP4).
 
 When a handoff is approved but still pending engineering, the Captain currently
@@ -32,7 +33,7 @@ from __future__ import annotations
 import json
 import sys
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -159,7 +160,7 @@ def build_prep_packages(
 
     packages.sort(key=lambda p: str(p["id"]))
     return {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "count": len(packages),
         "linkage_gaps": linkage_gaps,
         "packages": packages,
@@ -171,8 +172,8 @@ def format_prep_packages(report: dict[str, Any]) -> str:
     pkgs = report.get("packages", [])
     if not pkgs:
         return "Engineering prep — no approved-pending handoffs at the Build stage. ✅"
-    lines = [f"Engineering prep — {len(pkgs)} handoff(s) ready for engineering"
-             f"  ({report.get('linkage_gaps', 0)} linkage gap(s))"]
+    lines = [(f"Engineering prep — {len(pkgs)} handoff(s) ready for engineering"
+              f"  ({report.get('linkage_gaps', 0)} linkage gap(s))")]
     for p in pkgs:
         t = f" — {p['title']}" if p["title"] else ""
         lines.append(f"\n• {p['id']}{t}")

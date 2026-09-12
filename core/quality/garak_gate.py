@@ -146,7 +146,7 @@ def _run_garak(
     _log(f"Command: {' '.join(cmd)}")
     log_path = Path(f"{report_prefix}.run.log")
     with open(log_path, "w") as log_file:
-        proc = subprocess.run(cmd, stdout=log_file, stderr=subprocess.STDOUT)
+        proc = subprocess.run(cmd, stdout=log_file, stderr=subprocess.STDOUT, check=False)
     _log(f"garak exited with code {proc.returncode} (full log: {log_path})")
     return proc.returncode
 

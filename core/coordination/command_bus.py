@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Command Operations Bus — cross-service routing and health orchestration.
 
 Polls Supabase and systemd state on a configurable cycle, detects problems,
@@ -298,7 +299,7 @@ def _supabase():
                     os.environ[k] = val
         from tools.supabase.supabase_client import SupabaseClient
         return SupabaseClient()
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented degraded state: None signals 'Supabase unavailable' to every caller of this factory
         return None
 
 
@@ -315,7 +316,7 @@ def _rule_executor_stuck(conn: sqlite3.Connection, client) -> None:
             columns="request_id,status,created_at",
             limit=100,
         ) or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[bus:stuck] Supabase query failed: %s", exc)
         return
 
@@ -366,9 +367,10 @@ def _systemd_state(service: str) -> str:
         r = subprocess.run(
             ["systemctl", "is-active", service],
             capture_output=True, text=True, timeout=5,
+            check=False,
         )
         return r.stdout.strip()  # "active", "inactive", "failed", "activating", etc.
-    except Exception:
+    except Exception:  # noqa: BLE001 - systemctl probe; 'unknown' is a valid status value alongside active/inactive/failed
         return "unknown"
 
 
@@ -377,7 +379,7 @@ def _backend_healthy() -> bool:
         with urllib.request.urlopen(_BACKEND_HEALTH_URL, timeout=5) as r:  # nosec B310 - url is BACKEND_HEALTH_URL env var with fixed localhost default, not user input - reviewed 2026-09-12
             data = json.load(r)
             return data.get("status") == "operational"
-    except Exception:
+    except Exception:  # noqa: BLE001 - health-check probe; False is the documented 'not healthy' result for any failure mode
         return False
 
 
@@ -393,7 +395,7 @@ def _emit_service_state_event(event_type: str, svc: str, state: str, crit: str) 
             recommended_action=f"{svc}: {state}",
             metrics={"service": svc, "state": state, "criticality": crit},
         )
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - best-effort event emission; must not break the health-monitoring loop it's reporting from
         pass
 
 
@@ -460,7 +462,7 @@ def _rule_new_missions(conn: sqlite3.Connection, client) -> None:
             columns="mission_id,title,status",
             limit=200,
         ) or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.error("[bus:missions] Supabase query failed: %s", exc)
         return
 
@@ -508,7 +510,7 @@ def _get_number_one_brief() -> dict | None:
                 sys.path.insert(0, str(p))
         import context_service
         return context_service._http_number_one_brief()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[bus:number_one] Could not fetch Number One's brief: %s", exc)
         return None
 
@@ -602,7 +604,7 @@ def run_loop() -> None:
     while True:
         try:
             run_once()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error("[bus] Cycle error (continuing): %s", exc)
         time.sleep(_INTERVAL)
 

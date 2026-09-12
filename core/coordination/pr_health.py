@@ -91,7 +91,7 @@ def check_pr_health(pr_url: str, token: str | None = None) -> dict[str, Any]:
         try:
             status = _api_get(token, f"/repos/{repo_path}/commits/{sha}/status")
             ci_conclusion = status.get("state")  # success | pending | failure
-        except Exception:  # noqa: BLE001 - CI status is best-effort
+        except Exception:  # noqa: BLE001,S110 - CI status is best-effort
             pass
 
     review_state = None
@@ -101,7 +101,7 @@ def check_pr_health(pr_url: str, token: str | None = None) -> dict[str, Any]:
         for r in reviews:
             if r.get("state") in ("APPROVED", "CHANGES_REQUESTED"):
                 review_state = r["state"]
-    except Exception:  # noqa: BLE001 - review state is best-effort
+    except Exception:  # noqa: BLE001,S110 - review state is best-effort
         pass
 
     return {

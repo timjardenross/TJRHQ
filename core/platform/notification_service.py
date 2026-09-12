@@ -51,7 +51,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 log = logging.getLogger(__name__)
@@ -121,7 +121,7 @@ class NotificationResult:
     transport: Transport
     attempts: int
     error: str | None = None
-    sent_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    sent_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     message_id: int | None = None  # Telegram message_id, when the transport returns one.
     # Apprise's fan-out notify() call returns a bare bool across every
     # config URL it holds, not a per-message id the way Telegram's
@@ -280,7 +280,7 @@ def _send_telegram(
             parsed = json.loads(resp.read())
             message_id = (parsed.get("result") or {}).get("message_id")
             return True, None, message_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - error surfaced to the caller in the returned tuple, not swallowed
         return False, f"{type(exc).__name__}: {exc}", None
 
 
@@ -355,7 +355,7 @@ def _send_apprise(
     notify_type = _SEVERITY_TO_APPRISE_TYPE.get(severity, "info")
     try:
         ok = apobj.notify(body=text, notify_type=notify_type)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - error surfaced to the caller in the returned tuple, not swallowed
         return False, f"{type(exc).__name__}: {exc}", None
 
     # Apprise's fan-out notify() returns one bare bool across every config

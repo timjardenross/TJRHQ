@@ -164,7 +164,7 @@ def _load_mission_file(mission_id: str, title: str) -> str | None:
                     body = candidate.read_text(encoding="utf-8", errors="replace")
                     log.info("[enricher] mission file: %s", candidate)
                     return body[:_MAX_MISSION_BODY].strip()
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                     log.warning("[enricher] could not read %s: %s", candidate, exc)
 
     log.info("[enricher] no mission file found for %s", mission_id)
@@ -216,7 +216,7 @@ def _find_relevant_files(title: str) -> list[str]:
                 if path.stat().st_size <= _MAX_GREP_BYTES:
                     body = path.read_text(encoding="utf-8", errors="replace").lower()
                     score += sum(1 for kw in keywords if kw in body)
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - best-effort keyword-grep enrichment; one unreadable file must not stop scoring the rest
                 pass
 
             if score <= 0:
@@ -246,7 +246,7 @@ def _load_file_contents(rel_paths: list[str]) -> str:
         path = _REPO_ROOT / rel
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
-        except Exception as exc:  # unreadable → skip, never raise
+        except Exception as exc:  # unreadable → skip, never raise  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[enricher] could not read %s: %s", path, exc)
             continue
         total_lines = text.count("\n") + 1
@@ -340,6 +340,7 @@ def _run_cortex(args: list[str]) -> str | None:
             capture_output=True,
             text=True,
             timeout=_CORTEX_TIMEOUT_SECS,
+            check=False,
         )
         if result.returncode != 0:
             log.warning(
@@ -348,7 +349,7 @@ def _run_cortex(args: list[str]) -> str | None:
             )
             return None
         return result.stdout.strip()
-    except Exception as exc:  # binary missing, timeout, permissions, etc.
+    except Exception as exc:  # binary missing, timeout, permissions, etc.  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[enricher] cortex %s unavailable: %s", args[0], exc)
         return None
 
@@ -430,6 +431,7 @@ def _run_git_status() -> str:
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         )
         output = result.stdout.strip()
         if not output:
@@ -440,7 +442,7 @@ def _run_git_status() -> str:
             truncated.append(f"... ({len(lines) - _MAX_GIT_LINES} more lines truncated)")
             return "\n".join(truncated)
         return output
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - error surfaced to the caller in the returned string, not swallowed
         return f"git status unavailable: {exc}"
 
 

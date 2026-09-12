@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Health Insight Source Article Enricher
 
@@ -112,7 +113,7 @@ class SourceArticleEnricher:
 
             log.info(f"[source-enricher] Enriched insight {insight_id} with {len(source_articles)} articles")
             return True
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"[source-enricher] Failed to enrich insight {insight_id}: {exc}")
             return False
 
@@ -148,7 +149,7 @@ class SourceArticleEnricher:
                     stats["enriched"] += 1
                 else:
                     stats["failed"] += 1
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
                 log.error(f"[source-enricher] Error processing insight {insight['id']}: {exc}")
                 stats["failed"] += 1
 

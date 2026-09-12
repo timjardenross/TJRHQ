@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 try:
     from core.coordination.number_one_memory_adapter import NumberOneMemoryAdapter
-except Exception:  # pragma: no cover - advisory fallback
+except Exception:  # pragma: no cover - advisory fallback  # noqa: BLE001 - availability/optional-dependency guard; only ImportError-vs-not matters, sentinel value signals unavailability to callers
     NumberOneMemoryAdapter = None
 
 
@@ -102,6 +102,6 @@ class CommanderMemoryAdapter:
                 missions=[{"title": text, "description": text, "status": "ACTIVE", "mission_id": intent or "commander"}],
                 routing_results=routing_results,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[commander-memory] number-one memory lookup failed: %s", exc)
             return None

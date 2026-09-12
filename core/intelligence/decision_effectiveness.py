@@ -37,7 +37,7 @@ def _load_decision_logs(decisions_dir: Path | None = None) -> list[dict[str, Any
             data = json.loads(f.read_text(encoding="utf-8"))
             data.setdefault("_source_file", f.name)
             records.append(data)
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - best-effort per-file scan; one corrupt/malformed record must not lose the rest
             pass
     return records
 
@@ -118,7 +118,7 @@ def compute_decision_effectiveness(
     accepted = sum(1 for r in records if str(r.get("status", "")).lower() == "accepted")
     rejected = sum(1 for r in records if str(r.get("status", "")).lower() == "rejected")
     deferred = sum(1 for r in records if str(r.get("captain_outcome_review", "")).upper() == "DEFERRED")
-    pending  = total - accepted - rejected
+    total - accepted - rejected
 
     with_review = sum(1 for r in records if _has_meaningful_review(r))
     with_held   = sum(1 for r in records if _normalise_held(r.get("captain_decision_held")) is not None)

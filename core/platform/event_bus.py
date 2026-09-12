@@ -38,7 +38,7 @@ def _record_bus_heartbeat(success: bool) -> None:
             status="ok" if success else "failed",
             error_message=None if success else "publish_event failed",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.debug("[event-bus] heartbeat recording failed (non-critical): %s", exc)
 
 
@@ -109,7 +109,7 @@ def publish_event(
             return None
         event_id = result.data[0].get("event_id")
         return event_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[event-bus] publish_event failed (non-blocking): %s", exc)
         return None
     finally:
@@ -176,7 +176,7 @@ def poll_events(
         result = query.execute()
         _record_bus_heartbeat(True)
         return list(result.data or [])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[event-bus] poll_events failed (non-blocking): %s", exc)
         _record_bus_heartbeat(False)
         return []
@@ -197,7 +197,7 @@ def mark_event_status(event_id: str, status: str) -> bool:
         raw.table("core_events").update({"status": status}).eq("event_id", event_id).execute()
         _record_bus_heartbeat(True)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[event-bus] mark_event_status failed (non-blocking): %s", exc)
         _record_bus_heartbeat(False)
         return False
@@ -216,7 +216,7 @@ def record_dispatch_message_id(event_id: str, message_id: int) -> bool:
             return False
         raw.table("core_events").update({"dispatch_message_id": message_id}).eq("event_id", event_id).execute()
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[event-bus] record_dispatch_message_id failed (non-blocking): %s", exc)
         return False
 

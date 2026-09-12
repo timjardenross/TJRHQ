@@ -44,7 +44,7 @@ def _supabase_raw():
     try:
         from tools.supabase.client import CommanderSupabaseClient
         return CommanderSupabaseClient().raw_client
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[episodic-memory] Supabase client unavailable: %s", exc)
         return None
 
@@ -82,7 +82,7 @@ def embed_text(text: str) -> list[float] | None:
     except urllib.error.URLError as exc:
         log.warning("[episodic-memory] Model Router unreachable for embedding: %s", exc)
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[episodic-memory] embed_text failed unexpectedly: %s", exc)
         return None
 
@@ -157,7 +157,7 @@ def store_memory(
             return None
 
         new_id = rows[0]["id"]
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[episodic-memory] store_memory insert failed: %s", exc)
         return None
 
@@ -177,7 +177,7 @@ def store_memory(
     try:
         raw.table("research_memory").update({"embedding": vector}).eq("id", new_id).execute()
         log.info("[episodic-memory] Stored and embedded memory %s", new_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning(
             "[episodic-memory] Embedding update failed for row %s (row still stored): %s",
             new_id,
@@ -234,7 +234,7 @@ def recall_similar(
                 },
             ).execute()
             return list(rpc_result.data or [])
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning(
                 "[episodic-memory] match_research_memories RPC failed, falling back to keyword: %s",
                 exc,
@@ -261,7 +261,7 @@ def recall_similar(
         for row in rows:
             row.setdefault("similarity", 0.0)
         return rows
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[episodic-memory] recall_similar keyword fallback failed: %s", exc)
         return []
 
@@ -293,7 +293,7 @@ def increment_reuse(memory_id: str) -> None:
             return
         current = int(rows[0].get("reuse_count") or 0)
         raw.table("research_memory").update({"reuse_count": current + 1}).eq("id", memory_id).execute()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[episodic-memory] increment_reuse failed (non-blocking): %s", exc)
 
 

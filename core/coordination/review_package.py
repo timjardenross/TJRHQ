@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0066 Increment 2 — Review Package generator (Automation Point 5).
 
 The Lifecycle Reconciler (Increment 1) finds the items parked at the REVIEW
@@ -29,7 +30,7 @@ from __future__ import annotations
 import json
 import sys
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -119,9 +120,9 @@ def _format_review_dossier(item: dict, ev: dict[str, Any]) -> str:
         f"Handoff     : {ev['handoff_file'] or 'n/a'}",
         f"Decision ID : {ev['decision_id'] or 'n/a'}",
         "",
-        "Assess whether this delivered change is ready to review/merge: confirm the "
-        "evidence above substantiates the work, call out missing validation, and give "
-        "a clear APPROVE-TO-REVIEW or FLAG recommendation. Do not approve closure.",
+        ("Assess whether this delivered change is ready to review/merge: confirm the "
+         "evidence above substantiates the work, call out missing validation, and give "
+         "a clear APPROVE-TO-REVIEW or FLAG recommendation. Do not approve closure."),
     ]
     return "\n".join(lines)
 
@@ -163,7 +164,7 @@ def build_review_packages(
         })
 
     return {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "count": len(packages),
         "packages": packages,
         "source": report.get("source", {}),

@@ -59,7 +59,7 @@ def _is_stale(timestamp: Any, days: int = 365) -> bool:
             dt = dt.replace(tzinfo=timezone.utc)
         age = datetime.now(timezone.utc) - dt.astimezone(timezone.utc)
         return age > timedelta(days=days)
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: False (not stale) on any unparseable timestamp
         return False
 
 
@@ -86,7 +86,7 @@ class DecisionRegistryMemoryAdapter:
     ) -> DecisionRegistryMemoryContext:
         try:
             decisions = self._load_decisions()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[decision-registry-memory] load failed: %s", exc)
             log_memory_metric(
                 source="decision_registry",
@@ -191,7 +191,7 @@ class DecisionRegistryMemoryAdapter:
                     rows = list(response.data or [])
                     if rows:
                         return rows
-                except Exception:
+                except Exception:  # noqa: BLE001,S112 - cascading per-table Supabase fallback; final give-up is the file-based fallback below
                     continue
         return self._load_from_files()
 

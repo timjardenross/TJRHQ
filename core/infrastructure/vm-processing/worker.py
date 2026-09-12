@@ -109,7 +109,7 @@ def _task_engine_create(source_path: str, source_name: str, filename: str) -> No
             idempotency_key=source_path,
             metadata={"source_name": source_name, "filename": filename},
         )
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - best-effort task-engine mirror of processing state; must not break the actual OCR/parsing pipeline
         pass
 
 
@@ -133,7 +133,7 @@ def _task_engine_transition(source_path: str | None, status: str, failure_reason
         if task is None:
             return
         transition_task(task["task_id"], new_status, error=failure_reason)
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - best-effort task-engine mirror of processing state; must not break the actual OCR/parsing pipeline
         pass
 
 
@@ -404,7 +404,7 @@ class ProcessingWorker:
 
     # -- helpers -----------------------------------------------------------
 
-    def _log_event(self, current: dict, event: str, detail: str = None) -> list:
+    def _log_event(self, current: dict, event: str, detail: str | None = None) -> list:
         log = list(current.get("processing_log") or [])
         log.append({"event": event, "detail": detail, "at": _now()})
         return log
@@ -593,7 +593,7 @@ def cmd_process(args) -> int:
     return 1 if result["failed"] else 0
 
 
-def _record_heartbeat(status: str, detail: str = None, error_message: str = None) -> None:
+def _record_heartbeat(status: str, detail: str | None = None, error_message: str | None = None) -> None:
     """STARSHIP-REDESIGN.md §4.1: internal jobs are domains too. Best-effort."""
     try:
         if str(_REPO_ROOT) not in sys.path:
@@ -601,7 +601,7 @@ def _record_heartbeat(status: str, detail: str = None, error_message: str = None
         sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
         from heartbeat import record_heartbeat
         record_heartbeat("knowledge_library", status=status, detail=detail, error_message=error_message)
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - best-effort telemetry heartbeat; must not break the worker it's reporting on
         pass
 
 

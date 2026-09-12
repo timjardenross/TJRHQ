@@ -226,9 +226,9 @@ def compute_readiness_score(
         from datetime import datetime as _dt
         from zoneinfo import ZoneInfo as _ZI
         today_str = _dt.now(_ZI("Australia/Brisbane")).date().isoformat()
-    except Exception:
-        from datetime import date as _date
-        today_str = _date.today().isoformat()
+    except Exception:  # noqa: BLE001 - zoneinfo unavailable fallback to system-local date; handled by the except body itself
+        from datetime import datetime as _dt2
+        today_str = _dt2.now().astimezone().date().isoformat()
     near_deadline = [
         m for m in missions
         if _get_priority(m) in ("P0", "P1")

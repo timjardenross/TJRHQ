@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 core/security/test_llm_guardrails.py — real, end-to-end evidence for
 USS-TJR-MSN-0366 Stream 5 (LEAD stream: PII redaction + LLM01 prompt-

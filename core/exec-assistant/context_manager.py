@@ -5,7 +5,7 @@ This is the "brain" that learns your working style and makes it better over time
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -80,7 +80,7 @@ class ContextManager:
             "key": key,
             "value": value,
             "source": source.value,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # Upsert to database
@@ -93,7 +93,7 @@ class ContextManager:
             log.info(f"Set preference: {key}")
             self._invalidate_cache()
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to set preference {key}: {e}")
             return None
 
@@ -157,7 +157,7 @@ class ContextManager:
             "key": person_name,
             "value": context,
             "source": ContextSource.MANUAL.value,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         try:
@@ -169,7 +169,7 @@ class ContextManager:
             log.info(f"Updated relationship context: {person_name}")
             self._invalidate_cache()
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to update relationship context for {person_name}: {e}")
             return None
 
@@ -203,7 +203,7 @@ class ContextManager:
             "key": framework_name,
             "value": rules,
             "source": ContextSource.MANUAL.value,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         try:
@@ -215,7 +215,7 @@ class ContextManager:
             log.info(f"Set framework: {framework_name}")
             self._invalidate_cache()
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to set framework {framework_name}: {e}")
             return None
 
@@ -224,7 +224,7 @@ class ContextManager:
         pattern_name: str,
         value: bool = True,
         strength: float = 0.7,
-        description: str = None
+        description: str | None = None
     ) -> ExecutiveContext:
         """
         Learn a pattern from your feedback.
@@ -259,7 +259,7 @@ class ContextManager:
             },
             "source": ContextSource.LEARNED.value,
             "confidence": strength,
-            "updated_at": datetime.now().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         try:
@@ -271,7 +271,7 @@ class ContextManager:
             log.info(f"Learned pattern: {pattern_name} (strength={strength})")
             self._invalidate_cache()
             return result
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to learn pattern {pattern_name}: {e}")
             return None
 
@@ -300,7 +300,7 @@ class ContextManager:
             if result.data and len(result.data) > 0:
                 return result.data[0]["value"]
             return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to get preference {key}: {e}")
             return None
 
@@ -326,7 +326,7 @@ class ContextManager:
                 key = row["key"].replace("priority_", "")
                 priorities[key] = row["value"]
             return priorities
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to get priorities: {e}")
             return {}
 
@@ -355,7 +355,7 @@ class ContextManager:
             if result.data and len(result.data) > 0:
                 return result.data[0]["value"]
             return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to get relationship context for {person_name}: {e}")
             return None
 
@@ -408,7 +408,7 @@ class ContextManager:
                     profile["patterns"][key] = value
 
             return profile
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.error(f"Failed to get profile: {e}")
             return {}
 
