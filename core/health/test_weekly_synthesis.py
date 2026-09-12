@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from typing import ClassVar
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -477,7 +478,7 @@ class TestParseLlmNarrative(unittest.TestCase):
 
 class TestBuildCombinedNarrative(unittest.TestCase):
 
-    _BASE_ARGS = {
+    _BASE_ARGS: ClassVar[dict] = {
         "week_start": "2026-06-07",
         "n": 5,
         "auto_status": "Amber",

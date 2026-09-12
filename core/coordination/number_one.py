@@ -229,10 +229,10 @@ class CoordinationConfig:
     LOW_CONFIDENCE = 0.0
 
     # Priority order for queuing
-    PRIORITY_ORDER = [Priority.P0, Priority.P1, Priority.P2, Priority.P3]
+    PRIORITY_ORDER = (Priority.P0, Priority.P1, Priority.P2, Priority.P3)
 
     # Status order within priority
-    STATUS_ORDER = [
+    STATUS_ORDER = (
         # D-008 active states (most-needs-attention first), then legacy, then terminal
         MissionStatus.AWAITING_XO_APPROVAL,
         MissionStatus.AWAITING_NUMBER_ONE_REVIEW,
@@ -251,7 +251,7 @@ class CoordinationConfig:
         MissionStatus.ARCHIVED,
         MissionStatus.CANCELLED,
         MissionStatus.COMPLETED,
-    ]
+    )
 
 
 # ============================================================================

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from typing import ClassVar
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -23,7 +24,7 @@ from capacity_score import CAPACITY_THRESHOLDS, WEIGHTS, compute_capacity_score
 class TestSleepQualityDeduction(unittest.TestCase):
     """WP-5: sleep_quality was added as a capacity factor."""
 
-    _BASE = {
+    _BASE: ClassVar[dict] = {
         "pain_score": 0,
         "energy": "High",
         "sleep_hours": 7.0,

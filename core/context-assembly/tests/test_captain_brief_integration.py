@@ -22,6 +22,7 @@ import json
 import os
 import sys
 import unittest
+from typing import ClassVar
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -226,7 +227,7 @@ class TestDataContract(unittest.TestCase):
 class TestSensitiveFieldExclusion(unittest.TestCase):
     """Verify no clinical/private health detail is exposed."""
 
-    _BANNED_FIELDS = {"pain_level", "mood", "energy", "stress", "sleep_quality"}
+    _BANNED_FIELDS: ClassVar[set[str]] = {"pain_level", "mood", "energy", "stress", "sleep_quality"}
 
     def _assert_no_banned_fields(self, obj, path="root"):
         if isinstance(obj, dict):

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import asdict
+from typing import ClassVar
 from pathlib import Path
 
 # Make core packages importable
@@ -120,7 +121,7 @@ def normal_health():
 class TestHealthDataPrivacy:
     """Health context must never expose clinical detail."""
 
-    FORBIDDEN_FIELDS = {
+    FORBIDDEN_FIELDS: ClassVar[set[str]] = {
         "diagnosis", "diagnoses", "medication", "medications",
         "prescription", "prescriptions", "clinical_report",
         "clinical_detail", "clinical_notes", "treatment",
@@ -416,8 +417,8 @@ class TestSourceTraceability:
 class TestADR0001LifecycleAlignment:
     """Context assembly must not act on closed/rejected missions."""
 
-    ACTIVE_STATUSES = {"ACTIVE", "BLOCKED", "PLANNED", "DRAFT", "IN_REVIEW"}
-    CLOSED_STATUSES = {"COMPLETED", "CLOSED", "CANCELLED", "REJECTED"}
+    ACTIVE_STATUSES: ClassVar[set[str]] = {"ACTIVE", "BLOCKED", "PLANNED", "DRAFT", "IN_REVIEW"}
+    CLOSED_STATUSES: ClassVar[set[str]] = {"COMPLETED", "CLOSED", "CANCELLED", "REJECTED"}
 
     def test_recommendations_do_not_surface_closed_missions(self):
         from recommendation_engine import rank_missions

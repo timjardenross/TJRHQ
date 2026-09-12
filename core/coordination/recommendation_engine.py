@@ -161,8 +161,8 @@ def _gather_evidence(mission_type: str, objective: str):
             pass
         # Minimal fallback
         class _NullEvidence:
-            applicable_lessons = []
-            similar_closed_missions = []
+            applicable_lessons = ()
+            similar_closed_missions = ()
             historical_outcome_score = None
             outcome_sample_size = 0
             evidence_summary = ""
