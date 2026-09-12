@@ -158,7 +158,7 @@ class TestInvestigationSchema(unittest.TestCase):
         for garbage in (None, {}, {"random": object()}, {"confidence": float("nan")}):
             try:
                 validate_investigation(garbage if isinstance(garbage, dict) else {})
-            except Exception as exc:  # pragma: no cover - the assertion is that this never happens
+            except Exception as exc:  # noqa: BLE001 - test asserts validate_investigation never raises on garbage input  # pragma: no cover - the assertion is that this never happens
                 self.fail(f"validate_investigation raised on {garbage!r}: {exc}")
 
     def test_honest_fallback_never_presents_a_model_confidence(self):
@@ -196,7 +196,7 @@ class TestOverlapPrevention(unittest.TestCase):
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
         orch._load_watchlist = list
         (self.tmpdir / "review").mkdir(parents=True, exist_ok=True)
-        held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")
+        held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")  # noqa: SIM115 - flock held across the try/finally below, can't use a `with` block
         fcntl.flock(held_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         try:
             result = orch.run_cycle(dry_run=False)
@@ -212,7 +212,7 @@ class TestOverlapPrevention(unittest.TestCase):
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
         orch._load_watchlist = list
         (self.tmpdir / "review").mkdir(parents=True, exist_ok=True)
-        held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")
+        held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")  # noqa: SIM115 - flock held across the try/finally below, can't use a `with` block
         fcntl.flock(held_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         try:
             result = orch.run_cycle(dry_run=True)
@@ -306,7 +306,7 @@ class TestResearchOrderAndBounds(unittest.TestCase):
             with patch.object(orch.router, "health_check", return_value=True), \
                  patch.object(orch.router, "investigate_opportunity", return_value=fake_router_result), \
                  patch("internal_discovery.discover", return_value=[dict(candidate)]):
-                result = orch.run_cycle(dry_run=False)
+                orch.run_cycle(dry_run=False)
             store = OpportunityStore(self.tmpdir)
             current = [o for o in store.all_current() if o["title"] == candidate["title"]]
             eligibilities.add(current[-1]["automation_eligibility"] if current else None)

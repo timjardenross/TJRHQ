@@ -147,36 +147,35 @@ class CortexUnreachableTest(unittest.TestCase):
         self.assertIn("RELEVANT REPOSITORY FILES", out)  # rest of pipeline intact
 
     def test_missing_db_never_raises(self):
-        with patch.object(ce, "_cortex_binary", return_value=Path("/fake/cortex")):
-            with patch.object(ce, "_cortex_db", return_value=None):
-                out = ce.enrich(_ctx("Systemd unit reconciliation drift"))
+        with patch.object(ce, "_cortex_binary", return_value=Path("/fake/cortex")), patch.object(ce, "_cortex_db", return_value=None):
+            out = ce.enrich(_ctx("Systemd unit reconciliation drift"))
         self.assertNotIn("STRUCTURAL API CONTEXT", out)
 
     def test_nonzero_exit_never_raises(self):
-        with patch.object(ce, "_cortex_binary", return_value=Path("/fake/cortex")):
-            with patch.object(ce, "_cortex_db", return_value=Path("/fake/memory.db")):
-                with patch.object(
-                    subprocess, "run", side_effect=_fake_run(returncode=1, stderr="boom")
-                ):
-                    out = ce.enrich(_ctx("Systemd unit reconciliation drift"))
+        with (
+            patch.object(ce, "_cortex_binary", return_value=Path("/fake/cortex")),
+            patch.object(ce, "_cortex_db", return_value=Path("/fake/memory.db")),
+            patch.object(subprocess, "run", side_effect=_fake_run(returncode=1, stderr="boom")),
+        ):
+            out = ce.enrich(_ctx("Systemd unit reconciliation drift"))
         self.assertNotIn("STRUCTURAL API CONTEXT", out)
 
     def test_timeout_never_raises(self):
-        with patch.object(ce, "_cortex_binary", return_value=Path("/fake/cortex")):
-            with patch.object(ce, "_cortex_db", return_value=Path("/fake/memory.db")):
-                with patch.object(
-                    subprocess,
-                    "run",
-                    side_effect=subprocess.TimeoutExpired(cmd="cortex", timeout=8),
-                ):
-                    out = ce.enrich(_ctx("Systemd unit reconciliation drift"))
+        with (
+            patch.object(ce, "_cortex_binary", return_value=Path("/fake/cortex")),
+            patch.object(ce, "_cortex_db", return_value=Path("/fake/memory.db")),
+            patch.object(
+                subprocess,
+                "run",
+                side_effect=subprocess.TimeoutExpired(cmd="cortex", timeout=8),
+            ),
+        ):
+            out = ce.enrich(_ctx("Systemd unit reconciliation drift"))
         self.assertNotIn("STRUCTURAL API CONTEXT", out)
 
     def test_exception_never_raises(self):
-        with patch.object(ce, "_cortex_binary", return_value=Path("/fake/cortex")):
-            with patch.object(ce, "_cortex_db", return_value=Path("/fake/memory.db")):
-                with patch.object(subprocess, "run", side_effect=OSError("no perms")):
-                    out = ce.enrich(_ctx("Systemd unit reconciliation drift"))
+        with patch.object(ce, "_cortex_binary", return_value=Path("/fake/cortex")), patch.object(ce, "_cortex_db", return_value=Path("/fake/memory.db")), patch.object(subprocess, "run", side_effect=OSError("no perms")):
+            out = ce.enrich(_ctx("Systemd unit reconciliation drift"))
         self.assertNotIn("STRUCTURAL API CONTEXT", out)
 
 
@@ -184,12 +183,9 @@ class CortexOptOutTest(unittest.TestCase):
     """CORTEX_CONTEXT_ENABLED gate — default on, overridable off."""
 
     def test_disabled_env_var_skips_section_entirely(self):
-        with patch.dict("os.environ", {"CORTEX_CONTEXT_ENABLED": "0"}):
-            with patch.object(ce, "_cortex_binary", return_value=Path("/fake/cortex")):
-                with patch.object(ce, "_cortex_db", return_value=Path("/fake/memory.db")):
-                    with patch.object(subprocess, "run") as mock_run:
-                        out = ce.enrich(_ctx("Systemd unit reconciliation drift"))
-                        mock_run.assert_not_called()
+        with patch.dict("os.environ", {"CORTEX_CONTEXT_ENABLED": "0"}), patch.object(ce, "_cortex_binary", return_value=Path("/fake/cortex")), patch.object(ce, "_cortex_db", return_value=Path("/fake/memory.db")), patch.object(subprocess, "run") as mock_run:
+            out = ce.enrich(_ctx("Systemd unit reconciliation drift"))
+            mock_run.assert_not_called()
         self.assertNotIn("STRUCTURAL API CONTEXT", out)
 
     def test_default_is_enabled(self):

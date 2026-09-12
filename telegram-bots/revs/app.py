@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """REVS Telegram bot — entrypoint. Standalone service, own token, own
 Supabase role (migration 0147_revs_bot_scoped_role.sql) — deliberately NOT
 merged into telegram-bots/xo/app.py. See README.md for why.
@@ -119,9 +120,8 @@ async def _text_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         row = db.create_user(client, user_id, update.effective_user.first_name or "there")
     db.touch_last_seen(client, user_id)
 
-    if not row.get("onboarding_complete"):
-        if await onboarding.handle_onboarding_text(update, context, client, row):
-            return
+    if not row.get("onboarding_complete") and await onboarding.handle_onboarding_text(update, context, client, row):
+        return
 
     if await commands.handle_tool_instruction_text(update, context, client, row):
         return

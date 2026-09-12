@@ -57,9 +57,8 @@ class FetchHtmlErrorDetectionTests(unittest.TestCase):
             body=b"Residential Failed (bad_endpoint)...",
         )
         p1, p2, p3 = self._patched(response)
-        with p1, p2, p3:
-            with self.assertRaises(RuntimeError) as ctx:
-                brightdata_fetch.fetch_html("https://downdetector.com.au/status/national-australia-bank/")
+        with p1, p2, p3, self.assertRaises(RuntimeError) as ctx:
+            brightdata_fetch.fetch_html("https://downdetector.com.au/status/national-australia-bank/")
 
         self.assertIn("policy_20140", str(ctx.exception))
         self.assertIn("KYC", str(ctx.exception))
@@ -77,9 +76,8 @@ class FetchHtmlErrorDetectionTests(unittest.TestCase):
             body=b"",
         )
         p1, p2, p3 = self._patched(response)
-        with p1, p2, p3:
-            with self.assertRaises(RuntimeError) as ctx:
-                brightdata_fetch.fetch_html("https://downdetector.com.au/status/national-australia-bank/")
+        with p1, p2, p3, self.assertRaises(RuntimeError) as ctx:
+            brightdata_fetch.fetch_html("https://downdetector.com.au/status/national-australia-bank/")
 
         self.assertIn("Auth Failed", str(ctx.exception))
 

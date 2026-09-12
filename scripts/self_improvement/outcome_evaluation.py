@@ -62,7 +62,7 @@ def check_implementation_status(opportunity: dict[str, Any], repo_root: Path, da
     if mission_id:
         try:
             status = evidence_sources.mission_status(mission_id)
-        except Exception as exc:  # pragma: no cover - evidence_sources never raises, but stay defensive
+        except Exception as exc:  # noqa: BLE001 - pragma: no cover - evidence_sources never raises, but stay defensive
             return {"implemented": False, "source": None, "verified_at": None,
                      "detail": f"Mission status check failed: {exc}"}
         if status.get("available") and status.get("status") in evidence_sources.MISSION_IMPLEMENTED_STATUSES:
@@ -218,7 +218,7 @@ def detect_concurrent_changes(opportunity: dict[str, Any], store: Any, window_st
         ids = ", ".join(others)
         return (f"{len(others)} other {this_class!r} change(s) landed during this observation "
                 f"window ({ids}) — attribution is uncertain.")
-    except Exception as exc:  # never let attribution-risk detection crash evaluation
+    except Exception as exc:  # noqa: BLE001 - never let attribution-risk detection crash evaluation
         log.warning(f"detect_concurrent_changes failed, treating as no known risk: {exc}")
         return None
 
@@ -241,7 +241,7 @@ def collect_outcome_evidence(opportunity: dict[str, Any], repo_root: Path) -> di
 
     try:
         reading = evidence_sources.read_measurement(hint, repo_root)
-    except Exception as exc:  # evidence_sources never raises, but stay defensive
+    except Exception as exc:  # noqa: BLE001 - evidence_sources never raises, but stay defensive
         reading = {"available": False, "reason": f"read_measurement raised: {exc}"}
 
     return {
@@ -476,7 +476,7 @@ def evaluate_outcome(
                             if router_result.get("success") and router_result.get("evaluation"):
                                 result = outcome_schema.validate_outcome_evaluation(router_result["evaluation"])
                                 result["method"] = "model_synthesis"
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 - model/LLM synthesis call has an unpredictable exception surface; already logged, falls back to honest template
                         log.warning(f"Model outcome synthesis failed, falling back to honest template: {exc}")
                         result = None
                 if result is None:
@@ -493,7 +493,7 @@ def evaluate_outcome(
         result["implementation_status"] = impl
         return result
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level guard so one opportunity's evaluation failure degrades to an honest "inconclusive" result instead of crashing the caller; already logged
         log.error(f"evaluate_outcome failed unexpectedly, degrading to inconclusive: {exc}")
         return {
             "outcome_result": "inconclusive",

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Capture Contract Tests — MSN-XXXX Unified Capture Pipeline
 =====================================================
@@ -302,7 +303,7 @@ class TestFetchRecentCapturesAllSources:
             "command-centre-api-capture":  "Command Centre",
         }
         # Documented expectation — used in WS3 validation
-        for ch, label in expected.items():
+        for ch in expected:
             assert ch in KNOWN_CHANNELS
 
 

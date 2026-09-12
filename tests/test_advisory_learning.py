@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Tests for the MSN-0093 advisory learning loop (outcomes, calibration,
 learning, metrics, and the XO/Number One consumption adapters).
 
@@ -138,7 +139,7 @@ def test_officer_accuracy_keys(fresh):
     _seed(svc, oc, "Officer accuracy test mission?", "success")
     acc = cal.officer_accuracy()
     for stats in acc.values():
-        assert set(["samples", "accuracy", "sufficient"]).issubset(stats.keys())
+        assert {"samples", "accuracy", "sufficient"}.issubset(stats.keys())
 
 
 # ---------------------------------------------------------------------------

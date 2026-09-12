@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import date
+from datetime import datetime, timezone
 
 from .intelligence import WellnessSnapshot
 
@@ -154,7 +154,7 @@ If data is sparse, pivot immediately to what is actionable."""
 
 def build_wellness_brief_prompt(snap: WellnessSnapshot) -> str:
     """Build the LLM prompt from a WellnessSnapshot."""
-    today = date.today().strftime("%A, %d %B %Y")
+    today = datetime.now(timezone.utc).date().strftime("%A, %d %B %Y")
     lines = [f"Daily Wellness Brief — {today}\n"]
 
     # ── Today's telemetry ─────────────────────────────────────────────────────

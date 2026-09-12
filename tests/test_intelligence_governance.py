@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for intelligence/governance/workflow_gate.py (Phase A §1.4).
 
@@ -11,6 +12,7 @@ Covers:
 - log_mutation maps onto record_audit_event and never raises
 """
 
+import itertools
 import os
 import sys
 import unittest
@@ -66,7 +68,7 @@ class TestSignalLifecycle(unittest.TestCase):
     def test_legal_path(self):
         path = ["TO_COLLECT", "SCORED", "VERIFYING", "VERIFIED",
                 "READY_FOR_BRIEF", "IN_BRIEF", "ARCHIVED"]
-        for cur, nxt in zip(path, path[1:]):
+        for cur, nxt in itertools.pairwise(path):
             self.assertTrue(validate_signal_transition(cur, nxt)[0], f"{cur}->{nxt}")
 
     def test_illegal_skip(self):
@@ -90,7 +92,7 @@ class TestBriefApprovalAndGates(unittest.TestCase):
         # 2026-07-18: consolidated from the original 7-state ladder to 3
         # (IN_REVIEW -> QA_PASSED -> PUBLISHED) — see workflow_gate.py.
         path = ["IN_REVIEW", "QA_PASSED", "PUBLISHED"]
-        for cur, nxt in zip(path, path[1:]):
+        for cur, nxt in itertools.pairwise(path):
             self.assertTrue(validate_brief_transition(cur, nxt)[0], f"{cur}->{nxt}")
 
     def test_cannot_skip_to_published(self):
@@ -125,7 +127,7 @@ class TestMutationAudit(unittest.TestCase):
             # Must not propagate — audit failure cannot break the workflow.
             try:
                 result = log_mutation("t", "id", "UPDATE", ANALYST)
-            except Exception as exc:  # pragma: no cover
+            except Exception as exc:  # noqa: BLE001 - test asserts log_mutation never propagates any exception type  # pragma: no cover
                 self.fail(f"log_mutation raised: {exc}")
         self.assertIn(result, (True, False))
 

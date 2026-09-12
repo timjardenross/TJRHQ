@@ -35,7 +35,7 @@ class DecisionProcessor:
                 for line in f:
                     if line.strip():
                         decisions.append(json.loads(line))
-        except Exception as exc:
+        except (OSError, json.JSONDecodeError) as exc:
             log.error(f"Failed to load decisions: {exc}")
             return []
 
@@ -185,10 +185,10 @@ if __name__ == "__main__":
 
     # Load sample findings (mtime sort, not name — see auto_remediation.py's
     # load_latest_findings() for why lexicographic sort is wrong here)
-    run_dir = sorted(
+    run_dir = max(
         (d for d in (DATA_ROOT / "runs").iterdir() if d.is_dir()),
-        key=lambda d: d.stat().st_mtime, reverse=True,
-    )[0]
+        key=lambda d: d.stat().st_mtime,
+    )
     findings_file = run_dir / "findings_classified.json"
     with open(findings_file) as f:
         data = json.load(f)

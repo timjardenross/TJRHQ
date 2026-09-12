@@ -497,7 +497,7 @@ class TestScoreOutputDeepEval:
         """0.2 hallucination rate -> 0.8 quality score."""
         mock_metric = MagicMock()
         mock_metric.score = 0.2
-        with patch.object(self.qss, "HallucinationMetric", return_value=mock_metric) as mock_cls:
+        with patch.object(self.qss, "HallucinationMetric", return_value=mock_metric):
             scoring = self.QualityScoring()
             result = scoring.score_output(
                 prompt="What is the capital of France?",
@@ -565,9 +565,11 @@ class TestModelRouterJudge:
         fake_response.__enter__ = lambda s: s
         fake_response.__exit__ = MagicMock(return_value=False)
         judge = self.qss._ModelRouterJudge()
-        with patch("urllib.request.urlopen", return_value=fake_response):
-            with pytest.raises(RuntimeError):
-                judge.generate("prompt")
+        with (
+            patch("urllib.request.urlopen", return_value=fake_response),
+            pytest.raises(RuntimeError),
+        ):
+            judge.generate("prompt")
 
 
 # ============================================================================
@@ -617,7 +619,7 @@ def run_all_tests():
         except AssertionError as e:
             failed += 1
             log.error(f"❌ FAILED: {test_func.__name__}: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test-runner harness: must catch any failure from the test function to tally pass/fail and continue the run
             failed += 1
             log.error(f"❌ ERROR: {test_func.__name__}: {e}")
 
@@ -630,7 +632,7 @@ def run_all_tests():
         except AssertionError as e:
             failed += 1
             log.error(f"❌ FAILED: {test_func.__name__}: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test-runner harness: must catch any failure from the test function to tally pass/fail and continue the run
             failed += 1
             log.error(f"❌ ERROR: {test_func.__name__}: {e}")
 

@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -79,7 +79,7 @@ def test_priority_2a_basic_integration():
         'provider_name': 'Google',
         'model_name': 'Gemini',
         'provider_route': 'Primary',
-        'scored_at': datetime.utcnow().isoformat()
+        'scored_at': datetime.now(timezone.utc).isoformat()
     }
 
     log.info(f"✓ Quality score created: {quality_score['id']} = {quality_score['effectiveness_score']}/5.0")
@@ -103,7 +103,7 @@ def test_priority_2a_basic_integration():
         'provider_name': quality_score['provider_name'],
         'effectiveness_delta': delta,
         'suggested_action': action,
-        'feedback_timestamp': datetime.utcnow().isoformat()
+        'feedback_timestamp': datetime.now(timezone.utc).isoformat()
     }
 
     log.info(f"✓ Feedback signal generated: {feedback_signal['id']}")
@@ -121,7 +121,7 @@ def test_priority_2a_basic_integration():
         'avg_effectiveness': quality_score['effectiveness_score'],
         'effectiveness_trend': 'stable',
         'quality_tier': 'high',
-        'last_updated': datetime.utcnow().isoformat()
+        'last_updated': datetime.now(timezone.utc).isoformat()
     }
 
     log.info(f"✓ Provider quality updated: {provider_quality['provider_name']}")
@@ -146,12 +146,6 @@ def test_priority_2a_multiple_signals():
         score = 4.0 + (i * 0.5)  # 4.0, 4.5, 5.0
         baseline = 3.0
         delta = score - baseline
-
-        signal = {
-            'id': f'FBK-20260610-{120000+i}',
-            'effectiveness_delta': delta,
-            'suggested_action': 'increase'
-        }
 
         signals_generated += 1
         provider_quality['Google'].append(score)
@@ -180,7 +174,7 @@ def test_priority_2a_unknown_score_skipped():
         'effectiveness_score': None,  # Unknown
         'scoring_reason': 'Cannot determine outcome',
         'provider_name': 'Google',
-        'scored_at': datetime.utcnow().isoformat()
+        'scored_at': datetime.now(timezone.utc).isoformat()
     }
 
     log.info(f"✓ Quality score created: {quality_score['id']} = unknown")
@@ -275,12 +269,12 @@ if __name__ == '__main__':
 
         if passed == total:
             log.info("\n🎯 PRIORITY 2A INTEGRATION: COMPLETE")
-            exit(0)
+            sys.exit(0)
         else:
-            exit(1)
+            sys.exit(1)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level test-script wrapper: catch any error to log it and exit non-zero rather than crash with a raw traceback
         log.error(f"❌ Test error: {e}")
         import traceback
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)

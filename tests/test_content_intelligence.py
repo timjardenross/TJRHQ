@@ -273,7 +273,7 @@ if __name__ == "__main__":
                 getattr(suite, name)()
                 print(f"  ✓ {type(suite).__name__}.{name}")
                 passed += 1
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - test-runner harness: must catch any failure from a test method to report it and keep running the rest
                 print(f"  ✗ {type(suite).__name__}.{name}: {exc}")
                 traceback.print_exc()
                 failed += 1
@@ -282,7 +282,7 @@ if __name__ == "__main__":
         test_suite_performance()
         print("  ✓ test_suite_performance")
         passed += 1
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - test-runner harness: must catch any failure to report it and continue to the summary
         print(f"  ✗ test_suite_performance: {exc}")
         failed += 1
 

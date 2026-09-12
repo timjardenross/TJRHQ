@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Unit tests for Phase B crisis-mode governance actions (escalate / notify_telegram /
 stand_down), their dispatcher wiring, and the governance dispatch CLI bridge.
@@ -152,7 +153,7 @@ class TestDispatchCLI(unittest.TestCase):
         self.assertEqual(code, 1)
 
     def test_missing_role_403(self):
-        code, out = self._run({"action": "brief.escalate", "role": "", "payload": {"brief_id": "b"}})
+        _code, out = self._run({"action": "brief.escalate", "role": "", "payload": {"brief_id": "b"}})
         self.assertEqual(out["status"], 403)
 
     def test_bad_json_400(self):

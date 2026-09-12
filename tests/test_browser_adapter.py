@@ -82,17 +82,15 @@ class TestFetchHtml:
         fake_result = _fake_worker_result(json.dumps({"error": "TimeoutError: page never loaded"}) + "\n")
         with patch("intelligence.ingestion.browser_adapter._WORKER_VENV_PYTHON") as mock_venv:
             mock_venv.exists.return_value = True
-            with patch("subprocess.run", return_value=fake_result):
-                with pytest.raises(RuntimeError, match="Browser fetch failed"):
-                    adapter._fetch_html("https://www.nema.gov.au/")
+            with patch("subprocess.run", return_value=fake_result), pytest.raises(RuntimeError, match="Browser fetch failed"):
+                adapter._fetch_html("https://www.nema.gov.au/")
 
     def test_raises_on_subprocess_timeout(self):
         adapter = BrowserAdapter(_nema_source())
         with patch("intelligence.ingestion.browser_adapter._WORKER_VENV_PYTHON") as mock_venv:
             mock_venv.exists.return_value = True
-            with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="fetch_html.py", timeout=90)):
-                with pytest.raises(RuntimeError, match="timed out"):
-                    adapter._fetch_html("https://www.nema.gov.au/")
+            with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="fetch_html.py", timeout=90)), pytest.raises(RuntimeError, match="timed out"):
+                adapter._fetch_html("https://www.nema.gov.au/")
 
     def test_raises_clear_error_when_worker_venv_missing(self):
         adapter = BrowserAdapter(_nema_source())
@@ -105,9 +103,8 @@ class TestFetchHtml:
         adapter = BrowserAdapter(_nema_source())
         with patch("intelligence.ingestion.browser_adapter._WORKER_VENV_PYTHON") as mock_venv:
             mock_venv.exists.return_value = True
-            with patch("subprocess.run", return_value=_fake_worker_result("")):
-                with pytest.raises(RuntimeError, match="no output"):
-                    adapter._fetch_html("https://www.nema.gov.au/")
+            with patch("subprocess.run", return_value=_fake_worker_result("")), pytest.raises(RuntimeError, match="no output"):
+                adapter._fetch_html("https://www.nema.gov.au/")
 
 
 class TestCollectReusesScrapeAdapterExtraction:

@@ -1,0 +1,58 @@
+# USS-TJR-MSN-0370 — Ruff Manual-Judgment Triage (telegram-bots/scripts/services/tests/config)
+
+Date: 2026-09-12
+Branch: `msn-0370-ruff-bots-misc` (pushed to origin, not merged to main)
+Scope: manual-judgment ruff triage, follow-up to USS-TJR-MSN-0369's autofix pass, for `telegram-bots/`, `scripts/`, `services/`, `tests/`, `config/` (everything except `core/`, `platform-runtime/`, `intelligence/`, `tools/`, owned by parallel missions in separate worktrees).
+
+## Counts
+
+- **Starting count**: 503 findings (`ruff check telegram-bots scripts services tests config`), confirmed fresh at mission start (repo drifts from the brief's estimates — actual breakdown: telegram-bots 191, scripts 90, services 39, tests 183, config 0).
+- **Ending count**: **0 findings.** Full bucket closed, not partial.
+- 10 commits on the branch, all pushed to `origin/msn-0370-ruff-bots-misc`.
+
+## Breakdown fixed, by rule family
+
+| Rule(s) | Count | Approach |
+|---|---|---|
+| EXE002/EXE001 (shebang) | 132 | Mechanical, but judgment per file: exec bit had been set on ~166/207 `.py` files by accident. Added a shebang where the file has a real `__main__` entrypoint meant to run standalone; removed the exec bit everywhere else (modules/libraries/`__init__.py`). Also fixed the inverse (shebang present, not executable) via `chmod +x`. |
+| DTZ001/003/005/011 (naive datetime) | 15 | Real correctness fix: `datetime.utcnow()`/`date.today()`/`datetime.now()` without tz → `datetime.now(timezone.utc)` (`.date()` where a date was wanted). Verified each site was either already UTC-intended, or a Brisbane-zoneinfo fallback branch that previously silently produced naive local time — now falls back to aware UTC. |
+| RUF059 (unused-unpacked-variable) | 34 | Mechanical, prefixed with `_`. Had to iterate 3 times — ruff's dead-store check isn't fully flow-sensitive per-binding within a scope, so fixing one unused binding of a reused name (e.g. repeated `query` unpacks in a test loop) surfaced a previously-masked one under the same name later in the same function. |
+| S110/S112 (try-except-pass/continue) | 18 | Per-callsite judgment. All 18 were production best-effort side paths (heartbeat recording, optional voice replies, telemetry publish, `.env` bootstrap) — replaced bare `pass` with `except ... as exc: log.debug(...)` so the failure is visible without changing control flow. One legitimate test-cleanup blanket-except (between-test module reload) suppressed with `# noqa: S110` + reason instead. |
+| BLE001 (blind-except) | 187 | The big one — full per-callsite judgment, split across 3 parallel fork agents (test files / telegram-bots production / scripts+services production) plus my own follow-up. **Test files (39, 20 files)**: 100% suppressed with `# noqa: BLE001 - <specific reason>` — every callsite was a legitimate blanket-except pattern (test-runner harnesses tallying pass/fail, "assert this never raises" tests, smoke-test scripts, best-effort test cleanup). **telegram-bots production (90, 13 files)**: 87 kept as `except Exception` + specific noqa (Supabase/Telegram-API/subprocess/HTTP surfaces, already logged, intentional never-crash-the-bot pattern); 5 bare `except Exception:`/`except:` with no logging got `as exc: log.debug(...)` added before the noqa; 1 module-level import guard narrowed to `except ImportError:` instead of suppressing. **scripts/services production (58, 18 files)**: narrowed to specific types (`OSError`, `subprocess.SubprocessError`, `json.JSONDecodeError`, `AttributeError`) wherever the surrounding code made the realistic exception set clear (dashboard.py, auto_remediation.py, evolution_orchestrator.py, router_client.py, policy.py, state_validation.py, decision_processor.py, staleness_check.py); kept broad+logged+noqa where the callsite wraps a genuinely unpredictable external surface (LLM calls, per-item loops in an unattended overnight automation cycle, collector.py's "best-effort audit evidence gathering"). No narrow-type guesses were made anywhere the realistic exception set wasn't obvious — kept broad+logged+noqa instead per the mission's explicit fallback rule. |
+| PLW1510 (subprocess.run without check) | 18 | Mechanical: added explicit `check=False` (matches the pre-existing implicit default, no behavior change). First attempt via naive line-insertion produced `SyntaxError: positional argument follows keyword argument` for multi-line calls — caught immediately via `ast.parse`, reverted, and redone with a tokenizer-based bracket-matching approach that inserts `check=False` immediately before each call's actual closing paren, verified syntactically correct afterward. |
+| PLR1722 (sys.exit alias) | 14 | Mechanical: bare `exit()`/`quit()` → `sys.exit()`, adding the `sys` import where missing. |
+| F841 (unused-variable) | 26 (11 + 15 across two passes) | Per-callsite: grepped for later use before removing each one. All confirmed genuinely dead (leftover simulation variables in demonstration-style tests never asserted on, an unused `evidence` extraction, a mood-chart label/tod computed then unused, an upsert() result never read). Where the call itself was needed for its side effect/timing, kept the call and only dropped the assignment. |
+| RUF012, RUF007, RUF013, FURB192, C401, C408, SIM102, SIM113, SIM115, SIM117, SIM118, ISC004, ASYNC220/221, N999, TRY002, TRY401, F401, F811, C405, PERF102, FLY002 | ~90 combined | Mostly mechanical (`ruff --fix --unsafe-fixes` for the safe subset: SIM117/C408/C405/PLR1722/FLY002/ISC004/C401/PERF102/SIM118, verified post-fix), rest hand-fixed with real per-site reasoning: <br>• **SIM113**: `evolution_memory.py`'s manual `included` counter was provably redundant with `enumerate()`'s index (verified the increment timing matched exactly) — replaced with `i`, counter removed entirely.<br>• **SIM115** (3 sites): genuine flock-held-across-function-boundary cases where a `with` block would be wrong — suppressed with a specific reason.<br>• **ASYNC220/221**: real bug — `telegram-bots/xo/app.py`'s `/restart_bots` handler called blocking `subprocess.run()`/`Popen()` directly inside an `async def`, blocking the bot's event loop for up to 15s per systemd service restart. Fixed properly: `subprocess.run()` → `await asyncio.to_thread(subprocess.run, ...)`, `Popen()` → `await asyncio.create_subprocess_exec(...)` (still fire-and-forget, doesn't await completion).<br>• **N999**: renamed `tests/MISTRAL_RESEARCH_SCOUT_SMOKE_TEST.py` → `tests/test_mistral_research_scout_smoke.py` (grepped repo-wide for references first — none found).<br>• **F401** (`test_import_succeeds`-style): where the unused import was itself the thing under test ("does this import succeed"), suppressed with noqa rather than restructuring to `importlib.util.find_spec`, which would test something weaker. |
+
+## Suppressed vs. fixed
+
+Rough split across the whole 503: **~187 suppressed with a specific `# noqa: <RULE> - <reason>`** (BLE001 broad-catch-is-intentional cases, S110 test cleanup, SIM115 flock-lifetime cases, one F401 import-succeeds test), **~316 actually fixed** (real code change: narrowed exceptions, DTZ correctness fixes, ASYNC event-loop-blocking fix, dead code removal, mechanical renames/restructures).
+
+## Risky items flagged instead of guessed
+
+- Every BLE001 callsite where the realistic exception set wasn't obvious from surrounding code was left as broad `except Exception` (with logging + a reasoned noqa) rather than guessing a narrow type that could silently swallow a real error class. No narrow-exception-type guesses were made anywhere across the whole triage.
+- `telegram-bots/xo/app.py`'s `/restart_bots` ASYNC220/221 fix changes real runtime behavior (moves blocking subprocess calls off the event loop) — flagged here explicitly since it's the one fix in this mission that's more than mechanical/logging-only. Verified: `ast.parse` clean, `ruff check --select ASYNC220,ASYNC221` clean, ASYNC-fix's file passes its own BLE001/PLW1510 checks, ran alongside other xo/app.py tests with identical pre/post failure counts (see below) — no test suite exists that directly exercises `/restart_bots`'s subprocess path, so this one is verified by construction + lint clean, not by a passing test that calls it.
+
+## Test verification
+
+Ran pytest (in an ad-hoc local venv with `pytest`, `python-telegram-bot`, `python-dotenv`, `supabase`, `pytest-asyncio` installed) after every commit, comparing pass/fail counts before vs. after each change via `git stash`/`git stash pop`. Confirmed **zero new regressions** across every batch:
+
+- `tests/test_learning_loop_b1a.py`, `tests/test_intelligence_phase2.py`, `tests/test_priority_2a/2b/3/4_*` — 8-11 pre-existing failures depending on file set, identical before/after every commit.
+- `telegram-bots/capacitybot/*`, `telegram-bots/xo/test_voice_capture.py`, `telegram-bots/xo/test_scoped_role.py` — 46 pre-existing failures (missing mocks/test-double setup in this ad-hoc venv, e.g. `TELEGRAM_BOT_TOKEN` env var, unrelated to any change here), identical before/after.
+- `tests/test_self_improvement_system.py`, `services/transcription/test_transcribe.py` — 42 passed, 0 failures, both before and after.
+- `tests/test_gemini_quota_aware.py`, `tests/test_cps230_final_validation.py`, `tests/test_research_output_quality_validation.py` — 7 pre-existing failures, identical before/after (includes the file with a real SIM117 nested-with merge, confirming the merge is behaviorally transparent).
+- `services/revs-content-agents/tests/test_main_orchestration.py` fails at collection (`ImportError: cannot import name 'genai' from 'google'`) both before and after — pre-existing environment/dependency gap (missing/incompatible `google-genai` package in this ad-hoc venv), not a regression.
+
+Final full-repo `ruff check telegram-bots scripts services tests config` → **All checks passed** (0 findings). All touched files verified with `ast.parse` after every batch.
+
+## Process notes / what future missions should know
+
+- Used 3 parallel `fork` subagents to split the 187-strong BLE001 bucket by file group (test files / telegram-bots production / scripts+services production) since it's the highest-volume, highest-judgment bucket. This worked well — each fork had full mission context, worked on disjoint file sets (no collisions), and reported back accurate per-callsite reasoning. Coordinator (this session) held off on touching any BLE001-bearing file until each fork's slice landed, to avoid concurrent-edit races.
+- `.pre-commit-config.yaml`'s documented `SKIP=ruff-check,bandit` convention was used for every intermediate commit where the commit's own diff was ruff-clean but the file still carried other pre-existing/not-yet-triaged findings (or a pre-existing bandit backlog item) from a later batch. The final commit (after the whole 503→0 pass completed) needed only `SKIP=bandit` — ruff-check itself passed unskipped.
+- Nothing left outstanding for this mission's scope — reached 0/503, not a partial close.
+
+## Not in scope / left for other missions
+
+- `core/`, `platform-runtime/`, `intelligence/`, `tools/` — explicitly owned by parallel MSN-0370-family worktrees running concurrently; not touched.
+- Bandit's pre-existing backlog in these same directories (192 low-severity findings seen in one bandit run during this mission) — out of scope for a ruff mission; flagged here for whoever picks up a bandit-focused follow-up.
+- The pre-existing test failures documented above (missing secrets/mocks in local dev venvs, a `google-genai` import gap, a model-router-judge wiring gap in `test_b1c_quality_scoring.py`) are unrelated to ruff and were not touched — they pre-date this mission and were only used as a regression baseline.
