@@ -617,7 +617,7 @@ class TestOrchestratorOutcomeLoop(unittest.TestCase):
 
         scratch.write_text("x" * 1024)  # shrink -> "after"
         with patch("evidence_sources.file_size_mb", return_value={"available": True, "value": scratch.stat().st_size / (1024 * 1024), "description": "scratch after"}):
-            result = orch.run_cycle(dry_run=False)
+            orch.run_cycle(dry_run=False)
 
         final = store.get(opp.opportunity_id)
         self.assertEqual(final["lifecycle_state"], "learned")

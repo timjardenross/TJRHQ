@@ -542,7 +542,6 @@ class TestOutcomeCaptureIntegration:
 
         # Simulate B1A → B1B traceability
         mission_id = "MSN-0060B"
-        recommendation_id = "REC-20260610-142500"
         decision_id = "DEC-REC-20260610-143000"
 
         # Record outcome

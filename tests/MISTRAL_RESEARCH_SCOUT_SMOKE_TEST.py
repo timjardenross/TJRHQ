@@ -16,6 +16,7 @@ Requirements:
 import json
 import logging
 import os
+import sys
 
 logging.basicConfig(
     level=logging.INFO,
@@ -180,7 +181,7 @@ if __name__ == "__main__":
     log.info("\n" + "="*70)
     if success:
         log.info("✓ SMOKE TEST PASSED")
-        exit(0)
+        sys.exit(0)
     else:
         log.error("✗ SMOKE TEST FAILED")
-        exit(1)
+        sys.exit(1)

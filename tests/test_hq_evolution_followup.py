@@ -306,7 +306,7 @@ class TestResearchOrderAndBounds(unittest.TestCase):
             with patch.object(orch.router, "health_check", return_value=True), \
                  patch.object(orch.router, "investigate_opportunity", return_value=fake_router_result), \
                  patch("internal_discovery.discover", return_value=[dict(candidate)]):
-                result = orch.run_cycle(dry_run=False)
+                orch.run_cycle(dry_run=False)
             store = OpportunityStore(self.tmpdir)
             current = [o for o in store.all_current() if o["title"] == candidate["title"]]
             eligibilities.add(current[-1]["automation_eligibility"] if current else None)

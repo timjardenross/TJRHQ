@@ -122,7 +122,7 @@ class TestWP1ResearchMemoryRetrieval:
             retriever = ResearchMemoryRetriever()
 
             start = time.time()
-            result = retriever.search_prior_research("test question")
+            retriever.search_prior_research("test question")
             elapsed_ms = (time.time() - start) * 1000
 
             print(f"⏱️ Execution time: {elapsed_ms:.2f}ms (target: <100ms)")

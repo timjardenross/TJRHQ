@@ -330,13 +330,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_mood_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log mood (1-10 scale) at different times of day with optional context."""
-    from telegram_bots.xo.mood_chart import (
-        _TOD_LABELS,
-        _current_time_of_day,
-        kb_time_of_day,
-    )
-    tod = _current_time_of_day()
-    label = _TOD_LABELS.get(tod, tod)
+    from telegram_bots.xo.mood_chart import kb_time_of_day
     await update.message.reply_text(
         "📊 *Mood Chart*\n\n"
         "Rate your mood from 1 \\(worst\\) to 10 \\(best\\)\\.\n"

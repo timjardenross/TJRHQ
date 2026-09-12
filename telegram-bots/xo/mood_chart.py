@@ -152,7 +152,7 @@ async def write_mood_entry(
         if notes:
             payload["notes"] = notes
 
-        res = db.table("mood_chart").upsert(
+        db.table("mood_chart").upsert(
             payload,
             on_conflict="log_date,time_of_day",
         ).execute()

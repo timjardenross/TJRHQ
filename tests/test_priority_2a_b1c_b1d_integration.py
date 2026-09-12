@@ -147,12 +147,6 @@ def test_priority_2a_multiple_signals():
         baseline = 3.0
         delta = score - baseline
 
-        signal = {
-            'id': f'FBK-20260610-{120000+i}',
-            'effectiveness_delta': delta,
-            'suggested_action': 'increase'
-        }
-
         signals_generated += 1
         provider_quality['Google'].append(score)
 
@@ -275,12 +269,12 @@ if __name__ == '__main__':
 
         if passed == total:
             log.info("\n🎯 PRIORITY 2A INTEGRATION: COMPLETE")
-            exit(0)
+            sys.exit(0)
         else:
-            exit(1)
+            sys.exit(1)
 
     except Exception as e:  # noqa: BLE001 - top-level test-script wrapper: catch any error to log it and exit non-zero rather than crash with a raw traceback
         log.error(f"❌ Test error: {e}")
         import traceback
         traceback.print_exc()
-        exit(1)
+        sys.exit(1)

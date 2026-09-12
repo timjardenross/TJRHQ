@@ -83,7 +83,6 @@ class DocumentStrategy(RemediationStrategy):
         """Update README for version/requirement drift."""
         description = finding.get("description", "").lower()
         title = finding.get("title", "").lower()
-        evidence = finding.get("evidence", [])
 
         # Handle Python version updates
         if "python" in description or "python" in title:

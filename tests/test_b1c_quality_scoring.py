@@ -497,7 +497,7 @@ class TestScoreOutputDeepEval:
         """0.2 hallucination rate -> 0.8 quality score."""
         mock_metric = MagicMock()
         mock_metric.score = 0.2
-        with patch.object(self.qss, "HallucinationMetric", return_value=mock_metric) as mock_cls:
+        with patch.object(self.qss, "HallucinationMetric", return_value=mock_metric):
             scoring = self.QualityScoring()
             result = scoring.score_output(
                 prompt="What is the capital of France?",
