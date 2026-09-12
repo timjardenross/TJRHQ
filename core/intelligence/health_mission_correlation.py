@@ -72,7 +72,7 @@ def _fetch_mission_dates() -> dict[str, list[str]]:
                 if upd:
                     day = upd[:10]
                     day_map[day].append(m.get("id", "?"))
-        except Exception:  # noqa: BLE001 - best-effort day_map enrichment from one of several sources; missing source just means fewer entries
+        except Exception:  # noqa: BLE001,S110 - best-effort day_map enrichment from one of several sources; missing source just means fewer entries
             pass
 
     # Fallback: daily_brief.json top_priorities updated timestamps
@@ -85,7 +85,7 @@ def _fetch_mission_dates() -> dict[str, list[str]]:
                 ts = data.get("timestamp", "")[:10]
                 if ts:
                     day_map[ts].append(item.get("mission_id", "?"))
-        except Exception:  # noqa: BLE001 - best-effort day_map enrichment from one of several sources; missing source just means fewer entries
+        except Exception:  # noqa: BLE001,S110 - best-effort day_map enrichment from one of several sources; missing source just means fewer entries
             pass
 
     return day_map

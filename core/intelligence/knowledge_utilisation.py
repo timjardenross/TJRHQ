@@ -142,7 +142,7 @@ def _scan_decision_logs() -> dict[str, Any]:
     for f in _DECISIONS_DIR.glob("*.json"):
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
-        except Exception:  # noqa: BLE001 - best-effort per-file scan; one corrupt/malformed file must not lose the rest
+        except Exception:  # noqa: BLE001,S112 - best-effort per-file scan; one corrupt/malformed file must not lose the rest
             continue
 
         # lesson_id field
@@ -189,7 +189,7 @@ def _scan_knowledge_documents() -> dict[str, Any]:
                 text = _extracted["text"]
             else:
                 text = f.read_text(encoding="utf-8", errors="replace")
-        except Exception:  # noqa: BLE001 - best-effort per-file scan; one corrupt/malformed file must not lose the rest
+        except Exception:  # noqa: BLE001,S112 - best-effort per-file scan; one corrupt/malformed file must not lose the rest
             continue
         for m in _LL_PATTERN.findall(text):
             lesson_refs[m] += 1

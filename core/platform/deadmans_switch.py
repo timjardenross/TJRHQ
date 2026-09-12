@@ -114,7 +114,7 @@ def _write_state(state: dict[str, Any]) -> None:
     try:
         _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         _STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
-    except Exception:  # noqa: BLE001 - already documented best-effort: a failed debounce write must not crash the dead-man's switch
+    except Exception:  # noqa: BLE001,S110 - already documented best-effort: a failed debounce write must not crash the dead-man's switch
         pass  # best-effort - a failed debounce write must not crash the switch
 
 

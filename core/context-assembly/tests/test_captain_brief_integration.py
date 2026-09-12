@@ -283,7 +283,7 @@ class TestFetchContextAssemblyBrief(unittest.TestCase):
         sys.modules.setdefault("dotenv", MagicMock())
         try:
             spec.loader.exec_module(mod)
-        except Exception:  # noqa: BLE001 - Flask app.run() etc. may raise on import side-effects; helper is still importable regardless
+        except Exception:  # noqa: BLE001,S110 - Flask app.run() etc. may raise on import side-effects; helper is still importable regardless
             pass
         return mod
 

@@ -39,7 +39,7 @@ class _DB:
             try:
                 from supabase import create_client
                 self._client = create_client(self.url, self.key)
-            except Exception:  # noqa: BLE001 - optional Supabase client init; self._client stays None and enabled() reports unavailable
+            except Exception:  # noqa: BLE001,S110 - optional Supabase client init; self._client stays None and enabled() reports unavailable
                 pass
 
     def enabled(self) -> bool:
@@ -288,5 +288,5 @@ def process_captured_item(item_id: str) -> None:
                 "processing_status": "failed",
                 "processing_errors": [str(exc)],
             })
-        except Exception:  # noqa: BLE001 - best-effort failure-status write; must not raise a second exception over the one already being handled
+        except Exception:  # noqa: BLE001,S110 - best-effort failure-status write; must not raise a second exception over the one already being handled
             pass

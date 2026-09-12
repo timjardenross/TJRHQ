@@ -76,7 +76,7 @@ class _SupabaseReader:
                 try:
                     from supabase import create_client
                     self._client = create_client(url, key)
-                except Exception:  # noqa: BLE001 - optional Supabase client init; self._client stays None and callers already handle that
+                except Exception:  # noqa: BLE001,S110 - optional Supabase client init; self._client stays None and callers already handle that
                     pass
 
     def select_all(self, table: str, columns: str = "*", limit: int = 100) -> list[dict]:

@@ -552,7 +552,7 @@ def build_health_context_live(assembled_at: str | None = None) -> HealthContextP
                 energy_vals = [encode_energy(r["energy"]) for r in recent if r.get("energy")]
                 result_e = compute_energy_trend(energy_vals)
                 energy_trend_direction = None if result_e == "insufficient_data" else result_e
-            except Exception:  # noqa: BLE001 - best-effort trend computation; None trend direction is a valid 'insufficient data' outcome
+            except Exception:  # noqa: BLE001,S110 - best-effort trend computation; None trend direction is a valid 'insufficient data' outcome
                 pass
 
             # Compute capacity score
@@ -564,7 +564,7 @@ def build_health_context_live(assembled_at: str | None = None) -> HealthContextP
                 entry, trend_direction, cap_score, assembled_at,
                 energy_trend=energy_trend_direction,
             )
-        except Exception:  # noqa: BLE001 - already documented: fall through to the legacy Health-Summary.md path
+        except Exception:  # noqa: BLE001,S110 - already documented: fall through to the legacy Health-Summary.md path
             pass  # fall through to legacy path
 
     # Legacy fallback: read Health-Summary.md

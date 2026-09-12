@@ -69,7 +69,7 @@ def invalidate_governance_cache_for_artefact(artefact_id: str) -> int:
         if isinstance(assessment, str):
             try:
                 assessment = json.loads(assessment)
-            except Exception:  # noqa: BLE001 - best-effort per-row scan; one malformed assessment must not lose the rest
+            except Exception:  # noqa: BLE001,S112 - best-effort per-row scan; one malformed assessment must not lose the rest
                 continue
         # Check all artefact types for this artefact_id
         artefacts = assessment.get("artefacts", {})

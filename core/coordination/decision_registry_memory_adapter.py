@@ -191,7 +191,7 @@ class DecisionRegistryMemoryAdapter:
                     rows = list(response.data or [])
                     if rows:
                         return rows
-                except Exception:  # noqa: BLE001 - cascading per-table Supabase fallback; final give-up is the file-based fallback below
+                except Exception:  # noqa: BLE001,S112 - cascading per-table Supabase fallback; final give-up is the file-based fallback below
                     continue
         return self._load_from_files()
 

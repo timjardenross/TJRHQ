@@ -321,7 +321,7 @@ def _record_heartbeat(status: str, detail: str = None, error_message: str = None
         sys.path.insert(0, str(REPO_ROOT / "core" / "platform"))
         from heartbeat import record_heartbeat
         record_heartbeat("engineering_handoff", status=status, detail=detail, error_message=error_message)
-    except Exception:  # noqa: BLE001 - already documented: best-effort telemetry heartbeat, never raises
+    except Exception:  # noqa: BLE001,S110 - already documented: best-effort telemetry heartbeat, never raises
         pass
 
 

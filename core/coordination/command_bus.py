@@ -394,7 +394,7 @@ def _emit_service_state_event(event_type: str, svc: str, state: str, crit: str) 
             recommended_action=f"{svc}: {state}",
             metrics={"service": svc, "state": state, "criticality": crit},
         )
-    except Exception:  # noqa: BLE001 - best-effort event emission; must not break the health-monitoring loop it's reporting from
+    except Exception:  # noqa: BLE001,S110 - best-effort event emission; must not break the health-monitoring loop it's reporting from
         pass
 
 

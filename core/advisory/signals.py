@@ -125,7 +125,7 @@ def emerging_signals() -> list[Signal]:
     for d in _DETECTORS:
         try:
             out.extend(d())
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001,S112 - per-detector isolation; one detector's failure must not stop the others from running
             continue
     sev_rank = {"concern": 2, "watch": 1, "info": 0}
     out.sort(key=lambda s: sev_rank.get(s.severity, 0), reverse=True)

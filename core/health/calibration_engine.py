@@ -126,7 +126,7 @@ def run_calibration(days: int = 30) -> dict[str, Any]:
         row["rolling_30d_pct"] = _compute_rolling_pct(paired_rows, idx, 30)
         try:
             supabase_upsert("capacity_calibration", row, "log_date")
-        except Exception:  # noqa: BLE001 - already documented best-effort; don't abort the whole calibration run over one row's upsert
+        except Exception:  # noqa: BLE001,S110 - already documented best-effort; don't abort the whole calibration run over one row's upsert
             pass  # best-effort; don't abort the whole run
 
     # Build summary
@@ -159,7 +159,7 @@ def run_calibration(days: int = 30) -> dict[str, Any]:
 
     try:
         supabase_upsert("capacity_calibration_summary", summary, "summary_date")
-    except Exception:  # noqa: BLE001 - best-effort summary upsert; the computed summary is still returned to the caller below
+    except Exception:  # noqa: BLE001,S110 - best-effort summary upsert; the computed summary is still returned to the caller below
         pass
 
     summary["success"] = True

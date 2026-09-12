@@ -63,7 +63,7 @@ def _extract_tables(doc) -> list[dict]:
             df = table.export_to_dataframe()
             if df is not None and not df.empty:
                 tables.append(df.to_dict())
-        except Exception:  # noqa: BLE001 - best-effort per-table export; one malformed table must not lose the rest
+        except Exception:  # noqa: BLE001,S112 - best-effort per-table export; one malformed table must not lose the rest
             continue
     return tables
 

@@ -1345,7 +1345,7 @@ def run_synthesis(days: int = 7, update_health_summary: bool = True) -> dict[str
             from heartbeat import record_heartbeat
             record_heartbeat("weekly_health_synthesis", status="skipped",
                               detail=f"period={week_start}, days_logged={n} < {MIN_DAYS_FOR_SYNTHESIS}")
-        except Exception:  # noqa: BLE001 - best-effort telemetry heartbeat; must not fail the synthesis run it's reporting on
+        except Exception:  # noqa: BLE001,S110 - best-effort telemetry heartbeat; must not fail the synthesis run it's reporting on
             pass
 
         return {
@@ -1567,7 +1567,7 @@ def run_synthesis(days: int = 7, update_health_summary: bool = True) -> dict[str
         else:
             record_heartbeat("weekly_health_synthesis", status="ok",
                               detail=f"period={week_start}")
-    except Exception as _hb_exc:  # noqa: BLE001 - best-effort telemetry heartbeat; must not fail the synthesis run after its real work is already done
+    except Exception as _hb_exc:  # noqa: BLE001,S110 - best-effort telemetry heartbeat; must not fail the synthesis run after its real work is already done
         pass
 
     # ── Update Health-Summary.md ─────────────────────────────────────────────

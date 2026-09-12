@@ -37,7 +37,7 @@ def _load_decision_logs(decisions_dir: Path | None = None) -> list[dict[str, Any
             data = json.loads(f.read_text(encoding="utf-8"))
             data.setdefault("_source_file", f.name)
             records.append(data)
-        except Exception:  # noqa: BLE001 - best-effort per-file scan; one corrupt/malformed record must not lose the rest
+        except Exception:  # noqa: BLE001,S110 - best-effort per-file scan; one corrupt/malformed record must not lose the rest
             pass
     return records
 

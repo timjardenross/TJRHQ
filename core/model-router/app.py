@@ -117,7 +117,7 @@ def _emit_router_span(task_type: str, model: str, duration_ms: int, success: boo
             },
         ):
             pass  # span closes immediately; timing is recorded in attributes
-    except Exception:  # noqa: BLE001 - tracing is best-effort observability; must never break the router it's instrumenting
+    except Exception:  # noqa: BLE001,S110 - tracing is best-effort observability; must never break the router it's instrumenting
         pass
 
 _PORT = int(os.environ.get("MODEL_ROUTER_PORT", 8891))

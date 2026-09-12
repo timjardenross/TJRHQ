@@ -216,7 +216,7 @@ def _find_relevant_files(title: str) -> list[str]:
                 if path.stat().st_size <= _MAX_GREP_BYTES:
                     body = path.read_text(encoding="utf-8", errors="replace").lower()
                     score += sum(1 for kw in keywords if kw in body)
-            except Exception:  # noqa: BLE001 - best-effort keyword-grep enrichment; one unreadable file must not stop scoring the rest
+            except Exception:  # noqa: BLE001,S110 - best-effort keyword-grep enrichment; one unreadable file must not stop scoring the rest
                 pass
 
             if score <= 0:

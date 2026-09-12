@@ -928,7 +928,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
             parsed = json.loads(text)
             if isinstance(parsed, list):
                 return [str(item).strip() for item in parsed if str(item).strip()]
-        except Exception:  # noqa: BLE001 - best-effort JSON-shape parse attempt; falls through to the substring-extraction attempt below
+        except Exception:  # noqa: BLE001,S110 - best-effort JSON-shape parse attempt; falls through to the substring-extraction attempt below
             pass
 
         start = text.find("[")
@@ -938,7 +938,7 @@ Maximum 3 tasks. No explanation, no markdown, just the JSON array."""
                 parsed = json.loads(text[start : end + 1])
                 if isinstance(parsed, list):
                     return [str(item).strip() for item in parsed if str(item).strip()]
-            except Exception:  # noqa: BLE001 - best-effort JSON-substring parse attempt; falls through to the line-based parser below
+            except Exception:  # noqa: BLE001,S110 - best-effort JSON-substring parse attempt; falls through to the line-based parser below
                 pass
 
         tasks = []

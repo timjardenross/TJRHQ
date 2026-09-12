@@ -71,7 +71,7 @@ def record_insight(insight: Insight, recommendation: Recommendation | None = Non
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat("insight_outcomes", status="ok", detail=f"source_kind={insight.source_kind}")
-        except Exception:  # noqa: BLE001 - best-effort telemetry heartbeat; must not fail the insight-recording call it's reporting on
+        except Exception:  # noqa: BLE001,S110 - best-effort telemetry heartbeat; must not fail the insight-recording call it's reporting on
             pass
         return result.data[0].get("id")
     except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape

@@ -58,7 +58,7 @@ def _git_last_modified(file_ref: str, repo_root: Path) -> str:
             # and normalize to UTC for consistent comparison with other timestamps.
             dt = datetime.strptime(first_line, "%Y-%m-%d %H:%M:%S %z")
             return dt.astimezone(timezone.utc).isoformat()
-    except Exception:  # noqa: BLE001 - best-effort git-metadata lookup; failure just means no last-modified timestamp
+    except Exception:  # noqa: BLE001,S110 - best-effort git-metadata lookup; failure just means no last-modified timestamp
         pass
     return None
 
@@ -331,7 +331,7 @@ class NumberOneExporter:
                 with open(self.output_dir / "blockers.json", "w") as f:
                     json.dump({"timestamp": datetime.now(timezone.utc).isoformat(), "total_blockers": 0,
                                "critical": [], "high": [], "normal": [], "error": str(e)}, f, indent=2)
-            except Exception:  # noqa: BLE001 - fallback error-JSON write; must not raise a second exception over the first
+            except Exception:  # noqa: BLE001,S110 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 
@@ -353,7 +353,7 @@ class NumberOneExporter:
                 with open(self.output_dir / "health_queue.json", "w") as f:
                     json.dump({"exported_at": datetime.now(timezone.utc).isoformat(), "capacity_status": "Unknown",
                                "queue": [], "recommended_focus": [], "advisory": "Unavailable", "error": str(e)}, f, indent=2)
-            except Exception:  # noqa: BLE001 - fallback error-JSON write; must not raise a second exception over the first
+            except Exception:  # noqa: BLE001,S110 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 
@@ -368,7 +368,7 @@ class NumberOneExporter:
                     json.dump({"assembled_at": datetime.now(timezone.utc).isoformat(),
                                "recommendations": [], "health_constraints_applied": False,
                                "total_active_missions": 0, "unavailable": True}, f, indent=2)
-            except Exception:  # noqa: BLE001 - fallback error-JSON write; must not raise a second exception over the first
+            except Exception:  # noqa: BLE001,S110 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return True
         try:
@@ -405,7 +405,7 @@ class NumberOneExporter:
                     json.dump({"assembled_at": datetime.now(timezone.utc).isoformat(),
                                "recommendations": [], "health_constraints_applied": False,
                                "total_active_missions": 0, "error": str(e)}, f, indent=2)
-            except Exception:  # noqa: BLE001 - fallback error-JSON write; must not raise a second exception over the first
+            except Exception:  # noqa: BLE001,S110 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 
@@ -421,7 +421,7 @@ class NumberOneExporter:
             try:
                 with open(self.output_dir / "readiness.json", "w") as f:
                     json.dump({"exported_at": datetime.now(timezone.utc).isoformat(), "unavailable": True}, f, indent=2)
-            except Exception:  # noqa: BLE001 - fallback error-JSON write; must not raise a second exception over the first
+            except Exception:  # noqa: BLE001,S110 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return True
         try:
@@ -448,7 +448,7 @@ class NumberOneExporter:
                 with open(self.output_dir / "readiness.json", "w") as f:
                     json.dump({"exported_at": datetime.now(timezone.utc).isoformat(),
                                "score": 0, "status": "Unknown", "error": str(e)}, f, indent=2)
-            except Exception:  # noqa: BLE001 - fallback error-JSON write; must not raise a second exception over the first
+            except Exception:  # noqa: BLE001,S110 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 
@@ -518,7 +518,7 @@ class NumberOneExporter:
                 with open(output_file, "w") as f:
                     json.dump({"exported_at": datetime.now(timezone.utc).isoformat(),
                                "total": 0, "lessons": [], "error": str(e)}, f, indent=2)
-            except Exception:  # noqa: BLE001 - fallback error-JSON write; must not raise a second exception over the first
+            except Exception:  # noqa: BLE001,S110 - fallback error-JSON write; must not raise a second exception over the first
                 pass
             return False
 

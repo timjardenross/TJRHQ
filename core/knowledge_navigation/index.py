@@ -95,7 +95,7 @@ def _rest_upsert(url: str, key: str, table: str, rows: list[dict[str, Any]]) -> 
         detail = ""
         try:
             detail = exc.read().decode("utf-8")[:200]
-        except Exception:  # noqa: BLE001 - best-effort error-body read for a diagnostic log line; already logged regardless via log.error() below
+        except Exception:  # noqa: BLE001,S110 - best-effort error-body read for a diagnostic log line; already logged regardless via log.error() below
             pass
         log.error("[hierarchy-index] %s upsert failed: HTTP %s %s", table, exc.code, detail)
         return False
