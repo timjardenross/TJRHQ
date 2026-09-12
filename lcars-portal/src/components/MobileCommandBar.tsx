@@ -8,19 +8,20 @@ import type { NavHref } from '@/lib/nav';
 /**
  * MobileCommandBar — the Captain-facing MVP navigation (MSN-IOS-001 WP7).
  *
- * Fixed, thumb-friendly bottom tab bar. This is the ONLY nav rendered on
- * mobile/tablet (LCARSNav and LCARSBottomNav are `xl:`-gated, desktop-only)
- * — a page not listed here is unreachable below 1280px, full stop.
- * `xl:hidden` (2026-09-05, was `lg:hidden`): this component is also
- * unconditionally mounted inside WorkbenchShell (~20 non-(app) workbenches,
- * including captains-chair-workbench), which has no desktop nav equivalent
- * of its own — only a tiny "switch workbench" dropdown. At `lg:hidden`,
- * every WorkbenchShell page lost real navigation entirely between 1024px
- * and desktop — an iPad Air 4 in landscape (1180px CSS width) sat right in
- * that band. LCARSNav/LCARSBottomNav's own breakpoints were bumped to
- * `xl:` in the same pass so the (app)-group pages' desktop nav still hands
- * off cleanly (now at 1280 instead of 1024) rather than both nav systems
- * showing at once in the new gap between them.
+ * Fixed, thumb-friendly bottom tab bar, `xl:hidden`. Scope narrowed
+ * 2026-09-12 (WORKBENCH-MOBILE-COMPAT): no longer mounted in WorkbenchShell
+ * or /workbenches — on phones it sat, fixed and full-width at z-50, on top
+ * of QuickCapture's floating "+" button (both bottom-right/bottom-of-screen)
+ * and clipped the bottom of every *-workbench page's content, which had no
+ * padding reserved for it. Those routes already have a mobile way home
+ * (header logo + Settings icon, both xl:hidden) and a way to any other
+ * workbench (WorkbenchSwitcher dropdown, always visible), so the bar was a
+ * second nav layer causing real harm rather than a needed one. It remains
+ * the primary mobile/tablet nav for the legacy (app) route group (LCARSNav
+ * and LCARSBottomNav are `xl:`-gated, desktop-only there) and for the
+ * zero-nav /investigate page. See GlobalAlertNotifier for the bar's other
+ * job (firing real push notifications for critical/high alerts), split out
+ * so removing this component from a route doesn't silently stop that too.
  *
  * Real-Captain-walkthrough revision (2026-07-10): restyled on the real
  * public-site brand tokens - one accent colour for the active tab, not
@@ -52,10 +53,11 @@ export function MobileCommandBar() {
   const pathname = usePathname();
   // Kept despite the Alerts tab being removed below: this hook's
   // `enableNotifications: true` option is what actually fires native
-  // browser push notifications for critical/high alerts - this component
-  // is documented as its "single global owner" (see file doc comment).
-  // Dropping the call would silently break real notifications, not just
-  // hide a badge. The count itself is no longer displayed anywhere.
+  // browser push notifications for critical/high alerts. GlobalAlertNotifier
+  // now does the same for the routes this component was removed from (see
+  // file doc comment) - dropping this call here would silently break real
+  // notifications on the routes still using this bar, not just hide a
+  // badge. The count itself is no longer displayed anywhere.
   useAlertCount();
 
   return (
