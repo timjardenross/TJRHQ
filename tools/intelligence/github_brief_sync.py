@@ -35,13 +35,14 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
-from intelligence.classification.classifier import classify           # noqa: E402
-from intelligence.classification.ori_enrichment import enrich          # noqa: E402
-from intelligence.ingestion.github_markdown_adapter import (           # noqa: E402
-    discover_parsed_briefs, DEFAULT_LOOKBACK_DAYS,
+from intelligence.classification.classifier import classify
+from intelligence.classification.ori_enrichment import enrich
+from intelligence.ingestion.github_markdown_adapter import (
+    DEFAULT_LOOKBACK_DAYS,
+    discover_parsed_briefs,
 )
-from intelligence.models import IntelligenceItem, SourceRecord         # noqa: E402
-from intelligence.ranking.ranker import rank                           # noqa: E402
+from intelligence.models import IntelligenceItem, SourceRecord
+from intelligence.ranking.ranker import rank
 
 log = logging.getLogger("ori.github_sync")
 
@@ -109,7 +110,7 @@ def run(days: int, dry_run: bool, backfill: bool,
     no_db = dry_run or emit_sql
     store = None
     if not no_db:
-        from intelligence.persistence import intelligence_store as store  # noqa
+        from intelligence.persistence import intelligence_store as store
     sql: list[str] = []
 
     try:

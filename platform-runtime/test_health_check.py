@@ -38,12 +38,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from commands.health_check import (
     MODAL_CALLBACK_ID,
+    _extract,
     build_health_check_modal,
     handle_health_check_submit,
-    _extract,
-    _make_supabase,
 )
-
 
 # ─── 1. Modal shape ───────────────────────────────────────────────────────────
 

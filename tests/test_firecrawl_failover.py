@@ -14,8 +14,7 @@ from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from intelligence.ingestion import firecrawl_client
-from intelligence.ingestion import external_fetch_budget
+from intelligence.ingestion import external_fetch_budget, firecrawl_client
 
 
 class AcquireAccountTests(unittest.TestCase):

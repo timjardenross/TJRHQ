@@ -151,7 +151,7 @@ def check_model_router() -> tuple[bool, str]:
 
 # Imported lazily (after the .venv-ragas install) so this file can still be read/
 # linted without ragas/langchain installed.
-from langchain_core.language_models.llms import LLM  # noqa: E402
+from langchain_core.language_models.llms import LLM
 
 
 class ModelRouterLLM(LLM):

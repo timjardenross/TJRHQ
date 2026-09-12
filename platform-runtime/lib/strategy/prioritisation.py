@@ -121,7 +121,7 @@ def score_initiative(
     # ── Dimension 3: Delivery Confidence (0–10) ───────────────────────────────
     delivery_score = 5.0   # neutral default when no forecast available
     try:
-        from lib.program.forecasting import forecast_initiative, DeliveryForecast
+        from lib.program.forecasting import DeliveryForecast, forecast_initiative
         fr = forecast_initiative(initiative_id, inputs)
         if fr:
             _band_scores = {
@@ -159,7 +159,7 @@ def score_initiative(
     risk_score = 3.0   # baseline — all initiatives reduce some risk
     resilience_risk = str(inputs.get("resilience_risk", "") or "")
     try:
-        from lib.strategy.benefits import list_benefits, BenefitType
+        from lib.strategy.benefits import BenefitType, list_benefits
         risk_benefits = [b for b in list_benefits(initiative_id) if b.benefit_type == BenefitType.RISK_REDUCTION]
         if risk_benefits:
             risk_score += min(4.0, len(risk_benefits) * 2.0)
@@ -259,7 +259,7 @@ def format_rankings(rankings: list[PriorityScore]) -> str:
 
 __all__ = [
     "PriorityScore",
-    "score_initiative",
-    "rank_initiatives",
     "format_rankings",
+    "rank_initiatives",
+    "score_initiative",
 ]

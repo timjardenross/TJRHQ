@@ -16,19 +16,18 @@ Entry points:
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
-import argparse
-from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
 
-from supabase_client import supabase_get, is_configured
-from capacity_score import WEIGHTS, CAPACITY_THRESHOLDS
+from capacity_score import WEIGHTS
+from supabase_client import is_configured, supabase_get
 
 MIN_ANALYSIS_DAYS = 14
 
@@ -37,12 +36,12 @@ MIN_ANALYSIS_DAYS = 14
 # Variable extractors — each returns a float signal and a label
 # ---------------------------------------------------------------------------
 
-def _pain_signal(e: Dict) -> Optional[float]:
+def _pain_signal(e: dict) -> float | None:
     v = e.get("pain_score")
     return float(v) / 10.0 if v is not None else None  # 0–1, higher = worse
 
 
-def _sleep_signal(e: Dict) -> Optional[float]:
+def _sleep_signal(e: dict) -> float | None:
     h = e.get("sleep_hours")
     if h is None:
         return None
@@ -52,22 +51,22 @@ def _sleep_signal(e: Dict) -> Optional[float]:
     return 0.0
 
 
-def _energy_signal(e: Dict) -> Optional[float]:
+def _energy_signal(e: dict) -> float | None:
     v = (e.get("energy") or "").strip().lower()
     return {"low": 1.0, "moderate": 0.4, "high": 0.0}.get(v)
 
 
-def _mood_signal(e: Dict) -> Optional[float]:
+def _mood_signal(e: dict) -> float | None:
     v = (e.get("mood") or "").strip().lower()
     return {"low": 1.0, "stable": 0.4, "positive": 0.0}.get(v)
 
 
-def _capacity_signal(e: Dict) -> Optional[float]:
+def _capacity_signal(e: dict) -> float | None:
     v = (e.get("physical_capacity") or "").strip().lower()
     return {"worse": 1.0, "same": 0.5, "better": 0.0}.get(v)
 
 
-def _sleep_quality_signal(e: Dict) -> Optional[float]:
+def _sleep_quality_signal(e: dict) -> float | None:
     v = (e.get("sleep_quality") or "").strip().lower()
     return {"poor": 1.0, "fair": 0.5, "good": 0.0}.get(v)
 
@@ -89,7 +88,7 @@ _EXTRACTORS = {
 _RATING_NUM = {"Green": 0, "Amber": 1, "Red": 2}
 
 
-def _captain_num(e: Dict) -> Optional[int]:
+def _captain_num(e: dict) -> int | None:
     r = e.get("captain_capacity_rating")
     return _RATING_NUM.get(r)
 
@@ -98,7 +97,7 @@ def _captain_num(e: Dict) -> Optional[int]:
 # Correlation helper
 # ---------------------------------------------------------------------------
 
-def _pearson_simple(xs: List[float], ys: List[float]) -> Optional[float]:
+def _pearson_simple(xs: list[float], ys: list[float]) -> float | None:
     """Simple Pearson r — positive means variable predicts severity."""
     n = len(xs)
     if n < 4:
@@ -117,7 +116,7 @@ def _pearson_simple(xs: List[float], ys: List[float]) -> Optional[float]:
 # Main analysis
 # ---------------------------------------------------------------------------
 
-def run_analysis(days: int = 45) -> Dict[str, Any]:
+def run_analysis(days: int = 45) -> dict[str, Any]:
     if not is_configured():
         return {"error": "Supabase not configured", "success": False}
 
@@ -140,7 +139,7 @@ def run_analysis(days: int = 45) -> Dict[str, Any]:
     captain_nums = [_captain_num(e) for e in paired]
     valid_captain = [v for v in captain_nums if v is not None]
 
-    correlations: Dict[str, Optional[float]] = {}
+    correlations: dict[str, float | None] = {}
     for var, (extractor, current_weight) in _EXTRACTORS.items():
         xs = []
         ys = []
@@ -175,7 +174,7 @@ def run_analysis(days: int = 45) -> Dict[str, Any]:
     }
 
 
-def _strength_label(r: Optional[float]) -> str:
+def _strength_label(r: float | None) -> str:
     if r is None:
         return "insufficient_data"
     a = abs(r)
@@ -186,9 +185,9 @@ def _strength_label(r: Optional[float]) -> str:
 
 
 def _generate_recommendations(
-    ranked: List[Tuple[str, float]],
+    ranked: list[tuple[str, float]],
     n_paired: int,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Compare observed correlations against current weight allocations.
     Produce plain-English recommendations — no automatic changes.

@@ -21,7 +21,7 @@ from unittest.mock import patch
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from core.engineering import batch_coding  # noqa: E402
+from core.engineering import batch_coding
 
 _CHECKLIST_PATH = REPO_ROOT / "specialists" / "knowledge-packs" / "Code-Review-Checklist.md"
 _PR_TEMPLATE_PATH = REPO_ROOT / ".github" / "pull_request_template.md"

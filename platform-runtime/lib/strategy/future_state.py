@@ -27,8 +27,8 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
@@ -133,7 +133,7 @@ def _row_to_plan(row: dict[str, Any]) -> HorizonPlan | None:
     p = _parse_rationale(str(row.get("rationale") or ""))
     stmt = str(row.get("statement") or "")
     prefix = f"{_FUTURE_CAP_STATEMENT} H{horizon}: "
-    name = stmt[len(prefix):] if stmt.startswith(prefix) else stmt
+    name = stmt.removeprefix(prefix)
 
     def _en(cls, val, default):
         try:
@@ -279,13 +279,13 @@ def format_future_state_plan(fp: FuturePlan) -> str:
 
 
 __all__ = [
-    "HorizonPlan",
-    "FuturePlan",
-    "FutureCapPriority",
-    "register_future_capability",
-    "list_future_capabilities",
-    "build_future_state_plan",
-    "format_future_state_plan",
     "FUTURE_CAP_OWNER_PREFIX",
     "HORIZONS",
+    "FutureCapPriority",
+    "FuturePlan",
+    "HorizonPlan",
+    "build_future_state_plan",
+    "format_future_state_plan",
+    "list_future_capabilities",
+    "register_future_capability",
 ]

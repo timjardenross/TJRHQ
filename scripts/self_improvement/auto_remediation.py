@@ -9,8 +9,8 @@ runs tests to verify, and handles rollback on failure.
 import json
 import logging
 import subprocess
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 log = logging.getLogger("auto_remediation")
@@ -100,7 +100,7 @@ class DocumentStrategy(RemediationStrategy):
                         return {
                             "success": True,
                             "mode": "direct",
-                            "message": f"Updated README.md: Python version requirement changed to 3.11+",
+                            "message": "Updated README.md: Python version requirement changed to 3.11+",
                             "files": [str(readme_path.relative_to(repo_root))],
                         }
                 except Exception as exc:
@@ -592,7 +592,7 @@ class AutoRemediationExecutor:
         try:
             import sys
             sys.path.insert(0, str(self.repo_root / "core" / "platform"))
-            from notification_service import notify, Severity, Transport  # type: ignore
+            from notification_service import Severity, Transport, notify  # type: ignore
 
             lines = [f"Self-improvement auto-remediation cycle ({results['run_id']}):",
                      f"{results['remediated_count']} remediated, {results['failed_count']} failed, "

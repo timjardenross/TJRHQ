@@ -32,7 +32,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 MODEL_ROUTER_DIR = REPO_ROOT / "core" / "model-router"
 sys.path.insert(0, str(MODEL_ROUTER_DIR))
 
-import app  # noqa: E402
+import app
 
 
 class CloudPrimaryAvailableTest(unittest.TestCase):

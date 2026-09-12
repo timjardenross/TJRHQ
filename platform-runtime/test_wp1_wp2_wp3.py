@@ -2,10 +2,7 @@
 Tests for WP1 (escalation_manager), WP2 (alert_metrics), WP3 (mission_risk)
 """
 
-import json
-import os
 import sys
-import tempfile
 import unittest
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -28,7 +25,6 @@ class _InMemorySupabaseClient:
 
     def insert(self, table: str, payload: dict) -> object:
         self._tables.setdefault(table, []).append(dict(payload))
-        from unittest.mock import MagicMock
         r = MagicMock()
         r.ok = True
         return r
@@ -120,7 +116,11 @@ class TestEscalationManagerCadence(unittest.TestCase):
         self.assertTrue(self.em._should_notify_now(row7, date.today()))
 
     def test_severity_progression(self):
-        from captain_notifications import SEVERITY_WARNING, SEVERITY_ALERT, SEVERITY_CRITICAL
+        from captain_notifications import (
+            SEVERITY_ALERT,
+            SEVERITY_CRITICAL,
+            SEVERITY_WARNING,
+        )
         self.assertEqual(self.em._escalated_severity(SEVERITY_WARNING, 1), SEVERITY_WARNING)
         self.assertEqual(self.em._escalated_severity(SEVERITY_WARNING, 2), SEVERITY_ALERT)
         self.assertEqual(self.em._escalated_severity(SEVERITY_WARNING, 3), SEVERITY_CRITICAL)
@@ -215,8 +215,8 @@ class TestEscalationManagerCadence(unittest.TestCase):
 class TestAlertMetrics(unittest.TestCase):
 
     def setUp(self):
-        import escalation_manager as em
         import alert_metrics as am
+        import escalation_manager as em
         self._fake_client = _InMemorySupabaseClient()
         self._patcher_em = patch("escalation_manager._client", return_value=self._fake_client)
         self._patcher_am = patch("alert_metrics._client", return_value=self._fake_client)
@@ -231,7 +231,7 @@ class TestAlertMetrics(unittest.TestCase):
 
     def _seed_events(self):
         """Push some escalations to generate event data."""
-        from captain_notifications import SEVERITY_WARNING, SEVERITY_ALERT
+        from captain_notifications import SEVERITY_ALERT, SEVERITY_WARNING
         escalations = [
             {"id": "M-M01", "title": "T1", "status": "Active", "severity": SEVERITY_WARNING, "reasons": ["Open 3 days"]},
             {"id": "M-M02", "title": "T2", "status": "BLOCKED", "severity": SEVERITY_ALERT, "reasons": ["BLOCKED"]},

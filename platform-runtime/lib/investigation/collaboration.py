@@ -153,6 +153,7 @@ def add_participant(
     """Register an officer as a participant in an investigation (dedup-safe)."""
     try:
         from command_memory_integration import log_decision_to_command_memory
+
         from tools.supabase.client import CommanderSupabaseClient
 
         role_str = role.value if isinstance(role, ParticipantRole) else str(role)
@@ -353,15 +354,15 @@ def format_collaboration(team: CollaborationTeam) -> str:
 
 
 __all__ = [
-    "ParticipantRole",
-    "InvestigationParticipant",
+    "PARTICIPANT_OWNER_PREFIX",
     "CollaborationTeam",
-    "suggest_collaboration_team",
+    "InvestigationParticipant",
+    "ParticipantRole",
     "add_participant",
-    "get_participants",
     "assemble_collaboration",
     "collect_shared_evidence",
-    "record_evidence_contribution",
     "format_collaboration",
-    "PARTICIPANT_OWNER_PREFIX",
+    "get_participants",
+    "record_evidence_contribution",
+    "suggest_collaboration_team",
 ]

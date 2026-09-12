@@ -15,23 +15,26 @@ import shutil
 import sys
 import tempfile
 import unittest
-import urllib.error
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
 
-import outcome_contract  # noqa: E402
-import outcome_evaluation  # noqa: E402
-import outcome_schema  # noqa: E402
-import evolution_memory  # noqa: E402
-import evidence_sources  # noqa: E402
-from opportunity_store import OpportunityStore, OUTCOME_RESULTS, MISSION_ONLY_CLASSES  # noqa: E402
-from policy import PolicyEngine  # noqa: E402
-import evolution_orchestrator  # noqa: E402
+import evidence_sources
+import evolution_memory
+import evolution_orchestrator
+import outcome_contract
+import outcome_evaluation
+import outcome_schema
+from opportunity_store import (
+    MISSION_ONLY_CLASSES,
+    OUTCOME_RESULTS,
+    OpportunityStore,
+)
+from policy import PolicyEngine
 
 
 def make_candidate(**overrides):
@@ -544,7 +547,7 @@ class TestOrchestratorOutcomeLoop(unittest.TestCase):
 
     def _make_orchestrator(self):
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
-        orch._load_watchlist = lambda: []
+        orch._load_watchlist = list
         return orch
 
     def test_fresh_cycle_reports_calm_zero_state(self):

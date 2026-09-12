@@ -43,7 +43,7 @@ import logging
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ class _Mem0Backend:
 
     def __init__(self) -> None:
         self._memory: Any = None  # mem0.Memory instance, populated on first use
-        self._available: Optional[bool] = None  # None = not yet checked
+        self._available: bool | None = None  # None = not yet checked
 
     def _ensure_ready(self) -> bool:
         """Initialise mem0.Memory on first use. Returns True if ready."""
@@ -144,7 +144,7 @@ class _Mem0Backend:
             self._available = False
             return False
 
-    def add(self, text: str, user_id: str, metadata: Optional[dict] = None) -> dict[str, Any]:
+    def add(self, text: str, user_id: str, metadata: dict | None = None) -> dict[str, Any]:
         """Store a memory. Returns mem0's result dict, or {} on failure."""
         if not self._ensure_ready():
             return {}
@@ -212,7 +212,7 @@ def remember(
     memory_type: MemoryType,
     text: str,
     user_id: str,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Store a memory of the given type. Returns the mem0 result dict, or {}.
 
@@ -383,7 +383,7 @@ def _recall_table(table: str, filters: dict[str, Any], *, order_col: str, limit:
 def _recall_platform_state(filters: dict[str, Any]) -> list[dict[str, Any]]:
     """Platform State spans both new Wave 3 tables — events and tasks together."""
     from core.platform.event_bus import poll_events
-    from core.platform.task_engine import get_task, get_child_tasks
+    from core.platform.task_engine import get_child_tasks, get_task
 
     if "task_id" in filters:
         task = get_task(filters["task_id"])
@@ -398,7 +398,7 @@ def _recall_platform_state(filters: dict[str, Any]) -> list[dict[str, Any]]:
     )
 
 
-def _recall_officer_context(officer: Optional[str]) -> list[dict[str, Any]]:
+def _recall_officer_context(officer: str | None) -> list[dict[str, Any]]:
     """Returns the full OfficerContext as one dict, wrapped in a single-element
     list for interface consistency with every other recall() route. Every field
     and computed property of OfficerContext is preserved — adopters must not

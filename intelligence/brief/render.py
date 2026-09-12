@@ -17,12 +17,10 @@ executive_snapshot, top_events, forward_watch, comparison, coverage, ...
 
 from __future__ import annotations
 
-from typing import Optional
-
 RISK_LABEL = {"RED": "🔴 RED", "AMBER": "🟡 AMBER", "GREEN": "🟢 GREEN", "UNKNOWN": "⚪ UNKNOWN"}
 
 
-def build_morning_intelligence_view(brief: Optional[dict], max_items: int = 3) -> dict:
+def build_morning_intelligence_view(brief: dict | None, max_items: int = 3) -> dict:
     """The one canonical content selection for morning intelligence
     delivery. Returns a plain dict — no markup — so every channel renders
     it in its own style without re-deciding what belongs in it.
@@ -78,7 +76,7 @@ def build_morning_intelligence_view(brief: Optional[dict], max_items: int = 3) -
     }
 
 
-def render_telegram_morning_text(brief: Optional[dict], max_items: int = 3) -> str:
+def render_telegram_morning_text(brief: dict | None, max_items: int = 3) -> str:
     """Plain-text rendering matching the Section 9 example shape. Callers
     that need channel-specific markup (HTML/MarkdownV2) should build on
     `build_morning_intelligence_view()` directly instead of parsing this."""
@@ -116,7 +114,7 @@ def render_telegram_morning_text(brief: Optional[dict], max_items: int = 3) -> s
     return "\n".join(lines).strip()
 
 
-def render_captains_excerpt(brief: Optional[dict], max_items: int = 3) -> dict:
+def render_captains_excerpt(brief: dict | None, max_items: int = 3) -> dict:
     """Structured excerpt for Captain's Chair — the same canonical
     selection as the Telegram morning message (Section 10/29)."""
     return build_morning_intelligence_view(brief, max_items=max_items)

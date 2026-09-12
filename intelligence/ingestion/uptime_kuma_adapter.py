@@ -23,7 +23,6 @@ drains only each source's own signals.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional
 
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
 from intelligence.models import IntelligenceItem
@@ -47,7 +46,7 @@ class UptimeKumaAdapter(BaseSourceAdapter):
         return items
 
 
-def _parse_iso(value: Optional[str]) -> Optional[datetime]:
+def _parse_iso(value: str | None) -> datetime | None:
     if not value:
         return None
     try:

@@ -13,16 +13,17 @@ opportunistically for structural relationships. No new memory store.
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 import timeline as _timeline
-from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling
+
 _lessons = _import_sibling("lessons")
 
 
@@ -32,7 +33,7 @@ class Episode:
     date: str
     kind: str
     title: str
-    outcome: Optional[str] = None
+    outcome: str | None = None
     related: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:

@@ -13,7 +13,7 @@ from unittest import mock
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
-import intelligence.captains_brief as cb  # noqa: E402
+import intelligence.captains_brief as cb
 
 
 def test_no_caveat_when_collector_reports_ok():

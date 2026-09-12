@@ -41,7 +41,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -91,11 +91,11 @@ class SuiteReport:
         return "\n".join(lines)
 
 
-def _fail(name: str, kind: str, stage: str, detail: str, evidence: Optional[dict] = None) -> CaseResult:
+def _fail(name: str, kind: str, stage: str, detail: str, evidence: dict | None = None) -> CaseResult:
     return CaseResult(case_name=name, kind=kind, passed=False, stage_reached=stage, detail=detail, evidence=evidence or {})
 
 
-def _pass(name: str, kind: str, detail: str, evidence: Optional[dict] = None) -> CaseResult:
+def _pass(name: str, kind: str, detail: str, evidence: dict | None = None) -> CaseResult:
     return CaseResult(case_name=name, kind=kind, passed=True, stage_reached=STAGES[-1], detail=detail, evidence=evidence or {})
 
 
@@ -138,7 +138,7 @@ def _row_importance(row: dict) -> int:
     return 15
 
 
-def _replay_through_attention_engine(row: dict) -> "AttentionDecision":  # noqa: F821 — type import below
+def _replay_through_attention_engine(row: dict) -> AttentionDecision:  # noqa: F821 — type import below
     from core.platform.attention_engine import evaluate_event
 
     return evaluate_event({

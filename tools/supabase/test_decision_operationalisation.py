@@ -23,9 +23,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from collaborative_specialist_runtime import run
-from decision_alerter import ALERT_DIR, emit_decision_alert, load_alerts, _format_alert
+from decision_alerter import ALERT_DIR, _format_alert, emit_decision_alert
+from decision_context_builder import build_decision_context
+from decision_mode_classifier import classify_decision_mode
 from decision_register import (
-    DECISION_DIR,
     DECISION_STATUSES,
     get_decisions_awaiting_review,
     get_decisions_by_date_range,
@@ -35,20 +36,15 @@ from decision_register import (
     update_decision_outcome,
     write_decision_record,
 )
-from decision_mode_classifier import classify_decision_mode
-from decision_context_builder import build_decision_context
-from github_issue_builder import GitHubIssue, build_github_issue, _issue_labels
+from github_issue_builder import GitHubIssue, _issue_labels, build_github_issue
 from mission_candidate import (
     MISSION_DIR,
+    _extract_risks,
     create_mission_candidate,
     load_mission_candidates,
     update_mission_status,
-    _extract_risks,
-    _generate_success_criteria,
-    _generate_title,
 )
-from specialist_assignment import CREW, MissionAssignment, assign_specialists
-
+from specialist_assignment import CREW, assign_specialists
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -346,7 +342,7 @@ def test_build_github_issue_from_mission_candidate() -> None:
 
 def test_github_issue_never_calls_api() -> None:
     """build_github_issue must be pure — no network calls."""
-    import unittest.mock as mock
+    from unittest import mock
     candidate = create_mission_candidate(_SAMPLE_DECISION_RECORD)
     with mock.patch("urllib.request.urlopen") as mocked:
         build_github_issue(candidate)

@@ -10,8 +10,8 @@ permission."
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
-from typing import Any, Optional
+from datetime import datetime, timezone
+from typing import Any
 
 from opportunity_store import OpportunityStore, new_fingerprint
 
@@ -30,15 +30,15 @@ class RelevanceVerdict:
     score: float
     reasons: list[str]
     is_duplicate: bool
-    duplicate_of: Optional[str] = None
-    duplicate_disposition: Optional[str] = None  # decision recorded on the prior record
+    duplicate_of: str | None = None
+    duplicate_disposition: str | None = None  # decision recorded on the prior record
     # Set (not is_duplicate) when a prior record for this fingerprint
     # exists and was successfully reconsidered — the caller must UPDATE
     # this opportunity_id rather than create_new() a fresh one, or a
     # candidate rediscovered every cycle without ever being promoted would
     # pile up one "discovered" card per cycle forever instead of one
     # single card that just keeps refreshing.
-    reconsider_of: Optional[str] = None
+    reconsider_of: str | None = None
 
 
 class RelevanceGate:
@@ -59,7 +59,7 @@ class RelevanceGate:
         score = (0.35 * fit) + (0.35 * value) + (0.30 * evidence) - complexity_penalty
         return max(0.0, min(1.0, round(score, 3)))
 
-    def check_duplicate(self, candidate: dict[str, Any]) -> tuple[bool, Optional[dict[str, Any]]]:
+    def check_duplicate(self, candidate: dict[str, Any]) -> tuple[bool, dict[str, Any] | None]:
         """Section 17: don't resurface the same repo/concept/idea unless
         meaningful new evidence changes the assessment (a higher score than
         last time, after the reconsideration window)."""

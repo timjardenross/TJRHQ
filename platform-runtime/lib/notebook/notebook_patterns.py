@@ -269,11 +269,11 @@ def format_pattern_report(report: PatternReport) -> str:
 
 
 __all__ = [
-    "PatternReport",
-    "ThemeCluster",
-    "OpportunityCluster",
-    "RecurringConcern",
     "AbandonedIdea",
+    "OpportunityCluster",
+    "PatternReport",
+    "RecurringConcern",
+    "ThemeCluster",
     "detect_patterns",
     "format_pattern_report",
 ]

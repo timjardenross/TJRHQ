@@ -11,9 +11,7 @@ import json
 import sys
 import urllib.error
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 # Ensure repo root is on the path so the module resolves its internal imports.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -26,7 +24,6 @@ from core.platform.episodic_memory import (
     recall_similar,
     store_memory,
 )
-
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

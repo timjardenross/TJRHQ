@@ -5,8 +5,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from specialist_router import load_specialist_profiles, load_routing_rules, route_question
-
+from specialist_router import (
+    load_routing_rules,
+    load_specialist_profiles,
+    route_question,
+)
 
 MAX_SPECIALISTS = 4
 

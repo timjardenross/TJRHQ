@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -35,11 +35,11 @@ def create_task(
     domain: str,
     owner: str,
     *,
-    parent_task_id: Optional[str] = None,
-    idempotency_key: Optional[str] = None,
-    metadata: Optional[dict[str, Any]] = None,
-    linked_mission_id: Optional[str] = None,
-) -> Optional[str]:
+    parent_task_id: str | None = None,
+    idempotency_key: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    linked_mission_id: str | None = None,
+) -> str | None:
     """Create a task in 'pending' status. Non-blocking — never raises.
 
     Returns the new task_id, or None if the write failed (including a
@@ -78,9 +78,9 @@ def transition_task(
     task_id: str,
     new_status: str,
     *,
-    error: Optional[str] = None,
-    confidence: Optional[int] = None,
-    delegated_to: Optional[str] = None,
+    error: str | None = None,
+    confidence: int | None = None,
+    delegated_to: str | None = None,
 ) -> bool:
     """Move a task to a new lifecycle status, recording a task_event.
 
@@ -130,12 +130,12 @@ def transition_task(
         return False
 
 
-def complete_task(task_id: str, *, confidence: Optional[int] = None) -> bool:
+def complete_task(task_id: str, *, confidence: int | None = None) -> bool:
     """Convenience wrapper: transition to 'completed'."""
     return transition_task(task_id, "completed", confidence=confidence)
 
 
-def get_task(task_id: str) -> Optional[dict[str, Any]]:
+def get_task(task_id: str) -> dict[str, Any] | None:
     """Fetch a single task's current state. Returns None on any failure."""
     try:
         from tools.supabase.client import CommanderSupabaseClient
@@ -148,14 +148,15 @@ def get_task(task_id: str) -> Optional[dict[str, Any]]:
         return None
 
 
-def get_task_by_idempotency_key(idempotency_key: str) -> Optional[dict[str, Any]]:
+def get_task_by_idempotency_key(idempotency_key: str) -> dict[str, Any] | None:
     """Fetch a task by its idempotency_key. Returns None on any failure or if
     no task with that key exists. For adopters that don't want to thread a
     task_id through their own call chain — vm-transfer-style callers can
     correlate purely on their own natural key (e.g. source_path)."""
     try:
-        from tools.supabase.client import CommanderSupabaseClient
         import urllib.parse
+
+        from tools.supabase.client import CommanderSupabaseClient
 
         client = CommanderSupabaseClient()
         rows = client.get(f"tasks?idempotency_key=eq.{urllib.parse.quote(idempotency_key, safe='')}&select=*")
@@ -197,11 +198,11 @@ def _log_task_event(client, task_id: str, event_type: str, detail: dict[str, Any
 
 
 __all__ = [
-    "create_task",
-    "transition_task",
     "complete_task",
+    "create_task",
+    "get_child_tasks",
     "get_task",
     "get_task_by_idempotency_key",
-    "get_child_tasks",
     "get_task_history",
+    "transition_task",
 ]

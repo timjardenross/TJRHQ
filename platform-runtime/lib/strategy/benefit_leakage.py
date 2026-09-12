@@ -26,8 +26,8 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass, field
-from datetime import date, timedelta
+from dataclasses import dataclass
+from datetime import date
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -87,10 +87,12 @@ def detect_benefit_leakage() -> list[BenefitLeakage]:
     today = date.today()
 
     try:
+        from lib.program.forecasting import DeliveryForecast, forecast_initiative
         from lib.strategy.benefits import list_benefits
-        from lib.strategy.value_realisation import assess_initiative_value
-        from lib.strategy.benefits_realisation import get_benefit_lifecycle, BenefitLifecycleStatus
-        from lib.program.forecasting import forecast_initiative, DeliveryForecast
+        from lib.strategy.benefits_realisation import (
+            BenefitLifecycleStatus,
+            get_benefit_lifecycle,
+        )
 
         benefits = list_benefits()
         for ben in benefits:
@@ -239,10 +241,10 @@ def format_leakage_report(leakages: list[BenefitLeakage]) -> str:
 
 
 __all__ = [
-    "LeakageType",
-    "LeakageRisk",
     "BenefitLeakage",
+    "LeakageRisk",
+    "LeakageType",
     "detect_benefit_leakage",
-    "get_leakage_summary",
     "format_leakage_report",
+    "get_leakage_summary",
 ]

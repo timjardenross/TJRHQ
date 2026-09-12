@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import fitz  # PyMuPDF
 
-from .base import ExtractionResult, ExtractionError
+from .base import ExtractionError, ExtractionResult
 
 
 def extract(path, low_text_chars_per_page: int = 50) -> ExtractionResult:

@@ -115,7 +115,7 @@ def _summarise(rows: list[dict]) -> str:
 
     # Build summary text
     lines = [
-        f"*Weekly Health Brief — Medical Officer*",
+        "*Weekly Health Brief — Medical Officer*",
         f"_{date.today().strftime('%d %b %Y')} · Last {days_with_data} check-in(s)_",
         "",
         "*Nervous System*",
@@ -177,7 +177,7 @@ def _llm_synthesis(raw_summary: str) -> str | None:
     """Attempt to enrich the summary via Gemini. Returns None if unavailable."""
     try:
         sys.path.insert(0, str(os.path.dirname(__file__) + "/.."))
-        from llm import generate_with_gemini, LLMUnavailableError
+        from llm import generate_with_gemini
         prompt = f"Weekly health data:\n\n{raw_summary}\n\nProvide a Medical Officer interpretation."
         return generate_with_gemini(prompt=prompt, system_prompt=_MEDICAL_OFFICER_SYSTEM)
     except Exception as exc:

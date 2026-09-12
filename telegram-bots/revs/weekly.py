@@ -18,10 +18,9 @@ from __future__ import annotations
 
 import datetime as dt
 
+import db
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
-
-import db
 
 SYSTEM_NAMES = {
     3: "Recovery Cycles",

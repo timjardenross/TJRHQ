@@ -15,20 +15,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from core.platform.attention_engine import (
     AttentionCategory,
     AttentionThresholds,
-    evaluate_event,
     evaluate_batch,
+    evaluate_event,
 )
 from tests.fixtures.synthetic_core_events import (
-    INTERRUPT_NOW_EVENT,
-    NEVER_INTERRUPT_EVENT,
+    AGGREGATION_GROUP,
     CAN_BE_DELAYED_LOW_CONFIDENCE_EVENT,
     CAN_BE_DELAYED_MIDRANGE_EVENT,
-    REMEMBERED_EVENT,
-    MISSING_SCORES_EVENT,
-    AGGREGATION_GROUP,
-    SUMMARISATION_PAIR,
-    SUMMARISATION_EDGES,
     FULL_MULTI_DOMAIN_CORPUS,
+    INTERRUPT_NOW_EVENT,
+    MISSING_SCORES_EVENT,
+    NEVER_INTERRUPT_EVENT,
+    REMEMBERED_EVENT,
+    SUMMARISATION_EDGES,
+    SUMMARISATION_PAIR,
 )
 
 

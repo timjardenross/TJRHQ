@@ -43,10 +43,11 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from config import load_config  # noqa: E402
-from supabase_client import SupabaseClient  # noqa: E402
-from model_router_client import ModelRouterClient  # noqa: E402
-from worker import ProcessingWorker  # noqa: E402
+from model_router_client import ModelRouterClient
+from supabase_client import SupabaseClient
+from worker import ProcessingWorker
+
+from config import load_config
 
 DEFAULT_CONFIG = _HERE / "config.yaml"
 

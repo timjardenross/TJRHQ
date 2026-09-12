@@ -12,15 +12,15 @@ Covers:
 - No LLM involved — all rule-based
 """
 
-import sys
 import os
+import sys
 import unittest
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from intelligence.models import IntelligenceItem, ClassifiedEvent
 from intelligence.classification.classifier import classify
+from intelligence.models import ClassifiedEvent, IntelligenceItem
 
 
 def _make_item(title: str, summary: str = "",

@@ -92,8 +92,7 @@ def _strip_fences(content: str) -> str:
         parts = content.split("```")
         if len(parts) >= 2:
             inner = parts[1]
-            if inner.startswith("json"):
-                inner = inner[4:]
+            inner = inner.removeprefix("json")
             return inner.strip()
     return content
 

@@ -16,11 +16,11 @@ __version__ = "0.1.0"
 __status__ = "Phase 1: Foundation"
 
 from .context_manager import ContextManager
-from .priority_analyzer import PriorityAnalyzer
 from .delegation_router import DelegationRouter
+from .priority_analyzer import PriorityAnalyzer
 
 __all__ = [
     "ContextManager",
-    "PriorityAnalyzer",
     "DelegationRouter",
+    "PriorityAnalyzer",
 ]

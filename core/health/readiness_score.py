@@ -42,8 +42,7 @@ Public API:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Thresholds
@@ -105,12 +104,12 @@ class ReadinessResult:
 # ---------------------------------------------------------------------------
 
 def compute_readiness_score(
-    capacity_score: Optional[int],
+    capacity_score: int | None,
     capacity_status: str,
     missions: list[dict[str, Any]],
     escalations: list[dict[str, Any]] | None = None,
     health_entry: dict[str, Any] | None = None,
-    cpap_hours: Optional[float] = None,
+    cpap_hours: float | None = None,
 ) -> ReadinessResult:
     """
     Compute Captain Readiness Score.
@@ -224,8 +223,8 @@ def compute_readiness_score(
 
     # WP8: Deadline pressure
     try:
-        from zoneinfo import ZoneInfo as _ZI
         from datetime import datetime as _dt
+        from zoneinfo import ZoneInfo as _ZI
         today_str = _dt.now(_ZI("Australia/Brisbane")).date().isoformat()
     except Exception:
         from datetime import date as _date
@@ -340,7 +339,7 @@ def _is_terminal(m: dict) -> bool:
     return str(m.get("status", "")).strip() in _TERMINAL
 
 
-def _days_until_due(m: dict, today_str: str) -> Optional[int]:
+def _days_until_due(m: dict, today_str: str) -> int | None:
     due = m.get("due_date") or m.get("deadline")
     if not due:
         return None

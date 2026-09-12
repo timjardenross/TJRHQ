@@ -33,10 +33,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 from commands.health_synthesis import (
     _fetch_recent_logs,
     _summarise,
-    _llm_synthesis,
     handle_health_brief,
 )
-
 
 # ── _summarise(): no data ───────────────────────────────────────────────────────
 

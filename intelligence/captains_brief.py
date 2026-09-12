@@ -19,7 +19,6 @@ import re
 import urllib.request
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
 
 log = logging.getLogger("captains-brief")
 
@@ -121,7 +120,7 @@ def _send_telegram(text: str) -> bool:
         log.warning("Telegram not configured — printing to stdout")
         print(text)
         return False
-    from core.platform.notification_service import notify, Transport
+    from core.platform.notification_service import Transport, notify
 
     result = notify(text, template="raw", transport=Transport.TELEGRAM, chunk=True)
     if not result.ok:
@@ -131,12 +130,12 @@ def _send_telegram(text: str) -> bool:
 
 # ── Data fetchers ─────────────────────────────────────────────────────────────
 
-def _get_latest_ori_brief() -> Optional[dict]:
+def _get_latest_ori_brief() -> dict | None:
     rows = _sb_get("intelligence_briefs", "order=generated_at.desc&limit=1")
     return rows[0] if rows else None
 
 
-def _get_capacity_today() -> Optional[dict]:
+def _get_capacity_today() -> dict | None:
     """MY CAPACITY TODAY (2026-08-22 migration) replaced Recovery Pulse /
     captains_log_entries as the Captain's day-to-day capacity input —
     captains_log_entries stopped being written 2026-06-28, recovery_pulses
@@ -149,7 +148,7 @@ def _get_capacity_today() -> Optional[dict]:
     return rows[0] if rows else None
 
 
-def _get_infra_verification() -> Optional[dict]:
+def _get_infra_verification() -> dict | None:
     """ADR-024 fix #5 — RESIL-INFRA narrative synthesis. Returns None (section
     omitted) whenever verification hasn't run or the module isn't available;
     never treated as evidence the platform is healthy."""
@@ -162,7 +161,7 @@ def _get_infra_verification() -> Optional[dict]:
         return None
 
 
-def _get_todays_morning_brief_text() -> Optional[str]:
+def _get_todays_morning_brief_text() -> str | None:
     """Part 1 item 2 (2026-08-09 Telegram usefulness design): fetch this
     morning's already-persisted brief text so the EOD summary can detect
     same-day repeats (Content Review / Platform Health) without
@@ -214,7 +213,7 @@ def _get_knowledge_platform_summary() -> dict:
     }
 
 
-def _collection_coverage_caveat(domain_key: str) -> Optional[str]:
+def _collection_coverage_caveat(domain_key: str) -> str | None:
     """HQ V1 Integration QA §21 (Deferred Gap I7): checks the feeding
     collection job's own heartbeat (same domain_heartbeats_latest row HQ
     Status already reads) so a brief's persisted coverage metadata can
@@ -235,8 +234,8 @@ def _collection_coverage_caveat(domain_key: str) -> Optional[str]:
 
 
 def _persist_brief(
-    brief_type: str, text: str, signals_count: int = 0, health: Optional[dict] = None,
-    evidence_window_hours: Optional[int] = None, collection_caveat: Optional[str] = None,
+    brief_type: str, text: str, signals_count: int = 0, health: dict | None = None,
+    evidence_window_hours: int | None = None, collection_caveat: str | None = None,
 ) -> None:
     """Persist a generated brief to captains_daily_briefs for historical retrieval."""
     if not _SUPABASE_URL or not _SUPABASE_KEY:
@@ -352,14 +351,14 @@ def _format_signal_title(s: dict) -> str:
     source = ((s.get("intelligence_source_registry") or {}).get("source_name") or "").strip()
     if not source:
         return title
-    label = source[:-len(" Status")] if source.endswith(" Status") else source
+    label = source.removesuffix(" Status")
     words = [w for w in re.split(r"[^A-Za-z0-9]+", label) if len(w) > 2]
     if any(w.lower() in title.lower() for w in words):
         return title
     return f"{label}: {title}"
 
 
-def _format_signal_commentary(s: dict) -> Optional[str]:
+def _format_signal_commentary(s: dict) -> str | None:
     """One-line real commentary from raw_summary — never fabricated. The
     enrichment columns meant to hold analysis (analysis_summary,
     enriched_summary) are unpopulated on live data (checked 2026-08-13:
@@ -460,7 +459,7 @@ def _get_weekly_health_signals(days: int = 7, limit: int = 1000) -> list[dict]:
     )
 
 
-def _health_osint_collector_caveat() -> Optional[str]:
+def _health_osint_collector_caveat() -> str | None:
     """HQ V1 Integration QA §21/§9 fix: a genuinely quiet health-OSINT week
     and a week where the Sunday 02:00 health_osint_weekly_fetch collector
     silently failed for all 7 days previously rendered identically in this
@@ -599,7 +598,7 @@ _HEALTH_OSINT_SUMMARY_SYSTEM_PROMPT = (
 )
 
 
-def _call_weekly_summary_providers(system_prompt: str, prompt: str, label: str) -> Optional[str]:
+def _call_weekly_summary_providers(system_prompt: str, prompt: str, label: str) -> str | None:
     """Try the shared provider chain in order — identical fallback pattern to
     core/platform/infra_narrative.py's _generate(). Never raises; returns None
     on total failure (missing import, no signals, or every provider down) so
@@ -625,7 +624,7 @@ def _call_weekly_summary_providers(system_prompt: str, prompt: str, label: str) 
     return None
 
 
-def _generate_tech_osint_summary(rows: list[dict], limit: int = 40) -> Optional[str]:
+def _generate_tech_osint_summary(rows: list[dict], limit: int = 40) -> str | None:
     """LLM exec summary for the weekly Tech OSINT block, built from real event
     data (title, sector, source, severity) — not just the bucket counts. None
     when there's nothing to summarize or every provider fails; caller falls
@@ -646,7 +645,7 @@ def _generate_tech_osint_summary(rows: list[dict], limit: int = 40) -> Optional[
     return _truncate_clean(summary, 700) if summary else None
 
 
-def _generate_health_osint_summary(rows: list[dict], limit: int = 40) -> Optional[str]:
+def _generate_health_osint_summary(rows: list[dict], limit: int = 40) -> str | None:
     """LLM exec summary for the weekly Health OSINT block — health-domain
     counterpart to _generate_tech_osint_summary, built from real signal data
     (title, health domain, source, severity)."""
@@ -721,7 +720,7 @@ def _now_aest() -> datetime:
     return datetime.now(_AEST)
 
 
-def _relative_age(timestamp: Optional[str]) -> str:
+def _relative_age(timestamp: str | None) -> str:
     """Part 1 item 3 (2026-08-09 Telegram usefulness design): a coarse
     relative-age label ("today" / "3 days old" / "4 weeks old") for a
     Content Review item's draft_generated_at, so a draft that has sat for
@@ -756,7 +755,7 @@ def _truncate_clean(text: str, limit: int) -> str:
     return cut + "…"
 
 
-def _format_infra_block(infra: Optional[dict], morning_text: Optional[str] = None) -> list[str]:
+def _format_infra_block(infra: dict | None, morning_text: str | None = None) -> list[str]:
     """Shared Platform Health renderer (Part 1 item 2: de-dupe the block that
     was copy-pasted verbatim between generate_morning_brief() and
     generate_eod_summary()). `morning_text`, when supplied (EOD only), is
@@ -775,7 +774,7 @@ def _format_infra_block(infra: Optional[dict], morning_text: Optional[str] = Non
     ]
 
 
-def _format_capacity_block(cap: Optional[dict], header: str = "⚡ CAPACITY TODAY") -> list[str]:
+def _format_capacity_block(cap: dict | None, header: str = "⚡ CAPACITY TODAY") -> list[str]:
     """Shared MY CAPACITY TODAY renderer for Morning Brief and EOD Summary —
     replaces the old captains_log_entries/recovery_pulses capacity blocks
     (both tables permanently frozen, see _get_capacity_today()). Renders the
@@ -807,7 +806,7 @@ def _format_capacity_block(cap: Optional[dict], header: str = "⚡ CAPACITY TODA
 
 def _format_weekly_osint_block(
     title: str, emoji: str, rows: list[dict], confidence_field: str, title_field: str,
-    summary: Optional[str] = None, top_n: int = 3, empty_caveat: Optional[str] = None,
+    summary: str | None = None, top_n: int = 3, empty_caveat: str | None = None,
 ) -> list[str]:
     """Shared weekly OSINT roll-up renderer for generate_weekly_report() —
     same HIGH/MEDIUM/LOW bucketing each workbench's Intelligence Summary tab
@@ -972,7 +971,7 @@ def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
 
 # ── Brief generators ──────────────────────────────────────────────────────────
 
-def _format_intelligence_posture_block(brief: Optional[dict]) -> list[str]:
+def _format_intelligence_posture_block(brief: dict | None) -> list[str]:
     """Deterministic rendering of the canonical daily brief
     (intelligence_briefs) — the ONE place this Telegram message decides
     posture / what matters / what changed, built on the exact same
@@ -1328,8 +1327,8 @@ def _email_morning_brief(text: str) -> None:
 def send_brief(brief_type: str, **kwargs) -> bool:
     """Generate and deliver a brief. Returns True if Telegram delivery succeeded."""
     signals: list[dict] = []
-    evidence_window_hours: Optional[int] = None
-    collection_caveat: Optional[str] = None
+    evidence_window_hours: int | None = None
+    collection_caveat: str | None = None
     if brief_type == "morning":
         text = generate_morning_brief()
         # USS-TJR-MSN-0339 WP4: generate_morning_brief() does its own internal

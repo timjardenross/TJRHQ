@@ -27,11 +27,13 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
-from intelligence.classification.content_classifier import ContentScore, score_for_content
+from intelligence.classification.content_classifier import (
+    ContentScore,
+    score_for_content,
+)
 from intelligence.ranking.content_ranker import rank_batch
 
 log = logging.getLogger(__name__)
@@ -65,7 +67,7 @@ def _get(path: str) -> list:
         return []
 
 
-def _post(table: str, payload: dict, on_conflict: Optional[str] = None) -> Optional[dict]:
+def _post(table: str, payload: dict, on_conflict: str | None = None) -> dict | None:
     if not _SUPABASE_URL or not _SUPABASE_KEY:
         return None
     url = f"{_SUPABASE_URL}/rest/v1/{table}"
@@ -92,7 +94,7 @@ class ContentSignal:
     event_id: str
     raw_title: str
     source_name: str
-    canonical_url: Optional[str]
+    canonical_url: str | None
     pillar_key: str
     pillar_name: str
     content_relevance: float
@@ -256,7 +258,7 @@ class ContentIntelligenceService:
     def get_ranked_signals(
         self,
         days: int = 7,
-        pillar: Optional[str] = None,
+        pillar: str | None = None,
         limit: int = 10,
     ) -> ContentSignalBundle:
         """

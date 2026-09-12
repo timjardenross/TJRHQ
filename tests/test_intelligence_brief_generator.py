@@ -11,18 +11,19 @@ Covers:
 """
 
 import json
-import sys
 import os
+import sys
 import unittest
-from unittest.mock import patch, MagicMock, PropertyMock
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from intelligence.brief.external_domains import DomainFetchResult
 from intelligence.models import (
-    ResilienceBrief, RankedEvent, BriefEvent, ClassifiedEvent,
-    IntelligenceItem, SourceRecord,
+    BriefEvent,
+    RankedEvent,
+    ResilienceBrief,
 )
 
 
@@ -218,7 +219,10 @@ class TestCrossDomainIntegration(unittest.TestCase):
         """No OSINT events today, but an active RED emergency alert — the
         brief must not report UNKNOWN and hide it."""
         from intelligence.brief.brief_generator import BriefGenerator
-        from intelligence.brief.external_domains import DomainFetchResult, ExternalDomainSignal
+        from intelligence.brief.external_domains import (
+            DomainFetchResult,
+            ExternalDomainSignal,
+        )
 
         red_alert = ExternalDomainSignal(
             domain="emergency", title="Emergency Warning: Bushfire", summary=None,
@@ -250,7 +254,10 @@ class TestCrossDomainIntegration(unittest.TestCase):
         """The narrative gate must not skip generation just because OSINT's
         top_events list is empty — a single synthesis call still runs."""
         from intelligence.brief.brief_generator import BriefGenerator
-        from intelligence.brief.external_domains import DomainFetchResult, ExternalDomainSignal
+        from intelligence.brief.external_domains import (
+            DomainFetchResult,
+            ExternalDomainSignal,
+        )
 
         signal = ExternalDomainSignal(
             domain="health", title="Adverse event cluster", summary="desc",
@@ -417,8 +424,6 @@ class TestLLMProviderModelRouter(unittest.TestCase):
             mock.__exit__ = MagicMock(return_value=False)
             return mock
 
-        import json as _json
-        import urllib.request
         with patch("urllib.request.urlopen", side_effect=fake_urlopen):
             result = provider._model_router("test prompt")
 

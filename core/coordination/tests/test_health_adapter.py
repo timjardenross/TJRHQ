@@ -2,24 +2,23 @@
 Tests for health_context_adapter — WP3
 """
 
-import pytest
-import textwrap
-import tempfile
-from pathlib import Path
 import sys
+import textwrap
+from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "core" / "coordination"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "core" / "context-assembly"))
 
 from health_context_adapter import (
-    parse_health_summary,
-    extract_trends,
-    build_health_context,
     _infer_trend,
-    _normalise_pain,
     _normalise_level,
+    _normalise_pain,
+    build_health_context,
+    extract_trends,
+    parse_health_summary,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

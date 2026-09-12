@@ -340,7 +340,7 @@ def q_pain_score() -> str:
 def kb_pain_score(f: dict) -> InlineKeyboardMarkup:
     base = base_from(f)
     rows = [
-        [InlineKeyboardButton(str(i), callback_data=f"{base}|ps={i}") for i in range(0, 6)],
+        [InlineKeyboardButton(str(i), callback_data=f"{base}|ps={i}") for i in range(6)],
         [InlineKeyboardButton(str(i), callback_data=f"{base}|ps={i}") for i in range(6, 11)],
         [InlineKeyboardButton("⏭ Skip", callback_data=f"{base}|ps=skip")],
     ]
@@ -1100,7 +1100,7 @@ async def write_quick_checkin(db, f: dict) -> tuple[bool, dict | None, str | Non
         row = (res.data or [None])[0]
         try:
             from core.platform.heartbeat import record_heartbeat
-            record_heartbeat(TABLE, status="ok", detail=f"checkin_type=capacity source=telegram")
+            record_heartbeat(TABLE, status="ok", detail="checkin_type=capacity source=telegram")
         except Exception:
             pass
         return True, row, None

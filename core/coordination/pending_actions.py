@@ -25,9 +25,8 @@ CLI:
 from __future__ import annotations
 
 import json
-import sys
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from core.coordination import delivery_reconciler as dr
 from core.coordination.lifecycle_advancer import list_triage_ready
@@ -36,8 +35,8 @@ from core.coordination.lifecycle_status_map import LIFECYCLE_SPINE, LifecycleSta
 
 
 def build_pending_actions(
-    ledger: Optional[dict[str, Any]] = None,
-    triage_ready: Optional[list] = None,
+    ledger: dict[str, Any] | None = None,
+    triage_ready: list | None = None,
 ) -> dict[str, Any]:
     """Aggregate every pending action into one read-only payload.
 

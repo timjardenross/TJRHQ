@@ -196,7 +196,7 @@ def inject_into_xo_brief(
 
 __all__ = [
     "NotebookSynthesis",
-    "synthesise_notebook_items",
     "format_notebook_synthesis",
     "inject_into_xo_brief",
+    "synthesise_notebook_items",
 ]

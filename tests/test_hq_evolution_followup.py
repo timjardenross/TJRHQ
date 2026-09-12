@@ -23,11 +23,14 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
 
-import state_validation  # noqa: E402
-from investigation_schema import validate_investigation, honest_fallback_investigation, ALLOWED_RECOMMENDATIONS  # noqa: E402
-from opportunity_store import OpportunityStore, MISSION_ONLY_CLASSES  # noqa: E402
-import evolution_orchestrator  # noqa: E402
-import external_discovery  # noqa: E402
+import evolution_orchestrator
+import state_validation
+from investigation_schema import (
+    ALLOWED_RECOMMENDATIONS,
+    honest_fallback_investigation,
+    validate_investigation,
+)
+from opportunity_store import MISSION_ONLY_CLASSES, OpportunityStore
 
 
 def _load_real_watchlist() -> list[dict]:
@@ -191,7 +194,7 @@ class TestOverlapPrevention(unittest.TestCase):
 
     def test_run_cycle_skips_cleanly_when_lock_held(self):
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
-        orch._load_watchlist = lambda: []
+        orch._load_watchlist = list
         (self.tmpdir / "review").mkdir(parents=True, exist_ok=True)
         held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")
         fcntl.flock(held_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -207,7 +210,7 @@ class TestOverlapPrevention(unittest.TestCase):
         """Section 5: dry-run remains scheduler-independent — it should
         succeed even while a real cycle's lock is held."""
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
-        orch._load_watchlist = lambda: []
+        orch._load_watchlist = list
         (self.tmpdir / "review").mkdir(parents=True, exist_ok=True)
         held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")
         fcntl.flock(held_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -290,7 +293,7 @@ class TestResearchOrderAndBounds(unittest.TestCase):
         automation_eligibility every time, because classify_finding() never
         reads the investigation dict at all."""
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
-        orch._load_watchlist = lambda: []
+        orch._load_watchlist = list
         candidate = {
             "title": "Some capability idea", "source": "s", "discovery_source": "internal",
             "change_class": "capability", "summary": "x", "why_relevant": "y",

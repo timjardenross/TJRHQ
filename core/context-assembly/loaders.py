@@ -5,10 +5,9 @@ No schema enforcement — downstream code is tolerant of missing keys.
 
 import re
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any
 
 import config
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -50,7 +49,7 @@ def _field(text: str, *labels: str) -> str:
 # Missions
 # ---------------------------------------------------------------------------
 
-def load_missions() -> List[Dict[str, Any]]:
+def load_missions() -> list[dict[str, Any]]:
     missions = []
     for directory in (config.MISSIONS_ACTIVE, config.MISSIONS_COMPLETE):
         if not directory.exists():
@@ -104,7 +103,7 @@ def _extract_mission_id(filename: str, text: str) -> str:
 # Decisions
 # ---------------------------------------------------------------------------
 
-def load_decisions() -> List[Dict[str, Any]]:
+def load_decisions() -> list[dict[str, Any]]:
     decisions = []
     for path in sorted(config.DECISIONS_DIR.glob("DECISION-*.md")):
         text = _read(path)
@@ -149,7 +148,7 @@ def _extract_section(text: str, *headings: str) -> str:
 # ADRs
 # ---------------------------------------------------------------------------
 
-def load_adrs() -> List[Dict[str, Any]]:
+def load_adrs() -> list[dict[str, Any]]:
     adrs = []
     if not config.ADR_DIR.exists():
         return adrs
@@ -192,7 +191,7 @@ def _extract_adr_id(filename: str, text: str) -> str:
 # Capabilities
 # ---------------------------------------------------------------------------
 
-def load_capabilities() -> List[Dict[str, Any]]:
+def load_capabilities() -> list[dict[str, Any]]:
     if not config.CAPABILITY_FILE.exists():
         return []
 
@@ -242,7 +241,7 @@ def load_capabilities() -> List[Dict[str, Any]]:
 # Corpus builder
 # ---------------------------------------------------------------------------
 
-def load_missions_from_dir(directory: Path) -> List[Dict[str, Any]]:
+def load_missions_from_dir(directory: Path) -> list[dict[str, Any]]:
     """Load missions from a single flat directory (used for enrichment POC)."""
     missions = []
     for path in sorted(directory.glob("*.md")) + sorted(directory.glob("*.txt")):
@@ -271,7 +270,7 @@ def load_missions_from_dir(directory: Path) -> List[Dict[str, Any]]:
 # Captain Profile
 # ---------------------------------------------------------------------------
 
-def load_captain_profile() -> Dict[str, Any]:
+def load_captain_profile() -> dict[str, Any]:
     """
     Load the Captain Profile Knowledge Base from knowledge/memory/captain_profile.txt.
     Returns a dict with metadata fields and the full profile text.
@@ -295,7 +294,7 @@ def load_captain_profile() -> Dict[str, Any]:
     }
 
 
-def load_corpus(missions_override_dir: Path = None) -> Dict[str, Any]:
+def load_corpus(missions_override_dir: Path = None) -> dict[str, Any]:
     """
     Load everything into a single dict keyed by entity type.
 

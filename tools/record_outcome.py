@@ -54,25 +54,24 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "knowledge"))
 
-from outcome_capture import (  # type: ignore  # noqa: E402
+from outcome_capture import (  # type: ignore
+    CONTENT_CLASSIFICATIONS,
+    CONTENT_POTENTIAL,
+    OUTCOME_STATUSES,
+    SOURCE_TYPES,
     OutcomeInput,
-    record_outcome,
-    list_recent_outcomes,
-    list_uncaptured,
-    list_lessons,
-    list_reusable_insights,
-    list_content_worthy,
+    is_configured,
     learning_brief_snapshot,
     learning_metrics,
     learning_status,
     learning_status_block,
-    SOURCE_TYPES,
-    OUTCOME_STATUSES,
-    CONTENT_POTENTIAL,
-    CONTENT_CLASSIFICATIONS,
-    is_configured,
+    list_content_worthy,
+    list_lessons,
+    list_recent_outcomes,
+    list_reusable_insights,
+    list_uncaptured,
+    record_outcome,
 )
-
 
 # ---------------------------------------------------------------------------
 # record
@@ -168,7 +167,7 @@ def _cmd_list_recent(args) -> int:
     _offline_note()
     for r in rows:
         print(f"  {r.get('outcome_id','?'):<20} {r.get('source_type',''):<14} "
-              f"{str(r.get('source_id','')):<14} {r.get('outcome_status') or '-':<10} {r.get('title','')[:50]}")
+              f"{r.get('source_id','')!s:<14} {r.get('outcome_status') or '-':<10} {r.get('title','')[:50]}")
     return 0
 
 
@@ -182,7 +181,7 @@ def _cmd_list_uncaptured(args) -> int:
         tier = _TIER.get(r.get("escalation_tier", "none"), "")
         age = r.get("age_days")
         age_s = f"{age}d" if age is not None else "?"
-        print(f"  [{r['source_type']:<8}] {str(r['source_id']):<16} {age_s:>4}  {tier:<14} {r['title'][:44]}")
+        print(f"  [{r['source_type']:<8}] {r['source_id']!s:<16} {age_s:>4}  {tier:<14} {r['title'][:44]}")
     if rows:
         print("\n  → Record with: python3 tools/record_outcome.py record "
               "--source-type <t> --source-id <id> --title <...> --status <...>")
@@ -206,7 +205,7 @@ def _cmd_list_reusable(args) -> int:
     _offline_note()
     for r in rows:
         tags = ", ".join(r.get("reuse_tags") or [])
-        print(f"  {r.get('source_type',''):<12} {str(r.get('source_id','')):<14} {r.get('reusable_insight','')[:54]}"
+        print(f"  {r.get('source_type',''):<12} {r.get('source_id','')!s:<14} {r.get('reusable_insight','')[:54]}"
               + (f"  #{tags}" if tags else ""))
     return 0
 

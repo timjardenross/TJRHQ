@@ -9,8 +9,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import config
 from loaders import load_captain_profile, load_corpus
+
+import config
 
 
 def test_profile_file_exists():

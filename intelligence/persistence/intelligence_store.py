@@ -7,17 +7,18 @@ the platform (mirrors tools/supabase/client.py conventions).
 import json
 import logging
 import os
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime
-from typing import Optional
 
-from intelligence.config import SUPABASE_URL, SUPABASE_KEY
-from intelligence.models import (
-    ClassifiedEvent, RankedEvent, ResilienceBrief,
-    SourceRecord, SourceHealth
-)
 from core.platform.priority_engine import PriorityInputs, PriorityScore, score_event
+from intelligence.config import SUPABASE_KEY, SUPABASE_URL
+from intelligence.models import (
+    RankedEvent,
+    ResilienceBrief,
+    SourceHealth,
+    SourceRecord,
+)
 
 # Mirrors AttentionThresholds.delayed_importance_floor (default 40). Events
 # below this land in NEVER_INTERRUPT or SHOULD_SIMPLY_BE_REMEMBERED and carry
@@ -38,7 +39,7 @@ def _headers() -> dict:
     }
 
 
-def _post(table: str, payload: dict, on_conflict: Optional[str] = None) -> Optional[dict]:
+def _post(table: str, payload: dict, on_conflict: str | None = None) -> dict | None:
     if not SUPABASE_URL or not SUPABASE_KEY:
         log.warning("Supabase not configured — skipping persist for %s", table)
         return None
@@ -383,7 +384,7 @@ def _blast_radius_llm_prompt(event: RankedEvent) -> str:
     )
 
 
-def _parse_blast_radius_answer(raw: Optional[str]) -> Optional[bool]:
+def _parse_blast_radius_answer(raw: str | None) -> bool | None:
     """Strict parse of the required 'ANSWER: yes|no' line. Returns None
     (treated as a provider failure by the caller, same as a transport error)
     if the model didn't follow the format."""
@@ -402,7 +403,7 @@ def _parse_blast_radius_answer(raw: Optional[str]) -> Optional[bool]:
 
 def _call_blast_radius_llm(
     event: RankedEvent,
-) -> tuple[Optional[bool], Optional[str], Optional[str], "Optional[LLMCallResult]"]:
+) -> tuple[bool | None, str | None, str | None, "LLMCallResult | None"]:
     """Try the shared provider chain in order -- same fail-through pattern as
     core/platform/infra_narrative.py's _generate(). Returns
     (is_broad_or_None, provider_name_or_None, raw_response_or_None,
@@ -439,7 +440,7 @@ def _call_blast_radius_llm(
     return None, None, None, None
 
 
-def _passes_blast_radius_check(event: RankedEvent, event_id: Optional[str]) -> bool:
+def _passes_blast_radius_check(event: RankedEvent, event_id: str | None) -> bool:
     """5th and final push-alert guard. See the dated comment above
     _BLAST_RADIUS_TASK_TYPE for full rationale, including why total LLM
     failure fails OPEN (allows the push through) rather than suppressing.
@@ -506,7 +507,7 @@ def _passes_blast_radius_check(event: RankedEvent, event_id: Optional[str]) -> b
     return is_broad
 
 
-def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> None:
+def _maybe_push_outage_alert(event: RankedEvent, event_id: str | None) -> None:
     """Push a Telegram alert for a newly-saved event that crosses the
     outage-severity threshold above.
 
@@ -573,7 +574,7 @@ def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> Non
         repo_root = Path(__file__).resolve().parents[2]
         if str(repo_root) not in sys.path:
             sys.path.insert(0, str(repo_root))
-        from core.platform.notification_service import notify, Severity, Transport
+        from core.platform.notification_service import Severity, Transport, notify
 
         ref = event.canonical_url or (f"event_id={event_id}" if event_id else "no reference available")
         body = (
@@ -593,7 +594,7 @@ def _maybe_push_outage_alert(event: RankedEvent, event_id: Optional[str]) -> Non
         log.warning("[outage-alert] push check failed for event %s: %s", event_id, exc)
 
 
-def _log_outage_alert_fired(event: RankedEvent, event_id: Optional[str], result) -> None:
+def _log_outage_alert_fired(event: RankedEvent, event_id: str | None, result) -> None:
     """Durable record of this push firing (2026-08-10 fix, XO product review
     of this feature's first night, finding #5): notification_service.notify()'s
     only bookkeeping is an in-process `_CALL_LOG` list (core/platform/
@@ -923,7 +924,7 @@ def _derive_attention_importance(event: RankedEvent) -> int:
     return 15
 
 
-def _priority_score_for_event(event: RankedEvent, attention_importance: int) -> Optional[PriorityScore]:
+def _priority_score_for_event(event: RankedEvent, attention_importance: int) -> PriorityScore | None:
     """Score one ranked event through the Priority Engine if it clears the
     CAN_BE_DELAYED attention floor.
 
@@ -958,8 +959,8 @@ def _priority_score_for_event(event: RankedEvent, attention_importance: int) -> 
     return score_event(inputs)
 
 
-def save_event(event: RankedEvent, ori: Optional[dict] = None,
-               phase_a: Optional[dict] = None) -> Optional[str]:
+def save_event(event: RankedEvent, ori: dict | None = None,
+               phase_a: dict | None = None) -> str | None:
     """Persist a ranked event. Returns event_id or None on failure.
 
     `ori` optionally supplies the WP4 enrichment columns for digest-sourced
@@ -1040,7 +1041,7 @@ def save_event(event: RankedEvent, ori: Optional[dict] = None,
         # orchestrator, LCARS, Telegram dispatch) can read it without a
         # separate query. Non-blocking: a scoring failure never affects
         # intelligence_events persistence.
-        priority_score: Optional[PriorityScore] = None
+        priority_score: PriorityScore | None = None
         try:
             priority_score = _priority_score_for_event(event, attention_importance)
             if priority_score is not None:
@@ -1111,7 +1112,7 @@ def document_version_exists(file_path: str, content_sha: str) -> bool:
     return len(rows) > 0
 
 
-def save_source_document(doc: dict) -> Optional[str]:
+def save_source_document(doc: dict) -> str | None:
     """Persist a raw brief document. Returns document_id or None on failure.
 
     Expects keys: source_id, file_name, file_path, blob_url, brief_date,
@@ -1152,7 +1153,7 @@ def load_recent_events(days: int = 14, limit: int = 200) -> list[dict]:
     score decayed with a 3-day half-life, so genuinely fresh events can
     outrank older-but-higher-scored ones without discarding real severity —
     a 0.98 from yesterday still beats a 0.50 from an hour ago."""
-    from datetime import timezone, timedelta
+    from datetime import timedelta, timezone
     from math import exp
 
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
@@ -1189,7 +1190,7 @@ def load_recent_events(days: int = 14, limit: int = 200) -> list[dict]:
 
 # ─── Briefs ───────────────────────────────────────────────────────────────────
 
-def save_brief(brief: ResilienceBrief) -> Optional[str]:
+def save_brief(brief: ResilienceBrief) -> str | None:
     """Persist a ResilienceBrief. Returns brief_id or None on failure."""
     import dataclasses
 
@@ -1284,7 +1285,7 @@ def save_brief(brief: ResilienceBrief) -> Optional[str]:
     return None
 
 
-def load_latest_brief() -> Optional[dict]:
+def load_latest_brief() -> dict | None:
     rows = _get("intelligence_briefs?order=generated_at.desc&limit=1")
     return rows[0] if rows else None
 
@@ -1312,7 +1313,7 @@ def load_brief_archive(limit: int = 20, offset: int = 0) -> list[dict]:
 # (reads history, writes the recomputed per-source threshold nightly).
 
 def save_downdetector_observation(
-    source_name: str, sector: str, status: str, report_count: Optional[int],
+    source_name: str, sector: str, status: str, report_count: int | None,
 ) -> None:
     """Log one real Downdetector fetch's parsed (status, report_count) —
     called from DowndetectorAdapter.collect() on EVERY real fetch, not just
@@ -1353,9 +1354,9 @@ def save_downdetector_threshold(
     sector: str,
     threshold_value: int,
     threshold_source: str,
-    reasoning: Optional[str],
+    reasoning: str | None,
     history_days_used: int,
-    llm_provider: Optional[str] = None,
+    llm_provider: str | None = None,
 ) -> None:
     """Upsert the current threshold in force for one source. threshold_source
     always records HOW this value was reached (bootstrap vs. LLM-learned vs.

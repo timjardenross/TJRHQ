@@ -3,23 +3,26 @@ Tests for recommendation_engine — WP5
 """
 
 import sys
-from pathlib import Path
 from datetime import date, timedelta
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "core" / "context-assembly"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "core" / "coordination"))
 
+from models import (
+    HealthContextPackage,
+    HealthStatusSnapshot,
+    HealthTrendSummary,
+    Recommendation,
+)
 from recommendation_engine import (
-    rank_missions,
-    score_priority,
+    _deadline_urgency,
     check_health_constraints,
     explain_recommendation,
     generate_recommendation_package,
-    _deadline_urgency,
-    _count_dependents,
+    rank_missions,
+    score_priority,
 )
-from models import HealthContextPackage, HealthStatusSnapshot, HealthTrendSummary, Recommendation
-
 
 # ---------------------------------------------------------------------------
 # Test fixtures

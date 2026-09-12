@@ -21,12 +21,10 @@ Severity progression by notification count:
 
 from __future__ import annotations
 
-import json
 import logging
 import sys
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
@@ -37,11 +35,8 @@ _CADENCE_DAYS = [0, 3, 7]
 _REPEAT_INTERVAL_DAYS = 7
 
 from captain_notifications import (
-    SEVERITY_INFO,
-    SEVERITY_WARNING,
     SEVERITY_ALERT,
     SEVERITY_CRITICAL,
-    _SEVERITY_ORDER,
     max_severity,
 )
 

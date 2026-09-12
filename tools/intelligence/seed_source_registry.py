@@ -18,8 +18,8 @@ The registry is treated as a governed platform capability.
 import argparse
 import json
 import sys
-import urllib.request
 import urllib.error
+import urllib.request
 from pathlib import Path
 
 # ── Bootstrap .env ─────────────────────────────────────────────────────────────
@@ -31,6 +31,7 @@ except ImportError:
     pass
 
 import os
+
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
@@ -2860,7 +2861,7 @@ def seed(dry_run: bool = False, wipe: bool = False) -> None:
     inactive = [s for s in SOURCES if not s["active"]]
     total    = len(SOURCES)
 
-    print(f"OR Intelligence — Source Registry Seed (CANONICAL)")
+    print("OR Intelligence — Source Registry Seed (CANONICAL)")
     print(f"  Total sources:   {total}")
     print(f"  Active:          {len(active)}")
     print(f"  Inactive:        {len(inactive)}")

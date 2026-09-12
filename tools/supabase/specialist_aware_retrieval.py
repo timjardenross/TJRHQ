@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 import time
+from pathlib import Path
 from typing import Any
 
 # Ensure tools/supabase/ is first for the bare sibling imports below
@@ -17,9 +17,15 @@ _TOOLS_SUPABASE = str(Path(__file__).resolve().parent)
 if sys.path and sys.path[0] != _TOOLS_SUPABASE:
     sys.path.insert(0, _TOOLS_SUPABASE)
 
-from retrieve_knowledge import get_permission, get_specialist, keyword_results, log_retrieval, semantic_results
-from specialist_router import RouteDecision, route_question
 from _local_import_supabase import import_sibling
+from retrieve_knowledge import (
+    get_permission,
+    get_specialist,
+    keyword_results,
+    log_retrieval,
+    semantic_results,
+)
+from specialist_router import RouteDecision, route_question
 
 SupabaseClient = import_sibling("supabase_client").SupabaseClient
 

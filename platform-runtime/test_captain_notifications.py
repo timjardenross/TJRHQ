@@ -5,26 +5,26 @@ Tests for captain_notifications — Proactive Captain Notification Framework
 import os
 import sys
 import unittest
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from captain_notifications import (
-    NotificationConfig,
-    SEVERITY_INFO,
-    SEVERITY_WARNING,
     SEVERITY_ALERT,
     SEVERITY_CRITICAL,
-    severity_header,
-    max_severity,
+    SEVERITY_INFO,
+    SEVERITY_WARNING,
+    NotificationConfig,
     _parse_mission_open_date,
-    format_mission_escalation_batch,
-    format_forgotten_decisions,
     build_work_queue,
+    format_forgotten_decisions,
+    format_mission_escalation_batch,
     health_nudge_text,
+    max_severity,
     mission_close_lesson_warning,
+    severity_header,
 )
 
 

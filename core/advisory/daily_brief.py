@@ -27,9 +27,11 @@ if str(_HERE) not in sys.path:
 import temporal as _temporal
 import triggers as _triggers
 from _local_import_advisory import import_sibling as _import_sibling
+
 _operating_picture = _import_sibling("operating_picture")
-import wellness as _wellness
 import strategic as _strategic
+import wellness as _wellness
+
 _forecast = _import_sibling("forecast")
 import data_quality as _data_quality
 
@@ -73,7 +75,7 @@ def _headline(matters, action) -> str:
 
 def to_markdown() -> str:
     b = daily_intelligence_brief()
-    L = [f"# Daily Intelligence Briefing", "", b["headline"], ""]
+    L = ["# Daily Intelligence Briefing", "", b["headline"], ""]
     L.append(f"**Overnight:** {b['what_changed_overnight']}")
     L.append(f"**Operating picture:** {b['operating_picture']}")
     L.append(f"**Wellness:** {b['wellness']}")

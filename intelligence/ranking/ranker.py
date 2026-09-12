@@ -18,12 +18,15 @@ Top events are determined by highest rank_score among non-suppressed events.
 Sources with low SRS (TIER_4, unreliable) are de-emphasized automatically.
 """
 
-import math
 import logging
 from datetime import datetime, timezone
-from typing import Optional
 
-from intelligence.config import RANK_WEIGHTS, GEOGRAPHY_SCORES, IMPACT_SCORES, TOP_EVENTS_LIMIT
+from intelligence.config import (
+    GEOGRAPHY_SCORES,
+    IMPACT_SCORES,
+    RANK_WEIGHTS,
+    TOP_EVENTS_LIMIT,
+)
 from intelligence.models import ClassifiedEvent, RankedEvent
 
 log = logging.getLogger(__name__)
@@ -67,7 +70,7 @@ def _get_source_reliability_score(source_id: str) -> float:
     return _SRS_CACHE.get(source_id, 0.75)
 
 
-def _recency_decay(collected_at: Optional[datetime]) -> float:
+def _recency_decay(collected_at: datetime | None) -> float:
     if not collected_at:
         return 0.50
     now = datetime.now(timezone.utc)
@@ -108,7 +111,7 @@ def _cross_source_bonus(event: ClassifiedEvent, all_events: list[ClassifiedEvent
 
 def rank(
     events: list[ClassifiedEvent],
-    period_start: Optional[datetime] = None,
+    period_start: datetime | None = None,
 ) -> list[RankedEvent]:
     """
     Compute rank_score for every non-suppressed event.

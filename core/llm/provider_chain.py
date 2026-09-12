@@ -18,13 +18,13 @@ import contextlib
 import json
 import urllib.request
 from dataclasses import dataclass
-from typing import Optional
 
 try:
     import sys as _sys
     _sys.path.insert(0, '/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
-    from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
     from opentelemetry import trace as _trace
+
+    from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
     _configure_tracing("provider-chain")
     _TRACING_AVAILABLE = True
 except Exception:
@@ -38,8 +38,8 @@ class LLMCallResult:
     carry usage data — callers must treat that as "unknown", not zero."""
     text: str
     model: str
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
 
 
 def _llm_span(provider: str, model: str, task_type: str = ""):

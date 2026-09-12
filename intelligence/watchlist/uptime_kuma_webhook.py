@@ -38,7 +38,6 @@ import json
 import logging
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Optional
 
 from intelligence.watchlist import webhook_queue
 
@@ -52,7 +51,7 @@ _STATUS_UP = 1
 _STATUS_DOWN = 0
 
 
-def normalise_payload(body: dict) -> Optional[dict]:
+def normalise_payload(body: dict) -> dict | None:
     """body is Uptime Kuma's own webhook.js payload:
     {"heartbeat": {...}, "monitor": {...}, "msg": "..."}. Returns a
     webhook_queue record, or None when there's no usable monitor URL, or
@@ -103,10 +102,10 @@ def normalise_payload(body: dict) -> Optional[dict]:
 class _Handler(BaseHTTPRequestHandler):
     server_version = "TJRWatchlistUptimeKumaWebhook/1.0"
 
-    def log_message(self, fmt, *args):  # noqa: A003 — stdlib override
+    def log_message(self, fmt, *args):
         log.info("[uptime_kuma_webhook] %s", fmt % args)
 
-    def do_POST(self):  # noqa: N802 — stdlib override
+    def do_POST(self):
         if self.path != WEBHOOK_PATH:
             self.send_response(404)
             self.end_headers()
@@ -142,7 +141,7 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b'{"ok": true}')
 
-    def do_GET(self):  # noqa: N802 — stdlib override
+    def do_GET(self):
         if self.path in ("/", "/health"):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")

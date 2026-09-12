@@ -267,13 +267,13 @@ def _log_d057_check(officer: str, title: str, result: D057CheckResult) -> None:
 
 
 __all__ = [
-    "ImprovementCategory",
-    "ImprovementBand",
-    "ImprovementScore",
-    "ImprovementOpportunity",
-    "D057CheckResult",
-    "d057_check",
-    "_SCORE_WEIGHTS",
     "_HIGH_THRESHOLD",
     "_MEDIUM_THRESHOLD",
+    "_SCORE_WEIGHTS",
+    "D057CheckResult",
+    "ImprovementBand",
+    "ImprovementCategory",
+    "ImprovementOpportunity",
+    "ImprovementScore",
+    "d057_check",
 ]

@@ -22,12 +22,12 @@ import re
 import sys
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
 
-from health_llm import HealthLLMProvider, parse_llm_narrative
+from health_llm import HealthLLMProvider
 
 log = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ _STOPWORDS = {
 }
 
 
-def _build_nlp_prompt(entries: List[Dict[str, Any]]) -> str:
+def _build_nlp_prompt(entries: list[dict[str, Any]]) -> str:
     notes = []
     for e in sorted(entries, key=lambda x: x.get("log_date", "")):
         dt = e.get("log_date", "unknown")
@@ -137,7 +137,7 @@ Rules:
 - summary: factual, evidence-based, no speculation"""
 
 
-def _parse_nlp_response(raw: str) -> Optional[Dict[str, Any]]:
+def _parse_nlp_response(raw: str) -> dict[str, Any] | None:
     """Parse NLP response JSON; returns None on failure."""
     if not raw:
         return None
@@ -156,7 +156,7 @@ def _parse_nlp_response(raw: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _keyword_fallback(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _keyword_fallback(entries: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Deterministic fallback: extract top keywords from narrative fields.
     Returns a simplified structure matching the LLM schema.
@@ -165,7 +165,7 @@ def _keyword_fallback(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
         "overall_note", "what_happened",
         "pain_triggers", "pain_relievers", "coping_strategies", "activity_impact",
     )
-    words: List[str] = []
+    words: list[str] = []
     for e in entries:
         for field in _ALL_TEXT_FIELDS:
             text = (e.get(field) or "").lower()
@@ -192,8 +192,8 @@ def _keyword_fallback(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def extract_narrative_intelligence(
-    entries: List[Dict[str, Any]],
-) -> Dict[str, Any]:
+    entries: list[dict[str, Any]],
+) -> dict[str, Any]:
     """
     Extract intelligence from narrative fields in log entries.
 
@@ -221,7 +221,7 @@ def extract_narrative_intelligence(
         if any((e.get(f) or "").strip() for f in _TEXT_FIELDS)
     ]
 
-    _EMPTY_CBT: Dict[str, Any] = {
+    _EMPTY_CBT: dict[str, Any] = {
         "pain_trigger_patterns": [],
         "pain_reliever_patterns": [],
         "effective_coping_strategies": [],

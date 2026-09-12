@@ -17,17 +17,17 @@ to a no-op when Supabase is unavailable.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
-from core.platform.insight_engine import Insight
 from core.platform.captain_brief_contract import Recommendation
+from core.platform.insight_engine import Insight
 
 log = logging.getLogger(__name__)
 
 _VALID_OUTCOMES = {"useful", "not_useful", "incorrect", "pending"}
 
 
-def record_insight(insight: Insight, recommendation: Optional[Recommendation] = None) -> Optional[str]:
+def record_insight(insight: Insight, recommendation: Recommendation | None = None) -> str | None:
     """Persist a generated Insight (and its Recommendation, if the
     Reasoning Engine produced one) to `insight_outcomes`, outcome
     defaulting to 'pending'. Returns the new row's id if persisted,
@@ -79,7 +79,7 @@ def record_insight(insight: Insight, recommendation: Optional[Recommendation] = 
         return None
 
 
-def record_outcome(insight_id: str, outcome: str, note: Optional[str] = None) -> bool:
+def record_outcome(insight_id: str, outcome: str, note: str | None = None) -> bool:
     """Records what actually happened to a previously-persisted insight
     — 'useful', 'not_useful', or 'incorrect'. This is the field every
     Phase 4 measurement objective is built on; without real calls to
@@ -90,6 +90,7 @@ def record_outcome(insight_id: str, outcome: str, note: Optional[str] = None) ->
         return False
     try:
         from datetime import datetime, timezone
+
         from tools.supabase.client import CommanderSupabaseClient
 
         client = CommanderSupabaseClient()
@@ -125,4 +126,4 @@ def fetch_outcome_history(limit: int = 100) -> list[dict[str, Any]]:
         return []
 
 
-__all__ = ["record_insight", "record_outcome", "fetch_outcome_history"]
+__all__ = ["fetch_outcome_history", "record_insight", "record_outcome"]

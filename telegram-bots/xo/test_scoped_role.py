@@ -42,11 +42,11 @@ _BOT_DIR = Path(__file__).parent
 _REPO_ROOT = _BOT_DIR.parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 
-from dotenv import load_dotenv  # noqa: E402
+from dotenv import load_dotenv
 
 load_dotenv(_BOT_DIR / ".env")
 
-import os  # noqa: E402
+import os
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 

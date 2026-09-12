@@ -3,13 +3,11 @@ import json
 import textwrap
 from pathlib import Path
 
-import pytest
-
-from config import load_config
-from transfer_db import TransferDB
 from engine import TransferEngine, parse_checksum_output
 from fake_transport import FakeTransport
+from transfer_db import TransferDB
 
+from config import load_config
 
 # -- parse_checksum_output ---------------------------------------------------------------
 

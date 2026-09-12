@@ -11,7 +11,7 @@ exists, record that explicitly — do not fabricate one").
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import evidence_sources
 

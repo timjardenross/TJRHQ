@@ -13,12 +13,11 @@ Usage:
     python3 tools/intelligence/validate_source_accuracy.py --dry-run
 """
 
+import logging
 import os
 import sys
-import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Tuple
 
 # Setup logging
 logging.basicConfig(
@@ -54,7 +53,7 @@ class SourceAccuracyValidator:
         self.validated_count = 0
         self.validation_errors = 0
 
-    def validate_event_accuracy(self, event: dict) -> Optional[bool]:
+    def validate_event_accuracy(self, event: dict) -> bool | None:
         """
         Determine if an event's claim is accurate.
 
@@ -129,7 +128,7 @@ class SourceAccuracyValidator:
             logger.error(f"Error fetching events for source {source_id}: {e}")
             return []
 
-    def save_validation(self, event_id: str, source_id: str, is_accurate: Optional[bool],
+    def save_validation(self, event_id: str, source_id: str, is_accurate: bool | None,
                        validation_method: str, validation_detail: str, event_published_at: str) -> bool:
         """Save validation result to database."""
 
@@ -158,7 +157,7 @@ class SourceAccuracyValidator:
             self.validation_errors += 1
             return False
 
-    def calculate_source_accuracy(self, source_id: str) -> Tuple[float, float, int]:
+    def calculate_source_accuracy(self, source_id: str) -> tuple[float, float, int]:
         """
         Calculate accuracy_ratio and false_positive_rate for a source.
 
@@ -254,7 +253,7 @@ class SourceAccuracyValidator:
                             source_id,
                             is_accurate,
                             validation_method="automated",
-                            validation_detail=f"Validated based on event type and source category",
+                            validation_detail="Validated based on event type and source category",
                             event_published_at=event["published_at"]
                         )
                         if saved:

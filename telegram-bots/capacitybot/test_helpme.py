@@ -21,7 +21,6 @@ sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from telegram_bots.capacitybot.helpme import (
     HELP_STATE_OPTIONS,
-    OUTCOME_OPTIONS,
     kb_helpme_entry,
     kb_offer,
     parse_cb,
@@ -175,8 +174,8 @@ def test_cmd_helpme_shows_entry_and_clears_prior_flow_state():
 
 def test_helpme_callback_overwhelmed_asks_reduce_first():
     print("\n── handle_helpme_callback — overwhelmed asks 'reduce first' ─────")
-    from telegram_bots.capacitybot.app import _get_supabase, handle_helpme_callback
     import telegram_bots.capacitybot.app as app_module
+    from telegram_bots.capacitybot.app import handle_helpme_callback
 
     app_module._supabase = _make_db(interventions=[_intervention("quiet_10")])
     update, context, query = _make_update_and_context("ch|s=overwhelmed")

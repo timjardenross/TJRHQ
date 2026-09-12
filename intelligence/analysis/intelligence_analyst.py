@@ -25,7 +25,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -74,10 +74,10 @@ class SignalScore:
     relevance_score: float          # 1.0–5.0 overall (total / 10, clamped)
     risk_rating: str                # HIGH | MEDIUM | LOW
     method: str                     # 'llm' | 'heuristic'
-    provider: Optional[str] = None  # LLM provider name when method == 'llm'
-    model_name: Optional[str] = None    # resolved model, when method == 'llm'
-    input_tokens: Optional[int] = None  # when the provider's response reported it
-    output_tokens: Optional[int] = None
+    provider: str | None = None  # LLM provider name when method == 'llm'
+    model_name: str | None = None    # resolved model, when method == 'llm'
+    input_tokens: int | None = None  # when the provider's response reported it
+    output_tokens: int | None = None
     notes: dict[str, Any] = field(default_factory=dict)
 
     def as_event_columns(self) -> dict[str, Any]:
@@ -96,8 +96,8 @@ class DualPathScoringResult:
     """Issue 14 shadow-mode result: both scoring paths + Issue 20 provenance."""
 
     heuristic: SignalScore
-    llm: Optional[SignalScore]
-    agree: Optional[bool]           # risk_rating agreement, None if LLM path didn't run
+    llm: SignalScore | None
+    agree: bool | None           # risk_rating agreement, None if LLM path didn't run
     provenance: dict[str, Any]
 
 
@@ -155,10 +155,10 @@ class IntelligenceAnalyst:
 
     def __init__(
         self,
-        llm_provider: Optional[Any] = None,
+        llm_provider: Any | None = None,
         use_llm: bool = True,
         shadow_mode: bool = False,
-        cost_governor: Optional[Any] = None,
+        cost_governor: Any | None = None,
     ):
         # Lazy default so importing this module never requires network/config.
         # use_llm=False forces the deterministic heuristic path — used by batch
@@ -211,7 +211,7 @@ class IntelligenceAnalyst:
 
     # ── Shadow mode (Issue 14 + 20 + 21) ─────────────────────────────────────
     def score_dual_path(
-        self, signal: dict, event_id: Optional[str] = None,
+        self, signal: dict, event_id: str | None = None,
         task_type: str = "signal-scoring",
     ) -> DualPathScoringResult:
         """Score a signal via both paths. Heuristic is always authoritative;
@@ -221,8 +221,8 @@ class IntelligenceAnalyst:
         heuristic = _downgrade_if_resolved(self._heuristic_score(signal), signal)
         heuristic_scored_at = datetime.now(timezone.utc).isoformat()
 
-        llm_result: Optional[SignalScore] = None
-        llm_scored_at: Optional[str] = None
+        llm_result: SignalScore | None = None
+        llm_scored_at: str | None = None
         notes: dict[str, Any] = {}
 
         check = self._cost_governor.can_call_llm(task_type) if self._cost_governor else None
@@ -284,7 +284,7 @@ class IntelligenceAnalyst:
             'Return ONLY JSON: {"score_breakdown": {"criticality": N, ...all 10...}}'
         )
 
-    def _score_via_llm(self, signal: dict) -> Optional[SignalScore]:
+    def _score_via_llm(self, signal: dict) -> SignalScore | None:
         llm = self._get_llm()
         if llm is None:
             return None
@@ -313,7 +313,7 @@ class IntelligenceAnalyst:
         )
 
     @staticmethod
-    def _parse_breakdown(raw: str) -> Optional[dict[str, int]]:
+    def _parse_breakdown(raw: str) -> dict[str, int] | None:
         """Extract a score_breakdown mapping from raw LLM text."""
         match = re.search(r"\{.*\}", raw, re.DOTALL)
         if not match:

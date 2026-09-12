@@ -16,14 +16,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
-import os
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[2]
 STATE_FILE = Path(__file__).resolve().parent / ".watchdog-state.json"
@@ -176,13 +173,13 @@ def scan_once(state: dict[str, str], dry_run: bool, verbose: bool) -> dict[str, 
 
 
 def run_continuous(interval: int, dry_run: bool) -> None:
-    print(f"Knowledge ingestion watchdog started.")
+    print("Knowledge ingestion watchdog started.")
     print(f"  Root:     {ROOT}")
     print(f"  Watching: {', '.join(WATCH_PATHS)}")
     print(f"  Interval: {interval}s")
     print(f"  State:    {STATE_FILE}")
     if dry_run:
-        print(f"  Mode:     DRY RUN (no writes)")
+        print("  Mode:     DRY RUN (no writes)")
     print()
 
     state = load_state()

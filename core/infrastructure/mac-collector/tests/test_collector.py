@@ -2,13 +2,11 @@ import hashlib
 import textwrap
 from pathlib import Path
 
-import pytest
-
-from config import load_config
-from db import TrackingDB
 from collector import Collector, sha256_file
+from db import TrackingDB
 from ignore_rules import IgnoreMatcher
 
+from config import load_config
 
 # -- ignore_rules ------------------------------------------------------------
 

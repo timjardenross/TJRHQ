@@ -24,7 +24,7 @@ from __future__ import annotations
 import sys
 from collections import Counter
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from core.coordination import delivery_reconciler as dr
 from core.coordination import lifecycle_advancer as la
@@ -36,7 +36,7 @@ def _key(item: dict) -> tuple:
     return (item.get("kind"), item.get("id"))
 
 
-def build_coverage(ledger: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def build_coverage(ledger: dict[str, Any] | None = None) -> dict[str, Any]:
     """Classify every open item onto the spine; flag anything unplaceable.
 
     Read-only. `ledger` injectable (tests). Returns per-stage assignment (with a
@@ -85,7 +85,7 @@ def build_coverage(ledger: Optional[dict[str, Any]] = None) -> dict[str, Any]:
     }
 
 
-def sweep(ledger: Optional[dict[str, Any]] = None, apply: bool = False,
+def sweep(ledger: dict[str, Any] | None = None, apply: bool = False,
           advancer=la) -> dict[str, Any]:
     """Full coverage: classify everything, then advance enriched Capture items.
 

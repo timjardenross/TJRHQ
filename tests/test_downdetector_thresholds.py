@@ -22,7 +22,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from intelligence.ingestion.downdetector_thresholds import (
     HistorySummary,
-    ThresholdResult,
     bootstrap_default,
     recompute_threshold_for_source,
     sanity_check,

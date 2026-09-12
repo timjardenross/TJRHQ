@@ -15,7 +15,7 @@ blockers. No new memory store.
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +27,8 @@ if str(_HEALTH) not in sys.path:
     sys.path.insert(0, str(_HEALTH))
 
 import timeline as _timeline
-from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling
+
 _patterns = _import_sibling("patterns")
 
 try:

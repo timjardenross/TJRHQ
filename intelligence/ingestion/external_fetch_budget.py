@@ -87,7 +87,6 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -237,7 +236,7 @@ def _rpc_try_increment(provider: str, cycle_start: date, cycle_end: date, ceilin
     return bool(row["allowed"]), int(row["result_call_count"])
 
 
-def check_and_increment(provider: str, *, today: Optional[date] = None, timeout: int = 10) -> int:
+def check_and_increment(provider: str, *, today: date | None = None, timeout: int = 10) -> int:
     """
     MUST be called immediately before the real outbound HTTP request to
     `provider` ("firecrawl" or "brightdata") — atomically checks current
@@ -286,7 +285,7 @@ def check_and_increment(provider: str, *, today: Optional[date] = None, timeout:
     return call_count
 
 
-def current_usage(provider: str, *, today: Optional[date] = None, timeout: int = 10) -> dict:
+def current_usage(provider: str, *, today: date | None = None, timeout: int = 10) -> dict:
     """Read-only current-cycle usage lookup — does NOT increment. Used by
     tools/external_fetch_usage_check.py. Raises FetchBudgetCheckFailed on
     any read failure (no silent zero — an unreadable count must never be

@@ -27,14 +27,13 @@ CLI:
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import json
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-import uuid
 
 from specialist_assignment import assign_specialists
-
 
 ROOT = Path(__file__).resolve().parents[2]
 MISSION_DIR = ROOT / "logs/missions"

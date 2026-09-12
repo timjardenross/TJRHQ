@@ -74,8 +74,8 @@ def handle_mission_capture(
         Formatted Slack mrkdwn string ready to post.
     """
     import sys
-    from pathlib import Path
     from datetime import datetime
+    from pathlib import Path
     _bot_dir = Path(__file__).resolve().parent.parent
     if str(_bot_dir) not in sys.path:
         sys.path.insert(0, str(_bot_dir))

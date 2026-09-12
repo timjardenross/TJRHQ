@@ -32,8 +32,8 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
@@ -154,7 +154,7 @@ def _row_to_debt(row: dict[str, Any]) -> TechDebt | None:
     p = _parse_rationale(str(row.get("rationale") or ""))
     stmt = str(row.get("statement") or "")
     prefix = f"{_DEBT_STATEMENT} {debt_id}: "
-    name = stmt[len(prefix):] if stmt.startswith(prefix) else stmt
+    name = stmt.removeprefix(prefix)
 
     def _en(cls, val, default):
         try:
@@ -364,16 +364,16 @@ def format_debt_profile(dp: DebtProfile) -> str:
 
 
 __all__ = [
-    "DebtSeverity",
+    "TECH_DEBT_OWNER_PREFIX",
     "DebtArea",
+    "DebtProfile",
+    "DebtSeverity",
     "DebtTrend",
     "TechDebt",
-    "DebtProfile",
-    "register_debt",
-    "update_debt",
-    "get_debt",
-    "list_debts",
     "compute_debt_profile",
     "format_debt_profile",
-    "TECH_DEBT_OWNER_PREFIX",
+    "get_debt",
+    "list_debts",
+    "register_debt",
+    "update_debt",
 ]

@@ -63,7 +63,7 @@ class IsolatedCounter:
         self._orig_counter: Path | None = None
         self._orig_lock: Path | None = None
 
-    def __enter__(self) -> "IsolatedCounter":
+    def __enter__(self) -> IsolatedCounter:
         self._tmpdir = tempfile.TemporaryDirectory(prefix="mint_test_")
         tmp = Path(self._tmpdir.name)
         counter_file = tmp / ".id-counters.json"

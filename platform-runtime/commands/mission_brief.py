@@ -1113,9 +1113,11 @@ def claim_engineering_handoff_batch(handoff_path: str, batch_group: str) -> bool
         target.write_text(updated, encoding="utf-8")
         log.info("[mission-brief] Engineering handoff claimed: %s -> %s", target, batch_group)
         try:
-            from lib.build_learning_loop import record_build_lifecycle_event
-            from lib.build_learning_loop import generate_build_outcome_id
-            from lib.build_learning_loop import generate_build_decision_id
+            from lib.build_learning_loop import (
+                generate_build_decision_id,
+                generate_build_outcome_id,
+                record_build_lifecycle_event,
+            )
 
             mission_title = _extract_markdown_section(updated, "Mission Title") or target.stem
             source_record = _extract_metadata_field(updated, "Source Build Record")
@@ -1192,9 +1194,11 @@ def update_engineering_handoff_batch_status(handoff_path: str, status: str) -> b
         target.write_text(updated, encoding="utf-8")
         log.info("[mission-brief] Engineering handoff status updated: %s -> %s", target, status)
         try:
-            from lib.build_learning_loop import record_build_lifecycle_event
-            from lib.build_learning_loop import generate_build_outcome_id
-            from lib.build_learning_loop import generate_build_decision_id
+            from lib.build_learning_loop import (
+                generate_build_decision_id,
+                generate_build_outcome_id,
+                record_build_lifecycle_event,
+            )
 
             mission_title = _extract_markdown_section(updated, "Mission Title") or target.stem
             source_record = _extract_metadata_field(updated, "Source Build Record")

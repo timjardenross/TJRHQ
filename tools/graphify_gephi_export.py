@@ -12,7 +12,7 @@ Produces:
 import json
 import math
 import xml.etree.ElementTree as ET
-from collections import defaultdict, Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 from xml.dom import minidom
 
@@ -68,10 +68,10 @@ def write_summary(g):
     lines = [
         "# Starship Endeavour — Engineering Knowledge Graph Summary",
         "",
-        f"**Source:** `graphify-out/merged-graph.json`  ",
+        "**Source:** `graphify-out/merged-graph.json`  ",
         f"**Total nodes:** {len(nodes):,}  ",
         f"**Total edges:** {len(links):,}  ",
-        f"**Generated:** 2026-07-01 (MSN-0205A)",
+        "**Generated:** 2026-07-01 (MSN-0205A)",
         "",
         "---",
         "",
@@ -315,11 +315,11 @@ def write_filtered(g, degree):
 # ── 4. gephi-topology.png ─────────────────────────────────────────────────────
 def write_topology(filtered_nodes, filtered_links, id_map):
     try:
-        import networkx as nx
         import matplotlib
+        import networkx as nx
         matplotlib.use("Agg")
-        import matplotlib.pyplot as plt
         import matplotlib.patches as mpatches
+        import matplotlib.pyplot as plt
     except ImportError as e:
         print(f"[4/4] SKIPPED topology PNG — missing dependency: {e}")
         return

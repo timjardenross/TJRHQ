@@ -1,8 +1,7 @@
 import io
 
-from PIL import Image
-
 import src.integrations.gemini_client as gc
+from PIL import Image
 
 
 def _fake_jpeg_bytes() -> bytes:

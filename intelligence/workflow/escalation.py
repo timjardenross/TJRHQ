@@ -18,7 +18,7 @@ and testable; callers pass datetime.now(timezone.utc).
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 SIGNAL_STUCK_HOURS = 72
 BRIEF_STUCK_HOURS = 72
@@ -36,7 +36,7 @@ ESCALATE_XO = "xo"
 ESCALATE_CAPTAIN = "captain"
 
 
-def _parse_dt(value: Any) -> Optional[datetime]:
+def _parse_dt(value: Any) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -49,7 +49,7 @@ def _parse_dt(value: Any) -> Optional[datetime]:
         return None
 
 
-def _age_hours(ts: Any, now: datetime) -> Optional[float]:
+def _age_hours(ts: Any, now: datetime) -> float | None:
     dt = _parse_dt(ts)
     if dt is None:
         return None
@@ -98,7 +98,7 @@ def find_stuck_briefs(repo, now: datetime, hours: int = BRIEF_STUCK_HOURS) -> li
 
 
 def check_lead_availability(now: datetime, last_lead_activity: Any,
-                            hours: int = LEAD_UNAVAILABLE_HOURS) -> Optional[dict]:
+                            hours: int = LEAD_UNAVAILABLE_HOURS) -> dict | None:
     """Flag if the Intelligence Lead has been silent longer than `hours`."""
     age = _age_hours(last_lead_activity, now)
     if age is None or age < hours:
@@ -111,7 +111,7 @@ def check_lead_availability(now: datetime, last_lead_activity: Any,
     }
 
 
-def escalation_report(repo, now: Optional[datetime] = None,
+def escalation_report(repo, now: datetime | None = None,
                       last_lead_activity: Any = None) -> dict:
     """Aggregate all escalation findings for a scheduled watchdog run."""
     now = now or datetime.now(timezone.utc)

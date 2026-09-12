@@ -38,10 +38,13 @@ for p in (str(_BOT), str(_REPO_ROOT)):
         sys.path.insert(0, p)
 
 from lib.investigation.framework import (
-    Investigation, InvestigationType, InvestigationStatus, InvestigationOutcome,
-    INV_STATEMENT_PREFIX, INV_OWNER_PREFIX,
+    INV_OWNER_PREFIX,
+    INV_STATEMENT_PREFIX,
+    Investigation,
+    InvestigationOutcome,
+    InvestigationStatus,
+    InvestigationType,
 )
-
 
 # ── Rationale helpers ─────────────────────────────────────────────────────────
 
@@ -113,7 +116,7 @@ def _row_to_investigation(row: dict[str, Any]) -> Investigation | None:
 
     statement   = str(row.get("statement") or "")
     type_prefix = f"{INV_STATEMENT_PREFIX} {inv_type.value}: "
-    question    = statement[len(type_prefix):] if statement.startswith(type_prefix) else statement
+    question    = statement.removeprefix(type_prefix)
 
     return Investigation(
         investigation_id=inv_id,
@@ -388,10 +391,10 @@ def get_investigations_summary() -> dict[str, Any]:
 
 
 __all__ = [
-    "open_investigation",
-    "update_investigation_status",
     "close_investigation",
-    "get_open_investigations",
     "get_investigation",
     "get_investigations_summary",
+    "get_open_investigations",
+    "open_investigation",
+    "update_investigation_status",
 ]

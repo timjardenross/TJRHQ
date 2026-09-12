@@ -50,8 +50,8 @@ _BOT_DIR = Path(__file__).resolve().parent
 if str(_BOT_DIR) not in sys.path:
     sys.path.insert(0, str(_BOT_DIR))
 
-from lib.human_systems import push, delivery, memory, decision, mission_load, framework  # noqa: E402
-from commands.human_systems import _fetch_rows, _today_row, _delivery_context  # noqa: E402
+from commands.human_systems import _fetch_rows, _today_row
+from lib.human_systems import delivery, memory, push
 
 JOBS = ("morning", "midday", "eod", "evening", "weekly", "degradation", "comms_weekly")
 
@@ -101,7 +101,8 @@ def _build_message(job: str):
     if job == "comms_weekly":
         # COMMS-001 WP6: the Weekly Thought Leadership Brief. Reuses the live
         # opportunity engine; stays quiet (None) when nothing is publishable.
-        from lib.comms import opportunities as _opp, weekly as _weekly
+        from lib.comms import opportunities as _opp
+        from lib.comms import weekly as _weekly
         opps = _opp.gather_opportunities()
         if not any(getattr(o, "is_publishable", True) for o in opps):
             return None

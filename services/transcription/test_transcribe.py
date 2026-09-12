@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from transcribe import transcribe_file, SUPPORTED_EXTENSIONS
+from transcribe import SUPPORTED_EXTENSIONS, transcribe_file
 
 
 def run(label: str, result: dict, expect_ok: bool):

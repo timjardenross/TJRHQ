@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from .notebook_assessment import assess_strategic_alignment, compute_content_potential
@@ -281,8 +280,8 @@ def get_review_queue(supabase_client: Any) -> list[dict[str, Any]]:
 
 
 __all__ = [
-    "triage_note",
+    "TriageResult",
     "batch_triage",
     "get_review_queue",
-    "TriageResult",
+    "triage_note",
 ]

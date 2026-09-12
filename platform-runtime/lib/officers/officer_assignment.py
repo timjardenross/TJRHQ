@@ -213,12 +213,12 @@ def get_assignment(mission_id: str) -> AssignmentDecision | None:
 
 
 __all__ = [
-    "AssignmentDecision",
+    "ALL_OFFICERS",
     "ASSIGNMENT_AUTHORITY",
     "OFFICER_DOMAINS",
-    "ALL_OFFICERS",
-    "can_assign",
-    "get_available_assignees",
+    "AssignmentDecision",
     "assign_mission",
+    "can_assign",
     "get_assignment",
+    "get_available_assignees",
 ]

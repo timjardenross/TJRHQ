@@ -24,10 +24,9 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from heartbeat import supabase_get  # noqa: E402
+from heartbeat import supabase_get
 
 from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
 
@@ -72,7 +71,7 @@ _SYSTEM_PROMPT = (
 _NOMINAL_NARRATIVE = "All platform domains reporting normally — no degraded signals."
 
 
-def _latest_verification_state() -> Optional[dict]:
+def _latest_verification_state() -> dict | None:
     try:
         rows = supabase_get("verification_state?order=computed_at.desc&limit=1&select=*")
         return rows[0] if rows else None
@@ -116,7 +115,7 @@ def _degraded_domain_detail(degraded_domains: list[dict]) -> list[dict]:
         return []
 
 
-def _generate(prompt: str) -> Optional[str]:
+def _generate(prompt: str) -> str | None:
     """Try the shared provider chain in order. Never raises — returns None on
     total failure, matching every other narrative generator's fail-open contract."""
     providers = [
@@ -136,7 +135,7 @@ def _generate(prompt: str) -> Optional[str]:
     return None
 
 
-def generate_infra_narrative() -> Optional[dict]:
+def generate_infra_narrative() -> dict | None:
     """
     Main entry point. Returns a dict:
       {"state": "sure"|"unsure", "narrative": str, "degraded_count": int}

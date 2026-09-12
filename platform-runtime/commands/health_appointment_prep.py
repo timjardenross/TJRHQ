@@ -38,7 +38,6 @@ import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
@@ -67,7 +66,7 @@ def _get_upcoming_appointments(lead_days: int) -> list[dict]:
     """Return health_events rows of type 'appointment' within lead_days."""
     try:
         sys.path.insert(0, str(_HEALTH_LIB))
-        from supabase_client import supabase_get, is_configured
+        from supabase_client import is_configured, supabase_get
         if not is_configured():
             log.warning("[appt-prep] Supabase not configured — skipping appointment check")
             return []
@@ -86,11 +85,11 @@ def _get_upcoming_appointments(lead_days: int) -> list[dict]:
         return []
 
 
-def _get_next_appointment() -> Optional[dict]:
+def _get_next_appointment() -> dict | None:
     """Return the next upcoming appointment regardless of lead time."""
     try:
         sys.path.insert(0, str(_HEALTH_LIB))
-        from supabase_client import supabase_get, is_configured
+        from supabase_client import is_configured, supabase_get
         if not is_configured():
             return None
         today = date.today().isoformat()
@@ -110,7 +109,7 @@ def _get_next_appointment() -> Optional[dict]:
 def _get_health_summary_period(days: int = 7) -> dict:
     """Return aggregated health metrics for the last N days."""
     try:
-        from supabase_client import supabase_get, is_configured
+        from supabase_client import is_configured, supabase_get
         if not is_configured():
             return {}
         cutoff = (date.today() - timedelta(days=days)).isoformat()
@@ -146,7 +145,7 @@ def _get_health_summary_period(days: int = 7) -> dict:
 def _get_recent_health_events(since_days: int = 30) -> list[dict]:
     """Return health_events from the last N days (excluding upcoming appointments)."""
     try:
-        from supabase_client import supabase_get, is_configured
+        from supabase_client import is_configured, supabase_get
         if not is_configured():
             return []
         cutoff = (date.today() - timedelta(days=since_days)).isoformat()
@@ -168,14 +167,14 @@ def _get_recent_health_events(since_days: int = 30) -> list[dict]:
 def _get_pending_followups() -> list[dict]:
     """Return health_events with follow_up_required=true and follow_up_date not yet passed."""
     try:
-        from supabase_client import supabase_get, is_configured
+        from supabase_client import is_configured, supabase_get
         if not is_configured():
             return []
         rows = supabase_get(
-            f"health_events"
-            f"?follow_up_required=eq.true"
-            f"&order=follow_up_date.asc"
-            f"&limit=10"
+            "health_events"
+            "?follow_up_required=eq.true"
+            "&order=follow_up_date.asc"
+            "&limit=10"
         )
         return rows or []
     except Exception as exc:
@@ -196,7 +195,7 @@ def _generate_prep_brief(appointment: dict, health_summary: dict, recent_events:
     provider   = appointment.get("provider", "")
     outcome    = appointment.get("description", "")
 
-    lines.append(f":stethoscope: *Appointment Preparation Brief*")
+    lines.append(":stethoscope: *Appointment Preparation Brief*")
     lines.append(f"*{appt_title}*" + (f" — {provider}" if provider else ""))
     lines.append(f"Date: {appt_date}")
     if outcome:

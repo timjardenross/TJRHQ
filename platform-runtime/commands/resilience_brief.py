@@ -21,10 +21,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -223,7 +222,7 @@ def format_brief(data: dict) -> list[dict]:
 
     blocks.append(_context(
         "OR Intelligence Agent · Starship Endeavour NCC-170230",
-        f"View full brief: <http://localhost:8080/or-intelligence.html|OR Intelligence Cockpit>",
+        "View full brief: <http://localhost:8080/or-intelligence.html|OR Intelligence Cockpit>",
     ))
 
     return blocks
@@ -316,4 +315,4 @@ def handle_resilience_brief(text: str, respond) -> None:
         )
     except Exception as exc:
         log.error("[resilience-brief] Unexpected error: %s", exc, exc_info=True)
-        respond(text=f":warning: OR Intelligence Brief — unexpected error. Check runtime logs.")
+        respond(text=":warning: OR Intelligence Brief — unexpected error. Check runtime logs.")

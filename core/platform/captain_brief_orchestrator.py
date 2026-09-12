@@ -22,10 +22,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from core.platform.attention_engine import AttentionCategory, evaluate_batch
-from core.platform.priority_engine import PriorityInputs, PriorityScore, rank_events
 from core.platform.captain_brief_contract import (
     CaptainBrief,
     CaptainBriefItem,
@@ -33,6 +32,7 @@ from core.platform.captain_brief_contract import (
     assemble_captain_brief,
     recommendations_from_events,
 )
+from core.platform.priority_engine import PriorityInputs, PriorityScore, rank_events
 
 CAPTAIN_BRIEF_DOCUMENT_VERSION = "1.0"
 
@@ -89,7 +89,7 @@ class CaptainBriefDocument:
     warnings: list[CaptainBriefItem]
     next_actions: list[str]
     metadata: dict[str, Any]
-    confidence: Optional[float]
+    confidence: float | None
     # MSN-0329 Phase 2 Step 5 (Captain Brief Evolution): populated only by
     # captain_brief_evolution.py's assemble_evolved_captain_brief(), never
     # by this module's own assemble_captain_brief_document() — this
@@ -108,7 +108,7 @@ class CaptainBriefDocument:
     interrupt_now: list[CaptainBriefItem] = field(default_factory=list)
 
 
-def _section_for_domain(domain: str) -> Optional[str]:
+def _section_for_domain(domain: str) -> str | None:
     return _DOMAIN_SECTION_MAP.get(domain)
 
 
@@ -135,7 +135,7 @@ def _value_dimensions_from_event(event: dict[str, Any]) -> dict[str, int]:
     return {dimension: int(importance)}
 
 
-def _opportunity_value_from_event(event: dict[str, Any]) -> Optional[int]:
+def _opportunity_value_from_event(event: dict[str, Any]) -> int | None:
     """First-pass opportunity-value derivation for
     `PriorityInputs.opportunity_value` (Priority Engine wiring fix). Same
     honesty caveat as `_value_dimensions_from_event` above: this is not
@@ -206,7 +206,7 @@ def _next_actions(recommendations: list[Recommendation], warnings: list[CaptainB
 def assemble_captain_brief_document(
     events: list[dict[str, Any]],
     *,
-    priority_weights: Optional[Any] = None,
+    priority_weights: Any | None = None,
     top_n_priorities: int = 10,
 ) -> CaptainBriefDocument:
     """The single assembly entry point (Workstream B/C combined) — pull
@@ -340,7 +340,7 @@ def assemble_captain_brief_document(
 
 
 __all__ = [
-    "CaptainBriefDocument",
     "CAPTAIN_BRIEF_DOCUMENT_VERSION",
+    "CaptainBriefDocument",
     "assemble_captain_brief_document",
 ]

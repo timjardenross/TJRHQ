@@ -36,9 +36,10 @@ def record_comms_approval_event(
     already succeeded before this is called.
     """
     try:
-        from tools.supabase.client import CommanderSupabaseClient
         from lib.feedback_loops_service import FeedbackLoops
         from lib.quality_scoring_service import QualityScoring
+
+        from tools.supabase.client import CommanderSupabaseClient
     except ImportError as exc:
         log.warning("[comms-learning-loop] Unavailable (missing dependency: %s) — skipped", exc)
         return

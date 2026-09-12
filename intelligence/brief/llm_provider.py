@@ -23,24 +23,37 @@ If all LLM providers fail:
 import json
 import logging
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
 
-from intelligence.config import (
-    GEMINI_API_KEY, MISTRAL_API_KEY,
-    MISTRAL_RESEARCH_AGENT_ID, MISTRAL_RESEARCH_AGENT_VERSION,
-    MISTRAL_TAO_AGENT_ID, MISTRAL_TAO_AGENT_VERSION,
-    MISTRAL_BRIEFING_AGENT_ID, MISTRAL_BRIEFING_AGENT_VERSION,
-    MISTRAL_DECOMPOSITION_AGENT_ID, MISTRAL_DECOMPOSITION_AGENT_VERSION,
-    MISTRAL_ENGINEERING_AGENT_ID, MISTRAL_ENGINEERING_AGENT_VERSION,
-    MISTRAL_CHALLENGE_AGENT_ID, MISTRAL_CHALLENGE_AGENT_VERSION,
-    MISTRAL_SUMMARY_AGENT_ID, MISTRAL_SUMMARY_AGENT_VERSION,
-    MISTRAL_QA_AGENT_ID, MISTRAL_QA_AGENT_VERSION,
-    MODEL_ROUTER_URL, OLLAMA_BASE_URL, OLLAMA_MODEL,
+from core.llm.provider_chain import (
+    LLMCallResult,
+    call_gemini,
+    call_mistral,
+    call_ollama,
 )
-from core.llm.provider_chain import call_gemini, call_mistral, call_ollama, LLMCallResult
+from intelligence.config import (
+    GEMINI_API_KEY,
+    MISTRAL_API_KEY,
+    MISTRAL_BRIEFING_AGENT_ID,
+    MISTRAL_BRIEFING_AGENT_VERSION,
+    MISTRAL_CHALLENGE_AGENT_ID,
+    MISTRAL_CHALLENGE_AGENT_VERSION,
+    MISTRAL_DECOMPOSITION_AGENT_ID,
+    MISTRAL_DECOMPOSITION_AGENT_VERSION,
+    MISTRAL_ENGINEERING_AGENT_ID,
+    MISTRAL_ENGINEERING_AGENT_VERSION,
+    MISTRAL_QA_AGENT_ID,
+    MISTRAL_QA_AGENT_VERSION,
+    MISTRAL_RESEARCH_AGENT_ID,
+    MISTRAL_RESEARCH_AGENT_VERSION,
+    MISTRAL_TAO_AGENT_ID,
+    MISTRAL_TAO_AGENT_VERSION,
+    MODEL_ROUTER_URL,
+    OLLAMA_BASE_URL,
+    OLLAMA_MODEL,
+)
 
 log = logging.getLogger(__name__)
 
@@ -75,9 +88,9 @@ class LLMProvider:
         # it immediately after calling generate() without generate() itself
         # having to change its public (text, provider_name) return shape —
         # that shape has ~10 existing callers that only want the text.
-        self.last_usage: Optional[LLMCallResult] = None
+        self.last_usage: LLMCallResult | None = None
 
-    def check_brief_quality(self, brief_text: str) -> Optional[str]:
+    def check_brief_quality(self, brief_text: str) -> str | None:
         """
         2026-08-22: post-generation sanity check via the QA Validation
         Officer agent — a real LLM pass, not the pure-Python heuristics
@@ -108,7 +121,7 @@ class LLMProvider:
             log.warning("[qa-validation] check failed: %s", exc)
             return None
 
-    def check_risk_rating(self, brief_text: str, overall_risk: str) -> Optional[str]:
+    def check_risk_rating(self, brief_text: str, overall_risk: str) -> str | None:
         """
         2026-08-22: Risk & Challenge Officer, moved here from the narrative
         pipeline itself (see the comment in _mistral_pipeline for why —
@@ -139,7 +152,7 @@ class LLMProvider:
             log.warning("[risk-challenge] check failed: %s", exc)
             return None
 
-    def generate(self, prompt: str, use_mistral_pipeline: bool = True) -> tuple[Optional[str], Optional[str]]:
+    def generate(self, prompt: str, use_mistral_pipeline: bool = True) -> tuple[str | None, str | None]:
         """
         Returns (text, provider_name) or (None, None) if all fail.
         Also sets self.last_usage (token counts + resolved model, where the
@@ -181,7 +194,7 @@ class LLMProvider:
 
     # ─── Model Router (tier-0 — local, preferred) ────────────────────────────
 
-    def _model_router(self, prompt: str) -> Optional[str]:
+    def _model_router(self, prompt: str) -> str | None:
         """
         Call Model Router :8891/api/model/intelligence-brief.
         Logs WARNING when falling through so the Captain can see local vs cloud usage.
@@ -213,7 +226,7 @@ class LLMProvider:
 
     # ─── 4-Stage Mistral Pipeline ─────────────────────────────────────────────
 
-    def _mistral_pipeline(self, prompt: str) -> Optional[str]:
+    def _mistral_pipeline(self, prompt: str) -> str | None:
         """
         Chains up to 7 Mistral agents (2026-08-22: expanded from 4 — CSD Unit,
         Engineering Officer, and Risk & Challenge Officer were provisioned in
@@ -289,7 +302,7 @@ class LLMProvider:
         # content (daily_digest.py labels its section "Engineering:") — no
         # point spending a call framing an empty section.
         run_engineering = bool(MISTRAL_ENGINEERING_AGENT_ID) and "Engineering:" in prompt
-        eng_take: Optional[str] = None
+        eng_take: str | None = None
 
         if run_engineering:
             stage1b_prompt = (
@@ -443,8 +456,8 @@ class LLMProvider:
         agent_id: str,
         agent_version: int,
         prompt: str,
-        client: "Optional[Mistral]" = None,
-    ) -> Optional[str]:
+        client: "Mistral | None" = None,
+    ) -> str | None:
         """
         Call a Mistral agent via the conversations API.
         If the agent triggers web_search tool calls and returns no final message
@@ -496,7 +509,7 @@ class LLMProvider:
                 return None
         return None
 
-    def _call_mistral_direct(self, stage: str, prompt: str) -> Optional[str]:
+    def _call_mistral_direct(self, stage: str, prompt: str) -> str | None:
         """Direct mistral-small-latest chat completions — used when conversations API stalls on tool calls.
         2026-08-22: this path has no search/tool access at all, but the
         agent it's replacing (e.g. Research Scout) may be built around an
@@ -567,7 +580,7 @@ class LLMProvider:
 
     # ─── Gemini 2.5 Flash ─────────────────────────────────────────────────────
 
-    def _gemini(self, prompt: str) -> Optional[str]:
+    def _gemini(self, prompt: str) -> str | None:
         result = call_gemini(
             _SYSTEM_PROMPT, prompt,
             api_key=GEMINI_API_KEY, max_output_tokens=2048, temperature=0.3, timeout=30,
@@ -577,7 +590,7 @@ class LLMProvider:
 
     # ─── Mistral Small ────────────────────────────────────────────────────────
 
-    def _mistral(self, prompt: str) -> Optional[str]:
+    def _mistral(self, prompt: str) -> str | None:
         result = call_mistral(
             _SYSTEM_PROMPT, prompt,
             api_key=MISTRAL_API_KEY, max_tokens=2048, temperature=0.3, timeout=30,
@@ -587,7 +600,7 @@ class LLMProvider:
 
     # ─── Ollama ───────────────────────────────────────────────────────────────
 
-    def _ollama(self, prompt: str) -> Optional[str]:
+    def _ollama(self, prompt: str) -> str | None:
         result = call_ollama(
             _SYSTEM_PROMPT, prompt,
             base_url=OLLAMA_BASE_URL, model=OLLAMA_MODEL,

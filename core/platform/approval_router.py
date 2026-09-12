@@ -21,7 +21,6 @@ ms|dismiss|{mission_id} button presses.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from core.platform.attention_engine import (
     AttentionCategory,
@@ -68,7 +67,7 @@ def send_approval_notification(
     mission_name: str,
     old_status: str,
     new_status: str,
-    event_id: Optional[str] = None,
+    event_id: str | None = None,
 ) -> bool:
     """Send a Telegram message with Acknowledge/Dismiss inline buttons for a
     mission status change.
@@ -137,9 +136,9 @@ def evaluate_and_route_mission_status_change(
     mission_name: str,
     old_status: str,
     new_status: str,
-    event_id: Optional[str] = None,
-    importance: Optional[int] = None,
-    confidence: Optional[int] = None,
+    event_id: str | None = None,
+    importance: int | None = None,
+    confidence: int | None = None,
 ) -> str:
     """Convenience entry point called from mission_lifecycle.py after a
     mission.status_changed event is emitted.
@@ -187,7 +186,7 @@ def evaluate_and_route_mission_status_change(
 
 
 __all__ = [
+    "evaluate_and_route_mission_status_change",
     "route_for_approval",
     "send_approval_notification",
-    "evaluate_and_route_mission_status_change",
 ]

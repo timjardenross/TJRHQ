@@ -258,10 +258,10 @@ class TestReadinessHistory(unittest.TestCase):
 
     def setUp(self):
         from readiness_history import (
-            persist_readiness_snapshot,
-            load_readiness_history,
             compute_readiness_trends,
             generate_readiness_trend_report,
+            load_readiness_history,
+            persist_readiness_snapshot,
         )
         self.persist = persist_readiness_snapshot
         self.load = load_readiness_history
@@ -280,8 +280,8 @@ class TestReadinessHistory(unittest.TestCase):
         }
 
     def test_persist_creates_file(self):
-        import tempfile, os
-        from readiness_history import _READINESS_LOG_DIR
+        import tempfile
+
         # Patch _READINESS_LOG_DIR temporarily
         with tempfile.TemporaryDirectory() as tmpdir:
             import readiness_history
@@ -300,6 +300,7 @@ class TestReadinessHistory(unittest.TestCase):
 
     def test_load_returns_sorted_list(self):
         import tempfile
+
         import readiness_history
         orig = readiness_history._READINESS_LOG_DIR
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -521,7 +522,11 @@ class TestIntelligenceReporter(unittest.TestCase):
 
     def test_import_succeeds(self):
         try:
-            from intelligence_reporter import run_all_reports, run_single_report, _REPORTS
+            from intelligence_reporter import (
+                _REPORTS,
+                run_all_reports,
+                run_single_report,
+            )
             self.assertEqual(len(_REPORTS), 6)
         except ImportError as e:
             self.fail(f"intelligence_reporter import failed: {e}")
@@ -539,8 +544,8 @@ class TestIntelligenceReporter(unittest.TestCase):
         self.assertEqual(set(_REPORTS.keys()), expected)
 
     def test_dry_run_does_not_write_files(self):
+
         from intelligence_reporter import run_all_reports
-        import tempfile, os
 
         outputs_dir = _REPO_ROOT / "outputs"
         before = set(outputs_dir.glob("*.json")) if outputs_dir.exists() else set()

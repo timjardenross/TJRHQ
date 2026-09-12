@@ -31,7 +31,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -43,10 +43,6 @@ for p in (str(_BOT), str(_REPO_ROOT)):
 
 from lib.improvement.framework import ImprovementBand, ImprovementOpportunity
 from lib.improvement.scoring import score_and_rank
-
-if TYPE_CHECKING:
-    from lib.improvement.budget import ImprovementBudget
-
 
 # ── Schedule ──────────────────────────────────────────────────────────────────
 
@@ -98,7 +94,9 @@ class DiscoveryResult:
 def _run_daily_reviews(ctx: Any) -> tuple[list[str], list[ImprovementOpportunity]]:
     """Run daily officer reviews. Returns (officers_run, opportunities)."""
     from lib.improvement.officer_reviews import (
-        review_human_systems, review_ori, review_number_one,
+        review_human_systems,
+        review_number_one,
+        review_ori,
     )
 
     daily_fns = [
@@ -125,8 +123,10 @@ def _run_daily_reviews(ctx: Any) -> tuple[list[str], list[ImprovementOpportunity
 def _run_weekly_reviews(ctx: Any) -> tuple[list[str], list[ImprovementOpportunity]]:
     """Run weekly officer reviews. Returns (officers_run, opportunities)."""
     from lib.improvement.officer_reviews import (
-        review_engineering, review_strategic_planning,
-        review_communications, review_knowledge,
+        review_communications,
+        review_engineering,
+        review_knowledge,
+        review_strategic_planning,
     )
 
     weekly_fns = [
@@ -166,11 +166,11 @@ def _create_missions_within_budget(
     Creates scorecard at mission creation (WP9).
     """
     try:
-        from lib.improvement.framework import d057_check
-        from lib.improvement.budget import ImprovementBudgetEngine
-        from lib.improvement.scorecard import create_scorecard
-        from lib.improvement.backlog import add_to_backlog, mark_backlog_item_processed
         from command_memory_integration import create_mission_from_officer
+        from lib.improvement.backlog import add_to_backlog, mark_backlog_item_processed
+        from lib.improvement.budget import ImprovementBudgetEngine
+        from lib.improvement.framework import d057_check
+        from lib.improvement.scorecard import create_scorecard
     except ImportError as exc:
         log.warning("[improvement.discovery] Cannot import mission tools: %s", exc)
         return
@@ -275,9 +275,9 @@ def _drain_from_backlog(budget: Any, result: DiscoveryResult) -> None:
     and the backlog has items, promotes top-scored backlog items to missions.
     """
     try:
+        from command_memory_integration import create_mission_from_officer
         from lib.improvement.backlog import drain_backlog, mark_backlog_item_processed
         from lib.improvement.scorecard import create_scorecard
-        from command_memory_integration import create_mission_from_officer
 
         remaining_slots = max(0, budget.budget_remaining - len(result.missions_created))
         if remaining_slots <= 0:
@@ -507,6 +507,6 @@ def format_discovery_summary(result: DiscoveryResult) -> str:
 __all__ = [
     "REVIEW_SCHEDULE",
     "DiscoveryResult",
-    "run_discovery",
     "format_discovery_summary",
+    "run_discovery",
 ]

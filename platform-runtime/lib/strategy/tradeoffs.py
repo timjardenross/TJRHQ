@@ -35,7 +35,7 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.strategy.initiatives import list_initiatives, get_initiative
+from lib.strategy.initiatives import get_initiative, list_initiatives
 
 
 @dataclass

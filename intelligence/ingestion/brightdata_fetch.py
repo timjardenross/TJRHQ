@@ -75,7 +75,6 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from typing import Optional
 
 from intelligence.config import (
     BRIGHTDATA_API_KEY,
@@ -94,7 +93,7 @@ class BrightDataNotConfigured(RuntimeError):
     """Raised when BRIGHTDATA_API_KEY is unset — fails loud, never silently skips."""
 
 
-def fetch_html(url: str, timeout: Optional[int] = None) -> str:
+def fetch_html(url: str, timeout: int | None = None) -> str:
     """
     Fetch `url` through Bright Data's Web Unlocker API and return the
     target site's rendered HTML (format="raw" — a genuine unblocked fetch,

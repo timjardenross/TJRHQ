@@ -15,18 +15,14 @@ from pathlib import Path
 
 from collaboration_logger import LOG_DIR
 from collaborative_specialist_runtime import run
+from decision_context_builder import (
+    build_decision_context,
+)
 from decision_mode_classifier import (
     DecisionMode,
     classify_decision_mode,
 )
-from decision_context_builder import (
-    build_decision_context,
-    _extract_options,
-    _infer_bottleneck,
-    _infer_opportunity_cost,
-)
 from specialist_executor import SpecialistOutput
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -205,8 +201,8 @@ def test_build_context_specialist_positions_populated() -> None:
 
 
 def test_build_context_reviewer_position_when_challenge() -> None:
-    from decision_mode_classifier import classify_decision_mode
     from challenge_review import ChallengeReview
+    from decision_mode_classifier import classify_decision_mode
     q = "Should USS TJR prioritise Slack over Voice Core?"
     cls = classify_decision_mode(q)
     outputs = [_make_output("Chief Engineer")]
@@ -233,7 +229,8 @@ def test_build_context_reviewer_position_when_challenge() -> None:
 def test_strategic_output_begins_with_recommended_action() -> None:
     """Strategic decision output must contain Recommended Action section."""
     os.environ["COMMANDER_SYNTHESIS_PROVIDER"] = "deterministic"
-    import io, contextlib
+    import contextlib
+    import io
     captured = io.StringIO()
     with contextlib.redirect_stdout(captured):
         run(
@@ -253,7 +250,8 @@ def test_strategic_output_begins_with_recommended_action() -> None:
 
 def test_strategic_output_has_trade_offs() -> None:
     os.environ["COMMANDER_SYNTHESIS_PROVIDER"] = "deterministic"
-    import io, contextlib
+    import contextlib
+    import io
     captured = io.StringIO()
     with contextlib.redirect_stdout(captured):
         run(
@@ -269,7 +267,8 @@ def test_strategic_output_has_trade_offs() -> None:
 def test_operational_output_format() -> None:
     """Operational question should NOT produce the strategic Recommended Action format."""
     os.environ["COMMANDER_SYNTHESIS_PROVIDER"] = "deterministic"
-    import io, contextlib
+    import contextlib
+    import io
     captured = io.StringIO()
     with contextlib.redirect_stdout(captured):
         run(

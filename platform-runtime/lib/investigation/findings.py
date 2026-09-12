@@ -28,9 +28,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -41,10 +39,12 @@ for p in (str(_BOT), str(_REPO_ROOT)):
         sys.path.insert(0, p)
 
 from lib.investigation.framework import (
-    EvidencePackage, Finding, FindingsReport, Recommendation,
     FINDING_OWNER_PREFIX,
+    EvidencePackage,
+    Finding,
+    FindingsReport,
+    Recommendation,
 )
-
 
 # ── Pattern signal tables ─────────────────────────────────────────────────────
 
@@ -356,7 +356,7 @@ def format_findings_report(report: FindingsReport) -> str:
 
 
 __all__ = [
+    "format_findings_report",
     "generate_findings",
     "get_findings",
-    "format_findings_report",
 ]

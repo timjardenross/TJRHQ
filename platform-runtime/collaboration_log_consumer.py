@@ -23,8 +23,6 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
-
 
 _BOT_DIR = Path(__file__).resolve().parent
 _LOG_FILE = _BOT_DIR / "logs" / "collaboration.jsonl"

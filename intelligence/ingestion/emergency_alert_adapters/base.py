@@ -6,9 +6,8 @@ import hashlib
 import json
 import urllib.error
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 _USER_AGENT = "USS-TJR-EmergencyAlertHub/1.0 (Starship Endeavour platform)"
 
@@ -29,16 +28,16 @@ class CanonicalAlert:
     event_key: str
     alert_type: str = "other"
     severity: str = "unknown"
-    description: Optional[str] = None
-    location: Optional[str] = None
-    issued_at: Optional[str] = None
-    updated_at_src: Optional[str] = None
-    expiry: Optional[str] = None
-    canonical_url: Optional[str] = None
-    raw_text: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    closed: Optional[bool] = None
+    description: str | None = None
+    location: str | None = None
+    issued_at: str | None = None
+    updated_at_src: str | None = None
+    expiry: str | None = None
+    canonical_url: str | None = None
+    raw_text: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    closed: bool | None = None
     """True when the source itself says this incident is closed/complete
     (e.g. SA CFS's embedded Status: COMPLETE — confirmed live 2026-08-26
     that SA keeps closed incidents in the feed rather than dropping them,
@@ -71,7 +70,7 @@ def http_get_json(url: str, timeout: int = 20) -> dict:
     return json.loads(http_get(url, timeout=timeout))
 
 
-def parse_rfc822_datetime(value: Optional[str]) -> Optional[str]:
+def parse_rfc822_datetime(value: str | None) -> str | None:
     """RSS pubDate is RFC 822/2822 ("Wed, 26 Aug 2026 17:23:55 +0800") —
     not reliably parsed by a bare Postgres timestamptz cast, so convert to
     ISO 8601 here rather than pass the raw string through."""
@@ -84,7 +83,7 @@ def parse_rfc822_datetime(value: Optional[str]) -> Optional[str]:
         return None
 
 
-def parse_dmy_datetime(value: Optional[str]) -> Optional[str]:
+def parse_dmy_datetime(value: str | None) -> str | None:
     """Several sources (NSW RFS) emit "DD/MM/YYYY H:MM:SS AM/PM" —
     ambiguous to Postgres's timestamptz parser (could read as MM/DD).
     Converts to ISO 8601; returns None (never invents a time) if the

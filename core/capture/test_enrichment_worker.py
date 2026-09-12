@@ -5,19 +5,17 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import enrichment_worker as ew
 
-
 # ── _call_llm response parsing ────────────────────────────────────────────────
 
 def _mock_ollama(content: str):
     """Patch urllib.request.urlopen to return a mock Ollama response."""
-    import io
     resp_body = json.dumps({"message": {"content": content}}).encode()
 
     class _FakeResp:

@@ -12,7 +12,6 @@ import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +44,7 @@ class HierarchyMemoryAdapter:
     """
 
     def __init__(self) -> None:
-        self._available: Optional[bool] = None
+        self._available: bool | None = None
 
     def _check_available(self) -> bool:
         if self._available is None:
@@ -72,7 +71,10 @@ class HierarchyMemoryAdapter:
             return HierarchyContext()
 
         try:
-            from core.knowledge_navigation.context_bridge import build_hierarchy_context, _extract_ids
+            from core.knowledge_navigation.context_bridge import (
+                _extract_ids,
+                build_hierarchy_context,
+            )
             entity_ids = _extract_ids(text, limit=5)
             if not entity_ids:
                 return HierarchyContext()

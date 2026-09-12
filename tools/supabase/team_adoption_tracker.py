@@ -8,10 +8,8 @@ Purpose: Measure adoption, collect feedback, track engagement metrics
 import json
 import os
 import tempfile
-import time
-from dataclasses import dataclass, asdict
-from typing import List, Dict, Optional
-from datetime import datetime, timedelta
+from dataclasses import asdict, dataclass
+from datetime import datetime
 
 
 @dataclass
@@ -40,12 +38,12 @@ class PackEngagement:
     """Pack engagement metrics."""
     pack_id: str
     recipient_name: str
-    opened_at: Optional[str]
+    opened_at: str | None
     read: bool
-    read_duration_minutes: Optional[float]
+    read_duration_minutes: float | None
     shared: bool
     action_taken: bool
-    action_description: Optional[str]
+    action_description: str | None
 
 
 @dataclass
@@ -85,10 +83,10 @@ class TeamAdoptionTracker:
 
     def __init__(self):
         """Initialize tracker."""
-        self.team_members: List[TeamMember] = []
-        self.deliveries: List[KnowledgePackDelivery] = []
-        self.engagements: List[PackEngagement] = []
-        self.feedback: List[TeamMemberFeedback] = []
+        self.team_members: list[TeamMember] = []
+        self.deliveries: list[KnowledgePackDelivery] = []
+        self.engagements: list[PackEngagement] = []
+        self.feedback: list[TeamMemberFeedback] = []
 
     def add_team_member(
         self,
@@ -149,10 +147,10 @@ class TeamAdoptionTracker:
         recipient_name: str,
         opened: bool,
         read: bool,
-        read_duration_minutes: Optional[float] = None,
+        read_duration_minutes: float | None = None,
         shared: bool = False,
         action_taken: bool = False,
-        action_description: Optional[str] = None
+        action_description: str | None = None
     ) -> None:
         """Record pack engagement.
 

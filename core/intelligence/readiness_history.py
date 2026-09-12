@@ -30,7 +30,7 @@ _READINESS_LOG_DIR = _REPO_ROOT / "logs" / "readiness"
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
 
 try:
-    from supabase_client import supabase_upsert, supabase_get, is_configured
+    from supabase_client import is_configured, supabase_get, supabase_upsert
     _SUPABASE_OK = True
 except ImportError:
     _SUPABASE_OK = False

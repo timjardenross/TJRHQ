@@ -22,7 +22,6 @@ import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +31,7 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.program.wbs import build_all_wbs, InitiativeWBS
+from lib.program.wbs import InitiativeWBS, build_all_wbs
 
 # Thresholds
 _MAX_INITIATIVES_PER_OWNER = 3      # an owner across >3 active initiatives is over-allocated

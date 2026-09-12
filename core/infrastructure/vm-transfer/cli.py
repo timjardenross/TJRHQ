@@ -24,10 +24,11 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from config import load_config  # noqa: E402
-from transfer_db import TransferDB  # noqa: E402
-from remote import RemoteTransport  # noqa: E402
-from engine import TransferEngine  # noqa: E402
+from engine import TransferEngine
+from remote import RemoteTransport
+from transfer_db import TransferDB
+
+from config import load_config
 
 DEFAULT_CONFIG = _HERE / "config.yaml"
 

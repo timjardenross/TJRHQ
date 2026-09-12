@@ -24,7 +24,6 @@ from statistics import mean
 from . import framework, safety
 from .mission_load import MissionLoad
 
-
 # ── Capacity → sustainable active-mission mapping (reuses ROS-001) ─────────────
 # How many missions to actively PROGRESS today (not total backlog).
 _SUSTAINABLE_ACTIVE = {"good": 2, "moderate": 1, "limited": 0, "depleted": 0}
@@ -313,7 +312,7 @@ def highest_leverage(
     learned: dict[str, float] | None = None,
     ori_risk: str | None = None,
     ori_headline: str | None = None,
-    strategic: "StrategicSignal | None" = None,
+    strategic: StrategicSignal | None = None,
 ) -> Recommendation:
     """Produce ONE primary action (+ optional secondary), scored by leverage×confidence.
 
@@ -498,7 +497,7 @@ def recommendation_package(
     learned: dict[str, float] | None = None,
     ori_risk: str | None = None,
     ori_headline: str | None = None,
-    strategic: "StrategicSignal | None" = None,
+    strategic: StrategicSignal | None = None,
 ) -> RecommendationPackage:
     """Executive decision support: one action plus impact, opportunity cost,
     deferral, and strategic alignment (D-055). Reuses highest_leverage().

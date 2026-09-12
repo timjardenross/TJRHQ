@@ -29,8 +29,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
 
-from auto_remediation import (  # noqa: E402
-    AutoRemediationExecutor, DeleteFileStrategy, DocumentStrategy, ObservabilityStrategy, HandoffPRStrategy,
+from auto_remediation import (
+    AutoRemediationExecutor,
+    DeleteFileStrategy,
+    HandoffPRStrategy,
+    ObservabilityStrategy,
 )
 
 

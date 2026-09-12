@@ -62,7 +62,6 @@ import os
 import threading
 from pathlib import Path
 
-import torch
 import torchaudio as ta
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
@@ -159,7 +158,7 @@ def generate(req: GenerateRequest, x_tts_secret: str | None = Header(default=Non
             wav = model.generate(req.text, audio_prompt_path=voice_ref)
         else:
             wav = model.generate(req.text)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.exception("generation failed")
         raise HTTPException(500, f"generation failed: {exc}") from exc
 

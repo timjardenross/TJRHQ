@@ -26,14 +26,11 @@ Configuration (.env):
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import subprocess
-import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -125,7 +122,7 @@ class NotificationConfig:
 
 
 # Module-level singleton
-_config: Optional[NotificationConfig] = None
+_config: NotificationConfig | None = None
 
 
 def get_config() -> NotificationConfig:
@@ -150,7 +147,7 @@ _AWAITING_XO = {"awaiting xo approval"}
 _AWAITING_NR1 = {"awaiting number one review"}
 
 
-def _parse_mission_open_date(mission_id: str, fallback_str: str = "") -> Optional[date]:
+def _parse_mission_open_date(mission_id: str, fallback_str: str = "") -> date | None:
     """Extract open date from mission ID (M-YYYYMMDD-... or M-YYYYMMDD)."""
     parts = mission_id.split("-")
     for i, p in enumerate(parts):
@@ -169,7 +166,7 @@ def _parse_mission_open_date(mission_id: str, fallback_str: str = "") -> Optiona
     return None
 
 
-def _mission_last_activity(mission_id: str) -> Optional[datetime]:
+def _mission_last_activity(mission_id: str) -> datetime | None:
     """
     Return the datetime of the last git commit touching any file named after this
     mission ID, or None if not determinable.
@@ -303,7 +300,7 @@ def get_mission_escalations() -> list[dict]:
     return escalations[:15]
 
 
-def max_severity(current: Optional[str], candidate: str) -> str:
+def max_severity(current: str | None, candidate: str) -> str:
     """Return the higher of two severity levels."""
     if current is None:
         return candidate
@@ -600,7 +597,7 @@ def check_lesson_captured(mission_id: str) -> bool:
     return False
 
 
-def mission_close_lesson_warning(mission_id: str, mission_title: str) -> Optional[str]:
+def mission_close_lesson_warning(mission_id: str, mission_title: str) -> str | None:
     """
     Return a Slack warning message if no lesson has been captured for a closed mission.
     Returns None if lesson is already captured (no action needed).

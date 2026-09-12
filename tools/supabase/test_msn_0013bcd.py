@@ -8,13 +8,22 @@ Purpose: Validate semantic search, event listeners, and knowledge pack generatio
 
 import unittest
 from datetime import datetime, timedelta
+
 from embedding_generation import EmbeddingGenerator, EmbeddingResult
-from semantic_retrieval import SemanticRetriever, RetrievalResult
-from event_listeners import Event, SlackEventListener, GitHubEventListener, EventDispatcher
-from knowledge_packs import (
-    RoleBasedPackGenerator, TemporalPackGenerator, DifferentialPackGenerator,
-    Document, KnowledgePack, PackType
+from event_listeners import (
+    Event,
+    EventDispatcher,
+    GitHubEventListener,
+    SlackEventListener,
 )
+from knowledge_packs import (
+    DifferentialPackGenerator,
+    Document,
+    PackType,
+    RoleBasedPackGenerator,
+    TemporalPackGenerator,
+)
+from semantic_retrieval import RetrievalResult, SemanticRetriever
 
 
 class TestEmbeddingGeneration(unittest.TestCase):

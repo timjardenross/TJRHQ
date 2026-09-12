@@ -27,12 +27,12 @@ import urllib.parse
 import urllib.request
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(_REPO_ROOT / ".env")
 
 logging.basicConfig(
@@ -99,10 +99,10 @@ def _patch_event(event_id: str, data: dict) -> None:
 
 def _build_classified_event(row: dict):
     """Construct a minimal ClassifiedEvent from a DB row for ori_enrichment."""
-    from intelligence.models import ClassifiedEvent
-    from datetime import timezone
 
-    def _dt(s: Optional[str]) -> Optional[datetime]:
+    from intelligence.models import ClassifiedEvent
+
+    def _dt(s: str | None) -> datetime | None:
         if not s:
             return None
         for fmt in ("%Y-%m-%dT%H:%M:%S.%f+00:00", "%Y-%m-%dT%H:%M:%S+00:00",
@@ -175,12 +175,12 @@ def enrich_row(row: dict, dry_run: bool = False) -> bool:
 
 # ── Runner ────────────────────────────────────────────────────────────────────
 
-def run(dry_run: bool = False, max_events: Optional[int] = None) -> dict:
+def run(dry_run: bool = False, max_events: int | None = None) -> dict:
     if not SUPABASE_URL or not SUPABASE_KEY:
         log.error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
         sys.exit(1)
 
-    total_found: Optional[int] = None
+    total_found: int | None = None
     processed = ok = errors = 0
 
     while True:

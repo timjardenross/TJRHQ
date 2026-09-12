@@ -2,11 +2,9 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock
-
-import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 BOT_DIR = REPO_ROOT / "slack-bot"
@@ -15,14 +13,12 @@ for p in (str(REPO_ROOT), str(BOT_DIR)):
         sys.path.insert(0, p)
 
 from lib.notebook.notebook_patterns import (
-    AbandonedIdea,
     OpportunityCluster,
     PatternReport,
     ThemeCluster,
     detect_patterns,
     format_pattern_report,
 )
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 

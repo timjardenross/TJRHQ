@@ -16,7 +16,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "coordination"))
@@ -152,8 +152,7 @@ class TestDecisionQualityStats(unittest.TestCase):
 
     def _make_jsonl(self, records: list[dict], path: Path) -> None:
         with open(path, "w") as f:
-            for r in records:
-                f.write(json.dumps(r) + "\n")
+            f.writelines(json.dumps(r) + "\n" for r in records)
 
     def test_empty_file_returns_zero(self):
         with tempfile.TemporaryDirectory() as tmp:

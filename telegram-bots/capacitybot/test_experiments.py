@@ -200,7 +200,7 @@ def test_cmd_experiment_clears_stale_state_and_shows_menu():
 def test_propose_flow_hypothesis_then_change_then_save_now():
     print("\n── propose flow — hypothesis -> change -> Save now ────────────────")
     import telegram_bots.capacitybot.app as app_module
-    from telegram_bots.capacitybot.app import handle_experiment_callback, cmd_message
+    from telegram_bots.capacitybot.app import cmd_message, handle_experiment_callback
 
     app_module._supabase = _make_db()
 
@@ -239,7 +239,7 @@ def test_propose_flow_hypothesis_then_change_then_save_now():
 def test_add_details_branch_walks_through_optional_fields():
     print("\n── propose flow — add details -> baseline -> trial preset -> measures ─")
     import telegram_bots.capacitybot.app as app_module
-    from telegram_bots.capacitybot.app import handle_experiment_callback, cmd_message
+    from telegram_bots.capacitybot.app import cmd_message, handle_experiment_callback
 
     app_module._supabase = _make_db()
     context = MagicMock()
@@ -312,7 +312,7 @@ def test_activate_no_reminder_when_days_zero():
 def test_complete_flow_result_then_confidence():
     print("\n── complete flow — result (free text) -> confidence (buttons) ────")
     import telegram_bots.capacitybot.app as app_module
-    from telegram_bots.capacitybot.app import handle_experiment_callback, cmd_message
+    from telegram_bots.capacitybot.app import cmd_message, handle_experiment_callback
 
     app_module._supabase = _make_db(experiments=[_experiment(id=3, status="completed", result="Helped a lot")])
     context = MagicMock()

@@ -31,20 +31,25 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from core.engineering.providers import mistral_batch_api as batch_api
-from core.engineering.providers import github_pr
-from core.engineering.schemas import Backend, ExecutionMode, MissionContext, RouterRequest
-from core.engineering import prompt_builder
 from core.coordination.engineering_handoff_reader import (
     DEFAULT_HANDOFFS_DIR,
     _normalise_token,
     _parse_handoff_file,
+)
+from core.engineering import prompt_builder
+from core.engineering.providers import github_pr
+from core.engineering.providers import mistral_batch_api as batch_api
+from core.engineering.schemas import (
+    Backend,
+    ExecutionMode,
+    MissionContext,
+    RouterRequest,
 )
 
 log = logging.getLogger(__name__)
@@ -79,7 +84,7 @@ def _now() -> str:
 def _read_sections(path: Path) -> dict[str, str]:
     """Return ``{section_heading_lower: text}`` for the ## sections of a handoff."""
     sections: dict[str, list[str]] = {}
-    current: Optional[str] = None
+    current: str | None = None
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
@@ -366,8 +371,8 @@ def _maybe_open_pr(custom_id: str, text: str, fields: dict[str, str]) -> dict[st
 
 # ─── public steps ───────────────────────────────────────────────────────────────
 
-def submit_pending(base: Optional[Path] = None, model: str = batch_api.DEFAULT_MODEL,
-                   limit: Optional[int] = None, dry_run: bool = False,
+def submit_pending(base: Path | None = None, model: str = batch_api.DEFAULT_MODEL,
+                   limit: int | None = None, dry_run: bool = False,
                    client=None) -> dict[str, Any]:
     """Queue all PENDING handoffs into one Mistral batch job.
 
@@ -407,7 +412,7 @@ def submit_pending(base: Optional[Path] = None, model: str = batch_api.DEFAULT_M
     return {"submitted": len(stems), "job_id": job_id, "handoffs": stems, "model": model}
 
 
-def collect(job_id: str, base: Optional[Path] = None, client=None) -> dict[str, Any]:
+def collect(job_id: str, base: Path | None = None, client=None) -> dict[str, Any]:
     """Download finished batch results → review artifacts; mark handoffs DELIVERED.
 
     Safe to call repeatedly. If the job isn't finished, returns its status and
@@ -450,8 +455,8 @@ def collect(job_id: str, base: Optional[Path] = None, client=None) -> dict[str, 
             "artifacts_dir": str(base / _ARTIFACTS_DIRNAME)}
 
 
-def run_sync(base: Optional[Path] = None, model: str = batch_api.DEFAULT_MODEL,
-             limit: Optional[int] = None, dry_run: bool = False,
+def run_sync(base: Path | None = None, model: str = batch_api.DEFAULT_MODEL,
+             limit: int | None = None, dry_run: bool = False,
              client=None) -> dict[str, Any]:
     """Synchronous fallback: process PENDING handoffs immediately via chat.complete.
 
@@ -614,7 +619,7 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
 
 # ─── CLI ────────────────────────────────────────────────────────────────────────
 
-def _main(argv: Optional[list[str]] = None) -> int:
+def _main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(description="Mistral batch coding for engineering handoffs")
     sub = parser.add_subparsers(dest="cmd", required=True)

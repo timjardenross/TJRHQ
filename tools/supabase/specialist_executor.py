@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -20,10 +20,15 @@ _TOOLS_SUPABASE = str(Path(__file__).resolve().parent)
 if sys.path and sys.path[0] != _TOOLS_SUPABASE:
     sys.path.insert(0, _TOOLS_SUPABASE)
 
-from collaboration_router import CollaborationRoute
-from specialist_aware_retrieval import confidence_from_results, permission_allowed_types, retrieve_allowed_results, snippet
-from specialist_router import RouteDecision, load_specialist_profiles
 from _local_import_supabase import import_sibling
+from collaboration_router import CollaborationRoute
+from specialist_aware_retrieval import (
+    confidence_from_results,
+    permission_allowed_types,
+    retrieve_allowed_results,
+    snippet,
+)
+from specialist_router import RouteDecision, load_specialist_profiles
 
 SupabaseClient = import_sibling("supabase_client").SupabaseClient
 

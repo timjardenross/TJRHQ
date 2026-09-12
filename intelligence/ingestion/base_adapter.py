@@ -7,7 +7,6 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
-from typing import Optional
 
 from intelligence.models import IntelligenceItem, SourceHealth, SourceRecord
 
@@ -85,7 +84,7 @@ class BaseSourceAdapter(ABC):
         """Fetch and return normalised IntelligenceItems. May raise on error."""
         ...
 
-    def _validate_content(self, items: list[IntelligenceItem]) -> tuple[bool, Optional[str]]:
+    def _validate_content(self, items: list[IntelligenceItem]) -> tuple[bool, str | None]:
         """Hook for adapters to flag content that parsed successfully but isn't
         real (generic site furniture, marketing boilerplate, JS template
         placeholders). Default: no opinion — treated as valid. Returns
@@ -95,9 +94,9 @@ class BaseSourceAdapter(ABC):
     def _make_item(
         self,
         raw_title: str,
-        raw_summary: Optional[str] = None,
-        canonical_url: Optional[str] = None,
-        published_at: Optional[datetime] = None,
+        raw_summary: str | None = None,
+        canonical_url: str | None = None,
+        published_at: datetime | None = None,
     ) -> IntelligenceItem:
         return IntelligenceItem(
             source_id=self.source.source_id,

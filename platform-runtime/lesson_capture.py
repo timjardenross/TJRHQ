@@ -17,7 +17,6 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 LESSONS_REGISTER = BASE_DIR / "knowledge" / "Lessons-Learned.md"
@@ -132,7 +131,7 @@ def build_lesson_record(
 
 def _fmt_list(items: list[str], label: str) -> str:
     if not items:
-        return f"None referenced."
+        return "None referenced."
     return ", ".join(items)
 
 
@@ -271,7 +270,7 @@ def format_lesson_captured_notice(lesson_id: str, mission_id: str) -> str:
     return "\n".join([
         "# LESSON CAPTURED",
         "",
-        f"## Lesson ID",
+        "## Lesson ID",
         "",
         lesson_id,
         "",

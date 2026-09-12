@@ -31,7 +31,7 @@ import logging
 import re
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -44,8 +44,11 @@ for p in (str(_BOT), str(_REPO_ROOT)):
         sys.path.insert(0, p)
 
 from lib.strategy.initiatives import (
-    Initiative, InitiativeHealth, OutcomeTrend, InitiativeStatus,
-    update_initiative, get_initiative,
+    Initiative,
+    InitiativeHealth,
+    OutcomeTrend,
+    get_initiative,
+    update_initiative,
 )
 
 OUTCOME_OWNER_PREFIX = "initiative_outcome:"
@@ -309,13 +312,13 @@ def refresh_initiative_health(
 
 
 __all__ = [
+    "HealthAssessment",
     "OutcomeMeasurement",
     "OutcomeProgress",
-    "HealthAssessment",
-    "record_outcome",
-    "get_outcome_history",
+    "assess_health",
     "compute_progress",
     "compute_trend",
-    "assess_health",
+    "get_outcome_history",
+    "record_outcome",
     "refresh_initiative_health",
 ]

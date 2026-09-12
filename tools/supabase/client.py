@@ -3,15 +3,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import json
 import os
 import urllib.error
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
-
 
 COMMANDER_EVENT_TABLE = "commander_events"
 COMMANDER_DECISION_TABLE = "commander_decisions"

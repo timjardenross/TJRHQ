@@ -13,18 +13,17 @@ All notify() calls are replaced with a fake that records arguments.
 
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from core.platform.attention_engine import AttentionCategory, AttentionDecision
 from core.platform.approval_router import (
     evaluate_and_route_mission_status_change,
     route_for_approval,
     send_approval_notification,
 )
+from core.platform.attention_engine import AttentionCategory, AttentionDecision
 from core.platform.notification_service import NotificationResult, Transport
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

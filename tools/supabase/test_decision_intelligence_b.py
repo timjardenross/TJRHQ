@@ -20,18 +20,19 @@ import json
 import os
 from pathlib import Path
 
-from collaboration_logger import LOG_DIR
-from collaborative_specialist_runtime import run
 from challenge_review import (
-    ChallengeReview,
     _is_low_reversibility,
-    run_challenge_review,
     adjustment_for,
+    run_challenge_review,
 )
-from decision_mode_classifier import classify_decision_mode, DecisionMode, _rules_classify
+from collaborative_specialist_runtime import run
+from decision_mode_classifier import (
+    DecisionMode,
+    _rules_classify,
+    classify_decision_mode,
+)
 from decision_register import DECISION_DIR, load_decisions, write_decision_record
 from specialist_executor import SpecialistOutput
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -92,7 +93,8 @@ _MISSION_CTX = {
 def test_challenge_mode_strategic_has_recommended_action() -> None:
     """When decision_mode=strategic, challenge mode output must contain ## Recommended Action."""
     os.environ["COMMANDER_SYNTHESIS_PROVIDER"] = "deterministic"
-    import io, contextlib
+    import contextlib
+    import io
     captured = io.StringIO()
     with contextlib.redirect_stdout(captured):
         run(
@@ -112,7 +114,8 @@ def test_challenge_mode_strategic_has_recommended_action() -> None:
 def test_challenge_mode_strategic_has_expert_challenge_section() -> None:
     """Strategic challenge output must still expose the expert challenge detail."""
     os.environ["COMMANDER_SYNTHESIS_PROVIDER"] = "deterministic"
-    import io, contextlib
+    import contextlib
+    import io
     captured = io.StringIO()
     with contextlib.redirect_stdout(captured):
         run(_STRATEGIC_Q, "USS-TJR-MSN-0009B", True, 2, 0.0, challenge_mode=True)
@@ -125,7 +128,8 @@ def test_challenge_mode_strategic_has_expert_challenge_section() -> None:
 def test_challenge_mode_operational_retains_old_format() -> None:
     """Operational challenge mode must NOT use the strategic ## Recommended Action format."""
     os.environ["COMMANDER_SYNTHESIS_PROVIDER"] = "deterministic"
-    import io, contextlib
+    import contextlib
+    import io
     captured = io.StringIO()
     with contextlib.redirect_stdout(captured):
         run(_OPERATIONAL_Q, "USS-TJR-MSN-0009B", True, 2, 0.0, challenge_mode=True)
@@ -352,7 +356,9 @@ def test_notion_sync_properties_include_decision_mode() -> None:
     notion_path = Path(__file__).resolve().parents[1] / "notion"
     if str(notion_path) not in sys.path:
         sys.path.insert(0, str(notion_path))
-    from sync_collaboration_logs import _decision_intelligence_properties, properties_for
+    from sync_collaboration_logs import (
+        _decision_intelligence_properties,
+    )
 
     record_with_mode = {
         "decision_mode": "strategic",

@@ -11,12 +11,13 @@ Test Coverage:
 - A/B testing framework
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from datetime import datetime
 import logging
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -264,7 +265,7 @@ def test_priority_4_ab_testing():
     quality_diff = outcomes_a['avg_quality'] - outcomes_b['avg_quality']
     cost_improvement = (outcomes_a['total_cost'] - outcomes_b['total_cost']) / outcomes_a['total_cost']
 
-    log.info(f"\nComparison:")
+    log.info("\nComparison:")
     log.info(f"  Quality difference: {quality_diff:+.2f} ({quality_diff / outcomes_a['avg_quality'] * 100:+.1f}%)")
     log.info(f"  Cost improvement: {cost_improvement * 100:+.1f}%")
 

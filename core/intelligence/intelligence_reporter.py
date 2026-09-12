@@ -158,7 +158,7 @@ def _persist_readiness_snapshot_if_available() -> bool:
 
 def _fetch_todays_health_entry() -> dict[str, Any] | None:
     try:
-        from supabase_client import supabase_get, is_configured
+        from supabase_client import is_configured, supabase_get
         if not is_configured():
             return None
         from datetime import date
@@ -401,7 +401,7 @@ def _sb_post_events(events: list[dict], dry_run: bool = False) -> int:
         return count
     except urllib.error.HTTPError as e:
         if e.code == 400:
-            print(f"[reporter] Full-field insert failed (400) — retrying with core fields only")
+            print("[reporter] Full-field insert failed (400) — retrying with core fields only")
             core_payload = [{k: v for k, v in e_.items() if k in _CORE_FIELDS} for e_ in new_events]
             try:
                 count = _do_insert(core_payload)

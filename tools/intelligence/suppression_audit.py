@@ -94,7 +94,7 @@ import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
@@ -156,7 +156,7 @@ def _client():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
-def _judge(event: dict[str, Any]) -> tuple[str, str, Optional[str]]:
+def _judge(event: dict[str, Any]) -> tuple[str, str, str | None]:
     """Runs one suppressed event through the shared LLM provider chain.
     Returns (verdict, reason, provider_used). Never raises — any provider
     failure or unparseable response degrades to UNCERTAIN, matching
@@ -226,7 +226,7 @@ class SuppressionAuditor:
         ) or []
         return rows
 
-    def _log(self, event: dict[str, Any], verdict: str, reason: str, provider: Optional[str]) -> None:
+    def _log(self, event: dict[str, Any], verdict: str, reason: str, provider: str | None) -> None:
         from core.platform.audit_service import record_audit_event
 
         record_audit_event(

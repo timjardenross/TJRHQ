@@ -29,7 +29,6 @@ import sys
 from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +38,7 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.strategy.capabilities import Capability, list_capabilities, get_capabilities_for_objective
+from lib.strategy.capabilities import Capability, list_capabilities
 
 
 @dataclass
@@ -152,8 +151,8 @@ def format_capability_map(cm: CapabilityMap) -> str:
 __all__ = [
     "CapabilityMap",
     "build_capability_map",
+    "find_duplicate_capabilities",
     "find_orphan_capabilities",
     "find_unsupported_objectives",
-    "find_duplicate_capabilities",
     "format_capability_map",
 ]

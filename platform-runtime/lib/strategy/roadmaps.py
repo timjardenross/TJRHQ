@@ -212,7 +212,10 @@ def _build_capability_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
 def _build_architecture_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
     """Architecture current→transition→target moves."""
     try:
-        from lib.strategy.enterprise_architecture import get_architecture_view, ArchEntityState
+        from lib.strategy.enterprise_architecture import (
+            ArchEntityState,
+            get_architecture_view,
+        )
         av = get_architecture_view()
 
         state_horizon_map = {
@@ -244,9 +247,9 @@ def _build_delivery_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
     """Delivery sequencing from forecast and dependency data."""
     today = date.today()
     try:
-        from lib.strategy.initiatives import list_initiatives
-        from lib.program.forecasting import forecast_initiative, DeliveryForecast
+        from lib.program.forecasting import DeliveryForecast, forecast_initiative
         from lib.strategy.dependency_management import detect_blocked_initiatives
+        from lib.strategy.initiatives import list_initiatives
 
         blocked = set(detect_blocked_initiatives())
         initiatives = list_initiatives(include_closed=False)
@@ -329,10 +332,10 @@ def format_roadmap(roadmap: Roadmap) -> str:
 
 
 __all__ = [
+    "Roadmap",
+    "RoadmapItem",
     "RoadmapType",
     "RoadmapView",
-    "RoadmapItem",
-    "Roadmap",
-    "generate_roadmap",
     "format_roadmap",
+    "generate_roadmap",
 ]

@@ -20,7 +20,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -129,7 +129,9 @@ class TestHandleMissionStatus(unittest.TestCase):
 
 class TestTransitionAudit(unittest.TestCase):
     def test_audit_file_written(self):
-        from commands.mission_lifecycle import _write_transition_audit, _TRANSITION_LOG_DIR
+        from commands.mission_lifecycle import (
+            _write_transition_audit,
+        )
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch("commands.mission_lifecycle._TRANSITION_LOG_DIR", Path(tmpdir)):
                 _write_transition_audit("MSN-0001", "Idea", "Planned", "U001", "test note")

@@ -28,7 +28,7 @@ for p in (_CA_DIR, _COORD_DIR, _REPO_ROOT):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-import context_service  # noqa: E402
+import context_service
 
 _SYNTHETIC_MISSIONS = [
     {

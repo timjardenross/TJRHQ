@@ -17,10 +17,10 @@ import hashlib
 import json
 import logging
 import re
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger("opportunity_store")
 
@@ -101,12 +101,12 @@ class Opportunity:
     why_relevant: str = ""
 
     # Evaluation (sections 11, 16, 22)
-    value: Optional[str] = None  # "low" | "medium" | "high"
-    cost_impact: Optional[str] = None  # "lower" | "neutral" | "higher" | "unknown"
-    complexity: Optional[str] = None  # "low" | "moderate" | "high"
-    fit: Optional[str] = None  # "weak" | "moderate" | "strong"
-    risk_level: Optional[str] = None  # set by PolicyEngine, not the LLM
-    relevance_score: Optional[float] = None
+    value: str | None = None  # "low" | "medium" | "high"
+    cost_impact: str | None = None  # "lower" | "neutral" | "higher" | "unknown"
+    complexity: str | None = None  # "low" | "moderate" | "high"
+    fit: str | None = None  # "weak" | "moderate" | "strong"
+    risk_level: str | None = None  # set by PolicyEngine, not the LLM
+    relevance_score: float | None = None
     confidence: float = 0.0
     evidence_strength: str = "weak"
 
@@ -117,8 +117,8 @@ class Opportunity:
     provenance: list[dict[str, Any]] = field(default_factory=list)
 
     # Watch / rejection reasoning (sections 32-33)
-    watch_reason: Optional[str] = None
-    rejection_reason: Optional[str] = None
+    watch_reason: str | None = None
+    rejection_reason: str | None = None
     missing_evidence: list[str] = field(default_factory=list)
 
     # Outcome / learning (V1 sections 27-29; V2 sections 5-21).
@@ -163,9 +163,9 @@ class Opportunity:
     # Current-state validation (follow-up mission, sections 11-17): the
     # result of checking a watchlist gap_hypothesis against real repo
     # evidence, before any external research money was spent on it.
-    validation_result: Optional[str] = None  # "confirmed" | "resolved" | "unclear"
+    validation_result: str | None = None  # "confirmed" | "resolved" | "unclear"
     validation_evidence: list[str] = field(default_factory=list)
-    validated_at: Optional[str] = None
+    validated_at: str | None = None
 
     # V2 section 6/8: set by a discovery module (e.g. internal_discovery.py's
     # call-log-rotation candidate) when a concrete, honestly re-checkable
@@ -176,20 +176,20 @@ class Opportunity:
     # apples-to-apples comparison. Must survive from the discovery candidate
     # dict onto the persisted Opportunity — see evolution_orchestrator.py's
     # discovery-persistence step.
-    measurement_hint: Optional[dict[str, Any]] = None
+    measurement_hint: dict[str, Any] | None = None
 
     # Links to the existing engine (section 34 migration) — never re-surfaced
     # as a "new" opportunity once linked.
-    source_finding_id: Optional[str] = None
-    mission_id: Optional[str] = None
+    source_finding_id: str | None = None
+    mission_id: str | None = None
 
     # Policy classification, reusing policy.py's existing output shape
-    automation_eligibility: Optional[str] = None
-    policy_decision_rationale: Optional[str] = None
+    automation_eligibility: str | None = None
+    policy_decision_rationale: str | None = None
 
     created_at: str = ""
     updated_at: str = ""
-    run_id: Optional[str] = None
+    run_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -246,10 +246,10 @@ class OpportunityStore:
     def all_current(self) -> list[dict[str, Any]]:
         return list(self.latest_by_id().values())
 
-    def get(self, opportunity_id: str) -> Optional[dict[str, Any]]:
+    def get(self, opportunity_id: str) -> dict[str, Any] | None:
         return self.latest_by_id().get(opportunity_id)
 
-    def find_by_fingerprint(self, fingerprint: str) -> Optional[dict[str, Any]]:
+    def find_by_fingerprint(self, fingerprint: str) -> dict[str, Any] | None:
         """The most-recently-updated record with this fingerprint.
 
         2026-09-06: was "the first match iteration happens to reach" —
@@ -271,9 +271,9 @@ class OpportunityStore:
         return max(matches, key=lambda rec: rec.get("updated_at") or "")
 
     def find_near_duplicate(
-        self, title: str, discovery_source: str, change_class: Optional[str],
+        self, title: str, discovery_source: str, change_class: str | None,
         exclude_states: tuple = ("learned", "resolved_before_research"),
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Fuzzy fallback for new_fingerprint()'s exact-hash dedup.
 
         new_fingerprint() only catches byte-identical (whitespace/case-
@@ -297,14 +297,18 @@ class OpportunityStore:
         not live duplicates to merge a new candidate into."""
         # Local import: evolution_memory.py has no dependency on this
         # module, so this stays one-directional and avoids a cycle.
-        from evolution_memory import _first_n_words, _significant_words, _MIN_SHARED_WORDS
+        from evolution_memory import (
+            _MIN_SHARED_WORDS,
+            _first_n_words,
+            _significant_words,
+        )
 
         candidate_words = _significant_words(title)
         if not candidate_words:
             return None
         candidate_prefix = _first_n_words(title, 3)
 
-        best: Optional[dict[str, Any]] = None
+        best: dict[str, Any] | None = None
         best_score = -1
         for rec in self.all_current():
             if not isinstance(rec, dict):
@@ -350,7 +354,7 @@ class OpportunityStore:
             opp.fingerprint = new_fingerprint(opp.title, kwargs.get("source", ""), opp.discovery_source)
         return self.append(opp)
 
-    def update(self, opportunity_id: str, **changes) -> Optional[Opportunity]:
+    def update(self, opportunity_id: str, **changes) -> Opportunity | None:
         """Append a new record for opportunity_id with `changes` merged over
         its current state. Returns None if opportunity_id is unknown."""
         current = self.get(opportunity_id)

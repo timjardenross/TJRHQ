@@ -13,16 +13,16 @@ Usage:
     python enrichment_poc/run_comparison.py
 """
 
-import sys
 import json
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 
 # Allow imports from parent directory
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from loaders import load_corpus
 from assembler import assemble_mission_context
+from loaders import load_corpus
 
 HERE = Path(__file__).parent
 ORIGINAL_DIR = HERE / "original"

@@ -20,7 +20,7 @@ review), not part of this change.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -30,8 +30,8 @@ def record_audit_event(
     actor: str,
     action: str,
     outcome: str,
-    details: Optional[dict[str, Any]] = None,
-    mission_id: Optional[str] = None,
+    details: dict[str, Any] | None = None,
+    mission_id: str | None = None,
 ) -> bool:
     """Record a general audit event. Non-blocking — never raises.
 

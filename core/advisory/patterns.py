@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import sys
 from collections import Counter
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -29,8 +29,8 @@ _HEALTH = _HERE.parents[1] / "core" / "health"
 if str(_HEALTH) not in sys.path:
     sys.path.insert(0, str(_HEALTH))
 
-import timeline as _timeline
 import calibration as _calibration
+import timeline as _timeline
 
 try:
     import trend_utils as _trend  # core/health/trend_utils.py

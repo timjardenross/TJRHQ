@@ -11,7 +11,6 @@ Queries Supabase for:
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
 
 from intelligence.persistence import intelligence_store
 
@@ -175,26 +174,26 @@ def print_fidelity_report(report: dict) -> None:
     print(f"Generated: {report['report_generated_at']}")
     print(f"{'='*80}\n")
 
-    print(f"SUMMARY")
+    print("SUMMARY")
     print(f"  Total sources: {report['total_sources']}")
     print(f"  Overall signal rate: {report['summary']['overall_signal_rate']}")
     print(f"  High-value sources (>5 events): {len(report['summary']['high_value_sources'])}")
     print(f"  Low-value sources (<1 event): {len(report['summary']['low_value_sources'])}")
     print(f"  Degraded sources (>20% failure rate): {len(report['summary']['degraded_sources'])}\n")
 
-    print(f"HIGH-VALUE SOURCES (signal generators)")
+    print("HIGH-VALUE SOURCES (signal generators)")
     print(f"  {', '.join(report['summary']['high_value_sources'][:10])}")
     if len(report['summary']['high_value_sources']) > 10:
         print(f"  ... and {len(report['summary']['high_value_sources']) - 10} more\n")
 
-    print(f"LOW-VALUE SOURCES (archive candidates)")
+    print("LOW-VALUE SOURCES (archive candidates)")
     for source_id in report['summary']['low_value_sources'][:5]:
         s = report["sources"][source_id]
         print(f"  {source_id}: {s['items_collected']} items → {s['events_extracted']} events")
     if len(report['summary']['low_value_sources']) > 5:
         print(f"  ... and {len(report['summary']['low_value_sources']) - 5} more\n")
 
-    print(f"DEGRADED SOURCES (check health)")
+    print("DEGRADED SOURCES (check health)")
     for source_id, failure_rate in report['summary']['degraded_sources'][:3]:
         s = report["sources"][source_id]
         print(f"  {source_id}: {failure_rate*100:.0f}% failure rate, last error: {s['last_error'][:60]}")

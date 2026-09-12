@@ -268,10 +268,10 @@ def execute_triggered_actions(
 
 
 __all__ = [
-    "ActionCategory",
     "ActionAuthority",
+    "ActionCategory",
     "ActionResult",
-    "get_officer_authority",
     "create_officer_action",
     "execute_triggered_actions",
+    "get_officer_authority",
 ]

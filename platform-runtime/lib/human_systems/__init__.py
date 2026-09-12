@@ -18,10 +18,15 @@ See governance/HUMAN-SYSTEMS-DOCTRINE.md for the canonical doctrine.
 
 from __future__ import annotations
 
-from . import safety, framework, push, memory, delivery
-from . import mission_load, decision, xo
+from . import decision, delivery, framework, memory, mission_load, push, safety, xo
 
 __all__ = [
-    "safety", "framework", "push", "memory", "delivery",
-    "mission_load", "decision", "xo",
+    "decision",
+    "delivery",
+    "framework",
+    "memory",
+    "mission_load",
+    "push",
+    "safety",
+    "xo",
 ]

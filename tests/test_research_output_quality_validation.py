@@ -14,12 +14,9 @@ Expected results:
 - No regression to B1A learning loop
 """
 
-import sys
-import os
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
 import logging
-from datetime import datetime
+import sys
+from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -193,7 +190,6 @@ class TestResearchOutputQualityValidation:
         log.info("TEST: Syntax Validation")
 
         import py_compile
-        import tempfile
 
         files_to_check = [
             Path(__file__).parent.parent / "core" / "coordination" / "research_orchestration.py",

@@ -7,14 +7,12 @@ Run: python3 test_semantic_routing.py
 Tests the semantic routing engine with 10+ test cases covering all intent categories.
 """
 
-from semantic_router import (
-    route_request_semantic,
-    classify_intent,
-    Intent,
-    ConfidenceBand,
-)
 import json
 
+from semantic_router import (
+    Intent,
+    route_request_semantic,
+)
 
 # ============================================================================
 # Test Cases
@@ -195,11 +193,11 @@ def print_detailed_result(result: dict):
     """Print detailed info about a failed test."""
     print(f"\nTest {result['test_id']}: {result['description']}")
     print(f"  Input: {result['input'][:60]}...")
-    print(f"  Intent:")
+    print("  Intent:")
     print(f"    Expected: {result['expected_intent'].value}")
     print(f"    Actual:   {result['actual_intent'].value}")
     print(f"    Match:    {result['intent_match']}")
-    print(f"  Primary Specialist:")
+    print("  Primary Specialist:")
     print(f"    Expected: {result['expected_primary']}")
     print(f"    Actual:   {result['actual_primary']}")
     print(f"    Match:    {result['primary_match']}")

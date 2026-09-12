@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -35,11 +35,11 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.strategy.initiatives import list_initiatives
-from lib.program.wbs import build_wbs
 from lib.program.critical_path import compute_critical_path
-from lib.program.forecasting import forecast_all, DeliveryForecast
+from lib.program.forecasting import DeliveryForecast, forecast_all
 from lib.program.resource_conflict import detect_resource_conflicts
+from lib.program.wbs import build_wbs
+from lib.strategy.initiatives import list_initiatives
 
 DELIVERY_RISK_OWNER_PREFIX = "delivery_risk:"
 _DELIVERY_RISK_STATEMENT   = "[DELIVERY RISK]"
@@ -186,8 +186,8 @@ def format_delivery_risks(risks: list[DeliveryRisk]) -> str:
 
 
 __all__ = [
+    "DELIVERY_RISK_OWNER_PREFIX",
     "DeliveryRisk",
     "detect_delivery_risks",
     "format_delivery_risks",
-    "DELIVERY_RISK_OWNER_PREFIX",
 ]

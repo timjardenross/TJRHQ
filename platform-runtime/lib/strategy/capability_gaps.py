@@ -23,10 +23,9 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -80,7 +79,7 @@ def analyse_capability_gaps() -> list[CapabilityGap]:
     caps = []
     maturity_map: dict[str, int] = {}
     try:
-        from lib.strategy.capabilities import list_capabilities, CapabilityStatus
+        from lib.strategy.capabilities import CapabilityStatus, list_capabilities
         caps = list_capabilities()
         for c in caps:
             maturity_map[c.capability_id] = c.maturity.value
@@ -222,10 +221,10 @@ def format_gap_analysis(gaps: list[CapabilityGap]) -> str:
 
 
 __all__ = [
-    "GapType",
-    "GapSeverity",
     "CapabilityGap",
+    "GapSeverity",
+    "GapType",
     "analyse_capability_gaps",
-    "get_critical_gaps",
     "format_gap_analysis",
+    "get_critical_gaps",
 ]

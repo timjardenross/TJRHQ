@@ -19,7 +19,6 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _LESSONS_REGISTER = _REPO_ROOT / "knowledge" / "Lessons-Learned.md"
@@ -64,7 +63,7 @@ class ClosedMissionMatch:
 class IntelligenceEvidence:
     applicable_lessons: list[LessonMatch] = field(default_factory=list)
     similar_closed_missions: list[ClosedMissionMatch] = field(default_factory=list)
-    historical_outcome_score: Optional[float] = None
+    historical_outcome_score: float | None = None
     outcome_sample_size: int = 0
     evidence_summary: str = ""
     confidence_adjustment: float = 0.0  # additive; can be negative
@@ -219,7 +218,7 @@ def get_applicable_lessons(
     return matches[:limit]
 
 
-def get_historical_outcome_score(mission_type: str) -> tuple[Optional[float], int]:
+def get_historical_outcome_score(mission_type: str) -> tuple[float | None, int]:
     """
     Return (average_outcome_score, sample_size) for this mission type.
     Returns (None, 0) if fewer than _MIN_OUTCOMES_FOR_SCORE records exist.

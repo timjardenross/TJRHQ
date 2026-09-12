@@ -1,8 +1,7 @@
-from dataclasses import dataclass, field, asdict
-from typing import List, Optional, Dict, Any
-from datetime import datetime
 import json
-
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from typing import Any
 
 # ============================================================================
 # Existing models (unchanged)
@@ -24,7 +23,7 @@ class EntityRef:
     id: str
     type: str
     title: str
-    status: Optional[str] = None
+    status: str | None = None
 
 
 @dataclass
@@ -35,21 +34,21 @@ class ContextPackage:
     assembled_at: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
 
     # Sections
-    overview: Dict[str, Any] = field(default_factory=dict)
-    triggering_decisions: List[EntityRef] = field(default_factory=list)
-    dependencies: List[EntityRef] = field(default_factory=list)       # missions this one depends on
-    dependent_missions: List[EntityRef] = field(default_factory=list) # missions that depend on this
-    capabilities_built: List[EntityRef] = field(default_factory=list)
-    governing_adrs: List[EntityRef] = field(default_factory=list)
-    related_decisions: List[EntityRef] = field(default_factory=list)
-    relationships: List[Relationship] = field(default_factory=list)
+    overview: dict[str, Any] = field(default_factory=dict)
+    triggering_decisions: list[EntityRef] = field(default_factory=list)
+    dependencies: list[EntityRef] = field(default_factory=list)       # missions this one depends on
+    dependent_missions: list[EntityRef] = field(default_factory=list) # missions that depend on this
+    capabilities_built: list[EntityRef] = field(default_factory=list)
+    governing_adrs: list[EntityRef] = field(default_factory=list)
+    related_decisions: list[EntityRef] = field(default_factory=list)
+    relationships: list[Relationship] = field(default_factory=list)
 
     # Quality
     completeness_score: float = 0.0
-    gaps: List[str] = field(default_factory=list)
-    recommended_actions: List[str] = field(default_factory=list)
+    gaps: list[str] = field(default_factory=list)
+    recommended_actions: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     def to_json(self) -> str:
@@ -62,18 +61,18 @@ class ContextPackage:
 
 @dataclass
 class HealthStatusSnapshot:
-    pain_level: Optional[str] = None
-    mood: Optional[str] = None      # low | stable | positive
-    energy: Optional[str] = None    # low | moderate | high
-    stress: Optional[str] = None    # low | moderate | high
-    sleep_quality: Optional[str] = None  # poor | fair | good
+    pain_level: str | None = None
+    mood: str | None = None      # low | stable | positive
+    energy: str | None = None    # low | moderate | high
+    stress: str | None = None    # low | moderate | high
+    sleep_quality: str | None = None  # poor | fair | good
 
 
 @dataclass
 class HealthTrendSummary:
-    pain_trend: Optional[str] = None     # improving | stable | worsening | unknown
-    energy_trend: Optional[str] = None
-    overall_direction: Optional[str] = None
+    pain_trend: str | None = None     # improving | stable | worsening | unknown
+    energy_trend: str | None = None
+    overall_direction: str | None = None
 
 
 @dataclass
@@ -82,16 +81,16 @@ class HealthContextPackage:
     source_file: str = ""
     status_summary: HealthStatusSnapshot = field(default_factory=HealthStatusSnapshot)
     trend_summary: HealthTrendSummary = field(default_factory=HealthTrendSummary)
-    recovery_priorities: List[str] = field(default_factory=list)
-    health_themes: List[str] = field(default_factory=list)
-    medical_officer_note: Optional[str] = None
-    safety_flags: List[str] = field(default_factory=list)
-    workload_constraint: Optional[str] = None  # reduced | normal | unknown
-    capacity_score: Optional[int] = None        # 0–100 from capacity_score.py
-    capacity_status: Optional[str] = None       # Green | Amber | Red | Unknown
+    recovery_priorities: list[str] = field(default_factory=list)
+    health_themes: list[str] = field(default_factory=list)
+    medical_officer_note: str | None = None
+    safety_flags: list[str] = field(default_factory=list)
+    workload_constraint: str | None = None  # reduced | normal | unknown
+    capacity_score: int | None = None        # 0–100 from capacity_score.py
+    capacity_status: str | None = None       # Green | Amber | Red | Unknown
     data_quality: str = "missing"  # complete | partial | missing
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     def to_json(self) -> str:
@@ -107,11 +106,11 @@ class Recommendation:
     deadline_urgency: str          # high | medium | low | none
     confidence: float
     next_action: str
-    blockers: List[str] = field(default_factory=list)
-    health_constraint_note: Optional[str] = None
-    due_date: Optional[str] = None
+    blockers: list[str] = field(default_factory=list)
+    health_constraint_note: str | None = None
+    due_date: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -121,13 +120,13 @@ class BlockerContextPackage:
     mission_title: str
     priority: str
     escalation_level: str          # critical | high | medium | none
-    blockers: List[Dict[str, Any]] = field(default_factory=list)
-    blocked_since: Optional[str] = None
+    blockers: list[dict[str, Any]] = field(default_factory=list)
+    blocked_since: str | None = None
     blocker_age_days: int = 0
-    dependent_missions: List[str] = field(default_factory=list)
+    dependent_missions: list[str] = field(default_factory=list)
     recommended_action: str = ""
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -138,13 +137,13 @@ class DecisionContextPackage:
     date: str = ""
     status: str = ""
     question: str = ""
-    action: Optional[str] = None
-    bottleneck: Optional[str] = None
-    related_missions: List[Dict[str, Any]] = field(default_factory=list)
+    action: str | None = None
+    bottleneck: str | None = None
+    related_missions: list[dict[str, Any]] = field(default_factory=list)
     awaiting_captain_input: bool = False
     urgency: str = "none"          # high | medium | low | none
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -160,7 +159,7 @@ class SystemHealthSummary:
 class KeyDate:
     date: str
     label: str
-    mission_id: Optional[str] = None
+    mission_id: str | None = None
 
 
 @dataclass
@@ -168,15 +167,15 @@ class CaptainBriefContext:
     assembled_at: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
     date: str = ""
     source: str = "fresh"          # fresh | cached | stale
-    health: Optional[HealthContextPackage] = None
-    top_priorities: List[Recommendation] = field(default_factory=list)
-    blockers: List[BlockerContextPackage] = field(default_factory=list)
-    decisions_awaiting_input: List[DecisionContextPackage] = field(default_factory=list)
+    health: HealthContextPackage | None = None
+    top_priorities: list[Recommendation] = field(default_factory=list)
+    blockers: list[BlockerContextPackage] = field(default_factory=list)
+    decisions_awaiting_input: list[DecisionContextPackage] = field(default_factory=list)
     system_health: SystemHealthSummary = field(default_factory=SystemHealthSummary)
-    key_dates_this_week: List[KeyDate] = field(default_factory=list)
-    number_one_summary: Optional[str] = None
+    key_dates_this_week: list[KeyDate] = field(default_factory=list)
+    number_one_summary: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     def to_json(self) -> str:
@@ -190,7 +189,7 @@ class COPPriorityItem:
     title: str
     status: str
     next_action: str
-    due_date: Optional[str] = None
+    due_date: str | None = None
     blocker_count: int = 0
 
 
@@ -205,21 +204,21 @@ class OperationalStatus:
 @dataclass
 class BlockersSummary:
     count: int = 0
-    top_blocker: Optional[str] = None
+    top_blocker: str | None = None
 
 
 @dataclass
 class CaptainOperatingPictureContext:
     assembled_at: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
     source: str = "fresh"
-    health_snapshot: Dict[str, Any] = field(default_factory=dict)
-    top_3_priorities: List[COPPriorityItem] = field(default_factory=list)
+    health_snapshot: dict[str, Any] = field(default_factory=dict)
+    top_3_priorities: list[COPPriorityItem] = field(default_factory=list)
     operational_status: OperationalStatus = field(default_factory=OperationalStatus)
     blockers_summary: BlockersSummary = field(default_factory=BlockersSummary)
-    number_one_says: Optional[str] = None
-    quick_actions: List[Dict[str, str]] = field(default_factory=list)
+    number_one_says: str | None = None
+    quick_actions: list[dict[str, str]] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     def to_json(self) -> str:
@@ -232,22 +231,22 @@ class RetrievalContextPackage:
     source_path: str
     date: str
     excerpt: str
-    title: Optional[str] = None
+    title: str | None = None
     relevance_score: float = 0.0
-    related_ids: List[str] = field(default_factory=list)
+    related_ids: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
 @dataclass
 class RecommendationPackage:
     assembled_at: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
-    recommendations: List[Recommendation] = field(default_factory=list)
+    recommendations: list[Recommendation] = field(default_factory=list)
     health_constraints_applied: bool = False
     total_active_missions: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     def to_json(self) -> str:

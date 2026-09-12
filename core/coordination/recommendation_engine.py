@@ -23,26 +23,32 @@ Algorithm:
 from __future__ import annotations
 
 import sys
+from datetime import date, datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-from datetime import datetime, date
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
 sys.path.insert(0, str(_REPO_ROOT / "core" / "coordination"))
 
-from models import Recommendation, RecommendationPackage, HealthContextPackage
+from models import HealthContextPackage, Recommendation, RecommendationPackage
 
 try:
-    from intelligence_store import get_intelligence_evidence, IntelligenceEvidence
+    from intelligence_store import IntelligenceEvidence, get_intelligence_evidence
     _INTELLIGENCE_STORE_AVAILABLE = True
 except ImportError:
     _INTELLIGENCE_STORE_AVAILABLE = False
 
 try:
     from number_one import (
-        NumberOne, Mission, Priority, MissionStatus,
-        TERMINAL_STATUSES, _to_status, _to_priority, _parse_iso_datetime,
+        TERMINAL_STATUSES,
+        Mission,
+        MissionStatus,
+        NumberOne,
+        Priority,
+        _parse_iso_datetime,
+        _to_priority,
+        _to_status,
     )
     _NUMBER_ONE_AVAILABLE = True
 except ImportError:
@@ -53,7 +59,7 @@ except ImportError:
 # Public API
 # ---------------------------------------------------------------------------
 
-def _normalized_priority(mission: Dict[str, Any]) -> str:
+def _normalized_priority(mission: dict[str, Any]) -> str:
     """
     Return the mission's priority token (P0/P1/P2/P3/...), defaulting to
     "P3" both when the field is absent AND when it is present but blank.
@@ -72,10 +78,10 @@ def _normalized_priority(mission: Dict[str, Any]) -> str:
 
 
 def rank_missions(
-    missions: List[Dict[str, Any]],
-    health_context: Optional[HealthContextPackage] = None,
+    missions: list[dict[str, Any]],
+    health_context: HealthContextPackage | None = None,
     top_n: int = 3,
-) -> List[Recommendation]:
+) -> list[Recommendation]:
     """
     Given a list of mission dicts, return the top N ranked recommendations.
 
@@ -162,7 +168,7 @@ def _gather_evidence(mission_type: str, objective: str):
     return get_intelligence_evidence(mission_type, objective)
 
 
-def score_priority(mission: Dict[str, Any], all_missions: List[Dict[str, Any]]) -> float:
+def score_priority(mission: dict[str, Any], all_missions: list[dict[str, Any]]) -> float:
     """
     Score a mission 0.0–1.0 for recommendation priority.
 
@@ -199,9 +205,9 @@ def score_priority(mission: Dict[str, Any], all_missions: List[Dict[str, Any]]) 
 
 
 def check_health_constraints(
-    mission: Dict[str, Any],
-    health_context: Optional[HealthContextPackage],
-) -> Optional[str]:
+    mission: dict[str, Any],
+    health_context: HealthContextPackage | None,
+) -> str | None:
     """
     Return a health constraint note if the mission should be approached with care.
     Uses capacity_status (Green/Amber/Red) when available; falls back to
@@ -248,8 +254,8 @@ def explain_recommendation(recommendation: Recommendation) -> str:
 
 
 def generate_recommendation_package(
-    missions: List[Dict[str, Any]],
-    health_context: Optional[HealthContextPackage] = None,
+    missions: list[dict[str, Any]],
+    health_context: HealthContextPackage | None = None,
     top_n: int = 3,
 ) -> RecommendationPackage:
     """
@@ -280,15 +286,15 @@ def generate_recommendation_package(
 _TERMINAL = {"COMPLETED", "CANCELLED", "CLOSED", "ARCHIVED", "DEFERRED"}
 
 
-def _filter_active(missions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _filter_active(missions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [m for m in missions if str(m.get("status", "")).upper() not in _TERMINAL]
 
 
-def _is_workload_reduced(health: Optional[HealthContextPackage]) -> bool:
+def _is_workload_reduced(health: HealthContextPackage | None) -> bool:
     return health is not None and health.workload_constraint == "reduced"
 
 
-def _capacity_status(health: Optional[HealthContextPackage]) -> Optional[str]:
+def _capacity_status(health: HealthContextPackage | None) -> str | None:
     """Return Green/Amber/Red/Unknown from the health package, or None if unavailable."""
     if not health:
         return None
@@ -302,7 +308,7 @@ def _capacity_status(health: Optional[HealthContextPackage]) -> Optional[str]:
     return None
 
 
-def _due_date_score(due_date: Optional[str]) -> float:
+def _due_date_score(due_date: str | None) -> float:
     if not due_date:
         return 0.0
     try:
@@ -322,7 +328,7 @@ def _due_date_score(due_date: Optional[str]) -> float:
         return 0.0
 
 
-def _deadline_urgency(due_date: Optional[str]) -> str:
+def _deadline_urgency(due_date: str | None) -> str:
     if not due_date:
         return "none"
     try:
@@ -339,7 +345,7 @@ def _deadline_urgency(due_date: Optional[str]) -> str:
         return "none"
 
 
-def _count_dependents(mission_id: str, all_missions: List[Dict[str, Any]]) -> int:
+def _count_dependents(mission_id: str, all_missions: list[dict[str, Any]]) -> int:
     count = 0
     for m in all_missions:
         deps = m.get("dependencies", [])
@@ -351,7 +357,7 @@ def _count_dependents(mission_id: str, all_missions: List[Dict[str, Any]]) -> in
     return count
 
 
-def _extract_blocker_descriptions(mission: Dict[str, Any]) -> List[str]:
+def _extract_blocker_descriptions(mission: dict[str, Any]) -> list[str]:
     raw = mission.get("blockers", [])
     if not raw:
         return []
@@ -366,7 +372,7 @@ def _extract_blocker_descriptions(mission: Dict[str, Any]) -> List[str]:
     return [str(raw)]
 
 
-def _recommend_next_action(mission: Dict[str, Any]) -> str:
+def _recommend_next_action(mission: dict[str, Any]) -> str:
     # Use existing next_action if set
     na = mission.get("next_action")
     if isinstance(na, dict):
@@ -392,8 +398,8 @@ def _recommend_next_action(mission: Dict[str, Any]) -> str:
 
 
 def _explain_recommendation(
-    mission: Dict[str, Any],
-    all_missions: List[Dict[str, Any]],
+    mission: dict[str, Any],
+    all_missions: list[dict[str, Any]],
     score: float,
     rank: int,
     evidence=None,
@@ -466,7 +472,7 @@ def _explain_recommendation(
     return base_reason
 
 
-def _confidence(score: float, mission: Dict[str, Any], evidence=None) -> float:
+def _confidence(score: float, mission: dict[str, Any], evidence=None) -> float:
     """
     Confidence in this recommendation.
 

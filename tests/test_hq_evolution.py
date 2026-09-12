@@ -29,12 +29,16 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
 
-from opportunity_store import OpportunityStore, new_fingerprint, MISSION_ONLY_CLASSES  # noqa: E402
-from relevance import RelevanceGate  # noqa: E402
-import internal_discovery  # noqa: E402
-import external_discovery  # noqa: E402
-import migration  # noqa: E402
-from policy import PolicyEngine  # noqa: E402
+import external_discovery
+import internal_discovery
+import migration
+from opportunity_store import (
+    MISSION_ONLY_CLASSES,
+    OpportunityStore,
+    new_fingerprint,
+)
+from policy import PolicyEngine
+from relevance import RelevanceGate
 
 DEFAULT_EVOLUTION_CONFIG = {
     "min_relevance_score_to_investigate": 0.5,
@@ -535,7 +539,7 @@ class TestEvolutionOrchestrator(unittest.TestCase):
     def _make_orchestrator(self):
         import evolution_orchestrator
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
-        orch._load_watchlist = lambda: []  # never hit the real network in this test
+        orch._load_watchlist = list  # never hit the real network in this test
         return orch
 
     def test_dry_run_never_writes_anything(self):

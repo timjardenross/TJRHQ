@@ -95,15 +95,11 @@ def _score(
 
     stim_effect = row.get("stimulation_effect")
     if stimulation_state is not None:
-        if stimulation_state == "low" and stim_effect == "increase":
-            score += 3.0
-        elif stimulation_state == "high" and stim_effect == "decrease":
+        if stimulation_state == "low" and stim_effect == "increase" or stimulation_state == "high" and stim_effect == "decrease":
             score += 3.0
         elif stim_effect == "neutral":
             score += 1.0
-        elif stimulation_state == "low" and stim_effect == "decrease":
-            score -= 3.0
-        elif stimulation_state == "high" and stim_effect == "increase":
+        elif stimulation_state == "low" and stim_effect == "decrease" or stimulation_state == "high" and stim_effect == "increase":
             score -= 3.0
 
     if pain_state in ("elevated", "high") and not row.get("pain_compatible", True):

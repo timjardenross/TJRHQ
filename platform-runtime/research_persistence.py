@@ -19,8 +19,6 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
-
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _RESEARCH_DIR = _REPO_ROOT / "knowledge" / "research"
@@ -40,7 +38,7 @@ def save_research_output(
     mission_id: str | None = None,
     findings: list[str] | None = None,
     tags: list[str] | None = None,
-) -> Optional[Path]:
+) -> Path | None:
     """Save a research output to knowledge/research/. Returns the saved path or None on failure."""
     try:
         _RESEARCH_DIR.mkdir(parents=True, exist_ok=True)

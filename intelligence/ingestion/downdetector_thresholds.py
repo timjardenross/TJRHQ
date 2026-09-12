@@ -49,7 +49,6 @@ import os
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -120,12 +119,12 @@ _SANITY_NO_SPIKE_MULTIPLIER = 20
 class HistorySummary:
     distinct_days: int
     quiet_count: int
-    quiet_min: Optional[int]
-    quiet_max: Optional[int]
-    quiet_mean: Optional[float]
-    quiet_p95: Optional[int]
+    quiet_min: int | None
+    quiet_max: int | None
+    quiet_mean: float | None
+    quiet_p95: int | None
     spike_events: list[dict]        # [{"observed_at": ..., "report_count": ...}]
-    spike_max: Optional[int]
+    spike_max: int | None
 
 
 @dataclass(frozen=True)
@@ -134,9 +133,9 @@ class ThresholdResult:
     sector: str
     threshold_value: int
     threshold_source: str     # see migration 0121's CHECK constraint for the 4 legal values
-    reasoning: Optional[str]
+    reasoning: str | None
     history_days_used: int
-    llm_provider: Optional[str] = None
+    llm_provider: str | None = None
 
 
 def summarize_history(observations: list[dict]) -> HistorySummary:
@@ -248,7 +247,7 @@ def _build_threshold_prompt(source_name: str, sector: str, summary: HistorySumma
     return "\n".join(lines)
 
 
-def _parse_threshold_answer(raw: Optional[str]) -> tuple[Optional[int], Optional[str]]:
+def _parse_threshold_answer(raw: str | None) -> tuple[int | None, str | None]:
     """Strict parse of the required 'THRESHOLD: <int>' / 'REASONING: ...'
     format — same discipline as intelligence_store.py's
     '_parse_blast_radius_answer()'. Returns (None, None) on any format
@@ -256,8 +255,8 @@ def _parse_threshold_answer(raw: Optional[str]) -> tuple[Optional[int], Optional
     the next provider, or to the bootstrap default if all fail)."""
     if not raw:
         return None, None
-    threshold: Optional[int] = None
-    reasoning: Optional[str] = None
+    threshold: int | None = None
+    reasoning: str | None = None
     for line in raw.splitlines():
         line = line.strip()
         if threshold is None and line.upper().startswith("THRESHOLD:"):
@@ -270,7 +269,7 @@ def _parse_threshold_answer(raw: Optional[str]) -> tuple[Optional[int], Optional
     return threshold, reasoning
 
 
-def _call_threshold_llm(prompt: str) -> tuple[Optional[int], Optional[str], Optional[str]]:
+def _call_threshold_llm(prompt: str) -> tuple[int | None, str | None, str | None]:
     """Same never-raise, try-gemini-then-mistral-then-ollama fallback chain
     as intelligence_store.py::_call_blast_radius_llm() — shared PATTERN,
     not shared code, since that function is private to the outage-alert
@@ -310,7 +309,7 @@ def _call_threshold_llm(prompt: str) -> tuple[Optional[int], Optional[str], Opti
 # ─── Sanity guard ────────────────────────────────────────────────────────────
 
 def sanity_check(
-    candidate: Optional[int], summary: HistorySummary, bootstrap: int,
+    candidate: int | None, summary: HistorySummary, bootstrap: int,
 ) -> tuple[bool, str]:
     """Never trust the LLM's recommendation blind for a gate that decides
     whether a real Telegram push fires. Returns (passes, reason) — reason
@@ -435,7 +434,10 @@ def recompute_all(
     nothing extra), recompute and persist its current threshold. Never
     raises — logs and skips a source on any per-source failure, same
     discipline as the rest of this codebase's scheduled jobs."""
-    from intelligence.ingestion.downdetector_adapter import sector_for_slug, slug_from_url
+    from intelligence.ingestion.downdetector_adapter import (
+        sector_for_slug,
+        slug_from_url,
+    )
     from intelligence.persistence import intelligence_store as store
 
     since = (datetime.now(timezone.utc) - timedelta(days=days_lookback)).isoformat()

@@ -67,10 +67,9 @@ Usage:
     python3 tools/health/validate_health_source_accuracy.py [--dry-run]
 """
 
-import os
-import sys
-import logging
 import argparse
+import logging
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -294,7 +293,7 @@ class HealthSourceValidator:
                 verdict = self.validate_signal_accuracy(signal, source["source_type"])
                 self.save_validation(
                     signal["signal_id"], source["source_id"], verdict,
-                    "automated", f"Rule-based on study_design/source_type/adverse_event pattern",
+                    "automated", "Rule-based on study_design/source_type/adverse_event pattern",
                 )
             self.recompute_source_scores(
                 source["source_id"], auto_registered=bool(source.get("auto_registered")),

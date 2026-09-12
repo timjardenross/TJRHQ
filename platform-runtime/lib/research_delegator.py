@@ -22,15 +22,15 @@ Public API:
 
 from __future__ import annotations
 
-import os
 import json
 import logging
+import os
 import time
-import urllib.request
 import urllib.error
-from typing import Any, Optional
-from dataclasses import dataclass, asdict, field
-from datetime import datetime, timedelta
+import urllib.request
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from typing import Any
 
 # MSN-0055C Work Package 2: Provider Circuit Breaker
 try:
@@ -64,15 +64,15 @@ class ResearchOutcome:
 
     status: str  # "success", "timeout", "error", "no_providers"
     provider: str  # "gemini-3.5-flash-lite", "gemini-2-flash", "ollama", "none"
-    findings: Optional[str] = None
+    findings: str | None = None
     references: list[str] = None
-    error_message: Optional[str] = None
-    execution_time_ms: Optional[int] = None
-    tokens_used: Optional[dict[str, int]] = None
+    error_message: str | None = None
+    execution_time_ms: int | None = None
+    tokens_used: dict[str, int] | None = None
     timestamp: str = None
     provider_attempted: list[str] = None  # List of providers attempted in order (telemetry)
     provider_skipped: list[str] = field(default_factory=list)  # Providers skipped due to quota/unavailability
-    fallback_reason: Optional[str] = None  # Why fallback was used (e.g., "gemini_quota_exhausted")
+    fallback_reason: str | None = None  # Why fallback was used (e.g., "gemini_quota_exhausted")
 
     def __post_init__(self):
         if self.references is None:
@@ -97,7 +97,7 @@ class MissionGeminiQuota:
     mission_id: str
     gemini_calls_made: int = 0
     gemini_quota_exhausted: bool = False
-    quota_exhausted_timestamp: Optional[str] = None
+    quota_exhausted_timestamp: str | None = None
 
     def record_gemini_call(self) -> None:
         """Record a Gemini call for this mission."""
@@ -136,7 +136,7 @@ def call_mistral_research(
     task_description: str,
     timeout_sec: int = 60,
     mission_id: str = None,
-) -> "ResearchOutcome":
+) -> ResearchOutcome:
     """
     Call the Mistral Research Agent as primary provider for task execution.
 
@@ -245,7 +245,7 @@ Keep response concise but informative."""
             method="POST"
         )
 
-        log.info(f"Calling Ollama (qwen3:8b) for research")
+        log.info("Calling Ollama (qwen3:8b) for research")
 
         # Make request with timeout
         with urllib.request.urlopen(request, timeout=timeout_sec) as response:  # nosec B310 - endpoint built from OLLAMA_BASE_URL env var (internal router base) plus a fixed literal path, not user input - reviewed 2026-09-12
@@ -267,7 +267,7 @@ Keep response concise but informative."""
         return ResearchOutcome(
             status="error",
             provider="ollama",
-            error_message=f"Ollama connection failed: {str(e)}"
+            error_message=f"Ollama connection failed: {e!s}"
         )
 
     except json.JSONDecodeError as e:
@@ -275,7 +275,7 @@ Keep response concise but informative."""
         return ResearchOutcome(
             status="error",
             provider="ollama",
-            error_message=f"Invalid response from Ollama: {str(e)}"
+            error_message=f"Invalid response from Ollama: {e!s}"
         )
 
     except urllib.error.HTTPError as e:
@@ -291,7 +291,7 @@ Keep response concise but informative."""
         return ResearchOutcome(
             status="error",
             provider="ollama",
-            error_message=f"Ollama error: {str(e)}"
+            error_message=f"Ollama error: {e!s}"
         )
 
 
@@ -408,7 +408,7 @@ def call_gemini_2_flash_research(
         return ResearchOutcome(
             status="error",
             provider="gemini-2-flash",
-            error_message=f"Gemini 2 Flash API error: {str(e)}"
+            error_message=f"Gemini 2 Flash API error: {e!s}"
         )
 
     except Exception as e:
@@ -416,7 +416,7 @@ def call_gemini_2_flash_research(
         return ResearchOutcome(
             status="error",
             provider="gemini-2-flash",
-            error_message=f"Gemini 2 Flash error: {str(e)}"
+            error_message=f"Gemini 2 Flash error: {e!s}"
         )
 
 
@@ -554,7 +554,7 @@ def call_gemini_2_5_flash_lite_research(
         return ResearchOutcome(
             status="error",
             provider="gemini-3.5-flash-lite",
-            error_message=f"Gemini 2.5 Flash Lite API error: {str(e)}"
+            error_message=f"Gemini 2.5 Flash Lite API error: {e!s}"
         )
 
     except Exception as e:
@@ -562,7 +562,7 @@ def call_gemini_2_5_flash_lite_research(
         return ResearchOutcome(
             status="error",
             provider="gemini-3.5-flash-lite",
-            error_message=f"Gemini 2.5 Flash Lite error: {str(e)}"
+            error_message=f"Gemini 2.5 Flash Lite error: {e!s}"
         )
 
 
@@ -575,8 +575,8 @@ def delegate_research_task(
     timeout_sec: int = 120,
     gemini_timeout_sec: int = 120,
     ollama_timeout_sec: int = 120,
-    provider_health: Optional[ProviderHealth] = None,
-    mission_id: Optional[str] = None,
+    provider_health: ProviderHealth | None = None,
+    mission_id: str | None = None,
 ) -> ResearchOutcome:
     """Delegate research task with quota-aware provider chain fallback.
 
@@ -861,7 +861,7 @@ if __name__ == "__main__":
 
     outcome = delegate_research_task(test_task, timeout_sec=30)
 
-    print(f"\nResult:")
+    print("\nResult:")
     print(f"  Status: {outcome.status}")
     print(f"  Provider: {outcome.provider}")
     print(f"  Error: {outcome.error_message}")

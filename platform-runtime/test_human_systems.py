@@ -25,9 +25,8 @@ _BOT_DIR = Path(__file__).resolve().parent
 if str(_BOT_DIR) not in sys.path:
     sys.path.insert(0, str(_BOT_DIR))
 
-from lib.human_systems import safety, framework, push  # noqa: E402
-import commands.human_systems as hs  # noqa: E402
-
+import commands.human_systems as hs
+from lib.human_systems import framework, push, safety
 
 # Sample rows shaped like analytics_health_daily.
 GOOD_DAY = {

@@ -55,10 +55,10 @@ import sqlite3
 import subprocess
 import sys
 import urllib.request
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Iterator
 from zoneinfo import ZoneInfo
 
 from core.platform.notification_service import Severity, Transport
@@ -506,7 +506,7 @@ def _get_number_one_brief() -> dict | None:
         for p in (REPO_ROOT / "core" / "context-assembly", REPO_ROOT / "core" / "coordination", REPO_ROOT):
             if str(p) not in sys.path:
                 sys.path.insert(0, str(p))
-        import context_service  # noqa: PLC0415
+        import context_service
         return context_service._http_number_one_brief()
     except Exception as exc:
         log.warning("[bus:number_one] Could not fetch Number One's brief: %s", exc)

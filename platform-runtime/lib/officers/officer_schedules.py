@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
@@ -336,10 +336,10 @@ def record_activity_run(activity_id: str) -> None:
 
 
 __all__ = [
-    "ScheduleFrequency",
-    "OfficerSchedule",
-    "ScheduledActivity",
     "OFFICER_SCHEDULES",
+    "OfficerSchedule",
+    "ScheduleFrequency",
+    "ScheduledActivity",
     "get_due_activities",
     "record_activity_run",
 ]

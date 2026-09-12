@@ -17,10 +17,9 @@ from __future__ import annotations
 import json
 import logging
 import re
-import sys
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -32,13 +31,13 @@ _OUTCOMES_PATH = _REPO_ROOT / "knowledge" / "mission-outcomes.jsonl"
 MIN_LESSONS_FOR_PATTERN = 3
 
 
-def _parse_lessons_md(path: Path) -> List[Dict[str, Any]]:
+def _parse_lessons_md(path: Path) -> list[dict[str, Any]]:
     """Parse Lessons-Learned.md into structured lesson records."""
     if not path.exists():
         return []
 
     text = path.read_text(encoding="utf-8")
-    lessons: List[Dict[str, Any]] = []
+    lessons: list[dict[str, Any]] = []
 
     # Split on LL-NNN headings
     blocks = re.split(r"\n## (LL-\d+)\n", text)
@@ -49,7 +48,7 @@ def _parse_lessons_md(path: Path) -> List[Dict[str, Any]]:
         content = blocks[i + 1]
         i += 2
 
-        lesson: Dict[str, Any] = {"id": ll_id, "raw": content.strip()}
+        lesson: dict[str, Any] = {"id": ll_id, "raw": content.strip()}
 
         # Extract Title
         title_m = re.search(r"### Title\s*\n+(.+)", content)
@@ -73,7 +72,7 @@ def _parse_lessons_md(path: Path) -> List[Dict[str, Any]]:
     return lessons
 
 
-def _load_outcomes(path: Path) -> List[Dict[str, Any]]:
+def _load_outcomes(path: Path) -> list[dict[str, Any]]:
     """Load mission-outcomes.jsonl records."""
     if not path.exists():
         return []
@@ -88,14 +87,14 @@ def _load_outcomes(path: Path) -> List[Dict[str, Any]]:
     return outcomes
 
 
-def _extract_themes(lessons: List[Dict]) -> Dict[str, int]:
+def _extract_themes(lessons: list[dict]) -> dict[str, int]:
     """Simple keyword frequency across lesson texts."""
     stopwords = {
         "the", "a", "an", "and", "or", "in", "on", "to", "for", "of", "with",
         "is", "are", "was", "be", "been", "have", "before", "after", "always",
         "that", "this", "it", "when", "by", "from", "as", "at", "not", "no",
     }
-    words: List[str] = []
+    words: list[str] = []
     for l in lessons:
         text = f"{l.get('lesson', '')} {l.get('future_guidance', '')}"
         tokens = re.findall(r"\b[a-z]{4,}\b", text.lower())
@@ -103,7 +102,7 @@ def _extract_themes(lessons: List[Dict]) -> Dict[str, int]:
     return dict(Counter(words).most_common(20))
 
 
-def analyse_lessons() -> Dict[str, Any]:
+def analyse_lessons() -> dict[str, Any]:
     """
     Analyse lessons learned and mission outcomes for patterns.
 
@@ -141,9 +140,9 @@ def analyse_lessons() -> Dict[str, Any]:
     success_kw = {"proven", "effective", "success", "value", "improve",
                   "better", "foundation", "correct", "robust", "reliable"}
 
-    success_patterns: List[str] = []
-    failure_patterns: List[str] = []
-    reusable_patterns: List[str] = []
+    success_patterns: list[str] = []
+    failure_patterns: list[str] = []
+    reusable_patterns: list[str] = []
 
     for l in lessons:
         text = (l.get("lesson", "") + " " + l.get("future_guidance", "")).lower()
@@ -166,7 +165,7 @@ def analyse_lessons() -> Dict[str, Any]:
     recurring_themes = _extract_themes(lessons)
     top_themes = list(recurring_themes.keys())[:5]
 
-    findings: List[str] = [
+    findings: list[str] = [
         f"Lessons library: {len(lessons)} lessons recorded ({len(success_patterns)} success, "
         f"{len(failure_patterns)} failure patterns)."
     ]

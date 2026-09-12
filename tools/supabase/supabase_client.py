@@ -129,7 +129,6 @@ def _module_client() -> SupabaseClient:
 
 
 def supabase_get(path: str, timeout: int = 10) -> list[dict[str, Any]]:
-    import urllib.parse as _up
     client = _module_client()
     full_path = f"/rest/v1/{path}" if not path.startswith("/") else path
     result = client.request("GET", full_path)

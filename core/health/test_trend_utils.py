@@ -8,6 +8,7 @@ Run: python3 -m pytest core/health/test_trend_utils.py -v
 """
 
 from __future__ import annotations
+
 import sys
 import unittest
 from pathlib import Path
@@ -15,15 +16,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from trend_utils import (
-    compute_trend,
-    compute_pain_trend,
-    compute_sleep_trend,
+    TREND_DELTA_THRESHOLD,
     compute_capacity_trend,
     compute_energy_trend,
+    compute_pain_trend,
+    compute_sleep_trend,
+    compute_trend,
     encode_energy,
     encode_mood,
-    TREND_DELTA_THRESHOLD,
-    MIN_DAYS_FOR_TREND,
 )
 
 

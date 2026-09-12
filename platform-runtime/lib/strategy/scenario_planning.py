@@ -151,7 +151,7 @@ def model_scenario(
         if init.objective_id:
             all_objectives.add(init.objective_id)
         try:
-            from lib.program.forecasting import forecast_initiative, DeliveryForecast
+            from lib.program.forecasting import DeliveryForecast, forecast_initiative
             from lib.strategy.value_realisation import assess_initiative_value
 
             modified_inputs = {**inputs, "capacity_status": effective_cap}
@@ -285,9 +285,9 @@ def format_scenario(result: ScenarioResult) -> str:
 
 
 __all__ = [
-    "ScenarioType",
     "ScenarioResult",
-    "model_scenario",
+    "ScenarioType",
     "compare_scenarios",
     "format_scenario",
+    "model_scenario",
 ]

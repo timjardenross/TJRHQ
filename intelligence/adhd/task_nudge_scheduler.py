@@ -16,7 +16,6 @@ import os
 import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -162,7 +161,7 @@ async def check_and_nudge_stalled_tasks(supabase_client=None) -> dict:
 
     Returns a summary: {checked: N, nudged: N, errors: [...]}.
     """
-    from core.platform.notification_service import notify, Severity
+    from core.platform.notification_service import Severity, notify
 
     summary = {"checked": 0, "nudged": 0, "errors": []}
     limiter = NudgeRateLimiter()

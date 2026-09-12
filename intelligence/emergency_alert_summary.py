@@ -37,7 +37,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
-from heartbeat import _URL, _KEY, record_heartbeat, supabase_get  # noqa: E402
+from heartbeat import _KEY, _URL, record_heartbeat, supabase_get
 
 from core.llm.provider_chain import call_gemini, call_mistral
 from core.notifications.resend_email import send_email

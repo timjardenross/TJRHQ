@@ -2,8 +2,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from PIL import Image
-
-from src.agents.social_agent import SocialAgent, _PLATFORMS
+from src.agents.social_agent import _PLATFORMS, SocialAgent
 
 
 def test_generate_social_makes_one_image_per_platform(brief, tmp_path):

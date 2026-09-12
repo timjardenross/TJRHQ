@@ -7,8 +7,6 @@ Purpose: Score decisions on clarity, timeliness, accuracy, actionability (0-4 sc
 """
 
 from dataclasses import dataclass
-from typing import Optional
-import re
 from datetime import datetime
 
 
@@ -27,8 +25,8 @@ class DecisionQualityScore:
     total_score: float  # 0-4 (sum of above)
     reasoning: str  # Human-readable explanation
 
-    specialist_feedback: Optional[str] = None
-    captain_notes: Optional[str] = None
+    specialist_feedback: str | None = None
+    captain_notes: str | None = None
     evaluation_timestamp: datetime = None
 
 
@@ -71,8 +69,8 @@ class DecisionQualityScorer:
         decision_id: int,
         decision_text: str,
         outcome_status: str,
-        specialist_feedback: Optional[str] = None,
-        captain_notes: Optional[str] = None,
+        specialist_feedback: str | None = None,
+        captain_notes: str | None = None,
     ) -> DecisionQualityScore:
         """
         Score a decision on 0-4 scale.
@@ -301,8 +299,8 @@ def score_decision_from_db(
     decision_id: int,
     decision_text: str,
     outcome_status: str,
-    specialist_feedback: Optional[str] = None,
-    captain_notes: Optional[str] = None,
+    specialist_feedback: str | None = None,
+    captain_notes: str | None = None,
 ) -> DecisionQualityScore:
     """
     Convenience function to score a decision.

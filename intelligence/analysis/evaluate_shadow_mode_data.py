@@ -23,17 +23,17 @@ import argparse
 import json
 import logging
 import sys
-import urllib.request
 import urllib.error
-from datetime import datetime, date, timedelta
+import urllib.request
+from dataclasses import asdict, dataclass
+from datetime import date, datetime, timedelta
 from pathlib import Path
-from dataclasses import dataclass, asdict
-from typing import Optional
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(_REPO_ROOT / ".env")
 
 import os
@@ -62,13 +62,13 @@ class SignalEvaluation:
     event_id: str
     collected_at: str
     heuristic_rating: str
-    llm_rating: Optional[str]
+    llm_rating: str | None
     agree: bool
     heuristic_score: float
-    llm_score: Optional[float]
-    brief_id: Optional[str]
-    qa_approved: Optional[bool]  # True if brief was QA-passed, False if rejected, None if not in brief
-    qa_decision_timestamp: Optional[str]
+    llm_score: float | None
+    brief_id: str | None
+    qa_approved: bool | None  # True if brief was QA-passed, False if rejected, None if not in brief
+    qa_decision_timestamp: str | None
 
 
 @dataclass
@@ -98,7 +98,7 @@ class EvaluationReport:
     heuristic_llm_agreement_pct: float
     confidence_bands: list  # ConfidenceBandAnalysis
     recommendation: str
-    issue_16_threshold: Optional[str]  # e.g. "3.0-3.9" if this band shows LLM value
+    issue_16_threshold: str | None  # e.g. "3.0-3.9" if this band shows LLM value
     findings: list  # [str] key observations
 
 
@@ -372,10 +372,10 @@ def main():
     print(f"Agreement rate: {report['heuristic_llm_agreement_pct']:.1f}%")
     print(f"\nRecommendation:\n  {report['recommendation']}")
     print(f"\nIssue 16 Routing Threshold: {report['issue_16_threshold'] or 'Not yet recommended'}")
-    print(f"\nFindings:")
+    print("\nFindings:")
     for i, finding in enumerate(report['findings'], 1):
         print(f"  {i}. {finding}")
-    print(f"\nConfidence Band Analysis:")
+    print("\nConfidence Band Analysis:")
     for band in report['confidence_bands']:
         print(
             f"  {band['band_name']}: {band['signal_count']} signals, "

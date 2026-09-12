@@ -20,7 +20,6 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from typing import Optional
 
 from core.platform.captain_brief_contract import Recommendation
 from core.platform.insight_engine import Insight, strip_markdown_json_fence
@@ -68,7 +67,7 @@ def _build_reasoning_prompt(insight: Insight) -> str:
     )
 
 
-def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: int = 280) -> Optional[str]:
+def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: int = 280) -> str | None:
     """Real HTTP call. Non-blocking on failure — returns None, never
     raises, matching insight_engine.py's identical pattern.
 
@@ -94,7 +93,7 @@ def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: in
         return None
 
 
-def _parse_reasoning_response(raw_text: Optional[str], insight: Insight) -> Optional[Recommendation]:
+def _parse_reasoning_response(raw_text: str | None, insight: Insight) -> Recommendation | None:
     """Rejects (returns None) rather than fabricating a value for any
     missing/malformed field — matches insight_engine.py's own
     _parse_insight_response discipline exactly."""
@@ -134,7 +133,7 @@ def _parse_reasoning_response(raw_text: Optional[str], insight: Insight) -> Opti
     )
 
 
-def build_recommendation(insight: Insight) -> Optional[Recommendation]:
+def build_recommendation(insight: Insight) -> Recommendation | None:
     """One Insight -> one Recommendation, or None if the model router is
     unreachable or its response didn't validate. A missing recommendation
     is an honest empty result, not a fabricated fallback."""

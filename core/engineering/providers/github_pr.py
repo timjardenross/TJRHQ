@@ -25,7 +25,7 @@ import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ def _sanitize_diff(body: str) -> str:
     return "\n".join(ln for ln in body.splitlines() if not _NON_DIFF_LABEL.match(ln))
 
 
-def extract_unified_diff(text: str) -> Optional[str]:
+def extract_unified_diff(text: str) -> str | None:
     """Pull a unified diff out of an LLM response, or None if there isn't one.
 
     Handles the two shapes the PATCH prompt invites:
@@ -100,7 +100,7 @@ _FILE_BLOCK = re.compile(
 )
 
 
-def _clean_path(raw: str) -> Optional[str]:
+def _clean_path(raw: str) -> str | None:
     path = re.sub(r"^(?:a/|b/|\./)", "", raw.strip().strip('"').strip("'")).strip()
     if not path or path.startswith("/") or ".." in Path(path).parts:
         return None
@@ -130,7 +130,7 @@ def extract_file_blocks(text: str) -> dict[str, str]:
 
 # ─── apply check (read-only) ──────────────────────────────────────────────────
 
-def diff_applies(diff_text: str, repo_root: Optional[Path] = None) -> bool:
+def diff_applies(diff_text: str, repo_root: Path | None = None) -> bool:
     """True iff `diff_text` applies cleanly to the repo — without modifying it.
 
     `git apply --check` validates only; it writes nothing. Returns False on any
@@ -167,8 +167,8 @@ def open_draft_pr(
     body: str,
     token: str,
     repo: str,
-    base_branch: Optional[str] = None,
-    repo_root: Optional[Path] = None,
+    base_branch: str | None = None,
+    repo_root: Path | None = None,
 ) -> dict[str, Any]:
     """Apply `diff_text` on a fresh branch in a throwaway worktree, push it, and
     open a **draft** PR. Returns a result dict; never raises.
@@ -237,8 +237,8 @@ def open_files_pr(
     body: str,
     token: str,
     repo: str,
-    base_branch: Optional[str] = None,
-    repo_root: Optional[Path] = None,
+    base_branch: str | None = None,
+    repo_root: Path | None = None,
     allow_existing: bool = False,
 ) -> dict[str, Any]:
     """Write whole-file contents into a fresh worktree, commit, push, open a draft PR.
@@ -340,7 +340,7 @@ def open_files_pr(
 # ─── GitHub REST helpers (stdlib only) ────────────────────────────────────────
 
 def _api_request(token: str, method: str, path: str,
-                 payload: Optional[dict] = None) -> Any:
+                 payload: dict | None = None) -> Any:
     url = f"{_GITHUB_API}{path}"
     data = json.dumps(payload).encode() if payload is not None else None
     req = urllib.request.Request(url, data=data, method=method)
@@ -354,7 +354,7 @@ def _api_request(token: str, method: str, path: str,
         return json.loads(resp.read().decode("utf-8"))
 
 
-def _default_branch(token: str, repo: str) -> Optional[str]:
+def _default_branch(token: str, repo: str) -> str | None:
     try:
         return _api_request(token, "GET", f"/repos/{repo}").get("default_branch")
     except (urllib.error.URLError, OSError, ValueError):
@@ -369,7 +369,7 @@ def _create_pr(token: str, repo: str, *, title: str, head: str,
     return resp.get("html_url", "")
 
 
-def _find_existing_pr(token: str, repo: str, branch: str) -> Optional[str]:
+def _find_existing_pr(token: str, repo: str, branch: str) -> str | None:
     owner = repo.split("/", 1)[0]
     try:
         prs = _api_request(

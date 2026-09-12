@@ -46,7 +46,7 @@ def save_decision_after_logging(
             log.info(f"[decision-to-memory] Saved decision {decision_id} to Command Memory")
             return decision_id
         else:
-            log.warning(f"[decision-to-memory] Could not save decision to Command Memory")
+            log.warning("[decision-to-memory] Could not save decision to Command Memory")
             return None
 
     except Exception as e:

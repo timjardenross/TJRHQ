@@ -2,13 +2,13 @@ import textwrap
 from pathlib import Path
 
 import eligibility
-from config import load_config
+from fakes import FakeModelRouter, FakeSupabase
 from healthcheck import HealthThresholds, compute_health, run_healthcheck
 from ocr.base import OCRResult
 from parsers.base import ExtractionResult
 from worker import ProcessingWorker
 
-from fakes import FakeSupabase, FakeModelRouter
+from config import load_config
 
 
 def _write_config(tmp_path: Path, inbox_base: Path, max_retries: int = 3) -> Path:

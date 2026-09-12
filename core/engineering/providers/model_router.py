@@ -16,7 +16,6 @@ import logging
 import os
 import urllib.error
 import urllib.request
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ def check_connectivity() -> tuple[bool, str]:
         return False, f"Model Router not reachable at {_base_url()}: {exc}"
 
 
-def call(prompt: str, model: Optional[str] = None) -> tuple[str, str]:
+def call(prompt: str, model: str | None = None) -> tuple[str, str]:
     """
     Send prompt to Model Router /api/model/engineering-review.
 

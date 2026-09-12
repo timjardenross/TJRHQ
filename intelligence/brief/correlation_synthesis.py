@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Optional, Any
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ def _build_prompt(correlation_data: dict) -> str:
 
 
 def synthesize_correlation_insights(
-    correlation_data: dict, llm_provider: Optional[Any] = None
+    correlation_data: dict, llm_provider: Any | None = None
 ) -> dict:
     """
     Issue 18: Synthesize health-mission correlation numbers into narrative insights.

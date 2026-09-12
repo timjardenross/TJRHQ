@@ -12,15 +12,14 @@ Quadrants:
 """
 
 import logging
-from typing import List, Optional, Tuple
+from datetime import datetime
 from uuid import UUID
-from datetime import datetime, timedelta
 
 from .models import (
     Commitment,
     CommitmentStatus,
-    PriorityMatrix,
     PriorityAnalysis,
+    PriorityMatrix,
 )
 
 log = logging.getLogger(__name__)
@@ -59,7 +58,7 @@ class PriorityAnalyzer:
         self.db = db
         self.context_manager = context_manager
 
-    def analyze_tasks(self, commitments: List[Commitment]) -> PriorityMatrix:
+    def analyze_tasks(self, commitments: list[Commitment]) -> PriorityMatrix:
         """
         Categorize tasks into Eisenhower Matrix quadrants.
 
@@ -95,7 +94,7 @@ class PriorityAnalyzer:
 
         return matrix
 
-    def analyze_workload(self, commitments: List[Commitment]) -> PriorityAnalysis:
+    def analyze_workload(self, commitments: list[Commitment]) -> PriorityAnalysis:
         """
         Analyze overall workload and recommend focus areas.
 
@@ -144,9 +143,9 @@ class PriorityAnalyzer:
 
     def get_prioritized_items(
         self,
-        commitments: Optional[List[Commitment]] = None,
+        commitments: list[Commitment] | None = None,
         limit: int = 10,
-    ) -> List[Commitment]:
+    ) -> list[Commitment]:
         """
         Get top priority items to focus on today.
 
@@ -191,7 +190,7 @@ class PriorityAnalyzer:
 
         return priority_items[:limit]
 
-    def suggest_delegate_items(self, commitments: List[Commitment]) -> List[Tuple[Commitment, str]]:
+    def suggest_delegate_items(self, commitments: list[Commitment]) -> list[tuple[Commitment, str]]:
         """
         Identify items that should be delegated.
 
@@ -280,7 +279,7 @@ class PriorityAnalyzer:
 
         return min(1.0, base_score)
 
-    def _suggest_owner(self, commitment: Commitment) -> Optional[str]:
+    def _suggest_owner(self, commitment: Commitment) -> str | None:
         """
         Suggest who should own a task (for delegation).
 
@@ -306,7 +305,7 @@ class PriorityAnalyzer:
 
         return None
 
-    def get_focus_recommendations(self, commitments: List[Commitment]) -> dict:
+    def get_focus_recommendations(self, commitments: list[Commitment]) -> dict:
         """
         Get personalized recommendations on what to focus on.
 

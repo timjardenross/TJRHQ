@@ -83,8 +83,8 @@ def cmd_list(args) -> None:
             print(f"      Rec: {rec[:100]}")
         print()
 
-    print(f"To promote:  python3 tools/stage_decisions.py promote <decision_id> --outcome \"...\" --status APPROVED")
-    print(f"To archive all old ones:  python3 tools/stage_decisions.py archive-all")
+    print("To promote:  python3 tools/stage_decisions.py promote <decision_id> --outcome \"...\" --status APPROVED")
+    print("To archive all old ones:  python3 tools/stage_decisions.py archive-all")
 
 
 def cmd_promote(args) -> None:
@@ -112,7 +112,7 @@ def cmd_promote(args) -> None:
 
     if status == "ARCHIVED":
         _mark_reviewed(d, status, args.outcome or "Archived — no register entry created.")
-        print(f"✅  Archived (no entry added to decision-register.txt)")
+        print("✅  Archived (no entry added to decision-register.txt)")
         return
 
     next_num = _next_d_number()

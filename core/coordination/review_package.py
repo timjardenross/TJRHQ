@@ -28,9 +28,10 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 from core.coordination import delivery_reconciler as dr
 from core.coordination.lifecycle_reconciler import build_recommendations
@@ -43,10 +44,10 @@ REVIEW_PKG_DIR = REPO_ROOT / "USS-TJR-Control" / "logs" / "missions" / "review-p
 _DEFAULT_QA = object()
 
 # A QA function takes (mission_id, dossier_text) and returns advisory text or None.
-QaFn = Callable[[str, str], Optional[str]]
+QaFn = Callable[[str, str], str | None]
 
 
-def _load_qa_officer() -> Optional[QaFn]:
+def _load_qa_officer() -> QaFn | None:
     """Import the existing QA Validation Officer, fail-open to None.
 
     Mirrors how platform-runtime/commands/mission_lifecycle.py reaches it: put
@@ -60,7 +61,7 @@ def _load_qa_officer() -> Optional[QaFn]:
             sys.path.insert(0, bot_dir)
         from lib.mistral_agents import call_qa_validation_officer
 
-        def _call(mission_id: str, dossier: str) -> Optional[str]:
+        def _call(mission_id: str, dossier: str) -> str | None:
             try:
                 return call_qa_validation_officer(mission_id, dossier)
             except Exception:  # noqa: BLE001 - advisory must never raise
@@ -126,8 +127,8 @@ def _format_review_dossier(item: dict, ev: dict[str, Any]) -> str:
 
 
 def build_review_packages(
-    report: Optional[dict[str, Any]] = None,
-    qa_fn: "QaFn | object | None" = _DEFAULT_QA,
+    report: dict[str, Any] | None = None,
+    qa_fn: QaFn | object | None = _DEFAULT_QA,
 ) -> dict[str, Any]:
     """Assemble a review package per Review-stage item.
 
@@ -147,7 +148,7 @@ def build_review_packages(
     for item in review_items:
         ev = collect_evidence(item)
         dossier = _format_review_dossier(item, ev)
-        advisory: Optional[str] = None
+        advisory: str | None = None
         if callable(qa_fn):
             advisory = qa_fn(ev["mission_id"], dossier)
         packages.append({
@@ -191,7 +192,7 @@ def format_review_packages(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def write_review_packages(report: dict[str, Any]) -> Optional[Path]:
+def write_review_packages(report: dict[str, Any]) -> Path | None:
     """Persist an advisory JSON snapshot. NOT a closure/approval write. Never raises."""
     try:
         REVIEW_PKG_DIR.mkdir(parents=True, exist_ok=True)

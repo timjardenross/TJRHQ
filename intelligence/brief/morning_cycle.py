@@ -29,7 +29,6 @@ import os
 import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 from intelligence.config import SCHEDULE_TZ
 
@@ -86,14 +85,14 @@ def local_now() -> datetime:
     return datetime.now(tz) if tz is not None else datetime.now()
 
 
-def cycle_id_for(moment: Optional[datetime] = None) -> str:
+def cycle_id_for(moment: datetime | None = None) -> str:
     """The AEST/local calendar date this morning's collection cycle belongs
     to, as 'YYYY-MM-DD'. Used as intelligence_briefs.morning_cycle_id."""
     moment = moment or local_now()
     return moment.date().isoformat()
 
 
-def in_morning_window(moment: Optional[datetime] = None) -> bool:
+def in_morning_window(moment: datetime | None = None) -> bool:
     """Cheap upfront check so a poll job can no-op most of the day without
     making a network call."""
     moment = moment or local_now()
@@ -104,11 +103,11 @@ def in_morning_window(moment: Optional[datetime] = None) -> bool:
 class MorningCycleStatus:
     cycle_id: str
     collection_status: str            # "ok" | "failed" | "unknown" | "pending"
-    collection_checked_at: Optional[str]
+    collection_checked_at: str | None
     ready: bool                       # safe to generate now (heartbeat landed, or cutoff reached)
     cutoff_reached: bool
     degraded: bool                    # generating without full confirmation of a clean collection run
-    reason: Optional[str]
+    reason: str | None
 
     def to_dict(self) -> dict:
         return {
@@ -121,7 +120,7 @@ class MorningCycleStatus:
         }
 
 
-def get_status(moment: Optional[datetime] = None) -> MorningCycleStatus:
+def get_status(moment: datetime | None = None) -> MorningCycleStatus:
     moment = moment or local_now()
     cycle_id = cycle_id_for(moment)
     cutoff = moment.replace(hour=MORNING_CUTOFF_HOUR, minute=MORNING_CUTOFF_MINUTE, second=0, microsecond=0)

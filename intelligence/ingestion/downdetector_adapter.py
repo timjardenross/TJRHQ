@@ -72,16 +72,15 @@ banking/government interim defaults and why they differ.
 import logging
 import re
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime, timezone
-from typing import Optional
 from urllib.parse import urlparse
 
 from intelligence.config import HTTP_TIMEOUT_SECONDS
 from intelligence.ingestion import brightdata_fetch, firecrawl_client
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
-from intelligence.models import IntelligenceItem, SourceRecord
+from intelligence.models import IntelligenceItem
 
 log = logging.getLogger(__name__)
 
@@ -269,7 +268,7 @@ class DowndetectorAdapter(BaseSourceAdapter):
         title, summary = self._build_item_text(company, status, report_count)
         return [self._make_item(title, summary, self.source.url, datetime.now(timezone.utc))]
 
-    def _log_observation(self, status: str, report_count: Optional[int]) -> None:
+    def _log_observation(self, status: str, report_count: int | None) -> None:
         try:
             from intelligence.persistence import intelligence_store as store
             store.save_downdetector_observation(
@@ -285,7 +284,7 @@ class DowndetectorAdapter(BaseSourceAdapter):
                 self.source.source_name, exc,
             )
 
-    def _passes_gate(self, status: str, report_count: Optional[int]) -> bool:
+    def _passes_gate(self, status: str, report_count: int | None) -> bool:
         if report_count is None:
             return False  # fails safe — never fires on status alone
         floor = get_report_count_floor(self.source.source_name, self._sector())
@@ -348,7 +347,7 @@ class DowndetectorAdapter(BaseSourceAdapter):
         except Exception as exc:
             raise RuntimeError(f"Downdetector fetch failed: {exc}") from exc
 
-    def _company_name(self, html: str) -> Optional[str]:
+    def _company_name(self, html: str) -> str | None:
         m = _COMPANY_NAME_PATTERN.search(html)
         return m.group(1).strip() if m else None
 
@@ -469,7 +468,7 @@ class DowndetectorAdapter(BaseSourceAdapter):
         return title, summary
 
 
-def parse_status_and_count(html: str) -> tuple[Optional[str], Optional[int]]:
+def parse_status_and_count(html: str) -> tuple[str | None, int | None]:
     """Pure parsing function — deliberately separate from network I/O so it
     can be unit-verified directly against real captured HTML (no live fetch
     required). Returns (status, report_count); status is one of

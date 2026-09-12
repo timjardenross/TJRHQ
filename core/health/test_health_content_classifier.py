@@ -7,16 +7,14 @@ Tests all three solutions:
 3. Sensitivity flag inheritance and suppression
 """
 
-import pytest
-from datetime import datetime
-from unittest.mock import Mock, MagicMock
+from unittest.mock import MagicMock, Mock
 
+import pytest
 from health_content_classifier import (
+    PILLAR_MAPPINGS,
+    ContentPillar,
     HealthContentClassifier,
     WellnessCategory,
-    ContentPillar,
-    ContentSignal,
-    PILLAR_MAPPINGS,
 )
 
 

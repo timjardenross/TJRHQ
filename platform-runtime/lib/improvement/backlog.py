@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -86,7 +86,7 @@ def _row_to_backlog_item(row: dict[str, Any]) -> BacklogItem | None:
     statement = str(row.get("statement") or "")
     # Strip "[BACKLOG] officer: " prefix to get suggested_action
     prefix = f"{_BACKLOG_PREFIX} {officer}: "
-    suggested_action = statement[len(prefix):] if statement.startswith(prefix) else statement
+    suggested_action = statement.removeprefix(prefix)
 
     parts = _parse_rationale(str(row.get("rationale") or ""))
 
@@ -133,6 +133,7 @@ def add_to_backlog(opp: Any) -> bool:
     """
     try:
         from command_memory_integration import log_decision_to_command_memory
+
         from tools.supabase.client import CommanderSupabaseClient
 
         officer = str(getattr(opp, "source_officer", "unknown"))
@@ -166,7 +167,7 @@ def add_to_backlog(opp: Any) -> bool:
             f"CATEGORY: {cat.value if cat else ''}",
             f"OBSERVATION: {str(getattr(opp, 'observation', ''))[:120]}",
             f"BENEFIT: {str(getattr(opp, 'expected_benefit', ''))[:100]}",
-            f"EFFORT: {str(getattr(opp, 'estimated_effort', ''))}",
+            f"EFFORT: {getattr(opp, 'estimated_effort', '')!s}",
         ])
 
         log_decision_to_command_memory(
@@ -317,8 +318,8 @@ def drain_backlog(n: int, budget: Any) -> list[BacklogItem]:
 __all__ = [
     "BacklogItem",
     "add_to_backlog",
+    "drain_backlog",
     "get_backlog",
     "get_backlog_count",
     "mark_backlog_item_processed",
-    "drain_backlog",
 ]

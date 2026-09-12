@@ -15,13 +15,13 @@ Usage:
     python run_poc.py MSN-0011 MSN-0009      # specific missions
 """
 
-import sys
 import json
-from pathlib import Path
+import sys
+
+from assembler import assemble_mission_context
+from loaders import load_corpus
 
 import config
-from loaders import load_corpus
-from assembler import assemble_mission_context
 
 
 def print_summary(pkg):

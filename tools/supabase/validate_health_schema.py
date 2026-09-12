@@ -62,7 +62,6 @@ def cleanup(table: str, column: str, value: str) -> None:
 
 import urllib.parse
 
-
 # ── Test 1: health_daily_logs ─────────────────────────────────────────────────
 
 def test_daily_logs() -> None:

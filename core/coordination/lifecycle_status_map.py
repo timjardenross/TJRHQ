@@ -44,12 +44,13 @@ modules cannot drift.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
 
 from core.coordination.engineering_handoff_reader import (
     EngineeringStatus,
-    _normalise_token as _norm,  # reuse the reader's tolerant normaliser (same subsystem)
     derive_engineering_status,
+)
+from core.coordination.engineering_handoff_reader import (
+    _normalise_token as _norm,  # reuse the reader's tolerant normaliser (same subsystem)
 )
 
 
@@ -137,17 +138,17 @@ _INBOX_MAP = {
 }
 
 
-def from_slack_status(value: Optional[str]) -> Optional[LifecycleStage]:
+def from_slack_status(value: str | None) -> LifecycleStage | None:
     """Slack mission status → spine stage (None if unrecognised)."""
     return _SLACK_MAP.get(_norm(value))
 
 
-def from_canonical_status(value: Optional[str]) -> Optional[LifecycleStage]:
+def from_canonical_status(value: str | None) -> LifecycleStage | None:
     """Canonical/ADR-0001 mission status → spine stage (None if unrecognised)."""
     return _CANONICAL_MAP.get(_norm(value))
 
 
-def from_engineering_status(value: "Optional[str | EngineeringStatus]") -> Optional[LifecycleStage]:
+def from_engineering_status(value: str | EngineeringStatus | None) -> LifecycleStage | None:
     """Engineering status → spine stage.
 
     Accepts an `EngineeringStatus`, its `.value` ("Pending Triage" …), or a raw
@@ -169,7 +170,7 @@ def from_engineering_status(value: "Optional[str | EngineeringStatus]") -> Optio
     return _ENGINEERING_MAP.get(derived) if derived is not None else None
 
 
-def from_inbox_status(value: Optional[str]) -> Optional[LifecycleStage]:
+def from_inbox_status(value: str | None) -> LifecycleStage | None:
     """Build-request inbox status → spine stage (None if unrecognised)."""
     return _INBOX_MAP.get(_norm(value))
 
@@ -183,12 +184,12 @@ class ReconciledLifecycle:
     effects, no writes.
     """
 
-    __slots__ = ("stage", "inputs", "disagreement")
+    __slots__ = ("disagreement", "inputs", "stage")
 
     def __init__(
         self,
-        stage: Optional[LifecycleStage],
-        inputs: dict[str, Optional[LifecycleStage]],
+        stage: LifecycleStage | None,
+        inputs: dict[str, LifecycleStage | None],
         disagreement: bool,
     ) -> None:
         self.stage = stage
@@ -202,10 +203,10 @@ class ReconciledLifecycle:
 
 def reconcile(
     *,
-    slack_status: Optional[str] = None,
-    canonical_status: Optional[str] = None,
-    engineering_status: "Optional[str | EngineeringStatus]" = None,
-    inbox_status: Optional[str] = None,
+    slack_status: str | None = None,
+    canonical_status: str | None = None,
+    engineering_status: str | EngineeringStatus | None = None,
+    inbox_status: str | None = None,
 ) -> ReconciledLifecycle:
     """Translate every available source status onto the spine and unify them.
 
@@ -218,7 +219,7 @@ def reconcile(
     Unrecognised or terminal-excluded inputs contribute None and are ignored for
     the frontier calculation but retained in `.inputs` for transparency.
     """
-    inputs: dict[str, Optional[LifecycleStage]] = {
+    inputs: dict[str, LifecycleStage | None] = {
         "slack": from_slack_status(slack_status),
         "canonical": from_canonical_status(canonical_status),
         "engineering": from_engineering_status(engineering_status),
@@ -233,13 +234,13 @@ def reconcile(
 
 
 __all__ = [
-    "LifecycleStage",
     "LIFECYCLE_SPINE",
-    "stage_order",
-    "from_slack_status",
+    "LifecycleStage",
+    "ReconciledLifecycle",
     "from_canonical_status",
     "from_engineering_status",
     "from_inbox_status",
-    "ReconciledLifecycle",
+    "from_slack_status",
     "reconcile",
+    "stage_order",
 ]

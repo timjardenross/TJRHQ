@@ -6,7 +6,6 @@ Returns all items and health records.
 
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Optional
 
 from intelligence.ingestion.api_adapter import APIAdapter
 from intelligence.ingestion.browser_adapter import BrowserAdapter
@@ -55,7 +54,7 @@ _ADAPTER_MAP = {
 
 
 def collect_all(
-    sources: Optional[list[SourceRecord]] = None,
+    sources: list[SourceRecord] | None = None,
     max_workers: int = 8,
 ) -> tuple[list[IntelligenceItem], list[SourceHealth]]:
     """

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import tempfile
-from pathlib import Path
 import unittest
+from pathlib import Path
 
-from core.coordination.decision_registry_memory_adapter import DecisionRegistryMemoryAdapter
+from core.coordination.decision_registry_memory_adapter import (
+    DecisionRegistryMemoryAdapter,
+)
 from core.coordination.number_one_memory_adapter import NumberOneMemoryAdapter
 
 

@@ -16,7 +16,7 @@ replacement for the navigation layer's richer traversal features.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ def _supabase_raw():
     return CommanderSupabaseClient().raw_client
 
 
-def ensure_node(node_id: str, node_type: str, title: str, *, level: int = 3, summary: Optional[str] = None) -> bool:
+def ensure_node(node_id: str, node_type: str, title: str, *, level: int = 3, summary: str | None = None) -> bool:
     """Upsert a node. Non-blocking — never raises. level defaults to 3
     ('mission'-depth) for platform-runtime entities that don't naturally
     fit the original 0-6 governance hierarchy depth."""
@@ -67,7 +67,7 @@ def add_relationship(
     relationship_type: str,
     *,
     confidence: float = 1.0,
-    evidence: Optional[str] = None,
+    evidence: str | None = None,
 ) -> bool:
     """Add a typed, directed relationship between two existing nodes."""
     if relationship_type not in VALID_RELATIONSHIP_TYPES:
@@ -117,4 +117,4 @@ def get_relationships_for(node_id: str, *, direction: str = "both") -> list[dict
         return []
 
 
-__all__ = ["VALID_NODE_TYPES", "VALID_RELATIONSHIP_TYPES", "ensure_node", "add_relationship", "get_relationships_for"]
+__all__ = ["VALID_NODE_TYPES", "VALID_RELATIONSHIP_TYPES", "add_relationship", "ensure_node", "get_relationships_for"]

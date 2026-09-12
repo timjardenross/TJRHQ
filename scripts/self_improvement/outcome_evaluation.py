@@ -26,7 +26,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import evidence_sources
 import outcome_schema
@@ -126,7 +126,7 @@ def check_implementation_status(opportunity: dict[str, Any], repo_root: Path, da
              "detail": "No implementation signal yet (no mission_id, no source_finding_id, not manually marked)."}
 
 
-def is_observation_window_satisfied(opportunity: dict[str, Any], cycles_elapsed: Optional[int] = None) -> tuple[bool, str]:
+def is_observation_window_satisfied(opportunity: dict[str, Any], cycles_elapsed: int | None = None) -> tuple[bool, str]:
     """Section 9: is the observation window (set once, at contract-build
     time) satisfied yet? Never raises. `cycles_elapsed` is supplied by the
     caller (evolution_orchestrator.py), which is the only place that knows
@@ -166,7 +166,7 @@ def is_observation_window_satisfied(opportunity: dict[str, Any], cycles_elapsed:
     return False, f"Unknown observation_window type: {window_type!r}"
 
 
-def detect_concurrent_changes(opportunity: dict[str, Any], store: Any, window_start_iso: str) -> Optional[str]:
+def detect_concurrent_changes(opportunity: dict[str, Any], store: Any, window_start_iso: str) -> str | None:
     """Section 33: attribution risk. If another opportunity of the SAME
     change_class was implementing/verifying/landed ("learned") during this
     opportunity's observation window, any measured change could be theirs,
@@ -255,7 +255,7 @@ def evaluate_deterministic(
     contract: dict[str, Any],
     current_evidence: dict[str, Any],
     material_change_threshold: float = 0.20,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Section 8/10: numeric baseline vs. numeric current measurement.
     Returns None (never a fabricated verdict) whenever the comparison
     can't honestly be made — the caller falls through to model synthesis
@@ -315,7 +315,7 @@ def evaluate_deterministic(
         return None
 
 
-def _safe_fallback(reason: str, impl: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+def _safe_fallback(reason: str, impl: dict[str, Any] | None = None) -> dict[str, Any]:
     result = outcome_schema.honest_fallback_outcome_evaluation(reason)
     result["attribution_risk"] = None
     result["evaluated_at"] = datetime.now(timezone.utc).isoformat()
@@ -330,8 +330,8 @@ def evaluate_outcome(
     repo_root: Path,
     data_root: Path,
     store: Any,
-    router: Optional[Any] = None,
-    cycles_elapsed: Optional[int] = None,
+    router: Any | None = None,
+    cycles_elapsed: int | None = None,
 ) -> dict[str, Any]:
     """The main entry point (sections 10-37). Orchestrates implementation
     verification, observation-window gating, concurrent-change detection,

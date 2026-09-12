@@ -25,16 +25,14 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from challenge_review import ChallengeReview
 from commander_synthesis import (
-    commander_prompt,
     deterministic_synthesis,
     deterministic_synthesis_with_challenge,
     extract_section,
-    strip_thinking,
 )
 from specialist_executor import SpecialistOutput
 
@@ -228,10 +226,10 @@ def _call_model(
         # Imported here so the module is usable without ollama/litellm being
         # present (deterministic tests never reach this path).
         if provider == "ollama":
-            from commander_synthesis import ollama_synthesis  # noqa: PLC0415
+            from commander_synthesis import ollama_synthesis
             response = ollama_synthesis(question, context, outputs, challenge, model, decision_context)
         else:  # "litellm"
-            from commander_synthesis import litellm_synthesis  # noqa: PLC0415
+            from commander_synthesis import litellm_synthesis
             response = litellm_synthesis(question, context, outputs, challenge, model, decision_context)
 
         if not response.strip():

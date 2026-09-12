@@ -38,7 +38,8 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime
+
 
 def _brisbane_today() -> str:
     """Return today's date string in Australia/Brisbane time."""
@@ -97,7 +98,9 @@ class RecoveryStatus:
         wellness_officer/intelligence.py — was one of 3 independent copies
         of this exact logic (MSN-0302 finding).
         """
-        from telegram_bots.wellness_officer.intelligence import escalation_level as _escalation_level
+        from telegram_bots.wellness_officer.intelligence import (
+            escalation_level as _escalation_level,
+        )
         return _escalation_level(self.recovery_confidence, self.pulses_completed)
 
     @property
@@ -269,7 +272,7 @@ def build_daily_summary(status: RecoveryStatus) -> str:
         "",
         f"Confidence: `{_bar(status.recovery_confidence)}` {status.recovery_confidence}%",
         f"Pulses:  {done_str}",
-        f"         AM · Mid · PM",
+        "         AM · Mid · PM",
         "",
         f"_{status.confidence_label}_",
     ]
@@ -608,5 +611,5 @@ if __name__ == "__main__":
         print(build_daily_summary(status))
         print(f"\nEscalation level: {status.escalation_level}")
         if status.next_suggested_pulse:
-            print(f"\n--- L1 Reminder preview ---")
+            print("\n--- L1 Reminder preview ---")
             print(build_pulse_reminder(status))

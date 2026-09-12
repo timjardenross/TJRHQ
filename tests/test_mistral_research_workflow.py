@@ -11,14 +11,11 @@ Covers:
 - Existing Slack command integration is not regressed
 """
 
+import logging
 import os
 import sys
-import types
-import logging
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 # ─── Path setup ──────────────────────────────────────────────────────────────
 
@@ -284,7 +281,6 @@ class TestCallStageFallback:
             REPO_ROOT / "core" / "coordination" / "research_orchestration.py",
         )
         # We can't easily exec it without full deps; just test _call_stage logic inline
-        import importlib.util as iu
 
         # Simulate _call_stage logic directly
         def _call_stage_sim(stage, agent_name, prompt, timeout_sec=30, mission_id=None):
@@ -327,7 +323,6 @@ class TestCallStageFallback:
 
 import importlib.util  # needed for TestCallStageFallback
 
-
 # ─── call_mistral_research in research_delegator ─────────────────────────────
 
 class TestCallMistralResearch:
@@ -340,6 +335,7 @@ class TestCallMistralResearch:
 
         with patch.dict(sys.modules, {"mistral_agent_client": fake_mac}):
             from importlib import reload
+
             import research_delegator
             reload(research_delegator)
             outcome = research_delegator.call_mistral_research("task", mission_id="MSN-123")
@@ -355,6 +351,7 @@ class TestCallMistralResearch:
 
         with patch.dict(sys.modules, {"mistral_agent_client": fake_mac}):
             from importlib import reload
+
             import research_delegator
             reload(research_delegator)
             outcome = research_delegator.call_mistral_research("task")
@@ -401,8 +398,9 @@ class TestBriefingOfficerUsesSharedClient:
         fake_mac.AGENT_BRIEFING = "briefing"
 
         with patch.dict(sys.modules, {"lib.mistral_agent_client": fake_mac}):
-            from lib import briefing_officer
             from importlib import reload
+
+            from lib import briefing_officer
             reload(briefing_officer)
 
             pkg = {"topic": "AI risk", "key_findings": "Risk is high", "mission_id": "MSN-001"}

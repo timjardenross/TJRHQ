@@ -61,13 +61,14 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from config import load_config  # noqa: E402
-from supabase_client import SupabaseClient  # noqa: E402
-from model_router_client import ModelRouterClient  # noqa: E402
-from chunking import chunk_text  # noqa: E402
-import parsers  # noqa: E402
-from ocr import orchestrator as ocr_orchestrator  # noqa: E402
-import eligibility  # noqa: E402
+import eligibility
+import parsers
+from chunking import chunk_text
+from model_router_client import ModelRouterClient
+from ocr import orchestrator as ocr_orchestrator
+from supabase_client import SupabaseClient
+
+from config import load_config
 
 DEFAULT_CONFIG = _HERE / "config.yaml"
 
@@ -121,7 +122,10 @@ def _task_engine_transition(source_path: str | None, status: str, failure_reason
     try:
         if str(_REPO_ROOT) not in sys.path:
             sys.path.insert(0, str(_REPO_ROOT))
-        from core.platform.task_engine import get_task_by_idempotency_key, transition_task
+        from core.platform.task_engine import (
+            get_task_by_idempotency_key,
+            transition_task,
+        )
         new_status = _TASK_ENGINE_STATUS_MAP.get(status)
         if new_status is None:
             return

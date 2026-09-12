@@ -8,9 +8,9 @@ Returns BlockerContextPackage objects with cascade analysis.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-from typing import List, Dict, Any, Optional
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
@@ -20,7 +20,13 @@ from models import BlockerContextPackage
 
 # Import Number One status/priority parsers to reuse consistent logic
 try:
-    from number_one import _to_status, _to_priority, MissionStatus, Priority, TERMINAL_STATUSES
+    from number_one import (
+        TERMINAL_STATUSES,
+        MissionStatus,
+        Priority,
+        _to_priority,
+        _to_status,
+    )
 except ImportError:
     _to_status = None
     _to_priority = None
@@ -32,13 +38,13 @@ except ImportError:
 _BLOCKED_STATUSES = {"BLOCKED", "Blocked", "BLOCKED_OPS"}
 
 
-def analyze_blockers(missions: List[Dict[str, Any]]) -> List[BlockerContextPackage]:
+def analyze_blockers(missions: list[dict[str, Any]]) -> list[BlockerContextPackage]:
     """
     Given a list of mission dicts, return BlockerContextPackage for each blocked mission.
     Results are sorted: critical first, then high, then normal.
     """
     # Build dependency map: mission_id → list of missions that depend on it
-    dependents_map: Dict[str, List[str]] = {}
+    dependents_map: dict[str, list[str]] = {}
     for m in missions:
         mid = _mission_id(m)
         for dep in _get_dependencies(m):
@@ -60,8 +66,8 @@ def analyze_blockers(missions: List[Dict[str, Any]]) -> List[BlockerContextPacka
 
 
 def _build_package(
-    mission: Dict[str, Any],
-    dependents_map: Dict[str, List[str]],
+    mission: dict[str, Any],
+    dependents_map: dict[str, list[str]],
 ) -> BlockerContextPackage:
     mid = _mission_id(mission)
     priority_str = str(mission.get("priority", "P3")).split()[0].upper()
@@ -91,23 +97,23 @@ def _build_package(
     )
 
 
-def _mission_id(m: Dict[str, Any]) -> str:
+def _mission_id(m: dict[str, Any]) -> str:
     return str(m.get("mission_id") or m.get("id") or "UNKNOWN")
 
 
-def _is_blocked(m: Dict[str, Any]) -> bool:
+def _is_blocked(m: dict[str, Any]) -> bool:
     status = str(m.get("status", "")).strip()
     return status in _BLOCKED_STATUSES or status.lower() == "blocked"
 
 
-def _get_dependencies(m: Dict[str, Any]) -> List[Any]:
+def _get_dependencies(m: dict[str, Any]) -> list[Any]:
     deps = m.get("dependencies", [])
     if isinstance(deps, list):
         return deps
     return []
 
 
-def _normalise_blockers(raw: Any, priority: str) -> List[Dict[str, Any]]:
+def _normalise_blockers(raw: Any, priority: str) -> list[dict[str, Any]]:
     if not raw:
         return [{"description": "Reason not specified", "severity": _default_severity(priority)}]
 
@@ -136,7 +142,7 @@ def _default_severity(priority: str) -> str:
     return "normal"
 
 
-def _parse_blocked_since(m: Dict[str, Any]) -> Optional[str]:
+def _parse_blocked_since(m: dict[str, Any]) -> str | None:
     blockers = m.get("blockers", [])
     if isinstance(blockers, list):
         for b in blockers:
@@ -147,7 +153,7 @@ def _parse_blocked_since(m: Dict[str, Any]) -> Optional[str]:
     return m.get("updated_at") or m.get("last_updated")
 
 
-def _blocker_age(m: Dict[str, Any]) -> int:
+def _blocker_age(m: dict[str, Any]) -> int:
     since = _parse_blocked_since(m)
     if not since:
         return 0

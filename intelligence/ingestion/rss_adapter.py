@@ -12,7 +12,6 @@ Feed URL resolution order:
 import logging
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Optional
 
 from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
@@ -102,7 +101,7 @@ class RSSAdapter(BaseSourceAdapter):
 
         return items
 
-    def _get_summary(self, entry) -> Optional[str]:
+    def _get_summary(self, entry) -> str | None:
         for field in ("summary", "description", "content"):
             val = entry.get(field)
             if val:
@@ -115,7 +114,7 @@ class RSSAdapter(BaseSourceAdapter):
                 return val[:1000] if val else None
         return None
 
-    def _parse_date(self, entry) -> Optional[datetime]:
+    def _parse_date(self, entry) -> datetime | None:
         for field in ("published_parsed", "updated_parsed"):
             val = entry.get(field)
             if val:

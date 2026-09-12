@@ -17,15 +17,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from core.platform.attention_engine import AttentionCategory  # noqa: E402
-from intelligence.validation_suite import (  # noqa: E402
+from core.platform.attention_engine import AttentionCategory
+from intelligence.validation_suite import (
+    CASES,
+    KNOWN_GAPS,
     _case_aws_sydney_synthetic_replay,
     _case_bushfire_synthetic_replay,
     _fail,
     _pass,
     _replay_through_attention_engine,
-    CASES,
-    KNOWN_GAPS,
 )
 
 

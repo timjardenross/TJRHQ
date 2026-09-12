@@ -277,7 +277,10 @@ def _step_engineering_assessment(ctx: Any, result: OfficerCycleResult) -> None:
 def _step_assignment_resolution(ctx: Any, missions: list[dict[str, Any]], result: OfficerCycleResult) -> None:
     """Number One: process idle missions that require assignment or re-assignment."""
     try:
-        from lib.officers.officer_assignment import assign_mission, get_available_assignees
+        from lib.officers.officer_assignment import (
+            assign_mission,
+            get_available_assignees,
+        )
 
         assigned = 0
         for m in missions[:5]:  # cap to 5 per cycle to bound latency
@@ -309,7 +312,11 @@ def _step_assignment_resolution(ctx: Any, missions: list[dict[str, Any]], result
 def _step_escalation_processing(ctx: Any, result: OfficerCycleResult) -> None:
     """All officers: advance overdue escalations and surface L5 items to Captain."""
     try:
-        from lib.officers.officer_escalations import get_overdue_escalations, advance_escalation, EscalationLevel
+        from lib.officers.officer_escalations import (
+            EscalationLevel,
+            advance_escalation,
+            get_overdue_escalations,
+        )
 
         overdue = get_overdue_escalations()
         result.overdue_followups = len(overdue)
@@ -344,7 +351,10 @@ def _step_escalation_processing(ctx: Any, result: OfficerCycleResult) -> None:
 def _step_xo_synthesis(ctx: Any, result: OfficerCycleResult) -> None:
     """XO: synthesise all officer signals for injection into the Captain brief."""
     try:
-        from lib.officers.xo_orchestrator import synthesise_officer_outputs, format_xo_synthesis
+        from lib.officers.xo_orchestrator import (
+            format_xo_synthesis,
+            synthesise_officer_outputs,
+        )
         synthesis = synthesise_officer_outputs(result.officer_signals, ctx)
         summary = format_xo_synthesis(synthesis)
         result.xo_synthesis_available = bool(summary)
@@ -371,9 +381,9 @@ def _format_fallback_summary(result: OfficerCycleResult) -> str:
 def _evaluate_triggers_and_act(ctx: Any, result: OfficerCycleResult) -> None:
     """Evaluate all officer triggers and convert fired triggers to actions."""
     try:
-        from lib.officers.officer_triggers import evaluate_all_triggers
         from lib.officers.officer_actions import execute_triggered_actions
         from lib.officers.officer_handoffs import process_handoffs
+        from lib.officers.officer_triggers import evaluate_all_triggers
 
         trigger_results = evaluate_all_triggers(ctx)
         result.triggers_fired = sum(len(v) for v in trigger_results.values())
@@ -408,7 +418,10 @@ def _evaluate_triggers_and_act(ctx: Any, result: OfficerCycleResult) -> None:
 def _run_due_scheduled_activities(ctx: Any, result: OfficerCycleResult) -> None:
     """Check for due scheduled activities and record them as run."""
     try:
-        from lib.officers.officer_schedules import get_due_activities, record_activity_run
+        from lib.officers.officer_schedules import (
+            get_due_activities,
+            record_activity_run,
+        )
 
         due = get_due_activities(ctx)
         result.due_activities = len(due)
@@ -506,6 +519,6 @@ def format_officer_cycle_summary(result: OfficerCycleResult) -> str:
 
 __all__ = [
     "OfficerCycleResult",
-    "run_officer_cycle",
     "format_officer_cycle_summary",
+    "run_officer_cycle",
 ]

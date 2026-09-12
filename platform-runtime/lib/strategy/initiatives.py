@@ -40,7 +40,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -173,7 +173,7 @@ def _row_to_initiative(row: dict[str, Any]) -> Initiative | None:
     p = _parse_rationale(str(row.get("rationale") or ""))
     stmt = str(row.get("statement") or "")
     prefix = f"{_INITIATIVE_STATEMENT} {init_id}: "
-    title = stmt[len(prefix):] if stmt.startswith(prefix) else stmt
+    title = stmt.removeprefix(prefix)
 
     def _enum(cls, val, default):
         try:
@@ -419,16 +419,16 @@ def get_linked_missions(initiative_id: str) -> list[str]:
 
 
 __all__ = [
-    "InitiativeStatus",
-    "InitiativeHealth",
-    "OutcomeTrend",
-    "Initiative",
-    "create_initiative",
-    "update_initiative",
-    "get_initiative",
-    "list_initiatives",
-    "close_initiative",
-    "link_mission",
-    "get_linked_missions",
     "INITIATIVE_OWNER_PREFIX",
+    "Initiative",
+    "InitiativeHealth",
+    "InitiativeStatus",
+    "OutcomeTrend",
+    "close_initiative",
+    "create_initiative",
+    "get_initiative",
+    "get_linked_missions",
+    "link_mission",
+    "list_initiatives",
+    "update_initiative",
 ]

@@ -78,8 +78,8 @@ def configure_tracing(service_name: str) -> None:
         return
 
     try:
-        from phoenix.otel import register
         from openinference.instrumentation.openai import OpenAIInstrumentor
+        from phoenix.otel import register
     except ImportError as exc:
         log.warning(
             "telemetry: Phoenix / OpenInference packages not available (%s) — "

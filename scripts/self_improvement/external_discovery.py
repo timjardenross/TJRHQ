@@ -22,7 +22,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger("external_discovery")
 
@@ -30,7 +30,7 @@ GITHUB_API_BASE = "https://api.github.com"
 USER_AGENT = "tjrhq-hq-evolution-discovery/1.0 (+internal research bot; bounded, read-only)"
 
 
-def _get_json(url: str, timeout: int) -> Optional[dict[str, Any]]:
+def _get_json(url: str, timeout: int) -> dict[str, Any] | None:
     req = urllib.request.Request(url, headers={
         "Accept": "application/vnd.github+json",
         "User-Agent": USER_AGENT,

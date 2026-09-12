@@ -26,11 +26,9 @@ Public API:
 
 from __future__ import annotations
 
-import os
 import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Any
 from enum import Enum
 
 log = logging.getLogger(__name__)
@@ -80,10 +78,10 @@ class FeedbackSignal:
     suggested_action: str  # "increase", "decrease", "maintain"
 
     # Optional fields with defaults
-    model_name: Optional[str] = None
-    provider_route: Optional[str] = None
+    model_name: str | None = None
+    provider_route: str | None = None
     feedback_timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    created_at: Optional[str] = None
+    created_at: str | None = None
 
     def to_dict(self):
         """Convert to dictionary for Supabase insert."""
@@ -104,13 +102,13 @@ class FeedbackSignal:
 class ProviderQuality:
     """Provider quality metrics and trend."""
     provider_name: str
-    model_name: Optional[str]
-    provider_route: Optional[str]
+    model_name: str | None
+    provider_route: str | None
     decisions_count: int
     avg_effectiveness: float
     effectiveness_trend: str  # "up", "down", "stable"
     quality_tier: str  # "high", "medium", "low"
-    last_score_date: Optional[str]
+    last_score_date: str | None
 
 
 # ============================================================================
@@ -143,10 +141,10 @@ class FeedbackLoops:
         score_id: str,
         decision_id: str,
         provider_name: str,
-        effectiveness_score: Optional[float],
-        model_name: Optional[str] = None,
-        provider_route: Optional[str] = None,
-    ) -> Optional[FeedbackSignal]:
+        effectiveness_score: float | None,
+        model_name: str | None = None,
+        provider_route: str | None = None,
+    ) -> FeedbackSignal | None:
         """
         Generate feedback signal from quality score.
 
@@ -227,8 +225,8 @@ class FeedbackLoops:
             return signal
 
     def get_provider_quality(
-        self, provider_name: str, model_name: Optional[str] = None
-    ) -> Optional[ProviderQuality]:
+        self, provider_name: str, model_name: str | None = None
+    ) -> ProviderQuality | None:
         """
         Get provider quality metrics.
 
@@ -316,7 +314,7 @@ class FeedbackLoops:
             )
             return []
 
-    def get_provider_trend(self, provider_name: str) -> Optional[str]:
+    def get_provider_trend(self, provider_name: str) -> str | None:
         """
         Get provider quality trend.
 
@@ -335,8 +333,8 @@ class FeedbackLoops:
     def _get_provider_baseline(
         self,
         provider_name: str,
-        model_name: Optional[str] = None,
-        provider_route: Optional[str] = None,
+        model_name: str | None = None,
+        provider_route: str | None = None,
     ) -> float:
         """
         Get provider baseline (average effectiveness).

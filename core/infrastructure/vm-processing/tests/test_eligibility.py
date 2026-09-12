@@ -7,7 +7,6 @@ docstring records the calibration run) — not invented numbers.
 
 import eligibility
 
-
 # -- check_filename ---------------------------------------------------------------
 
 def test_epub_is_unsupported_media():

@@ -27,7 +27,6 @@ from notion_client import (
     title,
 )
 
-
 ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = ROOT / "logs/collaboration"
 

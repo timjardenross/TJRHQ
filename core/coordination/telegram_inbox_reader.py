@@ -32,7 +32,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # repo root: core/coordination/ -> core/ -> <repo>
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -44,12 +44,12 @@ DEFAULT_INBOX_DIR = _REPO_ROOT / "Missions" / "Telegram-Inbox"
 _PENDING_TOKENS = {"", "PENDINGTRIAGE", "PENDING", "TRIAGE", "NEW", "OPEN", "UNTRIAGED"}
 
 
-def _normalise_token(value: Optional[str]) -> str:
+def _normalise_token(value: str | None) -> str:
     """Uppercase and strip spaces/hyphens/underscores for tolerant matching."""
     return (value or "").strip().upper().replace(" ", "").replace("-", "").replace("_", "")
 
 
-def is_pending_triage(status: Optional[str]) -> bool:
+def is_pending_triage(status: str | None) -> bool:
     """True when a request's raw `Status` still represents outstanding triage.
 
     Anything outside the pending vocabulary (triaged / approved / rejected /
@@ -59,7 +59,7 @@ def is_pending_triage(status: Optional[str]) -> bool:
     return _normalise_token(status) in _PENDING_TOKENS
 
 
-def _parse_request_file(path: Path) -> Optional[dict[str, str]]:
+def _parse_request_file(path: Path) -> dict[str, str] | None:
     """Parse one BREQ markdown file into a flat field dict.
 
     Reads the ``- Key: Value`` header block and each ``## Section`` (full
@@ -74,7 +74,7 @@ def _parse_request_file(path: Path) -> Optional[dict[str, str]]:
 
     fields: dict[str, str] = {}
     section_lines: dict[str, list[str]] = {}
-    current_section: Optional[str] = None
+    current_section: str | None = None
 
     for raw in text.splitlines():
         stripped = raw.strip()
@@ -104,7 +104,7 @@ def _parse_request_file(path: Path) -> Optional[dict[str, str]]:
     return fields
 
 
-def _coerce_timestamp(value: Optional[str], fallback_path: Path) -> str:
+def _coerce_timestamp(value: str | None, fallback_path: Path) -> str:
     """Return an ISO timestamp for staleness from the 'Timestamp' field.
 
     BREQ files are written as "%Y-%m-%d %H:%M:%S". Falls back to the file mtime,
@@ -122,7 +122,7 @@ def _coerce_timestamp(value: Optional[str], fallback_path: Path) -> str:
         return datetime.utcnow().isoformat() + "Z"
 
 
-def _normalise_to_mission(fields: dict[str, str], path: Path) -> Optional[dict[str, Any]]:
+def _normalise_to_mission(fields: dict[str, str], path: Path) -> dict[str, Any] | None:
     """Map a parsed BREQ into a Number One mission-dict, or None to skip.
 
     Skips (returns None) when the request is no longer pending triage — that is
@@ -189,7 +189,7 @@ def _normalise_to_mission(fields: dict[str, str], path: Path) -> Optional[dict[s
 
 
 def load_telegram_build_requests(
-    inbox_dir: Optional[str | Path] = None,
+    inbox_dir: str | Path | None = None,
 ) -> list[dict[str, Any]]:
     """Return outstanding (pending-triage) Telegram build requests as mission dicts.
 

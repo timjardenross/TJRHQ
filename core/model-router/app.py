@@ -71,14 +71,18 @@ log = logging.getLogger("model-router")
 # Ollama — same _ollama_generate() code path as fully-local calls, not
 # interceptable at this layer without also touching every local call).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-from core.security.llm_guardrails import check_output_rail, secure_outbound_prompt  # noqa: E402
+from core.security.llm_guardrails import (
+    check_output_rail,
+    secure_outbound_prompt,
+)
 
 # Optional OTel tracing — stdlib-only fallback when platform-runtime venv is
 # not available (model-router runs under system Python with no external deps).
 try:
     sys.path.insert(0, '/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
-    from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
     from opentelemetry import trace as _otel_trace
+
+    from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
     _configure_tracing("model-router")
     _ROUTER_TRACING_AVAILABLE = True
 except Exception:
@@ -734,14 +738,14 @@ class RouterHandler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             return {}
 
-    def do_OPTIONS(self) -> None:  # noqa: N802
+    def do_OPTIONS(self) -> None:
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         if self.path == "/api/model/status":
             self._handle_status()
         elif self.path.startswith("/api/model/recent-calls"):
@@ -751,7 +755,7 @@ class RouterHandler(BaseHTTPRequestHandler):
         else:
             self._send_json(404, {"error": "not found"})
 
-    def do_POST(self) -> None:  # noqa: N802
+    def do_POST(self) -> None:
         path = self.path.rstrip("/")
 
         if path == "/api/model/adhd-decompose":

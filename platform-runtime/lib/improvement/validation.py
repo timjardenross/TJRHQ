@@ -164,6 +164,6 @@ def get_improvement_outcomes(limit: int = 20) -> list[dict[str, Any]]:
 
 
 __all__ = [
-    "validate_improvement_outcome",
     "get_improvement_outcomes",
+    "validate_improvement_outcome",
 ]

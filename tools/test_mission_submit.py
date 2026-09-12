@@ -18,7 +18,6 @@ import types
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-
 # ── Dependency stubs (must precede bot import) ────────────────────────────────
 
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test-token-0178")
@@ -106,6 +105,7 @@ for _name, _attrs in _tb_modules.items():
 # ── Load bot module ───────────────────────────────────────────────────────────
 
 import importlib.util
+
 _spec = importlib.util.spec_from_file_location(
     "xo_app",
     os.path.join(os.path.dirname(__file__), "..", "telegram-bots", "xo", "app.py"),

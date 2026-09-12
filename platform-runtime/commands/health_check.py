@@ -12,9 +12,7 @@ Public API:
 from __future__ import annotations
 
 import logging
-import os
 import sys
-from datetime import timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -25,6 +23,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
 
 from lib.tz import today_brisbane_iso
+
 
 def _make_supabase():
     try:

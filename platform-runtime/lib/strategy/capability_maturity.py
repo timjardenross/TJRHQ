@@ -28,7 +28,6 @@ import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +37,12 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.strategy.capabilities import Capability, MaturityLevel, list_capabilities, update_capability
+from lib.strategy.capabilities import (
+    Capability,
+    MaturityLevel,
+    list_capabilities,
+    update_capability,
+)
 
 
 @dataclass
@@ -70,8 +74,7 @@ def assess_capability_maturity(cap: Capability) -> MaturityAssessment:
     # Evidence 1: linked initiative / delivery health
     if cap.initiative_id:
         try:
-            from lib.program.forecasting import forecast_initiative
-            from lib.program.forecasting import DeliveryForecast
+            from lib.program.forecasting import DeliveryForecast, forecast_initiative
             fc = forecast_initiative(cap.initiative_id)
             if fc:
                 if fc.forecast == DeliveryForecast.ON_TRACK:
@@ -221,8 +224,8 @@ def format_maturity_summary(assessments: list[MaturityAssessment]) -> str:
 
 __all__ = [
     "MaturityAssessment",
-    "assess_capability_maturity",
     "assess_all_maturity",
-    "get_maturity_distribution",
+    "assess_capability_maturity",
     "format_maturity_summary",
+    "get_maturity_distribution",
 ]

@@ -20,7 +20,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from lib.delivery import analysis, data, lifecycle, execution, forecast
+from lib.delivery import analysis, data, execution, forecast, lifecycle
 
 _HELP = (
     "*Engineering & Delivery Officer.*\n"

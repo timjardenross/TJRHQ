@@ -22,7 +22,8 @@ HTTP status mapping:
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from intelligence.governance.workflow_gate import (
     AuthorizationError,
@@ -131,7 +132,7 @@ def make_blueprint(repo_factory: Callable[[], Any]):
     """Optional Flask blueprint mounting one route per action. Import-guarded so
     the workflow package never hard-depends on Flask. `repo_factory` returns a
     WorkflowRepository per request (e.g. SupabaseRepository)."""
-    from flask import Blueprint, jsonify, request  # noqa: F401 (optional dep)
+    from flask import Blueprint, jsonify, request
 
     bp = Blueprint("intelligence_governance", __name__)
 

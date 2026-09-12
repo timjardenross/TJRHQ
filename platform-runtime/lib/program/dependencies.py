@@ -276,15 +276,15 @@ def detect_cycles(deps: list[Dependency]) -> list[list[str]]:
 
 
 __all__ = [
-    "DependencyType",
+    "DEPENDENCY_OWNER_PREFIX",
     "Dependency",
+    "DependencyType",
     "add_dependency",
-    "get_dependencies",
-    "get_dependents",
-    "get_all_dependencies",
-    "normalise_edges",
     "build_depends_on_graph",
     "detect_cycles",
+    "get_all_dependencies",
+    "get_dependencies",
+    "get_dependents",
+    "normalise_edges",
     "validate_dependency",
-    "DEPENDENCY_OWNER_PREFIX",
 ]

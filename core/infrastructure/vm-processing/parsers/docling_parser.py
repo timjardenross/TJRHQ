@@ -16,9 +16,8 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
-from .base import ExtractionResult, ExtractionError
+from .base import ExtractionError, ExtractionResult
 
 log = logging.getLogger(__name__)
 

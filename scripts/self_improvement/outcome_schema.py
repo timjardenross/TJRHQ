@@ -14,7 +14,7 @@ means the conservative fallback on any doubt is "inconclusive", not
 
 from typing import Any
 
-from opportunity_store import OUTCOME_RESULTS, CONFIDENCE_LEVELS
+from opportunity_store import CONFIDENCE_LEVELS, OUTCOME_RESULTS
 
 
 def _string_list(value: Any) -> list[str]:

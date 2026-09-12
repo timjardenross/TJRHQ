@@ -31,8 +31,9 @@ if str(Path(__file__).resolve().parent) not in _sys.path:
 
 from _local_import_supabase import import_sibling
 from knowledge_sensitivity import is_visible_for_general_access
-from core.search.meilisearch_client import search as meilisearch_search
+
 from core.search.meilisearch_client import hybrid_search as meilisearch_hybrid_search
+from core.search.meilisearch_client import search as meilisearch_search
 
 logger = logging.getLogger(__name__)
 

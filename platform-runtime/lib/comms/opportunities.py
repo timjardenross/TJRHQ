@@ -133,7 +133,7 @@ def build_opportunity(source_kind: str, *, ref: str, title: str, body: str,
 
 # ── Outcome → opportunity mapping (MSN-0078 bridge; pure) ─────────────────────
 
-def outcome_opportunities(candidates: list[dict]) -> list["ContentOpportunity"]:
+def outcome_opportunities(candidates: list[dict]) -> list[ContentOpportunity]:
     """Pure: map outcome_records content candidates → ContentOpportunity.
 
     Each candidate is a dict from outcome_capture.get_content_candidates(): it has

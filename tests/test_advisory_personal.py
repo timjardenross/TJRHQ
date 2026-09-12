@@ -17,7 +17,7 @@ _ADVISORY = _REPO_ROOT / "core" / "advisory"
 if str(_ADVISORY) not in sys.path:
     sys.path.insert(0, str(_ADVISORY))
 
-from _local_import_advisory import import_sibling, reload_sibling  # noqa: E402
+from _local_import_advisory import import_sibling, reload_sibling
 
 # Fleet Engineering Review 2026-08-11: operating_picture, forecast,
 # daily_brief, learning, opportunities, outcomes, service collide with

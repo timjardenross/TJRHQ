@@ -24,10 +24,10 @@ opportunities."
 import json
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-from opportunity_store import OpportunityStore, new_fingerprint
 from internal_discovery import finding_to_candidate
+from opportunity_store import OpportunityStore, new_fingerprint
 
 log = logging.getLogger("migration")
 
@@ -38,7 +38,7 @@ DECISION_TO_STATE = {
 }
 
 
-def _get_latest_run(data_root: Path) -> Optional[Path]:
+def _get_latest_run(data_root: Path) -> Path | None:
     runs_dir = data_root / "runs"
     if not runs_dir.exists():
         return None

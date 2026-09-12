@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Log the domain-toggled workbench implementation as an autonomous action."""
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from platform_runtime.lib.autonomy_log import log_autonomous_action
 from platform_runtime.lib.supabase_client import get_client
+
+from platform_runtime.lib.autonomy_log import log_autonomous_action
+
 
 def main():
     sb = get_client()

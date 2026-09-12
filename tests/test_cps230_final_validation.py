@@ -14,14 +14,10 @@ Validates MSN-0060B Phase B1A closure conditions:
 This is the final acceptance test for B1A Decision Capture Foundation.
 """
 
-import sys
-import os
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from dataclasses import dataclass
-from datetime import datetime
 import logging
-import json
+import sys
+from dataclasses import dataclass
+from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO,

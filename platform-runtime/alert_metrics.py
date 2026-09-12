@@ -20,7 +20,6 @@ import logging
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +32,7 @@ def _client():
     return CommanderSupabaseClient()
 
 
-def _since_iso(days: Optional[int]) -> Optional[str]:
+def _since_iso(days: int | None) -> str | None:
     if days is None:
         return None
     return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
@@ -43,7 +42,7 @@ def _since_iso(days: Optional[int]) -> Optional[str]:
 # Core metrics computation
 # ---------------------------------------------------------------------------
 
-def get_notification_metrics(days: Optional[int] = 7) -> dict:
+def get_notification_metrics(days: int | None = 7) -> dict:
     """
     Compute notification effectiveness metrics from Supabase.
 
@@ -100,7 +99,7 @@ def get_notification_metrics(days: Optional[int] = 7) -> dict:
         resolution_rate = (alerts_resolved / total * 100) if total else 0.0
 
         # Oldest open
-        oldest_open_days: Optional[float] = None
+        oldest_open_days: float | None = None
         if open_rows:
             try:
                 oldest_str = min(r["first_detected"] for r in open_rows if r.get("first_detected"))
@@ -136,7 +135,7 @@ def _avg_time_between_event_types(
     events_by_key: dict[str, list],
     from_type: str,
     to_type: str,
-) -> Optional[float]:
+) -> float | None:
     """Compute average hours between two event types for the same escalation_id."""
     durations = []
     for eid, evs in events_by_key.items():
@@ -163,7 +162,7 @@ def _avg_time_between_event_types(
     return round(sum(durations) / len(durations), 1) if durations else None
 
 
-def _empty_metrics(days: Optional[int], now_str: str) -> dict:
+def _empty_metrics(days: int | None, now_str: str) -> dict:
     return {
         "window_days": days,
         "alerts_created": 0,

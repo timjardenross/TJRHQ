@@ -9,13 +9,12 @@ from __future__ import annotations
 
 import logging
 import os
-import time
-from typing import Optional, Dict, List
 from datetime import datetime, timedelta
+
+from event_bus import poll_events
 
 from core.engineering.providers.model_router import call as router_call
 from core.platform.operational_state_model import assemble_operational_state
-from event_bus import poll_events
 
 log = logging.getLogger(__name__)
 
@@ -28,8 +27,8 @@ class ModelWarmupManager:
     """Manages model warm-up and keep-alive operations."""
 
     def __init__(self):
-        self.last_warmup: Dict[str, datetime] = {}
-        self.keepalive_connections: Dict[str, datetime] = {}
+        self.last_warmup: dict[str, datetime] = {}
+        self.keepalive_connections: dict[str, datetime] = {}
         self.warmup_interval = int(os.getenv("MODEL_WARMUP_INTERVAL", DEFAULT_WARMUP_INTERVAL))
         self.keepalive_interval = int(os.getenv("MODEL_KEEPALIVE_INTERVAL", DEFAULT_KEEPALIVE_INTERVAL))
         self.warmup_prompt = os.getenv("MODEL_WARMUP_PROMPT", DEFAULT_WARMUP_PROMPT)
@@ -59,7 +58,7 @@ class ModelWarmupManager:
             log.info(f"Successfully warmed up model: {model_name}")
             return True
         except Exception as e:
-            log.error(f"Failed to warm up model {model_name}: {str(e)}")
+            log.error(f"Failed to warm up model {model_name}: {e!s}")
             return False
 
     def keepalive_model(self, model_name: str) -> bool:
@@ -70,10 +69,10 @@ class ModelWarmupManager:
             self.keepalive_connections[model_name] = datetime.now()
             return True
         except Exception as e:
-            log.error(f"Failed to maintain keep-alive for model {model_name}: {str(e)}")
+            log.error(f"Failed to maintain keep-alive for model {model_name}: {e!s}")
             return False
 
-    def manage_models(self, models: Optional[List[str]] = None) -> Dict[str, bool]:
+    def manage_models(self, models: list[str] | None = None) -> dict[str, bool]:
         """Manage warm-up and keep-alive for specified models or all active models."""
         results = {}
 

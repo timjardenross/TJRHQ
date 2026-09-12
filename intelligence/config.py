@@ -21,6 +21,7 @@ ENV_FILE = REPO_ROOT / ".env"
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 from core.platform.configuration_service import load_dotenv_files
+
 load_dotenv_files([ENV_FILE])
 
 # ─── Supabase ─────────────────────────────────────────────────────────────────

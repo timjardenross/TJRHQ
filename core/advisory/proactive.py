@@ -21,10 +21,11 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 import triggers as _triggers
-from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling
+
 _opportunities = _import_sibling("opportunities")
-import notifications as _notifications
 import advisory_health as _advisory_health
+import notifications as _notifications
 import signals as _signals
 
 
@@ -61,7 +62,7 @@ def _headline(trigs, opps, interrupts, health) -> str:
 
 def to_markdown(scan: dict[str, Any] | None = None) -> str:
     s = scan or proactive_scan()
-    L = [f"# Proactive Advisory Scan", "", s["headline"], ""]
+    L = ["# Proactive Advisory Scan", "", s["headline"], ""]
     if s["triggers"]:
         L.append("## Triggers")
         icon = {"escalation": "🔴", "concern": "🟠", "warning": "🟡", "observation": "⚪"}

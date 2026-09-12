@@ -28,17 +28,18 @@ Usage:
     python3 tools/health/collect_health_signals.py [--dry-run] [--per-domain-limit N]
 """
 
+import argparse
+import hashlib
+import logging
 import os
 import re
 import sys
-import hashlib
-import logging
-import argparse
-import urllib.request
 import urllib.parse
-import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+
+import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
@@ -301,11 +302,11 @@ class HealthCollector:
             study_design = "observational"
 
         sample_size = None
-        m = re.search(r'\b(\d{2,6})\s+(?:patients|subjects|participants|women|men|adults|children|individuals)\b', abstract, re.I)
+        m = re.search(r'\b(\d{2,6})\s+(?:patients|subjects|participants|women|men|adults|children|individuals)\b', abstract, re.IGNORECASE)
         if m:
             sample_size = int(m.group(1))
         p_value = None
-        m = re.search(r'p\s*[<=]\s*0?\.(\d+)', abstract, re.I)
+        m = re.search(r'p\s*[<=]\s*0?\.(\d+)', abstract, re.IGNORECASE)
         if m:
             p_value = float(f"0.{m.group(1)}")
 

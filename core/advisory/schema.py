@@ -27,10 +27,9 @@ to import anywhere (interfaces, tests, services).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
-
+from typing import Any
 
 ADVISORY_AUTHORITY_NOTE = (
     "Advisory only — Captain TJR retains final decision authority. "
@@ -64,7 +63,7 @@ class EvidenceItem:
     kind: str                     # "historical_outcome" | "similar_mission" | "decision"
     reference: str                # mission id, decision id, or metric label
     detail: str                   # human-readable explanation
-    outcome_score: Optional[float] = None   # 0.0–1.0 where available
+    outcome_score: float | None = None   # 0.0–1.0 where available
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -107,7 +106,7 @@ class ConfidenceLevel:
     basis: str = ""               # why this confidence (evidence quality etc.)
 
     @staticmethod
-    def from_value(value: float, basis: str = "") -> "ConfidenceLevel":
+    def from_value(value: float, basis: str = "") -> ConfidenceLevel:
         value = max(0.0, min(1.0, round(value, 3)))
         if value >= 0.75:
             band = "High"
@@ -143,7 +142,7 @@ class AdvisoryResponse:
     # Metadata (not one of the seven sections, but carried for traceability)
     related_decisions: list[RelatedDecision] = field(default_factory=list)
     decision_mode: str = ""
-    reviewer: Optional[str] = None
+    reviewer: str | None = None
     escalation_required: bool = False
     disagreement: str = ""        # explicit surfaced disagreement, if any
     sources: list[str] = field(default_factory=list)

@@ -25,15 +25,22 @@ import urllib.request
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
-from heartbeat import _URL, _KEY, record_heartbeat, supabase_get  # noqa: E402
+from heartbeat import _KEY, _URL, record_heartbeat, supabase_get
 
-from intelligence.ingestion.emergency_alert_adapters import (
-    act_esa, bom_warnings, nsw_rfs, nt_securent, qld_fire, sa_cfs, tas_fire, vic_emergency, wa_dfes,
-)
 from core.notifications.resend_email import send_email
+from intelligence.ingestion.emergency_alert_adapters import (
+    act_esa,
+    bom_warnings,
+    nsw_rfs,
+    nt_securent,
+    qld_fire,
+    sa_cfs,
+    tas_fire,
+    vic_emergency,
+    wa_dfes,
+)
 
 # Captain-directed 2026-08-27, temporary until tjrmindbody.com's Resend
 # domain verification is fixed (broken as of this session): Resend's
@@ -67,7 +74,7 @@ _ADAPTERS = {
 }
 
 
-def _supabase_request(method: str, path: str, body: Optional[dict] = None, extra_headers: Optional[dict] = None, timeout: int = 15) -> None:
+def _supabase_request(method: str, path: str, body: dict | None = None, extra_headers: dict | None = None, timeout: int = 15) -> None:
     if not _URL or not _KEY:
         raise RuntimeError("Supabase credentials not configured")
     url = f"{_URL.rstrip('/')}/rest/v1/{path}"

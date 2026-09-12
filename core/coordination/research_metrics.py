@@ -14,11 +14,10 @@ Tracks:
 - Execution timing breakdown
 """
 
-from dataclasses import dataclass, asdict, field
-from datetime import datetime
-from typing import Optional
-import os
 import logging
+import os
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
 
 log = logging.getLogger(__name__)
 
@@ -40,9 +39,9 @@ class ResearchMetrics:
     successful_tasks: int = 0
 
     # Provider tracking
-    primary_provider: Optional[str] = None
+    primary_provider: str | None = None
     provider_failures: int = 0
-    provider_path: Optional[str] = None  # "gemini-3.5-flash-lite → ollama"
+    provider_path: str | None = None  # "gemini-3.5-flash-lite → ollama"
 
     # Consolidation method
     consolidation_success: bool = False
@@ -221,7 +220,7 @@ class ResearchMetricsCollector:
 
         return elapsed_ms
 
-    def record_task_completion(self, count: int, successful: int, primary_provider: Optional[str] = None):
+    def record_task_completion(self, count: int, successful: int, primary_provider: str | None = None):
         """Record task completion metrics."""
         self.metrics.task_count = count
         self.metrics.successful_tasks = successful

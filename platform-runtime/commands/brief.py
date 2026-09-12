@@ -23,14 +23,18 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from lib import daily_brief
-from lib.human_systems import framework, decision, mission_load as ml, safety, memory, learning
-from lib.delivery import forecast, data as ddata, lifecycle as dlife, analysis as danalysis
-from lib.intel import ori as _ori, knowledge as _knowledge
-from lib.strategy import objectives as _strategy, alignment as _alignment
 from lib.comms import opportunities as _comms
+from lib.delivery import data as ddata
+from lib.delivery import forecast
+from lib.human_systems import decision, framework, learning, memory, safety
+from lib.human_systems import mission_load as ml
+from lib.intel import knowledge as _knowledge
+from lib.intel import ori as _ori
+from lib.strategy import alignment as _alignment
+from lib.strategy import objectives as _strategy
 
 # Reuse the Human Systems command's data helpers (single source of fetch logic).
-from commands.human_systems import _fetch_rows, _today_row, _delivery_context
+from commands.human_systems import _delivery_context, _fetch_rows, _today_row
 
 
 def build_brief() -> str:
@@ -169,8 +173,10 @@ def build_brief() -> str:
     # this change existed.
     canonical_doc = None
     try:
+        from core.platform.captain_brief_orchestrator import (
+            assemble_captain_brief_document,
+        )
         from core.platform.event_bus import poll_events
-        from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
         polled_events = poll_events(limit=50)
         canonical_doc = assemble_captain_brief_document(polled_events)
     except Exception:

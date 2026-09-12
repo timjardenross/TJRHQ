@@ -21,7 +21,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 log = logging.getLogger("heartbeat")
 
@@ -60,9 +60,9 @@ _KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 def record_heartbeat(
     domain_key: str,
     status: str = "ok",
-    detail: Optional[str] = None,
-    error_message: Optional[str] = None,
-    latency_ms: Optional[int] = None,
+    detail: str | None = None,
+    error_message: str | None = None,
+    latency_ms: int | None = None,
     timeout: int = 10,
 ) -> bool:
     """Record one run attempt for `domain_key` into domain_heartbeats.
@@ -110,7 +110,7 @@ def record_heartbeat(
         return False
 
 
-def record_heartbeat_ok(domain_key: str, detail: Optional[str] = None, latency_ms: Optional[int] = None) -> bool:
+def record_heartbeat_ok(domain_key: str, detail: str | None = None, latency_ms: int | None = None) -> bool:
     """Convenience wrapper for the common case."""
     return record_heartbeat(domain_key, status="ok", detail=detail, latency_ms=latency_ms)
 
@@ -120,7 +120,7 @@ def record_heartbeat_failed(domain_key: str, error_message: str) -> bool:
     return record_heartbeat(domain_key, status="failed", error_message=error_message)
 
 
-def supabase_get(path: str, timeout: int = 10) -> List[Dict[str, Any]]:
+def supabase_get(path: str, timeout: int = 10) -> list[dict[str, Any]]:
     """GET /rest/v1/{path}. Raises RuntimeError on HTTP error or missing credentials."""
     if not _URL or not _KEY:
         raise RuntimeError("Supabase credentials not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)")
@@ -146,7 +146,7 @@ def supabase_get(path: str, timeout: int = 10) -> List[Dict[str, Any]]:
     return parsed if isinstance(parsed, list) else [parsed]
 
 
-def supabase_insert(table: str, payload: Dict[str, Any], timeout: int = 10) -> bool:
+def supabase_insert(table: str, payload: dict[str, Any], timeout: int = 10) -> bool:
     """POST one row to /rest/v1/{table}. Returns True on success, never raises."""
     if not _URL or not _KEY:
         return False

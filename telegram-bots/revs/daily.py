@@ -9,13 +9,12 @@ from __future__ import annotations
 
 import datetime as dt
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes
-
 import commands
 import db
 from copy_bank import crisis_nontext
 from safety import crisis_line_short, pem_copy
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import ContextTypes
 
 
 def _kb(rows):

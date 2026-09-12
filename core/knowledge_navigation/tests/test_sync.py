@@ -7,18 +7,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 import core.knowledge_navigation.sync as sync_module
 from core.knowledge_navigation.sync import (
-    _norm_msn,
-    _norm_ini,
-    _norm_obj,
-    _norm_adr,
-    _norm_ll,
-    _parse_md_table,
     _extract_prose,
-    _parse_objectives,
+    _norm_adr,
+    _norm_ini,
+    _norm_ll,
+    _norm_msn,
+    _norm_obj,
     _parse_initiatives,
+    _parse_md_table,
+    _parse_objectives,
     _parse_overrides,
 )
-
 
 # ── ID normalisers (accept digit-group capture from regex) ────────────────────
 

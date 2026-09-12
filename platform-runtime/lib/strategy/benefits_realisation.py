@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 from enum import Enum
 from pathlib import Path
@@ -325,12 +325,12 @@ def format_lifecycle_summary(records: list[BenefitRealisationRecord]) -> str:
 
 
 __all__ = [
+    "BENEFIT_RL_OWNER_PREFIX",
     "BenefitLifecycleStatus",
     "BenefitRealisationRecord",
     "advance_benefit_lifecycle",
-    "get_benefit_lifecycle",
-    "list_benefit_lifecycles",
     "assess_lifecycle_health",
     "format_lifecycle_summary",
-    "BENEFIT_RL_OWNER_PREFIX",
+    "get_benefit_lifecycle",
+    "list_benefit_lifecycles",
 ]

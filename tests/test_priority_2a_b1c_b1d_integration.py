@@ -10,13 +10,13 @@ Test Coverage:
 - Integration between B1C and B1D
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from datetime import datetime
-from unittest.mock import Mock, MagicMock
 import logging
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -238,7 +238,7 @@ def test_priority_2a_integration_flow():
         ('OpenRouter', 3.8),
         ('Ollama', 2.9)
     ]
-    log.info(f"  ✓ Routing order (by quality):")
+    log.info("  ✓ Routing order (by quality):")
     for rank, (provider, quality_score) in enumerate(routing_order, 1):
         log.info(f"    {rank}. {provider}: {quality_score:.1f}")
 

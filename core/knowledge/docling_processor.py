@@ -47,9 +47,9 @@ real internet egress (or a pre-warmed local HF cache under
 `artifacts_path`) can confirm it never needed the fallback at all.
 """
 from __future__ import annotations
+
 import logging
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -72,9 +72,9 @@ def _convert_pdf_native(path: Path):
     """Text-layer-only PDF conversion — no ML layout/OCR model, no network.
     Used as the fallback when the standard pipeline's layout model can't be
     fetched (offline/restricted-egress host) or otherwise fails."""
-    from docling.document_converter import DocumentConverter, PdfFormatOption
-    from docling.datamodel.pipeline_options import NativePdfPipelineOptions
     from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import NativePdfPipelineOptions
+    from docling.document_converter import DocumentConverter, PdfFormatOption
     from docling.pipeline.native_pdf_pipeline import NativePdfPipeline
 
     converter = DocumentConverter(
@@ -88,7 +88,7 @@ def _convert_pdf_native(path: Path):
     return converter.convert(str(path))
 
 
-def extract_document(file_path: "str | Path") -> Optional[dict]:
+def extract_document(file_path: str | Path) -> dict | None:
     """
     Extract structured content from a document file (PDF/DOCX/HTML/PPTX/etc
     — anything docling's DocumentConverter recognises).

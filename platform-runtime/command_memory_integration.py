@@ -277,7 +277,7 @@ def log_decision_to_command_memory(
         log.info(f"[command-memory] Decision {decision_id} logged to Command Memory")
         return decision_id
     else:
-        log.warning(f"[command-memory] Failed to log decision (non-blocking)")
+        log.warning("[command-memory] Failed to log decision (non-blocking)")
         return None
 
 
@@ -387,7 +387,10 @@ def create_mission_from_officer(
         Mission ID string if write succeeded, None otherwise (non-blocking).
     """
     try:
-        from core.governance.authority_validator import can_officer, audit_authority_action
+        from core.governance.authority_validator import (
+            audit_authority_action,
+            can_officer,
+        )
         approved, reason = can_officer(officer, "create_mission_draft")
         if not approved and not captain_override:
             log.warning(

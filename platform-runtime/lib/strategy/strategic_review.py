@@ -46,15 +46,21 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
+from lib.strategy.initiative_alignment import AlignmentReport, run_alignment_scan
 from lib.strategy.initiatives import (
-    Initiative, InitiativeHealth, get_initiative, list_initiatives,
+    Initiative,
+    InitiativeHealth,
+    get_initiative,
+    list_initiatives,
 )
-from lib.strategy.outcomes import assess_health, get_outcome_history, HealthAssessment
+from lib.strategy.outcomes import HealthAssessment, assess_health, get_outcome_history
 from lib.strategy.portfolio_intelligence import (
-    recommend_for_initiative, recommend_all, analyse_portfolio,
-    InitiativeRecommendation, Recommendation,
+    InitiativeRecommendation,
+    Recommendation,
+    analyse_portfolio,
+    recommend_all,
+    recommend_for_initiative,
 )
-from lib.strategy.initiative_alignment import run_alignment_scan, AlignmentReport
 
 _REVIEW_OWNER_PREFIX = "initiative_review:"
 _REVIEW_STATEMENT    = "[INITIATIVE REVIEW]"
@@ -348,13 +354,13 @@ def format_executive_review(review: ExecutiveStrategicReview) -> str:
 
 
 __all__ = [
+    "ExecutiveStrategicReview",
     "InitiativeReview",
     "StrategicDashboard",
-    "ExecutiveStrategicReview",
-    "review_initiative",
-    "persist_initiative_review",
     "build_strategic_dashboard",
-    "run_executive_strategic_review",
-    "format_strategic_dashboard",
     "format_executive_review",
+    "format_strategic_dashboard",
+    "persist_initiative_review",
+    "review_initiative",
+    "run_executive_strategic_review",
 ]

@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +29,10 @@ for p in (str(_BOT), str(_REPO_ROOT)):
         sys.path.insert(0, p)
 
 from lib.investigation.framework import (
-    EvidenceItem, EvidencePackage, EvidenceSource, EVIDENCE_OWNER_PREFIX,
+    EVIDENCE_OWNER_PREFIX,
+    EvidenceItem,
+    EvidencePackage,
+    EvidenceSource,
 )
 
 _STOP_WORDS = frozenset({

@@ -38,8 +38,7 @@ log = logging.getLogger(__name__)
 
 _ASSESSMENT_TIMEOUT_S = 10
 _STOPWORDS = frozenset(
-    "the a an and or in of to for with on at from by is are was were be been "
-    "this that these those it its not no nor so but yet".split()
+    ["the", "a", "an", "and", "or", "in", "of", "to", "for", "with", "on", "at", "from", "by", "is", "are", "was", "were", "be", "been", "this", "that", "these", "those", "it", "its", "not", "no", "nor", "so", "but", "yet"]
 )
 
 

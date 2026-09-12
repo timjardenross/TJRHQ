@@ -16,9 +16,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-import re
-
-
 # ============================================================================
 # Intent Categories
 # ============================================================================
@@ -474,8 +471,8 @@ def _build_rationale(
 
     if escalate:
         return (
-            f"Request lacks sufficient context to identify specialist domain. "
-            f"Escalating to Executive Officer for clarification or triage."
+            "Request lacks sufficient context to identify specialist domain. "
+            "Escalating to Executive Officer for clarification or triage."
         )
 
     signal_str = ", ".join(f"'{s}'" for s in signals[:3])

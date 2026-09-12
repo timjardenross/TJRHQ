@@ -42,7 +42,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -105,6 +105,7 @@ def generate_lesson_candidate(
     """
     try:
         from command_memory_integration import log_decision_to_command_memory
+
         from tools.supabase.client import CommanderSupabaseClient
 
         owner = f"{LESSON_CANDIDATE_OWNER_PREFIX}{trigger}"
@@ -414,15 +415,15 @@ def get_reuse_count(lesson_id: str) -> int:
 
 
 __all__ = [
+    "LESSON_CANDIDATE_OWNER_PREFIX",
     "LessonCandidate",
     "generate_lesson_candidate",
+    "get_lesson_candidate_count",
+    "get_lesson_candidates",
+    "get_reuse_count",
+    "lesson_from_decision",
     "lesson_from_investigation",
     "lesson_from_mission",
-    "lesson_from_decision",
-    "get_lesson_candidates",
-    "get_lesson_candidate_count",
     "promote_lesson_candidate",
     "record_lesson_reuse",
-    "get_reuse_count",
-    "LESSON_CANDIDATE_OWNER_PREFIX",
 ]

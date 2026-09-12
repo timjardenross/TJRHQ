@@ -7,10 +7,10 @@ Purpose: Synthesize analysis + quality scores into actionable recommendations
 """
 
 from dataclasses import dataclass
-from typing import List
 from datetime import datetime, timedelta
-from dual_commander_analysis import DualCommanderAnalysis
+
 from decision_quality_scorer import DecisionQualityScore
+from dual_commander_analysis import DualCommanderAnalysis
 
 
 @dataclass
@@ -22,7 +22,7 @@ class ModelRecommendation:
 
     action_reasoning: str  # Why this action
     trial_period_days: int  # If promoting, how long to test
-    success_criteria: List[str]  # What to measure during trial
+    success_criteria: list[str]  # What to measure during trial
 
     confidence: float  # 0-1 (overall confidence in recommendation)
 
@@ -30,7 +30,7 @@ class ModelRecommendation:
     detailed_recommendation: str  # More detailed explanation
 
     quality_metrics: dict  # Average scores, trends
-    next_actions: List[str]  # Tactical next steps
+    next_actions: list[str]  # Tactical next steps
 
     recommendation_timestamp: datetime = None
 
@@ -42,7 +42,7 @@ class CommanderDecisionSupport:
         self,
         current_primary_model: str,  # e.g., "qwen3:8b"
         analysis: DualCommanderAnalysis,
-        quality_scores: List[DecisionQualityScore],
+        quality_scores: list[DecisionQualityScore],
     ) -> ModelRecommendation:
         """
         Synthesize analysis + quality scores into actionable recommendation.
@@ -111,7 +111,7 @@ class CommanderDecisionSupport:
         current_primary: str,
         analysis: DualCommanderAnalysis,
         avg_quality: float,
-    ) -> tuple[str, int, List[str], List[str]]:
+    ) -> tuple[str, int, list[str], list[str]]:
         """Detail the recommended action with criteria and next steps."""
 
         if action == "promote":
@@ -122,7 +122,7 @@ class CommanderDecisionSupport:
             )
             trial_period = 14  # 2 weeks
             success_criteria = [
-                f"Maintain >60% win rate on technical decisions",
+                "Maintain >60% win rate on technical decisions",
                 f"Achieve average quality score >{avg_quality}",
                 "Zero critical incidents during trial period",
                 "Captain approval after day 7 review",
@@ -334,7 +334,7 @@ class CommanderDecisionSupport:
 def generate_recommendation(
     current_primary: str,
     analysis: DualCommanderAnalysis,
-    quality_scores: List[DecisionQualityScore],
+    quality_scores: list[DecisionQualityScore],
 ) -> ModelRecommendation:
     """Convenience function to generate recommendation."""
     support = CommanderDecisionSupport()
@@ -386,9 +386,9 @@ if __name__ == "__main__":
     print(f"Recommended Action: {rec.recommended_action.upper()}")
     print(f"Confidence: {rec.confidence*100:.0f}%")
     print(f"\nSummary:\n{rec.summary}")
-    print(f"\nSuccess Criteria:")
+    print("\nSuccess Criteria:")
     for criterion in rec.success_criteria:
         print(f"  - {criterion}")
-    print(f"\nNext Actions:")
+    print("\nNext Actions:")
     for action in rec.next_actions:
         print(f"  - {action}")

@@ -71,13 +71,14 @@ def generate_portfolio_review(inputs: dict[str, Any] | None = None) -> Portfolio
 
     for init in initiatives:
         try:
-            from lib.strategy.prioritisation import score_initiative, PriorityScore
-            from lib.strategy.value_realisation import assess_initiative_value
-            from lib.strategy.portfolio_optimisation import (
-                optimise_initiative, OptimisationDecision,
-            )
-            from lib.program.forecasting import forecast_initiative, DeliveryForecast
             from lib.program.delivery_risk import detect_delivery_risks
+            from lib.program.forecasting import DeliveryForecast, forecast_initiative
+            from lib.strategy.portfolio_optimisation import (
+                OptimisationDecision,
+                optimise_initiative,
+            )
+            from lib.strategy.prioritisation import score_initiative
+            from lib.strategy.value_realisation import assess_initiative_value
 
             ps  = score_initiative(init.initiative_id, inputs)
             vr  = assess_initiative_value(init.initiative_id)
@@ -245,6 +246,6 @@ def format_portfolio_review(review: PortfolioReview) -> str:
 
 __all__ = [
     "PortfolioReview",
-    "generate_portfolio_review",
     "format_portfolio_review",
+    "generate_portfolio_review",
 ]

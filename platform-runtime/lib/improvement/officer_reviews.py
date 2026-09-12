@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -40,10 +40,6 @@ for p in (str(_BOT), str(_REPO_ROOT)):
         sys.path.insert(0, p)
 
 from lib.improvement.framework import ImprovementCategory, ImprovementOpportunity
-
-if TYPE_CHECKING:
-    from lib.daily_ops_cycle import CycleContext
-
 
 # ── Review schedule (WP10) ─────────────────────────────────────────────────────
 
@@ -601,12 +597,12 @@ def run_all_reviews(ctx: Any) -> list[ImprovementOpportunity]:
 
 __all__ = [
     "REVIEW_SCHEDULE",
-    "review_human_systems",
-    "review_strategic_planning",
-    "review_engineering",
     "review_communications",
-    "review_ori",
-    "review_number_one",
+    "review_engineering",
+    "review_human_systems",
     "review_knowledge",
+    "review_number_one",
+    "review_ori",
+    "review_strategic_planning",
     "run_all_reviews",
 ]

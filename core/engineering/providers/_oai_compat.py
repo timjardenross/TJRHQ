@@ -15,7 +15,6 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +44,7 @@ def _request_once(url: str, api_key: str, payload: dict, *, label: str, timeout:
         raise RuntimeError(f"[{label}] request failed: HTTP {exc.code} {exc.reason}. {body}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"[{label}] request failed (endpoint unreachable): {exc}") from exc
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise RuntimeError(f"[{label}] unexpected error: {exc}") from exc
     try:
         return json.loads(raw)
@@ -58,7 +57,7 @@ def chat(
     api_key: str,
     model: str,
     prompt: str,
-    system: Optional[str] = None,
+    system: str | None = None,
     *,
     label: str = "oai",
     timeout: int = DEFAULT_TIMEOUT,

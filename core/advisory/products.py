@@ -28,16 +28,17 @@ for _p in (str(_HERE), str(_REPO_ROOT)):
         sys.path.insert(0, _p)
 
 import presentation as P
+import signals as _signals
 import temporal as _temporal
 import triggers as _triggers
-import signals as _signals
-from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling
+
 _opportunities = _import_sibling("opportunities")
 import strategic as _strategic
+
 _forecast = _import_sibling("forecast")
 _operating_picture = _import_sibling("operating_picture")
 import wellness as _wellness
-
 
 # ---------------------------------------------------------------------------
 # 1. Daily Awareness Brief (WP5) — the flagship
@@ -205,7 +206,9 @@ def operational_resilience_watch() -> dict[str, Any]:
 
 def _load_resilience_events() -> list[dict]:
     try:
-        from intelligence.persistence.intelligence_store import load_recent_events  # noqa: PLC0415
+        from intelligence.persistence.intelligence_store import (
+            load_recent_events,
+        )
         return load_recent_events(days=14, limit=50) or []
     except Exception:  # noqa: BLE001
         return []

@@ -27,7 +27,6 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -50,7 +49,7 @@ def _supabase_raw():
         return None
 
 
-def embed_text(text: str) -> Optional[list[float]]:
+def embed_text(text: str) -> list[float] | None:
     """Produce a 768-dim nomic-embed-text embedding vector via the Model Router.
 
     POSTs to http://localhost:8891/api/model/embed with the nomic-embed-text
@@ -112,7 +111,7 @@ def store_memory(
     confidence: float,
     tags: list[str],
     query_hash: str,
-) -> Optional[str]:
+) -> str | None:
     """Insert a completed research record into research_memory with an embedding.
 
     Writes the full research payload as a new research_memory row, then
@@ -298,4 +297,4 @@ def increment_reuse(memory_id: str) -> None:
         log.warning("[episodic-memory] increment_reuse failed (non-blocking): %s", exc)
 
 
-__all__ = ["embed_text", "store_memory", "recall_similar", "increment_reuse"]
+__all__ = ["embed_text", "increment_reuse", "recall_similar", "store_memory"]

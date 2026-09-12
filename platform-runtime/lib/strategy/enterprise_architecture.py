@@ -26,8 +26,8 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
@@ -128,7 +128,7 @@ def _row_to_entity(row: dict[str, Any]) -> ArchEntity | None:
     p = _parse_rationale(str(row.get("rationale") or ""))
     stmt = str(row.get("statement") or "")
     prefix = f"{_ARCH_STATEMENT} {entity_id}: "
-    name = stmt[len(prefix):] if stmt.startswith(prefix) else stmt
+    name = stmt.removeprefix(prefix)
 
     def _en(cls, val, default):
         try:
@@ -279,13 +279,13 @@ def format_architecture_view(av: ArchitectureView) -> str:
 
 
 __all__ = [
+    "ARCH_ENTITY_OWNER_PREFIX",
+    "ArchEntity",
     "ArchEntityState",
     "ArchEntityType",
-    "ArchEntity",
     "ArchitectureView",
-    "get_architecture_view",
-    "register_arch_entity",
-    "list_arch_entities",
     "format_architecture_view",
-    "ARCH_ENTITY_OWNER_PREFIX",
+    "get_architecture_view",
+    "list_arch_entities",
+    "register_arch_entity",
 ]

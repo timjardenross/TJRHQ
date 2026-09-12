@@ -17,7 +17,6 @@ Usage: python3 tools/check_config_loaders.py
 
 from __future__ import annotations
 
-import re
 import subprocess
 import sys
 from pathlib import Path

@@ -12,7 +12,6 @@ collected, classified, and ranked IntelligenceItems.
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from intelligence.brief import external_domains, morning_cycle
 from intelligence.brief.comparison import compute_comparison
@@ -23,7 +22,10 @@ from intelligence.classification.filter import apply_filter
 from intelligence.config import BRIEF_PERIOD_DAYS, TOP_EVENTS_LIMIT
 from intelligence.ingestion.collection_engine import collect_all
 from intelligence.models import (
-    BriefEvent, ClassifiedEvent, RankedEvent, ResilienceBrief, SourceHealth
+    BriefEvent,
+    ClassifiedEvent,
+    RankedEvent,
+    ResilienceBrief,
 )
 from intelligence.persistence import intelligence_store as store
 from intelligence.ranking.ranker import rank, top_events
@@ -314,7 +316,7 @@ class BriefGenerator:
             return "AMBER"
         return "GREEN"
 
-    def _compute_risk(self, top: list[RankedEvent], external_signals: Optional[list] = None) -> str:
+    def _compute_risk(self, top: list[RankedEvent], external_signals: list | None = None) -> str:
         external_signals = external_signals or []
         if not top and not external_signals:
             return "UNKNOWN"
@@ -460,7 +462,8 @@ class BriefGenerator:
             if not raw:
                 raise ValueError("empty LLM response")
 
-            import re, json
+            import json
+            import re
             raw_clean = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.IGNORECASE)
             raw_clean = re.sub(r"\s*```\s*$", "", raw_clean)
             match = re.search(r"\[.*\]", raw_clean, re.DOTALL)
@@ -483,8 +486,8 @@ class BriefGenerator:
         period_end: datetime,
         sources_available: int,
         sources_failed: int,
-        external_signals: Optional[list] = None,
-        missing_sources: Optional[list] = None,
+        external_signals: list | None = None,
+        missing_sources: list | None = None,
     ) -> tuple:
         """
         Generate LLM narrative sections. Returns 8-tuple:
@@ -576,7 +579,8 @@ as given if you reference it."""
             return None, None, None, None, None, None, False, None
 
         try:
-            import re, json
+            import json
+            import re
             # Strip markdown code fences (```json ... ``` or ``` ... ```)
             raw_clean = re.sub(r"^```(?:json)?\s*", "", raw.strip(), flags=re.IGNORECASE)
             raw_clean = re.sub(r"\s*```\s*$", "", raw_clean)

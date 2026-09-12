@@ -17,7 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
 
-import staleness_check  # noqa: E402
+import staleness_check
 
 
 def make_finding(**overrides):

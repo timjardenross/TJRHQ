@@ -28,6 +28,14 @@ import sys
 # before any sibling import below runs, so both invocation styles work.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import commands
+import daily
+import db
+import onboarding
+import safety
+import scheduler
+import weekly
+from scoped_supabase import build_scoped_client
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -36,19 +44,10 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
-    TypeHandler,
     filters,
 )
 
-import commands
 import config
-import daily
-import db
-import onboarding
-import safety
-import scheduler
-import weekly
-from scoped_supabase import build_scoped_client
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("revs-bot")
@@ -84,6 +83,7 @@ async def _crisis_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         row = db.create_user(client, user_id, update.effective_user.first_name or "there")
 
     import datetime as dt
+
     from copy_bank import crisis_language_response
     from escalate import notify_captain
 

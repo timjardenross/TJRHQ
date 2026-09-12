@@ -30,7 +30,6 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -77,7 +76,7 @@ def _load_taxonomy() -> str:
     return "\n\n".join(sections)
 
 
-def _get_api_key() -> Optional[str]:
+def _get_api_key() -> str | None:
     key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
     if not key:
         # Try .env file

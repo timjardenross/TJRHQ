@@ -81,9 +81,9 @@ def assess_portfolio_capacity(
 
     # ── Initiative + mission load ─────────────────────────────────────────────
     try:
-        from lib.strategy.initiatives import list_initiatives
-        from lib.program.wbs import build_wbs
         from lib.program.forecasting import forecast_initiative
+        from lib.program.wbs import build_wbs
+        from lib.strategy.initiatives import list_initiatives
 
         initiatives = list_initiatives(include_closed=False)
         plan.total_initiatives = len(initiatives)
@@ -176,8 +176,8 @@ def assess_portfolio_capacity(
     # Reuse EXEC-008 tradeoff to detect displacement risk
     if plan.state in (CapacityState.CONSTRAINED, CapacityState.OVERLOADED):
         try:
-            from lib.strategy.tradeoffs import analyse_tradeoff
             from lib.strategy.prioritisation import rank_initiatives
+            from lib.strategy.tradeoffs import analyse_tradeoff
             ranked = rank_initiatives(inputs)
             if ranked:
                 top_id = ranked[0].initiative_id

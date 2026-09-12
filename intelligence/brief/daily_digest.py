@@ -31,7 +31,6 @@ import json
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
 from core.platform.event_bus import poll_events
@@ -123,7 +122,7 @@ def _format_signal_events(signals: list[dict]) -> str:
     return "Individual news signals (highest-ranked first):\n" + "\n".join(lines)
 
 
-def build_daily_digest(hours: int = 24, signals: Optional[list[dict]] = None) -> Optional[str]:
+def build_daily_digest(hours: int = 24, signals: list[dict] | None = None) -> str | None:
     """
     signals: optional raw HIGH/MEDIUM intelligence_events (same shape as
     captains_brief.py's _get_recent_signals) to fold into the narrative

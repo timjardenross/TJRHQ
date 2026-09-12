@@ -2,7 +2,6 @@ import logging
 import os
 import re
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,6 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 import id_registry
+
 MISSIONS_DIR = BASE_DIR / "Missions"
 MISSION_INDEX = MISSIONS_DIR / "Mission-Index.md"
 

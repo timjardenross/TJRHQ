@@ -30,7 +30,6 @@ import logging
 import os
 import urllib.error
 import urllib.request
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +46,7 @@ def _api_key() -> str:
     return os.getenv("GLM_API_KEY", "").strip()
 
 
-def _resolved_model(model: Optional[str]) -> str:
+def _resolved_model(model: str | None) -> str:
     return model or os.getenv("GLM_MODEL", DEFAULT_MODEL)
 
 
@@ -64,7 +63,7 @@ def check_connectivity() -> tuple[bool, str]:
     return True, f"GLM key configured ({masked}). Endpoint: {_base_url()}. Model: {_resolved_model(None)}."
 
 
-def call(prompt: str, model: Optional[str] = None, system: Optional[str] = None) -> tuple[str, str]:
+def call(prompt: str, model: str | None = None, system: str | None = None) -> tuple[str, str]:
     """
     Send prompt to GLM via the OpenAI-compatible Chat Completions endpoint.
 

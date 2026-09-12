@@ -10,16 +10,16 @@ Covers:
 - Suppressed events excluded from top_events
 """
 
-import sys
 import os
+import sys
 import unittest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from intelligence.ranking.ranker import rank, top_events
-from intelligence.models import ClassifiedEvent, RankedEvent
 from intelligence.config import TOP_EVENTS_LIMIT
+from intelligence.models import ClassifiedEvent, RankedEvent
+from intelligence.ranking.ranker import rank, top_events
 
 
 def _make_event(

@@ -44,7 +44,7 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
 
-from supabase_client import supabase_upsert, supabase_get, is_configured
+from supabase_client import is_configured, supabase_upsert
 
 _OUTCOMES_FILE = _REPO_ROOT / "knowledge" / "decision-outcomes.jsonl"
 _DECISION_REGISTER = _REPO_ROOT / "core" / "governance" / "decision-register.txt"
@@ -183,7 +183,6 @@ def _interactive() -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    import re  # noqa: needed by _find_d_decision
     parser = argparse.ArgumentParser(description="Rate decision outcome quality")
     parser.add_argument("--id",      metavar="D-NNN",  help="Governance decision ID")
     parser.add_argument("--uuid",    metavar="UUID",   help="Supabase decision UUID")

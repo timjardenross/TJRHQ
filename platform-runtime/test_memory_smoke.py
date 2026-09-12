@@ -10,10 +10,13 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from commands import research_command
+
 from core.coordination.advisory_memory_formatter import format_memory_block
-from core.coordination.decision_registry_memory_adapter import DecisionRegistryMemoryAdapter
+from core.coordination.decision_registry_memory_adapter import (
+    DecisionRegistryMemoryAdapter,
+)
 from core.coordination.number_one_memory_adapter import NumberOneMemoryAdapter
-import commands.research_command as research_command
 
 
 class MemorySmokeTest(unittest.TestCase):

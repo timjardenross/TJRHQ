@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from specialist_router import route_question
 
-
 CASES = [
     ("Who manages mission prioritisation?", "Chief of Staff"),
     ("Where is Supabase used?", "Chief Engineer"),

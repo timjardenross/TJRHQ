@@ -26,11 +26,12 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -354,10 +355,10 @@ def evaluate_all_triggers(ctx: Any) -> dict[str, list[TriggerResult]]:
 
 
 __all__ = [
-    "TriggerType",
-    "TriggerResult",
-    "OfficerTrigger",
     "OFFICER_TRIGGERS",
-    "evaluate_trigger",
+    "OfficerTrigger",
+    "TriggerResult",
+    "TriggerType",
     "evaluate_all_triggers",
+    "evaluate_trigger",
 ]

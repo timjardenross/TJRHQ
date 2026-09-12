@@ -41,7 +41,6 @@ import os
 import tempfile
 import threading
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -78,14 +77,13 @@ def append_signal(queue_name: str, record: dict) -> None:
     try:
         path = _queue_path(queue_name)
         line = json.dumps(record, default=str)
-        with _lock_for(queue_name):
-            with open(path, "a", encoding="utf-8") as f:
-                f.write(line + "\n")
+        with _lock_for(queue_name), open(path, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
     except Exception as exc:
         log.error("[webhook_queue] failed to append to %s: %s", queue_name, exc)
 
 
-def drain_signals(queue_name: str, source_url: Optional[str] = None) -> list[dict]:
+def drain_signals(queue_name: str, source_url: str | None = None) -> list[dict]:
     """Return and remove every queued record for `queue_name`, optionally
     filtered to one `source_url` (leaving records for other sources/watches
     in the same queue file untouched — one adapter instance per registered

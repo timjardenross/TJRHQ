@@ -18,13 +18,13 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from core.engineering import context_enricher as ce  # noqa: E402
-from core.engineering.schemas import MissionContext  # noqa: E402
+from core.engineering import context_enricher as ce
+from core.engineering.schemas import MissionContext
 
 
 def _ctx(title: str) -> MissionContext:

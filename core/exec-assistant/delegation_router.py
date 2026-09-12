@@ -6,8 +6,6 @@ This is the intelligent dispatcher that matches work to the right person/special
 """
 
 import logging
-from typing import Optional, List, Tuple
-from uuid import UUID
 
 from .models import DelegationDecision
 
@@ -45,8 +43,8 @@ class DelegationRouter:
         self,
         task_title: str,
         task_description: str = "",
-        available_specialists: Optional[List[str]] = None,
-        context: Optional[dict] = None,
+        available_specialists: list[str] | None = None,
+        context: dict | None = None,
     ) -> DelegationDecision:
         """
         Route a task to the most appropriate specialist.
@@ -66,7 +64,7 @@ class DelegationRouter:
         specialists = available_specialists or list(self._specialist_expertise.keys())
 
         # Score each specialist
-        scores: List[Tuple[str, float, str]] = []
+        scores: list[tuple[str, float, str]] = []
         for specialist in specialists:
             score, reason = self._score_specialist(specialist, full_text, context or {})
             scores.append((specialist, score, reason))
@@ -99,7 +97,7 @@ class DelegationRouter:
 
         return decision
 
-    def _score_specialist(self, specialist: str, task_text: str, context: dict) -> Tuple[float, str]:
+    def _score_specialist(self, specialist: str, task_text: str, context: dict) -> tuple[float, str]:
         """
         Score how well a specialist matches the task.
 
@@ -247,8 +245,8 @@ class DelegationRouter:
 
     def suggest_routing_for_batch(
         self,
-        tasks: List[Tuple[str, str, dict]],
-    ) -> List[DelegationDecision]:
+        tasks: list[tuple[str, str, dict]],
+    ) -> list[DelegationDecision]:
         """
         Suggest routing for multiple tasks at once.
 
@@ -277,7 +275,7 @@ class DelegationRouter:
         """
         return self._specialist_expertise.get(specialist_name, {})
 
-    def list_specialists(self) -> List[str]:
+    def list_specialists(self) -> list[str]:
         """Get list of all known specialists."""
         return list(self._specialist_expertise.keys())
 
@@ -285,7 +283,7 @@ class DelegationRouter:
         self,
         name: str,
         domain: str,
-        keywords: List[str],
+        keywords: list[str],
         handles_urgent: bool = False,
         handles_simple: bool = True,
     ) -> None:

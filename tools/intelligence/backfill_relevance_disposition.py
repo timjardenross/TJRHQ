@@ -44,8 +44,8 @@ log = logging.getLogger("backfill_relevance_disposition")
 
 from supabase import create_client
 
-from intelligence.classification.relevance_gate import assess_relevance
 from intelligence.classification.disposition import technical_disposition
+from intelligence.classification.relevance_gate import assess_relevance
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")

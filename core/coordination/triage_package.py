@@ -29,9 +29,10 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 from core.coordination.lifecycle_reconciler import items_at_stage
 from core.coordination.lifecycle_status_map import LifecycleStage
@@ -46,7 +47,7 @@ _BAND_TO_PRIORITY = {"Critical": "P0", "High": "P1", "Moderate": "P2", "Low": "P
 
 SearchFn = Callable[[str], dict]
 RiskFn = Callable[[dict], dict]
-GlmFn = Callable[[str, str], Optional[str]]  # (title, description) -> analysis text|None
+GlmFn = Callable[[str, str], str | None]  # (title, description) -> analysis text|None
 
 
 def _slack_path() -> None:
@@ -55,7 +56,7 @@ def _slack_path() -> None:
         sys.path.insert(0, bot_dir)
 
 
-def _load_search() -> Optional[SearchFn]:
+def _load_search() -> SearchFn | None:
     """`command_memory_integration.search_memory`, fail-open to None."""
     try:
         _slack_path()
@@ -71,7 +72,7 @@ def _load_search() -> Optional[SearchFn]:
         return None
 
 
-def _load_risk() -> Optional[RiskFn]:
+def _load_risk() -> RiskFn | None:
     """`mission_risk.calculate_mission_risk_score`, fail-open to None."""
     try:
         _slack_path()
@@ -87,7 +88,7 @@ def _load_risk() -> Optional[RiskFn]:
         return None
 
 
-def _load_glm() -> Optional[GlmFn]:
+def _load_glm() -> GlmFn | None:
     """GLM-5.2 complexity/dependency analysis, fail-open to None.
 
     Wraps `glm.call`, which raises RuntimeError when unconfigured — caught here so
@@ -96,7 +97,7 @@ def _load_glm() -> Optional[GlmFn]:
     try:
         from core.engineering.providers import glm
 
-        def _fn(title: str, description: str) -> Optional[str]:
+        def _fn(title: str, description: str) -> str | None:
             prompt = (
                 f"Mission: {title}\n"
                 f"Description: {description or '(none provided)'}\n\n"
@@ -128,7 +129,7 @@ def _mission_dict(item: dict) -> dict:
     }
 
 
-def _duplicates(search_fn: Optional[SearchFn], item: dict) -> tuple[list[dict], list[dict]]:
+def _duplicates(search_fn: SearchFn | None, item: dict) -> tuple[list[dict], list[dict]]:
     """Return (candidate duplicate/related missions, related decisions).
 
     Excludes the item itself. Empty title (e.g. a build request) → no search.
@@ -144,10 +145,10 @@ def _duplicates(search_fn: Optional[SearchFn], item: dict) -> tuple[list[dict], 
 
 
 def build_triage_packages(
-    ledger: Optional[dict[str, Any]] = None,
-    search_fn: "SearchFn | object | None" = _DEFAULT,
-    risk_fn: "RiskFn | object | None" = _DEFAULT,
-    glm_fn: "GlmFn | object | None" = _DEFAULT,
+    ledger: dict[str, Any] | None = None,
+    search_fn: SearchFn | object | None = _DEFAULT,
+    risk_fn: RiskFn | object | None = _DEFAULT,
+    glm_fn: GlmFn | object | None = _DEFAULT,
 ) -> dict[str, Any]:
     """Assemble a triage package per Capture-stage item.
 
@@ -231,7 +232,7 @@ def format_triage_packages(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def write_triage_packages(report: dict[str, Any]) -> Optional[Path]:
+def write_triage_packages(report: dict[str, Any]) -> Path | None:
     """Persist an advisory JSON snapshot. NOT a triage decision. Never raises."""
     try:
         TRIAGE_PKG_DIR.mkdir(parents=True, exist_ok=True)

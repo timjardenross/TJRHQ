@@ -37,9 +37,10 @@ import json
 import subprocess
 import sys
 import time
-from pathlib import Path
 from datetime import datetime
-from number_one import NumberOne, CoordinationConfig
+from pathlib import Path
+
+from number_one import CoordinationConfig, NumberOne
 
 
 def _git_last_modified(file_ref: str, repo_root: Path) -> str:
@@ -65,8 +66,8 @@ sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
 sys.path.insert(0, str(_REPO_ROOT / "core" / "knowledge"))
 
 try:
-    from recommendation_engine import generate_recommendation_package
     from models import RecommendationPackage
+    from recommendation_engine import generate_recommendation_package
     _RECOMMENDATIONS_AVAILABLE = True
 except ImportError:
     _RECOMMENDATIONS_AVAILABLE = False
@@ -581,8 +582,8 @@ class NumberOneExporter:
                          "blockers.json", "health_queue.json", "recommendations.json",
                          "readiness.json", "lessons.json"]:
                 print(f"   - {name}")
-            print(f"\nThe Phase 2 API can now read these files via NumberOneAdapter.")
-            print(f"(Falls back to mock data if files are unavailable.)")
+            print("\nThe Phase 2 API can now read these files via NumberOneAdapter.")
+            print("(Falls back to mock data if files are unavailable.)")
         else:
             print("\n❌ Some exports failed")
 

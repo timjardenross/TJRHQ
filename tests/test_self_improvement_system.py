@@ -12,17 +12,21 @@ Uses stdlib unittest (no external dependencies).
 """
 
 import json
+import sys
 import unittest
 from pathlib import Path
-import sys
 
 # Add repo root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import tempfile
 import shutil
+import tempfile
 
-from scripts.self_improvement.collector import EvidenceCollector, FileSystemAudit, CodeAnalysis
+from scripts.self_improvement.collector import (
+    CodeAnalysis,
+    EvidenceCollector,
+    FileSystemAudit,
+)
 from scripts.self_improvement.policy import PolicyEngine, classify_findings
 from scripts.self_improvement.router_client import ModelRouterClient
 

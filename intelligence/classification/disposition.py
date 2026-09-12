@@ -23,15 +23,13 @@ decision wires disposition into an actual filter.
 
 from __future__ import annotations
 
-from typing import Optional
-
+from intelligence.captains_brief import _derive_risk_label
 from tools.intelligence.recompute_signal_scores import (
     compute_confidence_level,
     compute_criticality,
     compute_escalation,
     impact_from_criticality,
 )
-from intelligence.captains_brief import _derive_risk_label
 
 # 2026-09-06 fix, found via the Phase 3 backfill's real 14-day data:
 # rank_score's composite formula (recency_decay x Source Reliability Score,
@@ -117,7 +115,7 @@ def technical_disposition(
 
 def health_disposition(
     signal: dict,
-    curator_decision: Optional[str] = None,
+    curator_decision: str | None = None,
 ) -> tuple[str, str]:
     """
     Compute (disposition, disposition_reason) for one health_signals row.

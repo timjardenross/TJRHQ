@@ -19,11 +19,9 @@ import time
 from typing import Any
 
 from lib.captains_inbox_capture import (
-    capture_item,
     ack_to_slack,
     alert_capture_failure,
-    extract_first_url,
-    extract_urls,
+    capture_item,
     detect_item_type,
 )
 

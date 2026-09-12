@@ -25,13 +25,12 @@ from __future__ import annotations
 import datetime as dt
 import logging
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
 import commands
 import daily
 import db
 import onboarding
 import weekly
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from copy_bank import crisis_recontact
 from safety import locale_resources
 

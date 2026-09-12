@@ -17,14 +17,15 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 import timeline as _timeline
-from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling
+
 _learning = _import_sibling("learning")
 
 
@@ -40,7 +41,7 @@ def _days_ago(days: int) -> str:
 # What changed (since a date / over the last N days)
 # ---------------------------------------------------------------------------
 
-def what_changed(since: Optional[str] = None, *, days: int = 30) -> dict[str, Any]:
+def what_changed(since: str | None = None, *, days: int = 30) -> dict[str, Any]:
     since = since or _days_ago(days)
     events = _timeline.load_events(since=since)
     by_kind: dict[str, int] = {}

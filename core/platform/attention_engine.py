@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -66,15 +66,15 @@ class AttentionDecision:
     traces to a queryable score and an Audit event') — nothing here is a
     black-box judgment."""
 
-    event_id: Optional[str]
+    event_id: str | None
     category: AttentionCategory
     reason: str
-    importance: Optional[int]
-    confidence: Optional[int]
-    relevance: Optional[int]
+    importance: int | None
+    confidence: int | None
+    relevance: int | None
     domain: str
     event_type: str
-    aggregation_key: Optional[str] = None
+    aggregation_key: str | None = None
     related_event_ids: list[str] = field(default_factory=list)
     metrics: dict[str, Any] = field(default_factory=dict)  # MSN-0328 Wave 2 — see core_events.metrics
 
@@ -82,7 +82,7 @@ class AttentionDecision:
 def evaluate_event(
     event: dict[str, Any],
     *,
-    thresholds: Optional[AttentionThresholds] = None,
+    thresholds: AttentionThresholds | None = None,
 ) -> AttentionDecision:
     """Route one `core_events`-shaped dict to an AttentionCategory.
 
@@ -189,8 +189,8 @@ def evaluate_event(
 def evaluate_batch(
     events: list[dict[str, Any]],
     *,
-    thresholds: Optional[AttentionThresholds] = None,
-    related_edges: Optional[dict[str, list[str]]] = None,
+    thresholds: AttentionThresholds | None = None,
+    related_edges: dict[str, list[str]] | None = None,
 ) -> list[AttentionDecision]:
     """Route a batch of events, additionally detecting the two
     batch-only categories from MSN-0301 Workstream A:
@@ -245,8 +245,8 @@ def evaluate_batch(
 
 __all__ = [
     "AttentionCategory",
-    "AttentionThresholds",
     "AttentionDecision",
-    "evaluate_event",
+    "AttentionThresholds",
     "evaluate_batch",
+    "evaluate_event",
 ]

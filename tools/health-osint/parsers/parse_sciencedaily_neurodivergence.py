@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import html as _html
 import re
-from datetime import datetime, timezone
+from datetime import timezone
 from email.utils import parsedate_to_datetime
 
 _TAG_RE = re.compile(r"<[^>]+>")

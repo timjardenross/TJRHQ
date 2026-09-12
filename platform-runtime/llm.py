@@ -5,7 +5,6 @@ import os
 import urllib.error
 import urllib.request
 
-
 DEFAULT_PROVIDER = "auto"
 DEFAULT_MODEL_ROUTER_URL = "http://127.0.0.1:8891"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"

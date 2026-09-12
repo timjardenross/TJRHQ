@@ -28,9 +28,10 @@ from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
-from tools.supabase.client import CommanderSupabaseClient
 from lib.feedback_loops_service import FeedbackLoops
 from lib.quality_scoring_service import QualityScoring
+
+from tools.supabase.client import CommanderSupabaseClient
 
 # Ensure repo root is importable so core.platform.event_bus resolves from any
 # working directory this module is invoked from (e.g. slack-bot/, platform-runtime/).

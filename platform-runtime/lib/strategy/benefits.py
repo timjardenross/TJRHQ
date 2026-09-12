@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -122,7 +122,7 @@ def _row_to_benefit(row: dict[str, Any]) -> Benefit | None:
     p = _parse_rationale(str(row.get("rationale") or ""))
     stmt = str(row.get("statement") or "")
     prefix = f"{_BENEFIT_STATEMENT} {benefit_id}: "
-    title = stmt[len(prefix):] if stmt.startswith(prefix) else stmt
+    title = stmt.removeprefix(prefix)
 
     try:
         btype = BenefitType(p.get("TYPE", "operational"))
@@ -340,12 +340,12 @@ def get_benefit_summary(initiative_id: str) -> dict:
 
 
 __all__ = [
-    "BenefitType",
+    "BENEFIT_OWNER_PREFIX",
     "Benefit",
+    "BenefitType",
+    "get_benefit",
+    "get_benefit_summary",
+    "list_benefits",
     "register_benefit",
     "update_benefit",
-    "get_benefit",
-    "list_benefits",
-    "get_benefit_summary",
-    "BENEFIT_OWNER_PREFIX",
 ]

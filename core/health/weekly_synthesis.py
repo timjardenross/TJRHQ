@@ -26,12 +26,11 @@ Outputs:
 from __future__ import annotations
 
 import json
-import os
 import sys
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # Allow sibling imports (core/health/*.py, unqualified) plus absolute
 # `core.xxx` package imports (health_llm.py needs `core.llm.provider_chain`).
@@ -45,18 +44,20 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
 
-from supabase_client import supabase_get, supabase_upsert, is_configured
 from capacity_score import compute_capacity_score
+from health_llm import HealthLLMProvider, parse_llm_narrative
+from supabase_client import is_configured, supabase_get, supabase_upsert
 from trend_utils import (
-    compute_pain_trend,
-    compute_sleep_trend,
-    compute_capacity_trend,
-    encode_energy,
-    encode_mood,
-    day_of_week_pattern,
     MIN_DAYS_FOR_TREND as _TREND_MIN,
 )
-from health_llm import HealthLLMProvider, parse_llm_narrative
+from trend_utils import (
+    compute_capacity_trend,
+    compute_pain_trend,
+    compute_sleep_trend,
+    day_of_week_pattern,
+    encode_energy,
+    encode_mood,
+)
 
 MIN_DAYS_FOR_SYNTHESIS = 3   # degrade gracefully if < this many entries
 MIN_DAYS_FOR_BASELINE  = 14  # minimum entries in 30d window to report a baseline
@@ -90,7 +91,7 @@ _MIGRATION_009_COLS = frozenset({
 # Data retrieval
 # ---------------------------------------------------------------------------
 
-def _fetch_week_entries(days: int = 7) -> List[Dict[str, Any]]:
+def _fetch_week_entries(days: int = 7) -> list[dict[str, Any]]:
     """Fetch entries from the unified analytics view (WP-2).
     Falls back to captains_log_entries if the view does not yet exist."""
     since = (date.today() - timedelta(days=days - 1)).isoformat()
@@ -113,7 +114,7 @@ def _fetch_week_entries(days: int = 7) -> List[Dict[str, Any]]:
         return rows
 
 
-def _modal(values: List[str]) -> Optional[str]:
+def _modal(values: list[str]) -> str | None:
     if not values:
         return None
     return Counter(values).most_common(1)[0][0]
@@ -123,7 +124,7 @@ def _modal(values: List[str]) -> Optional[str]:
 # Sprint A: 30-day baseline retrieval and comparison
 # ---------------------------------------------------------------------------
 
-def _fetch_baseline_entries(days: int = 30) -> List[Dict[str, Any]]:
+def _fetch_baseline_entries(days: int = 30) -> list[dict[str, Any]]:
     """Fetch up to `days` days of entries for baseline computation."""
     since = (date.today() - timedelta(days=days - 1)).isoformat()
     try:
@@ -148,10 +149,10 @@ def _fetch_baseline_entries(days: int = 30) -> List[Dict[str, Any]]:
 
 
 def _baseline_mean(
-    entries: List[Dict[str, Any]],
+    entries: list[dict[str, Any]],
     field: str,
     encode_fn=None,
-) -> Optional[float]:
+) -> float | None:
     """
     Compute mean of `field` across entries.
     If `encode_fn` is provided (e.g. encode_energy), applies it to string values.
@@ -172,8 +173,8 @@ def _baseline_mean(
 
 
 def _classify_vs_baseline(
-    current: Optional[float],
-    baseline: Optional[float],
+    current: float | None,
+    baseline: float | None,
     higher_is_better: bool,
     threshold_pct: float = 0.10,
 ) -> str:
@@ -193,12 +194,12 @@ def _classify_vs_baseline(
 
 
 def _compute_baselines(
-    baseline_entries: List[Dict[str, Any]],
-    current_pain_avg: Optional[float],
-    current_sleep_avg: Optional[float],
-    current_capacity_avg: Optional[float],
-    current_energy_modal: Optional[str],
-) -> Tuple[Dict[str, Any], Dict[str, str]]:
+    baseline_entries: list[dict[str, Any]],
+    current_pain_avg: float | None,
+    current_sleep_avg: float | None,
+    current_capacity_avg: float | None,
+    current_energy_modal: str | None,
+) -> tuple[dict[str, Any], dict[str, str]]:
     """
     Compute 30-day baselines and classify current week against them.
 
@@ -242,7 +243,7 @@ def _compute_baselines(
 # Sprint A: Deterministic correlation findings
 # ---------------------------------------------------------------------------
 
-def _analyse_cpap(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _analyse_cpap(entries: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Analyse CPAP compliance and next-day energy impact.
 
@@ -254,8 +255,8 @@ def _analyse_cpap(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
       next_day_energy_without_cpap: str modal or None
       finding: str human-readable finding or None
     """
-    cpap_nights_by_energy: Dict[bool, List[str]] = {True: [], False: []}
-    compliance_flags: List[bool] = []
+    cpap_nights_by_energy: dict[bool, list[str]] = {True: [], False: []}
+    compliance_flags: list[bool] = []
 
     sorted_entries = sorted(entries, key=lambda x: x.get("log_date", ""))
 
@@ -326,16 +327,16 @@ def _analyse_cpap(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
-def _analyse_sleep_quality(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _analyse_sleep_quality(entries: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Compare sleep_quality against sleep_hours.
     Flags entries where the Captain slept sufficient hours but quality was poor/fair.
 
     Returns dict with finding string or None.
     """
-    long_but_poor: List[str] = []
-    quality_dist: Dict[str, int] = {}
-    quality_avg_hours: Dict[str, List[float]] = {}
+    long_but_poor: list[str] = []
+    quality_dist: dict[str, int] = {}
+    quality_avg_hours: dict[str, list[float]] = {}
 
     for e in entries:
         q = (e.get("sleep_quality") or "").strip().lower()
@@ -378,7 +379,7 @@ def _analyse_sleep_quality(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
 
-def _analyse_intention_delivery(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _analyse_intention_delivery(entries: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Compare tomorrows_priority (day N) against what_happened (day N+1).
     Computes: how many days had intentions set and how many had a next-day log.
@@ -438,7 +439,7 @@ def _analyse_intention_delivery(entries: List[Dict[str, Any]]) -> Dict[str, Any]
     }
 
 
-def _extract_wins(entries: List[Dict[str, Any]], n: int = 3) -> List[str]:
+def _extract_wins(entries: list[dict[str, Any]], n: int = 3) -> list[str]:
     """Extract non-empty wins entries, returning up to n most recent."""
     wins = []
     for e in sorted(entries, key=lambda x: x.get("log_date", ""), reverse=True):
@@ -450,10 +451,10 @@ def _extract_wins(entries: List[Dict[str, Any]], n: int = 3) -> List[str]:
     return list(reversed(wins))  # chronological order
 
 
-def _analyse_statuses(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _analyse_statuses(entries: list[dict[str, Any]]) -> dict[str, Any]:
     """Compute distribution and modal for work_status and personal_status."""
-    work_dist: Dict[str, int] = {}
-    personal_dist: Dict[str, int] = {}
+    work_dist: dict[str, int] = {}
+    personal_dist: dict[str, int] = {}
     for e in entries:
         ws = (e.get("work_status") or "").strip()
         ps = (e.get("personal_status") or "").strip()
@@ -474,14 +475,14 @@ def _analyse_statuses(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
 # Sprint C: WP2 — Pain Location Intelligence (G-007)
 # ---------------------------------------------------------------------------
 
-def _analyse_pain_location(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _analyse_pain_location(entries: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Frequency analysis of pain_location field across provided entries.
 
     Normalises case and strips whitespace. Treats empty/None as 'unspecified'.
     Returns: location_counts, most_common, finding.
     """
-    counts: Dict[str, int] = {}
+    counts: dict[str, int] = {}
     for e in entries:
         raw = (e.get("pain_location") or "").strip()
         loc = raw.lower() if raw else "unspecified"
@@ -519,15 +520,15 @@ def _analyse_pain_location(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def _analyse_mood_longitudinal(
-    entries: List[Dict[str, Any]],
-    baseline_entries: List[Dict[str, Any]],
-) -> Dict[str, Any]:
+    entries: list[dict[str, Any]],
+    baseline_entries: list[dict[str, Any]],
+) -> dict[str, Any]:
     """
     Trend mood across the current week and 30-day history.
 
     Returns: mood_trend_7d, mood_trend_30d, mood_distribution_30d, finding.
     """
-    def _mood_values(rows: List[Dict]) -> List[float]:
+    def _mood_values(rows: list[dict]) -> list[float]:
         result = []
         for e in rows:
             raw = (e.get("mood") or "").strip().lower()
@@ -542,7 +543,7 @@ def _analyse_mood_longitudinal(
     mood_trend_7d  = compute_trend(week_vals, higher_is_better=True) if len(week_vals) >= _TREND_MIN else "insufficient_data"
     mood_trend_30d = compute_trend(hist_vals, higher_is_better=True) if len(hist_vals) >= _TREND_MIN else "insufficient_data"
 
-    dist_30d: Dict[str, int] = {}
+    dist_30d: dict[str, int] = {}
     for e in (baseline_entries or []):
         raw = (e.get("mood") or "").strip().lower()
         if raw in ("low", "stable", "positive"):
@@ -571,7 +572,7 @@ def _analyse_mood_longitudinal(
 _PHYS_CAP_SCORE = {"better": 1, "same": 0, "worse": -1}
 
 
-def _analyse_physical_capacity_trend(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _analyse_physical_capacity_trend(entries: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Analyse Better/Same/Worse physical_capacity trajectory.
 
@@ -579,8 +580,8 @@ def _analyse_physical_capacity_trend(entries: List[Dict[str, Any]]) -> Dict[str,
     Returns: trajectory ('improving'|'declining'|'stable'|'insufficient_data'),
              streak (consecutive same-direction entries), distribution, finding.
     """
-    scored: List[Tuple[str, int]] = []
-    dist: Dict[str, int] = {}
+    scored: list[tuple[str, int]] = []
+    dist: dict[str, int] = {}
     for e in sorted(entries, key=lambda x: x.get("log_date", "")):
         raw = (e.get("physical_capacity") or "").strip().lower()
         if raw in _PHYS_CAP_SCORE:
@@ -634,11 +635,11 @@ _RECOVERY_STATUSES = ("Active Recovery", "Stable", "Declining", "Acute", "Insuff
 def _classify_recovery_status(
     pain_trend: str,
     capacity_trend: str,
-    energy_modal: Optional[str],
+    energy_modal: str | None,
     physical_capacity_trajectory: str,
-    pain_avg: Optional[float],
+    pain_avg: float | None,
     n: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Classify the Captain's recovery state using existing trend signals.
 
@@ -654,7 +655,7 @@ def _classify_recovery_status(
     if n < 3:
         return {"status": "Insufficient Data", "rationale": ["fewer than 3 log entries"], "finding": None}
 
-    signals: List[str] = []
+    signals: list[str] = []
     acute = False
 
     # Acute check — either high absolute pain or compounding worsening signals
@@ -692,12 +693,12 @@ def _classify_recovery_status(
 # ---------------------------------------------------------------------------
 
 def _extract_dated_values(
-    entries: List[Dict[str, Any]],
+    entries: list[dict[str, Any]],
     field: str,
     encode_fn=None,
-) -> List[Tuple[str, float]]:
+) -> list[tuple[str, float]]:
     """Extract (log_date, numeric_value) pairs from entries, optionally encoding strings."""
-    pairs: List[Tuple[str, float]] = []
+    pairs: list[tuple[str, float]] = []
     for e in sorted(entries, key=lambda x: x.get("log_date", "")):
         date_str = e.get("log_date", "")
         raw = e.get(field)
@@ -712,21 +713,21 @@ def _extract_dated_values(
 
 
 def _build_deterministic_findings(
-    cpap: Dict[str, Any],
-    sleep_quality: Dict[str, Any],
-    intention: Dict[str, Any],
-    baseline_comparison: Dict[str, str],
-    pain_avg: Optional[float],
-    baseline_30d: Dict[str, Any],
-    pain_location: Optional[Dict[str, Any]] = None,
-    mood_longitudinal: Optional[Dict[str, Any]] = None,
-    recovery: Optional[Dict[str, Any]] = None,
-    phys_cap: Optional[Dict[str, Any]] = None,
-    dow_pain: Optional[Dict[str, Any]] = None,
-    dow_energy: Optional[Dict[str, Any]] = None,
-) -> List[str]:
+    cpap: dict[str, Any],
+    sleep_quality: dict[str, Any],
+    intention: dict[str, Any],
+    baseline_comparison: dict[str, str],
+    pain_avg: float | None,
+    baseline_30d: dict[str, Any],
+    pain_location: dict[str, Any] | None = None,
+    mood_longitudinal: dict[str, Any] | None = None,
+    recovery: dict[str, Any] | None = None,
+    phys_cap: dict[str, Any] | None = None,
+    dow_pain: dict[str, Any] | None = None,
+    dow_energy: dict[str, Any] | None = None,
+) -> list[str]:
     """Collect all deterministic findings into a list of human-readable strings."""
-    findings: List[str] = []
+    findings: list[str] = []
 
     # Baseline comparison findings
     pain_bl = baseline_30d.get("pain_avg")
@@ -780,23 +781,23 @@ def _build_deterministic_findings(
 def _build_llm_prompt(
     week_start: str,
     n: int,
-    pain_avg: Optional[float],
+    pain_avg: float | None,
     pain_trend: str,
-    sleep_avg: Optional[float],
+    sleep_avg: float | None,
     sleep_trend: str,
-    energy_modal: Optional[str],
-    mood_modal: Optional[str],
-    capacity_avg: Optional[float],
-    risk_flags: List[str],
-    positive_flags: List[str],
-    decisions: List[Dict[str, str]],
-    baseline_30d: Dict[str, Any],
-    baseline_comparison: Dict[str, str],
-    deterministic_findings: List[str],
-    wins: List[str],
-    intention: Dict[str, Any],
-    cpap: Dict[str, Any],
-    statuses: Dict[str, Any],
+    energy_modal: str | None,
+    mood_modal: str | None,
+    capacity_avg: float | None,
+    risk_flags: list[str],
+    positive_flags: list[str],
+    decisions: list[dict[str, str]],
+    baseline_30d: dict[str, Any],
+    baseline_comparison: dict[str, str],
+    deterministic_findings: list[str],
+    wins: list[str],
+    intention: dict[str, Any],
+    cpap: dict[str, Any],
+    statuses: dict[str, Any],
 ) -> str:
     """Build the structured prompt for health LLM narrative generation."""
 
@@ -919,21 +920,21 @@ def _build_combined_narrative(
     week_start: str,
     n: int,
     auto_status: str,
-    pain_avg: Optional[float],
+    pain_avg: float | None,
     pain_trend: str,
-    sleep_avg: Optional[float],
+    sleep_avg: float | None,
     sleep_trend: str,
-    energy_modal: Optional[str],
-    mood_modal: Optional[str],
-    capacity_avg: Optional[float],
-    risk_flags: List[str],
-    positive_flags: List[str],
-    decisions: List[Dict[str, str]],
-    baseline_30d: Dict[str, Any],
-    baseline_comparison: Dict[str, str],
-    deterministic_findings: List[str],
-    wins: List[str],
-    llm_narrative: Optional[Dict[str, Any]],
+    energy_modal: str | None,
+    mood_modal: str | None,
+    capacity_avg: float | None,
+    risk_flags: list[str],
+    positive_flags: list[str],
+    decisions: list[dict[str, str]],
+    baseline_30d: dict[str, Any],
+    baseline_comparison: dict[str, str],
+    deterministic_findings: list[str],
+    wins: list[str],
+    llm_narrative: dict[str, Any] | None,
 ) -> str:
     """
     Build the final weekly narrative combining deterministic structure with LLM intelligence.
@@ -945,9 +946,9 @@ def _build_combined_narrative(
 
     lines = [
         f"## Weekly Health Intelligence Brief — w/c {week_start}",
-        f"",
+        "",
         f"**Days logged:** {n}/7 | **Auto status:** {auto_status}",
-        f"",
+        "",
         "### Situation",
     ]
 
@@ -1053,7 +1054,7 @@ def _build_combined_narrative(
             lines.append(f"- [{d['date']}] {d['text']}")
 
     if llm_narrative:
-        lines += ["", f"*Intelligence narrative generated by LLM.*"]
+        lines += ["", "*Intelligence narrative generated by LLM.*"]
 
     return "\n".join(lines)
 
@@ -1062,8 +1063,8 @@ def _build_combined_narrative(
 # Risk and positive flag detection
 # ---------------------------------------------------------------------------
 
-def _detect_risk_flags(entries: List[Dict[str, Any]]) -> List[str]:
-    flags: List[str] = []
+def _detect_risk_flags(entries: list[dict[str, Any]]) -> list[str]:
+    flags: list[str] = []
 
     pain_scores = [e["pain_score"] for e in entries if e.get("pain_score") is not None]
     sleep_hours = [float(e["sleep_hours"]) for e in entries if e.get("sleep_hours") is not None]
@@ -1109,8 +1110,8 @@ def _detect_risk_flags(entries: List[Dict[str, Any]]) -> List[str]:
     return flags
 
 
-def _detect_positive_flags(entries: List[Dict[str, Any]], pain_trend_str: str) -> List[str]:
-    flags: List[str] = []
+def _detect_positive_flags(entries: list[dict[str, Any]], pain_trend_str: str) -> list[str]:
+    flags: list[str] = []
 
     pain_scores = [e["pain_score"] for e in entries if e.get("pain_score") is not None]
     sleep_hours = [float(e["sleep_hours"]) for e in entries if e.get("sleep_hours") is not None]
@@ -1150,7 +1151,7 @@ def _detect_positive_flags(entries: List[Dict[str, Any]], pain_trend_str: str) -
 # Decision extraction
 # ---------------------------------------------------------------------------
 
-def _extract_decisions(entries: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+def _extract_decisions(entries: list[dict[str, Any]]) -> list[dict[str, str]]:
     """
     Extract non-empty decisions_made entries, returning [{date, text}].
     No parsing or splitting — preserves the raw free-text value.
@@ -1168,27 +1169,27 @@ def _extract_decisions(entries: List[Dict[str, Any]]) -> List[Dict[str, str]]:
 # ---------------------------------------------------------------------------
 
 def _build_narrative(
-    entries: List[Dict[str, Any]],
-    pain_avg: Optional[float],
+    entries: list[dict[str, Any]],
+    pain_avg: float | None,
     pain_trend: str,
-    sleep_avg: Optional[float],
+    sleep_avg: float | None,
     sleep_trend: str,
-    energy_modal: Optional[str],
-    mood_modal: Optional[str],
-    capacity_avg: Optional[float],
+    energy_modal: str | None,
+    mood_modal: str | None,
+    capacity_avg: float | None,
     auto_status: str,
-    risk_flags: List[str],
-    positive_flags: List[str],
-    decisions: List[Dict[str, str]],
+    risk_flags: list[str],
+    positive_flags: list[str],
+    decisions: list[dict[str, str]],
     week_start: str,
 ) -> str:
     """Deterministic template narrative — used as fallback when LLM is unavailable."""
     n = len(entries)
     lines = [
         f"## Weekly Health Intelligence Brief — w/c {week_start}",
-        f"",
+        "",
         f"**Days logged:** {n}/7 | **Auto status:** {auto_status}",
-        f"",
+        "",
         "### Situation",
     ]
 
@@ -1247,10 +1248,10 @@ def _build_narrative(
 # ---------------------------------------------------------------------------
 
 def _compute_auto_health_status(
-    risk_flags: List[str],
-    positive_flags: List[str],
-    pain_avg: Optional[float],
-    capacity_avg: Optional[float],
+    risk_flags: list[str],
+    positive_flags: list[str],
+    pain_avg: float | None,
+    capacity_avg: float | None,
 ) -> str:
     if pain_avg is not None and pain_avg >= 7:
         return "Red"
@@ -1307,7 +1308,7 @@ def _update_health_summary_md(narrative: str, week_start: str) -> None:
 # Main synthesis function
 # ---------------------------------------------------------------------------
 
-def run_synthesis(days: int = 7, update_health_summary: bool = True) -> Dict[str, Any]:
+def run_synthesis(days: int = 7, update_health_summary: bool = True) -> dict[str, Any]:
     """
     Run weekly synthesis over the last `days` days of captains_log_entries.
 
@@ -1436,8 +1437,8 @@ def run_synthesis(days: int = 7, update_health_summary: bool = True) -> Dict[str
     )
 
     # ── Sprint A: LLM narrative ──────────────────────────────────────────────
-    llm_narrative: Optional[Dict[str, Any]] = None
-    llm_provider: Optional[str] = None
+    llm_narrative: dict[str, Any] | None = None
+    llm_provider: str | None = None
 
     try:
         llm_prompt = _build_llm_prompt(
@@ -1478,7 +1479,7 @@ def run_synthesis(days: int = 7, update_health_summary: bool = True) -> Dict[str
 
     # ── Build insight row ────────────────────────────────────────────────────
     period_end = (date.fromisoformat(week_start) + timedelta(days=6)).isoformat()
-    insight: Dict[str, Any] = {
+    insight: dict[str, Any] = {
         # Required NOT NULL columns (health_insights schema)
         "period_start": week_start,
         "period_end":   period_end,

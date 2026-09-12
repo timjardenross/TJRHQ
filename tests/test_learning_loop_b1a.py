@@ -9,12 +9,13 @@ Tests: record_decision(), get_decision(), get_decisions_for_mission()
 Authority: MSN-0060B-LEARNING-LOOP-IMPLEMENTATION.md Phase B1A
 """
 
-import pytest
 import logging
-from datetime import datetime, timedelta
-from unittest.mock import Mock, MagicMock, patch
-import sys
 import os
+import sys
+from datetime import datetime, timedelta
+from unittest.mock import Mock
+
+import pytest
 
 # Add parent directories to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'platform-runtime'))
@@ -26,8 +27,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'tools'))
 # deps are unavailable (e.g. secret-free CI) rather than aborting collection.
 try:
     from lib.learning_loop_service import (
-        LearningLoopService,
         DecisionRecord,
+        LearningLoopService,
         ProviderMetadata,
     )
 except ImportError as _exc:  # pragma: no cover - environment dependent

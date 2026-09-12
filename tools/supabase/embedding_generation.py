@@ -6,12 +6,11 @@ Date: 2026-06-08
 Purpose: Generate embeddings for all document chunks using nomic-embed-text
 """
 
-from dataclasses import dataclass
-from typing import Optional, List
-import requests
-import json
 import time
+from dataclasses import dataclass
 from datetime import datetime
+
+import requests
 
 
 @dataclass
@@ -23,7 +22,7 @@ class EmbeddingResult:
     skipped_chunks: int
     avg_time_per_chunk: float  # seconds
     total_time: float  # seconds
-    failed_ids: List[str]
+    failed_ids: list[str]
     embedding_timestamp: datetime = None
 
 
@@ -55,7 +54,7 @@ class EmbeddingGenerator:
 
     def generate_embeddings(
         self,
-        chunks: List[dict],  # From Supabase: [{'id': '...', 'content': '...', 'embedding': None}, ...]
+        chunks: list[dict],  # From Supabase: [{'id': '...', 'content': '...', 'embedding': None}, ...]
         force_regenerate: bool = False
     ) -> EmbeddingResult:
         """
@@ -127,7 +126,7 @@ class EmbeddingGenerator:
         avg_time = total_time / max(embedded_count, 1)
 
         print(f"\n{'='*70}")
-        print(f"Embedding generation complete!")
+        print("Embedding generation complete!")
         print(f"  Total chunks: {len(chunks)}")
         print(f"  Embedded: {embedded_count}")
         print(f"  Failed: {failed_count}")
@@ -147,7 +146,7 @@ class EmbeddingGenerator:
             embedding_timestamp=datetime.now()
         )
 
-    def _embed_text(self, text: str) -> List[float]:
+    def _embed_text(self, text: str) -> list[float]:
         """Generate embedding for a single text using Ollama."""
         response = requests.post(
             self.OLLAMA_URL,
@@ -185,7 +184,7 @@ def generate_embeddings_from_db(
 
 if __name__ == "__main__":
     result = generate_embeddings_from_db(batch_size=5)
-    print(f"\nFinal Result:")
+    print("\nFinal Result:")
     print(f"  Chunks embedded: {result.chunks_embedded}")
     print(f"  Chunks failed: {result.chunks_failed}")
     print(f"  Avg time: {result.avg_time_per_chunk:.3f}s")

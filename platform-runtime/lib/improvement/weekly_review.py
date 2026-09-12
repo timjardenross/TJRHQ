@@ -37,7 +37,6 @@ from lib.improvement.framework import ImprovementBand, ImprovementOpportunity
 from lib.improvement.officer_reviews import run_all_reviews
 from lib.improvement.scoring import score_and_rank
 
-
 # ── Data structure ────────────────────────────────────────────────────────────
 
 @dataclass
@@ -125,8 +124,8 @@ def _build_score_context(ctx: Any) -> dict[str, Any]:
 def _create_high_band_missions(brief: WeeklyImprovementBrief) -> None:
     """Create missions for High-band opportunities after D-057 checks."""
     try:
-        from lib.improvement.framework import d057_check, ImprovementBand
         from command_memory_integration import create_mission_from_officer
+        from lib.improvement.framework import ImprovementBand, d057_check
     except ImportError as exc:
         log.warning("[improvement.weekly] Cannot import mission creation tools: %s", exc)
         return
@@ -264,6 +263,6 @@ def format_weekly_brief(brief: WeeklyImprovementBrief) -> str:
 
 __all__ = [
     "WeeklyImprovementBrief",
-    "run_weekly_improvement_review",
     "format_weekly_brief",
+    "run_weekly_improvement_review",
 ]

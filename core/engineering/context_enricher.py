@@ -22,7 +22,6 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 from .schemas import MissionContext
 
@@ -144,7 +143,7 @@ def enrich(ctx: MissionContext) -> str:
 
 # ─── Mission file loader ──────────────────────────────────────────────────────
 
-def _load_mission_file(mission_id: str, title: str) -> Optional[str]:
+def _load_mission_file(mission_id: str, title: str) -> str | None:
     """
     Search for a mission file matching mission_id in known directories.
     Returns the trimmed file content or None if not found.
@@ -294,7 +293,7 @@ def _cortex_enabled() -> bool:
     return os.getenv("CORTEX_CONTEXT_ENABLED", "1").strip().lower() not in {"0", "false", "no", "off"}
 
 
-def _cortex_binary() -> Optional[Path]:
+def _cortex_binary() -> Path | None:
     """Locate the cortex CLI binary via .cortex/suite.env (written by
     cortex_suite's setup.sh), or CORTEX_BIN to override."""
     override = os.getenv("CORTEX_BIN")
@@ -322,12 +321,12 @@ def _cortex_binary() -> Optional[Path]:
     return None
 
 
-def _cortex_db() -> Optional[Path]:
+def _cortex_db() -> Path | None:
     db = _REPO_ROOT / ".cortex" / "memory.db"
     return db if db.exists() else None
 
 
-def _run_cortex(args: list[str]) -> Optional[str]:
+def _run_cortex(args: list[str]) -> str | None:
     """Run one cortex CLI subcommand. Returns stdout, or None on any failure
     (missing binary/db, non-zero exit, timeout, exception) — never raises."""
     binary = _cortex_binary()

@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 # LLM application security baseline (USS-TJR-MSN-0366 Stream 5): wraps the
 # synchronous complete() dispatch below — see
@@ -94,7 +94,7 @@ def complete(prompt: str, model: str = DEFAULT_MODEL, max_tokens: int = 4096,
 
 
 def submit(requests: list[dict[str, Any]], model: str = DEFAULT_MODEL,
-           metadata: Optional[dict[str, str]] = None, client=None) -> str:
+           metadata: dict[str, str] | None = None, client=None) -> str:
     """Upload a JSONL batch input and create a job. Returns the job id.
 
     Each request must be ``{"custom_id": str, "body": {"messages": [...], ...}}``

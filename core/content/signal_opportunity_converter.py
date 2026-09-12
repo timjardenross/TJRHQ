@@ -24,7 +24,6 @@ import logging
 import os
 import urllib.error
 import urllib.request
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +60,7 @@ def _get(path: str) -> list:
         return []
 
 
-def _post_batch(table: str, rows: list) -> Optional[list]:
+def _post_batch(table: str, rows: list) -> list | None:
     """Insert multiple rows as a single atomic statement. Returns None on failure."""
     if not _SUPABASE_URL or not _SUPABASE_KEY:
         return None
@@ -108,7 +107,7 @@ def _log_batch_operation(result: dict) -> None:
 def create_opportunities_from_signals(
     limit: int = 5,
     min_rank_score: float = 70.0,
-    domain: Optional[str] = None,
+    domain: str | None = None,
 ) -> dict:
     """
     Create comms_content opportunities from top-ranked, non-suppressed content_signals.
@@ -151,7 +150,7 @@ def create_opportunities_from_signals(
     # high-scoring signal outrank everything scored since, the same "stale
     # dominates forever" defect found in intelligence_events' own consumers.
     # Matches load_recent_events()'s 14-day default elsewhere in the platform.
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
     since = (datetime.now(timezone.utc) - timedelta(days=14)).isoformat()
 
     signals = _get(

@@ -1,12 +1,13 @@
 """Timezone utilities — always use Brisbane (Australia/Brisbane = UTC+10, no DST)."""
 from __future__ import annotations
+
 from datetime import date, datetime
 
 try:
     from zoneinfo import ZoneInfo
     _BRISBANE = ZoneInfo("Australia/Brisbane")
 except Exception:
-    from datetime import timezone, timedelta
+    from datetime import timedelta, timezone
     _BRISBANE = timezone(timedelta(hours=10))  # type: ignore[assignment]
 
 

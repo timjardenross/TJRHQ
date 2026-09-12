@@ -18,10 +18,9 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -66,8 +65,8 @@ def log_event(
 
 
 def read_events(
-    since_date: Optional[date] = None,
-    until_date: Optional[date] = None,
+    since_date: date | None = None,
+    until_date: date | None = None,
 ) -> list[dict]:
     """Return all shakedown events, optionally filtered by date range."""
     if not _LOG_FILE.exists():

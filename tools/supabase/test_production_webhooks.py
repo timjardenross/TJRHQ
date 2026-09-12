@@ -5,12 +5,12 @@ Week 3 Real Event Stream Validation
 Purpose: Test all three webhooks against production endpoints
 """
 
-import json
-import hmac
 import hashlib
+import hmac
+import json
 import time
+
 import requests
-from typing import Tuple, Dict
 
 
 class ProductionWebhookTester:
@@ -25,7 +25,7 @@ class ProductionWebhookTester:
         self.base_url = base_url
         self.results = []
 
-    def test_health_check(self) -> Tuple[bool, float]:
+    def test_health_check(self) -> tuple[bool, float]:
         """Test health check endpoint."""
         start = time.time()
         try:
@@ -33,14 +33,14 @@ class ProductionWebhookTester:
             latency = (time.time() - start) * 1000
             is_healthy = response.status_code == 200
             return is_healthy, latency
-        except Exception as e:
+        except Exception:
             return False, -1.0
 
     def test_slack_webhook(
         self,
         signing_secret: str,
-        payload: Dict = None
-    ) -> Tuple[bool, float, int]:
+        payload: dict = None
+    ) -> tuple[bool, float, int]:
         """Test Slack webhook endpoint.
 
         Args:
@@ -92,14 +92,14 @@ class ProductionWebhookTester:
             latency = (time.time() - start) * 1000
             success = response.status_code == 200
             return success, latency, response.status_code
-        except Exception as e:
+        except Exception:
             return False, -1.0, 0
 
     def test_github_webhook(
         self,
         secret: str,
-        payload: Dict = None
-    ) -> Tuple[bool, float, int]:
+        payload: dict = None
+    ) -> tuple[bool, float, int]:
         """Test GitHub webhook endpoint.
 
         Args:
@@ -150,14 +150,14 @@ class ProductionWebhookTester:
             latency = (time.time() - start) * 1000
             success = response.status_code == 200
             return success, latency, response.status_code
-        except Exception as e:
+        except Exception:
             return False, -1.0, 0
 
     def test_notion_webhook(
         self,
         secret: str,
-        payload: Dict = None
-    ) -> Tuple[bool, float, int]:
+        payload: dict = None
+    ) -> tuple[bool, float, int]:
         """Test Notion webhook endpoint.
 
         Args:
@@ -211,7 +211,7 @@ class ProductionWebhookTester:
             latency = (time.time() - start) * 1000
             success = response.status_code == 200
             return success, latency, response.status_code
-        except Exception as e:
+        except Exception:
             return False, -1.0, 0
 
     def run_all_tests(
@@ -286,7 +286,7 @@ if __name__ == "__main__":
     # Get base URL from environment or argument
     base_url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:5000"
 
-    print(f"\nProduction Webhook Tester")
+    print("\nProduction Webhook Tester")
     print(f"Server: {base_url}")
 
     tester = ProductionWebhookTester(base_url=base_url)

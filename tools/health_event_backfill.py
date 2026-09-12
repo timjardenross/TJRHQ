@@ -38,7 +38,7 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
 
-from supabase_client import supabase_upsert, supabase_get, is_configured
+from supabase_client import is_configured, supabase_get, supabase_upsert
 
 VALID_EVENT_TYPES = (
     "appointment",
@@ -167,7 +167,7 @@ def _interactive_add() -> None:
         print(f"\n  ❌ Validation failed: {exc}")
         sys.exit(1)
 
-    print(f"\n  Preview:")
+    print("\n  Preview:")
     print(f"    Date:        {event['event_date']}")
     print(f"    Type:        {event['event_type']}")
     print(f"    Title:       {event['title']}")

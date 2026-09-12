@@ -35,9 +35,14 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.strategy.initiatives import get_initiative, list_initiatives, InitiativeHealth, OutcomeTrend
-from lib.program.wbs import build_wbs, InitiativeWBS
 from lib.program.critical_path import compute_critical_path
+from lib.program.wbs import InitiativeWBS, build_wbs
+from lib.strategy.initiatives import (
+    InitiativeHealth,
+    OutcomeTrend,
+    get_initiative,
+    list_initiatives,
+)
 
 
 class DeliveryForecast(str, Enum):
@@ -211,7 +216,7 @@ def format_forecast(result: ForecastResult) -> str:
 __all__ = [
     "DeliveryForecast",
     "ForecastResult",
-    "forecast_initiative",
     "forecast_all",
+    "forecast_initiative",
     "format_forecast",
 ]

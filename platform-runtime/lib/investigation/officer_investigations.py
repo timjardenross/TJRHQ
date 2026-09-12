@@ -44,7 +44,6 @@ for p in (str(_BOT), str(_REPO_ROOT)):
 from lib.investigation.framework import InvestigationType
 from lib.investigation.registry import open_investigation
 
-
 # ── Thresholds ────────────────────────────────────────────────────────────────
 
 _BLOCKED_THRESHOLD     = 2   # missions blocked before Engineering investigates
@@ -312,12 +311,12 @@ def run_all_investigation_triggers(ctx: Any) -> list[str]:
 
 
 __all__ = [
-    "investigate_human_systems",
-    "investigate_ori",
-    "investigate_number_one",
-    "investigate_engineering",
-    "investigate_strategic_planning",
     "investigate_communications",
+    "investigate_engineering",
+    "investigate_human_systems",
     "investigate_knowledge",
+    "investigate_number_one",
+    "investigate_ori",
+    "investigate_strategic_planning",
     "run_all_investigation_triggers",
 ]

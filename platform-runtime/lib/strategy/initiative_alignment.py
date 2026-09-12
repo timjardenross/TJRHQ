@@ -40,7 +40,9 @@ for p in (str(_BOT), str(_REPO_ROOT)):
         sys.path.insert(0, p)
 
 from lib.strategy.initiatives import (
-    Initiative, list_initiatives, get_linked_missions, INITIATIVE_OWNER_PREFIX,
+    Initiative,
+    get_linked_missions,
+    list_initiatives,
 )
 
 _IMPROVE_PREFIX = "[IMPROVE]"
@@ -223,7 +225,7 @@ def format_alignment(report: AlignmentReport) -> str:
 
 __all__ = [
     "AlignmentReport",
+    "format_alignment",
     "run_alignment_scan",
     "traceability_for_mission",
-    "format_alignment",
 ]

@@ -13,11 +13,11 @@ Tests the entire learning loop:
 This validates that the learning loop is truly operational.
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from datetime import datetime
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -119,7 +119,7 @@ def test_end_to_end_learning_loop():
 
     # Simulate decision
     decision_id_1 = "DEC-20260610-100000"
-    log.info(f"\nStep 1.2: Decision Made")
+    log.info("\nStep 1.2: Decision Made")
     log.info(f"  Decision: {decision_id_1}")
     log.info(f"  Provider: {selected_provider}")
 
@@ -173,12 +173,12 @@ def test_end_to_end_learning_loop():
     log.info(f"\n✓ Selected: {selected_provider_2} (based on quality)")
 
     if selected_provider_2 == selected_provider:
-        log.info(f"  Same provider selected (reinforced by high quality)")
+        log.info("  Same provider selected (reinforced by high quality)")
     else:
-        log.info(f"  Different provider selected (improved by recent scores)")
+        log.info("  Different provider selected (improved by recent scores)")
 
     decision_id_2 = "DEC-20260610-110000"
-    log.info(f"\nStep 2.2: New Decision Made")
+    log.info("\nStep 2.2: New Decision Made")
     log.info(f"  Decision: {decision_id_2}")
     log.info(f"  Provider: {selected_provider_2}")
 
@@ -240,32 +240,32 @@ def test_end_to_end_learning_loop():
 
     # Check 1: Quality scores were created
     check1 = len(quality_scores) + len(quality_scores_2) == 5
-    log.info(f"\n✓ Check 1: Quality scores created")
+    log.info("\n✓ Check 1: Quality scores created")
     log.info(f"  Expected: 5, Actual: {len(quality_scores) + len(quality_scores_2)}")
     checks.append(check1)
 
     # Check 2: Feedback signals were generated
     check2 = len(feedback_loops.feedback_signals) == 5
-    log.info(f"\n✓ Check 2: Feedback signals generated")
+    log.info("\n✓ Check 2: Feedback signals generated")
     log.info(f"  Expected: 5, Actual: {len(feedback_loops.feedback_signals)}")
     checks.append(check2)
 
     # Check 3: Provider quality was updated
     google_quality = feedback_loops.provider_quality['Google']
     check3 = google_quality['decisions_count'] == 3
-    log.info(f"\n✓ Check 3: Provider quality updated")
+    log.info("\n✓ Check 3: Provider quality updated")
     log.info(f"  Google decisions: {google_quality['decisions_count']} (expected 3)")
     checks.append(check3)
 
     # Check 4: Quality metrics changed
     check4 = google_quality['avg_effectiveness'] != 3.0
-    log.info(f"\n✓ Check 4: Quality metrics changed")
+    log.info("\n✓ Check 4: Quality metrics changed")
     log.info(f"  Google effectiveness: {google_quality['avg_effectiveness']:.1f} (was 3.0)")
     checks.append(check4)
 
     # Check 5: Routing decisions are adaptive
     check5 = final_primary is not None
-    log.info(f"\n✓ Check 5: Routing decisions are adaptive")
+    log.info("\n✓ Check 5: Routing decisions are adaptive")
     log.info(f"  Final selection: {final_primary}")
     checks.append(check5)
 
@@ -289,7 +289,7 @@ def test_end_to_end_learning_loop():
         log.info("  5. System continuously learns and improves")
         return True
     else:
-        log.error(f"\n❌ LEARNING LOOP FAILED")
+        log.error("\n❌ LEARNING LOOP FAILED")
         return False
 
 

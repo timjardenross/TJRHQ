@@ -245,10 +245,10 @@ def batch_process_officer_review(supabase_client: Any) -> list[ProcessResult]:
 
 
 __all__ = [
-    "assign_officers",
-    "analyse_note",
-    "advance_to_officer_review",
-    "process_officer_review",
-    "batch_process_officer_review",
     "ProcessResult",
+    "advance_to_officer_review",
+    "analyse_note",
+    "assign_officers",
+    "batch_process_officer_review",
+    "process_officer_review",
 ]

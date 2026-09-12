@@ -25,7 +25,6 @@ import logging
 import re
 import sys
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -39,13 +38,13 @@ _REPO_ROOT = _HERE.parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from core.knowledge_navigation.models import (  # noqa: E402
-    HierarchyEdge,
-    HierarchyNode,
+from core.knowledge_navigation.index import get_index, reload_graph
+from core.knowledge_navigation.models import (
     NODE_LEVELS,
     VALID_RELATIONSHIP_TYPES,
+    HierarchyEdge,
+    HierarchyNode,
 )
-from core.knowledge_navigation.index import get_index, reload_graph  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # ID normalisation patterns
@@ -61,12 +60,12 @@ _RE_CD  = re.compile(r"\bCD-(\d{3})\b", re.IGNORECASE)
 
 # Keyword → relationship type (for body-text extraction)
 _KEYWORD_RELS = [
-    (re.compile(r"governed[_ ]by\s*:", re.I),   "governed_by",  0.90),
-    (re.compile(r"triggered[_ ]by\s*:", re.I),  "produces",     0.85),
-    (re.compile(r"depends[_ ]on\s*:", re.I),    "depends_on",   0.85),
-    (re.compile(r"supersedes\s*:", re.I),        "supersedes",   0.90),
-    (re.compile(r"governed by|aligns with adr",  re.I), "governed_by", 0.70),
-    (re.compile(r"depends on|requires|blocked by", re.I), "depends_on", 0.65),
+    (re.compile(r"governed[_ ]by\s*:", re.IGNORECASE),   "governed_by",  0.90),
+    (re.compile(r"triggered[_ ]by\s*:", re.IGNORECASE),  "produces",     0.85),
+    (re.compile(r"depends[_ ]on\s*:", re.IGNORECASE),    "depends_on",   0.85),
+    (re.compile(r"supersedes\s*:", re.IGNORECASE),        "supersedes",   0.90),
+    (re.compile(r"governed by|aligns with adr",  re.IGNORECASE), "governed_by", 0.70),
+    (re.compile(r"depends on|requires|blocked by", re.IGNORECASE), "depends_on", 0.65),
 ]
 
 
@@ -699,8 +698,8 @@ class SyncResult:
 def run_sync(
     *,
     dry_run: bool = False,
-    source: Optional[str] = None,
-    repo_root: Optional[Path] = None,
+    source: str | None = None,
+    repo_root: Path | None = None,
 ) -> SyncResult:
     root = repo_root or _REPO_ROOT
     result = SyncResult()

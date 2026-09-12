@@ -30,7 +30,6 @@ from __future__ import annotations
 import json
 import logging
 import subprocess
-import sys
 from pathlib import Path
 
 from intelligence.config import HTTP_TIMEOUT_SECONDS

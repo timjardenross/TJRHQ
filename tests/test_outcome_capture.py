@@ -29,8 +29,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "knowledge"))
 sys.path.insert(0, str(_REPO_ROOT / "platform-runtime" / "lib"))
 
-import outcome_capture as oc  # noqa: E402
-
+import outcome_capture as oc
 
 # ---------------------------------------------------------------------------
 # Test helpers — a tiny in-memory Supabase stub
@@ -305,7 +304,7 @@ def test_aging_band_thresholds():
 
 
 def test_age_days_parses_iso():
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
     now = datetime(2026, 6, 25, tzinfo=timezone.utc)
     ts = (now - timedelta(days=10)).isoformat()
     assert oc._age_days(ts, _now=now) == 10
@@ -332,7 +331,7 @@ def test_learning_health_model():
 
 
 def test_velocity_and_trend_buckets():
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
     now = datetime.now(timezone.utc)
     rows = [
         {"created_at": (now - timedelta(days=1)).isoformat()},   # week 0

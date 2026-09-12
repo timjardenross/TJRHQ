@@ -17,7 +17,7 @@ _ADVISORY = _REPO_ROOT / "core" / "advisory"
 if str(_ADVISORY) not in sys.path:
     sys.path.insert(0, str(_ADVISORY))
 
-from _local_import_advisory import import_sibling, reload_sibling  # noqa: E402
+from _local_import_advisory import import_sibling, reload_sibling
 
 # Fleet Engineering Review 2026-08-11: outcomes, learning, patterns,
 # escalation, opportunities, service collide with same-named files
@@ -131,7 +131,8 @@ def test_opportunities_detect(seeded):
 
 
 def test_notifications_route(seeded):
-    import triggers, notifications
+    import notifications
+    import triggers
     importlib.reload(triggers)
     importlib.reload(notifications)
     opportunities = reload_sibling("opportunities")

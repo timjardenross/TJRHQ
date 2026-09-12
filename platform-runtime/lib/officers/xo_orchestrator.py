@@ -356,7 +356,7 @@ def format_xo_synthesis(synthesis: XOSynthesis) -> str:
 __all__ = [
     "OfficerStatus",
     "XOSynthesis",
-    "synthesise_officer_outputs",
     "format_xo_synthesis",
     "get_officer_statuses",
+    "synthesise_officer_outputs",
 ]

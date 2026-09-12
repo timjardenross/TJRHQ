@@ -24,7 +24,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from intelligence.persistence import intelligence_store as store
 
@@ -59,12 +58,12 @@ class ExternalDomainSignal:
     applies to platform core_events)."""
     domain: str                              # "health" | "emergency"
     title: str                                # verbatim from source, never paraphrased
-    summary: Optional[str]
+    summary: str | None
     risk_rating: str                          # GREEN | AMBER | RED
-    source_name: Optional[str]
-    assessed_at: Optional[str]
-    canonical_url: Optional[str] = None
-    official_severity_label: Optional[str] = None  # emergency alerts only
+    source_name: str | None
+    assessed_at: str | None
+    canonical_url: str | None = None
+    official_severity_label: str | None = None  # emergency alerts only
 
     def to_dict(self) -> dict:
         return {
@@ -80,7 +79,7 @@ class DomainFetchResult:
     domain: str
     available: bool                # False = the fetch itself failed
     signals: list                  # list[ExternalDomainSignal]
-    error: Optional[str] = None
+    error: str | None = None
 
 
 def fetch_health_signals(hours: int = 24, limit: int = 10) -> DomainFetchResult:

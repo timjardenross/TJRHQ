@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import json
 import os
-import unittest.mock as mock
 from pathlib import Path
+from unittest import mock
 
 from collaboration_logger import LOG_DIR
 from collaborative_specialist_runtime import run
@@ -29,7 +29,6 @@ from dual_commander_evaluator import (
     run_dual_commander,
 )
 from specialist_executor import SpecialistOutput
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -379,7 +378,8 @@ def test_runtime_dual_commander_output_format() -> None:
     """Formatted output must contain all required section headings."""
     os.environ["COMMANDER_SYNTHESIS_PROVIDER"] = "deterministic"
     before = set(LOG_DIR.glob("*.json")) if LOG_DIR.exists() else set()
-    import io, contextlib
+    import contextlib
+    import io
 
     captured = io.StringIO()
     with contextlib.redirect_stdout(captured):

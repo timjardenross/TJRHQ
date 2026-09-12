@@ -48,9 +48,12 @@ import logging
 import threading
 import urllib.error
 import urllib.request
-from typing import Optional
 
-from intelligence.config import FIRECRAWL_API_KEY, FIRECRAWL_API_KEY_2, HTTP_TIMEOUT_SECONDS
+from intelligence.config import (
+    FIRECRAWL_API_KEY,
+    FIRECRAWL_API_KEY_2,
+    HTTP_TIMEOUT_SECONDS,
+)
 from intelligence.ingestion import external_fetch_budget
 
 log = logging.getLogger(__name__)
@@ -119,7 +122,7 @@ def _acquire_account() -> tuple[str, str]:
 _DEFAULT_TIMEOUT = HTTP_TIMEOUT_SECONDS * 3
 
 
-def scrape(url: str, formats: Optional[list[str]] = None, timeout: Optional[int] = None) -> dict:
+def scrape(url: str, formats: list[str] | None = None, timeout: int | None = None) -> dict:
     """
     Fetch `url` through Firecrawl's real /v1/scrape REST endpoint (a genuine
     headless-browser render — bypasses the plain-HTTP JS-challenge/bot-
@@ -187,7 +190,7 @@ def scrape(url: str, formats: Optional[list[str]] = None, timeout: Optional[int]
     return data
 
 
-def fetch_html(url: str, timeout: Optional[int] = None) -> str:
+def fetch_html(url: str, timeout: int | None = None) -> str:
     """Convenience wrapper for adapters that want raw HTML (Downdetector's
     regex parser, ScrapeAdapter's BeautifulSoup extraction)."""
     data = scrape(url, formats=["rawHtml"], timeout=timeout)
@@ -197,7 +200,7 @@ def fetch_html(url: str, timeout: Optional[int] = None) -> str:
     return html
 
 
-def fetch_markdown(url: str, timeout: Optional[int] = None) -> str:
+def fetch_markdown(url: str, timeout: int | None = None) -> str:
     """Convenience wrapper for adapters that want cleaned markdown text."""
     data = scrape(url, formats=["markdown"], timeout=timeout)
     md = data.get("markdown")

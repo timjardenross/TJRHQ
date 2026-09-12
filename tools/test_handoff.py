@@ -17,7 +17,6 @@ import types
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-
 # ── Dependency stubs ──────────────────────────────────────────────────────────
 
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "test-token-0180")

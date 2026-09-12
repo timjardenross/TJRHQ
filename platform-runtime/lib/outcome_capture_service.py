@@ -25,12 +25,11 @@ Public API:
 
 from __future__ import annotations
 
-import os
 import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Any
 from enum import Enum
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -72,11 +71,11 @@ class DecisionOutcome:
 
     # Outcome details
     outcome_status: str  # Implemented, Modified, Deferred, Rejected, Unknown
-    implementation_notes: Optional[str] = None
+    implementation_notes: str | None = None
 
     # Timestamps
     outcome_timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    created_at: Optional[str] = None
+    created_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for Supabase insert."""
@@ -115,14 +114,14 @@ class OutcomeCapture:
         self,
         decision_id: str,
         status: str,
-        implementation_notes: Optional[str] = None,
-        outcome_timestamp: Optional[str] = None,
-        provider_name: Optional[str] = None,
-        model_name: Optional[str] = None,
-        provider_route: Optional[str] = None,
+        implementation_notes: str | None = None,
+        outcome_timestamp: str | None = None,
+        provider_name: str | None = None,
+        model_name: str | None = None,
+        provider_route: str | None = None,
         quality_scoring_service=None,
         feedback_loops_service=None,
-    ) -> Optional[DecisionOutcome]:
+    ) -> DecisionOutcome | None:
         """
         Record outcome for a decision AND trigger quality scoring (B1C→B1D).
 
@@ -207,7 +206,7 @@ class OutcomeCapture:
                                 f"(feedback signal generated: {quality_score.id})"
                             )
                         else:
-                            log.warning(f"[outcome-capture→b1c] Quality scoring returned None")
+                            log.warning("[outcome-capture→b1c] Quality scoring returned None")
 
                     except Exception as e:
                         log.error(
@@ -229,7 +228,7 @@ class OutcomeCapture:
             )
             return outcome
 
-    def get_outcome(self, outcome_id: str) -> Optional[DecisionOutcome]:
+    def get_outcome(self, outcome_id: str) -> DecisionOutcome | None:
         """
         Retrieve outcome by ID.
 

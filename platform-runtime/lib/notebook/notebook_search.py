@@ -296,8 +296,8 @@ def format_search_results(results: SearchResults) -> str:
 
 
 __all__ = [
-    "SearchResults",
     "SearchHit",
-    "search",
+    "SearchResults",
     "format_search_results",
+    "search",
 ]

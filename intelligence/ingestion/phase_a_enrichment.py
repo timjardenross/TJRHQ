@@ -26,12 +26,12 @@ plain save if anything here fails. Design notes:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
 
-def source_tier_for(event: Any) -> Optional[int]:
+def source_tier_for(event: Any) -> int | None:
     from intelligence.classification.source_tier import classify_source_tier
     url = getattr(event, "canonical_url", None)
     return classify_source_tier(url) if url else 4
@@ -214,7 +214,7 @@ def enrich_and_save(
         "canonical": 0, "duplicate": 0, "failed": 0,
         "shadow_mode": shadow_mode, "selective_augmentation": selective_augmentation,
     }
-    idx_to_event_id: dict[int, Optional[str]] = {}
+    idx_to_event_id: dict[int, str | None] = {}
 
     # 1) canonicals first
     for cluster in clusters:

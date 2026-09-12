@@ -22,7 +22,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -95,22 +95,7 @@ try:
 except Exception:
     pass
 
-from telegram_bots.recovery_officer.engagement_dispatcher import (
-    RecoveryStatus,
-    get_recovery_status,
-)
-from telegram_bots.llm import generate_async
-from telegram_bots.wellness_officer.intelligence import get_wellness_snapshot
-from telegram_bots.wellness_officer.brief import generate_wellness_brief_async
-
-# SUOC Wave 2 (MSN-0210F, Item C): canonical chat-ID allowlist gate.
-# TELEGRAM_CHAT_ID is passed as bootstrap_captain_chat_id — a fallback
-# only, kept for exact behavioural parity when TELEGRAM_ALLOWED_CHAT_IDS
-# is unset; the long-term authority model is the explicit env allowlist.
-from core.platform.telegram_access import is_allowed as _chat_is_allowed
-
 # ── Telegram ──────────────────────────────────────────────────────────────────
-
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Application,
@@ -122,6 +107,18 @@ from telegram.ext import (
     TypeHandler,
     filters,
 )
+
+# SUOC Wave 2 (MSN-0210F, Item C): canonical chat-ID allowlist gate.
+# TELEGRAM_CHAT_ID is passed as bootstrap_captain_chat_id — a fallback
+# only, kept for exact behavioural parity when TELEGRAM_ALLOWED_CHAT_IDS
+# is unset; the long-term authority model is the explicit env allowlist.
+from core.platform.telegram_access import is_allowed as _chat_is_allowed
+from telegram_bots.llm import generate_async
+from telegram_bots.recovery_officer.engagement_dispatcher import (
+    RecoveryStatus,
+    get_recovery_status,
+)
+from telegram_bots.wellness_officer.intelligence import get_wellness_snapshot
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 
@@ -332,14 +329,18 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_mood_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log mood (1-10 scale) at different times of day with optional context."""
-    from telegram_bots.xo.mood_chart import _TOD_LABELS, kb_time_of_day, _current_time_of_day
+    from telegram_bots.xo.mood_chart import (
+        _TOD_LABELS,
+        _current_time_of_day,
+        kb_time_of_day,
+    )
     tod = _current_time_of_day()
     label = _TOD_LABELS.get(tod, tod)
     await update.message.reply_text(
-        f"📊 *Mood Chart*\n\n"
-        f"Rate your mood from 1 \\(worst\\) to 10 \\(best\\)\\.\n"
-        f"Add optional context about sleep, pain, anxiety, substance use\\.\n\n"
-        f"When did you feel this way?",
+        "📊 *Mood Chart*\n\n"
+        "Rate your mood from 1 \\(worst\\) to 10 \\(best\\)\\.\n"
+        "Add optional context about sleep, pain, anxiety, substance use\\.\n\n"
+        "When did you feel this way?",
         parse_mode="MarkdownV2",
         reply_markup=kb_time_of_day(),
     )
@@ -555,7 +556,8 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("⚠️ Supabase unavailable\\.", parse_mode="MarkdownV2")
         return
 
-    from intelligence.brief.morning_cycle import cycle_id_for, get_status as get_cycle_status
+    from intelligence.brief.morning_cycle import cycle_id_for
+    from intelligence.brief.morning_cycle import get_status as get_cycle_status
 
     todays_cycle_id = cycle_id_for()
     have_todays_brief = False
@@ -1082,7 +1084,10 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         # matches the capture trigger vocabulary ("remind me"), so checking
         # capture-intent first would misfile it as a brand-new task instead
         # of deferring the original — order matters here.
-        from telegram_bots.xo.follow_through_nl import parse_capture_intent, parse_update_intent
+        from telegram_bots.xo.follow_through_nl import (
+            parse_capture_intent,
+            parse_update_intent,
+        )
 
         reply_to = update.message.reply_to_message
         if db and reply_to is not None:
@@ -1208,8 +1213,12 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def handle_mood_chart_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle mood chart tap flow: time_of_day → mood_score → optional context."""
     from telegram_bots.xo.mood_chart import (
-        parse_cb, kb_mood_score, kb_confirm_or_add_context,
-        _TOD_LABELS, _MOOD_EMOJI, write_mood_entry, format_mood_entry
+        _MOOD_EMOJI,
+        _TOD_LABELS,
+        kb_confirm_or_add_context,
+        kb_mood_score,
+        parse_cb,
+        write_mood_entry,
     )
 
     query = update.callback_query
@@ -1479,7 +1488,7 @@ async def handle_voice_capture_callback(update: Update, context: ContextTypes.DE
     try:
         if action == "confirm":
             await query.edit_message_text(
-                f"✅ Capture confirmed\\.\nIn LCARS Portal → Capture Inbox for review\\.",
+                "✅ Capture confirmed\\.\nIn LCARS Portal → Capture Inbox for review\\.",
                 parse_mode="MarkdownV2",
             )
 

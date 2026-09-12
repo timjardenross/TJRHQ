@@ -23,26 +23,24 @@ import sys
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from health_llm import parse_llm_narrative
 from weekly_synthesis import (
     MIN_DAYS_FOR_BASELINE,
-    _baseline_mean,
-    _classify_vs_baseline,
-    _compute_baselines,
     _analyse_cpap,
-    _analyse_sleep_quality,
     _analyse_intention_delivery,
-    _extract_wins,
+    _analyse_sleep_quality,
     _analyse_statuses,
-    _build_deterministic_findings,
+    _baseline_mean,
     _build_combined_narrative,
+    _build_deterministic_findings,
+    _classify_vs_baseline,
+    _extract_wins,
 )
-from health_llm import parse_llm_narrative
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -50,11 +48,11 @@ from health_llm import parse_llm_narrative
 
 def _entry(
     log_date: str,
-    pain_score: Optional[float] = None,
-    sleep_hours: Optional[float] = None,
-    sleep_quality: Optional[str] = None,
-    energy: Optional[str] = None,
-    mood: Optional[str] = None,
+    pain_score: float | None = None,
+    sleep_hours: float | None = None,
+    sleep_quality: str | None = None,
+    energy: str | None = None,
+    mood: str | None = None,
     cpap_status=None,
     tomorrows_priority: str = "",
     what_happened: str = "",
@@ -62,7 +60,7 @@ def _entry(
     work_status: str = "",
     personal_status: str = "",
     physical_capacity: str = "Same",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     return {
         "log_date": log_date,
         "pain_score": pain_score,
@@ -80,7 +78,7 @@ def _entry(
     }
 
 
-def _make_entries(n: int, start_date: str = "2026-06-01", **kwargs) -> List[Dict[str, Any]]:
+def _make_entries(n: int, start_date: str = "2026-06-01", **kwargs) -> list[dict[str, Any]]:
     """Generate n consecutive entries starting from start_date."""
     d = date.fromisoformat(start_date)
     return [_entry((d + timedelta(days=i)).isoformat(), **kwargs) for i in range(n)]
@@ -557,7 +555,7 @@ class TestBuildCombinedNarrative(unittest.TestCase):
 
 class TestRunSynthesisIntegration(unittest.TestCase):
 
-    def _make_full_entries(self, n: int = 5) -> List[Dict[str, Any]]:
+    def _make_full_entries(self, n: int = 5) -> list[dict[str, Any]]:
         d = date(2026, 6, 7)
         return [
             _entry(

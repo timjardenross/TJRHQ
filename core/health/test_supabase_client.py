@@ -8,9 +8,9 @@ Run: python3 -m pytest core/health/test_supabase_client.py -v
 """
 
 from __future__ import annotations
+
 import io
 import json
-import os
 import sys
 import unittest
 import urllib.error
@@ -93,9 +93,8 @@ class TestSupabaseGet(unittest.TestCase):
         self.assertIn("403", str(ctx.exception))
 
     def test_get_raises_when_unconfigured(self):
-        with patch.object(self.sc, "_URL", ""):
-            with self.assertRaises(RuntimeError):
-                self.sc.supabase_get("health_daily_logs")
+        with patch.object(self.sc, "_URL", ""), self.assertRaises(RuntimeError):
+            self.sc.supabase_get("health_daily_logs")
 
 
 class TestSupabaseUpsert(unittest.TestCase):
@@ -182,9 +181,8 @@ class TestSupabaseInsert(unittest.TestCase):
                 self.sc.supabase_insert("health_events", {})
 
     def test_insert_raises_when_unconfigured(self):
-        with patch.object(self.sc, "_URL", ""):
-            with self.assertRaises(RuntimeError):
-                self.sc.supabase_insert("health_events", {})
+        with patch.object(self.sc, "_URL", ""), self.assertRaises(RuntimeError):
+            self.sc.supabase_insert("health_events", {})
 
 
 if __name__ == "__main__":

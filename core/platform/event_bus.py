@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -47,16 +47,16 @@ def publish_event(
     domain: str,
     source: str,
     *,
-    importance: Optional[int] = None,
-    confidence: Optional[int] = None,
-    relevance: Optional[int] = None,
-    time_sensitivity: Optional[int] = None,
-    linked_entities: Optional[list[str]] = None,
-    linked_missions: Optional[list[str]] = None,
-    linked_documents: Optional[list[str]] = None,
-    recommended_action: Optional[str] = None,
-    metrics: Optional[dict[str, Any]] = None,
-) -> Optional[str]:
+    importance: int | None = None,
+    confidence: int | None = None,
+    relevance: int | None = None,
+    time_sensitivity: int | None = None,
+    linked_entities: list[str] | None = None,
+    linked_missions: list[str] | None = None,
+    linked_documents: list[str] | None = None,
+    recommended_action: str | None = None,
+    metrics: dict[str, Any] | None = None,
+) -> str | None:
     """Publish one event. Non-blocking — never raises.
 
     Args:
@@ -118,10 +118,10 @@ def publish_event(
 
 def poll_events(
     *,
-    since: Optional[datetime] = None,
-    event_type: Optional[str] = None,
-    domain: Optional[str] = None,
-    status: Optional[str] = None,
+    since: datetime | None = None,
+    event_type: str | None = None,
+    domain: str | None = None,
+    status: str | None = None,
     limit: int = 100,
     exclude_cves: bool = True,
     columns: str = "*",
@@ -221,4 +221,4 @@ def record_dispatch_message_id(event_id: str, message_id: int) -> bool:
         return False
 
 
-__all__ = ["publish_event", "poll_events", "mark_event_status", "record_dispatch_message_id"]
+__all__ = ["mark_event_status", "poll_events", "publish_event", "record_dispatch_message_id"]

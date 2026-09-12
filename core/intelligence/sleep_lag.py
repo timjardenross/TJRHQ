@@ -28,7 +28,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
 
 try:
-    from supabase_client import supabase_get, is_configured
+    from supabase_client import is_configured, supabase_get
     _SUPABASE_OK = True
 except ImportError:
     _SUPABASE_OK = False

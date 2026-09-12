@@ -9,9 +9,8 @@ Updated: 2026-06-13 — Mistral-primary embedding with Ollama fallback via Embed
 
 import os
 import sys
-from dataclasses import dataclass
-from typing import List, Optional
 import time
+from dataclasses import dataclass
 from datetime import datetime
 
 # Allow running from the supabase tools directory directly
@@ -29,8 +28,8 @@ EmbeddingError = import_sibling("embedding_client").EmbeddingError
 class RetrievalResult:
     """Result of semantic search."""
     query: str
-    query_embedding: List[float]
-    results: List[dict]  # [{'id': '...', 'content': '...', 'similarity_score': 0.85}, ...]
+    query_embedding: list[float]
+    results: list[dict]  # [{'id': '...', 'content': '...', 'similarity_score': 0.85}, ...]
     num_results: int
     latency_ms: float
     timestamp: datetime = None
@@ -50,7 +49,7 @@ _PROVIDER_KEY_CHECK = {
 }
 
 
-def _make_fallback_client(primary_provider: str) -> Optional[EmbeddingClient]:
+def _make_fallback_client(primary_provider: str) -> EmbeddingClient | None:
     """Return an EmbeddingClient for the fallback provider, or None if unavailable."""
     other = _FALLBACK_ORDER.get(primary_provider)
     if other is None:
@@ -84,7 +83,7 @@ class SemanticRetriever:
             print(f"⚠️  Primary embedding provider unavailable: {exc}")
             self._primary = None
 
-        self._fallback: Optional[EmbeddingClient] = None
+        self._fallback: EmbeddingClient | None = None
         if self._primary is not None:
             self._fallback = _make_fallback_client(self._primary.provider)
             if self._fallback:
@@ -93,7 +92,7 @@ class SemanticRetriever:
         # Legacy attribute — kept for callers that check it; True if any provider is ready
         self.ollama_available = self._primary is not None or self._fallback is not None
 
-    def embed_query(self, query: str) -> Optional[List[float]]:
+    def embed_query(self, query: str) -> list[float] | None:
         """Generate embedding using primary provider, falling back to cloud if needed."""
         if self._primary is None and self._fallback is None:
             print("⚠️  No embedding provider available. Cannot generate query embedding.")
@@ -116,7 +115,7 @@ class SemanticRetriever:
         print("❌ All embedding providers exhausted. Cannot generate query embedding.")
         return None
 
-    def cosine_similarity(self, vec_a: List[float], vec_b: List[float]) -> float:
+    def cosine_similarity(self, vec_a: list[float], vec_b: list[float]) -> float:
         """Compute cosine similarity between two vectors."""
         if not vec_a or not vec_b:
             return 0.0
@@ -133,9 +132,9 @@ class SemanticRetriever:
     def search(
         self,
         query: str,
-        documents: List[dict],  # [{'id': '...', 'content': '...', 'embedding': [...]}, ...]
+        documents: list[dict],  # [{'id': '...', 'content': '...', 'embedding': [...]}, ...]
         top_k: int = 10,
-        threshold: Optional[float] = None
+        threshold: float | None = None
     ) -> RetrievalResult:
         """
         Search documents using semantic similarity.
@@ -185,7 +184,7 @@ class SemanticRetriever:
 
         latency_ms = (time.time() - start_time) * 1000
 
-        print(f"🔍 Semantic search complete!")
+        print("🔍 Semantic search complete!")
         print(f"   Query: '{query}'")
         print(f"   Results: {len(results)} documents (threshold: {threshold})")
         print(f"   Latency: {latency_ms:.1f}ms")
@@ -204,7 +203,7 @@ class SemanticRetriever:
 
 def semantic_search(
     query: str,
-    documents: List[dict],
+    documents: list[dict],
     top_k: int = 10,
     threshold: float = 0.5
 ) -> RetrievalResult:

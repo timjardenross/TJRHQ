@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import os
 import sys
 import unittest
-import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -11,8 +11,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from core.coordination.memory_metrics import summarize_memory_metrics, fetch_memory_metrics_summary
 from commands.memory_queries import handle_memory_metrics_summary
+
+from core.coordination.memory_metrics import (
+    fetch_memory_metrics_summary,
+    summarize_memory_metrics,
+)
 
 
 class MemoryMetricsSummaryTests(unittest.TestCase):
@@ -55,7 +59,10 @@ class MemoryMetricsSummaryTests(unittest.TestCase):
         self.assertEqual(summary["stale_context_sources"]["missions"], 1)
 
     def test_alert_thresholds_can_be_overridden_with_environment(self):
-        from core.coordination.memory_metrics import build_memory_metrics_alerts, get_memory_metric_thresholds
+        from core.coordination.memory_metrics import (
+            build_memory_metrics_alerts,
+            get_memory_metric_thresholds,
+        )
 
         with patch.dict(os.environ, {
             "MEMORY_METRICS_LOW_HIT_RATE_THRESHOLD": "25",
@@ -203,7 +210,10 @@ class MemoryMetricsSummaryTests(unittest.TestCase):
         self.assertIn("30-day comparison vs prior 30-day window", rendered)
 
     def test_default_thresholds_still_apply_without_env_overrides(self):
-        from core.coordination.memory_metrics import build_memory_metrics_alerts, get_memory_metric_thresholds
+        from core.coordination.memory_metrics import (
+            build_memory_metrics_alerts,
+            get_memory_metric_thresholds,
+        )
 
         with patch.dict(os.environ, {}, clear=True):
             thresholds = get_memory_metric_thresholds()

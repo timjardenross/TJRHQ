@@ -32,9 +32,12 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
 
-from core.platform.understanding_engine import Conflict, OperationalContextGraph, Relationship
+from core.platform.understanding_engine import (
+    Conflict,
+    OperationalContextGraph,
+    Relationship,
+)
 
 log = logging.getLogger(__name__)
 
@@ -60,7 +63,7 @@ class Insight:
     generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     # Carried through from the source Relationship for dedup — see
     # understanding_engine.Relationship.aggregation_key.
-    aggregation_key: Optional[str] = None
+    aggregation_key: str | None = None
 
 
 # 2026-08-10: shared grounding preamble (Captain directive — Cognitive Core's
@@ -125,7 +128,7 @@ def _build_synthesis_prompt(item: Relationship | Conflict) -> str:
     )
 
 
-def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: int = 280) -> Optional[str]:
+def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: int = 280) -> str | None:
     """Real HTTP call to the model router's captain-insight-synthesis
     endpoint. Non-blocking on failure — returns None, never raises,
     matching every other network-dependent call in this platform.
@@ -171,9 +174,9 @@ def strip_markdown_json_fence(text: str) -> str:
 
 
 def _parse_insight_response(
-    raw_text: Optional[str],
+    raw_text: str | None,
     item: Relationship | Conflict,
-) -> Optional[Insight]:
+) -> Insight | None:
     """Parses + validates the LLM's raw text into a structured Insight.
     Rejects (returns None) rather than fabricating a value for any
     missing/malformed field — a malformed response produces no insight,

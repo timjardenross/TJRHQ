@@ -168,7 +168,7 @@ def generate(req: GenerateRequest, x_tts_secret: str | None = Header(default=Non
     voice = req.voice or DEFAULT_VOICE
     try:
         samples, sample_rate = model.create(req.text, voice=voice, speed=req.speed, lang="en-us")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log.exception("generation failed")
         raise HTTPException(500, f"generation failed: {exc}") from exc
 

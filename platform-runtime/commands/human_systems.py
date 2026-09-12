@@ -25,9 +25,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from lib.human_systems import framework, push, safety, memory
-from lib.human_systems import decision, mission_load as ml, xo, learning
-
+from lib.human_systems import decision, framework, learning, memory, safety, xo
+from lib.human_systems import mission_load as ml
 
 # ── Data access ───────────────────────────────────────────────────────────────
 
@@ -83,7 +82,9 @@ def _delivery_context():
     human_systems engine works with or without it (HSF-002 WP5/WP6 ⟂ EDO).
     """
     try:
-        from lib.delivery import data as ddata, analysis as danalysis, lifecycle as dlife
+        from lib.delivery import analysis as danalysis
+        from lib.delivery import data as ddata
+        from lib.delivery import lifecycle as dlife
     except Exception:  # pragma: no cover
         return None, None
     try:

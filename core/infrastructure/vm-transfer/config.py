@@ -15,7 +15,7 @@ _MAC_COLLECTOR_DIR = Path(__file__).resolve().parent.parent / "mac-collector"
 if str(_MAC_COLLECTOR_DIR) not in sys.path:
     sys.path.insert(0, str(_MAC_COLLECTOR_DIR))
 
-from ignore_rules import IgnoreMatcher  # noqa: E402
+from ignore_rules import IgnoreMatcher
 
 
 @dataclass

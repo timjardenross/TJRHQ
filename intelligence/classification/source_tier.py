@@ -93,8 +93,7 @@ def extract_domain(url: str) -> str:
             candidate = "//" + candidate  # let urlparse treat it as netloc
         host = urlparse(candidate).netloc or ""
         host = host.split("@")[-1].split(":")[0].lower()  # strip creds + port
-        if host.startswith("www."):
-            host = host[4:]
+        host = host.removeprefix("www.")
         return host
     except Exception as exc:  # pragma: no cover - defensive
         log.warning("source_tier: failed to parse url %r: %s", url, exc)

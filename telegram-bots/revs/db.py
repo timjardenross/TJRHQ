@@ -10,12 +10,11 @@ Table/column names match core/infrastructure/supabase/migrations/
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Optional
-
+from typing import Any
 
 # ---------------------------------------------------------------- users ---
 
-def get_user(client, user_id: int) -> Optional[dict]:
+def get_user(client, user_id: int) -> dict | None:
     res = client.table("revs_users").select("*").eq("id", user_id).limit(1).execute()
     rows = res.data or []
     return rows[0] if rows else None
@@ -83,7 +82,7 @@ def upsert_checkin(client, user_id: int, checkin_date: dt.date, period: str, **f
     return res.data[0]
 
 
-def get_checkin(client, user_id: int, checkin_date: dt.date, period: str) -> Optional[dict]:
+def get_checkin(client, user_id: int, checkin_date: dt.date, period: str) -> dict | None:
     res = (
         client.table("revs_checkins")
         .select("*")
@@ -218,7 +217,7 @@ def recent_setback_count(client, user_id: int, days: int) -> int:
 
 # ------------------------------------------------------------- crisis ---
 
-def insert_crisis_event(client, user_id: int, trigger_type: str, recontact_due_at: Optional[dt.datetime]) -> dict:
+def insert_crisis_event(client, user_id: int, trigger_type: str, recontact_due_at: dt.datetime | None) -> dict:
     row: dict[str, Any] = {"user_id": user_id, "trigger_type": trigger_type}
     if recontact_due_at is not None:
         row["recontact_due_at"] = recontact_due_at.isoformat()

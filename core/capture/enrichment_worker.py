@@ -68,6 +68,7 @@ log = logging.getLogger("capture-enrichment")
 # ── Config ────────────────────────────────────────────────────────────────────
 
 from dotenv import load_dotenv
+
 load_dotenv(_REPO_ROOT / ".env")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
@@ -203,8 +204,7 @@ def _call_llm(text: str) -> dict:
     # Strip markdown fences if present
     if content.startswith("```"):
         content = content.split("```")[1]
-        if content.startswith("json"):
-            content = content[4:]
+        content = content.removeprefix("json")
     result = json.loads(content.strip())
 
     return {
@@ -225,7 +225,7 @@ def _send_telegram_confirmation(text: str) -> None:
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         log.info("[auto-route] Telegram not configured — skipping confirmation")
         return
-    from core.platform.notification_service import notify, Transport
+    from core.platform.notification_service import Transport, notify
     result = notify(text, template="raw", transport=Transport.TELEGRAM)
     if result.ok:
         log.info("[auto-route] Telegram confirmation sent")
@@ -495,7 +495,7 @@ def _advance_notebook_pipeline(dry_run: bool = False) -> None:
         lib_dir = _REPO_ROOT / "platform-runtime" / "lib"
         if str(lib_dir) not in sys.path:
             sys.path.insert(0, str(lib_dir))
-        from notebook.notebook_router import run_notebook_pipeline  # noqa: PLC0415
+        from notebook.notebook_router import run_notebook_pipeline
 
         # run_notebook_pipeline() (and the officer/review modules it calls
         # in turn) expect a real supabase-py client (.table().select()

@@ -22,9 +22,9 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from core.search.meilisearch_client import index_document, search
-
 import requests
+
+from core.search.meilisearch_client import index_document, search
 
 _MEILISEARCH_URL = "http://localhost:7700"
 _POLL_DEADLINE_SECONDS = 10

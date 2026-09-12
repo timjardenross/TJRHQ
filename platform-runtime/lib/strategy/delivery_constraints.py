@@ -92,7 +92,11 @@ def analyse_delivery_constraints(
 
     # ── 1. Capability shortages ────────────────────────────────────────────────
     try:
-        from lib.strategy.capability_gaps import analyse_capability_gaps, GapType, GapSeverity
+        from lib.strategy.capability_gaps import (
+            GapSeverity,
+            GapType,
+            analyse_capability_gaps,
+        )
         gaps = analyse_capability_gaps()
         threatening = [g for g in gaps if g.gap_type == GapType.THREATENING]
         missing_critical = [g for g in gaps if g.gap_type == GapType.MISSING and g.is_critical]
@@ -150,7 +154,11 @@ def analyse_delivery_constraints(
 
     # ── 3. Technical debt constraints ─────────────────────────────────────────
     try:
-        from lib.strategy.technical_debt import compute_debt_profile, DebtTrend, DebtSeverity
+        from lib.strategy.technical_debt import (
+            DebtSeverity,
+            DebtTrend,
+            compute_debt_profile,
+        )
         dp = compute_debt_profile()
         increasing_critical = [d for d in dp.top_debts
                                 if d.trend == DebtTrend.INCREASING and d.severity == DebtSeverity.CRITICAL]
@@ -181,7 +189,10 @@ def analyse_delivery_constraints(
 
     # ── 4. Resource shortages ─────────────────────────────────────────────────
     try:
-        from lib.strategy.capacity_planning import assess_portfolio_capacity, CapacityState
+        from lib.strategy.capacity_planning import (
+            CapacityState,
+            assess_portfolio_capacity,
+        )
         capacity_plan = assess_portfolio_capacity(capacity_status, inputs)
         if capacity_plan.state == CapacityState.OVERLOADED:
             constraints.append(DeliveryConstraint(
@@ -270,8 +281,8 @@ def format_constraint_report(report: PortfolioConstraintReport) -> str:
 
 
 __all__ = [
-    "ConstraintType",
     "ConstraintSeverity",
+    "ConstraintType",
     "DeliveryConstraint",
     "PortfolioConstraintReport",
     "analyse_delivery_constraints",

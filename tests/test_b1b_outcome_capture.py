@@ -15,14 +15,10 @@ Design: Minimal MVP
 - Defers effectiveness scoring to B1C
 """
 
-import sys
-import os
-from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
-from dataclasses import dataclass, asdict
-from datetime import datetime, timedelta
 import logging
-import time
+import sys
+from dataclasses import dataclass
+from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO,
@@ -148,8 +144,8 @@ class TestOutcomeCaptureUnit:
         try:
             sys.path.insert(0, str(Path(__file__).parent.parent / "platform-runtime"))
             from lib.outcome_capture_service import (
-                OutcomeCapture,
                 DecisionOutcome,
+                OutcomeCapture,
                 OutcomeStatus,
             )
             self.OutcomeCapture = OutcomeCapture
@@ -357,7 +353,7 @@ class TestOutcomeCaptureUnit:
 
         assert len(implemented) >= 1, f"Expected implemented outcomes, got {[o.id for o in implemented]}"
         assert len(deferred_outcomes) >= 1, f"Expected deferred outcomes, got {[o.id for o in deferred_outcomes]}"
-        log.info(f"  ✓ Retrieved outcomes by status")
+        log.info("  ✓ Retrieved outcomes by status")
         log.info("✅ PASSED: Status-based retrieval works")
 
     def test_10_outcome_timestamp_handling(self):
@@ -566,7 +562,7 @@ class TestOutcomeCaptureIntegration:
         assert any(o.id == outcome.id for o in outcomes), "Outcome not in decision outcomes"
 
         log.info(f"  ✓ Mission {mission_id} → Recommendation → Decision → Outcome")
-        log.info(f"  ✓ Complete traceability chain verified")
+        log.info("  ✓ Complete traceability chain verified")
         log.info("✅ PASSED: E2E traceability chain complete")
 
 

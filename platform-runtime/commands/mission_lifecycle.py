@@ -22,11 +22,9 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -146,7 +144,7 @@ def _format_qa_dossier(dossier: dict, closing_note: str = "") -> str:
     return "\n".join(lines)
 
 
-def _supabase_missions(status_filter: Optional[str] = None, order: str = "created_at.desc") -> list[dict]:
+def _supabase_missions(status_filter: str | None = None, order: str = "created_at.desc") -> list[dict]:
     """Try to read missions from Supabase. Returns empty list on failure."""
     try:
         sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
@@ -165,7 +163,7 @@ def _supabase_missions(status_filter: Optional[str] = None, order: str = "create
         return []
 
 
-def _supabase_get_mission(mission_id: str) -> Optional[dict]:
+def _supabase_get_mission(mission_id: str) -> dict | None:
     """Direct Supabase lookup by mission_id text column. Returns None on miss or error."""
     try:
         sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
@@ -184,7 +182,7 @@ def _supabase_get_mission(mission_id: str) -> Optional[dict]:
         return None
 
 
-def _time_sensitivity_from_due_date(due_date: Optional[str]) -> Optional[int]:
+def _time_sensitivity_from_due_date(due_date: str | None) -> int | None:
     """0-100 urgency derived from days-until-due, for
     `PriorityInputs.time_sensitivity` (Priority Engine wiring fix — see
     core/platform/priority_engine.py). Mirrors the days-until-due curve
@@ -214,7 +212,7 @@ def _time_sensitivity_from_due_date(due_date: Optional[str]) -> Optional[int]:
         return None
 
 
-def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: Optional[str] = None):
+def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: str | None = None):
     """Update mission status in Supabase. Returns (True, event_id) on success, (False, None) on failure.
 
     `due_date`: the mission's own `due_date` column, if the caller already
@@ -282,6 +280,7 @@ def _write_transition_audit(mission_id: str, from_status: str, to_status: str, u
     # Primary: Supabase mission_state_transitions (MSN-BOT-SOR)
     try:
         import uuid as _uuid
+
         from tools.supabase.client import CommanderSupabaseClient
         client = CommanderSupabaseClient()
         if client.is_enabled():
@@ -324,8 +323,8 @@ def _write_transition_audit(mission_id: str, from_status: str, to_status: str, u
 
 def handle_mission_list(
     text: str,
-    user_id: Optional[str] = None,
-    channel_id: Optional[str] = None,
+    user_id: str | None = None,
+    channel_id: str | None = None,
 ) -> str:
     """
     List missions.
@@ -398,7 +397,7 @@ def _format_mission_list(missions: list[dict], source: str, filter_arg: str) -> 
     if not missions:
         return f":information_source: No missions found (filter: `{filter_arg or 'active'}`, source: {source})."
 
-    label = f"active missions" if not filter_arg or filter_arg == "active" else f"`{filter_arg}` missions"
+    label = "active missions" if not filter_arg or filter_arg == "active" else f"`{filter_arg}` missions"
     lines = [f"*:clipboard: {len(missions)} {label}* _(source: {source})_", ""]
     for m in missions[:20]:
         mid    = m.get("id") or m.get("mission_id", "")
@@ -410,7 +409,7 @@ def _format_mission_list(missions: list[dict], source: str, filter_arg: str) -> 
     if len(missions) > 20:
         lines.append(f"\n_...and {len(missions) - 20} more. Use `/mission-list all` to see everything._")
 
-    lines.append(f"\n_Use `/mission-status <id>` for details._")
+    lines.append("\n_Use `/mission-status <id>` for details._")
     return "\n".join(lines)
 
 
@@ -420,8 +419,8 @@ def _format_mission_list(missions: list[dict], source: str, filter_arg: str) -> 
 
 def handle_mission_status(
     text: str,
-    user_id: Optional[str] = None,
-    channel_id: Optional[str] = None,
+    user_id: str | None = None,
+    channel_id: str | None = None,
 ) -> str:
     """
     Show or update the status of a mission.
@@ -485,7 +484,7 @@ def handle_mission_status(
     return f":x: Mission `{mission_id}` not found. Use `/mission-list` to see active missions."
 
 
-def _closure_outcome_prompt(mission_id: str, title: str) -> Optional[str]:
+def _closure_outcome_prompt(mission_id: str, title: str) -> str | None:
     """MSN-0079 WP1: surface an outcome-capture request when a mission closes.
 
     Delegates to outcome_capture.closure_prompt (which never invents a lesson and
@@ -508,7 +507,7 @@ def _handle_status_transition(
     mission_id: str,
     mission_id_full: str,
     new_status: str,
-    user_id: Optional[str],
+    user_id: str | None,
     note: str,
 ) -> str:
     """Execute a lifecycle status transition and write audit record."""
@@ -536,7 +535,9 @@ def _handle_status_transition(
 
     # Tiered approval PoC — route status changes through Attention Engine
     try:
-        from core.platform.approval_router import evaluate_and_route_mission_status_change
+        from core.platform.approval_router import (
+            evaluate_and_route_mission_status_change,
+        )
         evaluate_and_route_mission_status_change(
             mission_id=mission_id_full,
             mission_name=mission_title,
@@ -549,7 +550,7 @@ def _handle_status_transition(
 
     if updated:
         lines = [
-            f":arrows_counterclockwise: *Mission Status Updated*",
+            ":arrows_counterclockwise: *Mission Status Updated*",
             f"*Mission:* `{mission_id}`",
             f"*Transition:* `{from_status}` → `{new_status}`",
         ]
@@ -620,8 +621,8 @@ def _format_mission_detail(m: dict) -> str:
 
 def handle_mission_close(
     text: str,
-    user_id: Optional[str] = None,
-    channel_id: Optional[str] = None,
+    user_id: str | None = None,
+    channel_id: str | None = None,
     include_qa_advisory: bool = False,
 ) -> str:
     """
@@ -693,8 +694,8 @@ def handle_mission_close(
 
     # Write closure log
     try:
-        from datetime import datetime
         import json
+        from datetime import datetime
         log_dir = _REPO_ROOT / "USS-TJR-Control" / "logs" / "missions" / "closed"
         log_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")

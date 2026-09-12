@@ -36,15 +36,14 @@ Design constraints (WP-A):
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import shutil
 import sys
 import time
-import traceback
-import argparse
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 
 # Repo root
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -58,17 +57,18 @@ sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
 # makes `core.platform.*` resolvable regardless of the process's cwd.
 sys.path.insert(0, str(REPO_ROOT))
 
-import config
 from assembler import (
-    assemble_mission_context,
-    assemble_health_context,
     assemble_blockers,
-    assemble_decisions_awaiting_input,
     assemble_captain_brief_context,
+    assemble_decisions_awaiting_input,
+    assemble_health_context,
+    assemble_mission_context,
     assemble_operating_picture,
 )
-from recommendation_engine import generate_recommendation_package
 from models import HealthContextPackage
+from recommendation_engine import generate_recommendation_package
+
+import config
 
 # Output directory for pre-generated files
 CONTEXT_OUTPUT_DIR = config.OUTPUT_DIR / "context"
@@ -145,7 +145,7 @@ def _load_live_missions_for_number_one() -> list:
     by_id = {m["mission_id"]: dict(m) for m in file_missions}
     try:
         sys.path.insert(0, str(REPO_ROOT / "core" / "health"))
-        from supabase_client import supabase_get  # noqa: PLC0415
+        from supabase_client import supabase_get
         rows = supabase_get("missions?select=mission_id,status,priority,updated_at,closed_at,pr_url")
     except Exception as exc:
         _err(f"Could not load live Supabase mission status — using file corpus only: {exc}")
@@ -400,7 +400,10 @@ def _make_flask_app():
     def http_full_captain_brief():
         try:
             import dataclasses
-            from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
+
+            from core.platform.captain_brief_orchestrator import (
+                assemble_captain_brief_document,
+            )
             from core.platform.event_bus import poll_events
 
             limit = int(_request_arg("limit", 200))
@@ -445,7 +448,10 @@ def _make_flask_app():
     def http_evolved_captain_brief():
         try:
             import dataclasses
-            from core.platform.captain_brief_evolution import assemble_evolved_captain_brief
+
+            from core.platform.captain_brief_evolution import (
+                assemble_evolved_captain_brief,
+            )
             from core.platform.event_bus import poll_events
 
             limit = int(_request_arg("limit", 200))
@@ -650,7 +656,7 @@ def _pr_health_escalations(missions: list) -> list[dict]:
     NumberOne's own rule-based ones — it can never suppress or block them.
     """
     sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
-    from pr_health import check_pr_health  # noqa: PLC0415
+    from pr_health import check_pr_health
 
     escalations = []
     seen_urls: set[str] = set()
@@ -699,7 +705,7 @@ def _capacity_status_for_today() -> str:
     """
     try:
         sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
-        from health_context_adapter import build_health_context_live  # noqa: PLC0415
+        from health_context_adapter import build_health_context_live
 
         health = build_health_context_live()
         return health.capacity_status or "Unknown"
@@ -722,8 +728,8 @@ def _http_health_adjusted_queue() -> dict:
     never disagree about what "today's missions" means.
     """
     sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
-    from number_one import NumberOne  # noqa: PLC0415
-    from engineering_handoff_reader import load_engineering_handoffs  # noqa: PLC0415
+    from engineering_handoff_reader import load_engineering_handoffs
+    from number_one import NumberOne
 
     missions = _load_live_missions_for_number_one()
     try:
@@ -776,8 +782,8 @@ def _http_number_one_brief() -> dict:
     consumer that should see `[ENG-HANDOFF]`-prefixed synthetic missions.
     """
     sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
-    from number_one import NumberOne  # noqa: PLC0415
-    from engineering_handoff_reader import load_engineering_handoffs  # noqa: PLC0415
+    from engineering_handoff_reader import load_engineering_handoffs
+    from number_one import NumberOne
 
     missions = _load_live_missions_for_number_one()
     try:
@@ -920,7 +926,7 @@ def main():
     if args.command == "serve":
         port = args.port or config.CONTEXT_SERVICE_PORT
         print(f"[context-service] Starting HTTP server on http://{args.host}:{port}")
-        print(f"[context-service] Endpoints: GET /health  GET /brief/captain  GET /brief/number-one  GET /queue/health-adjusted  GET /brief/full  GET /recommendations/full  POST /brief/evolved")
+        print("[context-service] Endpoints: GET /health  GET /brief/captain  GET /brief/number-one  GET /queue/health-adjusted  GET /brief/full  GET /recommendations/full  POST /brief/evolved")
         _run_gunicorn(args.host, port)
         return
 

@@ -10,13 +10,14 @@ Run: python3 -m pytest core/health/test_capacity_score.py -v
 """
 
 from __future__ import annotations
+
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from capacity_score import compute_capacity_score, CAPACITY_THRESHOLDS, WEIGHTS
+from capacity_score import CAPACITY_THRESHOLDS, WEIGHTS, compute_capacity_score
 
 
 class TestSleepQualityDeduction(unittest.TestCase):

@@ -15,8 +15,7 @@ a light strength signal, not a precision-tuned relevance model.
 
 from __future__ import annotations
 
-import re
-from typing import Any, Optional
+from typing import Any
 
 
 def _text_of(event: dict) -> str:
@@ -85,7 +84,7 @@ class WatchlistTracker:
             }))
         return written
 
-    def track_brief(self, brief_id: str, candidate_events: Optional[list[dict]] = None) -> dict:
+    def track_brief(self, brief_id: str, candidate_events: list[dict] | None = None) -> dict:
         """Track every watchlist item on a brief. Candidate events default to all
         events currently in the repository (production would scope to the cycle)."""
         items = self.repo.list_watchlist_items(brief_id)

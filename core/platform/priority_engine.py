@@ -42,7 +42,6 @@ Ranking real (not synthetic) events is Wave 3 (Blueprint §14), gated on
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
 
 
 @dataclass(frozen=True)
@@ -72,15 +71,15 @@ class PriorityInputs:
     the seam between "raw event" and "scored/ranked event."
     """
 
-    event_id: Optional[str]
+    event_id: str | None
     domain: str
     event_type: str
-    importance: Optional[int] = None
-    confidence: Optional[int] = None
-    relevance: Optional[int] = None
-    time_sensitivity: Optional[int] = None  # 0-100; not a core_events column today — see module note
+    importance: int | None = None
+    confidence: int | None = None
+    relevance: int | None = None
+    time_sensitivity: int | None = None  # 0-100; not a core_events column today — see module note
     value_dimensions: dict[str, int] = field(default_factory=dict)  # e.g. {"career": 80, "health": 20}
-    opportunity_value: Optional[int] = None  # 0-100, from a domain's own opportunity scoring, if present
+    opportunity_value: int | None = None  # 0-100, from a domain's own opportunity scoring, if present
 
 
 @dataclass
@@ -89,7 +88,7 @@ class PriorityScore:
     so the total is explainable, not a black-box number (Blueprint
     Principle 3: 'every Priority ranking... traces to a queryable score')."""
 
-    event_id: Optional[str]
+    event_id: str | None
     domain: str
     event_type: str
     total_score: float
@@ -99,11 +98,11 @@ class PriorityScore:
     value_score: float
     risk_score: float
     opportunity_score: float
-    dominant_value_dimension: Optional[str]
+    dominant_value_dimension: str | None
     explanation: str
 
 
-def _risk_from_importance_confidence(importance: Optional[int], confidence: Optional[int]) -> float:
+def _risk_from_importance_confidence(importance: int | None, confidence: int | None) -> float:
     """Risk = high importance paired with low confidence (an unverified but
     high-stakes signal). Absent confidence is treated as maximally
     uncertain (worst case), not as neutral — per MSN-0301 Workstream C's
@@ -113,7 +112,7 @@ def _risk_from_importance_confidence(importance: Optional[int], confidence: Opti
     return round((imp / 100.0) * (1.0 - conf / 100.0) * 100.0, 2)
 
 
-def score_event(inputs: PriorityInputs, *, weights: Optional[PriorityWeights] = None) -> PriorityScore:
+def score_event(inputs: PriorityInputs, *, weights: PriorityWeights | None = None) -> PriorityScore:
     """Score one event across the 6 dimensions and combine via `weights`.
 
     "Urgency" and "importance" are scored from the same underlying
@@ -131,7 +130,7 @@ def score_event(inputs: PriorityInputs, *, weights: Optional[PriorityWeights] = 
     risk_score = _risk_from_importance_confidence(inputs.importance, inputs.confidence)
     opportunity_score = float(inputs.opportunity_value) if inputs.opportunity_value is not None else 0.0
 
-    dominant_value_dimension: Optional[str] = None
+    dominant_value_dimension: str | None = None
     value_score = 0.0
     if inputs.value_dimensions:
         dominant_value_dimension = max(inputs.value_dimensions, key=inputs.value_dimensions.get)
@@ -176,7 +175,7 @@ def score_event(inputs: PriorityInputs, *, weights: Optional[PriorityWeights] = 
 def rank_events(
     inputs_list: list[PriorityInputs],
     *,
-    weights: Optional[PriorityWeights] = None,
+    weights: PriorityWeights | None = None,
 ) -> list[PriorityScore]:
     """Score and rank a batch of events, highest priority first. Stable
     sort — equal-scoring events preserve their input order rather than
@@ -188,9 +187,9 @@ def rank_events(
 
 
 __all__ = [
-    "PriorityWeights",
     "PriorityInputs",
     "PriorityScore",
-    "score_event",
+    "PriorityWeights",
     "rank_events",
+    "score_event",
 ]

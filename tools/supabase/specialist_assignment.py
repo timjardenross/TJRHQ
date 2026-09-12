@@ -19,7 +19,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Crew roster (derived from registry/Crew-Manifest.md)
 # ---------------------------------------------------------------------------

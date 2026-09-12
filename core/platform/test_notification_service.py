@@ -6,8 +6,9 @@ call-log spot-check the module previously shipped without."""
 
 from __future__ import annotations
 
-import core.platform.notification_service as ns
 import pytest
+
+import core.platform.notification_service as ns
 
 
 @pytest.fixture(autouse=True)

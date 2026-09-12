@@ -88,7 +88,7 @@ def generate_capability_review(inputs: dict[str, Any] | None = None) -> Capabili
 
     # ── Q4: Technical debt threatening capability base ────────────────────────
     try:
-        from lib.strategy.technical_debt import list_debts, DebtSeverity
+        from lib.strategy.technical_debt import DebtSeverity, list_debts
         critical_debts = list_debts(severity=DebtSeverity.CRITICAL)
         high_debts = list_debts(severity=DebtSeverity.HIGH)
         concerning = critical_debts[:3] + high_debts[:2]
@@ -191,6 +191,6 @@ def format_capability_review(review: CapabilityReview) -> str:
 
 __all__ = [
     "CapabilityReview",
-    "generate_capability_review",
     "format_capability_review",
+    "generate_capability_review",
 ]

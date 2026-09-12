@@ -26,7 +26,7 @@ try:
     def _today_brisbane() -> str:
         return datetime.now(_ZI("Australia/Brisbane")).date().isoformat()
 except Exception:
-    from datetime import timezone, timedelta
+    from datetime import timedelta, timezone
     def _today_brisbane() -> str:  # type: ignore[misc]
         return datetime.now(timezone(timedelta(hours=10))).date().isoformat()
 

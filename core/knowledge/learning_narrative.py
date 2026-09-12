@@ -16,13 +16,13 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-import outcome_capture as _oc  # type: ignore  # noqa: E402
+import outcome_capture as _oc  # type: ignore
 
 # Compliance below this reads as "capture not keeping pace" (matches MSN-0082 target).
 _COMPLIANCE_TARGET = 60

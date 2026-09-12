@@ -11,19 +11,18 @@ Entry points:
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
-import argparse
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
 
-from supabase_client import supabase_get, supabase_upsert, is_configured
 from capacity_score import compute_capacity_score
-
+from supabase_client import is_configured, supabase_get, supabase_upsert
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -35,7 +34,7 @@ HIGH_DAYS_FOR_CONFIDENCE = 21  # 21+ days → high confidence
 GOVERNANCE_TRIGGER_DAYS = 14   # WP6: consecutive low-agreement days before advisory
 
 
-def _mismatch_type(system_status: str, captain_rating: str) -> Optional[str]:
+def _mismatch_type(system_status: str, captain_rating: str) -> str | None:
     """
     Classify the mismatch direction.
     false_green: system says Green, captain says Amber or Red
@@ -71,7 +70,7 @@ def _calibration_confidence(n: int) -> str:
 # Core calculation
 # ---------------------------------------------------------------------------
 
-def _compute_rolling_pct(rows: List[Dict], end_idx: int, window: int) -> Optional[float]:
+def _compute_rolling_pct(rows: list[dict], end_idx: int, window: int) -> float | None:
     """Agreement % for the `window` days ending at end_idx (inclusive)."""
     start = max(0, end_idx - window + 1)
     window_rows = rows[start:end_idx + 1]
@@ -82,7 +81,7 @@ def _compute_rolling_pct(rows: List[Dict], end_idx: int, window: int) -> Optiona
     return round(agreed / len(paired) * 100, 2)
 
 
-def run_calibration(days: int = 30) -> Dict[str, Any]:
+def run_calibration(days: int = 30) -> dict[str, Any]:
     """
     Read `days` of Captain's Log entries, compute calibration metrics,
     persist daily rows to capacity_calibration, and upsert a summary row.
@@ -98,7 +97,7 @@ def run_calibration(days: int = 30) -> Dict[str, Any]:
     )
 
     # Only rows that have both system inputs AND a captain rating are useful
-    paired_rows: List[Dict] = []
+    paired_rows: list[dict] = []
     for e in entries:
         cap_rating = e.get("captain_capacity_rating")
         if not cap_rating:
@@ -143,7 +142,7 @@ def run_calibration(days: int = 30) -> Dict[str, Any]:
     consecutive_low = _count_consecutive_low(paired_rows)
     weighting_review_flag = consecutive_low >= GOVERNANCE_TRIGGER_DAYS
 
-    summary: Dict[str, Any] = {
+    summary: dict[str, Any] = {
         "summary_date": date.today().isoformat(),
         "window_days": days,
         "total_days_compared": n,
@@ -168,7 +167,7 @@ def run_calibration(days: int = 30) -> Dict[str, Any]:
     return summary
 
 
-def _count_consecutive_low(rows: List[Dict]) -> int:
+def _count_consecutive_low(rows: list[dict]) -> int:
     """Count consecutive days (from today backward) with rolling_30d_pct < 70."""
     count = 0
     for row in reversed(rows):
@@ -184,7 +183,7 @@ def _count_consecutive_low(rows: List[Dict]) -> int:
 # Read latest summary from Supabase
 # ---------------------------------------------------------------------------
 
-def get_calibration_summary() -> Optional[Dict[str, Any]]:
+def get_calibration_summary() -> dict[str, Any] | None:
     """Return the most recent calibration summary row, or None."""
     if not is_configured():
         return None
@@ -195,7 +194,7 @@ def get_calibration_summary() -> Optional[Dict[str, Any]]:
         return None
 
 
-def get_calibration_status(summary: Optional[Dict]) -> str:
+def get_calibration_status(summary: dict | None) -> str:
     """
     Return Green/Amber/Red calibration status for dashboard display.
       Green:  agreement_rate >= 85

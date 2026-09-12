@@ -41,7 +41,6 @@ import json
 import logging
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Optional
 
 from intelligence.watchlist import webhook_queue
 
@@ -78,7 +77,7 @@ def parse_notification_message(message: str) -> dict:
     None rather than raising — a changedetection.io version bump that
     changes token behaviour should degrade to a thinner IntelligenceItem,
     not a dropped one silently swallowed by an exception."""
-    fields: dict[str, Optional[str]] = {
+    fields: dict[str, str | None] = {
         "watch_uuid": None, "watch_url": None, "watch_title": None,
         "diff_added": None, "diff_removed": None,
     }
@@ -92,7 +91,7 @@ def parse_notification_message(message: str) -> dict:
     return fields
 
 
-def normalise_payload(body: dict) -> Optional[dict]:
+def normalise_payload(body: dict) -> dict | None:
     """body is the already-JSON-decoded Apprise json:// envelope
     ({"title", "message", ...}). Returns a webhook_queue record, or None if
     the payload doesn't carry a usable watch_url (fails safe — never queues
@@ -136,10 +135,10 @@ def normalise_payload(body: dict) -> Optional[dict]:
 class _Handler(BaseHTTPRequestHandler):
     server_version = "TJRWatchlistChangeDetectionWebhook/1.0"
 
-    def log_message(self, fmt, *args):  # noqa: A003 — stdlib override
+    def log_message(self, fmt, *args):
         log.info("[changedetection_webhook] %s", fmt % args)
 
-    def do_POST(self):  # noqa: N802 — stdlib override
+    def do_POST(self):
         if self.path != WEBHOOK_PATH:
             self.send_response(404)
             self.end_headers()
@@ -175,7 +174,7 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b'{"ok": true}')
 
-    def do_GET(self):  # noqa: N802 — stdlib override
+    def do_GET(self):
         if self.path in ("/", "/health"):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")

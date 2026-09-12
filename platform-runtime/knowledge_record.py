@@ -11,7 +11,6 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from lesson_capture import LessonRecord
 
@@ -32,7 +31,7 @@ def generate_knowledge_record(
     outcome_narrative: str,
     lesson_id: str,
     lesson: LessonRecord,
-    linked_missions: Optional[list[str]] = None,
+    linked_missions: list[str] | None = None,
 ) -> str:
     now = datetime.now().strftime("%Y-%m-%d")
     specialists_str = ", ".join(assigned_specialists) if assigned_specialists else "Not recorded"
@@ -129,7 +128,7 @@ def save_knowledge_record(
     outcome_narrative: str,
     lesson_id: str,
     lesson: LessonRecord,
-    linked_missions: Optional[list[str]] = None,
+    linked_missions: list[str] | None = None,
 ) -> Path:
     content = generate_knowledge_record(
         mission_id=mission_id,

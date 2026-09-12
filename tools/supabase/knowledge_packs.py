@@ -7,7 +7,6 @@ Purpose: Auto-generate role-based, temporal, and differential knowledge packs
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict
 from datetime import datetime, timedelta
 from enum import Enum
 
@@ -28,7 +27,7 @@ class Document:
     category: str  # 'adr', 'decision', 'runbook', 'design'
     created_at: datetime
     updated_at: datetime
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -36,10 +35,10 @@ class KnowledgePack:
     """Curated knowledge pack."""
     pack_type: PackType
     title: str
-    role: Optional[str]  # For role-based packs
+    role: str | None  # For role-based packs
     summary: str
-    documents: List[Document]
-    recommendations: List[str]
+    documents: list[Document]
+    recommendations: list[str]
     generated_at: datetime
     size_bytes: int = 0
 
@@ -88,7 +87,7 @@ class RoleBasedPackGenerator:
     def generate(
         self,
         role: str,
-        all_documents: List[Document],
+        all_documents: list[Document],
         max_documents: int = 50
     ) -> KnowledgePack:
         """
@@ -126,7 +125,7 @@ class RoleBasedPackGenerator:
 
         return pack
 
-    def _generate_summary(self, role: str, documents: List[Document]) -> str:
+    def _generate_summary(self, role: str, documents: list[Document]) -> str:
         """Generate summary for pack."""
         summaries = {
             "Chief Engineer": (
@@ -145,7 +144,7 @@ class RoleBasedPackGenerator:
         }
         return summaries.get(role, f"Knowledge pack for {role} with {len(documents)} documents.")
 
-    def _generate_recommendations(self, role: str, documents: List[Document]) -> List[str]:
+    def _generate_recommendations(self, role: str, documents: list[Document]) -> list[str]:
         """Generate recommendations for role."""
         recommendations = {
             "Chief Engineer": [
@@ -172,7 +171,7 @@ class TemporalPackGenerator:
 
     def generate(
         self,
-        all_documents: List[Document],
+        all_documents: list[Document],
         days: int = 7
     ) -> KnowledgePack:
         """
@@ -221,7 +220,7 @@ class DifferentialPackGenerator:
     def generate(
         self,
         role: str,
-        all_documents: List[Document]
+        all_documents: list[Document]
     ) -> KnowledgePack:
         """
         Generate differential pack for role (changes since last review).

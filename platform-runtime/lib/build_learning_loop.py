@@ -11,12 +11,18 @@ import logging
 import os
 import threading
 from datetime import datetime
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
-from tools.supabase.client import CommanderSupabaseClient, log_commander_event, log_decision, log_memory_event
 from lib.feedback_loops_service import FeedbackLoops
 from lib.quality_scoring_service import QualityScoring
+
+from tools.supabase.client import (
+    CommanderSupabaseClient,
+    log_commander_event,
+    log_decision,
+    log_memory_event,
+)
 
 log = logging.getLogger(__name__)
 

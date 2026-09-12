@@ -28,27 +28,32 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling
+
 invoke = _import_sibling("service").invoke
-_lessons = _import_sibling("lessons")  # noqa: E402
-import metrics as _metrics  # noqa: E402
-import calibration as _calibration  # noqa: E402
-_outcomes = _import_sibling("outcomes")  # noqa: E402
-import temporal as _temporal  # noqa: E402
-import episodic as _episodic  # noqa: E402
-_patterns = _import_sibling("patterns")  # noqa: E402
-import signals as _signals  # noqa: E402
-import timeline as _timeline  # noqa: E402
-import proactive as _proactive  # noqa: E402
-import advisory_health as _advisory_health  # noqa: E402
-_operating_picture = _import_sibling("operating_picture")  # noqa: E402
-import wellness as _wellness  # noqa: E402
-import strategic as _strategic  # noqa: E402
-_forecast = _import_sibling("forecast")  # noqa: E402
-_daily_brief = _import_sibling("daily_brief")  # noqa: E402
-import data_quality as _data_quality  # noqa: E402
-import products as _products  # noqa: E402
-import presentation as _presentation  # noqa: E402
+_lessons = _import_sibling("lessons")
+import calibration as _calibration
+import metrics as _metrics
+
+_outcomes = _import_sibling("outcomes")
+import episodic as _episodic
+import temporal as _temporal
+
+_patterns = _import_sibling("patterns")
+import advisory_health as _advisory_health
+import proactive as _proactive
+import signals as _signals
+import timeline as _timeline
+
+_operating_picture = _import_sibling("operating_picture")
+import strategic as _strategic
+import wellness as _wellness
+
+_forecast = _import_sibling("forecast")
+_daily_brief = _import_sibling("daily_brief")
+import data_quality as _data_quality
+import presentation as _presentation
+import products as _products
 
 
 def _temporal_route(question: str) -> dict:

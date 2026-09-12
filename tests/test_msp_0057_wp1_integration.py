@@ -14,11 +14,10 @@ Test Scope:
 - Slack message formatting for reused research
 """
 
-import pytest
 import sys
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timedelta
+
+import pytest
 
 # Add parent directory to path for imports
 test_dir = Path(__file__).resolve().parent
@@ -116,8 +115,9 @@ class TestWP1ResearchMemoryRetrieval:
     def test_execution_speed(self):
         """Verify retrieval execution time is under 100ms target."""
         try:
-            from lib.research_memory_retrieval import ResearchMemoryRetriever
             import time
+
+            from lib.research_memory_retrieval import ResearchMemoryRetriever
 
             retriever = ResearchMemoryRetriever()
 
@@ -243,7 +243,7 @@ class TestWP1AcceptanceCriteria:
         r1 = retriever.search_prior_research(q1)
         r2 = retriever.search_prior_research(q2)
 
-        print(f"AC2: Similarity test")
+        print("AC2: Similarity test")
         print(f"  Q1 confidence: {r1.match_confidence:.2f}")
         print(f"  Q2 confidence: {r2.match_confidence:.2f}")
 
@@ -257,7 +257,7 @@ class TestWP1AcceptanceCriteria:
         retriever = ResearchMemoryRetriever()
         result = retriever.search_prior_research("test question")
 
-        print(f"AC3: Decision logged")
+        print("AC3: Decision logged")
         print(f"  Decision: {result.recommendation}")
         print(f"  Reason: {result.reason}")
         print(f"  Confidence: {result.match_confidence:.2f}")
@@ -267,8 +267,9 @@ class TestWP1AcceptanceCriteria:
 
     def test_acceptance_execution_time(self):
         """AC: Retrieval execution time <100ms target."""
-        from lib.research_memory_retrieval import ResearchMemoryRetriever
         import time
+
+        from lib.research_memory_retrieval import ResearchMemoryRetriever
 
         retriever = ResearchMemoryRetriever()
 
@@ -282,10 +283,10 @@ class TestWP1AcceptanceCriteria:
         avg_time = sum(times) / len(times)
         max_time = max(times)
 
-        print(f"AC4: Execution time")
+        print("AC4: Execution time")
         print(f"  Average: {avg_time:.2f}ms")
         print(f"  Maximum: {max_time:.2f}ms")
-        print(f"  Target: <100ms")
+        print("  Target: <100ms")
 
         assert max_time < 100, f"Max execution time {max_time:.2f}ms exceeds target"
 
@@ -313,7 +314,7 @@ class TestWP1AcceptanceCriteria:
 
         false_positive_rate = (false_positives / len(unrelated_questions)) * 100
 
-        print(f"AC5: False positive rate")
+        print("AC5: False positive rate")
         print(f"  False positives: {false_positives}/{len(unrelated_questions)}")
         print(f"  Rate: {false_positive_rate:.1f}% (target: <5%)")
 

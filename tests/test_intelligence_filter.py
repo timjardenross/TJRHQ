@@ -11,14 +11,14 @@ Covers:
 - Returns (bool, str) tuple
 """
 
-import sys
 import os
+import sys
 import unittest
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from intelligence.classification.filter import should_suppress, apply_filter
+from intelligence.classification.filter import apply_filter, should_suppress
 from intelligence.models import ClassifiedEvent
 
 

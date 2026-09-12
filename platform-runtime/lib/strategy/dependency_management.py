@@ -42,8 +42,8 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
@@ -300,8 +300,8 @@ def analyse_dependencies() -> PortfolioDependencyReport:
 
     # Supplement with EXEC-007 mission-level blocked missions
     try:
-        from lib.strategy.initiatives import list_initiatives
         from lib.program.wbs import build_wbs
+        from lib.strategy.initiatives import list_initiatives
         for init in list_initiatives(include_closed=False):
             wbs = build_wbs(init.initiative_id)
             if wbs and wbs.blocked_missions and init.initiative_id not in report.blocked_initiative_ids:
@@ -335,15 +335,15 @@ def format_dependency_report(report: PortfolioDependencyReport) -> str:
 
 
 __all__ = [
-    "DependencyType",
+    "DEP_LINK_OWNER_PREFIX",
     "DependencyStatus",
+    "DependencyType",
     "PortfolioDependency",
     "PortfolioDependencyReport",
-    "register_dependency",
-    "list_dependencies",
+    "analyse_dependencies",
     "detect_blocked_initiatives",
     "detect_circular_dependencies",
-    "analyse_dependencies",
     "format_dependency_report",
-    "DEP_LINK_OWNER_PREFIX",
+    "list_dependencies",
+    "register_dependency",
 ]

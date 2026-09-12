@@ -30,7 +30,6 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +39,7 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.investigation.framework import Finding, FindingsReport
+from lib.investigation.framework import FindingsReport
 
 SYNTHESIS_OWNER_PREFIX = "investigation_synthesis:"
 CHALLENGE_OWNER_PREFIX = "investigation_challenge:"
@@ -415,13 +414,13 @@ def format_integrated_finding(finding: IntegratedFinding) -> str:
 
 
 __all__ = [
-    "OfficerPerspective",
-    "IntegratedFinding",
+    "CHALLENGE_OWNER_PREFIX",
+    "SYNTHESIS_OWNER_PREFIX",
     "ChallengeReview",
-    "synthesize_findings",
+    "IntegratedFinding",
+    "OfficerPerspective",
+    "format_integrated_finding",
     "generate_challenge",
     "get_synthesis",
-    "format_integrated_finding",
-    "SYNTHESIS_OWNER_PREFIX",
-    "CHALLENGE_OWNER_PREFIX",
+    "synthesize_findings",
 ]

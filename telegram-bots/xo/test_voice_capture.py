@@ -20,16 +20,17 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, str(Path(__file__).parents[2]))
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
+from telegram_bots.xo.pulse_time import pulse_type_for_hour
 from telegram_bots.xo.voice_capture import (
+    _CAPTURE_META,
     classify_text,
     handle_capture_from_voice,
     promote_capacity_checkin,
     save_capture,
     transcribe_audio,
     voice_type_label,
-    _CAPTURE_META,
 )
-from telegram_bots.xo.pulse_time import pulse_type_for_hour
 
 PASS = "PASS"
 FAIL = "FAIL"

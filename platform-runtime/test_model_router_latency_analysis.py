@@ -14,7 +14,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "platform-runtime"))
 
-from analysis.model_router_latency_analysis import ModelRouterLatencyAnalyzer  # noqa: E402
+from analysis.model_router_latency_analysis import (
+    ModelRouterLatencyAnalyzer,
+)
 
 
 class TestAnalyzeLatency(unittest.TestCase):

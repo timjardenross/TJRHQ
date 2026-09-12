@@ -26,8 +26,8 @@ Usage (standalone):
 """
 
 import logging
-from typing import Any, Optional
 from dataclasses import dataclass
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -37,9 +37,9 @@ class SourceArticle:
     """Article reference embedded in health insight."""
     title: str
     url: str
-    summary: Optional[str] = None
-    published_date: Optional[str] = None
-    source_type: Optional[str] = None  # e.g., "Research", "Medical Journal", "Blog", "News"
+    summary: str | None = None
+    published_date: str | None = None
+    source_type: str | None = None  # e.g., "Research", "Medical Journal", "Blog", "News"
 
     def to_dict(self) -> dict:
         return {
@@ -169,7 +169,7 @@ if __name__ == "__main__":
     # re-implementing .env parsing here.
     _REPO_ROOT = Path(__file__).resolve().parents[2]
     sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
-    import supabase_client as _sc  # noqa: E402
+    import supabase_client as _sc
 
     parser = argparse.ArgumentParser(description="Enrich recent health_insights with wellness articles")
     parser.add_argument("--days", type=int, default=7, help="Look back N days for insights (default 7)")

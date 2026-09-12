@@ -30,15 +30,15 @@ Usage:
 that's the steady-state daily mode.
 """
 
+import argparse
+import logging
 import os
 import re
 import sys
-import logging
-import argparse
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from itertools import combinations
 from collections import defaultdict
+from datetime import datetime, timedelta, timezone
+from itertools import combinations
+from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)

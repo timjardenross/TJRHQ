@@ -9,7 +9,6 @@ swallowed so the bot never crashes on an optional voice path.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 import tempfile

@@ -20,14 +20,13 @@ Unknown sources fall back to generic JSON extraction.
 
 import json
 import logging
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from intelligence.config import HTTP_TIMEOUT_SECONDS, MAX_ITEMS_PER_SOURCE
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
-from intelligence.models import IntelligenceItem, SourceRecord
+from intelligence.models import IntelligenceItem
 
 log = logging.getLogger(__name__)
 
@@ -99,7 +98,7 @@ class APIAdapter(BaseSourceAdapter):
         "application/xml", "text/xml",
     })
 
-    def _fetch_json(self, url: str) -> Optional[object]:
+    def _fetch_json(self, url: str) -> object | None:
         """Fetch JSON from url. If the response is RSS/XML, parse as a feed instead."""
         # Strip fragment — HTTP does not transmit fragments; feedparser may also choke on them
         clean_url = url.split("#")[0]
@@ -155,7 +154,7 @@ class APIAdapter(BaseSourceAdapter):
         # Return sentinel so collect() knows we already have items
         return {"__feed_items__": items}
 
-    def _parse_date_from_entry(self, entry) -> Optional[datetime]:
+    def _parse_date_from_entry(self, entry) -> datetime | None:
         import time as _time
         for field in ("published_parsed", "updated_parsed"):
             val = entry.get(field)
@@ -478,7 +477,7 @@ class APIAdapter(BaseSourceAdapter):
             items.append(self._make_item(title, summary, url, published))
         return items
 
-    def _parse_vicemergency_datetime(self, val) -> Optional[datetime]:
+    def _parse_vicemergency_datetime(self, val) -> datetime | None:
         """VicEmergency timestamps are DD/MM/YYYY HH:MM:SS (Australian order), not ISO."""
         if not val:
             return None
@@ -513,7 +512,7 @@ class APIAdapter(BaseSourceAdapter):
             items.append(self._make_item(str(title), str(summary) or None, url, published))
         return items
 
-    def _parse_iso(self, val) -> Optional[datetime]:
+    def _parse_iso(self, val) -> datetime | None:
         if not val:
             return None
         if isinstance(val, (int, float)):

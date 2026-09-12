@@ -19,7 +19,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-
 # ── Red-flag escalation (doctrine §3) ─────────────────────────────────────────
 
 @dataclass(frozen=True)

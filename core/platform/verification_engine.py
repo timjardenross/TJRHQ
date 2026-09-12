@@ -26,10 +26,10 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from heartbeat import record_heartbeat, supabase_get, supabase_insert  # noqa: E402
+from heartbeat import record_heartbeat, supabase_get, supabase_insert
 
 _BACKEND_HEALTH_URL = os.environ.get("COMMAND_CENTRE_HEALTH_URL", "http://localhost:5000/health")
 
@@ -72,9 +72,9 @@ def _check_command_centre_backend() -> bool:
         return False
 
 
-def run_verification_pass() -> Dict[str, Any]:
+def run_verification_pass() -> dict[str, Any]:
     """Compute the Sure/Unsure state and persist it. Returns the computed report."""
-    degraded: List[Dict[str, str]] = []
+    degraded: list[dict[str, str]] = []
 
     # 1. Check the command-centre backend live, directly - don't rely on
     #    some other process having heartbeated it recently.

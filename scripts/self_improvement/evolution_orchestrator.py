@@ -26,24 +26,24 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, IO, Optional
+from typing import IO, Any
 
-from collector import EvidenceCollector
-from router_client import ModelRouterClient
-from policy import PolicyEngine
-from opportunity_store import OpportunityStore, new_fingerprint, MISSION_ONLY_CLASSES
-from relevance import RelevanceGate
-from decision_processor import DecisionProcessor
-import staleness_check
-from investigation_schema import validate_investigation, honest_fallback_investigation
-import internal_discovery
-import external_discovery
-import state_validation
-import outcome_evaluation
 import evolution_memory
+import external_discovery
+import internal_discovery
+import outcome_evaluation
+import staleness_check
+import state_validation
+from collector import EvidenceCollector
+from decision_processor import DecisionProcessor
+from investigation_schema import honest_fallback_investigation, validate_investigation
+from opportunity_store import MISSION_ONLY_CLASSES, OpportunityStore, new_fingerprint
+from policy import PolicyEngine
+from relevance import RelevanceGate
+from router_client import ModelRouterClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "core" / "platform"))
-from heartbeat import record_heartbeat  # noqa: E402
+from heartbeat import record_heartbeat
 
 log = logging.getLogger("evolution_orchestrator")
 _HEARTBEAT_DOMAIN = "hq_evolution_cycle"
@@ -61,7 +61,7 @@ class EvolutionOrchestrator:
         self.gate = RelevanceGate(self.evolution_config, self.store)
         self.watchlist_path = repo_root / "config" / "evolution_watchlist.json"
         self._lock_path = data_root / "review" / ".evolution_cycle.lock"
-        self._lock_fd: Optional[IO] = None
+        self._lock_fd: IO | None = None
 
     def _try_acquire_lock(self) -> bool:
         """Section 5: no overlapping Evolution runs. Non-blocking exclusive
@@ -149,7 +149,7 @@ class EvolutionOrchestrator:
             log.error(f"Failed to load watchlist: {exc}")
             return []
 
-    def _load_latest_classified_findings(self) -> tuple[list[dict[str, Any]], Optional[str]]:
+    def _load_latest_classified_findings(self) -> tuple[list[dict[str, Any]], str | None]:
         """Reuse the existing daily cycle's most recent classified findings,
         if any exist — never re-runs model analysis itself. Same mtime-sort
         fix as auto_remediation.py's load_latest_findings(). Returns
@@ -174,7 +174,7 @@ class EvolutionOrchestrator:
                     continue
         return [], None
 
-    def _check_finding_staleness(self, classified_findings: list[dict[str, Any]], run_id: Optional[str], dry_run: bool) -> int:
+    def _check_finding_staleness(self, classified_findings: list[dict[str, Any]], run_id: str | None, dry_run: bool) -> int:
         """Section: reconciliation. A finding fixed entirely outside this
         pipeline (a human-authored PR, not an approved opportunity or a
         dispatched Mission) has no automated signal that tells the system
@@ -281,8 +281,8 @@ class EvolutionOrchestrator:
         implementations_confirmed = 0
         outcomes_evaluated = 0
         regressions = 0
-        latest_material_learning: Optional[dict[str, Any]] = None
-        latest_material_learning_ts: Optional[str] = None
+        latest_material_learning: dict[str, Any] | None = None
+        latest_material_learning_ts: str | None = None
 
         for opp in candidates[:max_evaluations]:
             if time.monotonic() - t0 > budget_s:

@@ -23,7 +23,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from lib.comms import opportunities as opp, formats, weekly, pillars, portfolio, drafting, leadership
+from lib.comms import drafting, formats, leadership, pillars, portfolio, weekly
+from lib.comms import opportunities as opp
 from lib.human_systems import safety
 
 # MSN-0079: sensitive-content approval gate + review/metrics surfaces. Reuses the
@@ -34,8 +35,12 @@ try:
     if _KP not in _sys.path:
         _sys.path.insert(0, _KP)
     from outcome_capture import (  # type: ignore
-        requires_approval, get_content_candidates, learning_metrics, list_lessons,
-        leadership_outcomes, SENSITIVE_APPROVAL_REQUIRED,
+        SENSITIVE_APPROVAL_REQUIRED,
+        get_content_candidates,
+        leadership_outcomes,
+        learning_metrics,
+        list_lessons,
+        requires_approval,
     )
 except Exception:  # pragma: no cover
     def requires_approval(_c):  # type: ignore

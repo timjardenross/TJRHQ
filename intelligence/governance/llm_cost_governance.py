@@ -15,11 +15,10 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
-from datetime import datetime, date
-from typing import Optional
-import urllib.request
 import urllib.error
+import urllib.request
+from dataclasses import dataclass
+from datetime import date, datetime
 
 log = logging.getLogger(__name__)
 
@@ -32,14 +31,14 @@ class CostCheckResult:
     task_type: str                  # The task_type we checked
     daily_calls_so_far: int = 0
     daily_cost_so_far: float = 0.0
-    daily_limit: Optional[int] = None
-    cost_limit: Optional[float] = None
+    daily_limit: int | None = None
+    cost_limit: float | None = None
 
 
 class LLMCostGovernance:
     """Non-blocking cost governance controller."""
 
-    def __init__(self, supabase_url: Optional[str] = None, supabase_key: Optional[str] = None):
+    def __init__(self, supabase_url: str | None = None, supabase_key: str | None = None):
         # Issue 21: default to the shared service-role config so any caller
         # (not just ones that remember to pass creds explicitly) gets a
         # working governor instead of a silent permissive no-op.
@@ -50,7 +49,7 @@ class LLMCostGovernance:
         self.supabase_url = supabase_url or ""
         self.supabase_key = supabase_key or ""
         self._config_cache: dict = {}
-        self._last_config_load: Optional[datetime] = None
+        self._last_config_load: datetime | None = None
 
     def _headers(self) -> dict:
         return {
@@ -60,7 +59,7 @@ class LLMCostGovernance:
             "Accept": "application/json",
         }
 
-    def _get_config(self, task_type: str, force_refresh: bool = False) -> Optional[dict]:
+    def _get_config(self, task_type: str, force_refresh: bool = False) -> dict | None:
         """Fetch cost governance config for a task_type from Supabase (cached for 5m)."""
         if not self.supabase_url or not self.supabase_key:
             return None
@@ -203,14 +202,14 @@ class LLMCostGovernance:
         self,
         task_type: str,
         provider: str,
-        model_name: Optional[str] = None,
-        input_tokens: Optional[int] = None,
-        output_tokens: Optional[int] = None,
-        latency_ms: Optional[int] = None,
+        model_name: str | None = None,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        latency_ms: int | None = None,
         success: bool = True,
-        failure_reason: Optional[str] = None,
-        event_id: Optional[str] = None,
-        estimated_cost_usd: Optional[float] = None,
+        failure_reason: str | None = None,
+        event_id: str | None = None,
+        estimated_cost_usd: float | None = None,
     ) -> bool:
         """
         Log an LLM call to llm_call_metrics. Non-blocking (never raises).
@@ -253,10 +252,10 @@ class LLMCostGovernance:
 
     @staticmethod
     def _estimate_cost(
-        input_tokens: Optional[int],
-        output_tokens: Optional[int],
+        input_tokens: int | None,
+        output_tokens: int | None,
         provider: str,
-        model_name: Optional[str] = None,
+        model_name: str | None = None,
     ) -> float:
         """Estimate USD cost for an LLM call. Rough estimates; real pricing varies."""
         if not input_tokens or not output_tokens:

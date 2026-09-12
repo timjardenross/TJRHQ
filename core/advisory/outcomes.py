@@ -24,7 +24,7 @@ import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
@@ -190,7 +190,7 @@ def record_outcome(
 # Loading
 # ---------------------------------------------------------------------------
 
-def get_record(advisory_id: str) -> Optional[dict[str, Any]]:
+def get_record(advisory_id: str) -> dict[str, Any] | None:
     path = _advisory_log_dir() / f"{advisory_id}.json"
     if not path.exists():
         return None
@@ -232,6 +232,6 @@ def load_outcomes() -> list[dict[str, Any]]:
     return out
 
 
-def latest_advisory_id() -> Optional[str]:
+def latest_advisory_id() -> str | None:
     records = load_records()
     return records[0]["advisory_id"] if records else None

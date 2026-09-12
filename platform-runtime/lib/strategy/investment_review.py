@@ -59,8 +59,10 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
 
     # ── Q1: Highest-value investments ─────────────────────────────────────────
     try:
-        from lib.strategy.business_cases import assess_all_business_cases, BusinessCaseOutcome
-        from lib.strategy.investment_governance import list_investments, ApprovalStatus
+        from lib.strategy.business_cases import (
+            assess_all_business_cases,
+        )
+        from lib.strategy.investment_governance import list_investments
 
         investments = list_investments()
         review.total_investments = len(investments)
@@ -78,7 +80,10 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
 
     # ── Q2: Investments to stop ────────────────────────────────────────────────
     try:
-        from lib.strategy.portfolio_optimisation import optimise_portfolio, OptimisationDecision
+        from lib.strategy.portfolio_optimisation import (
+            OptimisationDecision,
+            optimise_portfolio,
+        )
         opt = optimise_portfolio(inputs)
         stop_decisions = [d for d in opt.decisions
                           if d.decision in (OptimisationDecision.TERMINATE, OptimisationDecision.PAUSE)]
@@ -115,7 +120,9 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
 
     # ── Q5: Highest-risk investments ──────────────────────────────────────────
     try:
-        from lib.strategy.business_cases import assess_all_business_cases, BusinessCaseOutcome
+        from lib.strategy.business_cases import (
+            assess_all_business_cases,
+        )
         all_bcs = assess_all_business_cases()
         risky = [bc for bc in all_bcs if bc.risk_flags and not bc.is_approved]
         risky.sort(key=lambda bc: bc.composite_score)
@@ -128,8 +135,10 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
 
     # ── Q6: Funding opportunities ─────────────────────────────────────────────
     try:
+        from lib.strategy.investment_governance import (
+            get_investment_for_initiative,
+        )
         from lib.strategy.prioritisation import rank_initiatives
-        from lib.strategy.investment_governance import get_investment_for_initiative, ApprovalStatus
         ranked = rank_initiatives(inputs)
         high_priority = [ps for ps in ranked if ps.composite_score >= 7.0]
         for ps in high_priority[:5]:
@@ -200,6 +209,6 @@ def format_investment_review(review: InvestmentReview) -> str:
 
 __all__ = [
     "InvestmentReview",
-    "generate_investment_review",
     "format_investment_review",
+    "generate_investment_review",
 ]

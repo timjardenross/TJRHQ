@@ -9,7 +9,6 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-
 DEFAULT_PROVIDER = "mistral"
 DEFAULT_OLLAMA_MODEL = "nomic-embed-text"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"

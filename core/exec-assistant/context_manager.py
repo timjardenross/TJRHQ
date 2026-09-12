@@ -5,14 +5,14 @@ This is the "brain" that learns your working style and makes it better over time
 """
 
 import logging
-from typing import Optional, Dict, Any, List
+from datetime import datetime
+from typing import Any
 from uuid import UUID
-from datetime import datetime, timedelta
 
 from .models import (
-    ExecutiveContext,
-    ContextType,
     ContextSource,
+    ContextType,
+    ExecutiveContext,
 )
 
 log = logging.getLogger(__name__)
@@ -46,13 +46,13 @@ class ContextManager:
         """
         self.executive_id = executive_id
         self.db = db
-        self._cache: Dict[str, ExecutiveContext] = {}
+        self._cache: dict[str, ExecutiveContext] = {}
         self._cache_timestamp = None
 
     def set_preference(
         self,
         key: str,
-        value: Dict[str, Any],
+        value: dict[str, Any],
         source: ContextSource = ContextSource.MANUAL,
     ) -> ExecutiveContext:
         """
@@ -100,7 +100,7 @@ class ContextManager:
     def set_priority(
         self,
         priority_area: str,
-        details: Dict[str, Any],
+        details: dict[str, Any],
     ) -> ExecutiveContext:
         """
         Set a strategic priority area.
@@ -128,7 +128,7 @@ class ContextManager:
     def set_relationship_context(
         self,
         person_name: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> ExecutiveContext:
         """
         Store context about a key relationship.
@@ -176,7 +176,7 @@ class ContextManager:
     def set_framework(
         self,
         framework_name: str,
-        rules: Dict[str, Any],
+        rules: dict[str, Any],
     ) -> ExecutiveContext:
         """
         Set a decision framework or SOP.
@@ -275,7 +275,7 @@ class ContextManager:
             log.error(f"Failed to learn pattern {pattern_name}: {e}")
             return None
 
-    def get_preference(self, key: str) -> Optional[Dict[str, Any]]:
+    def get_preference(self, key: str) -> dict[str, Any] | None:
         """
         Get a specific preference.
 
@@ -304,7 +304,7 @@ class ContextManager:
             log.error(f"Failed to get preference {key}: {e}")
             return None
 
-    def get_priorities(self) -> Dict[str, Dict[str, Any]]:
+    def get_priorities(self) -> dict[str, dict[str, Any]]:
         """
         Get all strategic priorities.
 
@@ -330,7 +330,7 @@ class ContextManager:
             log.error(f"Failed to get priorities: {e}")
             return {}
 
-    def get_relationship_context(self, person_name: str) -> Optional[Dict[str, Any]]:
+    def get_relationship_context(self, person_name: str) -> dict[str, Any] | None:
         """
         Get relationship context for a specific person.
 
@@ -359,7 +359,7 @@ class ContextManager:
             log.error(f"Failed to get relationship context for {person_name}: {e}")
             return None
 
-    def get_profile(self) -> Dict[str, Any]:
+    def get_profile(self) -> dict[str, Any]:
         """
         Get complete executive profile (all contexts).
 
@@ -417,7 +417,7 @@ class ContextManager:
         self._cache = {}
         self._cache_timestamp = None
 
-    def suggest_profile_improvements(self) -> List[str]:
+    def suggest_profile_improvements(self) -> list[str]:
         """
         Suggest areas where the profile could be enhanced.
 

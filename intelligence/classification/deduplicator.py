@@ -21,7 +21,6 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from difflib import SequenceMatcher
-from typing import Optional
 
 from intelligence.models import IntelligenceItem
 
@@ -44,7 +43,7 @@ def compute_hash(item: IntelligenceItem) -> str:
     return hashlib.sha256(key.encode()).hexdigest()
 
 
-def compute_hash_from_parts(title: str, source_id: str, date: Optional[datetime]) -> str:
+def compute_hash_from_parts(title: str, source_id: str, date: datetime | None) -> str:
     date_str = date.strftime("%Y-%m-%d") if date else ""
     key = f"{_normalise(title)}|{source_id}|{date_str}"
     return hashlib.sha256(key.encode()).hexdigest()
@@ -62,9 +61,7 @@ DEFAULT_SIMILARITY_THRESHOLD = 0.50
 _MIN_TOKENS_FOR_OVERLAP = 4  # guard: don't let tiny headlines over-merge on containment
 
 _STOPWORDS = frozenset(
-    "the a an and or of to in on for at by with from as is are was were be been "
-    "this that these those it its into over after amid amid new says say said "
-    "australia australian".split()
+    ["the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "at", "by", "with", "from", "as", "is", "are", "was", "were", "be", "been", "this", "that", "these", "those", "it", "its", "into", "over", "after", "amid", "amid", "new", "says", "say", "said", "australia", "australian"]
 )
 
 

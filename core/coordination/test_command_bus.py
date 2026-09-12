@@ -20,7 +20,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-import core.coordination.command_bus as cb  # noqa: E402
+import core.coordination.command_bus as cb
 
 
 def _conn() -> sqlite3.Connection:

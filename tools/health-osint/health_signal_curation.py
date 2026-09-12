@@ -46,7 +46,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
@@ -156,7 +156,7 @@ def _fallback_classification(reason: str) -> dict[str, Any]:
     }
 
 
-def _parse_classification(raw: str, name: str) -> Optional[dict[str, Any]]:
+def _parse_classification(raw: str, name: str) -> dict[str, Any] | None:
     """Parses one provider's raw text response into the classification
     shape, or returns None (caller falls through to the next provider) if
     the response is empty/unparseable/an unrecognised decision. Shared by
@@ -190,7 +190,7 @@ def _parse_classification(raw: str, name: str) -> Optional[dict[str, Any]]:
     }
 
 
-def _call_model_router(prompt: str) -> Optional[str]:
+def _call_model_router(prompt: str) -> str | None:
     """Tier-0 (local, preferred) call — matches intelligence/adhd/
     task_decomposition.py's TaskDecomposer._model_router ordering. Raises on
     any failure so the caller's try/except falls through to the direct
@@ -218,8 +218,9 @@ def _classify(signal: dict[str, Any]) -> dict[str, Any]:
     or unparseable response degrades to ESCALATE with the additive fields
     left None/False, the same safe default as low confidence, not a crash
     and not a silent guess."""
-    from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
     from priority_domains import is_priority_domain
+
+    from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
 
     priority_tag = "PRIORITY AREA" if is_priority_domain(signal.get("health_domain")) else "not a priority area"
 
@@ -261,7 +262,7 @@ def _classify(signal: dict[str, Any]) -> dict[str, Any]:
 
 
 class HealthSignalCurator:
-    def __init__(self, dry_run: bool = False, limit: Optional[int] = None):
+    def __init__(self, dry_run: bool = False, limit: int | None = None):
         self.dry_run = dry_run
         self.limit = limit
         self.supabase = None if dry_run else _client()

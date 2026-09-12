@@ -9,18 +9,19 @@ from __future__ import annotations
 
 import re
 import sys
+from datetime import date, datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-from datetime import datetime, date
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
 
 from models import DecisionContextPackage
+
 import config
 
 
-def load_decisions(path: Optional[Path] = None) -> List[Dict[str, Any]]:
+def load_decisions(path: Path | None = None) -> list[dict[str, Any]]:
     """
     Parse Decision Register markdown into list of raw decision dicts.
     Reads from config.DECISION_REGISTER_PATH by default.
@@ -33,7 +34,7 @@ def load_decisions(path: Optional[Path] = None) -> List[Dict[str, Any]]:
     return _parse_decision_blocks(raw)
 
 
-def assemble_decision_context(decision_dict: Dict[str, Any]) -> DecisionContextPackage:
+def assemble_decision_context(decision_dict: dict[str, Any]) -> DecisionContextPackage:
     """Convert a raw decision dict to a DecisionContextPackage."""
     decision_id = decision_dict.get("id", "UNKNOWN")
     date_str = decision_dict.get("date", "")
@@ -61,14 +62,14 @@ def assemble_decision_context(decision_dict: Dict[str, Any]) -> DecisionContextP
     )
 
 
-def get_decisions_awaiting_input(path: Optional[Path] = None) -> List[DecisionContextPackage]:
+def get_decisions_awaiting_input(path: Path | None = None) -> list[DecisionContextPackage]:
     """Return only decisions that require Captain action."""
     all_decisions = load_decisions(path)
     packages = [assemble_decision_context(d) for d in all_decisions]
     return [p for p in packages if p.awaiting_captain_input]
 
 
-def get_recent_decisions(limit: int = 10, path: Optional[Path] = None) -> List[DecisionContextPackage]:
+def get_recent_decisions(limit: int = 10, path: Path | None = None) -> list[DecisionContextPackage]:
     """Return the N most recent decisions as context packages."""
     all_decisions = load_decisions(path)
     # Already ordered most-recent-first by Decision Register format
@@ -84,7 +85,7 @@ _DEC_HEADING = re.compile(r"^###\s+(DEC-\d{8}-\S+)", re.MULTILINE)
 _FIELD = re.compile(r"^\*\*(.+?)\*\*[:：]\s*(.*)$")
 
 
-def _parse_decision_blocks(raw: str) -> List[Dict[str, Any]]:
+def _parse_decision_blocks(raw: str) -> list[dict[str, Any]]:
     """Split Decision Register into individual decision dicts."""
     blocks = _DEC_HEADING.split(raw)
     # blocks[0] = preamble, then alternating [id, body, id, body, ...]
@@ -99,8 +100,8 @@ def _parse_decision_blocks(raw: str) -> List[Dict[str, Any]]:
     return decisions
 
 
-def _parse_decision_body(dec_id: str, body: str) -> Dict[str, Any]:
-    result: Dict[str, Any] = {"id": dec_id, "raw_body": body}
+def _parse_decision_body(dec_id: str, body: str) -> dict[str, Any]:
+    result: dict[str, Any] = {"id": dec_id, "raw_body": body}
 
     for line in body.splitlines():
         m = _FIELD.match(line.strip())
@@ -123,7 +124,7 @@ def _parse_decision_body(dec_id: str, body: str) -> Dict[str, Any]:
     return result
 
 
-def _extract_mission_refs(decision_dict: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _extract_mission_refs(decision_dict: dict[str, Any]) -> list[dict[str, Any]]:
     """Find MSN-XXXX references in decision text."""
     text = decision_dict.get("question", "") + " " + (decision_dict.get("action") or "")
     msn_pattern = re.compile(r"\b(MSN-\d{4}[A-Z]?)\b", re.IGNORECASE)
@@ -131,7 +132,7 @@ def _extract_mission_refs(decision_dict: Dict[str, Any]) -> List[Dict[str, Any]]
     return [{"id": m, "title": "", "relationship": "referenced"} for m in matches]
 
 
-def _derive_urgency(decision_dict: Dict[str, Any], pending: bool) -> str:
+def _derive_urgency(decision_dict: dict[str, Any], pending: bool) -> str:
     if not pending:
         return "none"
     # Check if date is recent (within 7 days → high urgency)

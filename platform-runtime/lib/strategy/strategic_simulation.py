@@ -178,7 +178,7 @@ def run_simulation(
 
     # Reuse EXEC-008 scenario engine for initiative-level impact
     try:
-        from lib.strategy.scenario_planning import model_scenario, ScenarioType
+        from lib.strategy.scenario_planning import ScenarioType, model_scenario
         # Map simulation type to closest scenario
         _sim_to_scenario = {
             SimulationType.GROWTH: ScenarioType.BEST_CASE,
@@ -265,10 +265,10 @@ def format_simulation_report(report: SimulationReport) -> str:
 
 
 __all__ = [
-    "SimulationType",
-    "SimulationResult",
     "SimulationReport",
-    "run_simulation",
-    "run_all_simulations",
+    "SimulationResult",
+    "SimulationType",
     "format_simulation_report",
+    "run_all_simulations",
+    "run_simulation",
 ]

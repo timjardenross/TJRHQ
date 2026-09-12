@@ -6,9 +6,9 @@ Applies configurable rules to determine automation eligibility and risk.
 
 import json
 import logging
-from pathlib import Path
-from typing import Any, Optional
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
 log = logging.getLogger("policy")
 

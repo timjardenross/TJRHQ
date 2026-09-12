@@ -15,11 +15,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import intelligence.scheduler as scheduler  # noqa: E402
-import core.platform.event_bus as event_bus  # noqa: E402
-import core.platform.interrupt_dispatcher as interrupt_dispatcher  # noqa: E402
-from core.platform.notification_service import NotificationResult, Transport  # noqa: E402
-from tests.fixtures.synthetic_core_events import INTERRUPT_NOW_EVENT, NEVER_INTERRUPT_EVENT  # noqa: E402
+from core.platform import (
+    event_bus,
+    interrupt_dispatcher,
+)
+from core.platform.notification_service import NotificationResult, Transport
+from intelligence import scheduler
+from tests.fixtures.synthetic_core_events import (
+    INTERRUPT_NOW_EVENT,
+    NEVER_INTERRUPT_EVENT,
+)
 
 
 def test_evaluates_and_dispatches_real_interrupt_now_event(monkeypatch):

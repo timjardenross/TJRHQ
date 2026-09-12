@@ -12,12 +12,11 @@ Usage:
     summary = classifier.validate_classifier_on_sample(days=7, sample_size=30)
 """
 
-import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Optional
-from dataclasses import dataclass, asdict
 from enum import Enum
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -52,7 +51,7 @@ class PillarMapping:
     """Maps wellness category to content pillar(s) with rationale."""
     wellness_category: WellnessCategory
     primary_pillar: ContentPillar
-    secondary_pillar: Optional[ContentPillar] = None
+    secondary_pillar: ContentPillar | None = None
     rationale: str = ""
     deferred_to_phase2: bool = False
     phase2_reason: str = ""
@@ -124,9 +123,9 @@ class ContentSignal:
     rank_score: float
     publishable: bool
     primary_pillar: ContentPillar
-    secondary_pillar: Optional[ContentPillar] = None
+    secondary_pillar: ContentPillar | None = None
     suppressed: bool = False
-    suppression_reason: Optional[str] = None
+    suppression_reason: str | None = None
     sensitivity_inherited: bool = False
 
 
@@ -170,8 +169,8 @@ class HealthContentClassifier:
     def score_for_content(
         self,
         health_insight: dict,
-        wellness_category: Optional[WellnessCategory] = None,
-    ) -> Optional[ContentSignal]:
+        wellness_category: WellnessCategory | None = None,
+    ) -> ContentSignal | None:
         """
         Score health insight for content pipeline.
 
@@ -325,7 +324,7 @@ class HealthContentClassifier:
         log.info(f"Validation complete: {pass_rate:.0%} pass rate → {recommendation}")
         return report
 
-    def get_pillar_mapping(self, category: WellnessCategory) -> Optional[PillarMapping]:
+    def get_pillar_mapping(self, category: WellnessCategory) -> PillarMapping | None:
         """Solution #2: Get pillar mapping for wellness category."""
         return PILLAR_MAPPINGS.get(category)
 

@@ -11,12 +11,11 @@ Run:
 
 from __future__ import annotations
 
-import json
 import sys
 import unittest
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 # Make tools/paperclip importable. Path(__file__).parent is tests/ — the repo
 # root is one level up. (Fleet Engineering Review 2026-08-11: this pointed at
@@ -26,17 +25,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools" / "paper
 
 # client.py's bare name collides with tools/supabase/client.py in a shared
 # pytest session — load this file's own sibling by exact path instead.
-from _local_import_paperclip import import_sibling  # noqa: E402
+from _local_import_paperclip import import_sibling
 
 PaperclipClient = import_sibling("client").PaperclipClient
-from mission_bridge import (  # noqa: E402
+from mission_bridge import (
     _format_issue_body,
     _format_synthesis_comment,
     _map_priority,
     push_mission_to_paperclip,
     update_paperclip_issue_status,
 )
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures

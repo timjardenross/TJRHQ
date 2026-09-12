@@ -11,7 +11,7 @@ _BOT_DIR = Path(__file__).resolve().parent
 if str(_BOT_DIR) not in sys.path:
     sys.path.insert(0, str(_BOT_DIR))
 
-import commands.research_command as research_command
+from commands import research_command
 
 
 class TestResearchMemoryPhase1(unittest.TestCase):

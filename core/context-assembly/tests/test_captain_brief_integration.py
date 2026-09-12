@@ -294,7 +294,6 @@ class TestFetchContextAssemblyBrief(unittest.TestCase):
         with patch("requests.get") as mock_get:
             mock_get.side_effect = real_requests.exceptions.ConnectionError("refused")
             # Re-import to pick up patched requests
-            import importlib
             # Call the pure logic directly using our fixture
             # (avoid re-exec of control_engine.py in test; test the logic contract)
             result = FALLBACK_CA_BRIEF
@@ -400,7 +399,6 @@ class TestSlackCaptainBrief(unittest.TestCase):
 
     def _mock_urlopen(self, data: dict):
         """Return a context-manager mock that yields bytes of JSON."""
-        import urllib.error
         raw = json.dumps(data).encode()
         cm = MagicMock()
         cm.__enter__ = MagicMock(return_value=MagicMock(read=MagicMock(return_value=raw)))
@@ -418,6 +416,7 @@ class TestSlackCaptainBrief(unittest.TestCase):
     def _patch_both_tiers_down(self):
         """Patch both tiers to fail, forcing degraded path."""
         import urllib.error
+
         import captain_brief as cb_mod
         p_urllib = patch.object(cb_mod.urllib.request, "urlopen",
                                 side_effect=urllib.error.URLError("refused"))
@@ -427,7 +426,6 @@ class TestSlackCaptainBrief(unittest.TestCase):
 
     def test_live_path_returns_blocks(self):
         """When tier-1 Express API responds, returns non-empty Block Kit list."""
-        import captain_brief as cb_mod
         p_urllib, p_sub = self._patch_both_tiers(VALID_CA_BRIEF)
         with p_urllib, p_sub:
             from captain_brief import fetch_and_format_captain_brief
@@ -497,6 +495,7 @@ class TestSlackCaptainBrief(unittest.TestCase):
     def test_timeout_returns_degraded_blocks(self):
         """Tier-1 timeout also falls back gracefully."""
         import urllib.error
+
         import captain_brief as cb_mod
         p_urllib = patch.object(cb_mod.urllib.request, "urlopen",
                                 side_effect=urllib.error.URLError("timed out"))

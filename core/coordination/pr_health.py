@@ -30,13 +30,13 @@ import os
 import re
 import urllib.error
 import urllib.request
-from typing import Any, Optional
+from typing import Any
 
 _GITHUB_API = "https://api.github.com"
 _PR_URL_RE = re.compile(r"github\.com/([^/]+)/([^/]+)/pull/(\d+)")
 
 
-def parse_pr_url(pr_url: str) -> Optional[tuple[str, str, int]]:
+def parse_pr_url(pr_url: str) -> tuple[str, str, int] | None:
     """Return (owner, repo, number) from a github.com PR URL, or None."""
     m = _PR_URL_RE.search(pr_url or "")
     if not m:
@@ -55,7 +55,7 @@ def _api_get(token: str, path: str) -> Any:
         return json.loads(resp.read().decode("utf-8"))
 
 
-def check_pr_health(pr_url: str, token: Optional[str] = None) -> dict[str, Any]:
+def check_pr_health(pr_url: str, token: str | None = None) -> dict[str, Any]:
     """Return a health dict for one PR — never raises.
 
     {ok, reason} on failure. On success: {ok: True, state, ci_conclusion

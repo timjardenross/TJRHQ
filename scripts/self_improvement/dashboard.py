@@ -11,12 +11,12 @@ import logging
 import os
 import re
 import sys
-from pathlib import Path
 from datetime import datetime, timezone
-from flask import Flask, render_template, jsonify, request
+from pathlib import Path
 
-from opportunity_store import OpportunityStore
 import outcome_contract as outcome_contract_module
+from flask import Flask, jsonify, render_template, request
+from opportunity_store import OpportunityStore
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("dashboard")
@@ -568,7 +568,9 @@ def api_engineering_handoffs():
         sys.path.insert(0, str(REPO_ROOT))
     include_completed = request.args.get("include_completed", "").strip().lower() in {"1", "true", "yes"}
     try:
-        from core.coordination.engineering_handoff_reader import load_engineering_handoffs
+        from core.coordination.engineering_handoff_reader import (
+            load_engineering_handoffs,
+        )
         handoffs = load_engineering_handoffs(include_completed=include_completed)
     except Exception as exc:
         log.error(f"Failed to load engineering handoffs: {exc}")

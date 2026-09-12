@@ -19,13 +19,13 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Optional
 
 try:
     import sys as _sys
     _sys.path.insert(0, '/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
-    from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
     from opentelemetry import trace as _trace
+
+    from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing
     _configure_tracing("mistral-agent-client")
     _TRACING_AVAILABLE = True
 except Exception:
@@ -101,9 +101,9 @@ def call_agent(
     stage: str,
     agent_name: str,
     prompt: str,
-    mission_id: Optional[str] = None,
+    mission_id: str | None = None,
     timeout_ms: int = 60_000,
-) -> Optional[str]:
+) -> str | None:
     """
     Call a named Mistral agent and return the assistant's text response.
 

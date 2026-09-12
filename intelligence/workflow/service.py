@@ -18,12 +18,10 @@ decision, the ranker is never modified.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from intelligence.governance.workflow_gate import (
     ANALYST,
-    EXECUTIVE_APPROVER,
-    INTELLIGENCE_LEAD,
     GovernanceError,
     NotFoundError,
     log_mutation,
@@ -85,7 +83,7 @@ def score_event(repo, analyst, event_id: str, actor_role: str = ANALYST) -> dict
 
 # ─── Stage 7: verify facts (human gate — Intelligence Lead) ──────────────────
 def verify_event(repo, actor_role: str, event_id: str,
-                 confidence_level: str, verified_against: Optional[dict] = None) -> dict:
+                 confidence_level: str, verified_against: dict | None = None) -> dict:
     """Intelligence Lead verifies a SCORED signal -> VERIFIED."""
     require(actor_role, "signal.verify")
     event = repo.get_event(event_id)
@@ -168,7 +166,7 @@ def curate_watchlist(repo, actor_role: str, brief_id: str, items: list[dict]) ->
 # Live data showed the three gates were never meaningfully distinct — the one
 # brief ever published had all three passed by the same actor in one sitting.
 def qa_pass(repo, actor_role: str, brief_id: str,
-            status: str = "passed", details: Optional[dict[str, Any]] = None) -> dict:
+            status: str = "passed", details: dict[str, Any] | None = None) -> dict:
     """Record the QA outcome and advance IN_REVIEW -> QA_PASSED.
 
     Automated (actor_role == 'system', e.g. brief_qa_agent.py) or the
@@ -203,7 +201,7 @@ def qa_pass(repo, actor_role: str, brief_id: str,
 
 
 def publish_brief(repo, actor_role: str, brief_id: str,
-                  published_at: Optional[str] = None) -> dict:
+                  published_at: str | None = None) -> dict:
     """Executive Approver publishes a QA_PASSED brief -> PUBLISHED."""
     require(actor_role, "brief.publish")
     brief = repo.get_brief(brief_id)
@@ -312,7 +310,7 @@ def notify_telegram(repo, actor_role: str, brief_id: str, sender=None) -> dict:
         if sender is not None:
             sent = bool(sender(payload))
         else:
-            from core.platform.notification_service import notify, Severity, Transport
+            from core.platform.notification_service import Severity, Transport, notify
             reply_markup = {"inline_keyboard": [[
                 {"text": payload["button_label"], "url": payload["deep_link"]}]]}
             sent = bool(notify(payload["text"], title="RED — Operational Resilience",
@@ -329,7 +327,7 @@ def notify_telegram(repo, actor_role: str, brief_id: str, sender=None) -> dict:
 
 
 def stand_down(repo, actor_role: str, brief_id: str,
-               lesson_text: Optional[str] = None, category: str = "other") -> dict:
+               lesson_text: str | None = None, category: str = "other") -> dict:
     """Intelligence Lead closes a RED escalation (Screen 5). Optionally records a
     lesson, then audits the stand-down. Does not delete anything."""
     require(actor_role, "brief.stand_down")

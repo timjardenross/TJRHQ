@@ -7,8 +7,8 @@ import argparse
 import hashlib
 import re
 import sys as _sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 if str(Path(__file__).resolve().parent) not in _sys.path:
     _sys.path.insert(0, str(Path(__file__).resolve().parent))

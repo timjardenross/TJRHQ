@@ -186,6 +186,7 @@ def detect_cross_domain_opportunities(ctx: Any) -> list[CrossDomainOpportunity]:
 def _store_opportunity(opp: CrossDomainOpportunity) -> None:
     try:
         from command_memory_integration import log_decision_to_command_memory
+
         from tools.supabase.client import CommanderSupabaseClient
 
         # Dedup by title within recent window
@@ -227,10 +228,12 @@ def route_to_improvement_backlog(opp: CrossDomainOpportunity) -> bool:
     Reuses the EXEC-003 backlog by constructing an ImprovementOpportunity.
     """
     try:
-        from lib.improvement.framework import (
-            ImprovementOpportunity, ImprovementCategory, ImprovementScore,
-        )
         from lib.improvement.backlog import add_to_backlog
+        from lib.improvement.framework import (
+            ImprovementCategory,
+            ImprovementOpportunity,
+            ImprovementScore,
+        )
 
         cat_map = {
             "automation":     ImprovementCategory.AUTOMATION,
@@ -283,9 +286,9 @@ def format_cross_domain(opps: list[CrossDomainOpportunity]) -> str:
 
 
 __all__ = [
+    "CROSS_DOMAIN_OWNER",
     "CrossDomainOpportunity",
     "detect_cross_domain_opportunities",
-    "route_to_improvement_backlog",
     "format_cross_domain",
-    "CROSS_DOMAIN_OWNER",
+    "route_to_improvement_backlog",
 ]

@@ -25,13 +25,12 @@ Public API:
 
 from __future__ import annotations
 
-import os
 import logging
-import numpy as np
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, Any
 from enum import Enum
+
+import numpy as np
 
 log = logging.getLogger(__name__)
 
@@ -76,8 +75,8 @@ class TrendDirection(Enum):
 class EffectivenessForecast:
     """Forecast of provider effectiveness."""
     provider_name: str
-    model_name: Optional[str]
-    provider_route: Optional[str]
+    model_name: str | None
+    provider_route: str | None
 
     # Forecast details
     forecast_horizon: int              # Decisions ahead (e.g., 5)
@@ -97,15 +96,15 @@ class EffectivenessForecast:
     # Metadata
     forecast_id: str = field(default_factory=lambda: "")
     forecast_timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    created_at: Optional[str] = None
+    created_at: str | None = None
 
 
 @dataclass
 class AnomalyDetection:
     """Detected anomaly in quality scores."""
     provider_name: str
-    model_name: Optional[str]
-    provider_route: Optional[str]
+    model_name: str | None
+    provider_route: str | None
 
     # Anomaly details
     score_id: str
@@ -117,7 +116,7 @@ class AnomalyDetection:
     # Metadata
     anomaly_id: str = field(default_factory=lambda: "")
     detected_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    created_at: Optional[str] = None
+    created_at: str | None = None
 
 
 @dataclass
@@ -186,10 +185,10 @@ class QualityForecasting:
     def forecast_effectiveness(
         self,
         provider_name: str,
-        model_name: Optional[str] = None,
-        provider_route: Optional[str] = None,
+        model_name: str | None = None,
+        provider_route: str | None = None,
         horizon: int = FORECAST_HORIZON,
-    ) -> Optional[EffectivenessForecast]:
+    ) -> EffectivenessForecast | None:
         """
         Forecast provider effectiveness for next N decisions.
 
@@ -323,10 +322,10 @@ class QualityForecasting:
         self,
         provider_name: str,
         recent_score: float,
-        model_name: Optional[str] = None,
-        provider_route: Optional[str] = None,
-        score_id: Optional[str] = None,
-    ) -> Optional[AnomalyDetection]:
+        model_name: str | None = None,
+        provider_route: str | None = None,
+        score_id: str | None = None,
+    ) -> AnomalyDetection | None:
         """
         Detect if recent score is anomalous.
 
@@ -428,7 +427,7 @@ class QualityForecasting:
     def analyze_trend_persistence(
         self,
         provider_name: str,
-    ) -> Optional[TrendPersistence]:
+    ) -> TrendPersistence | None:
         """
         Analyze trend persistence and likelihood.
 
@@ -524,7 +523,7 @@ class QualityForecasting:
     def get_quality_forecast(
         self,
         provider_name: str,
-    ) -> Optional[ProviderForecast]:
+    ) -> ProviderForecast | None:
         """
         Get complete forecast for provider.
 
@@ -612,9 +611,7 @@ class QualityForecasting:
         # Count decisions moving with trend
         moving = 0
         for i in range(1, len(scores)):
-            if slope > 0 and scores[i] >= scores[i-1]:
-                moving += 1
-            elif slope < 0 and scores[i] <= scores[i-1]:
+            if slope > 0 and scores[i] >= scores[i-1] or slope < 0 and scores[i] <= scores[i-1]:
                 moving += 1
 
         persistence = moving / (len(scores) - 1)

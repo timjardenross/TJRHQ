@@ -8,8 +8,7 @@ Purpose: Collect and analyze production webhook performance metrics
 import json
 import tempfile
 import time
-from dataclasses import dataclass, asdict
-from typing import List, Dict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 
 
@@ -32,7 +31,7 @@ class MetricsSnapshot:
     period_start: str
     period_end: str
     total_events: int
-    events_by_platform: Dict[str, int]
+    events_by_platform: dict[str, int]
     avg_latency_ms: float
     max_latency_ms: float
     min_latency_ms: float
@@ -47,7 +46,7 @@ class ProductionMetricsCollector:
 
     def __init__(self):
         """Initialize metrics collector."""
-        self.events: List[WebhookEvent] = []
+        self.events: list[WebhookEvent] = []
         self.start_time = datetime.now()
 
     def record_event(

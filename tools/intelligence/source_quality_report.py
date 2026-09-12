@@ -12,9 +12,8 @@ Usage:
 
 import os
 import sys
-import json
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 
@@ -117,7 +116,7 @@ def generate_report(csv_format: bool = False):
         avg_fp_rate = sum(s["false_positive_rate"] for s in sources) / len(sources) if sources else 0
 
         print("\n" + "="*120)
-        print(f"SUMMARY STATISTICS")
+        print("SUMMARY STATISTICS")
         print("="*120)
         print(f"Total active sources: {total_active}")
         print(f"  TIER 1 (primary):      {tier1_count} sources ({tier1_count/total_active*100:.0f}%)")

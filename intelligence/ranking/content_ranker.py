@@ -20,12 +20,9 @@ Does NOT modify the ORI ranker in ranker.py.
 
 from __future__ import annotations
 
-import math
 from datetime import datetime, timezone
-from typing import Optional
 
 from intelligence.classification.content_classifier import ContentScore
-
 
 # ── Source type useful-life lookup ────────────────────────────────────────────
 # Maps source_type_label (from intelligence_source_registry) to days.
@@ -123,7 +120,7 @@ def rank(
 
 def rank_batch(
     scores: list[ContentScore],
-    event_rank_scores: Optional[dict[str, float]] = None,
+    event_rank_scores: dict[str, float] | None = None,
 ) -> list[tuple[ContentScore, float]]:
     """
     Rank a batch of ContentScore objects.

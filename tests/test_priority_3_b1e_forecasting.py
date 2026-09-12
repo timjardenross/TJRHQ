@@ -11,13 +11,13 @@ Test Coverage:
 - Complete forecasting workflow
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from datetime import datetime
-import math
 import logging
+import math
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)

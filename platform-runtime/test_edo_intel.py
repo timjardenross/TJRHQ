@@ -16,11 +16,11 @@ _BOT_DIR = Path(__file__).resolve().parent
 if str(_BOT_DIR) not in sys.path:
     sys.path.insert(0, str(_BOT_DIR))
 
-from lib.delivery import execution, forecast, lifecycle  # noqa: E402
-from lib.human_systems import decision, framework, safety  # noqa: E402
-from lib.human_systems.mission_load import MissionLoad, Priority  # noqa: E402
-import edo_execute  # noqa: E402
-import commands.delivery as dlv  # noqa: E402
+import commands.delivery as dlv
+import edo_execute
+from lib.delivery import execution, forecast, lifecycle
+from lib.human_systems import decision, framework, safety
+from lib.human_systems.mission_load import MissionLoad, Priority
 
 MISSION = {"mission_id": "MSN-0099", "title": "Improve dashboard", "status": "Designed",
            "description": "x", "plan_steps": ["a", "b"]}

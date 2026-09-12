@@ -11,14 +11,13 @@ Reliability contract:
 
 from __future__ import annotations
 
-import asyncio
+import json
 import logging
 import os
 import re
 import time
 import urllib.parse
 import urllib.request
-import json
 from typing import Any
 
 log = logging.getLogger(__name__)

@@ -15,17 +15,16 @@ Run: python3 test_number_one.py
 
 import sys
 from datetime import datetime, timedelta
-from number_one import (
-    NumberOne,
-    Mission,
-    MissionStatus,
-    Priority,
-    ConfidenceBand,
-    RoutingDecision,
-    EscalationLevel,
-    CoordinationConfig,
-)
 
+from number_one import (
+    ConfidenceBand,
+    CoordinationConfig,
+    EscalationLevel,
+    MissionStatus,
+    NumberOne,
+    Priority,
+    RoutingDecision,
+)
 
 # ============================================================================
 # Test Fixtures
@@ -521,6 +520,7 @@ class TestNumberOne:
 
         import tempfile
         from pathlib import Path
+
         from engineering_handoff_reader import load_engineering_handoffs
 
         def _handoff(status="APPROVED_FOR_ENGINEERING", batch="PENDING",
@@ -602,11 +602,12 @@ class TestNumberOne:
 
         import tempfile
         from pathlib import Path
+
         from engineering_handoff_reader import (
+            EngineeringStatus,
+            derive_engineering_status,
             load_engineering_handoffs,
             summarise_engineering_handoffs,
-            derive_engineering_status,
-            EngineeringStatus,
         )
 
         # Read-only derivation maps raw Batch Status -> lifecycle vocabulary.

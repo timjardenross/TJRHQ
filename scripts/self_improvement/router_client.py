@@ -9,8 +9,8 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from typing import Any, Optional
 from datetime import datetime, timezone
+from typing import Any
 
 log = logging.getLogger("router_client")
 
@@ -22,7 +22,7 @@ class ModelRouterClient:
         self.base_url = base_url.rstrip("/")
         self.call_log = []
 
-    def analyse_evidence(self, evidence: dict[str, Any], context: Optional[str] = None) -> dict[str, Any]:
+    def analyse_evidence(self, evidence: dict[str, Any], context: str | None = None) -> dict[str, Any]:
         """
         Send evidence to Model Router for analysis.
 
@@ -63,7 +63,7 @@ class ModelRouterClient:
             return []
         return parsed.get("findings", []) if isinstance(parsed, dict) else []
 
-    def critique_findings(self, findings: list[dict[str, Any]], context: Optional[str] = None) -> dict[str, Any]:
+    def critique_findings(self, findings: list[dict[str, Any]], context: str | None = None) -> dict[str, Any]:
         """
         Send findings to Model Router for adversarial critique.
 
@@ -73,7 +73,7 @@ class ModelRouterClient:
         prompt = self._build_critique_prompt(findings, context)
         return self._call_router("self-improvement-critique", prompt)
 
-    def investigate_opportunity(self, candidate: dict[str, Any], context: Optional[str] = None) -> dict[str, Any]:
+    def investigate_opportunity(self, candidate: dict[str, Any], context: str | None = None) -> dict[str, Any]:
         """
         HQ Evolution (section 22): ask the model to interpret already-
         collected evidence into an investigation narrative. The model may
@@ -105,7 +105,7 @@ class ModelRouterClient:
             return {}
         return parsed if isinstance(parsed, dict) else {}
 
-    def _build_investigation_prompt(self, candidate: dict[str, Any], context: Optional[str] = None) -> str:
+    def _build_investigation_prompt(self, candidate: dict[str, Any], context: str | None = None) -> str:
         prompt = """TASK: Investigate whether this HQ Evolution candidate is genuinely worth pursuing for TJR HQ.
 
 CRITICAL: Use ONLY the evidence provided below. Do NOT invent evidence, metrics, or claims not present in the candidate data. You may interpret the evidence; you may not manufacture it. Output ONLY valid JSON, no markdown, no explanation outside the JSON.
@@ -134,7 +134,7 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
 """
         return prompt
 
-    def evaluate_outcome(self, evidence_bundle: dict[str, Any], context: Optional[str] = None) -> dict[str, Any]:
+    def evaluate_outcome(self, evidence_bundle: dict[str, Any], context: str | None = None) -> dict[str, Any]:
         """
         HQ Evolution V2 (sections 10, 15): ask the model to interpret
         already-collected outcome evidence — the Outcome Contract, its
@@ -154,7 +154,7 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
             result["evaluation"] = self._parse_json_object(result.get("response", ""))
         return result
 
-    def _build_outcome_evaluation_prompt(self, evidence_bundle: dict[str, Any], context: Optional[str] = None) -> str:
+    def _build_outcome_evaluation_prompt(self, evidence_bundle: dict[str, Any], context: str | None = None) -> str:
         prompt = """TASK: Evaluate whether an HQ change actually delivered the benefit it was approved for.
 
 CRITICAL: Use ONLY the evidence provided below. Do NOT invent evidence, metrics, or claims not present in the bundle. If the evidence is genuinely insufficient or ambiguous, say so — outcome_result must be "inconclusive" rather than a guess. A technically successful implementation does NOT by itself mean the expected benefit occurred. Output ONLY valid JSON, no markdown, no explanation outside the JSON.
@@ -180,7 +180,7 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
 """
         return prompt
 
-    def generate_mission(self, finding: dict[str, Any], context: Optional[str] = None) -> dict[str, Any]:
+    def generate_mission(self, finding: dict[str, Any], context: str | None = None) -> dict[str, Any]:
         """
         Convert an approved finding into a mission document.
 
@@ -252,7 +252,7 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
                 "duration_ms": duration_ms,
             }
 
-    def _build_analysis_prompt(self, evidence: dict[str, Any], context: Optional[str] = None) -> str:
+    def _build_analysis_prompt(self, evidence: dict[str, Any], context: str | None = None) -> str:
         """Build prompt for evidence analysis."""
         prompt = """TASK: Analyze USS TJR repository evidence and produce JSON findings.
 
@@ -295,7 +295,7 @@ RULES:
 """
         return prompt
 
-    def _build_critique_prompt(self, findings: list[dict[str, Any]], context: Optional[str] = None) -> str:
+    def _build_critique_prompt(self, findings: list[dict[str, Any]], context: str | None = None) -> str:
         """Build prompt for finding critique."""
         prompt = """You are a skeptical code reviewer. Review these proposed findings and challenge any that are weak.
 
@@ -331,7 +331,7 @@ Respond with JSON object:
 """
         return prompt
 
-    def _build_mission_prompt(self, finding: dict[str, Any], context: Optional[str] = None) -> str:
+    def _build_mission_prompt(self, finding: dict[str, Any], context: str | None = None) -> str:
         """Build prompt for mission generation."""
         prompt = """Convert this improvement finding into a bounded mission specification.
 
@@ -369,9 +369,9 @@ Output ONLY valid JSON:
     def _log_call(
         self,
         task_type: str,
-        response: Optional[dict[str, Any]],
+        response: dict[str, Any] | None,
         duration_ms: int,
-        error: Optional[str] = None
+        error: str | None = None
     ) -> None:
         """Log a Model Router call."""
         entry = {

@@ -12,11 +12,10 @@ Public API:
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from .notebook_search import _tokenise, _score, _excerpt, SearchHit
+from .notebook_search import SearchHit, _excerpt, _score, _tokenise
 
 log = logging.getLogger(__name__)
 

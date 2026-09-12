@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 from core.knowledge_navigation.graph import HierarchyGraph
-from core.knowledge_navigation.models import HierarchyNode, HierarchyEdge
+from core.knowledge_navigation.models import HierarchyEdge, HierarchyNode
 from core.knowledge_navigation.navigator import HierarchyNavigator
 
 

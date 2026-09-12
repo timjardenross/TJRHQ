@@ -312,11 +312,11 @@ def budget_report(budget: ImprovementBudget) -> str:
 
 
 __all__ = [
-    "ImprovementBudget",
-    "ImprovementBudgetEngine",
     "CAPACITY_ALLOCATION",
     "DISCOVERY_ALWAYS_PERMITTED",
     "EXECUTION_GOVERNED_BY_CAPACITY",
-    "get_current_budget",
+    "ImprovementBudget",
+    "ImprovementBudgetEngine",
     "budget_report",
+    "get_current_budget",
 ]

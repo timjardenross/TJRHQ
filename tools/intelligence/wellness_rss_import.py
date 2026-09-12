@@ -111,6 +111,7 @@ def _embedded_wellness_sources() -> list[SourceRecord]:
 def _parse_feed_xml(xml_bytes: bytes, source: SourceRecord, limit: int) -> list[IntelligenceItem]:
     """Minimal RSS/Atom parser using stdlib xml.etree (no feedparser dependency)."""
     import re
+
     import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
     try:
@@ -219,9 +220,8 @@ def _collect_rss(sources: list[SourceRecord], limit_per_source: int = 25) -> lis
     stdlib xml.etree if feedparser is unavailable or broken.
     """
     import concurrent.futures
-    import socket
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     _UA = {"User-Agent": "USS-TJR-Intelligence-Agent/1.0"}
 
@@ -242,7 +242,8 @@ def _collect_rss(sources: list[SourceRecord], limit_per_source: int = 25) -> lis
             if feed.entries:
                 items = []
                 now = datetime.now(timezone.utc)
-                import re, time as _time
+                import re
+                import time as _time
                 for entry in feed.entries[:limit_per_source]:
                     title = (entry.get("title") or "").strip()
                     if not title:

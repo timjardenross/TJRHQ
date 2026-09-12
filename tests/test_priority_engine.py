@@ -15,18 +15,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 
 from core.platform.priority_engine import (
-    PriorityWeights,
     PriorityInputs,
-    score_event,
+    PriorityWeights,
     rank_events,
+    score_event,
 )
 from tests.fixtures.synthetic_core_events import (
-    INTERRUPT_NOW_EVENT,
     CAN_BE_DELAYED_LOW_CONFIDENCE_EVENT,
     CAN_BE_DELAYED_MIDRANGE_EVENT,
+    INTERRUPT_NOW_EVENT,
     SUMMARISATION_PAIR,
-    SYNTHETIC_VALUE_DIMENSIONS,
     SYNTHETIC_OPPORTUNITY_VALUES,
+    SYNTHETIC_VALUE_DIMENSIONS,
 )
 
 

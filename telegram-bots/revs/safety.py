@@ -28,7 +28,6 @@ not the same thing as a reviewed one.
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 # §5.4a — runs on ALL free text, before any other classification, before
 # storage, before any scheduled send. Biased toward over-triggering.
@@ -144,11 +143,11 @@ _CRISIS_LINE_SHORT = {
 }
 
 
-def locale_resources(locale: Optional[str]) -> str:
+def locale_resources(locale: str | None) -> str:
     return _LOCALE_RESOURCES.get((locale or "OTHER").upper(), _LOCALE_RESOURCES["OTHER"])
 
 
-def crisis_line_short(locale: Optional[str]) -> str:
+def crisis_line_short(locale: str | None) -> str:
     return _CRISIS_LINE_SHORT.get((locale or "OTHER").upper(), _CRISIS_LINE_SHORT["OTHER"])
 
 
@@ -173,7 +172,7 @@ NEVER_SAY = [
 
 # --------------------------------------------------------------- PEM ---
 
-def pem_copy(default: str, pem_variant: Optional[str], pem_flag: bool) -> Optional[str]:
+def pem_copy(default: str, pem_variant: str | None, pem_flag: bool) -> str | None:
     """§7.2 — exhaustive whitelist, default-suppress. Only messages on the
     whitelist get a PEM variant; everything else renders unchanged
     regardless of pem_flag. Callers pass pem_variant=None for anything not

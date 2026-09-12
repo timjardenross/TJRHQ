@@ -26,19 +26,19 @@ Design:
 
 from __future__ import annotations
 
-import os
+import importlib.util
 import json
 import logging
-import urllib.request
-import urllib.error
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
-from typing import Any, Optional
-import sys
+import os
 import re
-from pathlib import Path
+import sys
 import time
-import importlib.util
+import urllib.error
+import urllib.request
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -165,7 +165,7 @@ except Exception as e:
     call_gemini_2_5_flash_lite_research = None
 
 # Startup logging for troubleshooting
-log.info(f"[startup] research_orchestration.py loaded")
+log.info("[startup] research_orchestration.py loaded")
 log.info(f"[startup] delegate_research_task loaded = {delegate_research_task is not None}")
 log.info(f"[startup] ResearchOutcome loaded = {ResearchOutcome is not None}")
 log.info(f"[startup] Research delegator file: {_research_delegator_file}")
@@ -183,7 +183,7 @@ except ImportError as _e:
 
 class _StageOutcome:
     """Minimal duck-typed stand-in for ResearchOutcome used by _call_stage()."""
-    __slots__ = ("status", "findings")
+    __slots__ = ("findings", "status")
     def __init__(self, status: str, findings: str):
         self.status = status
         self.findings = findings
@@ -195,7 +195,7 @@ def _call_stage(
     prompt: str,
     timeout_sec: int = 30,
     mission_id: str = None,
-) -> "_StageOutcome":
+) -> _StageOutcome:
     """
     Mistral-first stage call with automatic fallback to the legacy provider chain.
 
@@ -237,11 +237,11 @@ class ResearchTask:
     order_index: int
     description: str
     status: str = "pending"  # pending, delegated, complete, failed
-    provider: Optional[str] = None  # gemini-3.5-flash-lite, gemini-2-flash, gemini-3.5-flash-lite, ollama, none
-    findings: Optional[str] = None
+    provider: str | None = None  # gemini-3.5-flash-lite, gemini-2-flash, gemini-3.5-flash-lite, ollama, none
+    findings: str | None = None
     references: list[str] = field(default_factory=list)
-    error_message: Optional[str] = None
-    execution_time_ms: Optional[int] = None
+    error_message: str | None = None
+    execution_time_ms: int | None = None
     provider_chain: list[str] = field(default_factory=list)  # Telemetry: providers attempted in order
 
     def to_dict(self) -> dict[str, Any]:
@@ -266,15 +266,15 @@ class ResearchMissionResult:
     # Results
     task_results: list[ResearchTask] = field(default_factory=list)
     consolidated_findings: str = ""
-    recommendation: Optional[str] = None
+    recommendation: str | None = None
     confidence: float = 0.0  # 0.0-1.0
 
     # Metadata
-    primary_provider: Optional[str] = None  # gemini-3.5-flash-lite, gemini-2-flash, gemini-3.5-flash-lite, ollama, none
+    primary_provider: str | None = None  # gemini-3.5-flash-lite, gemini-2-flash, gemini-3.5-flash-lite, ollama, none
     errors: list[str] = field(default_factory=list)
     provider_paths: list[str] = field(default_factory=list)  # Telemetry: provider chain for each task (e.g., ["gemini-3.5-flash-lite → ollama"])
     request_type: str = "unclear"  # MSN-RECOMMENDATION-FIX Option B: "informational", "decision", or "unclear"
-    captains_brief: Optional[str] = None  # Captain's Brief from Briefing Officer (Path A)
+    captains_brief: str | None = None  # Captain's Brief from Briefing Officer (Path A)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -394,7 +394,7 @@ class ResearchOrchestrator:
     6. Return structured result
     """
 
-    def __init__(self, config: Optional[ResearchConfig] = None):
+    def __init__(self, config: ResearchConfig | None = None):
         """Initialize orchestrator."""
         self.config = config or ResearchConfig()
         self.current_time = datetime.utcnow()
@@ -402,8 +402,8 @@ class ResearchOrchestrator:
     def run_research_mission(
         self,
         research_topic: str,
-        mission_id: Optional[str] = None,
-        provider_health: Optional[Any] = None,  # MSN-0055C WP2: Circuit breaker
+        mission_id: str | None = None,
+        provider_health: Any | None = None,  # MSN-0055C WP2: Circuit breaker
     ) -> ResearchMissionResult:
         """
         Execute complete research mission.
@@ -560,14 +560,14 @@ class ResearchOrchestrator:
 
         if request_type == "informational":
             # Informational request: skip recommendation generation, findings are the answer
-            log.info(f"[request-type] Informational request: skipping recommendation generation")
+            log.info("[request-type] Informational request: skipping recommendation generation")
             log.info("  Mode: Findings-only (informational request)")
         elif request_type in ["decision", "unclear"]:
             # Decision-oriented or uncertain: generate recommendation (conservative fallback)
             if request_type == "unclear":
-                log.info(f"[request-type] Unclear request type: generating recommendation (conservative fallback)")
+                log.info("[request-type] Unclear request type: generating recommendation (conservative fallback)")
             else:
-                log.info(f"[request-type] Decision-oriented request: generating recommendation")
+                log.info("[request-type] Decision-oriented request: generating recommendation")
 
             # Build raw findings for decision framework (MSN-RECOMMENDATION-FIX #3)
             raw_findings = "\n\n".join([
@@ -727,8 +727,8 @@ class ResearchOrchestrator:
     def orchestrate(
         self,
         research_topic: str,
-        mission_id: Optional[str] = None,
-        provider_health: Optional[Any] = None,
+        mission_id: str | None = None,
+        provider_health: Any | None = None,
     ) -> ResearchMissionResult:
         """Backward-compatible alias for callers expecting an orchestrate() API."""
         return self.run_research_mission(
@@ -1117,7 +1117,7 @@ Provide only the consolidated summary, no headers or metadata."""
         self,
         consolidated_findings: str,
         tasks: list[ResearchTask]
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Extract viable options from research findings (MSN-RECOMMENDATION-FIX #1).
 
@@ -1179,9 +1179,9 @@ Cost/Effort: [if relevant]"""
     def _analyze_tradeoffs(
         self,
         consolidated_findings: str,
-        options_text: Optional[str],
+        options_text: str | None,
         tasks: list[ResearchTask]
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Analyze trade-offs between options (MSN-RECOMMENDATION-FIX #1).
 
@@ -1234,9 +1234,9 @@ Be specific with numbers/timelines where possible."""
     def _assess_risks(
         self,
         consolidated_findings: str,
-        options_text: Optional[str],
+        options_text: str | None,
         tasks: list[ResearchTask]
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Assess risks for each option (MSN-RECOMMENDATION-FIX #1).
 
@@ -1288,7 +1288,7 @@ Format clearly. Be specific about probability and impact."""
         self,
         consolidated_findings: str,
         tasks: list[ResearchTask]
-    ) -> tuple[Optional[str], float]:
+    ) -> tuple[str | None, float]:
         """
         Generate recommendation with decision framework (MSN-RECOMMENDATION-FIX #1).
 
@@ -1344,7 +1344,7 @@ Format clearly. Be specific about probability and impact."""
             log.info(f"[research-recommendation] Decision framework recommendation succeeded (confidence: {llm_conf:.2f})")
             return llm_rec, llm_conf
 
-        log.debug(f"[research-recommendation] Decision framework recommendation rejected. Trying Ollama...")
+        log.debug("[research-recommendation] Decision framework recommendation rejected. Trying Ollama...")
 
         # Tier 2: Fall back to Ollama with original prompt
         llm_rec, llm_conf = self._generate_recommendation(consolidated_findings, tasks)
@@ -1359,7 +1359,7 @@ Format clearly. Be specific about probability and impact."""
             log.info(f"[research-recommendation] Used LLM provider (confidence: {llm_conf:.2f})")
             return llm_rec, llm_conf
 
-        log.debug(f"[research-recommendation] Provider recommendation rejected or failed. Trying Ollama...")
+        log.debug("[research-recommendation] Provider recommendation rejected or failed. Trying Ollama...")
 
         # Tier 2: Fall back to Ollama
         llm_rec, llm_conf = self._generate_recommendation(consolidated_findings, tasks)
@@ -1374,8 +1374,8 @@ Format clearly. Be specific about probability and impact."""
             log.info(f"[research-recommendation] Used Ollama (confidence: {llm_conf:.2f})")
             return llm_rec, llm_conf
 
-        log.info(f"[research-recommendation] Both LLM recommendations rejected or failed.")
-        log.info(f"[research-recommendation] Recommendation pipeline needs review. Returning NEEDS_REVIEW status.")
+        log.info("[research-recommendation] Both LLM recommendations rejected or failed.")
+        log.info("[research-recommendation] Recommendation pipeline needs review. Returning NEEDS_REVIEW status.")
 
         # NEW (MSN-RECOMMENDATION-FIX #5): Escalate instead of fallback to "defer"
         successful_tasks = len([t for t in tasks if t.status == "complete"])
@@ -1411,7 +1411,7 @@ Format clearly. Be specific about probability and impact."""
         self,
         consolidated_findings: str,
         tasks: list[ResearchTask]
-    ) -> tuple[Optional[str], float]:
+    ) -> tuple[str | None, float]:
         """
         Generate recommendation from consolidated findings.
 
@@ -1504,11 +1504,11 @@ CONFIDENCE: [0.0-1.0]"""
     def _generate_recommendation_with_decision_framework(
         self,
         consolidated_findings: str,
-        options_text: Optional[str],
-        tradeoff_text: Optional[str],
-        risk_text: Optional[str],
+        options_text: str | None,
+        tradeoff_text: str | None,
+        risk_text: str | None,
         tasks: list[ResearchTask]
-    ) -> tuple[Optional[str], float]:
+    ) -> tuple[str | None, float]:
         """
         Generate recommendation using decision framework (MSN-RECOMMENDATION-FIX #2).
 
@@ -1633,7 +1633,7 @@ CONFIDENCE: [0.0-1.0]"""
         self,
         consolidated_findings: str,
         tasks: list[ResearchTask]
-    ) -> tuple[Optional[str], float]:
+    ) -> tuple[str | None, float]:
         """
         Generate recommendation using the active provider chain (MSN-0058).
 
@@ -1785,7 +1785,7 @@ if __name__ == "__main__":
 
     result = orchestrator.run_research_mission(research_topic)
 
-    print(f"\nResult:")
+    print("\nResult:")
     print(f"  Mission ID: {result.mission_id}")
     print(f"  Status: {result.status}")
     print(f"  Tasks: {result.tasks_completed}/{result.task_count}")
@@ -1795,7 +1795,7 @@ if __name__ == "__main__":
         for error in result.errors:
             print(f"    - {error}")
 
-    print(f"\n  Task Breakdown:")
+    print("\n  Task Breakdown:")
     for task in result.task_results:
         status_icon = "✓" if task.status == "complete" else "✗"
         print(f"    {status_icon} Task {task.order_index}: {task.description}")
@@ -1804,14 +1804,14 @@ if __name__ == "__main__":
         elif task.error_message:
             print(f"       Error: {task.error_message}")
 
-    print(f"\n  Consolidated Findings:")
+    print("\n  Consolidated Findings:")
     print(f"    {result.consolidated_findings[:200]}...")
 
     if result.recommendation:
-        print(f"\n  Recommendation:")
+        print("\n  Recommendation:")
         print(f"    {result.recommendation}")
         print(f"    Confidence: {result.confidence:.2f}")
     else:
-        print(f"\n  No recommendation generated")
+        print("\n  No recommendation generated")
 
     print("\n=== Test Complete ===\n")

@@ -26,7 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from intelligence.ingestion import external_fetch_budget  # noqa: E402
+from intelligence.ingestion import external_fetch_budget
 
 
 def check(providers: list[str]) -> int:

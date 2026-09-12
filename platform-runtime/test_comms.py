@@ -16,11 +16,12 @@ _BOT = Path(__file__).resolve().parent
 if str(_BOT) not in sys.path:
     sys.path.insert(0, str(_BOT))
 
-from lib import daily_brief  # noqa: E402
-from lib.comms import pillars, opportunities as opp, formats, weekly, portfolio, drafting  # noqa: E402
-from lib.human_systems import framework, decision, safety  # noqa: E402
-from lib.human_systems.mission_load import MissionLoad, Priority  # noqa: E402
-import commands.comms as comms_cmd  # noqa: E402
+import commands.comms as comms_cmd
+from lib import daily_brief
+from lib.comms import drafting, formats, pillars, portfolio, weekly
+from lib.comms import opportunities as opp
+from lib.human_systems import decision, framework, safety
+from lib.human_systems.mission_load import MissionLoad, Priority
 
 GOOD = {"energy": "high", "mood": "positive", "nervous_system_state": "calm",
         "sleep_hours": 8, "sleep_quality": "good", "captain_capacity_rating": "Green"}
@@ -253,6 +254,7 @@ class TestGeminiProvider(unittest.TestCase):
     def test_generate_with_gemini_parses_rest(self):
         import io
         import json as _json
+
         import llm
         payload = {"candidates": [{"content": {"parts": [{"text": "Hello from Gemini"}]}}]}
 
@@ -378,7 +380,7 @@ class TestSensitiveApprovalGate(unittest.TestCase):
 
 # ── MSN-0082 Leadership Intelligence Brief ────────────────────────────────────
 
-from lib.comms import leadership  # noqa: E402
+from lib.comms import leadership
 
 
 class TestLeadershipBrief(unittest.TestCase):

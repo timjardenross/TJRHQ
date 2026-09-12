@@ -8,7 +8,7 @@ and are enriched with actual repository context before sending.
 from __future__ import annotations
 
 from . import context_enricher
-from .schemas import ExecutionMode, MissionContext, RouterRequest
+from .schemas import ExecutionMode, RouterRequest
 
 _SAFETY_PREAMBLE = """\
 IMPORTANT CONSTRAINTS

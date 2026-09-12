@@ -34,7 +34,6 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Defaults (from MSN-0014A discovery)
 # ---------------------------------------------------------------------------

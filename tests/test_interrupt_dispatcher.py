@@ -13,13 +13,16 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core.platform.attention_engine import evaluate_batch
-from core.platform.captain_brief_contract import assemble_captain_brief, recommendations_from_events
+from core.platform.captain_brief_contract import (
+    assemble_captain_brief,
+    recommendations_from_events,
+)
 from core.platform.interrupt_dispatcher import dispatch_interrupt_now
 from core.platform.notification_service import NotificationResult, Transport
 from tests.fixtures.synthetic_core_events import (
+    CAN_BE_DELAYED_MIDRANGE_EVENT,
     INTERRUPT_NOW_EVENT,
     NEVER_INTERRUPT_EVENT,
-    CAN_BE_DELAYED_MIDRANGE_EVENT,
 )
 
 

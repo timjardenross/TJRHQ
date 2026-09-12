@@ -20,14 +20,14 @@ import argparse
 import json
 import time
 
+from challenge_review import run_challenge_review
 from collaboration_logger import write_collaboration_log
 from collaboration_router import select_specialists
-from challenge_review import run_challenge_review
 from commander_synthesis import extract_bullets, extract_section, synthesize_commander
-from decision_mode_classifier import classify_decision_mode
-from decision_context_builder import build_decision_context
-from decision_register import write_decision_record
 from decision_alerter import emit_decision_alert
+from decision_context_builder import build_decision_context
+from decision_mode_classifier import classify_decision_mode
+from decision_register import write_decision_record
 from mission_context_builder import build_context
 from review_specialist_selector import select_review_specialist
 from specialist_executor import execute_specialist
@@ -85,7 +85,7 @@ def run(
     # -----------------------------------------------------------------------
     evaluation = None
     if dual_commander:
-        from dual_commander_evaluator import run_dual_commander  # noqa: PLC0415
+        from dual_commander_evaluator import run_dual_commander
         evaluation = run_dual_commander(question, context, outputs, challenge, decision_ctx)
         response = evaluation.formatted_output()
         synthesis_info = {
@@ -210,8 +210,8 @@ def _push_to_paperclip(decision_record: dict, commander_synthesis: str) -> None:
         if str(paperclip_path) not in sys.path:
             sys.path.insert(0, str(paperclip_path))
 
-        from mission_candidate import create_mission_candidate
         from mission_bridge import push_mission_to_paperclip
+        from mission_candidate import create_mission_candidate
 
         candidate = create_mission_candidate(decision_record)
         if candidate is None:
@@ -235,8 +235,8 @@ def _push_to_paperclip(decision_record: dict, commander_synthesis: str) -> None:
 
 def sync_log_to_notion(log_path) -> None:
     try:
-        from pathlib import Path
         import sys
+        from pathlib import Path
 
         notion_path = Path(__file__).resolve().parents[1] / "notion"
         if str(notion_path) not in sys.path:

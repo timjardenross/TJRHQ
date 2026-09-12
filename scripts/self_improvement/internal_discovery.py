@@ -15,7 +15,7 @@ Two sources, both observable-evidence-only (no manufactured evidence):
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import staleness_check
 
@@ -180,7 +180,7 @@ def discover(
     classified_findings: list[dict[str, Any]],
     evidence: dict[str, Any],
     max_candidates: int,
-    repo_root: Optional[Path] = None,
+    repo_root: Path | None = None,
 ) -> list[dict[str, Any]]:
     """Bounded internal discovery: existing findings mapped 1:1, plus a
     small number of evidence-derived candidates, capped at max_candidates

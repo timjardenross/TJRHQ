@@ -11,13 +11,11 @@ Features:
 - Formats for Slack delivery with metadata
 """
 
-import re
-from dataclasses import dataclass, asdict
-from typing import Optional
-from datetime import datetime
-
 # Import logger
 import logging
+import re
+from dataclasses import dataclass
+
 log = logging.getLogger(__name__)
 
 
@@ -34,7 +32,7 @@ class CaptainBrief:
     task_count: int
     successful_tasks: int
     timestamp: str
-    mission_id: Optional[str] = None
+    mission_id: str | None = None
 
 
 class CaptainBriefGenerator:

@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -35,7 +34,10 @@ for p in (str(_BOT), str(_REPO_ROOT)):
         sys.path.insert(0, p)
 
 from lib.investigation.framework import (
-    DecisionOption, DecisionPackage, FindingsReport, DECISION_OWNER_PREFIX,
+    DECISION_OWNER_PREFIX,
+    DecisionOption,
+    DecisionPackage,
+    FindingsReport,
 )
 
 _ACTION_REQUIRES_DECISION = {"mission", "improvement", "decision"}
@@ -306,8 +308,8 @@ def format_decision_package(package: DecisionPackage) -> str:
 
 
 __all__ = [
+    "format_decision_package",
     "generate_decision_package",
     "get_decision_package",
     "get_pending_decision_packages",
-    "format_decision_package",
 ]

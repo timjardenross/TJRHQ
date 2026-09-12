@@ -18,10 +18,8 @@ Design:
 """
 
 import logging
-import os
-from datetime import datetime, timedelta
-from typing import Optional
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 log = logging.getLogger(__name__)
 
@@ -72,7 +70,7 @@ class ResearchMemoryEntry:
 class RetrievalResult:
     """Result of research memory retrieval."""
     found: bool
-    entry: Optional[ResearchMemoryEntry] = None
+    entry: ResearchMemoryEntry | None = None
     match_confidence: float = 0.0  # 0.0-1.0 confidence in match
     recommendation: str = ""  # "REUSE" | "REFRESH" | "NEW_RESEARCH"
     reason: str = ""
@@ -292,25 +290,25 @@ class ResearchMemoryRetriever:
             return f"ℹ️ No prior research found. {result.reason}\nProceeding with new research..."
 
         entry = result.entry
-        report = f"🎯 *Prior Research Found*\n"
-        report += f"━━━━━━━━━━━━━━━━━━\n"
+        report = "🎯 *Prior Research Found*\n"
+        report += "━━━━━━━━━━━━━━━━━━\n"
         report += f"*Previous Question:* {entry.original_question}\n"
         report += f"*Research Age:* {entry.freshness_days} days old\n"
         report += f"*Confidence:* {entry.confidence_level:.0%}\n"
         report += f"*Reuse Count:* {entry.reuse_count} times\n"
-        report += f"\n"
-        report += f"*Previous Recommendation:*\n"
+        report += "\n"
+        report += "*Previous Recommendation:*\n"
         report += f"_{entry.recommendation}_\n"
-        report += f"\n"
+        report += "\n"
         report += f"*Decision:* {result.recommendation}\n"
         report += f"_{result.reason}_\n"
 
         if result.recommendation == "REUSE":
-            report += f"\n✅ Reusing prior research (no new execution needed)\n"
+            report += "\n✅ Reusing prior research (no new execution needed)\n"
         elif result.recommendation == "REFRESH":
-            report += f"\n⚠️ Refreshing research (new execution + merge with prior)\n"
+            report += "\n⚠️ Refreshing research (new execution + merge with prior)\n"
         else:
-            report += f"\n🔄 Executing new research\n"
+            report += "\n🔄 Executing new research\n"
 
         return report
 

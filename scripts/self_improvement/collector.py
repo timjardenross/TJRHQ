@@ -14,11 +14,11 @@ Does not infer or guess — only collects observable facts.
 
 import json
 import logging
-import subprocess
 import re
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger("collector")
 
@@ -67,7 +67,7 @@ class RepositoryState:
             "repo_root": str(self.repo_root),
         }
 
-    def _get_branch(self) -> Optional[str]:
+    def _get_branch(self) -> str | None:
         """Get current branch name."""
         try:
             result = subprocess.run(
@@ -79,7 +79,7 @@ class RepositoryState:
             log.warning(f"Failed to get branch: {exc}")
             return None
 
-    def _get_commit(self) -> Optional[str]:
+    def _get_commit(self) -> str | None:
         """Get current commit hash."""
         try:
             result = subprocess.run(
@@ -91,7 +91,7 @@ class RepositoryState:
             log.warning(f"Failed to get commit: {exc}")
             return None
 
-    def _get_commit_message(self) -> Optional[str]:
+    def _get_commit_message(self) -> str | None:
         """Get commit message of HEAD."""
         try:
             result = subprocess.run(
@@ -306,7 +306,7 @@ class ModelRouterAudit:
         log_file = self.repo_root / "core/model-router/call_log.jsonl"
         return log_file.exists()
 
-    def _get_call_log_size(self) -> Optional[float]:
+    def _get_call_log_size(self) -> float | None:
         """Get size of call_log.jsonl in MB."""
         log_file = self.repo_root / "core/model-router/call_log.jsonl"
         if not log_file.exists():
@@ -389,10 +389,10 @@ class CodeAnalysis:
 class EvidenceCollector:
     """Orchestrates all evidence collection."""
 
-    def __init__(self, repo_root: Optional[Path] = None):
+    def __init__(self, repo_root: Path | None = None):
         self.repo_root = repo_root or self._find_repo_root()
 
-    def collect_all(self, since_commit: Optional[str] = None) -> dict[str, Any]:
+    def collect_all(self, since_commit: str | None = None) -> dict[str, Any]:
         """Collect all available evidence."""
         log.info(f"Collecting evidence from {self.repo_root}")
 

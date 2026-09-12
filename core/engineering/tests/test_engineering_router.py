@@ -9,21 +9,31 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
+
+# Ensure repo root is on the path
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Ensure repo root is on the path
-import sys
 _REPO = Path(__file__).resolve().parent.parent.parent.parent
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-from core.engineering.schemas import Backend, ExecutionMode, MissionContext, RouterRequest, RouterResponse
-from core.engineering import prompt_builder, output_writer, context_enricher
-from core.engineering import engineering_router
+from core.engineering import (
+    context_enricher,
+    engineering_router,
+    output_writer,
+    prompt_builder,
+)
+from core.engineering.schemas import (
+    Backend,
+    ExecutionMode,
+    MissionContext,
+    RouterRequest,
+    RouterResponse,
+)
 
 # Stub used to silence enricher I/O in prompt-builder unit tests
 _STUB_ENRICHMENT = "\n[ENRICHMENT STUB — no filesystem calls in unit tests]\n"
@@ -601,8 +611,8 @@ class TestVMOllamaProvider:
                 vm_ollama.call("hello")
 
     def test_call_success(self):
+
         from core.engineering.providers import vm_ollama
-        import urllib.request
         mock_resp = MagicMock()
         mock_resp.read.return_value = json.dumps({"response": "plan output"}).encode()
         mock_resp.__enter__ = lambda s: s

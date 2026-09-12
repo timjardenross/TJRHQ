@@ -21,16 +21,16 @@ Usage:
     python3 run_validation.py
 """
 
-import sys
 import json
 import re
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from loaders import load_corpus
 from assembler import assemble_mission_context
+from loaders import load_corpus
 
 OUT = Path(__file__).parent / "validation_output"
 OUT.mkdir(exist_ok=True)
@@ -307,10 +307,10 @@ def build_captain_brief(corpus, packages):
                  if not any(b["mission"] == mid for b in blockers)]
 
     lines = [
-        f"# Captain's Brief",
-        f"*Context Assembly — Phase 0.75 Prototype*",
+        "# Captain's Brief",
+        "*Context Assembly — Phase 0.75 Prototype*",
         f"*Generated: {GENERATED}*",
-        f"*Source: Enriched corpus — 7 missions, 9 decisions, 6 ADRs, 12 capabilities*",
+        "*Source: Enriched corpus — 7 missions, 9 decisions, 6 ADRs, 12 capabilities*",
         "",
         "---",
         "",
@@ -425,8 +425,8 @@ def build_captain_brief(corpus, packages):
         lines.append(f"**Priority action:** Activate **{top_mid}** ({top_m.get('title', '')})")
         lines.append(f"- Status: {top_m.get('status', 'unknown')}")
         lines.append(f"- Owner: {top_m.get('owner', 'unassigned')}")
-        lines.append(f"- Why: Highest-priority unblocked mission. Activation unblocks MSN-0011.")
-        lines.append(f"- Evidence: MSN-0009 listed as dependency of MSN-0011 (DEC-20260610-120000)")
+        lines.append("- Why: Highest-priority unblocked mission. Activation unblocks MSN-0011.")
+        lines.append("- Evidence: MSN-0009 listed as dependency of MSN-0011 (DEC-20260610-120000)")
 
     lines += [
         "",
@@ -564,7 +564,7 @@ def build_number_one_brief(corpus, packages):
         lines.append(f"- Blocking mission: {dm.get('title', '') if dm else 'unknown'} (status: {top_blocker['dep_status']})")
         lines.append(f"- Resolution path: Activate {top_blocker['blocked_by']} to unblock {top_blocker['mission']}")
         lines.append(f"- Source artefact: `{top_blocker['mission']}` `depends_on` field")
-        lines.append(f"- Confidence: HIGH (explicit declaration)")
+        lines.append("- Confidence: HIGH (explicit declaration)")
     else:
         lines.append("No hard blockers detected.")
 
@@ -605,20 +605,20 @@ def build_number_one_brief(corpus, packages):
         lines += [
             f"**Activate {rec_mid} — {rec_m.get('title', '')}**",
             "",
-            f"**Rationale:**",
+            "**Rationale:**",
             f"- {rec_mid} is the highest-priority unblocked mission in the active corpus.",
             f"- Activating {rec_mid} directly unblocks MSN-0011 (Slack Supabase Integration),",
-            f"  which is the next step toward automated operational visibility.",
-            f"- MSN-0011 is triggered by DEC-20260610-120000, which is already ACTIVE.",
+            "  which is the next step toward automated operational visibility.",
+            "- MSN-0011 is triggered by DEC-20260610-120000, which is already ACTIVE.",
             f"- Completing {rec_mid} will deliver the Notion Decision Register and Command Centre",
-            f"  that MSN-0011 automates — an immediate daily-use capability.",
+            "  that MSN-0011 automates — an immediate daily-use capability.",
             "",
-            f"**Source artefacts:**",
+            "**Source artefacts:**",
             f"- MSN-0011 `depends_on`: {rec_mid}",
-            f"- MSN-0011 `triggered_by`: DEC-20260610-120000",
+            "- MSN-0011 `triggered_by`: DEC-20260610-120000",
             f"- {rec_mid} `governed_by`: {', '.join(r.id for r in rec_pkg.governing_adrs) if rec_pkg else 'ADR-002'}",
             "",
-            f"**Confidence:** HIGH",
+            "**Confidence:** HIGH",
         ]
 
     lines += [
@@ -768,20 +768,20 @@ def build_validation_report(validation_data, confidence):
 
     lines = [
         "# Context Assembly Phase 0.75 — Validation Report",
-        f"*Mission: M-20260612-CONTEXT-ASSEMBLY-VALIDATION*",
+        "*Mission: M-20260612-CONTEXT-ASSEMBLY-VALIDATION*",
         f"*Generated: {GENERATED}*",
         "",
         "---",
         "",
         "## Executive Summary",
         "",
-        f"Context Assembly was validated against the enriched corpus:",
+        "Context Assembly was validated against the enriched corpus:",
         f"**{n} missions**, **{n_decisions} decisions**, **{n_adrs} ADRs**, **{n_caps} capabilities**.",
         "",
         f"Average mission context completeness: **{avg_c:.0%}**",
         f"Missions meeting 70% threshold: **{int(pct_70 * n)}/{n}**",
-        f"Captain Brief: **Generated. All sections populated. All claims traceable.**",
-        f"Number One Brief: **Generated. Priorities, blocker, risk, and recommendation all derivable.**",
+        "Captain Brief: **Generated. All sections populated. All claims traceable.**",
+        "Number One Brief: **Generated. Priorities, blocker, risk, and recommendation all derivable.**",
         "",
         "---",
         "",
@@ -798,7 +798,7 @@ def build_validation_report(validation_data, confidence):
         f"- {int(pct_70 * n)}/{n} missions at ≥70% completeness",
         f"- {int(validation_data['pct_with_governing_adrs'] * n)}/{n} missions have governing ADRs",
         f"- {int(validation_data['pct_with_triggering_decision'] * n)}/{n} missions have triggering decisions",
-        f"- All relationships are traceable to source artefacts",
+        "- All relationships are traceable to source artefacts",
         "",
         "### Part 3 — Captain Brief Simulation",
         "✅ **Captain Brief generated. All 6 sections populated.**",
@@ -972,12 +972,12 @@ def main():
           f"{len(corpus['adrs'])}ADR  {len(corpus['capabilities'])}CAP")
     print(f"  Packages built:    {len(packages)}")
     print(f"  Avg completeness:  {validation_data['avg_completeness']:.0%}")
-    print(f"  Captain Brief:     ✅ Generated ({sum(1 for l in open(p3_path).readlines() if l.startswith('##'))} sections)")
-    print(f"  Number One Brief:  ✅ Generated ({sum(1 for l in open(p4_path).readlines() if l.startswith('##'))} sections)")
+    print(f"  Captain Brief:     ✅ Generated ({sum(1 for l in open(p3_path) if l.startswith('##'))} sections)")
+    print(f"  Number One Brief:  ✅ Generated ({sum(1 for l in open(p4_path) if l.startswith('##'))} sections)")
     print(f"  Infrastructure:    {confidence['infrastructure_required']}")
-    print(f"\n  ══════════════════════════════════")
+    print("\n  ══════════════════════════════════")
     print(f"  RECOMMENDATION: {confidence['recommendation']}")
-    print(f"  ══════════════════════════════════")
+    print("  ══════════════════════════════════")
     print(f"\n  All outputs → {OUT}/")
 
 

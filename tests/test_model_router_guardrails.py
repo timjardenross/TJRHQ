@@ -23,9 +23,9 @@ MODEL_ROUTER_DIR = REPO_ROOT / "core" / "model-router"
 sys.path.insert(0, str(MODEL_ROUTER_DIR))
 sys.path.insert(0, str(REPO_ROOT))
 
-import app  # noqa: E402
+import app
 
-from core.security.llm_guardrails import _venv_ready  # noqa: E402
+from core.security.llm_guardrails import _venv_ready
 
 _SKIP_REASON = (
     "platform-runtime/.venv-llmsec not provisioned — see "

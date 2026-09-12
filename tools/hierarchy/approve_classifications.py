@@ -89,8 +89,7 @@ def _parse_review() -> dict[str, list[str]]:
             continue
 
         msn_id = msn_raw.upper()
-        if msn_id.startswith("USS-TJR-"):
-            msn_id = msn_id[len("USS-TJR-"):]
+        msn_id = msn_id.removeprefix("USS-TJR-")
 
         result[ini_id].append(msn_id)
 

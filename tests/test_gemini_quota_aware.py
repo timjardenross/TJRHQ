@@ -14,11 +14,10 @@ Tests use mocking to simulate:
 - Provider circuit breaker skipping
 """
 
-import sys
-import os
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
 import logging
+import sys
+from pathlib import Path
+from unittest.mock import patch
 
 # Setup logging
 logging.basicConfig(
@@ -32,11 +31,10 @@ slack_bot_lib = Path(__file__).parent.parent / "platform-runtime" / "lib"
 sys.path.insert(0, str(slack_bot_lib))
 
 from research_delegator import (
-    delegate_research_task,
-    ResearchOutcome,
-    get_mission_gemini_quota,
-    MissionGeminiQuota,
     ProviderHealth,
+    ResearchOutcome,
+    delegate_research_task,
+    get_mission_gemini_quota,
 )
 
 

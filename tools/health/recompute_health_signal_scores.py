@@ -17,10 +17,9 @@ Usage:
     python3 tools/health/recompute_health_signal_scores.py [--dry-run]
 """
 
-import os
-import sys
-import logging
 import argparse
+import logging
+import os
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')

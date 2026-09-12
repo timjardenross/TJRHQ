@@ -44,7 +44,6 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Optional
 
 from intelligence.classification.filter import should_suppress
 from intelligence.models import ClassifiedEvent
@@ -74,7 +73,7 @@ _NOVELTY_FROM_SUPPRESSION_REASON = {
 }
 
 
-def _load_config() -> Optional[dict]:
+def _load_config() -> dict | None:
     try:
         return json.loads(_CONFIG_PATH.read_text())["technical"]
     except Exception:
@@ -85,7 +84,7 @@ def _load_config() -> Optional[dict]:
 _CONFIG = _load_config()
 
 
-def _category_match(text: str, config: dict) -> Optional[dict]:
+def _category_match(text: str, config: dict) -> dict | None:
     """Best-matching priority_category by keyword hit count. Returns None
     if no category has any keyword hit — that's a real signal (mission §5's
     mission statement is a closed list of named priority areas, not
@@ -203,7 +202,7 @@ def assess_relevance(event: ClassifiedEvent) -> dict:
             "novelty": "NEW_DEVELOPMENT",
         }
 
-    except Exception as exc:  # noqa: BLE001 — relevance gate must never block persistence
+    except Exception as exc:
         logger.exception("assess_relevance failed for %r", getattr(event, "raw_title", "")[:60])
         return {
             "mission_relevance": "LOW_CONFIDENCE",

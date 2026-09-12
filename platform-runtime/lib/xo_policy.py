@@ -6,11 +6,10 @@ decision, not as a human authorization check.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable
-
+from typing import Any
 
 _SLACK_BOT_DIR = Path(__file__).resolve().parent.parent
 _REPO_ROOT = _SLACK_BOT_DIR.parent

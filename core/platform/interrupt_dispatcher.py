@@ -24,7 +24,8 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 from core.platform.attention_engine import AttentionCategory
 from core.platform.captain_brief_contract import CaptainBriefItem
@@ -39,7 +40,7 @@ from core.platform.notification_service import (
 log = logging.getLogger(__name__)
 
 
-def _deep_link(event_id: str) -> Optional[str]:
+def _deep_link(event_id: str) -> str | None:
     """Captain's Brief deep-link for a dispatched event, appended to the
     Telegram push so a bare "importance=X >= Y" scoring trace is never the
     only thing the Captain has to act on — same LCARS_PORTAL_URL pattern as
@@ -72,7 +73,7 @@ def dispatch_interrupt_now(
     for item in items:
         if item.category != AttentionCategory.INTERRUPT_NOW:
             continue
-        row: Optional[dict[str, Any]] = events_by_id.get(item.event_id or "")
+        row: dict[str, Any] | None = events_by_id.get(item.event_id or "")
         status = (row or {}).get("status") or "new"
         if status != "new":
             continue

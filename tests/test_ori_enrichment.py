@@ -13,12 +13,15 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from intelligence.models import IntelligenceItem
 from intelligence.classification.classifier import classify
 from intelligence.classification.ori_enrichment import (
-    map_themes, map_regulatory_topic, extract_organisation,
-    derive_watch_status, enrich,
+    derive_watch_status,
+    enrich,
+    extract_organisation,
+    map_regulatory_topic,
+    map_themes,
 )
+from intelligence.models import IntelligenceItem
 
 
 def _classify(title: str, summary: str = ""):

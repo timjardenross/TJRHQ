@@ -312,10 +312,10 @@ def _log_portfolio_run(
 
 
 __all__ = [
-    "missions_to_stop",
-    "underfunded_objectives",
-    "overloaded_objectives",
     "misaligned_missions",
+    "missions_to_stop",
     "next_priority",
+    "overloaded_objectives",
     "run_portfolio_queries",
+    "underfunded_objectives",
 ]

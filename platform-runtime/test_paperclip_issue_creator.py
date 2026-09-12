@@ -26,7 +26,6 @@ if str(_BOT_DIR) not in sys.path:
 import paperclip_issue_creator as _pic
 from paperclip_issue_creator import (
     _AGENT_CHIEF_ENGINEER,
-    _AGENT_XO,
     build_issue_description,
     create_slack_paperclip_issue,
     extract_issue_title,
@@ -37,7 +36,6 @@ from paperclip_issue_creator import (
     resolve_paperclip_assignee,
     resolve_priority,
 )
-
 
 # ===========================================================================
 # is_issue_creation_request

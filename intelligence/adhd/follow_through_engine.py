@@ -40,8 +40,9 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import date, datetime, time as dt_time, timedelta, timezone
-from typing import Any, Optional
+from datetime import date, datetime, timedelta, timezone
+from datetime import time as dt_time
+from typing import Any
 
 from intelligence.config import SUPABASE_KEY, SUPABASE_URL
 
@@ -95,7 +96,7 @@ def _date_to_dt(d: date) -> datetime:
     return datetime.combine(d, dt_time.min, tzinfo=timezone.utc)
 
 
-def _parse_ts(value: Optional[str]) -> Optional[datetime]:
+def _parse_ts(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
@@ -108,7 +109,7 @@ def _parse_ts(value: Optional[str]) -> Optional[datetime]:
         return None
 
 
-def _parse_date(value: Optional[str]) -> Optional[date]:
+def _parse_date(value: str | None) -> date | None:
     if not value:
         return None
     try:
@@ -125,7 +126,7 @@ def _esc_html(text: str) -> str:
 
 # ── PostgREST access ─────────────────────────────────────────────────────────
 
-def _pg_headers(extra: Optional[dict] = None) -> dict:
+def _pg_headers(extra: dict | None = None) -> dict:
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -137,7 +138,7 @@ def _pg_headers(extra: Optional[dict] = None) -> dict:
     return headers
 
 
-def _pg_get(path_and_query: str, count_exact: bool = False) -> tuple[list[dict], Optional[int]]:
+def _pg_get(path_and_query: str, count_exact: bool = False) -> tuple[list[dict], int | None]:
     """GET {SUPABASE_URL}/rest/v1/{path_and_query}. Returns (rows, total_count).
     total_count is only populated when count_exact=True (via Content-Range)."""
     if not SUPABASE_URL or not SUPABASE_KEY:
@@ -233,7 +234,7 @@ def _fetch_candidates(now: datetime) -> list[dict]:
     return rows
 
 
-def _fetch_todays_capacity_state(now: datetime) -> Optional[str]:
+def _fetch_todays_capacity_state(now: datetime) -> str | None:
     today_iso = _today(now).isoformat()
     query = (
         "capacity_checkins"
@@ -272,7 +273,7 @@ def _in_quiet_hours(now: datetime) -> bool:
 
 # ── Deadline ladder ──────────────────────────────────────────────────────────
 
-def _next_deadline_checkpoint(due: date, today: date, inclusive: bool) -> tuple[Optional[date], str]:
+def _next_deadline_checkpoint(due: date, today: date, inclusive: bool) -> tuple[date | None, str]:
     """Earliest ladder checkpoint date that is still ahead (or, once
     overdue, the next day in the 1-day overdue drumbeat).
 
@@ -293,7 +294,7 @@ def _next_deadline_checkpoint(due: date, today: date, inclusive: bool) -> tuple[
 
 # ── Mode scheduling ──────────────────────────────────────────────────────────
 
-def compute_initial_schedule(task: dict, now: datetime) -> tuple[Optional[datetime], str, bool]:
+def compute_initial_schedule(task: dict, now: datetime) -> tuple[datetime | None, str, bool]:
     """For a candidate with next_review_at IS NULL (first-ever pass).
 
     Returns (next_review_at_to_persist_if_not_sent_now, tone,
@@ -343,7 +344,7 @@ def compute_initial_schedule(task: dict, now: datetime) -> tuple[Optional[dateti
     return now + timedelta(days=2), "neutral", True
 
 
-def compute_next_review_after_send(task: dict, now: datetime, new_nudge_count: int) -> Optional[datetime]:
+def compute_next_review_after_send(task: dict, now: datetime, new_nudge_count: int) -> datetime | None:
     """Post-send scheduling for the NEXT occurrence (or None to stop)."""
     mode = task.get("follow_through_mode") or "normal"
     due = _parse_date(task.get("due_date"))
@@ -408,7 +409,7 @@ def _assemble_eligible_candidates(raw_rows: list[dict], now: datetime) -> list[d
     return eligible
 
 
-def _apply_capacity_gate(candidates: list[dict], capacity_state: Optional[str], now: datetime) -> list[dict]:
+def _apply_capacity_gate(candidates: list[dict], capacity_state: str | None, now: datetime) -> list[dict]:
     if capacity_state != "red":
         return candidates
     today = _today(now)
@@ -571,11 +572,11 @@ def _resolve_chat_id() -> str:
     return os.environ.get("TELEGRAM_CHAT_ID", "")
 
 
-def _send_telegram(text: str, reply_markup: dict) -> tuple[bool, Optional[str], Optional[int]]:
+def _send_telegram(text: str, reply_markup: dict) -> tuple[bool, str | None, int | None]:
     """Returns (ok, error, message_id) — text is caller-composed HTML
     (intentional <b>/<code> markup with already-escaped dynamic values),
     hence template="raw" (see notification_service._RAW_TEMPLATES)."""
-    from core.platform.notification_service import notify, Transport
+    from core.platform.notification_service import Transport, notify
 
     result = notify(
         text, template="raw", transport=Transport.TELEGRAM,
@@ -606,7 +607,7 @@ def _record_send(task: dict, now: datetime, tone: str, bundled: bool) -> None:
     })
 
 
-def _record_individual_sent(task_id: str, chat_id: str, message_id: Optional[int]) -> None:
+def _record_individual_sent(task_id: str, chat_id: str, message_id: int | None) -> None:
     if message_id is None:
         return
     _pg_post("follow_through_sends", {

@@ -5,14 +5,16 @@ Backfill enrichment for historical TO_COLLECT events.
 Fetches all unenriched events and re-runs through Phase A enrichment.
 Safe: idempotent (upserts on event_id).
 """
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import logging
 from datetime import datetime
-from intelligence.persistence import intelligence_store as store
+
 from intelligence.ingestion.phase_a_enrichment import enrich_and_save
+from intelligence.persistence import intelligence_store as store
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger("backfill-enrichment")
@@ -34,10 +36,10 @@ def backfill_events(batch_size: int = 100, limit: int = None) -> None:
     
     # Query all TO_COLLECT events
     query = (
-        f"intelligence_events"
-        f"?signal_status=eq.TO_COLLECT"
-        f"&order=collected_at.desc"
-        f"&select=*"
+        "intelligence_events"
+        "?signal_status=eq.TO_COLLECT"
+        "&order=collected_at.desc"
+        "&select=*"
     )
     events = store._get(query)
     log.info(f"Found {len(events)} unenriched events")

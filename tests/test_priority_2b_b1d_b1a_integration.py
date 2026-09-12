@@ -10,11 +10,11 @@ Test Coverage:
 - Quality-based provider selection
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from datetime import datetime
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -145,7 +145,7 @@ def test_priority_2b_quality_change_affects_routing():
         log.info(f"  {rank}. {provider}: {quality:.1f}")
 
     primary_v2 = routing_v2[0][0]
-    log.info(f"\n✓ Routing automatically adjusted")
+    log.info("\n✓ Routing automatically adjusted")
     log.info(f"  Was: {primary_v1}")
     log.info(f"  Now: {primary_v2}")
 
@@ -166,7 +166,7 @@ def test_priority_2b_logging_audit_trail():
     ]
 
     log.info("Routing Decision Log:")
-    log.info(f"  Decision: 'test request'")
+    log.info("  Decision: 'test request'")
     log.info(f"  Routing order ({len(provider_quality)} providers ranked by quality):")
 
     for rank, (provider, quality) in enumerate(provider_quality, 1):
@@ -179,7 +179,7 @@ def test_priority_2b_logging_audit_trail():
     gap = primary_score - fallback_score
 
     log.info(f"  Reasoning: {provider_quality[0][0]} leads by {gap:.1f} points")
-    log.info(f"  Status: READY")
+    log.info("  Status: READY")
 
     assert gap == 0.6
 
@@ -259,8 +259,8 @@ def test_priority_2b_complete_loop():
 
     # Step 6: Next cycle: update quality and re-rank
     log.info("\nStep 6: Feedback Loop (for next routing)")
-    log.info(f"  ✓ Provider quality will update from outcome")
-    log.info(f"  ✓ Next routing decision will use updated data")
+    log.info("  ✓ Provider quality will update from outcome")
+    log.info("  ✓ Next routing decision will use updated data")
 
     assert primary == 'Google'
     assert fallback == 'OpenRouter'

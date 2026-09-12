@@ -38,10 +38,8 @@ Phase B1F (FUTURE):
 """
 
 import logging
-import os
-from datetime import datetime, timedelta
 from dataclasses import dataclass
-from typing import Optional, Dict, List
+from datetime import datetime, timedelta
 from enum import Enum
 
 log = logging.getLogger(__name__)
@@ -59,19 +57,19 @@ class DecisionStatus(str, Enum):
 @dataclass
 class ProviderMetadata:
     """Recommendation provider provenance for analysis."""
-    provider_name: Optional[str] = None
+    provider_name: str | None = None
     # Examples: "google", "openrouter", "ollama", "anthropic", "openai"
 
-    model_name: Optional[str] = None
+    model_name: str | None = None
     # Examples: "gemini-3.5-flash-lite", "gemini-3.5-flash-lite", "mistral-small"
 
-    provider_route: Optional[str] = None
+    provider_route: str | None = None
     # Examples: "primary", "fallback", "local_fallback", "consolidation"
 
-    research_execution_id: Optional[str] = None
+    research_execution_id: str | None = None
     # Links decision to specific research execution for full traceability
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to JSON-serializable dict."""
         return {
             "provider_name": self.provider_name,
@@ -93,7 +91,7 @@ class DecisionRecord:
     decision_reason: str
     decision_timestamp: str
     captured_timestamp: str
-    metadata: Optional[Dict] = None
+    metadata: dict | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "DecisionRecord":
@@ -108,8 +106,8 @@ class DecisionOutcome:
     decision_id: str
     outcome_status: str  # "Pending" | "In Progress" | "Completed" | "Failed"
     result_summary: str
-    effectiveness_score: Optional[int]  # 1-5 scale
-    lessons_learned: Optional[str]
+    effectiveness_score: int | None  # 1-5 scale
+    lessons_learned: str | None
     captured_timestamp: str
     outcome_timestamp: str
 
@@ -138,8 +136,8 @@ class LearningLoopService:
         decision_maker: str,
         decision_reason: str = None,
         decision_timestamp: datetime = None,
-        provider_metadata: Optional[ProviderMetadata] = None,
-    ) -> Optional[DecisionRecord]:
+        provider_metadata: ProviderMetadata | None = None,
+    ) -> DecisionRecord | None:
         """
         Record a human decision on a research recommendation.
 
@@ -218,7 +216,7 @@ class LearningLoopService:
             log.error(f"Failed to record decision: {e}", exc_info=True)
             return None
 
-    def get_decision(self, decision_id: str) -> Optional[DecisionRecord]:
+    def get_decision(self, decision_id: str) -> DecisionRecord | None:
         """
         Retrieve a previously recorded decision.
 
@@ -244,7 +242,7 @@ class LearningLoopService:
             log.error(f"Failed to retrieve decision {decision_id}: {e}", exc_info=True)
             return None
 
-    def get_decisions_for_mission(self, mission_id: str) -> List[DecisionRecord]:
+    def get_decisions_for_mission(self, mission_id: str) -> list[DecisionRecord]:
         """
         Retrieve all decisions made for a specific mission.
 
@@ -275,10 +273,10 @@ class LearningLoopService:
         decision_id: str,
         outcome_status: str,
         result_summary: str,
-        effectiveness_score: Optional[int] = None,
-        lessons_learned: Optional[str] = None,
+        effectiveness_score: int | None = None,
+        lessons_learned: str | None = None,
         outcome_timestamp: datetime = None,
-    ) -> Optional[DecisionOutcome]:
+    ) -> DecisionOutcome | None:
         """
         Record the outcome of a decision.
 
@@ -359,7 +357,7 @@ class LearningLoopService:
             log.error(f"Failed to record outcome: {e}", exc_info=True)
             return None
 
-    def get_outcome(self, outcome_id: str) -> Optional[DecisionOutcome]:
+    def get_outcome(self, outcome_id: str) -> DecisionOutcome | None:
         """Retrieve a previously recorded outcome."""
         if not self.enabled:
             return None
@@ -377,7 +375,7 @@ class LearningLoopService:
             log.error(f"Failed to retrieve outcome {outcome_id}: {e}", exc_info=True)
             return None
 
-    def get_pending_decisions(self) -> List[str]:
+    def get_pending_decisions(self) -> list[str]:
         """
         Get all decisions awaiting outcome.
 

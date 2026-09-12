@@ -25,12 +25,12 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass, field
-from datetime import date, datetime
+from dataclasses import dataclass
+from datetime import date
 from enum import Enum
 from pathlib import Path
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
@@ -126,7 +126,7 @@ def _row_to_investment(row: dict[str, Any]) -> Investment | None:
     p = _parse_rationale(str(row.get("rationale") or ""))
     stmt = str(row.get("statement") or "")
     prefix = f"{_INVESTMENT_STATEMENT} {inv_id}: "
-    name = stmt[len(prefix):] if stmt.startswith(prefix) else stmt
+    name = stmt.removeprefix(prefix)
 
     def _en(cls, val, default):
         try:
@@ -300,12 +300,12 @@ def list_investments(
 
 
 __all__ = [
+    "INVESTMENT_OWNER_PREFIX",
     "ApprovalStatus",
     "Investment",
-    "register_investment",
-    "update_investment",
     "get_investment",
     "get_investment_for_initiative",
     "list_investments",
-    "INVESTMENT_OWNER_PREFIX",
+    "register_investment",
+    "update_investment",
 ]

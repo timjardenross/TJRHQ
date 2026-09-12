@@ -16,12 +16,11 @@ import sys
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
 
-from supabase_client import supabase_upsert, is_configured
+from supabase_client import is_configured, supabase_upsert
 
 _LESSONS_MD = _REPO_ROOT / "knowledge" / "Lessons-Learned.md"
 _KNOWLEDGE_MISSIONS_DIR = _REPO_ROOT / "knowledge" / "missions"

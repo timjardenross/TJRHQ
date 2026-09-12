@@ -3,15 +3,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import json
 import os
-from pathlib import Path
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
-
 
 ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = ROOT / "logs/notion-sync"
@@ -122,7 +121,7 @@ def url(value: str | None) -> dict[str, Any]:
     return {"url": value or None}
 
 
-def number(value: int | float | None) -> dict[str, Any]:
+def number(value: float | None) -> dict[str, Any]:
     return {"number": value}
 
 

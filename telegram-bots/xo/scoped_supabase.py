@@ -50,7 +50,7 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger("xo-bot.scoped-supabase")
 
@@ -75,7 +75,7 @@ def mint_scoped_token(secret: str, role: str = SCOPED_ROLE, ttl_seconds: int = 0
     return token.decode("utf-8") if isinstance(token, bytes) else token
 
 
-def resolve_scoped_auth() -> Optional[str]:
+def resolve_scoped_auth() -> str | None:
     """Return the bearer token to use for the scoped `xo_bot` role, or None
     if scoping isn't configured yet (no SUPABASE_JWT_SECRET and no
     pre-minted XO_BOT_SCOPED_TOKEN) — callers must fall back to the

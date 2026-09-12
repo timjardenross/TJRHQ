@@ -42,7 +42,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, date, timedelta
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -152,7 +152,7 @@ def _row_to_capability(row: dict[str, Any]) -> Capability | None:
     p = _parse_rationale(str(row.get("rationale") or ""))
     stmt = str(row.get("statement") or "")
     prefix = f"{_CAP_STATEMENT} {cap_id}: "
-    name = stmt[len(prefix):] if stmt.startswith(prefix) else stmt
+    name = stmt.removeprefix(prefix)
 
     def _en(cls, val, default):
         try:
@@ -351,14 +351,14 @@ def get_capabilities_for_objective(objective_id: str) -> list[Capability]:
 
 
 __all__ = [
-    "CapabilityType",
-    "CapabilityStatus",
-    "MaturityLevel",
+    "CAPABILITY_OWNER_PREFIX",
     "Capability",
-    "register_capability",
-    "update_capability",
+    "CapabilityStatus",
+    "CapabilityType",
+    "MaturityLevel",
+    "get_capabilities_for_objective",
     "get_capability",
     "list_capabilities",
-    "get_capabilities_for_objective",
-    "CAPABILITY_OWNER_PREFIX",
+    "register_capability",
+    "update_capability",
 ]

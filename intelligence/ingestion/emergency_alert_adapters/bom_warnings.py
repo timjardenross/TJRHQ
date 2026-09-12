@@ -49,11 +49,12 @@ from __future__ import annotations
 
 import logging
 import re
-import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 from datetime import timedelta, timezone
 from email.utils import parsedate_to_datetime
 
-from .base import CanonicalAlert, http_get, stable_event_key
+import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
+
+from .base import CanonicalAlert, stable_event_key
 
 log = logging.getLogger(__name__)
 
@@ -99,10 +100,10 @@ def _http_get_bom(url: str) -> bytes:
         return resp.read()
 
 
-_CONTENT_RE = re.compile(r'<div id="content">(.*?)<!-- End: Content -->', re.S)
-_ISSUED_RE = re.compile(r"Issued at\s+(.+?)\s*</p>", re.S)
-_TAG_BREAK_RE = re.compile(r"</(p|h1|h2|h3|h4|li|tr)>", re.I)
-_TABLE_RE = re.compile(r"<table.*?</table>", re.S | re.I)
+_CONTENT_RE = re.compile(r'<div id="content">(.*?)<!-- End: Content -->', re.DOTALL)
+_ISSUED_RE = re.compile(r"Issued at\s+(.+?)\s*</p>", re.DOTALL)
+_TAG_BREAK_RE = re.compile(r"</(p|h1|h2|h3|h4|li|tr)>", re.IGNORECASE)
+_TABLE_RE = re.compile(r"<table.*?</table>", re.DOTALL | re.IGNORECASE)
 _TAG_RE = re.compile(r"<[^>]+>")
 _BLANK_LINES_RE = re.compile(r"\n{3,}")
 

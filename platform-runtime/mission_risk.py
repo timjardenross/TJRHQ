@@ -41,7 +41,6 @@ from __future__ import annotations
 import logging
 from datetime import date, datetime
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -201,7 +200,7 @@ def calculate_mission_risk_score(mission: dict) -> dict:
     }
 
 
-def _parse_open_date(mission_id: str, timestamp: str) -> Optional[date]:
+def _parse_open_date(mission_id: str, timestamp: str) -> date | None:
     """Extract open date from mission ID or timestamp fallback."""
     parts = mission_id.split("-")
     for p in parts:

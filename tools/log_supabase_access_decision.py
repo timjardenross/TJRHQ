@@ -8,9 +8,8 @@ Run with:
     SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... python log_supabase_access_decision.py
 """
 
-import os
-import sys
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -89,7 +88,7 @@ def main():
         print(f"   Status: {result.ok}")
         return True
     else:
-        print(f"❌ Failed to log decision")
+        print("❌ Failed to log decision")
         print(f"   Error: {result.error}")
         print(f"   Enabled: {result.enabled}")
         return False

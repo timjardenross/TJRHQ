@@ -167,8 +167,8 @@ def _step_human_systems(entry: dict | None, ctx: CycleContext) -> None:
     Recovery Pulse input this replaced. See capacity_zone_from_checkin()'s
     docstring for why this is a direct zone mapping, not a weighted score."""
     try:
-        from core.health.capacity_score import capacity_zone_from_checkin
         from core.health.capacity_gate import CapacityGate
+        from core.health.capacity_score import capacity_zone_from_checkin
 
         score, status = capacity_zone_from_checkin(entry or {})
         ctx.capacity_score = score
@@ -338,11 +338,18 @@ def _step_investigation_review(ctx: CycleContext) -> None:
       4. Surface open investigation count in ctx
     """
     try:
-        from lib.investigation.officer_investigations import run_all_investigation_triggers
-        from lib.investigation.registry import get_open_investigations, get_investigations_summary
+        from lib.investigation.decision_package import (
+            generate_decision_package,
+            get_pending_decision_packages,
+        )
         from lib.investigation.evidence import collect_evidence
         from lib.investigation.findings import generate_findings
-        from lib.investigation.decision_package import generate_decision_package, get_pending_decision_packages
+        from lib.investigation.officer_investigations import (
+            run_all_investigation_triggers,
+        )
+        from lib.investigation.registry import (
+            get_investigations_summary,
+        )
 
         # Trigger new investigations from officer thresholds
         new_inv_ids = run_all_investigation_triggers(ctx)
@@ -351,9 +358,11 @@ def _step_investigation_review(ctx: CycleContext) -> None:
         # Collect evidence and generate findings for newly opened investigations
         for inv_id in new_inv_ids[:3]:  # cap at 3 per cycle to bound latency
             try:
-                from lib.investigation.registry import get_investigation
-                from lib.investigation.registry import update_investigation_status
                 from lib.investigation.framework import InvestigationStatus
+                from lib.investigation.registry import (
+                    get_investigation,
+                    update_investigation_status,
+                )
 
                 inv = get_investigation(inv_id)
                 if not inv:
@@ -418,7 +427,7 @@ def _step_investigation_review(ctx: CycleContext) -> None:
         try:
             summary = get_investigations_summary()
             ctx.open_investigations_count = summary.get("open_total", 0)
-        except Exception as exc:
+        except Exception:
             ctx.open_investigations_count = len(new_inv_ids)
 
         ctx.data_freshness["investigation"] = datetime.utcnow().isoformat()
@@ -452,9 +461,10 @@ def _make_collaborative_if_significant(ctx: CycleContext, inv: Any, findings: An
             return
 
         from lib.investigation.collaboration import (
-            suggest_collaboration_team, assemble_collaboration,
+            assemble_collaboration,
+            suggest_collaboration_team,
         )
-        from lib.investigation.synthesis import synthesize_findings, generate_challenge
+        from lib.investigation.synthesis import generate_challenge, synthesize_findings
 
         inv_id = inv.investigation_id
         suggestion = suggest_collaboration_team(inv.investigation_type.value, inv.officer)
@@ -513,14 +523,19 @@ def _step_learning_review(ctx: CycleContext) -> None:
     Improvement Discovery (so backlog signals are current). Fully non-blocking.
     """
     try:
-        from lib.learning.patterns import detect_patterns, pattern_to_investigation
         from lib.learning.cross_domain import (
-            detect_cross_domain_opportunities, route_to_improvement_backlog,
+            detect_cross_domain_opportunities,
+            route_to_improvement_backlog,
+        )
+        from lib.learning.learning_brief import (
+            assemble_learning_brief,
+            format_learning_brief,
         )
         from lib.learning.lessons import (
-            lesson_from_investigation, get_lesson_candidate_count,
+            get_lesson_candidate_count,
+            lesson_from_investigation,
         )
-        from lib.learning.learning_brief import assemble_learning_brief, format_learning_brief
+        from lib.learning.patterns import detect_patterns, pattern_to_investigation
 
         # WP8: pattern recognition — MEDIUM/HIGH patterns open investigations
         patterns = detect_patterns(lookback_days=30)
@@ -591,10 +606,12 @@ def _step_strategic_outcomes(ctx: CycleContext, *, monthly_review: bool = False)
     try:
         from lib.strategy.initiatives import list_initiatives
         from lib.strategy.outcomes import refresh_initiative_health
-        from lib.strategy.portfolio_intelligence import recommend_all, Recommendation
+        from lib.strategy.portfolio_intelligence import Recommendation, recommend_all
         from lib.strategy.strategic_review import (
-            build_strategic_dashboard, format_strategic_dashboard,
-            run_executive_strategic_review, format_executive_review,
+            build_strategic_dashboard,
+            format_executive_review,
+            format_strategic_dashboard,
+            run_executive_strategic_review,
         )
 
         # Shared health inputs from the rest of the cycle
@@ -686,12 +703,13 @@ def _step_program_coordination(ctx: CycleContext, *, delivery_review: bool = Fal
     and outcome-threatening criticals to the Captain. Fully non-blocking.
     """
     try:
-        from lib.strategy.initiatives import list_initiatives
         from lib.program.pmo import (
-            coordinate_programs, format_program_portfolio,
-            run_executive_delivery_review, format_delivery_review,
+            coordinate_programs,
+            format_delivery_review,
+            format_program_portfolio,
+            run_executive_delivery_review,
         )
-        from lib.program.forecasting import DeliveryForecast
+        from lib.strategy.initiatives import list_initiatives
 
         if not list_initiatives(include_closed=False):
             ctx.program_summary = (
@@ -805,8 +823,7 @@ def _step_improvement_review(
     Runs after all operational steps so improvement observations have full context.
     """
     try:
-        from lib.improvement.discovery import run_discovery, format_discovery_summary
-        from lib.improvement.budget import budget_report
+        from lib.improvement.discovery import format_discovery_summary, run_discovery
 
         result = run_discovery(ctx, weekly_run=weekly_run)
 
@@ -880,7 +897,11 @@ def _step_portfolio_optimisation(
         }
 
         # WP4 — Portfolio optimisation decisions
-        from lib.strategy.portfolio_optimisation import optimise_portfolio, format_optimisation, OptimisationDecision
+        from lib.strategy.portfolio_optimisation import (
+            OptimisationDecision,
+            format_optimisation,
+            optimise_portfolio,
+        )
         opt = optimise_portfolio(inputs)
         ctx.portfolio_terminate_count = opt.terminate_count
         ctx.portfolio_pause_count     = opt.pause_count
@@ -944,7 +965,8 @@ def _step_portfolio_optimisation(
         if portfolio_review:
             try:
                 from lib.strategy.portfolio_review import (
-                    generate_portfolio_review, format_portfolio_review,
+                    format_portfolio_review,
+                    generate_portfolio_review,
                 )
                 review = generate_portfolio_review({
                     **inputs,
@@ -1005,7 +1027,7 @@ def _step_enterprise_architecture(
 
         # Capability gap analysis (WP8) — surface critical gaps to Captain
         try:
-            from lib.strategy.capability_gaps import analyse_capability_gaps, GapType
+            from lib.strategy.capability_gaps import analyse_capability_gaps
             gaps = analyse_capability_gaps()
             critical_gaps = [g for g in gaps if g.is_critical]
             ctx.capability_gap_count = len(critical_gaps)
@@ -1046,7 +1068,7 @@ def _step_enterprise_architecture(
 
         # Technical debt profile (WP5) — surface critical debt to XO
         try:
-            from lib.strategy.technical_debt import compute_debt_profile, DebtTrend
+            from lib.strategy.technical_debt import DebtTrend, compute_debt_profile
             dp = compute_debt_profile()
             ctx.tech_debt_critical_count = dp.critical_count
             increasing_critical = [d for d in dp.top_debts if d.trend == DebtTrend.INCREASING and d.score >= 8]
@@ -1062,7 +1084,9 @@ def _step_enterprise_architecture(
 
         # Future state planning (WP6) — surface critical H1 needs to XO
         try:
-            from lib.strategy.future_state import build_future_state_plan, FutureCapPriority
+            from lib.strategy.future_state import (
+                build_future_state_plan,
+            )
             fp = build_future_state_plan()
             for p in fp.critical_near_term[:2]:
                 ctx.all_items.append({
@@ -1097,7 +1121,8 @@ def _step_enterprise_architecture(
         if capability_review:
             try:
                 from lib.strategy.capability_review import (
-                    generate_capability_review, format_capability_review,
+                    format_capability_review,
+                    generate_capability_review,
                 )
                 review = generate_capability_review(inputs)
                 ctx.capability_review_summary = format_capability_review(review)
@@ -1152,7 +1177,8 @@ def _step_investment_governance(
         # Business case assessment (WP2) — surface approved/rejected cases to XO
         try:
             from lib.strategy.business_cases import (
-                assess_all_business_cases, BusinessCaseOutcome,
+                BusinessCaseOutcome,
+                assess_all_business_cases,
             )
             bcs = assess_all_business_cases()
             approved = [bc for bc in bcs if bc.is_approved]
@@ -1196,7 +1222,10 @@ def _step_investment_governance(
 
         # Capacity planning (WP4) — surface overload to XO
         try:
-            from lib.strategy.capacity_planning import assess_portfolio_capacity, CapacityState
+            from lib.strategy.capacity_planning import (
+                CapacityState,
+                assess_portfolio_capacity,
+            )
             cap_plan = assess_portfolio_capacity(ctx.capacity_status, inputs)
             if cap_plan.state == CapacityState.OVERLOADED:
                 ctx.all_items.append({
@@ -1220,7 +1249,7 @@ def _step_investment_governance(
 
         # Benefit leakage (WP7) — critical → Captain, others → XO
         try:
-            from lib.strategy.benefit_leakage import detect_benefit_leakage, LeakageRisk
+            from lib.strategy.benefit_leakage import detect_benefit_leakage
             leakages = detect_benefit_leakage()
             critical_leakages = [l for l in leakages if l.is_critical]
             ctx.benefit_leakage_critical = len(critical_leakages)
@@ -1267,7 +1296,8 @@ def _step_investment_governance(
         if investment_review:
             try:
                 from lib.strategy.investment_review import (
-                    generate_investment_review, format_investment_review,
+                    format_investment_review,
+                    generate_investment_review,
                 )
                 ir = generate_investment_review(inputs)
                 ctx.investment_review_summary = format_investment_review(ir)
@@ -1311,7 +1341,10 @@ def _step_autonomous_officers(
     Fully non-blocking — each sub-step degrades gracefully.
     """
     try:
-        from lib.officers.daily_operations_cycle import run_officer_cycle, format_officer_cycle_summary
+        from lib.officers.daily_operations_cycle import (
+            format_officer_cycle_summary,
+            run_officer_cycle,
+        )
 
         result = run_officer_cycle(ctx, missions)
         ctx.officer_triggers_fired = result.triggers_fired
@@ -1413,7 +1446,10 @@ def _format_investigation_section(ctx: CycleContext) -> str:
 def assemble_executive_brief(ctx: CycleContext) -> str:
     """Route all items and format Captain brief. Steps 7-9."""
     try:
-        from core.coordination.exception_router import classify_all, format_captain_brief
+        from core.coordination.exception_router import (
+            classify_all,
+            format_captain_brief,
+        )
 
         routed = classify_all(ctx.all_items)
         brief = format_captain_brief(
@@ -1556,7 +1592,7 @@ def run_daily_cycle(
 
 
 __all__ = [
-    "run_daily_cycle",
-    "assemble_executive_brief",
     "CycleContext",
+    "assemble_executive_brief",
+    "run_daily_cycle",
 ]

@@ -4,12 +4,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .base import ExtractionResult, ExtractionError, UnsupportedFileTypeError
+from .base import ExtractionError, ExtractionResult, UnsupportedFileTypeError
 
 SUPPORTED_EXTENSIONS = (".pdf", ".docx", ".txt", ".md", ".csv", ".xlsx", ".xls")
 
-__all__ = ["ExtractionResult", "ExtractionError", "UnsupportedFileTypeError",
-           "SUPPORTED_EXTENSIONS", "extract"]
+__all__ = [
+    "SUPPORTED_EXTENSIONS",
+    "ExtractionError",
+    "ExtractionResult",
+    "UnsupportedFileTypeError",
+    "extract",
+]
 
 
 def extract(path, low_text_chars_per_page: int = 50) -> ExtractionResult:

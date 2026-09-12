@@ -26,7 +26,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # repo root: core/coordination/ -> core/ -> <repo>
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -103,12 +103,12 @@ _NON_ACTIVE_TERMINAL = {"FAILED", "CANCELLED", "CANCELED", "ARCHIVED"}
 _TERMINAL_ENGINEERING_STATUSES = {EngineeringStatus.COMPLETED}
 
 
-def _normalise_token(value: Optional[str]) -> str:
+def _normalise_token(value: str | None) -> str:
     """Uppercase and strip spaces/hyphens/underscores for tolerant matching."""
     return (value or "").strip().upper().replace(" ", "").replace("-", "").replace("_", "")
 
 
-def derive_engineering_status(batch_status: Optional[str]) -> Optional[EngineeringStatus]:
+def derive_engineering_status(batch_status: str | None) -> EngineeringStatus | None:
     """Map a handoff's raw `Batch Status` to a lifecycle status (read-only).
 
     Returns None when the raw status is terminal-but-not-Completed (FAILED /
@@ -122,7 +122,7 @@ def derive_engineering_status(batch_status: Optional[str]) -> Optional[Engineeri
     return _BATCH_STATUS_MAP.get(token, EngineeringStatus.PENDING_TRIAGE)
 
 
-def _parse_handoff_file(path: Path) -> Optional[dict[str, str]]:
+def _parse_handoff_file(path: Path) -> dict[str, str] | None:
     """Parse one ENG-HANDOFF markdown file into a flat field dict.
 
     Reads the `- Key: Value` header block and the `## Mission Title` section.
@@ -136,7 +136,7 @@ def _parse_handoff_file(path: Path) -> Optional[dict[str, str]]:
         return None
 
     fields: dict[str, str] = {}
-    current_section: Optional[str] = None
+    current_section: str | None = None
     section_lines: dict[str, list[str]] = {}
 
     for raw in text.splitlines():
@@ -167,7 +167,7 @@ def _parse_handoff_file(path: Path) -> Optional[dict[str, str]]:
     return fields
 
 
-def _coerce_approved_at(value: Optional[str], fallback_path: Path) -> str:
+def _coerce_approved_at(value: str | None, fallback_path: Path) -> str:
     """Return an ISO timestamp for staleness from the 'Approved At' field.
 
     Handoffs are written as "%Y-%m-%d %H:%M:%S". Falls back to the file mtime,
@@ -187,7 +187,7 @@ def _coerce_approved_at(value: Optional[str], fallback_path: Path) -> str:
 
 def _normalise_to_mission(
     fields: dict[str, str], path: Path, include_completed: bool = False,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Map parsed handoff fields into a Number One mission-dict, or None to skip.
 
     Skips (returns None) when the handoff is not approved-for-engineering, or
@@ -303,8 +303,8 @@ def _normalise_to_mission(
 
 
 def load_engineering_handoffs(
-    handoffs_dir: Optional[str | Path] = None,
-    command_memory_mission_ids: Optional[set[str]] = None,
+    handoffs_dir: str | Path | None = None,
+    command_memory_mission_ids: set[str] | None = None,
     include_completed: bool = False,
 ) -> list[dict[str, Any]]:
     """Return approved engineering handoffs as mission dicts.

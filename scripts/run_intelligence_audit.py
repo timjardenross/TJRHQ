@@ -16,7 +16,6 @@ Usage:
 """
 
 import argparse
-import json
 import logging
 import os
 import sys
@@ -25,15 +24,15 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from intelligence.audit import (
-    source_fidelity_report,
-    print_fidelity_report,
+    brief_sample,
     enrichment_sample,
     enrichment_stats,
-    print_enrichment_validation_template,
-    print_enrichment_stats,
-    brief_sample,
     print_brief_coherence_template,
     print_brief_stats,
+    print_enrichment_stats,
+    print_enrichment_validation_template,
+    print_fidelity_report,
+    source_fidelity_report,
 )
 
 logging.basicConfig(

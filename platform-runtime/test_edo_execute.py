@@ -11,8 +11,8 @@ _BOT_DIR = Path(__file__).resolve().parent
 if str(_BOT_DIR) not in sys.path:
     sys.path.insert(0, str(_BOT_DIR))
 
-from lib.delivery import execution  # noqa: E402
-import edo_execute  # noqa: E402
+import edo_execute
+from lib.delivery import execution
 
 MISSION = {"mission_id": "MSN-0099", "title": "Improve Medical Bay dashboard",
            "status": "Designed", "description": "make it better",

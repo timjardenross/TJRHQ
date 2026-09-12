@@ -150,7 +150,7 @@ def _format_issue_body(mission_candidate: dict[str, Any]) -> str:
         lines.append(f"- Mission Candidate ID: `{mission_id}`")
     if decision_id:
         lines.append(f"- Decision ID: `{decision_id}`")
-    lines.append(f"- Source: USS TJR Commander · MSN-0014B auto-created")
+    lines.append("- Source: USS TJR Commander · MSN-0014B auto-created")
     lines.append("")
 
     return "\n".join(lines)

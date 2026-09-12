@@ -17,20 +17,18 @@ Run: platform-runtime/.venv/bin/python -m pytest platform-runtime/test_health_ev
 
 import sys
 import unittest
-from datetime import date
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from commands.health_event import (
-    EVENT_MODAL_CALLBACK_ID,
     _EVENT_TYPES,
+    EVENT_MODAL_CALLBACK_ID,
+    _extract,
     build_health_event_modal,
     handle_health_event_submit,
-    _extract,
 )
-
 
 # ── Modal metadata ────────────────────────────────────────────────────────────
 

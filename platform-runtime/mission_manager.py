@@ -1,7 +1,5 @@
 import re
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Optional
 
 from mission_logger import MISSION_INDEX, MISSIONS_DIR, ensure_missions_dir
 
@@ -28,12 +26,12 @@ def is_mission_management_request(user_text: str) -> bool:
     )
 
 
-def extract_mission_id(user_text: str) -> Optional[str]:
+def extract_mission_id(user_text: str) -> str | None:
     match = re.search(r"\bM-\d{8}-\d{6}\b", user_text)
     return match.group(0) if match else None
 
 
-def parse_index_entry(line: str) -> Optional[dict]:
+def parse_index_entry(line: str) -> dict | None:
     if not line.startswith("- "):
         return None
 

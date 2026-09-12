@@ -15,9 +15,9 @@ _BOT_DIR = Path(__file__).resolve().parent
 if str(_BOT_DIR) not in sys.path:
     sys.path.insert(0, str(_BOT_DIR))
 
-from lib.delivery import execution  # noqa: E402
-from lib.human_systems import decision, xo, framework, safety  # noqa: E402
-from lib.human_systems.mission_load import MissionLoad, Priority  # noqa: E402
+from lib.delivery import execution
+from lib.human_systems import decision, framework, safety, xo
+from lib.human_systems.mission_load import MissionLoad, Priority
 
 GOOD = {"log_date": "2026-06-20", "energy": "high", "mood": "positive",
         "nervous_system_state": "calm", "sleep_hours": 8, "sleep_quality": "good",

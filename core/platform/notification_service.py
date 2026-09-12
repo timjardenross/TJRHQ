@@ -49,10 +49,10 @@ import re
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Callable, Optional
 
 log = logging.getLogger(__name__)
 
@@ -120,9 +120,9 @@ class NotificationResult:
     ok: bool
     transport: Transport
     attempts: int
-    error: Optional[str] = None
+    error: str | None = None
     sent_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-    message_id: Optional[int] = None  # Telegram message_id, when the transport returns one.
+    message_id: int | None = None  # Telegram message_id, when the transport returns one.
     # Apprise's fan-out notify() call returns a bare bool across every
     # config URL it holds, not a per-message id the way Telegram's
     # sendMessage response does — this stays None for Transport.APPRISE by
@@ -138,7 +138,7 @@ class NotificationResult:
 class NotificationLogEntry:
     transport: Transport
     severity: Severity
-    title: Optional[str]
+    title: str | None
     body: str
     result: NotificationResult
 
@@ -174,7 +174,7 @@ def _escape_telegram_html(text: str) -> str:
     return text
 
 
-def _render_full(template: str, title: Optional[str], body: str) -> str:
+def _render_full(template: str, title: str | None, body: str) -> str:
     """Renders without the _TELEGRAM_MAX_LEN truncation _render() applies —
     used by notify(chunk=True) to measure/split the real length before
     deciding whether truncation would even happen."""
@@ -189,7 +189,7 @@ def _render_full(template: str, title: Optional[str], body: str) -> str:
     )
 
 
-def _render(template: str, title: Optional[str], body: str, severity: Severity = Severity.INFO) -> str:
+def _render(template: str, title: str | None, body: str, severity: Severity = Severity.INFO) -> str:
     """Telegram's renderer. `severity` is accepted-but-unused — present only
     so this has the same signature as _render_for_apprise() and both can
     sit in _RENDERERS below without notify() needing a transport-specific
@@ -197,7 +197,7 @@ def _render(template: str, title: Optional[str], body: str, severity: Severity =
     return _render_full(template, title, body)[:_TELEGRAM_MAX_LEN]
 
 
-def _render_for_apprise(template: str, title: Optional[str], body: str, severity: Severity = Severity.INFO) -> str:
+def _render_for_apprise(template: str, title: str | None, body: str, severity: Severity = Severity.INFO) -> str:
     """Apprise-bound transports (ntfy, Discord, email, ...) don't understand
     Telegram's HTML parse_mode — the raw `<b>`/`<code>` tags TEMPLATES bakes
     in for Telegram would otherwise show up as literal angle-bracket text
@@ -232,7 +232,7 @@ def _render_for_apprise(template: str, title: Optional[str], body: str, severity
     return text
 
 
-_RENDERERS: dict[Transport, Callable[[str, Optional[str], str, Severity], str]] = {
+_RENDERERS: dict[Transport, Callable[[str, str | None, str, Severity], str]] = {
     Transport.TELEGRAM: _render,
     Transport.APPRISE: _render_for_apprise,
 }
@@ -240,10 +240,10 @@ _RENDERERS: dict[Transport, Callable[[str, Optional[str], str, Severity], str]] 
 
 def _send_telegram(
     text: str,
-    reply_markup: Optional[dict] = None,
-    chat_id: Optional[str] = None,
+    reply_markup: dict | None = None,
+    chat_id: str | None = None,
     severity: Severity = Severity.INFO,
-) -> tuple[bool, Optional[str], Optional[int]]:
+) -> tuple[bool, str | None, int | None]:
     """Sends via Telegram's HTML parse_mode (2026-08-22, switched from
     Markdown — see _escape_telegram_html's docstring for why).
 
@@ -299,10 +299,10 @@ _SEVERITY_TO_APPRISE_TYPE: dict[Severity, str] = {
 
 def _send_apprise(
     text: str,
-    reply_markup: Optional[dict] = None,
-    chat_id: Optional[str] = None,
+    reply_markup: dict | None = None,
+    chat_id: str | None = None,
     severity: Severity = Severity.INFO,
-) -> tuple[bool, Optional[str], Optional[int]]:
+) -> tuple[bool, str | None, int | None]:
     """Sends through Apprise (https://github.com/caronc/apprise) — one
     library fanning out to 100+ notification transports (ntfy, Discord,
     Slack, generic email, SMS gateways, ...) selected ENTIRELY by the shape
@@ -377,14 +377,14 @@ _SENDERS = {
 def notify(
     body: str,
     *,
-    title: Optional[str] = None,
+    title: str | None = None,
     severity: Severity = Severity.INFO,
     template: str = "plain",
     transport: Transport = Transport.TELEGRAM,
     max_retries: int = 1,
     retry_backoff_seconds: float = 2.0,
-    reply_markup: Optional[dict] = None,
-    chat_id: Optional[str] = None,
+    reply_markup: dict | None = None,
+    chat_id: str | None = None,
     chunk: bool = False,
 ) -> NotificationResult:
     """Send a notification through the given transport.
@@ -464,8 +464,8 @@ def _send_one(
     severity: Severity = Severity.INFO,
 ) -> NotificationResult:
     ok = False
-    error: Optional[str] = None
-    message_id: Optional[int] = None
+    error: str | None = None
+    message_id: int | None = None
     attempts = 0
     for attempt in range(max_retries + 1):
         attempts += 1
@@ -484,11 +484,11 @@ def get_call_log(limit: int = 50) -> list[NotificationLogEntry]:
 
 
 __all__ = [
-    "notify",
+    "TEMPLATES",
+    "NotificationLogEntry",
+    "NotificationResult",
     "Severity",
     "Transport",
-    "NotificationResult",
-    "NotificationLogEntry",
     "get_call_log",
-    "TEMPLATES",
+    "notify",
 ]

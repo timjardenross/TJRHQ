@@ -14,15 +14,15 @@ import json
 import logging
 import sys
 import time
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 
-from collector import EvidenceCollector
-from router_client import ModelRouterClient
-from policy import PolicyEngine
-from decision_processor import DecisionProcessor
 from auto_remediation import AutoRemediationExecutor
+from collector import EvidenceCollector
+from decision_processor import DecisionProcessor
 from internal_discovery import confidence_to_evidence_strength
+from policy import PolicyEngine
+from router_client import ModelRouterClient
 
 # 3-workbench council follow-up 2026-08-29 (self-improvement-findings):
 # this daily systemd timer (self-improving-system.timer, running since
@@ -33,7 +33,7 @@ from internal_discovery import confidence_to_evidence_strength
 # self-contained (loads its own .env, no dependency on this script's own
 # config), matching every other scheduled job's heartbeat convention.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "core" / "platform"))
-from heartbeat import record_heartbeat  # noqa: E402
+from heartbeat import record_heartbeat
 
 log = logging.getLogger("orchestrator")
 _HEARTBEAT_DOMAIN = "self_improvement_cycle"

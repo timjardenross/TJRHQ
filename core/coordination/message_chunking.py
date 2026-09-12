@@ -108,4 +108,4 @@ def chunk_with_headers(text: str, limit: int = DEFAULT_LIMIT,
     return [f"{header.format(i=i + 1, n=n)}\n{c}" for i, c in enumerate(rough)]
 
 
-__all__ = ["chunk_message", "chunk_with_headers", "TELEGRAM_LIMIT", "DEFAULT_LIMIT"]
+__all__ = ["DEFAULT_LIMIT", "TELEGRAM_LIMIT", "chunk_message", "chunk_with_headers"]

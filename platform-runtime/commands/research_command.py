@@ -27,14 +27,14 @@ Public API:
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import sys
 import threading
-import hashlib
-from pathlib import Path
-from datetime import datetime
 from collections import deque
-from typing import Callable, Any, Optional
+from collections.abc import Callable
+from datetime import datetime
+from pathlib import Path
 
 # RESEARCH DELEGATOR FIX: Ensure repo root is in sys.path before importing
 # This ensures imports work whether app.py has run yet or not
@@ -45,6 +45,7 @@ if str(_repo_root) not in sys.path:
 
 # MSN-0055C Work Package 2: Provider Circuit Breaker
 from lib.provider_health import ProviderHealth
+
 from core.coordination.advisory_memory_formatter import format_memory_block
 from core.coordination.memory_metrics import log_memory_metric
 
@@ -84,7 +85,9 @@ def _build_research_supabase_client():
 def _build_mission_registry_memory_adapter():
     """Return the mission registry memory adapter if available."""
     try:
-        from core.coordination.mission_registry_memory_adapter import MissionRegistryMemoryAdapter
+        from core.coordination.mission_registry_memory_adapter import (
+            MissionRegistryMemoryAdapter,
+        )
 
         return MissionRegistryMemoryAdapter()
     except Exception as exc:
@@ -95,7 +98,9 @@ def _build_mission_registry_memory_adapter():
 def _build_decision_registry_memory_adapter():
     """Return the decision registry memory adapter if available."""
     try:
-        from core.coordination.decision_registry_memory_adapter import DecisionRegistryMemoryAdapter
+        from core.coordination.decision_registry_memory_adapter import (
+            DecisionRegistryMemoryAdapter,
+        )
 
         return DecisionRegistryMemoryAdapter()
     except Exception as exc:
@@ -260,8 +265,9 @@ def _execute_research_mission(
     try:
         # Import orchestrator and memory retriever (MSN-0057 WP1)
         # These are validated at app.py startup, so import should succeed
-        from core.coordination.research_orchestration import ResearchOrchestrator
         from lib.research_memory_retrieval import ResearchMemoryRetriever
+
+        from core.coordination.research_orchestration import ResearchOrchestrator
 
         log.info("[research] ResearchOrchestrator imported successfully (cached from startup)")
 
@@ -272,7 +278,7 @@ def _execute_research_mission(
         return (
             "❌ Number One research orchestration unavailable.\n"
             f"Error: Research delegation module not found.\n"
-            f"_Debug: {str(e)}_"
+            f"_Debug: {e!s}_"
         )
 
     # Step 2: Check research memory BEFORE executing new research (MSN-0057 WP1)
@@ -669,9 +675,9 @@ def _format_research_result(result) -> str:
     if hasattr(result, 'captains_brief') and result.captains_brief:
         # Brief is available - use it as primary output
         message = result.captains_brief
-        message += f"\n\n---\n"
+        message += "\n\n---\n"
         message += f"*Mission ID:* `{result.mission_id}`\n"
-        message += f"Full research available in research log.\n"
+        message += "Full research available in research log.\n"
         return message
 
     # FALLBACK: Standard research format (if brief unavailable)
@@ -997,10 +1003,10 @@ if __name__ == "__main__":
         response = handle_research_request(topic, "test-user", "test-channel")
 
         if response.startswith(":x:"):
-            print(f"  Status: error")
+            print("  Status: error")
             print(f"  Message: {response[:80]}")
         else:
-            print(f"  Status: success")
+            print("  Status: success")
             print(f"  Message length: {len(response)} chars")
             if "MSN-" in response:
                 # Extract mission ID

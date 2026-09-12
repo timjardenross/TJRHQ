@@ -29,11 +29,11 @@ without re-embedding. If overlap is ≥70%, re-embedding will restore full quali
 
 from __future__ import annotations
 
-import os
-import sys
+import argparse
 import json
 import math
-import argparse
+import os
+import sys
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
@@ -150,7 +150,7 @@ def main() -> None:
         max_sim = max(sims)
         print(f"Queries evaluated:   {len(sims)}")
         print(f"Dimension mismatches: {dims_mismatches}")
-        print(f"Cross-provider cosine similarity:")
+        print("Cross-provider cosine similarity:")
         print(f"  avg = {avg_sim:.4f}   min = {min_sim:.4f}   max = {max_sim:.4f}")
         print()
 

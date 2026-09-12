@@ -12,7 +12,7 @@ model response degrades individual fields to safe defaults rather than
 crashing the run — one bad LLM response must never break the cycle.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 ALLOWED_RECOMMENDATIONS = ("worth_pursuing", "keep_watching", "not_useful", "needs_more_evidence")
 ALLOWED_FIT = ("weak", "moderate", "strong")
@@ -34,7 +34,7 @@ def validate_investigation(raw: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raw = {}
 
-    confidence: Optional[float] = None
+    confidence: float | None = None
     raw_confidence = raw.get("confidence")
     if isinstance(raw_confidence, (int, float)) and not isinstance(raw_confidence, bool):
         confidence = max(0.0, min(1.0, float(raw_confidence)))

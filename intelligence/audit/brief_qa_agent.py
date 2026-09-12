@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from intelligence.audit.brief_coherence import brief_coherence_checks
 from intelligence.workflow import service
@@ -48,7 +48,7 @@ MAX_REVIEW_AGE_DAYS = 7
 _RISK_SCALE = {"GREEN": 0, "AMBER": 1, "RED": 2}
 
 
-def _parse_ts(raw: Optional[str]) -> Optional[datetime]:
+def _parse_ts(raw: str | None) -> datetime | None:
     if not raw:
         return None
     try:
@@ -142,7 +142,7 @@ def _risk_accuracy_score(brief: dict, sample: dict) -> tuple[int, list[str]]:
     return 100, []
 
 
-def _freshness_score(brief: dict, now: Optional[datetime] = None) -> tuple[int, list[str]]:
+def _freshness_score(brief: dict, now: datetime | None = None) -> tuple[int, list[str]]:
     """2026-08-13 fix: floor was 0, which is a trap — at 0.20 weight and an
     85 pass threshold, a freshness_score of 0 caps overall_score at 80 no
     matter how perfect completeness/coherence/risk are, so any brief that
@@ -165,7 +165,7 @@ def _freshness_score(brief: dict, now: Optional[datetime] = None) -> tuple[int, 
     return max(30, int(100 - overdue * 10)), [f"sat unreviewed {age_days:.1f} days (limit {MAX_REVIEW_AGE_DAYS})"]
 
 
-def score_brief(brief: dict, now: Optional[datetime] = None) -> dict:
+def score_brief(brief: dict, now: datetime | None = None) -> dict:
     """Run the automated data_qa checklist against one real intelligence_briefs
     row. Pure function - no repo/network access, so it's directly unit-testable
     against fixture dicts."""
@@ -255,7 +255,7 @@ def run_nightly(repo, dry_run: bool = True, actor: str = "system") -> list[dict]
     return results
 
 
-def _main(argv: Optional[list[str]] = None) -> int:
+def _main(argv: list[str] | None = None) -> int:
     import argparse
     import json
 

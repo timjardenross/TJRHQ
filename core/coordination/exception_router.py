@@ -314,13 +314,13 @@ def format_captain_brief(
 
 
 __all__ = [
+    "CAPTAIN_ONLY",
+    "NUMBER_ONE_HANDLES",
+    "XO_HANDLES",
     "Route",
     "RouteDecision",
     "RoutedBrief",
     "classify",
     "classify_all",
     "format_captain_brief",
-    "CAPTAIN_ONLY",
-    "XO_HANDLES",
-    "NUMBER_ONE_HANDLES",
 ]

@@ -40,7 +40,7 @@ for p in (str(_BOT), str(_REPO_ROOT)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.strategy.initiatives import list_initiatives, InitiativeHealth
+from lib.strategy.initiatives import list_initiatives
 
 
 class OptimisationDecision(str, Enum):
@@ -92,8 +92,8 @@ def optimise_initiative(
     """Generate an optimisation decision for a single initiative."""
     inputs = inputs or {}
     try:
+        from lib.program.forecasting import DeliveryForecast, forecast_initiative
         from lib.strategy.initiatives import get_initiative
-        from lib.program.forecasting import forecast_initiative, DeliveryForecast
         from lib.strategy.prioritisation import score_initiative
         from lib.strategy.value_realisation import assess_initiative_value
 
@@ -275,10 +275,10 @@ def format_optimisation(opt: PortfolioOptimisation) -> str:
 
 
 __all__ = [
-    "OptimisationDecision",
     "InitiativeOptimisation",
+    "OptimisationDecision",
     "PortfolioOptimisation",
+    "format_optimisation",
     "optimise_initiative",
     "optimise_portfolio",
-    "format_optimisation",
 ]

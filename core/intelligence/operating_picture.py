@@ -18,7 +18,6 @@ import logging
 import os
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
 
 log = logging.getLogger("operating-picture")
 
@@ -274,6 +273,5 @@ def get_operating_picture() -> dict:
 
 
 if __name__ == "__main__":
-    import sys
     picture = get_operating_picture()
     print(json.dumps(picture, indent=2, default=str))

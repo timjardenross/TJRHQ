@@ -6,13 +6,12 @@ from __future__ import annotations
 import json
 import os
 import re
-from typing import Any
 import urllib.error
 import urllib.request
+from typing import Any
 
 from challenge_review import ChallengeReview
 from specialist_executor import SpecialistOutput
-
 
 DEFAULT_SYNTHESIS_PROVIDER = "deterministic"
 DEFAULT_SYNTHESIS_MODEL = "qwen3:8b"
@@ -89,7 +88,7 @@ def _deterministic_strategic(
     # Next action
     mission_id = context.get("mission_id")
     next_action_line = (
-        f"Raise a mission record for this decision"
+        "Raise a mission record for this decision"
         + (f" under {mission_id}" if mission_id else "")
         + " and assign a specialist owner before the next session."
     )
@@ -106,7 +105,7 @@ def _deterministic_strategic(
     ]
     # Rationale from specialist positions
     if outputs:
-        lines.append(f"Specialist consensus supports this direction:")
+        lines.append("Specialist consensus supports this direction:")
         for o in outputs:
             lines.append(f"- {o.specialist} ({o.confidence}%): {o.recommendation}")
     lines.extend([
@@ -393,7 +392,7 @@ def litellm_synthesis(
     importable without it, same convention as ollama_synthesis() imposes no
     import-time requirement on Ollama being installed/running.
     """
-    import litellm  # noqa: PLC0415
+    import litellm
 
     hierarchy_block = _build_hierarchy_block(question)
     prompt = commander_prompt(question, context, outputs, challenge, decision_context, hierarchy_block)

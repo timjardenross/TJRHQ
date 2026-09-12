@@ -9,13 +9,13 @@ offline-safe fetch wrappers. Evidence-backed; no invented observations.
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO / "core" / "knowledge"))
 
-import learning_narrative as ln  # noqa: E402
+import learning_narrative as ln
 
 
 @dataclass

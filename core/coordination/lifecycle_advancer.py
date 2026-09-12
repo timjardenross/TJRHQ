@@ -32,7 +32,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from core.coordination import triage_package as tp
 
@@ -52,11 +52,11 @@ _FORBIDDEN_TARGETS = {
 assert TRIAGE_READY not in _FORBIDDEN_TARGETS, "advancer target must stop before the gate"
 
 
-def _ledger_path(ledger_dir: Optional[Path] = None) -> Path:
+def _ledger_path(ledger_dir: Path | None = None) -> Path:
     return (ledger_dir or _LEDGER_DIR) / "ledger.json"
 
 
-def load_ledger(ledger_dir: Optional[Path] = None) -> dict[str, Any]:
+def load_ledger(ledger_dir: Path | None = None) -> dict[str, Any]:
     """Load the triage-ready overlay (item_id -> entry). Empty on any failure."""
     try:
         return json.loads(_ledger_path(ledger_dir).read_text(encoding="utf-8"))
@@ -64,18 +64,18 @@ def load_ledger(ledger_dir: Optional[Path] = None) -> dict[str, Any]:
         return {}
 
 
-def _save_ledger(ledger: dict[str, Any], ledger_dir: Optional[Path] = None) -> None:
+def _save_ledger(ledger: dict[str, Any], ledger_dir: Path | None = None) -> None:
     path = _ledger_path(ledger_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(ledger, indent=2), encoding="utf-8")
 
 
-def list_triage_ready(ledger_dir: Optional[Path] = None) -> list[dict[str, Any]]:
+def list_triage_ready(ledger_dir: Path | None = None) -> list[dict[str, Any]]:
     """The items currently parked at Triage Ready (awaiting the Captain)."""
     return list(load_ledger(ledger_dir).values())
 
 
-def _audit(advanced: list[dict[str, Any]], ledger_dir: Optional[Path] = None) -> None:
+def _audit(advanced: list[dict[str, Any]], ledger_dir: Path | None = None) -> None:
     """Append a transition audit record alongside the overlay ledger.
 
     Kept inside the overlay dir (not a shared sibling) so it stays isolated per
@@ -101,9 +101,9 @@ def _audit(advanced: list[dict[str, Any]], ledger_dir: Optional[Path] = None) ->
 
 
 def advance(
-    triage_report: Optional[dict[str, Any]] = None,
+    triage_report: dict[str, Any] | None = None,
     apply: bool = False,
-    ledger_dir: Optional[Path] = None,
+    ledger_dir: Path | None = None,
 ) -> dict[str, Any]:
     """Advance enriched Capture items to Triage Ready. Dry-run unless apply=True.
 

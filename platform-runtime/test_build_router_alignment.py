@@ -13,14 +13,11 @@ Covers:
 
 from __future__ import annotations
 
-import importlib
-import re
 import sys
 import tempfile
 import types
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -252,10 +249,10 @@ class TestEngineeringHandoffRouterMeta:
     def _patch_handoff(self, tmpdir_path):
         """Return a context manager stack that patches paths and lazy imports."""
         import contextlib
+
         # record_build_lifecycle_event is imported lazily inside the function body
         # via `from lib.build_learning_loop import record_build_lifecycle_event`.
         # Patch the stub module attribute directly.
-        import lib.build_learning_loop as bll
         return contextlib.ExitStack().__enter__  # placeholder — use inline patches below
 
     def test_handoff_includes_mission_id(self):
@@ -468,7 +465,10 @@ class TestCommandMemoryStatusDefault:
     """save_mission_to_command_memory() default status must remain 'Idea'."""
 
     def test_default_status_is_idea(self):
-        from command_memory_integration import CommandMemoryClient, save_mission_to_command_memory
+        from command_memory_integration import (
+            CommandMemoryClient,
+            save_mission_to_command_memory,
+        )
 
         inserted = {}
 
@@ -490,7 +490,10 @@ class TestCommandMemoryStatusDefault:
         assert inserted.get("status") == "Idea"
 
     def test_planned_status_passed_through(self):
-        from command_memory_integration import CommandMemoryClient, save_mission_to_command_memory
+        from command_memory_integration import (
+            CommandMemoryClient,
+            save_mission_to_command_memory,
+        )
 
         inserted = {}
 

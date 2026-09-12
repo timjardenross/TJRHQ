@@ -12,10 +12,11 @@ Run: python3 -m pytest slack-bot/commands/test_health_event.py -v
 """
 
 from __future__ import annotations
+
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 # Allow imports from both slack-bot/commands and repo root
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -26,11 +27,11 @@ sys.path.insert(0, str(_CMD_DIR))
 # Patch supabase_insert before importing the module under test
 with patch("core.health.supabase_client.supabase_insert", return_value={}):
     from health_event import (
-        parse_event_modal_values,
-        build_health_event_modal,
-        _build_event_confirmation,
         ALLOWED_EVENT_FIELDS,
         EVENT_MODAL_CALLBACK_ID,
+        _build_event_confirmation,
+        build_health_event_modal,
+        parse_event_modal_values,
     )
 
 

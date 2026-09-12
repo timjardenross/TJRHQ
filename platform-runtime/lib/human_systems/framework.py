@@ -19,7 +19,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from statistics import mean
 
-
 # ── Domain registry (doctrine §1) ─────────────────────────────────────────────
 
 DOMAINS: dict[str, dict] = {

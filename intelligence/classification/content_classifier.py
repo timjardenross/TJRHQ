@@ -18,18 +18,16 @@ Usage:
 
 from __future__ import annotations
 
-import re
-import sys
 import os
+import sys
 from dataclasses import dataclass
-from typing import Optional
 
 # Allow running from repository root; platform-runtime uses a hyphen in the directory name
 _REPO_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 sys.path.insert(0, _REPO_ROOT)
 sys.path.insert(0, os.path.join(_REPO_ROOT, "platform-runtime", "lib"))
 
-from comms.pillars import classify_pillar, PILLARS_BY_KEY  # type: ignore
+from comms.pillars import classify_pillar  # type: ignore
 
 
 @dataclass
@@ -43,8 +41,8 @@ class ContentScore:
     captain_focus: bool
     suggested_angle: str
     raw_title: str              # passed through for display without extra join
-    raw_summary: Optional[str]
-    canonical_url: Optional[str]
+    raw_summary: str | None
+    canonical_url: str | None
     collected_at: str           # ISO string — from the source event
     useful_life_days: int       # from source registry; used by content_ranker
 
@@ -61,10 +59,10 @@ _CAPTAIN_FOCUS_BASE = [
 
 def score_for_content(
     event: dict,
-    active_mission_keywords: Optional[list[str]] = None,
+    active_mission_keywords: list[str] | None = None,
     useful_life_days: int = 14,
     source_category: str = "",
-) -> Optional[ContentScore]:
+) -> ContentScore | None:
     """
     Score a single intelligence_events row for content relevance.
 

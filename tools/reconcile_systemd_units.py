@@ -43,7 +43,6 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Set, Tuple
 
 DEPLOY_DIR = Path("deploy")
 AUTO_DEPLOY_CONF = DEPLOY_DIR / "auto-deploy-services.conf"
@@ -61,7 +60,7 @@ _PROJECT_UNIT_PATTERN = re.compile(
 )
 
 
-def _run(cmd: List[str]) -> str:
+def _run(cmd: list[str]) -> str:
     """Run a shell command and return its output."""
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
@@ -69,7 +68,7 @@ def _run(cmd: List[str]) -> str:
     return result.stdout.strip()
 
 
-def get_live_units() -> Set[str]:
+def get_live_units() -> set[str]:
     """Live .service units on this box whose name matches this project's
     own naming pattern (see _PROJECT_UNIT_PATTERN) - not every unit on
     the system."""
@@ -82,17 +81,17 @@ def get_live_units() -> Set[str]:
     return {u for u in units if _PROJECT_UNIT_PATTERN.search(u)}
 
 
-def get_deployed_units() -> Set[str]:
+def get_deployed_units() -> set[str]:
     """Get all systemd units in the deploy directory."""
     return {f.name for f in DEPLOY_DIR.glob("*.service")}
 
 
-def get_auto_deploy_config() -> Set[str]:
+def get_auto_deploy_config() -> set[str]:
     """Parse auto-deploy-services.conf exactly the way deploy/auto-deploy.sh
     itself does: one unit name per line, an optional trailing `# comment`
     stripped, blank lines skipped. NOT key=value - that format doesn't
     appear anywhere in this file."""
-    services: Set[str] = set()
+    services: set[str] = set()
     if not AUTO_DEPLOY_CONF.exists():
         return services
     try:
@@ -101,12 +100,12 @@ def get_auto_deploy_config() -> Set[str]:
                 svc = line.split("#", 1)[0].strip()
                 if svc:
                     services.add(svc)
-    except IOError as e:
+    except OSError as e:
         print(f"Error reading {AUTO_DEPLOY_CONF}: {e}")
     return services
 
 
-def find_discrepancies(live_units: Set[str], deployed_units: Set[str]) -> Tuple[Set[str], Set[str]]:
+def find_discrepancies(live_units: set[str], deployed_units: set[str]) -> tuple[set[str], set[str]]:
     """Identify discrepancies between live and deployed units."""
     # Units running live but not in deploy directory
     live_only = live_units - deployed_units
@@ -117,7 +116,7 @@ def find_discrepancies(live_units: Set[str], deployed_units: Set[str]) -> Tuple[
     return live_only, deployed_only
 
 
-def suggest_reconciliation(live_only: Set[str], deployed_only: Set[str], auto_deploy_config: Set[str]) -> None:
+def suggest_reconciliation(live_only: set[str], deployed_only: set[str], auto_deploy_config: set[str]) -> None:
     """Suggest reconciliation actions based on discrepancies."""
     print("\n=== Systemd Unit Reconciliation Report ===")
 
@@ -156,7 +155,7 @@ def suggest_reconciliation(live_only: Set[str], deployed_only: Set[str], auto_de
         print("No reconciliation actions are needed at this time.")
 
 
-def apply_reconciliation(live_only: Set[str], deployed_only: Set[str], auto_deploy_config: Set[str]) -> None:
+def apply_reconciliation(live_only: set[str], deployed_only: set[str], auto_deploy_config: set[str]) -> None:
     """Apply automatic reconciliation where safe."""
     print("\n=== Applying Automatic Reconciliation ===")
 

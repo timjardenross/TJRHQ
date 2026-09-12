@@ -17,10 +17,9 @@ Rules are additive: later rules can increase scores, not decrease them.
 """
 
 import re
-from typing import Optional
-from intelligence.models import ClassifiedEvent, IntelligenceItem
-from intelligence.classification.deduplicator import compute_hash
 
+from intelligence.classification.deduplicator import compute_hash
+from intelligence.models import ClassifiedEvent, IntelligenceItem
 
 # ─── Keyword tables ───────────────────────────────────────────────────────────
 
@@ -204,7 +203,7 @@ _RESOLVED_INDICATOR_PHRASES = (
 )
 
 
-def is_resolved_incident(title: Optional[str], summary: Optional[str] = None) -> bool:
+def is_resolved_incident(title: str | None, summary: str | None = None) -> bool:
     """True if the title/summary explicitly marks the incident as closed.
     Used to keep closed incidents from outranking live ones in risk scoring
     and brief rendering (see intelligence_analyst.py, captains_brief.py)."""
@@ -299,7 +298,7 @@ _CATEGORY_RELEVANCE = {
 _CVE_PATTERN = re.compile(r"CVE-\d{4}-\d{4,7}", re.IGNORECASE)
 
 
-def extract_cves(title: str, summary: Optional[str]) -> list[str]:
+def extract_cves(title: str, summary: str | None) -> list[str]:
     """Real CVE IDs found in title/summary text, deduped, uppercased.
     Cheap regex extraction — no NVD/CISA KEV cross-referencing (that would
     determine mitigation_available/known_exploit_public, a separate,
@@ -373,7 +372,6 @@ def classify(item: IntelligenceItem) -> ClassifiedEvent:
 
     # ── Operational relevance ─────────────────────────────────────────────────
     # Start from category base, boost for AU geography and high-impact signals
-    from intelligence.persistence import intelligence_store as store
     # We don't have category here — use event_type to approximate
     op_rel = _base_op_relevance(event_type)
     if geography == "AU":

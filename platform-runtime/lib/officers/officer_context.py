@@ -231,8 +231,8 @@ def annotate_with_context(item: dict[str, Any], cycle_ctx: Any, officer: str) ->
 
 
 __all__ = [
-    "OfficerContext",
     "CONTEXT_PREFIXES",
-    "retrieve_officer_context",
+    "OfficerContext",
     "annotate_with_context",
+    "retrieve_officer_context",
 ]

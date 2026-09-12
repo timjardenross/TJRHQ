@@ -194,6 +194,6 @@ def format_portfolio_summary(portfolio: ImprovementPortfolio) -> str:
 
 __all__ = [
     "ImprovementPortfolio",
-    "get_improvement_portfolio",
     "format_portfolio_summary",
+    "get_improvement_portfolio",
 ]

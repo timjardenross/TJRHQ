@@ -28,7 +28,6 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -99,7 +98,7 @@ def assess_business_case(initiative_id: str) -> BusinessCase:
     cap_score = 5.0
     cap_notes: list[str] = []
     try:
-        from lib.strategy.capabilities import list_capabilities, CapabilityStatus
+        from lib.strategy.capabilities import CapabilityStatus, list_capabilities
         caps = [c for c in list_capabilities() if c.initiative_id == initiative_id]
         if caps:
             avg_maturity = sum(c.maturity.value for c in caps) / len(caps)
@@ -141,7 +140,7 @@ def assess_business_case(initiative_id: str) -> BusinessCase:
     delivery_score = 5.0
     delivery_notes: list[str] = []
     try:
-        from lib.program.forecasting import forecast_initiative, DeliveryForecast
+        from lib.program.forecasting import DeliveryForecast, forecast_initiative
         fc = forecast_initiative(initiative_id)
         if fc:
             score_map = {
@@ -162,7 +161,7 @@ def assess_business_case(initiative_id: str) -> BusinessCase:
     debt_score = 7.0
     debt_notes: list[str] = []
     try:
-        from lib.strategy.technical_debt import list_debts, DebtSeverity, DebtTrend
+        from lib.strategy.technical_debt import DebtSeverity, DebtTrend, list_debts
         debts = [d for d in list_debts() if d.initiative_id == initiative_id]
         if debts:
             critical = [d for d in debts if d.severity == DebtSeverity.CRITICAL]
@@ -274,10 +273,10 @@ def format_business_case(bc: BusinessCase) -> str:
 
 
 __all__ = [
-    "BusinessCaseOutcome",
-    "BusinessCaseDimension",
     "BusinessCase",
-    "assess_business_case",
+    "BusinessCaseDimension",
+    "BusinessCaseOutcome",
     "assess_all_business_cases",
+    "assess_business_case",
     "format_business_case",
 ]

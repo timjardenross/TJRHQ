@@ -40,7 +40,7 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -94,7 +94,7 @@ async def _build_graphiti():
     return graphiti
 
 
-def _parse_occurred_at(raw: Optional[str]) -> datetime:
+def _parse_occurred_at(raw: str | None) -> datetime:
     """core_events.occurred_at is a real Postgres timestamptz — this is the
     bi-temporal point that matters to Graphiti (when the fact was true),
     not when this backfill happens to run. Falls back to now() only if the
@@ -166,7 +166,7 @@ async def backfill_from_core_events(hours: int = 48, limit: int = 100) -> dict[s
     return {"total": len(events), "added": added, "failed": failed}
 
 
-async def search(query: str, num_results: int = 10, group_ids: Optional[list[str]] = None) -> list[dict[str, Any]]:
+async def search(query: str, num_results: int = 10, group_ids: list[str] | None = None) -> list[dict[str, Any]]:
     """Hybrid search over whatever's been backfilled so far. Returns plain
     dicts (fact text + temporal bounds), not Graphiti's internal
     EntityEdge objects — this is meant to be easy to print/inspect while

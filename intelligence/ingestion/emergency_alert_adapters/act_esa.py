@@ -13,9 +13,10 @@ from __future__ import annotations
 
 import logging
 import re
+
 import defusedxml.ElementTree as ET  # nosec B314 - defused parser, safe against XXE/entity-expansion on external feed XML
 
-from .base import CanonicalAlert, parse_dmy_datetime, http_get
+from .base import CanonicalAlert, http_get
 
 log = logging.getLogger(__name__)
 

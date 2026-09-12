@@ -42,7 +42,6 @@ import os
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -71,7 +70,7 @@ def _tg_notify(text: str) -> bool:
     """Send text to Captain via Telegram. Returns True on success."""
     try:
         sys.path.insert(0, str(_REPO_ROOT))
-        from core.platform.notification_service import notify, Severity, Transport
+        from core.platform.notification_service import Severity, Transport, notify
         result = notify(text, severity=Severity.INFO, transport=Transport.TELEGRAM)
         return result.ok
     except Exception as exc:
@@ -273,7 +272,6 @@ def _format_idea_review(missions: list[dict]) -> str:
         age_str = ""
         if created_raw:
             try:
-                from datetime import timezone as _tz
                 created = datetime.fromisoformat(created_raw.replace("Z", "+00:00").replace("+00:00", ""))
                 age_days = (now - created).days
                 age_str = f" · {age_days}d old"
@@ -336,7 +334,7 @@ def job_weekly_review() -> None:
     """Fri 16:30 — weekly review summary."""
     health_logged = _check_health_logged_today()
     lines = [
-        f"Weekly Review — Starship Endeavour",
+        "Weekly Review — Starship Endeavour",
         f"Week ending {_today().strftime('%Y-%m-%d')}",
         "",
         f"Health check-in today: {'logged' if health_logged else 'not logged'}",
@@ -416,9 +414,11 @@ def job_forgotten_decisions() -> None:
     try:
         sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
         from captain_notifications import (
-            get_config as _get_notif_config,
-            get_forgotten_decisions,
             format_forgotten_decisions,
+            get_forgotten_decisions,
+        )
+        from captain_notifications import (
+            get_config as _get_notif_config,
         )
     except ImportError:
         log.debug("[proactive] captain_notifications unavailable — forgotten_decisions skipped")
@@ -512,11 +512,11 @@ def job_appointment_prep() -> None:
     try:
         sys.path.insert(0, str(_REPO_ROOT / "platform-runtime" / "commands"))
         from health_appointment_prep import (
-            _get_upcoming_appointments,
-            _get_health_summary_period,
-            _get_recent_health_events,
-            _get_pending_followups,
             _generate_prep_brief,
+            _get_health_summary_period,
+            _get_pending_followups,
+            _get_recent_health_events,
+            _get_upcoming_appointments,
         )
     except ImportError as exc:
         log.debug("[proactive] health_appointment_prep unavailable — appointment_prep skipped: %s", exc)
@@ -556,7 +556,7 @@ def job_shakedown_digest() -> None:
     """Daily 20:00 — operational shakedown day summary."""
     try:
         sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
-        from shakedown_logger import get_day_summary, format_day_summary_for_slack
+        from shakedown_logger import format_day_summary_for_slack, get_day_summary
         summary = get_day_summary(_today())
         msg = format_day_summary_for_slack(summary)
         ok = _tg_notify(msg)
@@ -574,7 +574,7 @@ def job_mission_registry_sync() -> None:
     """Daily 06:45 — sync Supabase missions → mission-index.txt (no delivery)."""
     try:
         sys.path.insert(0, str(_REPO_ROOT / "tools"))
-        from sync_supabase_to_registry import sync, load_registry_ids
+        from sync_supabase_to_registry import load_registry_ids, sync
         before = load_registry_ids()
         sync(dry_run=False)
         added = len(load_registry_ids()) - len(before)
@@ -593,7 +593,9 @@ def job_content_pipeline() -> None:
     """Daily 06:15 — content signal promotion + draft worker (no delivery)."""
     try:
         sys.path.insert(0, str(_REPO_ROOT))
-        from core.content.signal_opportunity_converter import create_opportunities_from_signals
+        from core.content.signal_opportunity_converter import (
+            create_opportunities_from_signals,
+        )
         promoted = create_opportunities_from_signals(limit=5, min_rank_score=70.0)
         log.info("[proactive] Content signal promotion: %s (%d/%d created)",
                  promoted.get("status"), promoted.get("created", 0), promoted.get("requested", 0))
@@ -619,7 +621,7 @@ def job_pending_research_sweep() -> None:
     journalctl, zero heartbeats ever) — added below."""
     try:
         sys.path.insert(0, str(_REPO_ROOT))
-        from core.inbox.orchestrator import _run_research, _db, process_captured_item
+        from core.inbox.orchestrator import _db, _run_research, process_captured_item
         if not _db.enabled():
             _shakedown_log("pending_research_sweep", "skipped", "inbox DB disabled")
             return

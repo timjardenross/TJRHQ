@@ -24,11 +24,12 @@ for _p in (str(_HERE), str(_REPO_ROOT), str(_REPO_ROOT / "core" / "coordination"
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling
+
 _outcomes = _import_sibling("outcomes")
+import signals as _signals
 import temporal as _temporal
 import triggers as _triggers
-import signals as _signals
 import wellness as _wellness
 
 _TERMINAL = {"COMPLETED", "CANCELLED", "CLOSED", "ARCHIVED", "DONE", "COMPLETE"}
@@ -40,7 +41,9 @@ def _load_missions() -> list[dict[str, Any]]:
     # return [] under some sys.path/cwd conditions; _load_from_files() always
     # reads the canonical mission-index regardless of how we were invoked.
     try:
-        from mission_registry_memory_adapter import MissionRegistryMemoryAdapter  # noqa: PLC0415
+        from mission_registry_memory_adapter import (
+            MissionRegistryMemoryAdapter,
+        )
         return MissionRegistryMemoryAdapter()._load_from_files()
     except Exception:  # noqa: BLE001
         return []

@@ -16,7 +16,7 @@ evidence, which may be stale by the time anyone opens the dashboard.
 
 import subprocess
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # Evidence types whose claim is "this exists / is present" — the finding
 # still holds while the path exists, and is resolved once it's gone.
@@ -57,7 +57,7 @@ def git_dirty_paths(repo_root: Path) -> set[str]:
     return paths
 
 
-def _resolve_within_repo(repo_root: Path, location: str) -> Optional[Path]:
+def _resolve_within_repo(repo_root: Path, location: str) -> Path | None:
     """Location as a repo-relative path, or None if it isn't safely
     resolvable inside repo_root (absolute paths elsewhere, a URL, a bare
     description with no real path segment, `../` escapes, etc.) — those

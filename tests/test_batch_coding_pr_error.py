@@ -18,18 +18,17 @@ are both mocked. Dotted-path import convention matches the rest of
 core/engineering/*.
 """
 
-import json
 import shutil
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from core.engineering import batch_coding  # noqa: E402
+from core.engineering import batch_coding
 
 _FILE_RESPONSE = (
     "I'll add the exclusion patterns.\n\n"

@@ -31,8 +31,6 @@ from telegram_bots.capacitybot.capacity_today import (
     COMPENSATION_TYPE_SHORT,
     COMPENSATION_TYPE_VALUES,
     HELPFUL_ACTIONS_OPTIONS,
-    IDENTIFIED_NEEDS,
-    NATURAL_REGULATION_CODE_TO_STATE,
     NATURAL_REGULATION_OPTIONS,
     PAGE_SIZE,
     PREDICTABILITY_OPTIONS,
@@ -41,7 +39,6 @@ from telegram_bots.capacitybot.capacity_today import (
     SENSORY_CHANNEL_LABELS,
     SENSORY_CHANNEL_SHORT,
     SENSORY_CHANNELS,
-    SENSORY_RESPONSE_CODE_TO_VALUE,
     SENSORY_RESPONSE_OPTIONS,
     UNHELPFUL_ACTIONS_OPTIONS,
     base_from,
@@ -52,12 +49,10 @@ from telegram_bots.capacitybot.capacity_today import (
     kb_emotional,
     kb_multiselect,
     kb_natural_regulation,
-    kb_pain,
     kb_predictability,
     kb_sensory_channel_response,
     kb_sleep,
     kb_social,
-    kb_stimulation,
     kb_suppressed_regulation,
     parse_cb,
     q_active_loads,
@@ -795,10 +790,11 @@ def test_cmd_capacity_asks_sleep_on_first_checkin_of_day():
 
 def test_cmd_capacity_skips_sleep_on_repeat_checkin():
     print("\n── cmd_capacity — later check-ins today skip straight to capacity ─")
-    import telegram_bots.capacitybot.app as app_module
-    from telegram_bots.capacitybot.app import cmd_capacity
     from datetime import datetime
     from zoneinfo import ZoneInfo
+
+    import telegram_bots.capacitybot.app as app_module
+    from telegram_bots.capacitybot.app import cmd_capacity
 
     today = datetime.now(ZoneInfo("Australia/Brisbane")).date().isoformat()
     db, _ = _make_capacity_db(today_checkin_rows=[{"log_date": today, "checkin_type": "capacity"}])

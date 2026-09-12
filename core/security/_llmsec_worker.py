@@ -51,7 +51,6 @@ def _cmd_redact(payload: dict[str, Any]) -> dict[str, Any]:
     from presidio_analyzer import AnalyzerEngine
     from presidio_analyzer.nlp_engine import NlpEngineProvider
     from presidio_anonymizer import AnonymizerEngine
-
     from recognizers import build_registered_recognizers
 
     text = payload.get("text", "")

@@ -32,14 +32,13 @@ import json
 import logging
 import urllib.error
 import urllib.request
-from typing import Optional
 
 from intelligence.config import SUPABASE_KEY, SUPABASE_URL
 
 logger = logging.getLogger(__name__)
 
 
-def _load_enabled_sets() -> Optional[dict]:
+def _load_enabled_sets() -> dict | None:
     """Returns {"technical_categories": frozenset|None, "health_tags": frozenset|None}
     or None entirely on failure. An empty list in the stored settings means
     "every category/tag enabled" (Settings' own default) — represented here
@@ -82,11 +81,11 @@ def _load_enabled_sets() -> Optional[dict]:
 _ENABLED = _load_enabled_sets()
 
 
-def enabled_technical_categories() -> Optional[frozenset[str]]:
+def enabled_technical_categories() -> frozenset[str] | None:
     """None means "no filter" (every priority_categories key stays eligible)."""
     return _ENABLED["technical_categories"] if _ENABLED else None
 
 
-def enabled_health_tags() -> Optional[frozenset[str]]:
+def enabled_health_tags() -> frozenset[str] | None:
     """None means "no filter" (every domain_tiers tag stays eligible)."""
     return _ENABLED["health_tags"] if _ENABLED else None

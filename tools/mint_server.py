@@ -43,7 +43,7 @@ class MintHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         if self.path == "/health":
             # File not yet existing is normal (created on first mint).
             # Degraded only if the file exists but is unreadable/corrupt.
@@ -66,7 +66,7 @@ class MintHandler(BaseHTTPRequestHandler):
         else:
             self._send_json(404, {"error": "not found"})
 
-    def do_POST(self) -> None:  # noqa: N802
+    def do_POST(self) -> None:
         if self.path != "/mint":
             self._send_json(404, {"error": "not found"})
             return

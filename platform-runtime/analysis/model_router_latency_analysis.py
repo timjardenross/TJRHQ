@@ -44,7 +44,6 @@ import argparse
 import logging
 import time
 from collections import defaultdict
-from typing import Dict, List, Optional
 
 from core.engineering.providers.model_router import call as router_call
 
@@ -69,15 +68,15 @@ class ModelRouterLatencyAnalyzer:
 
     def analyze_latency(
         self,
-        prompts: Optional[List[str]] = None,
+        prompts: list[str] | None = None,
         samples_per_prompt: int = 1,
-    ) -> Dict[str, Dict[str, float]]:
+    ) -> dict[str, dict[str, float]]:
         """Call the Model Router for each prompt `samples_per_prompt` times,
         recording elapsed time against whichever model label the response
         reports. A failed call is logged and skipped — one bad call must not
         void the rest of the sample."""
         prompts = prompts if prompts is not None else DEFAULT_TEST_PROMPTS
-        timings_by_model: Dict[str, List[float]] = defaultdict(list)
+        timings_by_model: dict[str, list[float]] = defaultdict(list)
 
         for prompt in prompts:
             for _ in range(samples_per_prompt):
@@ -102,13 +101,13 @@ class ModelRouterLatencyAnalyzer:
             for model_label, timings in timings_by_model.items()
         }
 
-    def generate_recommendations(self, results: Dict[str, Dict[str, float]]) -> List[str]:
+    def generate_recommendations(self, results: dict[str, dict[str, float]]) -> list[str]:
         """Plain-language next steps from a completed analyze_latency() run."""
         if not results:
             return ["No successful Model Router calls to analyze — check connectivity "
                     "(model_router.check_connectivity()) before tuning anything."]
 
-        recommendations: List[str] = []
+        recommendations: list[str] = []
 
         if len(results) == 1:
             (only_model,) = results.keys()

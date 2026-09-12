@@ -11,11 +11,11 @@ from __future__ import annotations
 import json
 import os
 import sys
-import urllib.request
-import urllib.parse
 import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # .env loader — 2026-08-29: migrated onto
@@ -38,7 +38,7 @@ _KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 # Public API
 # ---------------------------------------------------------------------------
 
-def supabase_get(path: str, timeout: int = 10) -> List[Dict[str, Any]]:
+def supabase_get(path: str, timeout: int = 10) -> list[dict[str, Any]]:
     """
     GET /rest/v1/{path} and return parsed JSON list.
     Raises RuntimeError on HTTP error or missing credentials.
@@ -70,10 +70,10 @@ def supabase_get(path: str, timeout: int = 10) -> List[Dict[str, Any]]:
 
 def supabase_upsert(
     table: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     on_conflict: str,
     timeout: int = 20,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     POST with Prefer: resolution=merge-duplicates to upsert a row.
     Returns the upserted row.
@@ -109,9 +109,9 @@ def supabase_upsert(
 
 def supabase_insert(
     table: str,
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     timeout: int = 10,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     POST to insert a new row (no conflict handling).
     Returns the inserted row.

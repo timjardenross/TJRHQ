@@ -37,7 +37,6 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
@@ -50,9 +49,10 @@ logging.basicConfig(
 log = logging.getLogger("content-draft")
 
 from dotenv import load_dotenv
+
 load_dotenv(_REPO_ROOT / ".env")
 
-from core.platform.heartbeat import record_heartbeat_ok, record_heartbeat_failed
+from core.platform.heartbeat import record_heartbeat_failed, record_heartbeat_ok
 
 SUPABASE_URL       = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY       = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -100,7 +100,7 @@ def _sb_patch(table: str, match: dict, update: dict) -> None:
 
 # ── Fetch pending items ───────────────────────────────────────────────────────
 
-def fetch_pending(limit: int, single_id: Optional[str] = None) -> list[dict]:
+def fetch_pending(limit: int, single_id: str | None = None) -> list[dict]:
     # MSN-0305: source_ref added — was never selected, so the link back to
     # the originating research finding/signal was silently dropped before
     # _build_research_topic() could use it (MSN-0302 finding).
@@ -150,7 +150,7 @@ def _build_research_topic(item: dict) -> str:
     return "\n".join(parts)
 
 
-def run_research(item: dict) -> Optional[str]:
+def run_research(item: dict) -> str | None:
     """Run Pass 1 via ResearchOrchestrator. Returns consolidated_findings or None."""
     try:
         from core.coordination.research_orchestration import ResearchOrchestrator
@@ -215,7 +215,7 @@ def _build_writing_prompt(item: dict, research: str) -> str:
     return prompt
 
 
-def _call_mistral_agent(prompt: str) -> Optional[str]:
+def _call_mistral_agent(prompt: str) -> str | None:
     """Call Briefing Officer via Mistral conversations API."""
     if not MISTRAL_API_KEY or not MISTRAL_BRIEFING_AGENT_ID:
         return None
@@ -245,7 +245,7 @@ def _call_mistral_agent(prompt: str) -> Optional[str]:
         return None
 
 
-def _call_mistral_direct(prompt: str) -> Optional[str]:
+def _call_mistral_direct(prompt: str) -> str | None:
     """Fallback: mistral-small via chat completions."""
     if not MISTRAL_API_KEY:
         return None
@@ -276,7 +276,7 @@ def _call_mistral_direct(prompt: str) -> Optional[str]:
         return None
 
 
-def _call_mistral_batch_provider(prompt: str) -> Optional[str]:
+def _call_mistral_batch_provider(prompt: str) -> str | None:
     """Last resort: mistral_batch.call() from engineering provider."""
     try:
         from core.engineering.providers.mistral_batch import call as mistral_call
@@ -287,7 +287,7 @@ def _call_mistral_batch_provider(prompt: str) -> Optional[str]:
         return None
 
 
-def run_writing_pass(item: dict, research: str) -> Optional[str]:
+def run_writing_pass(item: dict, research: str) -> str | None:
     """Run Pass 2 — Briefing Officer → direct → batch fallback. Returns draft body or None."""
     prompt = _build_writing_prompt(item, research)
     log.info("[%s] Pass 2 — writing via Briefing Officer agent", item["id"][:8])

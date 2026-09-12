@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger("revs-bot.scoped-supabase")
 
@@ -41,7 +41,7 @@ def mint_scoped_token(secret: str, role: str = SCOPED_ROLE, ttl_seconds: int = 0
     return token.decode("utf-8") if isinstance(token, bytes) else token
 
 
-def resolve_scoped_auth() -> Optional[str]:
+def resolve_scoped_auth() -> str | None:
     secret = os.environ.get("SUPABASE_JWT_SECRET", "").strip()
     if secret:
         try:

@@ -13,10 +13,9 @@ Requirements:
     - mistral package: pip install mistral-sdk
 """
 
-import os
 import json
 import logging
-from datetime import datetime
+import os
 
 logging.basicConfig(
     level=logging.INFO,
@@ -101,7 +100,7 @@ def smoke_test_mistral_research_scout():
         # Log response as JSON if available
         try:
             response_json = json.dumps(response.__dict__ if hasattr(response, '__dict__') else str(response))
-            log.info(f"\nRESPONSE STRUCTURE (redacted):")
+            log.info("\nRESPONSE STRUCTURE (redacted):")
             log.info(f"  {response_json[:200]}...")  # First 200 chars only
         except Exception as e:
             log.info(f"  (Could not serialize response: {type(e).__name__})")
@@ -143,10 +142,10 @@ def smoke_test_mistral_research_scout():
                 answer = response.choices[0].text
 
         if answer:
-            log.info(f"\nRESEARCH ANSWER (first 300 chars):")
+            log.info("\nRESEARCH ANSWER (first 300 chars):")
             log.info(f"  {str(answer)[:300]}...")
         else:
-            log.info(f"\nFull response object:")
+            log.info("\nFull response object:")
             log.info(f"  {response}")
 
     except Exception as e:

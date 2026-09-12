@@ -5,9 +5,9 @@ credential is a bigger deal for a public-facing bot than for XO."""
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
-import logging
 
 from dotenv import dotenv_values
 
@@ -16,8 +16,6 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(_BOT_DIR))
 
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
-from core.platform.configuration_service import load_dotenv_files
-
 # Same ordering as tg-xo.service's two EnvironmentFile directives (see
 # telegram-bots/xo/DEPLOYMENT.md): shared project config (SUPABASE_URL,
 # SUPABASE_ANON_KEY, SUPABASE_JWT_SECRET, embedding provider, etc.) loads
@@ -29,6 +27,8 @@ from core.platform.configuration_service import load_dotenv_files
 # (not one list) to preserve "own .env wins over shared" ordering, since
 # that module's override flag applies uniformly to a whole call.
 from pathlib import Path as _Path
+
+from core.platform.configuration_service import load_dotenv_files
 
 load_dotenv_files([_Path(_REPO_ROOT) / "platform-runtime" / ".env"])
 load_dotenv_files([_Path(_BOT_DIR) / ".env"], override=True)

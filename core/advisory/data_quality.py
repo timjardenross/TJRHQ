@@ -21,12 +21,12 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling
+
 _outcomes = _import_sibling("outcomes")
-import timeline as _timeline
 import calibration as _calibration
 import metrics as _metrics
-
+import timeline as _timeline
 
 # ---------------------------------------------------------------------------
 # WP1 — Capture gaps

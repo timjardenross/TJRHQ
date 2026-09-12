@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
 
 # LLM application security baseline (USS-TJR-MSN-0366 Stream 5): this is a
 # real external-cloud-API dispatch point (api.mistral.ai, not Ollama-local),
@@ -35,7 +34,7 @@ except ImportError:
     Mistral = None  # type: ignore[assignment,misc]
 
 
-def call(prompt: str, model: Optional[str] = None) -> tuple[str, str]:
+def call(prompt: str, model: str | None = None) -> tuple[str, str]:
     """
     Send prompt to Mistral chat completions.
 

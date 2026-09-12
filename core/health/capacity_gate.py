@@ -177,7 +177,7 @@ class CapacityGate:
         actions.append(CapacityAction(
             action_type="flag_for_number_one",
             item_type="stale_mission",
-            reason=f"AMBER capacity — Number One: limit new assignments to P0/P1 only",
+            reason="AMBER capacity — Number One: limit new assignments to P0/P1 only",
             captain_override_available=True,
         ))
 
@@ -210,6 +210,6 @@ class CapacityGate:
 
 
 __all__ = [
-    "CapacityGate",
     "CapacityAction",
+    "CapacityGate",
 ]

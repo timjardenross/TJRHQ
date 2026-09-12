@@ -48,12 +48,12 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import quote
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
-from heartbeat import supabase_get  # noqa: E402
+from heartbeat import supabase_get
 
 log = logging.getLogger("mission_dispatch")
 

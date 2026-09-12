@@ -11,7 +11,7 @@ findings this session (not generic filler).
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ def add_pattern(
     steps: list[str],
     source_missions: list[str],
     *,
-    confidence: Optional[int] = None,
+    confidence: int | None = None,
 ) -> bool:
     """Add or update a pattern (upsert on pattern_name). Non-blocking."""
     try:
@@ -67,7 +67,7 @@ def add_pattern(
         return False
 
 
-def get_patterns(category: Optional[str] = None) -> list[dict[str, Any]]:
+def get_patterns(category: str | None = None) -> list[dict[str, Any]]:
     try:
         from tools.supabase.client import CommanderSupabaseClient
 
@@ -255,4 +255,4 @@ def propose_dual_write_adoption_pattern() -> bool:
     )
 
 
-__all__ = ["add_pattern", "get_patterns", "seed_initial_patterns", "propose_dual_write_adoption_pattern"]
+__all__ = ["add_pattern", "get_patterns", "propose_dual_write_adoption_pattern", "seed_initial_patterns"]

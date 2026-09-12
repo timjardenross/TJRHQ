@@ -191,6 +191,7 @@ def _register_pattern(pattern: OrganisationalPattern) -> None:
     """Persist/update the pattern registry (dedup by theme)."""
     try:
         from command_memory_integration import log_decision_to_command_memory
+
         from tools.supabase.client import CommanderSupabaseClient
 
         owner = f"{PATTERN_OWNER_PREFIX}{pattern.theme}"
@@ -291,8 +292,8 @@ def pattern_to_investigation(pattern: OrganisationalPattern) -> str | None:
     if pattern.severity == "LOW":
         return None
     try:
-        from lib.investigation.registry import open_investigation
         from lib.investigation.framework import InvestigationType
+        from lib.investigation.registry import open_investigation
 
         try:
             inv_type = InvestigationType(pattern.inv_type)
@@ -333,10 +334,10 @@ def format_patterns(patterns: list[OrganisationalPattern]) -> str:
 
 
 __all__ = [
+    "PATTERN_OWNER_PREFIX",
     "OrganisationalPattern",
     "detect_patterns",
+    "format_patterns",
     "get_known_patterns",
     "pattern_to_investigation",
-    "format_patterns",
-    "PATTERN_OWNER_PREFIX",
 ]

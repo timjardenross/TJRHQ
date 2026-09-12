@@ -259,12 +259,12 @@ def detect_idle_missions(missions: list[dict[str, Any]]) -> list[dict[str, Any]]
 
 
 __all__ = [
-    "FollowUpStatus",
-    "FollowUp",
     "IDLE_THRESHOLD_DAYS",
-    "register_follow_up",
+    "FollowUp",
+    "FollowUpStatus",
     "check_follow_ups",
-    "resolve_follow_up",
-    "list_officer_follow_ups",
     "detect_idle_missions",
+    "list_officer_follow_ups",
+    "register_follow_up",
+    "resolve_follow_up",
 ]

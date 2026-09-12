@@ -10,8 +10,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from core.coordination.mission_registry_memory_adapter import MissionRegistryMemoryAdapter
-from core.coordination.decision_registry_memory_adapter import DecisionRegistryMemoryAdapter
+from core.coordination.decision_registry_memory_adapter import (
+    DecisionRegistryMemoryAdapter,
+)
+from core.coordination.mission_registry_memory_adapter import (
+    MissionRegistryMemoryAdapter,
+)
 
 
 class _FakeResponse:

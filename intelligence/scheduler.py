@@ -37,7 +37,10 @@ import sys
 
 from intelligence.brief.brief_generator import BriefGenerator
 from intelligence.config import (
-    SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, DAILY_BRIEF_AFTER_SYNC,
+    DAILY_BRIEF_AFTER_SYNC,
+    GITHUB_SYNC_CRON,
+    SCHEDULE_CRON,
+    SCHEDULE_TZ,
 )
 from intelligence.models import ResilienceBrief
 
@@ -118,8 +121,8 @@ def run_github_sync() -> dict:
 
     Idempotent (dedup Gate 1 file_path+sha, Gate 2 dedup_hash); safe to re-run.
     """
-    from tools.intelligence.github_brief_sync import run as _sync_run
     from intelligence.ingestion.github_markdown_adapter import DEFAULT_LOOKBACK_DAYS
+    from tools.intelligence.github_brief_sync import run as _sync_run
     log.info("Daily ORI GitHub brief sync starting")
     stats = _sync_run(days=DEFAULT_LOOKBACK_DAYS, dry_run=False, backfill=False)
     log.info("Daily ORI GitHub sync complete: imported=%s events_saved=%s skipped=%s",
@@ -635,6 +638,7 @@ def _pregenerate_brief_audio(brief_type: str) -> None:
     resolve to."""
     try:
         import re
+
         import requests
         sys.path.insert(0, os.path.join(_REPO_ROOT, "core", "platform"))
         from heartbeat import supabase_get
@@ -669,6 +673,7 @@ def _pregenerate_brief_audio(brief_type: str) -> None:
 def _morning_brief_job() -> None:
     global _morning_brief_sent_at
     from datetime import datetime, timezone
+
     from intelligence.captains_brief import send_brief
 
     log.info("Captain's morning brief job triggered")
@@ -779,6 +784,7 @@ def _daily_collection_job() -> None:
     """
     log.info("Daily source collection triggered")
     from datetime import datetime, timedelta, timezone
+
     from intelligence.classification.classifier import classify
     from intelligence.classification.deduplicator import _normalise
     from intelligence.classification.filter import apply_filter
@@ -1082,6 +1088,7 @@ def _priority_tiered_collection_job() -> None:
     log.info("Priority tiered Downdetector collection triggered (hour=%d)", hour)
     try:
         from datetime import datetime, timedelta, timezone
+
         from intelligence.classification.classifier import classify
         from intelligence.classification.deduplicator import _normalise
         from intelligence.classification.filter import apply_filter
@@ -1232,6 +1239,7 @@ def _intraday_status_collection_job() -> None:
     log.info("Intraday status collection triggered")
     try:
         from datetime import datetime, timedelta, timezone
+
         from intelligence.classification.classifier import classify
         from intelligence.classification.deduplicator import _normalise
         from intelligence.classification.filter import apply_filter
@@ -1328,6 +1336,7 @@ def _intraday_media_collection_job() -> None:
     log.info("Intraday media collection triggered")
     try:
         from datetime import datetime, timedelta, timezone
+
         from intelligence.classification.classifier import classify
         from intelligence.classification.deduplicator import _normalise
         from intelligence.classification.filter import apply_filter
@@ -1409,7 +1418,9 @@ def _health_mission_correlation_job() -> None:
     """
     log.info("Health-mission correlation job triggered")
     try:
-        from intelligence.workflow.health_mission_correlation_workflow import run_health_mission_correlation_job
+        from intelligence.workflow.health_mission_correlation_workflow import (
+            run_health_mission_correlation_job,
+        )
         result = run_health_mission_correlation_job()
         log.info("Health-mission correlation complete: status=%s n_health=%d n_missions=%d",
                  result.get('status'), result.get('n_health_entries', 0), result.get('n_mission_days', 0))
@@ -1526,8 +1537,8 @@ def _evolved_insight_generation_job() -> None:
     """
     log.info("Evolved Captain Intelligence insight generation triggered")
     try:
-        from core.platform.event_bus import poll_events
         from core.platform.captain_brief_evolution import assemble_evolved_captain_brief
+        from core.platform.event_bus import poll_events
 
         events = poll_events(limit=200)
         doc = assemble_evolved_captain_brief(events)
@@ -1577,8 +1588,10 @@ def _attention_evaluation_job() -> None:
     """
     log.info("Autonomous Attention Engine evaluation triggered")
     try:
+        from core.platform.captain_brief_orchestrator import (
+            assemble_captain_brief_document,
+        )
         from core.platform.event_bus import poll_events
-        from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
         from core.platform.interrupt_dispatcher import dispatch_interrupt_now
 
         # Runs every ATTENTION_EVAL_INTERVAL_MINUTES (default 10 = 144x/day).
@@ -1660,8 +1673,8 @@ def _validation_suite_job() -> None:
     """
     log.info("Operational Intelligence Validation Suite triggered")
     try:
+        from core.platform.notification_service import Severity, Transport, notify
         from intelligence.validation_suite import run_suite
-        from core.platform.notification_service import notify, Severity, Transport
 
         report = run_suite()
         passed = sum(r.passed for r in report.results)
@@ -1770,7 +1783,8 @@ def _episodic_memory_decay_job() -> None:
         # PostgREST filter: created_at < now() - interval '90 days', reuse_count = 0,
         # execution_status = 'success'. lt() with an ISO timestamp achieves the
         # interval comparison; PostgreSQL coerces the string to timestamptz.
-        from datetime import datetime, timedelta, timezone as _tz
+        from datetime import datetime, timedelta
+        from datetime import timezone as _tz
 
         cutoff = (datetime.now(_tz.utc) - timedelta(days=90)).isoformat()
         delete_result = (

@@ -7,10 +7,9 @@ All inputs and outputs are plain dataclasses — no external dependencies.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
 
 
 class ExecutionMode(str, Enum):
@@ -50,7 +49,7 @@ class RouterRequest:
     mission_id: str
     mode: ExecutionMode
     backend: Backend
-    model: Optional[str]        # for vm-ollama; None → default
+    model: str | None        # for vm-ollama; None → default
     mission_context: MissionContext
     extra_context: str = ""     # free-text appended to prompt
 
@@ -68,8 +67,8 @@ class RouterResponse:
     raw_response: str
     output_text: str
     success: bool
-    error: Optional[str] = None
-    warnings: Optional[list] = None  # anti-hallucination flags
+    error: str | None = None
+    warnings: list | None = None  # anti-hallucination flags
 
     def to_dict(self) -> dict:
         return asdict(self)

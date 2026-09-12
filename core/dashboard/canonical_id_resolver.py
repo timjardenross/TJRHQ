@@ -8,7 +8,8 @@ This helper should only remain if the dashboard still needs legacy-to-canonical
 resolution. Prefer direct canonical identifiers where possible.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any
+
 from supabase import create_client
 
 
@@ -86,7 +87,7 @@ class CanonicalIDResolver:
             print(f"[ERROR] Failed to list missions: {e}")
             return []
 
-    def search_by_id(self, search_id: str) -> Optional[Dict[str, Any]]:
+    def search_by_id(self, search_id: str) -> dict[str, Any] | None:
         """
         Search for mission by either legacy or canonical ID.
 

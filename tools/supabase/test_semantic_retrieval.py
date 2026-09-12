@@ -12,8 +12,8 @@ from typing import Any
 
 if str(Path(__file__).resolve().parent) not in _sys.path:
     _sys.path.insert(0, str(Path(__file__).resolve().parent))
-from retrieve_knowledge import keyword_results, semantic_results
 from _local_import_supabase import import_sibling
+from retrieve_knowledge import keyword_results, semantic_results
 
 SupabaseClient = import_sibling("supabase_client").SupabaseClient
 

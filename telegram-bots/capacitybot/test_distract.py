@@ -10,14 +10,13 @@ from __future__ import annotations
 import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from telegram_bots.capacitybot.distract import (
     _TIER_ACTIVITIES,
     fetch_protocol,
-    fetch_protocol_steps,
     fetch_protocols,
     parse_cb,
     pick_activity,

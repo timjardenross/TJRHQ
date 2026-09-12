@@ -15,12 +15,12 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from core.engineering import mission_dispatch  # noqa: E402
+from core.engineering import mission_dispatch
 
 
 def make_mission(**overrides):

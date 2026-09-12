@@ -28,13 +28,15 @@ Design:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
-from datetime import datetime, timedelta
-import json
+from typing import Any
 
 try:
-    from core.coordination.number_one_memory_adapter import NumberOneMemoryAdapter, MemoryContext
+    from core.coordination.number_one_memory_adapter import (
+        MemoryContext,
+        NumberOneMemoryAdapter,
+    )
 except Exception:  # pragma: no cover - advisory-only fallback
     NumberOneMemoryAdapter = None
     MemoryContext = None
@@ -111,13 +113,13 @@ class Mission:
     status: MissionStatus
     priority: Priority
     domain: str
-    assigned_role: Optional[str] = None
+    assigned_role: str | None = None
     assigned_specialists: list[str] = field(default_factory=list)
     dependencies: list[str] = field(default_factory=list)  # mission_ids
     blockers: list[str] = field(default_factory=list)  # descriptions
     created_at: datetime = field(default_factory=datetime.utcnow)
     last_updated: datetime = field(default_factory=datetime.utcnow)
-    next_action: Optional[str] = None
+    next_action: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @staticmethod
@@ -164,17 +166,17 @@ class WorkQueueItem:
     priority: Priority
     status: MissionStatus
     title: str
-    assigned_specialist: Optional[str]
-    next_action: Optional[str]
+    assigned_specialist: str | None
+    next_action: str | None
     blockers: list[str]
     dependencies: list[str]
-    confidence: Optional[float] = None
-    confidence_band: Optional[ConfidenceBand] = None
-    rationale: Optional[str] = None
+    confidence: float | None = None
+    confidence_band: ConfidenceBand | None = None
+    rationale: str | None = None
     # Engineering-handoff lifecycle projection (read-only; None for missions).
     # M-20260614-ENGINEERING-HANDOFF-LIFECYCLE: surfaces the handoff's
     # Pending Triage / Assigned / In Progress / Awaiting Review stage.
-    engineering_status: Optional[str] = None
+    engineering_status: str | None = None
 
 
 @dataclass
@@ -264,7 +266,7 @@ class NumberOne:
     management through deterministic rules-based coordination.
     """
 
-    def __init__(self, config: Optional[CoordinationConfig] = None):
+    def __init__(self, config: CoordinationConfig | None = None):
         """Initialize Number One."""
         self.config = config or CoordinationConfig()
         self.current_time = datetime.utcnow()
@@ -279,7 +281,7 @@ class NumberOne:
         the advisory layer (returns a clear note if it is unavailable).
         """
         try:
-            from number_one_advisory import advisory_support  # noqa: PLC0415
+            from number_one_advisory import advisory_support
             return advisory_support(mission)
         except Exception as exc:  # noqa: BLE001
             return {
@@ -342,7 +344,7 @@ class NumberOne:
         self,
         missions: list[dict[str, Any]],
         capacity_status: str,
-        routing_results: dict[str, "RoutingDecision"] | None = None,
+        routing_results: dict[str, RoutingDecision] | None = None,
     ) -> dict[str, Any]:
         """
         Return the work queue with an advisory health-capacity overlay.
@@ -727,8 +729,8 @@ class NumberOne:
     def _determine_specialist(
         self,
         mission: Mission,
-        routing: Optional[RoutingDecision]
-    ) -> Optional[str]:
+        routing: RoutingDecision | None
+    ) -> str | None:
         """Determine specialist for queue display."""
         # If already assigned, show that
         if mission.assigned_role:
@@ -777,7 +779,7 @@ class NumberOne:
             )
         )
 
-    def _is_stale_mission(self, mission: Mission, days: Optional[int] = None) -> bool:
+    def _is_stale_mission(self, mission: Mission, days: int | None = None) -> bool:
         """Check if mission is stale (no updates)."""
         threshold_days = days or self.config.STALE_MISSION_DAYS
         if mission.priority == Priority.P0:
@@ -786,7 +788,7 @@ class NumberOne:
         age = (self.current_time - mission.last_updated).days
         return age >= threshold_days
 
-    def _is_long_blocked(self, mission: Mission, days: Optional[int] = None) -> bool:
+    def _is_long_blocked(self, mission: Mission, days: int | None = None) -> bool:
         """Check if mission has been blocked too long."""
         if mission.status not in BLOCKED_STATUSES:
             return False
@@ -820,7 +822,7 @@ class NumberOne:
         follow_ups: list[dict],
         escalations: list[Escalation],
         blocked: list[WorkQueueItem],
-        memory_context: Optional[Any] = None,
+        memory_context: Any | None = None,
     ) -> list[str]:
         """Generate recommended actions for brief."""
         recommendations = []
@@ -919,7 +921,7 @@ DORMANT_STATUSES = {
 }
 
 
-def _to_status(value: Optional[str]) -> MissionStatus:
+def _to_status(value: str | None) -> MissionStatus:
     """Parse a status string to MissionStatus. Never raises (MSN-0053).
 
     Handles D-008 values, legacy values, and case differences (e.g. live
@@ -938,7 +940,7 @@ def _to_status(value: Optional[str]) -> MissionStatus:
     return MissionStatus.DESIGNED
 
 
-def _to_priority(value: Optional[str]) -> Priority:
+def _to_priority(value: str | None) -> Priority:
     """Parse a priority to Priority. Never raises (MSN-0053).
 
     Tolerates None (-> P3), 'P1', and 'P1 High' style. Unknown -> P3.
@@ -952,7 +954,7 @@ def _to_priority(value: Optional[str]) -> Priority:
     return Priority.P3
 
 
-def _parse_iso_datetime(datetime_str: Optional[str]) -> datetime:
+def _parse_iso_datetime(datetime_str: str | None) -> datetime:
     """Parse ISO 8601 datetime string to naive UTC datetime."""
     if not datetime_str:
         return datetime.utcnow()
@@ -972,15 +974,15 @@ def _parse_iso_datetime(datetime_str: Optional[str]) -> datetime:
 # ============================================================================
 
 __all__ = [
-    "NumberOne",
-    "MissionStatus",
-    "Priority",
     "ConfidenceBand",
-    "EscalationLevel",
-    "Mission",
-    "RoutingDecision",
-    "WorkQueueItem",
-    "Escalation",
     "CoordinationBrief",
     "CoordinationConfig",
+    "Escalation",
+    "EscalationLevel",
+    "Mission",
+    "MissionStatus",
+    "NumberOne",
+    "Priority",
+    "RoutingDecision",
+    "WorkQueueItem",
 ]

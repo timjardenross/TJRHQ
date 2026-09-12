@@ -15,14 +15,13 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
 
 def persist_health_mission_correlations(
-    results: dict, synthesis: Optional[dict] = None, store=None,
-    supabase_url: Optional[str] = None, supabase_key: Optional[str] = None,
+    results: dict, synthesis: dict | None = None, store=None,
+    supabase_url: str | None = None, supabase_key: str | None = None,
 ) -> bool:
     """
     Persist health-mission correlation results to a new table
@@ -40,8 +39,8 @@ def persist_health_mission_correlations(
         True if persisted, False on error (non-blocking)
     """
     import os
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     if not supabase_url:
         supabase_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
@@ -90,7 +89,9 @@ def run_health_mission_correlation_job() -> dict:
     Called by scheduler daily (after health data is collected).
     Returns job status + computed results.
     """
-    from core.intelligence.health_mission_correlation import compute_health_mission_correlations
+    from core.intelligence.health_mission_correlation import (
+        compute_health_mission_correlations,
+    )
 
     log.info("Running Issue 17 health-mission correlation job...")
     try:
@@ -103,7 +104,9 @@ def run_health_mission_correlation_job() -> dict:
         # unconditionally rather than duplicating that guard here.
         synthesis = None
         try:
-            from intelligence.brief.correlation_synthesis import synthesize_correlation_insights
+            from intelligence.brief.correlation_synthesis import (
+                synthesize_correlation_insights,
+            )
             synthesis = synthesize_correlation_insights(results)
             log.info(f"Correlation synthesis: status={synthesis.get('status')}")
         except Exception as exc:
@@ -132,7 +135,7 @@ def run_health_mission_correlation_job() -> dict:
         }
 
 
-def get_latest_correlations(supabase_url: Optional[str] = None, supabase_key: Optional[str] = None) -> Optional[dict]:
+def get_latest_correlations(supabase_url: str | None = None, supabase_key: str | None = None) -> dict | None:
     """Fetch the latest persisted health-mission correlations."""
     import os
     import urllib.request

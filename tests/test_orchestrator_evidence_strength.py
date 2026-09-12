@@ -43,8 +43,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
 
-from orchestrator import SelfImprovementOrchestrator  # noqa: E402
-from internal_discovery import confidence_to_evidence_strength  # noqa: E402
+from internal_discovery import confidence_to_evidence_strength
+from orchestrator import SelfImprovementOrchestrator
 
 
 def make_raw_finding(**overrides):

@@ -1,5 +1,4 @@
 import pytest
-
 from src.parsing.brief_parser import parse_brief
 
 

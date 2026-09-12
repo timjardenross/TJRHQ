@@ -13,7 +13,7 @@ Reuse-only: patterns.py, signals.py, learning.py. Informational.
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -21,9 +21,11 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-from _local_import_advisory import import_sibling as _import_sibling  # noqa: E402
+from _local_import_advisory import import_sibling as _import_sibling
+
 _patterns = _import_sibling("patterns")
 import signals as _signals
+
 _learning = _import_sibling("learning")
 
 

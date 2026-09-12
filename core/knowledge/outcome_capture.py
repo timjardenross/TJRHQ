@@ -40,15 +40,15 @@ import urllib.parse
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 # Reuse the functional Supabase client (lives under core/health).
 sys.path.insert(0, str(_REPO_ROOT / "core" / "health"))
-from supabase_client import (  # type: ignore  # noqa: E402
+from supabase_client import (  # type: ignore
+    is_configured,
     supabase_get,
     supabase_upsert,
-    is_configured,
 )
 
 _TABLE = "outcome_records"
@@ -113,7 +113,7 @@ class OutcomeInput:
     content_classification: str = "internal_work"
     coaching_relevance: bool = False
     work_relevance: bool = False
-    confidence: Optional[int] = None          # 1..5
+    confidence: int | None = None          # 1..5
     evidence_links: list[str] = field(default_factory=list)
     created_by: str = "captain"
     # When True and a lesson_learned is present, also persist to lessons_learned.
@@ -126,7 +126,7 @@ class OutcomeResult:
     source_type: str
     source_id: str
     persisted: bool
-    lesson_id: Optional[str] = None
+    lesson_id: str | None = None
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
@@ -184,9 +184,9 @@ def _generate_outcome_id() -> str:
 
 
 def _row(inp: OutcomeInput, outcome_id: str, classification: str,
-         lesson_id: Optional[str]) -> dict[str, Any]:
+         lesson_id: str | None) -> dict[str, Any]:
     """Pure: map an OutcomeInput to a Supabase row dict."""
-    def _clean(s: str) -> Optional[str]:
+    def _clean(s: str) -> str | None:
         s = (s or "").strip()
         return s or None
     return {
@@ -249,7 +249,7 @@ def record_outcome(inp: OutcomeInput) -> OutcomeResult:
         )
 
     # Online: optionally promote the lesson into the existing lessons_learned store (reuse).
-    lesson_id: Optional[str] = None
+    lesson_id: str | None = None
     if inp.promote_lesson and (inp.lesson_learned or "").strip():
         lesson_id = _promote_lesson(inp, warnings)
 
@@ -268,7 +268,7 @@ def record_outcome(inp: OutcomeInput) -> OutcomeResult:
         )
 
 
-def _promote_lesson(inp: OutcomeInput, warnings: list[str]) -> Optional[str]:
+def _promote_lesson(inp: OutcomeInput, warnings: list[str]) -> str | None:
     """Persist the lesson into lessons_learned via the existing capture path."""
     try:
         from lesson_capture import LessonInput, capture_lesson  # type: ignore
@@ -545,7 +545,7 @@ ESCALATION_XO_DAYS = 21         # 21d → XO visibility
 ESCALATION_DEBT_DAYS = 30       # 30d → learning debt
 
 
-def escalation_tier(age_days: Optional[int]) -> str:
+def escalation_tier(age_days: int | None) -> str:
     """Map a pending item's age to an operational tier (MSN-0082 WP3):
     none (<7) · reminder (7–13) · number_one (14–20) · xo (21–29) · learning_debt (30+)."""
     if age_days is None or age_days < ESCALATION_REMINDER_DAYS:
@@ -609,7 +609,7 @@ AGING_GREEN_MAX = 7    # 0–7 days
 AGING_AMBER_MAX = 14   # 8–14 days; 15+ → RED
 
 
-def _age_days(ts: str | None, *, _now: datetime | None = None) -> Optional[int]:
+def _age_days(ts: str | None, *, _now: datetime | None = None) -> int | None:
     """Whole days since an ISO timestamp. None if unparseable/missing."""
     if not ts:
         return None
@@ -624,7 +624,7 @@ def _age_days(ts: str | None, *, _now: datetime | None = None) -> Optional[int]:
         return None
 
 
-def aging_band(age_days: Optional[int]) -> str:
+def aging_band(age_days: int | None) -> str:
     """GREEN (0–7) · AMBER (8–14) · RED (15+) · UNKNOWN (no date)."""
     if age_days is None:
         return "UNKNOWN"
@@ -649,8 +649,8 @@ class LearningStatus:
     pending_green: int = 0
     pending_amber: int = 0
     pending_red: int = 0
-    oldest_uncaptured_days: Optional[int] = None
-    average_outcome_age_days: Optional[int] = None     # avg age of pending items
+    oldest_uncaptured_days: int | None = None
+    average_outcome_age_days: int | None = None     # avg age of pending items
     learning_velocity_7d: int = 0                      # outcomes recorded in last 7 days
     # Trend (WP6) — outcomes per week, most-recent-first; [] if no history.
     outcomes_per_week: list[int] = field(default_factory=list)
@@ -658,8 +658,8 @@ class LearningStatus:
     health: str = "UNKNOWN"
     health_reasons: list[str] = field(default_factory=list)
     # MSN-0082 WP8: operational learning-health metrics.
-    capture_compliance_pct: Optional[int] = None   # % of closable items with an outcome
-    overdue_pct: Optional[int] = None              # % of pending that are RED (15+)
+    capture_compliance_pct: int | None = None   # % of closable items with an outcome
+    overdue_pct: int | None = None              # % of pending that are RED (15+)
     learning_debt: int = 0                         # pending items 30+ days old
     leadership_candidates: int = 0                 # leadership/op-resilience content candidates
     data_available: bool = False

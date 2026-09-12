@@ -18,12 +18,10 @@ from __future__ import annotations
 import datetime as dt
 import re
 
+import db
+from copy_bank import STAGE_LABELS
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
-
-import db
-import safety
-from copy_bank import STAGE_LABELS
 
 _TIME_RE = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 _WEEKDAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")

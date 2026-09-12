@@ -60,8 +60,6 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 sys.path.insert(0, str(_REPO_ROOT))
 
-from core.platform.telegram_access import is_allowed as _chat_is_allowed
-
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -74,11 +72,10 @@ from telegram.ext import (
     filters,
 )
 
+from core.platform.telegram_access import is_allowed as _chat_is_allowed
 from telegram_bots.capacitybot import capacity_today as ct
-from telegram_bots.capacitybot import distract
+from telegram_bots.capacitybot import distract, guide, helpme
 from telegram_bots.capacitybot import experiments as exp
-from telegram_bots.capacitybot import guide
-from telegram_bots.capacitybot import helpme
 from telegram_bots.capacitybot import intervention_engine as ie
 
 # ── Supabase ──────────────────────────────────────────────────────────────────

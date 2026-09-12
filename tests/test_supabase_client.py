@@ -4,7 +4,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-
 ROOT = Path(__file__).resolve().parents[1]
 _TOOLS_SUPABASE = ROOT / "tools" / "supabase"
 sys.path.insert(0, str(_TOOLS_SUPABASE))
@@ -13,7 +12,7 @@ sys.path.insert(0, str(_TOOLS_SUPABASE))
 # with tools/paperclip/client.py under the same bare module name — whichever
 # loaded first in a shared pytest session won for every test after it. Load
 # this file's own sibling by exact path instead.
-from _local_import_supabase import import_sibling  # noqa: E402
+from _local_import_supabase import import_sibling
 
 client = import_sibling("client")
 

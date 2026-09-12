@@ -24,10 +24,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
 
 from intelligence.config import HTTP_TIMEOUT_SECONDS
 from intelligence.ingestion.base_adapter import BaseSourceAdapter
@@ -107,7 +106,7 @@ def list_brief_files(lookback_days: int = DEFAULT_LOOKBACK_DAYS,
     return files
 
 
-def fetch_brief(path: str, timeout: int = HTTP_TIMEOUT_SECONDS) -> Optional[str]:
+def fetch_brief(path: str, timeout: int = HTTP_TIMEOUT_SECONDS) -> str | None:
     """Return raw markdown for a brief path, or None if not found."""
     try:
         status, body = _http_get(_raw_url(path),
