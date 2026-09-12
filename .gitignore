@@ -111,3 +111,16 @@ CLAUDE.md
 # Local git worktrees created by parallel Claude Code subagents — ephemeral
 # per-session checkouts, not repo content.
 .claude/worktrees/
+
+# USS-TJR-MSN-0366 Stream 6 — watchlist execution engine (changedetection.io
+# + Uptime Kuma, see deploy/docker-compose.watchlist.yml). Bind-mounted
+# container data dirs: SQLite DBs, a per-container generated API
+# key/JWT secret, and a locally-copied TLS CA bundle — all machine-local
+# runtime state, never repo content, and never something to commit
+# (the API key/JWT secret are real, if low-stakes, credentials).
+deploy/watchlist-data/
+
+# webhook_queue.py's on-disk bridge between changedetection_webhook.py/
+# uptime_kuma_webhook.py and their adapters — transient runtime state
+# (drained every collection cycle), not repo content.
+intelligence/watchlist/_queue/*.jsonl
