@@ -122,11 +122,11 @@ def _make_engine_db(interventions, events=None):
 
 
 def _iv(iid, minutes):
-    return dict(
-        intervention_id=iid, title=iid, target_states=[], capacity_allowed=["green", "orange", "red"],
-        stimulation_effect="neutral", pain_compatible=True, executive_effort="low",
-        estimated_minutes=minutes,
-    )
+    return {
+        "intervention_id": iid, "title": iid, "target_states": [], "capacity_allowed": ["green", "orange", "red"],
+        "stimulation_effect": "neutral", "pain_compatible": True, "executive_effort": "low",
+        "estimated_minutes": minutes,
+    }
 
 
 def test_rank_interventions_max_minutes_excludes_too_long():

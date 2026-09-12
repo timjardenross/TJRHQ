@@ -167,11 +167,13 @@ class RunTaskExceptionPathTest(unittest.TestCase):
     blocks, which this test locks in structurally."""
 
     def test_ollama_failure_after_resolution_returns_explicit_failure_not_model_large(self):
-        with patch.object(app, "_available_model_names", return_value=set()):
-            with patch.object(
+        with (
+            patch.object(app, "_available_model_names", return_value=set()),
+            patch.object(
                 app, "_ollama_generate", side_effect=TimeoutError("simulated: timed out")
-            ) as mocked_generate:
-                result = app._run_task("escalate", "does the captain need this now?", {})
+            ) as mocked_generate,
+        ):
+            result = app._run_task("escalate", "does the captain need this now?", {})
 
         self.assertFalse(result["success"])
         self.assertEqual(result["model"], app.MODEL_ESCALATION_SAFE_LOCAL)

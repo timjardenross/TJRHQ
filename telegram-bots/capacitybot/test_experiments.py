@@ -44,21 +44,21 @@ def check(label: str, condition: bool) -> bool:
 
 
 def _experiment(**overrides) -> dict:
-    base = dict(
-        id=1,
-        hypothesis="Using a quieter work location may reduce post-work recovery cost.",
-        target_condition=None,
-        proposed_change="Use the quiet room before overload for two weeks.",
-        baseline_window=None,
-        trial_window=None,
-        outcome_measures=[],
-        status="proposed",
-        result=None,
-        confidence=None,
-        notes=None,
-        started_at=None,
-        completed_at=None,
-    )
+    base = {
+        "id": 1,
+        "hypothesis": "Using a quieter work location may reduce post-work recovery cost.",
+        "target_condition": None,
+        "proposed_change": "Use the quiet room before overload for two weeks.",
+        "baseline_window": None,
+        "trial_window": None,
+        "outcome_measures": [],
+        "status": "proposed",
+        "result": None,
+        "confidence": None,
+        "notes": None,
+        "started_at": None,
+        "completed_at": None,
+    }
     base.update(overrides)
     return base
 

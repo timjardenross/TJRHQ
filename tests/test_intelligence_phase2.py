@@ -523,7 +523,7 @@ class TestIntelligenceReporter(unittest.TestCase):
 
     def test_import_succeeds(self):
         try:
-            from intelligence_reporter import (
+            from intelligence_reporter import (  # noqa: F401 - importability itself is what this test asserts
                 _REPORTS,
                 run_all_reports,
                 run_single_report,
@@ -551,7 +551,7 @@ class TestIntelligenceReporter(unittest.TestCase):
         outputs_dir = _REPO_ROOT / "outputs"
         before = set(outputs_dir.glob("*.json")) if outputs_dir.exists() else set()
 
-        result = run_all_reports(dry_run=True, persist_readiness=False)
+        run_all_reports(dry_run=True, persist_readiness=False)
 
         after = set(outputs_dir.glob("*.json")) if outputs_dir.exists() else set()
         new_files = after - before

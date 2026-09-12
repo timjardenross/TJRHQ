@@ -443,9 +443,8 @@ class TestLLMProviderModelRouter(unittest.TestCase):
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
 
-        with patch("urllib.request.urlopen", return_value=mock_resp):
-            with self.assertRaises(RuntimeError):
-                provider._model_router("test prompt")
+        with patch("urllib.request.urlopen", return_value=mock_resp), self.assertRaises(RuntimeError):
+            provider._model_router("test prompt")
 
     def test_all_providers_fail_returns_none_none(self):
         """When router + all cloud + ollama fail, generate() returns (None, None)."""

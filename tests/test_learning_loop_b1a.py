@@ -27,7 +27,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'tools'))
 # deps are unavailable (e.g. secret-free CI) rather than aborting collection.
 try:
     from lib.learning_loop_service import (
-        DecisionRecord,
         LearningLoopService,
         ProviderMetadata,
     )

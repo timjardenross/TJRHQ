@@ -120,7 +120,7 @@ def test_related_lessons_returns_lessonrefs():
 
 def test_lessons_brief_structure():
     brief = lessons_mod.lessons_brief("advisory runtime evidence")
-    assert set(["query", "lessons", "similar_missions", "narrative"]).issubset(brief.keys())
+    assert {"query", "lessons", "similar_missions", "narrative"}.issubset(brief.keys())
     assert isinstance(brief["lessons"], list)
 
 

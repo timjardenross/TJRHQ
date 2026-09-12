@@ -148,12 +148,12 @@ def _make_update_and_context(callback_data: str):
 
 
 def _intervention(iid, **overrides):
-    base = dict(
-        intervention_id=iid, title=iid, full_description=iid, button_label=iid,
-        target_states=["overwhelmed"], capacity_allowed=["green", "orange", "red"],
-        stimulation_effect="neutral", pain_compatible=True, executive_effort="low",
-        estimated_minutes=10, requires_followup=True,
-    )
+    base = {
+        "intervention_id": iid, "title": iid, "full_description": iid, "button_label": iid,
+        "target_states": ["overwhelmed"], "capacity_allowed": ["green", "orange", "red"],
+        "stimulation_effect": "neutral", "pain_compatible": True, "executive_effort": "low",
+        "estimated_minutes": 10, "requires_followup": True,
+    }
     base.update(overrides)
     return base
 

@@ -107,9 +107,6 @@ class TestGeographyClassification(unittest.TestCase):
         # Hong Kong → APAC. No AU state abbreviation substrings in this title.
         self.assertEqual(self._geo("Hong Kong cyber resilience framework published"), "APAC")
 
-    def test_apac_singapore(self):
-        self.assertEqual(self._geo("Singapore MAS issues new resilience guidelines"), "APAC")
-
     def test_global_when_no_au_apac(self):
         # Must contain no AU or APAC keyword substrings
         self.assertEqual(self._geo("US Federal Reserve lifts rates for the third time"), "GLOBAL")

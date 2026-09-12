@@ -138,7 +138,7 @@ def test_notifications_route(seeded):
     importlib.reload(notifications)
     opportunities = reload_sibling("opportunities")
     plan = notifications.route(triggers.evaluate_triggers(), opportunities.detect_opportunities())
-    assert set(["interrupt", "daily_brief", "wait", "summary", "note"]).issubset(plan.keys())
+    assert {"interrupt", "daily_brief", "wait", "summary", "note"}.issubset(plan.keys())
     # opportunities are never interruptions
     assert all(it["level"] != "opportunity" for it in plan["interrupt"])
 

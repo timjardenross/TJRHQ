@@ -43,14 +43,14 @@ def check(label: str, condition: bool) -> bool:
 
 
 def _row(**overrides) -> dict:
-    base = dict(
-        intervention_id="test_action",
-        target_states=[],
-        capacity_allowed=["green", "orange", "red"],
-        stimulation_effect="neutral",
-        pain_compatible=True,
-        executive_effort="low",
-    )
+    base = {
+        "intervention_id": "test_action",
+        "target_states": [],
+        "capacity_allowed": ["green", "orange", "red"],
+        "stimulation_effect": "neutral",
+        "pain_compatible": True,
+        "executive_effort": "low",
+    }
     base.update(overrides)
     return base
 

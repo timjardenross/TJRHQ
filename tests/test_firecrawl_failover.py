@@ -45,27 +45,31 @@ class AcquireAccountTests(unittest.TestCase):
         )
 
     def test_primary_exceeded_and_no_second_key_raises(self):
-        with mock.patch.object(firecrawl_client, "FIRECRAWL_API_KEY", "key1"), \
-             mock.patch.object(firecrawl_client, "FIRECRAWL_API_KEY_2", ""), \
-             mock.patch.object(
-                 external_fetch_budget, "check_and_increment",
-                 side_effect=external_fetch_budget.FetchBudgetExceeded("firecrawl at ceiling"),
-             ):
-            with self.assertRaises(external_fetch_budget.FetchBudgetExceeded):
-                firecrawl_client._acquire_account()
+        with (
+            mock.patch.object(firecrawl_client, "FIRECRAWL_API_KEY", "key1"),
+            mock.patch.object(firecrawl_client, "FIRECRAWL_API_KEY_2", ""),
+            mock.patch.object(
+                external_fetch_budget, "check_and_increment",
+                side_effect=external_fetch_budget.FetchBudgetExceeded("firecrawl at ceiling"),
+            ),
+            self.assertRaises(external_fetch_budget.FetchBudgetExceeded),
+        ):
+            firecrawl_client._acquire_account()
 
     def test_check_failed_does_not_fail_over(self):
         """An ambiguous check failure (Supabase unreachable, etc.) must
         propagate rather than trigger a fallback to the second account —
         fail-safe, not fail-open."""
-        with mock.patch.object(firecrawl_client, "FIRECRAWL_API_KEY", "key1"), \
-             mock.patch.object(firecrawl_client, "FIRECRAWL_API_KEY_2", "key2"), \
-             mock.patch.object(
-                 external_fetch_budget, "check_and_increment",
-                 side_effect=external_fetch_budget.FetchBudgetCheckFailed("supabase unreachable"),
-             ) as inc:
-            with self.assertRaises(external_fetch_budget.FetchBudgetCheckFailed):
-                firecrawl_client._acquire_account()
+        with (
+            mock.patch.object(firecrawl_client, "FIRECRAWL_API_KEY", "key1"),
+            mock.patch.object(firecrawl_client, "FIRECRAWL_API_KEY_2", "key2"),
+            mock.patch.object(
+                external_fetch_budget, "check_and_increment",
+                side_effect=external_fetch_budget.FetchBudgetCheckFailed("supabase unreachable"),
+            ) as inc,
+            self.assertRaises(external_fetch_budget.FetchBudgetCheckFailed),
+        ):
+            firecrawl_client._acquire_account()
 
         inc.assert_called_once_with("firecrawl")
 
@@ -79,10 +83,12 @@ class AcquireAccountTests(unittest.TestCase):
         inc.assert_called_once_with("firecrawl_2")
 
     def test_neither_key_configured_raises_not_configured(self):
-        with mock.patch.object(firecrawl_client, "FIRECRAWL_API_KEY", ""), \
-             mock.patch.object(firecrawl_client, "FIRECRAWL_API_KEY_2", ""):
-            with self.assertRaises(firecrawl_client.FirecrawlNotConfigured):
-                firecrawl_client._acquire_account()
+        with (
+            mock.patch.object(firecrawl_client, "FIRECRAWL_API_KEY", ""),
+            mock.patch.object(firecrawl_client, "FIRECRAWL_API_KEY_2", ""),
+            self.assertRaises(firecrawl_client.FirecrawlNotConfigured),
+        ):
+            firecrawl_client._acquire_account()
 
 
 if __name__ == "__main__":

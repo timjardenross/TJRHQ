@@ -40,9 +40,8 @@ class TestRecallRelationships:
 
     def test_no_query_falls_through_to_knowledge_edges_table(self):
         rows = [{"id": "1", "source": "a", "target": "b"}]
-        with patch("core.platform.unified_memory._supabase_raw", return_value=_fake_table_result(rows)):
-            with patch("core.platform.memory_graph.search", new=AsyncMock()) as mock_search:
-                result = recall(MemoryType.RELATIONSHIPS)
+        with patch("core.platform.unified_memory._supabase_raw", return_value=_fake_table_result(rows)), patch("core.platform.memory_graph.search", new=AsyncMock()) as mock_search:
+            result = recall(MemoryType.RELATIONSHIPS)
         mock_search.assert_not_awaited()
         assert result == rows
 
@@ -51,9 +50,8 @@ class TestRecallRelationships:
         GEMINI_API_KEY isn't set — recall() must degrade to the table, not
         raise, matching every other non-blocking recall path in this module."""
         rows = [{"id": "2", "source": "c", "target": "d"}]
-        with patch("core.platform.unified_memory._supabase_raw", return_value=_fake_table_result(rows)):
-            with patch("core.platform.memory_graph.search", new=AsyncMock(side_effect=RuntimeError("GEMINI_API_KEY not set"))):
-                result = recall(MemoryType.RELATIONSHIPS, query="anything")
+        with patch("core.platform.unified_memory._supabase_raw", return_value=_fake_table_result(rows)), patch("core.platform.memory_graph.search", new=AsyncMock(side_effect=RuntimeError("GEMINI_API_KEY not set"))):
+            result = recall(MemoryType.RELATIONSHIPS, query="anything")
         assert result == rows
 
     def test_group_ids_filter_is_passed_through(self):
