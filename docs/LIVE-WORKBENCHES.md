@@ -29,6 +29,7 @@ intelligence, then work pipelines, then the archive, then platform-ops last.
 | `/emergency-alert-hub-workbench` | Emergency Alerts | Official Australian emergency information, prioritised by what may require attention now. |
 | `/human-systems-workbench` | Human Systems | Personal capacity intelligence — understand your current state, what's consuming capacity, what appears to help, and what may need to change. |
 | `/physical-readiness` | Physical Readiness | Exercise library and workout history — a read-only record of what you've done. Session generation and readiness check-in were retired (Captain directive, 2026-08-10/11); Recovery Pulse is the single source for capacity/stats now. |
+| `/shopping-list-workbench` | Shopping List | Everything worth buying, wishlist to purchased — manually prioritised, filterable by category/status/recipient/occasion, with per-currency subtotals. |
 | `/content-workbench` | Content Workbench | Capture, research, draft, proof, and publish comms content end-to-end, plus a Portfolio of everything published — one QA-gated pipeline. |
 | `/advisory-workbench` | Advisory | Decision support — think through a question, challenge assumptions, explore perspectives, and learn from what happened. |
 | `/briefs` | Briefs | The intelligence brief archive — every synthesized OSINT/world-news brief, filterable by review/publish status. |
