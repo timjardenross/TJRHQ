@@ -48,16 +48,25 @@ Fixed the real, in-scope gap:
    endpoint (already availability-guarded, reasoning-capable) instead of
    deepeval's OpenAI default. Wired as `HallucinationMetric(..., model=_ModelRouterJudge())`.
 2. Verified the HTTP contract against the real, running model-router (a
-   plain "say hello" `escalate` call succeeded in 26s). A full
-   `score_output()` call (deepeval's own verdict-generation prompt, ~2000
-   chars including its JSON-schema instructions) did not complete within
-   the router's own 300s `escalate` timeout under this VM's current load
-   (`/proc/loadavg` showed 11.08 on 8 cores at the time — genuinely
-   CPU-saturated from concurrent sessions, not this code) — it degraded
-   correctly to `None` and logged the timeout, exactly matching the
-   documented failure contract, rather than hanging or raising. Confirmed
-   this is an environmental/load ceiling, not a wiring defect, via unit
-   tests below plus the standalone HTTP-contract check.
+   plain "say hello" `escalate` call succeeded in 26s — using the local
+   `mistral-small3.2:24b` fallback, confirming `glm-5.3:cloud` is still not
+   pulled on this host, per EVO-0009). A full `score_output()` call
+   (deepeval's own verdict-generation prompt, ~2000 chars including its
+   JSON-schema instructions) did not complete within the router's own 300s
+   `escalate` timeout. **Correction from an earlier draft of this record:**
+   VM load (`/proc/loadavg` showed 11.08 on 8 cores at the time) was cited
+   as the cause, but that's at most a compounding factor — the primary
+   cause is almost certainly `escalate` always falling through to the slow,
+   CPU-only 24B local model (same root cause as EVO-0009/PR #108's
+   glm-5.3:cloud gap, surfacing again here). A short prompt fits in 300s on
+   that fallback model; deepeval's much longer structured prompt likely
+   does not, contention or no. **Practical consequence: shadow-mode
+   score_output() calls will likely keep returning `None` in production
+   until glm-5.3:cloud is actually pulled (an ops task, already tracked,
+   not an engineering one) — the wiring is correct (verified by the unit
+   tests below and the standalone HTTP-contract check), but its real-world
+   yield depends on that separate, already-known gap closing first.**
+   Re-test once glm-5.3:cloud is live.
 3. Wired `score_output()`'s first real caller into `build_learning_loop.py`,
    deliberately **shadow-mode only** (compute + log, never persisted,
    default OFF via `QUALITY_SCORE_OUTPUT_SHADOW_ENABLED`, run in a
