@@ -150,7 +150,7 @@ def _record_heartbeat(status: str, detail: str = None, error_message: str = None
         sys.path.insert(0, str(repo_root / "core" / "platform"))
         from heartbeat import record_heartbeat
         record_heartbeat("knowledge_library", status=status, detail=detail, error_message=error_message)
-    except Exception:
+    except Exception:  # noqa: BLE001 - already documented best-effort telemetry heartbeat
         pass
 
 

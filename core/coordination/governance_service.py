@@ -76,7 +76,7 @@ class _SupabaseReader:
                 try:
                     from supabase import create_client
                     self._client = create_client(url, key)
-                except Exception:
+                except Exception:  # noqa: BLE001 - optional Supabase client init; self._client stays None and callers already handle that
                     pass
 
     def select_all(self, table: str, columns: str = "*", limit: int = 100) -> list[dict]:
@@ -124,7 +124,7 @@ class GovernanceContextService:
         def _run():
             try:
                 result.update(self._do_assess(entity, context or {}))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - background-thread boundary: exception captured into `error` list for the caller to inspect, not swallowed
                 error.append(exc)
 
         t = threading.Thread(target=_run, daemon=True)

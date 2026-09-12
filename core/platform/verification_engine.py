@@ -68,7 +68,7 @@ def _check_command_centre_backend() -> bool:
         with urllib.request.urlopen(req, timeout=5) as resp:  # nosec B310 - url is COMMAND_CENTRE_HEALTH_URL env var (defaults to fixed localhost:5000/health), not user input - reviewed 2026-09-12
             data = json.loads(resp.read().decode("utf-8"))
             return data.get("status") == "operational"
-    except Exception:
+    except Exception:  # noqa: BLE001 - health-check probe; False is the documented 'not healthy' result for any failure mode
         return False
 
 
@@ -94,7 +94,7 @@ def run_verification_pass() -> dict[str, Any]:
             "domain_heartbeat_latest"
             "?select=domain_key,display_name,category,is_stale,never_succeeded,last_status,last_error_message"
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already documented: deliberately does not write verification_state or self-heartbeat on this failure, by design
         # Can't even read domain state - this pass has failed outright.
         # Deliberately do NOT write verification_state (a failed read must
         # never produce a false "sure") and do NOT self-heartbeat, so the

@@ -361,7 +361,7 @@ def compute_sleep_lag_from_supabase(days: int = 60) -> dict[str, Any]:
         entries = supabase_get(
             f"captains_log_entries?log_date=gte.{since}&order=log_date.asc&limit={days}"
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - error surfaced to the caller in the returned status dict, not swallowed
         return {
             "status": "fetch_error",
             "error": str(exc),

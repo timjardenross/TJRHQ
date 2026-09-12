@@ -32,7 +32,7 @@ def _cache_is_valid(item: dict) -> bool:
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         return datetime.now(timezone.utc) < dt
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: False (not-yet-expired treated as expired) on any unparseable timestamp
         return False
 
 

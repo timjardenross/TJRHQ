@@ -188,7 +188,7 @@ def dispatch_one(repo_root: Path, mission: dict[str, Any]) -> dict[str, Any]:
              "--handoff", str(handoff_path)],
             cwd=repo_root, capture_output=True, text=True, timeout=180,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - subprocess failure surfaced to the caller in the returned error dict, not swallowed
         return {"success": False, "error": f"sync-one subprocess failed: {exc}"}
 
     if result.returncode != 0:

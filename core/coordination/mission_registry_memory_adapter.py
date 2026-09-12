@@ -51,7 +51,7 @@ def _is_stale(timestamp: Any, days: int = 180) -> bool:
             dt = dt.replace(tzinfo=timezone.utc)
         age = datetime.now(timezone.utc) - dt.astimezone(timezone.utc)
         return age > timedelta(days=days)
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: False (not stale) on any unparseable timestamp
         return False
 
 

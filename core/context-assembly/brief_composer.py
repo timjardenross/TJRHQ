@@ -109,7 +109,7 @@ def compose_operating_picture(brief: CaptainBriefContext) -> CaptainOperatingPic
                 cal_accuracy = cal_summary.get("agreement_rate")
                 cal_status = get_calibration_status(cal_summary)
                 governance_flag = bool(cal_summary.get("weighting_review_flag"))
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort calibration enrichment; brief still assembles with the calibration fields left at their defaults
             pass
 
         health_snapshot = {

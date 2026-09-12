@@ -81,7 +81,7 @@ def _parse_event_time(event: dict[str, Any]) -> datetime | None:
         if parsed.tzinfo is None:
             return parsed.replace(tzinfo=timezone.utc)
         return parsed.astimezone(timezone.utc)
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: None on any unparseable timestamp
         return None
 
 

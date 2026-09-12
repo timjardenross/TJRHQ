@@ -59,7 +59,7 @@ def _is_stale(timestamp: Any, days: int = 365) -> bool:
             dt = dt.replace(tzinfo=timezone.utc)
         age = datetime.now(timezone.utc) - dt.astimezone(timezone.utc)
         return age > timedelta(days=days)
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: False (not stale) on any unparseable timestamp
         return False
 
 
@@ -191,7 +191,7 @@ class DecisionRegistryMemoryAdapter:
                     rows = list(response.data or [])
                     if rows:
                         return rows
-                except Exception:
+                except Exception:  # noqa: BLE001 - cascading per-table Supabase fallback; final give-up is the file-based fallback below
                     continue
         return self._load_from_files()
 

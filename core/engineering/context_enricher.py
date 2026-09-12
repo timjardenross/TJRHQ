@@ -216,7 +216,7 @@ def _find_relevant_files(title: str) -> list[str]:
                 if path.stat().st_size <= _MAX_GREP_BYTES:
                     body = path.read_text(encoding="utf-8", errors="replace").lower()
                     score += sum(1 for kw in keywords if kw in body)
-            except Exception:
+            except Exception:  # noqa: BLE001 - best-effort keyword-grep enrichment; one unreadable file must not stop scoring the rest
                 pass
 
             if score <= 0:
@@ -440,7 +440,7 @@ def _run_git_status() -> str:
             truncated.append(f"... ({len(lines) - _MAX_GIT_LINES} more lines truncated)")
             return "\n".join(truncated)
         return output
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - error surfaced to the caller in the returned string, not swallowed
         return f"git status unavailable: {exc}"
 
 

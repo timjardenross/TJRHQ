@@ -62,5 +62,5 @@ async def send_voice_reply(bot, chat_id: int, text: str) -> bool:
     finally:
         try:
             os.unlink(path)
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort temp-file cleanup; a leaked temp file is not worth failing the send over
             pass

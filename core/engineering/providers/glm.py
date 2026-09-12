@@ -116,7 +116,7 @@ def call(prompt: str, model: str | None = None, system: str | None = None) -> tu
         body = ""
         try:
             body = exc.read().decode("utf-8")[:400]
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort error-body read for a diagnostic message; the RuntimeError below is raised regardless
             pass
         raise RuntimeError(f"GLM request failed: HTTP {exc.code} {exc.reason}. {body}") from exc
     except urllib.error.URLError as exc:

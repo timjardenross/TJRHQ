@@ -461,7 +461,7 @@ def _safe_parse_summary(raw) -> dict:
         return raw
     try:
         return json.loads(raw)
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: {} on any parse failure of possibly-malformed stored JSON
         return {}
 
 

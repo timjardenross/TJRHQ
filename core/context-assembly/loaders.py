@@ -16,7 +16,7 @@ import config
 def _read(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8", errors="replace")
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: '' on any read failure
         return ""
 
 

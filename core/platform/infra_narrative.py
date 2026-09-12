@@ -152,7 +152,7 @@ def generate_infra_narrative() -> dict | None:
     if isinstance(degraded, str):
         try:
             degraded = json.loads(degraded)
-        except Exception:
+        except Exception:  # noqa: BLE001 - documented contract: [] on any parse failure of possibly-malformed stored JSON
             degraded = []
 
     if state == "sure" or not degraded:

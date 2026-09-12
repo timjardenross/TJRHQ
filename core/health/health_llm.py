@@ -59,7 +59,7 @@ def _load_captain_profile_excerpt() -> str:
             text, re.DOTALL,
         )
         return m.group(1).strip() if m else ""
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: '' on any parse failure
         return ""
 
 

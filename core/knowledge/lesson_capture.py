@@ -137,7 +137,7 @@ def _upsert_to_supabase(lesson_id: str, inp: LessonInput) -> bool:
     try:
         supabase_upsert("lessons_learned", row, on_conflict="lesson_id")
         return True
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: False on any upsert failure
         return False
 
 
@@ -280,7 +280,7 @@ def backfill_lessons_to_supabase() -> dict:
             supabase_upsert("lessons_learned", row, on_conflict="lesson_id")
             synced += 1
             ids.append(lesson_id)
-        except Exception:
+        except Exception:  # noqa: BLE001 - batch sync: one lesson's failure increments the failed counter, doesn't stop the batch
             failed += 1
 
     return {"synced": synced, "failed": failed, "lesson_ids": ids}

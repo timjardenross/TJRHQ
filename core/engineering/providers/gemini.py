@@ -78,11 +78,11 @@ def call(prompt: str, model: str | None = None) -> tuple[str, str]:
     text = ""
     try:
         text = response.text
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort primary text-extraction path; falls through to the parts-based fallback below
         # Fallback: try parts
         try:
             text = "".join(part.text for part in response.parts)
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort fallback path; total failure is caught by the not-text check just below
             pass
 
     if not text or not text.strip():

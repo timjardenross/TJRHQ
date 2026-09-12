@@ -271,7 +271,7 @@ class NumberOneExecutionEngine:
                 try:
                     lu = datetime.fromisoformat(str(last_updated_str).replace("Z", "+00:00"))
                     days_since = (now - lu.replace(tzinfo=None)).days
-                except Exception:
+                except Exception:  # noqa: BLE001 - documented default: days_since=0 on any unparseable timestamp
                     days_since = 0
 
             stale_threshold = STALE_P0_DAYS if priority == "P0" else STALE_DAYS
@@ -418,7 +418,7 @@ def _try_log_decision(statement: str, rationale: str, owner: str) -> None:
         sys.path.insert(0, str(_REPO_ROOT / "platform-runtime"))
         from command_memory_integration import log_decision_to_command_memory
         log_decision_to_command_memory(statement=statement, rationale=rationale, owner=owner)
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort Command Memory mirror; must not break the actual decision-logging flow
         pass
 
 

@@ -63,7 +63,7 @@ def _extract_tables(doc) -> list[dict]:
             df = table.export_to_dataframe()
             if df is not None and not df.empty:
                 tables.append(df.to_dict())
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort per-table export; one malformed table must not lose the rest
             continue
     return tables
 
@@ -114,7 +114,7 @@ def extract_document(file_path: str | Path) -> dict | None:
         converter = DocumentConverter()
         result = converter.convert(str(path))
         doc = result.document
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already handled: PDF retry-with-fallback-pipeline logic follows in this except block
         if path.suffix.lower() in PDF_SUFFIXES:
             log.warning(
                 "docling standard PDF pipeline failed for %s (%s) — retrying "

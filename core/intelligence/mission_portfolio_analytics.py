@@ -54,7 +54,7 @@ def _fetch_missions_supabase() -> list[dict[str, Any]]:
         return []
     try:
         return supabase_get("missions?order=created_at.asc&limit=500")
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: [] on any read failure
         return []
 
 
@@ -77,7 +77,7 @@ def _load_missions_fallback() -> list[dict[str, Any]]:
                 "closed_at":  None,
             })
         return missions
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented contract: [] on any parse failure
         return []
 
 

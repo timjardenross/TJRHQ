@@ -39,7 +39,7 @@ def _request_once(url: str, api_key: str, payload: dict, *, label: str, timeout:
         body = ""
         try:
             body = exc.read().decode("utf-8")[:400]
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort error-body read for a diagnostic message; the RuntimeError below is raised regardless
             pass
         raise RuntimeError(f"[{label}] request failed: HTTP {exc.code} {exc.reason}. {body}") from exc
     except urllib.error.URLError as exc:

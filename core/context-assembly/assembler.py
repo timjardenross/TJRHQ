@@ -230,7 +230,7 @@ def assemble_health_context(health_summary_path=None) -> HealthContextPackage:
     try:
         live_fn = _health_live_fn()
         return live_fn()
-    except Exception:
+    except Exception:  # noqa: BLE001 - documented: falls through to the legacy Health-Summary.md path on any live-path failure
         pass
 
     # Legacy fallback
