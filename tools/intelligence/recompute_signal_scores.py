@@ -220,7 +220,7 @@ class SignalScoreRecomputer:
                 chunk = to_insert[i:i + 500]
                 try:
                     self.supabase.table("signal_corroboration").insert(chunk).execute()
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - per-chunk insert inside a batch loop — one bad chunk must not abort the run; already logged + counted in self.stats['errors']
                     logger.error(f"Corroboration insert failed for chunk {i}: {e}")
                     self.stats["errors"] += 1
         self.stats["corroboration_pairs_inserted"] = len(to_insert)
@@ -272,7 +272,7 @@ class SignalScoreRecomputer:
                         self.supabase.table("intelligence_events").update(
                             {"osint_confidence_level": row["osint_confidence_level"], "criticality_score": row["criticality_score"]}
                         ).eq("event_id", row["event_id"]).execute()
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - per-row update inside a batch loop — one bad row must not abort the run; already logged + counted in self.stats['errors']
                         logger.error(f"Confidence/criticality update failed for {row['event_id']}: {e}")
                         self.stats["errors"] += 1
                 logger.info(f"  ...{min(i + 200, len(updates))}/{len(updates)} updated")
@@ -321,7 +321,7 @@ class SignalScoreRecomputer:
                     confidence=float(r.get("confidence") or 0.5),
                     suppressed=False,
                 ))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-row rank-recompute skip inside a batch loop — one bad row must not abort the run; already logged + counted in self.stats['errors']
                 logger.warning(f"Skipping {r.get('event_id')} in rank recompute: {e}")
                 self.stats["errors"] += 1
 
@@ -334,7 +334,7 @@ class SignalScoreRecomputer:
                     self.supabase.table("intelligence_events").update(
                         {"rank_score": ev.rank_score}
                     ).eq("event_id", ev.event_id).execute()
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - per-event rank_score update inside a batch loop — one bad event must not abort the run; already logged + counted in self.stats['errors']
                     logger.error(f"rank_score update failed for {ev.event_id}: {e}")
                     self.stats["errors"] += 1
                 if (i + 1) % 500 == 0:
@@ -359,7 +359,7 @@ class SignalScoreRecomputer:
         if not self.dry_run and rows:
             try:
                 self.supabase.table("source_reliability_snapshot").insert(rows).execute()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - best-effort snapshot insert, already logged + counted in self.stats['errors']
                 logger.error(f"Snapshot insert failed: {e}")
                 self.stats["errors"] += 1
         self.stats["snapshots_inserted"] = len(rows)
@@ -402,7 +402,7 @@ class SignalScoreRecomputer:
                         "reason": f"Auto-computed: confidence={confidence}, impact={impact}",
                         "escalated_by": "system",
                     }).execute()
-                except Exception as ex:
+                except Exception as ex:  # noqa: BLE001 - per-event escalation-log write inside a batch loop — one bad event must not abort the run; already logged + counted in self.stats['errors']
                     logger.error(f"Escalation log failed for {e['event_id']}: {ex}")
                     self.stats["errors"] += 1
                     continue
@@ -419,7 +419,7 @@ class SignalScoreRecomputer:
                 run_row = self.supabase.table("validation_job_runs").insert(
                     {"started_at": started_at, "status": "running"}
                 ).execute().data[0]
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - best-effort job-run tracking row, already logged; the actual validation work below proceeds regardless
                 logger.error(f"Could not create validation_job_runs row: {e}")
 
         try:

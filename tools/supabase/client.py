@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import urllib.error
 import urllib.parse
@@ -11,6 +12,8 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 COMMANDER_EVENT_TABLE = "commander_events"
 COMMANDER_DECISION_TABLE = "commander_decisions"
@@ -44,7 +47,8 @@ class CommanderSupabaseClient:
                 from supabase import create_client  # type: ignore
 
                 self._supabase = create_client(self.url, self.key)
-            except Exception:
+            except Exception as exc:  # noqa: BLE001 - optional supabase-py client init; falling back to raw REST (self._supabase stays None) is this class's documented dual-mode design
+                log.debug("[supabase] supabase-py client init failed, falling back to raw REST: %s", exc)
                 self._supabase = None
 
     @property
@@ -74,13 +78,13 @@ class CommanderSupabaseClient:
             detail = ""
             try:
                 detail = error.read().decode("utf-8")[:200]
-            except Exception:
+            except Exception:  # noqa: BLE001 - decorative diagnostic-detail read; the HTTPError itself (error.code) is already captured below regardless
                 detail = ""
             error_name = f"HTTPError({error.code})"
             if error.code == 401:
                 error_name = f"{error_name}:unauthorized:{self.key_source}"
             return SupabaseWriteResult(ok=False, enabled=True, table=table, error=error_name + (f":{detail}" if detail else ""))
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - generic insert wrapper; the exception type/name is surfaced to the caller via SupabaseWriteResult.error, not silently dropped
             return SupabaseWriteResult(ok=False, enabled=True, table=table, error=type(error).__name__)
 
     def _rest_insert(self, table: str, payload: dict[str, Any], returning: bool = False) -> list[dict[str, Any]] | None:
@@ -115,7 +119,8 @@ class CommanderSupabaseClient:
                 )
                 return list(result.data or [])
             return self._rest_select_recent(table, limit)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - either the supabase-py client or raw REST call can fail in ways not worth narrowing; caller treats [] as "nothing recent"
+            log.debug("[supabase] select_recent(%s) failed: %s", table, exc)
             return []
 
     def _rest_select_recent(self, table: str, limit: int) -> list[dict[str, Any]]:
@@ -152,7 +157,8 @@ class CommanderSupabaseClient:
                 result = self._rest_get(query, timeout)
                 return result
             return self._rest_get(query, timeout)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - _rest_get can raise on network/HTTP/JSON errors; this is the docstring's documented "[] on error / disabled" contract
+            log.debug("[supabase] get(%s) failed: %s", query, exc)
             return []
 
     def _rest_get(self, query: str, timeout: int = 10) -> list[dict[str, Any]]:
@@ -191,9 +197,8 @@ class CommanderSupabaseClient:
             )
             with urllib.request.urlopen(request, timeout=timeout):  # nosec B310 - url built from self.url (SUPABASE_URL env var), not user input - reviewed 2026-09-12
                 return True
-        except Exception as exc:
-            import logging as _log
-            _log.getLogger(__name__).debug("[supabase] _patch failed (%s): %s", query, exc)
+        except Exception as exc:  # noqa: BLE001 - generic PATCH wrapper; caller sees False and handles it, already logged
+            log.debug("[supabase] _patch failed (%s): %s", query, exc)
             return False
 
     def delete(self, query: str, timeout: int = 10) -> bool:
@@ -215,7 +220,8 @@ class CommanderSupabaseClient:
             )
             with urllib.request.urlopen(request, timeout=timeout):  # nosec B310 - url built from self.url (SUPABASE_URL env var), not user input - reviewed 2026-09-12
                 return True
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - generic DELETE wrapper; caller sees False and handles it
+            log.debug("[supabase] delete(%s) failed: %s", query, exc)
             return False
 
 
