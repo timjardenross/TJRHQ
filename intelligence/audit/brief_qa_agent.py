@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Automated QA agent — the "agent recommends, human decides" pre-screen
 for intelligence_briefs sitting in IN_REVIEW.

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 WP-ORI-2: Source Registry Seed Script
 Populates intelligence_source_registry with all approved sources.

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0014A — Paperclip API Discovery Script.
 
 Non-destructive discovery: calls health, lists companies and agents.

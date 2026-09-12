@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 ORI GitHub Briefs Sync (WP3 backfill + WP7 daily sync).
 

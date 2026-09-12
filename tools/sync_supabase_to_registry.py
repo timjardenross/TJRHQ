@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 MSN-0145: Sync Supabase missions → core/mission-control/registry/mission-index.txt
 

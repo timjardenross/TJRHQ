@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Governance dispatch CLI — the Python side of the Phase B transport bridge (D2).
 

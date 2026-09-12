@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """USS-TJR-MSN-0339 WP5 — Operational Intelligence Validation Suite.
 
 A standing, replay-based regression detector so a future Telstra-class

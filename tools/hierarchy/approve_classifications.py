@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 approve_classifications.py — Convert approved classification-review.md rows
 into Initiatives.md missions lists and overrides.yaml entries, then sync.

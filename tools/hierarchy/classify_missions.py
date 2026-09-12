@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 classify_missions.py — Batch Google AI classifier for historical mission files.
 

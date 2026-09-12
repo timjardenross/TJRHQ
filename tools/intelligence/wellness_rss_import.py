@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Ad hoc wellness RSS import — pulls articles from all wellness-category sources
 registered in intelligence_source_registry, stores them as intelligence_events,
