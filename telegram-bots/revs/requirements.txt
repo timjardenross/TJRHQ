@@ -3,5 +3,5 @@ apscheduler==3.11.3
 supabase==2.3.4
 gotrue==2.12.4
 python-dotenv==1.2.3
-httpx<0.26
+httpx<0.29
 pyjwt>=2.13.0
