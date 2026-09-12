@@ -7,4 +7,4 @@ python-dotenv==1.2.3
 httpx<0.26
 pyjwt>=2.13.0
 # edge-tts: Microsoft Edge neural TTS for XO voice replies — no API key required
-edge-tts>=6.1.9
+edge-tts>=7.2.8
