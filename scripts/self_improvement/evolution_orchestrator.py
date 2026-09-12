@@ -561,7 +561,7 @@ class EvolutionOrchestrator:
             }
 
         max_internal = self.evolution_config.get("max_internal_candidates_per_cycle", 20)
-        internal_candidates = internal_discovery.discover(classified_findings, evidence, max_internal)
+        internal_candidates = internal_discovery.discover(classified_findings, evidence, max_internal, repo_root=self.repo_root)
 
         # Section 17 RESEARCH ORDER: INTERNAL VALIDATION happens before
         # EXTERNAL DISCOVERY — never "watchlist -> search internet -> then

@@ -270,6 +270,65 @@ class OpportunityStore:
             return None
         return max(matches, key=lambda rec: rec.get("updated_at") or "")
 
+    def find_near_duplicate(
+        self, title: str, discovery_source: str, change_class: Optional[str],
+        exclude_states: tuple = ("learned", "resolved_before_research"),
+    ) -> Optional[dict[str, Any]]:
+        """Fuzzy fallback for new_fingerprint()'s exact-hash dedup.
+
+        new_fingerprint() only catches byte-identical (whitespace/case-
+        normalized) titles. Three independently re-derived titles for the
+        same underlying finding (e.g. three model-synthesis passes over
+        "glm-5.3:cloud unavailable") hash to three different fingerprints
+        and never collapse — each becomes its own opportunity. This reuses
+        evolution_memory.py's deterministic keyword-overlap + near-
+        duplicate-title-prefix approach (no embeddings, no LLM, no new
+        pattern invented) to catch that case: a record in the same
+        change_class that either shares >= _MIN_SHARED_WORDS significant
+        words with `title` (from title+summary+why_relevant), or shares
+        the same discovery_source and the same first-3-significant-word
+        title prefix.
+
+        Returns the best-scoring existing record to reuse (so the caller
+        can treat this candidate as the same underlying opportunity
+        instead of minting a new fingerprint/opportunity_id for it), or
+        None if nothing qualifies. `learned`/`resolved_before_research`
+        are excluded by default — those are settled historical outcomes,
+        not live duplicates to merge a new candidate into."""
+        # Local import: evolution_memory.py has no dependency on this
+        # module, so this stays one-directional and avoids a cycle.
+        from evolution_memory import _first_n_words, _significant_words, _MIN_SHARED_WORDS
+
+        candidate_words = _significant_words(title)
+        if not candidate_words:
+            return None
+        candidate_prefix = _first_n_words(title, 3)
+
+        best: Optional[dict[str, Any]] = None
+        best_score = -1
+        for rec in self.all_current():
+            if not isinstance(rec, dict):
+                continue
+            if rec.get("lifecycle_state") in exclude_states:
+                continue
+            if rec.get("change_class") != change_class:
+                continue
+
+            rec_words = _significant_words(rec.get("title") or "", rec.get("summary") or "", rec.get("why_relevant") or "")
+            shared = candidate_words & rec_words
+            score = len(shared)
+            qualifies = score >= _MIN_SHARED_WORDS
+            if not qualifies:
+                same_source = discovery_source is not None and rec.get("discovery_source") == discovery_source
+                rec_prefix = _first_n_words(rec.get("title") or "", 3)
+                qualifies = same_source and bool(candidate_prefix) and candidate_prefix == rec_prefix
+
+            if qualifies and score > best_score:
+                best_score = score
+                best = rec
+
+        return best
+
     def append(self, opportunity: Opportunity) -> Opportunity:
         """Persist a new opportunity or a new state for an existing one.
         Caller sets opportunity_id explicitly when updating; use
