@@ -22,6 +22,17 @@ import logging
 import os
 from typing import Any, Optional
 
+# LLM application security baseline (USS-TJR-MSN-0366 Stream 5): wraps the
+# synchronous complete() dispatch below — see
+# docs/decisions/ADR-llm-application-security-baseline.md, which also
+# documents the one real gap this file still has: submit()'s true async
+# Batch API path (many prompts embedded in one uploaded JSONL) is NOT
+# wrapped — this module's own docstring's "thin plumbing only" scope means
+# per-request prompt construction lives in core.engineering.batch_coding,
+# not here, so there is no single "the prompt" to redact/check at this
+# call site for that path.
+from core.security.llm_guardrails import check_output_rail, secure_outbound_prompt
+
 log = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "codestral-latest"
@@ -67,16 +78,19 @@ def complete(prompt: str, model: str = DEFAULT_MODEL, max_tokens: int = 4096,
 
     Works on the standard (non-batch) tier. Returns the response text.
     """
+    safe_prompt, _redaction = secure_outbound_prompt(prompt)
     client = client or make_client()
     resp = client.chat.complete(
         model=model,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": safe_prompt}],
         max_tokens=max_tokens,
         temperature=0.2,
     )
     if not getattr(resp, "choices", None):
         raise MistralBatchError("Mistral returned no choices.")
-    return (resp.choices[0].message.content or "").strip()
+    text = (resp.choices[0].message.content or "").strip()
+    check_output_rail(text)
+    return text
 
 
 def submit(requests: list[dict[str, Any]], model: str = DEFAULT_MODEL,

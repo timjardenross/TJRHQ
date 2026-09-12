@@ -1,0 +1,54 @@
+# TJR Model Router — Colang 1.0 input/output rail flows (USS-TJR-MSN-0366
+# Stream 5, OWASP LLM01 Prompt Injection + output-leakage defense).
+#
+# Each rail is TWO layers, not one:
+#
+#   1. A fast, deterministic keyword/regex pre-filter (tjr_keyword_jailbreak_
+#      check / tjr_credential_leak_check, in actions.py) that blocks
+#      well-known jailbreak phrasings and credential-shaped strings without
+#      calling any model at all.
+#   2. NeMo Guardrails' own semantic self-check (self_check_input /
+#      self_check_output actions), which asks THIS platform's own local
+#      Ollama model (gemma3:4b, configured in config.yml) to judge the
+#      message against the policy prompts in prompts.yml.
+#
+# The two layers matter for different reasons: layer 1 is deterministic and
+# has zero dependency on the checking model being up, fast, or answering
+# correctly — evidence for it doesn't require a live Ollama connection.
+# Layer 2 catches paraphrased/novel attempts layer 1's fixed patterns miss,
+# at the cost of depending on a real model call. See
+# knowledge/missions/PRESIDIO-NEMO-GUARDRAILS-20260912-knowledge-record.md
+# for which layer was actually verified end-to-end in this sandbox (no
+# Ollama reachable here) versus documented-but-unverified in production.
+#
+# These flow definitions intentionally use the SAME names as NeMo
+# Guardrails' shipped library flows (nemoguardrails/library/self_check/
+# {input,output}_check/flows.v1.co) — Colang 1.0 treats a same-named flow
+# in the user's own config as an override of the library default, which is
+# how the keyword layer gets inserted in front of the library's self-check
+# action rather than needing to fork or copy that action's code.
+
+define bot refuse to respond
+  "Request blocked by TJR Model Router input/output guardrails (USS-TJR-MSN-0366)."
+
+define flow self check input
+  $keyword_hit = execute tjr_keyword_jailbreak_check(user_message=$user_message)
+  if $keyword_hit
+    bot refuse to respond
+    stop
+
+  $response = execute self_check_input
+  if $response.is_blocked
+    bot refuse to respond
+    stop
+
+define flow self check output
+  $credential_hit = execute tjr_credential_leak_check(bot_message=$bot_message)
+  if $credential_hit
+    bot refuse to respond
+    stop
+
+  $response = execute self_check_output
+  if $response.is_blocked
+    bot refuse to respond
+    stop
