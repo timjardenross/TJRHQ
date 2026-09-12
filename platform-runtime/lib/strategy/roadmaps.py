@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -70,7 +70,7 @@ class RoadmapItem:
 class Roadmap:
     roadmap_type: RoadmapType
     view: RoadmapView
-    generated_at: str = field(default_factory=lambda: date.today().isoformat())
+    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).date().isoformat())
     items: list[RoadmapItem] = field(default_factory=list)
     horizon_labels: list[str] = field(default_factory=list)
     summary: str = ""
@@ -84,14 +84,14 @@ class Roadmap:
 
 
 def _current_quarter() -> str:
-    d = date.today()
+    d = datetime.now(timezone.utc).date()
     q = (d.month - 1) // 3 + 1
     return f"Q{q} {d.year}"
 
 
 def _quarter_labels(count: int = 4) -> list[str]:
     """Generate sequential quarter labels starting from current."""
-    d = date.today()
+    d = datetime.now(timezone.utc).date()
     q = (d.month - 1) // 3 + 1
     y = d.year
     labels: list[str] = []
@@ -111,7 +111,7 @@ def generate_roadmap(
 ) -> Roadmap:
     """Generate a roadmap derived from existing portfolio data."""
     inputs = inputs or {}
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     roadmap = Roadmap(roadmap_type=roadmap_type, view=view)
 
     if view == RoadmapView.QUARTERLY:
@@ -136,7 +136,7 @@ def generate_roadmap(
 
 def _build_strategic_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
     """Objectives + initiative placement on strategic timeline."""
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     try:
         from lib.strategy.initiatives import list_initiatives
         from lib.strategy.prioritisation import score_initiative
@@ -245,7 +245,7 @@ def _build_architecture_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> Non
 
 def _build_delivery_roadmap(roadmap: Roadmap, inputs: dict[str, Any]) -> None:
     """Delivery sequencing from forecast and dependency data."""
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     try:
         from lib.program.forecasting import DeliveryForecast, forecast_initiative
         from lib.strategy.dependency_management import detect_blocked_initiatives

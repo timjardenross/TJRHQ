@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -58,12 +58,12 @@ def _shadow_score_output(mission_title: str, event_type: str, memory_text: str, 
 
 def generate_build_decision_id() -> str:
     """Generate a canonical decision id for build handoff lifecycle events."""
-    return f"DEC-REC-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
+    return f"DEC-REC-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
 
 
 def generate_build_outcome_id() -> str:
     """Generate a canonical outcome id for build handoff lifecycle events."""
-    return f"OUT-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
+    return f"OUT-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
 
 
 def record_build_lifecycle_event(
@@ -86,7 +86,7 @@ def record_build_lifecycle_event(
     user_id: str | None = None,
 ) -> None:
     """Emit a structured lifecycle record for the build/learning loop."""
-    captured_at = datetime.utcnow().isoformat()
+    captured_at = datetime.now(timezone.utc).isoformat()
     payload: dict[str, Any] = {
         "source": "slack-build",
         "channel_id": channel_id,
@@ -258,7 +258,7 @@ def record_build_lifecycle_event(
                 "mission_id": source_record,
                 "outcome_status": decision_outcomes_status,
                 "outcome_notes": notes or memory_text,
-                "evaluation_date": datetime.utcnow().isoformat(),
+                "evaluation_date": datetime.now(timezone.utc).isoformat(),
                 "evaluator": user_id or approver_user_id or "unknown",
             }
             outcome_result = client.insert("decision_outcomes", outcome_payload, returning=True)

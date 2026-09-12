@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -130,7 +130,7 @@ def _update_mission_validated(mission_id: str, benefit_realised: str) -> None:
 
         c.raw_client.table("missions").update({
             "status": "completed",
-            "updated_at": datetime.utcnow().isoformat() + "Z",
+            "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
             "notes": f"[VALIDATED] {benefit_realised}",
         }).eq("id", mission_id).execute()
 

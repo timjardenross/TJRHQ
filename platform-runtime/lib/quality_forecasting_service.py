@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 import numpy as np
@@ -95,7 +95,7 @@ class EffectivenessForecast:
 
     # Metadata
     forecast_id: str = field(default_factory=lambda: "")
-    forecast_timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    forecast_timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     created_at: str | None = None
 
 
@@ -115,7 +115,7 @@ class AnomalyDetection:
 
     # Metadata
     anomaly_id: str = field(default_factory=lambda: "")
-    detected_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    detected_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     created_at: str | None = None
 
 
@@ -401,7 +401,7 @@ class QualityForecasting:
                 provider_name=provider_name,
                 model_name=model_name,
                 provider_route=provider_route,
-                score_id=score_id or f"UNKNOWN-{datetime.utcnow().isoformat()}",
+                score_id=score_id or f"UNKNOWN-{datetime.now(timezone.utc).isoformat()}",
                 score_value=recent_score,
                 anomaly_type=anomaly_type,
                 z_score=round(z_score, 2),
@@ -628,10 +628,10 @@ class QualityForecasting:
 
     def _generate_forecast_id(self) -> str:
         """Generate forecast ID: FOR-YYYYMMDD-HHMMSS."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime("FOR-%Y%m%d-%H%M%S")
 
     def _generate_anomaly_id(self) -> str:
         """Generate anomaly ID: ANO-YYYYMMDD-HHMMSS."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime("ANO-%Y%m%d-%H%M%S")

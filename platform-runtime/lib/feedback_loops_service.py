@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 log = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class FeedbackSignal:
     # Optional fields with defaults
     model_name: str | None = None
     provider_route: str | None = None
-    feedback_timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    feedback_timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     created_at: str | None = None
 
     def to_dict(self):
@@ -430,14 +430,14 @@ class FeedbackLoops:
                 trend = "stable"
 
             # Update or insert
-            history_id = f"HIS-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+            history_id = f"HIS-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
 
             update_data = {
                 "decisions_count": count,
                 "avg_effectiveness": round(avg_effectiveness, 1),
                 "effectiveness_trend": trend,
-                "last_score_date": datetime.utcnow().isoformat(),
-                "last_updated": datetime.utcnow().isoformat(),
+                "last_score_date": datetime.now(timezone.utc).isoformat(),
+                "last_updated": datetime.now(timezone.utc).isoformat(),
             }
 
             if response.data and len(response.data) > 0:
@@ -478,5 +478,5 @@ class FeedbackLoops:
         Returns:
             Unique, sortable feedback signal ID
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime("FBK-%Y%m%d-%H%M%S")

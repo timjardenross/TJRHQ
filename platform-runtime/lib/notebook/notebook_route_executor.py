@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ class ExecutionResult:
 
 
 def _now() -> str:
-    return datetime.utcnow().isoformat() + "Z"
+    return datetime.now(timezone.utc).isoformat() + "Z"
 
 
 def _slug(text: str, maxlen: int = 60) -> str:
@@ -79,7 +79,7 @@ def _slug(text: str, maxlen: int = 60) -> str:
 
 def _create_mission(note: dict[str, Any], supabase_client: Any) -> tuple[str | None, str]:
     """Insert a mission stub into the missions table (status=Idea)."""
-    mid = f"M-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}-NB"
+    mid = f"M-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-NB"
     title = note.get("title") or _slug(note.get("raw_content", "Notebook capture"), 80)
     description = "\n\n".join(filter(None, [
         note.get("triage_summary"),
@@ -109,7 +109,7 @@ def _create_mission(note: dict[str, Any], supabase_client: Any) -> tuple[str | N
 
 def _create_build_request(note: dict[str, Any], supabase_client: Any) -> tuple[str | None, str]:
     """Insert into build_request_inbox (PENDING_TRIAGE)."""
-    bid = f"BREQ-NB-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+    bid = f"BREQ-NB-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
     title = note.get("title") or _slug(note.get("raw_content", "Notebook build request"), 80)
 
     record: dict[str, Any] = {
@@ -133,7 +133,7 @@ def _create_build_request(note: dict[str, Any], supabase_client: Any) -> tuple[s
 
 def _create_strategic_initiative(note: dict[str, Any], supabase_client: Any) -> tuple[str | None, str]:
     """Insert a strategic objective stub."""
-    obj_id = f"OBJ-NB-{datetime.utcnow().strftime('%Y%m%d')}"
+    obj_id = f"OBJ-NB-{datetime.now(timezone.utc).strftime('%Y%m%d')}"
     title = note.get("title") or _slug(note.get("raw_content", "Notebook initiative"), 80)
 
     record: dict[str, Any] = {
@@ -176,7 +176,7 @@ def _create_strategic_initiative(note: dict[str, Any], supabase_client: Any) -> 
 
 def _create_improvement(note: dict[str, Any], supabase_client: Any) -> tuple[str | None, str]:
     """Add to improvement backlog (decisions table, owner prefix pattern)."""
-    dec_id = f"DEC-NB-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+    dec_id = f"DEC-NB-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
     content_preview = _slug(note.get("raw_content", "Notebook improvement idea"), 80)
 
     record: dict[str, Any] = {
@@ -206,8 +206,8 @@ def _create_improvement(note: dict[str, Any], supabase_client: Any) -> tuple[str
 
 def _create_knowledge_article(note: dict[str, Any], supabase_client: Any) -> tuple[str | None, str]:
     """Insert into lessons_learned as a knowledge capture."""
-    lesson_date = datetime.utcnow().strftime("%Y-%m-%d")
-    ll_id = f"LL-NB-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+    lesson_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    ll_id = f"LL-NB-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
     title = note.get("title") or _slug(note.get("raw_content", "Notebook knowledge capture"), 80)
 
     record: dict[str, Any] = {
@@ -235,7 +235,7 @@ def _create_knowledge_article(note: dict[str, Any], supabase_client: Any) -> tup
 
 def _create_research_request(note: dict[str, Any], supabase_client: Any) -> tuple[str | None, str]:
     """Insert into research_memory as a research request."""
-    res_id = f"RES-NB-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+    res_id = f"RES-NB-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
     title = note.get("title") or _slug(note.get("raw_content", "Notebook research request"), 80)
 
     record: dict[str, Any] = {

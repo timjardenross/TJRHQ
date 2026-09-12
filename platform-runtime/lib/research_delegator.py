@@ -29,7 +29,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 # MSN-0055C Work Package 2: Provider Circuit Breaker
@@ -80,7 +80,7 @@ class ResearchOutcome:
         if self.provider_attempted is None:
             self.provider_attempted = []
         if self.timestamp is None:
-            self.timestamp = datetime.utcnow().isoformat()
+            self.timestamp = datetime.now(timezone.utc).isoformat()
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -107,7 +107,7 @@ class MissionGeminiQuota:
     def mark_quota_exhausted(self) -> None:
         """Mark Gemini quota as exhausted for this mission."""
         self.gemini_quota_exhausted = True
-        self.quota_exhausted_timestamp = datetime.utcnow().isoformat()
+        self.quota_exhausted_timestamp = datetime.now(timezone.utc).isoformat()
         log.warning(f"[QUOTA-MISSION] {self.mission_id}: Gemini quota exhausted. Falling back to Ollama for remaining tasks.")
 
     def can_use_gemini(self) -> bool:

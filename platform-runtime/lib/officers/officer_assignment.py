@@ -30,7 +30,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -150,7 +150,7 @@ def assign_mission(
             )
             if list(existing.data or []):
                 c.raw_client.table("decisions").update(
-                    {"statement": statement, "rationale": rat, "updated_at": datetime.utcnow().isoformat()}
+                    {"statement": statement, "rationale": rat, "updated_at": datetime.now(timezone.utc).isoformat()}
                 ).eq("owner", owner).execute()
             else:
                 c.raw_client.table("decisions").insert({

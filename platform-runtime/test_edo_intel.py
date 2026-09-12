@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sys
 import unittest
-from datetime import date, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -27,7 +27,7 @@ MISSION = {"mission_id": "MSN-0099", "title": "Improve dashboard", "status": "De
 
 
 def _d(n):
-    return (date.today() - timedelta(days=n)).isoformat()
+    return (datetime.now(timezone.utc).date() - timedelta(days=n)).isoformat()
 
 
 def _row(title, state_status, age, **kw):

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ def record_recommendation(
     if client is None:
         return False
     payload = {
-        "issued_on": date.today().isoformat(),
+        "issued_on": datetime.now(timezone.utc).date().isoformat(),
         "kind": kind,
         "domain": domain,
         "output_class": output_class,
@@ -106,7 +106,7 @@ def record_feedback(
         return False
     category = category if category in _CATEGORY_USEFUL else "helpful"
     payload = {
-        "given_on": date.today().isoformat(),
+        "given_on": datetime.now(timezone.utc).date().isoformat(),
         "summary": summary[:1000],
         "category": category,
         "useful": _CATEGORY_USEFUL[category],
@@ -138,7 +138,7 @@ def record_pattern(
     if client is None:
         return False
     payload = {
-        "observed_on": date.today().isoformat(),
+        "observed_on": datetime.now(timezone.utc).date().isoformat(),
         "pattern_type": pattern_type,
         "description": description[:1000],
         "domain": domain,
@@ -159,7 +159,7 @@ def record_friction(*, friction_key: str, description: str, lever: str, confiden
     if client is None:
         return False
     payload = {
-        "observed_on": date.today().isoformat(),
+        "observed_on": datetime.now(timezone.utc).date().isoformat(),
         "friction_key": friction_key,
         "description": description[:1000],
         "lever": lever[:1000],

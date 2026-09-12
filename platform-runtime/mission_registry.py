@@ -7,7 +7,7 @@
 import logging
 import re
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from mission_logger import (
@@ -109,7 +109,7 @@ def create_mission(user_text: str) -> dict:
     raw_title = re.sub(r"(?i)^.*?create (?:a )?mission(?: for|:)?", "", user_text).strip()
     title = build_title(raw_title or user_text)
     domain = infer_domain(title)
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     content = f"""# Mission Record
 
@@ -152,10 +152,10 @@ def get_mission(mission_id: str) -> str | None:
 
 def mission_age_days(mission: dict) -> int | None:
     try:
-        created = datetime.strptime(mission["timestamp"], "%Y-%m-%d %H:%M")
+        created = datetime.strptime(mission["timestamp"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
     except ValueError:
         return None
-    return (datetime.now() - created).days
+    return (datetime.now(timezone.utc) - created).days
 
 
 def mission_owner(mission_id: str) -> str:

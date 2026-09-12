@@ -17,7 +17,7 @@ target, where to focus engineering effort.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import datetime, timezone
 from statistics import mean, median
 
 from . import lifecycle
@@ -41,7 +41,7 @@ def _age(row: dict) -> int:
     if not c:
         return 0
     try:
-        return (date.today() - datetime.fromisoformat(str(c).replace("Z", "+00:00")).date()).days
+        return (datetime.now(timezone.utc).date() - datetime.fromisoformat(str(c).replace("Z", "+00:00")).date()).days
     except Exception:
         return 0
 
@@ -117,7 +117,7 @@ def _closed_date(row: dict):
 
 def throughput(rows: list[dict], weeks: int = 4) -> dict:
     """Closures within the last `weeks`, total + simple trend direction."""
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     closed = [r for r in rows if _state(r) in lifecycle.TERMINAL_STATES]
     buckets = [0] * weeks
     for r in closed:

@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -74,7 +74,7 @@ class DecisionOutcome:
     implementation_notes: str | None = None
 
     # Timestamps
-    outcome_timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    outcome_timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     created_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -160,7 +160,7 @@ class OutcomeCapture:
 
         # Use provided timestamp or current time
         if outcome_timestamp is None:
-            outcome_timestamp = datetime.utcnow().isoformat()
+            outcome_timestamp = datetime.now(timezone.utc).isoformat()
 
         # Create outcome record
         outcome = DecisionOutcome(
@@ -381,5 +381,5 @@ class OutcomeCapture:
         Returns:
             Unique, sortable outcome ID
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime("OUT-%Y%m%d-%H%M%S")

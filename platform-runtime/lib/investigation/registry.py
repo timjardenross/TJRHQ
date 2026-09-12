@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -66,7 +66,7 @@ def _build_rationale(
     outcome: str = "",
     opened_at: datetime | None = None,
 ) -> str:
-    ts = (opened_at or datetime.utcnow()).isoformat()
+    ts = (opened_at or datetime.now(timezone.utc)).isoformat()
     parts = [
         f"SOURCE: {source}",
         f"TYPE: {inv_type}",
@@ -107,7 +107,7 @@ def _row_to_investigation(row: dict[str, Any]) -> Investigation | None:
         inv_type = InvestigationType.OPERATIONAL
 
     opened_raw = parts.get("OPENED", "")
-    opened_at  = datetime.utcnow()
+    opened_at  = datetime.now(timezone.utc)
     if opened_raw:
         try:
             opened_at = datetime.fromisoformat(opened_raw.replace("Z", "+00:00"))
@@ -293,7 +293,7 @@ def close_investigation(
         p = _parse_rationale(str(rows[0].get("rationale") or ""))
         p["STATUS"]  = InvestigationStatus.CLOSED.value
         p["OUTCOME"] = outcome.value
-        p["CLOSED"]  = datetime.utcnow().isoformat()
+        p["CLOSED"]  = datetime.now(timezone.utc).isoformat()
         if notes:
             p["NOTES"] = notes[:100]
         if mission_id:

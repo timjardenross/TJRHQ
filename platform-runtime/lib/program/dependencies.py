@@ -37,7 +37,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -174,7 +174,7 @@ def add_dependency(
             statement=f"{_DEPENDENCY_STATEMENT} {from_id} {dt.value} {to_id}",
             rationale=(
                 f"FROM: {from_id} | TYPE: {dt.value} | TO: {to_id} | "
-                f"KIND: {kind} | NOTE: {note[:100]} | CREATED: {datetime.utcnow().isoformat()}"
+                f"KIND: {kind} | NOTE: {note[:100]} | CREATED: {datetime.now(timezone.utc).isoformat()}"
             ),
             owner=owner,
         )

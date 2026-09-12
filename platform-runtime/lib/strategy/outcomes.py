@@ -31,7 +31,7 @@ import logging
 import re
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -114,7 +114,7 @@ def record_outcome(initiative_id: str, value: str, evidence: str = "") -> bool:
             statement=f"{_OUTCOME_STATEMENT} {initiative_id}: {str(value)[:60]}",
             rationale=(
                 f"INITIATIVE: {initiative_id} | VALUE: {str(value)[:80]} | "
-                f"MEASURED: {datetime.utcnow().isoformat()} | EVIDENCE: {evidence[:120]}"
+                f"MEASURED: {datetime.now(timezone.utc).isoformat()} | EVIDENCE: {evidence[:120]}"
             ),
             owner=f"{OUTCOME_OWNER_PREFIX}{initiative_id}",
         )

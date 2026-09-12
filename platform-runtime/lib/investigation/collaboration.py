@@ -34,7 +34,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -181,7 +181,7 @@ def add_participant(
             statement=f"{_PARTICIPANT_STATEMENT} {investigation_id}: {officer} ({role_str})",
             rationale=(
                 f"OFFICER: {officer} | ROLE: {role_str} | "
-                f"DOMAIN: {domain} | ADDED: {datetime.utcnow().isoformat()}"
+                f"DOMAIN: {domain} | ADDED: {datetime.now(timezone.utc).isoformat()}"
             ),
             owner=owner,
         )

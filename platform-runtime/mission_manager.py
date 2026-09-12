@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from mission_logger import MISSION_INDEX, MISSIONS_DIR, ensure_missions_dir
 
@@ -83,12 +83,12 @@ def get_completed_missions():
 
 
 def get_completed_missions_this_week():
-    week_start = datetime.now() - timedelta(days=7)
+    week_start = datetime.now(timezone.utc) - timedelta(days=7)
     missions = []
 
     for mission in get_completed_missions():
         try:
-            mission_time = datetime.strptime(mission["timestamp"], "%Y-%m-%d %H:%M")
+            mission_time = datetime.strptime(mission["timestamp"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
         except ValueError:
             continue
 
@@ -167,7 +167,7 @@ def build_mission_summary():
 
 
 def build_daily_summary():
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     missions = [
         mission
         for mission in load_index_entries()
@@ -178,12 +178,12 @@ def build_daily_summary():
 
 
 def build_weekly_summary():
-    week_start = datetime.now() - timedelta(days=7)
+    week_start = datetime.now(timezone.utc) - timedelta(days=7)
     missions = []
 
     for mission in load_index_entries():
         try:
-            mission_time = datetime.strptime(mission["timestamp"], "%Y-%m-%d %H:%M")
+            mission_time = datetime.strptime(mission["timestamp"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
         except ValueError:
             continue
 

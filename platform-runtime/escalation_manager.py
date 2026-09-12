@@ -117,7 +117,7 @@ def process_escalations(
     Returns filtered list of escalation dicts with current_severity and
     notification_count added.
     """
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     now_str = _now_iso()
 
     try:

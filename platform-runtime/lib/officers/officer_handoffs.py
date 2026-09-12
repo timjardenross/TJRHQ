@@ -33,7 +33,7 @@ import logging
 import sys
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -211,7 +211,7 @@ def accept_handoff(handoff_id: str, accepting_officer: str) -> bool:
         new_rat = rat.replace(f"STATUS: {HandoffStatus.PENDING.value}", f"STATUS: {HandoffStatus.ACCEPTED.value}")
         c.raw_client.table("decisions").update({
             "rationale": new_rat,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("owner", owner).execute()
         log.info("[officer_handoffs] Accepted %s by %s", handoff_id, accepting_officer)
         return True
@@ -231,7 +231,7 @@ def complete_handoff(handoff_id: str) -> bool:
         owner = f"{_HANDOFF_OWNER_PREFIX}{handoff_id}"
         c.raw_client.table("decisions").update({
             "status": "resolved",
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("owner", owner).execute()
         log.info("[officer_handoffs] Completed %s", handoff_id)
         return True

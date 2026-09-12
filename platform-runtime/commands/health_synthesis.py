@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import date, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ def _fetch_recent_logs(db, days: int = 7) -> list[dict]:
     if db is None or not db.is_enabled() or db.raw_client is None:
         return []
     try:
-        since = (date.today() - timedelta(days=days)).isoformat()
+        since = (datetime.now(timezone.utc).date() - timedelta(days=days)).isoformat()
         result = (
             db.raw_client
             .table("analytics_health_daily")
@@ -116,7 +116,7 @@ def _summarise(rows: list[dict]) -> str:
     # Build summary text
     lines = [
         "*Weekly Health Brief — Medical Officer*",
-        f"_{date.today().strftime('%d %b %Y')} · Last {days_with_data} check-in(s)_",
+        f"_{datetime.now(timezone.utc).date().strftime('%d %b %Y')} · Last {days_with_data} check-in(s)_",
         "",
         "*Nervous System*",
     ]

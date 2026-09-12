@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ class PipelineResult:
     advanced_to_number_one: list[str] = field(default_factory=list)
     advanced_to_ready: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
-    ran_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    ran_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     @property
     def total_advanced(self) -> int:

@@ -33,7 +33,7 @@ import sys
 import threading
 from collections import deque
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # RESEARCH DELEGATOR FIX: Ensure repo root is in sys.path before importing
@@ -114,7 +114,7 @@ def _compute_research_query_hash(query: str) -> str:
 def _generate_queue_mission_id() -> str:
     """Generate unique mission ID for queue tracking."""
     from datetime import datetime
-    ts = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")[:14]
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")[:14]
     return f"QUEUED-{ts}"
 
 
@@ -826,7 +826,7 @@ def _queue_mission_logging_reuse(
         #     "question": question,
         #     "confidence": confidence,
         #     "user_id": user_id,
-        #     "timestamp": datetime.utcnow(),
+        #     "timestamp": datetime.now(timezone.utc),
         # })
 
         log.debug(
@@ -887,7 +887,7 @@ def _persist_research_memory(result, user_id: str | None) -> None:
             "query_hash": query_hash,
             "researcher_id": user_id or "slack-bot",
             "execution_status": "success" if result.status == "success" else "partial" if result.status == "partial" else "failed",
-            "stored_at": datetime.utcnow().isoformat(),
+            "stored_at": datetime.now(timezone.utc).isoformat(),
         }
 
         write_result = client.insert("research_memory", payload)

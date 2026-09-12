@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime, timezone
 
 from . import lifecycle
 
@@ -46,7 +46,7 @@ def _age(row: dict) -> int:
         return 0
     try:
         d = datetime.fromisoformat(str(created).replace("Z", "+00:00")).date()
-        return (date.today() - d).days
+        return (datetime.now(timezone.utc).date() - d).days
     except Exception:
         return 0
 

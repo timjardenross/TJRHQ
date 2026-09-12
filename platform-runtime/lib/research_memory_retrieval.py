@@ -19,7 +19,7 @@ Design:
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class ResearchMemoryEntry:
         """Days since research was created."""
         try:
             created = datetime.fromisoformat(self.created_at)
-            age = datetime.utcnow() - created
+            age = datetime.now(timezone.utc) - created
             return age.days
         except Exception:
             return 999  # Treat unparseable dates as very old
@@ -177,7 +177,7 @@ class ResearchMemoryRetriever:
         """
         try:
             # Query all non-stale research (within 6 months)
-            cutoff_date = (datetime.utcnow() - timedelta(days=180)).isoformat()
+            cutoff_date = (datetime.now(timezone.utc) - timedelta(days=180)).isoformat()
 
             response = self.supabase.table("research_memory") \
                 .select("*") \

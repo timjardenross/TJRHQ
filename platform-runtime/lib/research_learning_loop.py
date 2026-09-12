@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -49,7 +49,7 @@ _STATUS_TO_OUTCOME = {
 
 
 def generate_research_decision_id() -> str:
-    return f"DEC-RES-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
+    return f"DEC-RES-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
 
 
 def record_research_lifecycle_event(
@@ -74,7 +74,7 @@ def record_research_lifecycle_event(
     decision_outcomes_status = status if status in ("success", "partial") else "failed"
     provider_name = (provider_path or [None])[0]
     notes = (recommendation or research_topic)[:500]
-    captured_at = datetime.utcnow().isoformat()
+    captured_at = datetime.now(timezone.utc).isoformat()
 
     try:
         client = CommanderSupabaseClient()

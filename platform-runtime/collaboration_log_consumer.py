@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 _BOT_DIR = Path(__file__).resolve().parent
@@ -38,7 +38,7 @@ def log_collaboration_output(
     try:
         _LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
         entry = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "mission_id": mission_id or "",
             "user_text": user_text[:500],
             "specialists": specialists or [],

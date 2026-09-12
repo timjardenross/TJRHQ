@@ -75,7 +75,7 @@ def save_mission_log(
 ) -> Path:
     ensure_missions_dir()
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     safe_request = redact_secrets(user_request)
     safe_response = redact_secrets(commander_response)
     specialists = ", ".join(assigned_specialists)

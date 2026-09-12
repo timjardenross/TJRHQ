@@ -39,7 +39,7 @@ Risk bands:
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -144,7 +144,7 @@ def calculate_mission_risk_score(mission: dict) -> dict:
 
     # --- Age component ---
     open_date = _parse_open_date(mission_id, mission.get("timestamp", ""))
-    age_days  = (date.today() - open_date).days if open_date else None
+    age_days  = (datetime.now(timezone.utc).date() - open_date).days if open_date else None
 
     age_score = 0
     if age_days is not None:
@@ -206,13 +206,13 @@ def _parse_open_date(mission_id: str, timestamp: str) -> date | None:
     for p in parts:
         if len(p) == 8 and p.isdigit():
             try:
-                return datetime.strptime(p, "%Y%m%d").date()
+                return datetime.strptime(p, "%Y%m%d").replace(tzinfo=timezone.utc).date()
             except ValueError:
                 continue
     if timestamp:
         for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d"):
             try:
-                return datetime.strptime(timestamp[:16], fmt).date()
+                return datetime.strptime(timestamp[:16], fmt).replace(tzinfo=timezone.utc).date()
             except ValueError:
                 continue
     return None

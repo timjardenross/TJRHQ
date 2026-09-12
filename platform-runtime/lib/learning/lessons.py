@@ -42,7 +42,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -353,7 +353,7 @@ def promote_lesson_candidate(candidate_id: str) -> str | None:
         record = {
             "lesson_id": lesson_id,
             "title": cand.title[:200],
-            "date_recorded": date.today().isoformat(),
+            "date_recorded": datetime.now(timezone.utc).date().isoformat(),
             "context": cand.context,
             "lesson_text": cand.lesson_text,
             "outcome": cand.outcome,
@@ -389,7 +389,7 @@ def record_lesson_reuse(lesson_id: str, context: str = "") -> None:
         from command_memory_integration import log_decision_to_command_memory
         log_decision_to_command_memory(
             statement=f"[LESSON REUSE] {lesson_id}: {context[:80]}",
-            rationale=f"LESSON_ID: {lesson_id} | REUSED_AT: {datetime.utcnow().isoformat()} | CONTEXT: {context[:120]}",
+            rationale=f"LESSON_ID: {lesson_id} | REUSED_AT: {datetime.now(timezone.utc).isoformat()} | CONTEXT: {context[:120]}",
             owner=f"{LESSON_REUSE_OWNER_PREFIX}{lesson_id}",
         )
     except Exception as exc:

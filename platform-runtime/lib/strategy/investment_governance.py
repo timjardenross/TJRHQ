@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -81,7 +81,7 @@ class Investment:
         if not self.review_date:
             return False
         try:
-            return date.fromisoformat(self.review_date) <= date.today()
+            return date.fromisoformat(self.review_date) <= datetime.now(timezone.utc).date()
         except ValueError:
             return False
 

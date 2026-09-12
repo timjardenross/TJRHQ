@@ -37,7 +37,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -279,7 +279,7 @@ def complete_scorecard(
         should_expand=should_expand,
         should_reverse=should_reverse,
         metrics=metrics or ImprovementMetrics(),
-        validated_at=datetime.utcnow(),
+        validated_at=datetime.now(timezone.utc),
     )
 
     success = _log_decision(
@@ -326,7 +326,7 @@ def get_scorecard(mission_id: str) -> ImprovementScorecard | None:
         scorecard = _parse_rationale(mission_id, created_row["rationale"])
         scorecard.created_at = datetime.fromisoformat(
             created_row["created_at"].rstrip("Z")
-        ) if created_row.get("created_at") else datetime.utcnow()
+        ) if created_row.get("created_at") else datetime.now(timezone.utc)
 
         if completed_row:
             completed = _parse_rationale(mission_id, completed_row["rationale"])

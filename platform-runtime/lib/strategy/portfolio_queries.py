@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -74,7 +74,7 @@ def missions_to_stop() -> list[dict[str, Any]]:
     if c is None:
         return []
     try:
-        cutoff = (datetime.utcnow() - timedelta(days=ORPHAN_STALE_DAYS)).isoformat() + "Z"
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=ORPHAN_STALE_DAYS)).isoformat() + "Z"
         res = c.raw_client.table("missions").select(
             "id,title,status,priority,owner,updated_at,strategic_objective_id"
         ).is_("strategic_objective_id", "null").lt("updated_at", cutoff).execute()

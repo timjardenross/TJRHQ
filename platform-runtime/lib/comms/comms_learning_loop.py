@@ -11,14 +11,14 @@ human accept decisions.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
 
 def generate_comms_decision_id() -> str:
-    return f"DEC-COM-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
+    return f"DEC-COM-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:6].upper()}"
 
 
 def record_comms_approval_event(
@@ -45,7 +45,7 @@ def record_comms_approval_event(
         return
 
     notes = f"Content '{title}' advanced {old_state} -> {new_state}"
-    captured_at = datetime.utcnow().isoformat()
+    captured_at = datetime.now(timezone.utc).isoformat()
 
     try:
         client = CommanderSupabaseClient()

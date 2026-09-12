@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -95,7 +95,7 @@ class NotificationConfig:
 
     def should_send(self, level: str = SEVERITY_INFO, is_routine: bool = False) -> bool:
         """Return True if a notification at this level should be sent now."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
 
         # Weekend suppression for routine notifications
         if is_routine and not self.weekend and now.weekday() >= 5:
@@ -153,14 +153,14 @@ def _parse_mission_open_date(mission_id: str, fallback_str: str = "") -> date | 
     for i, p in enumerate(parts):
         if len(p) == 8 and p.isdigit():
             try:
-                return datetime.strptime(p, "%Y%m%d").date()
+                return datetime.strptime(p, "%Y%m%d").replace(tzinfo=timezone.utc).date()
             except ValueError:
                 continue
     # Try fallback timestamp string (e.g. "2026-06-07 13:25")
     if fallback_str:
         for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d"):
             try:
-                return datetime.strptime(fallback_str[:16], fmt).date()
+                return datetime.strptime(fallback_str[:16], fmt).replace(tzinfo=timezone.utc).date()
             except ValueError:
                 continue
     return None
@@ -181,9 +181,11 @@ def _mission_last_activity(mission_id: str) -> datetime | None:
         )
         lines = [l.strip() for l in result.stdout.strip().splitlines() if l.strip()]
         if lines:
-            # Most recent commit first
+            # Most recent commit first — `%ci` format is "YYYY-MM-DD HH:MM:SS +ZZZZ";
+            # parse with %z (not truncated) so the result is tz-aware and comparable
+            # to `datetime.now(timezone.utc)` without a false offset.
             ts = lines[0]
-            return datetime.strptime(ts[:19], "%Y-%m-%d %H:%M:%S")
+            return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S %z")
     except Exception:
         pass
     return None
@@ -232,7 +234,7 @@ def get_mission_escalations() -> list[dict]:
     if not cfg.mission_escalations:
         return []
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     today = now.date()
     escalations = []
 
@@ -352,7 +354,7 @@ def get_forgotten_decisions() -> list[dict]:
     if not cfg.forgotten_decisions:
         return []
 
-    cutoff_date = date.today() - timedelta(days=cfg.decision_stale_days)
+    cutoff_date = datetime.now(timezone.utc).date() - timedelta(days=cfg.decision_stale_days)
     forgotten   = []
 
     # --- Governance decision register ---
@@ -376,14 +378,14 @@ def get_forgotten_decisions() -> list[dict]:
                         break
                 if dec_status in ("PROPOSED", "PENDING") and dec_date:
                     try:
-                        d = datetime.strptime(dec_date, "%Y-%m-%d").date()
+                        d = datetime.strptime(dec_date, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
                         if d <= cutoff_date:
                             forgotten.append({
                                 "id":       dec_id,
                                 "title":    dec_title,
                                 "date":     dec_date,
                                 "status":   dec_status,
-                                "age_days": (date.today() - d).days,
+                                "age_days": (datetime.now(timezone.utc).date() - d).days,
                                 "type":     "governance_decision",
                             })
                     except ValueError:
@@ -420,14 +422,14 @@ def get_forgotten_decisions() -> list[dict]:
                             break
                     if dec_date:
                         try:
-                            d = datetime.strptime(dec_date, "%Y-%m-%d").date()
+                            d = datetime.strptime(dec_date, "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
                             if d <= cutoff_date:
                                 forgotten.append({
                                     "id":       f.stem,
                                     "title":    f.stem.replace("-", " "),
                                     "date":     dec_date,
                                     "status":   "Awaiting Validation",
-                                    "age_days": (date.today() - d).days,
+                                    "age_days": (datetime.now(timezone.utc).date() - d).days,
                                     "type":     "adr",
                                 })
                         except ValueError:
@@ -451,7 +453,7 @@ def get_forgotten_decisions() -> list[dict]:
                             m = re.search(r"(\d{4}-\d{2}-\d{2})", nearby)
                             if m:
                                 try:
-                                    d = datetime.strptime(m.group(1), "%Y-%m-%d").date()
+                                    d = datetime.strptime(m.group(1), "%Y-%m-%d").replace(tzinfo=timezone.utc).date()
                                     if d <= cutoff_date:
                                         # Extract cap ID if available
                                         cap_id_match = re.search(r"(CAP-\d+|C-\d+)", line)
@@ -461,7 +463,7 @@ def get_forgotten_decisions() -> list[dict]:
                                             "title":    line.strip()[:80],
                                             "date":     m.group(1),
                                             "status":   "Implemented — Not Validated",
-                                            "age_days": (date.today() - d).days,
+                                            "age_days": (datetime.now(timezone.utc).date() - d).days,
                                             "type":     "capability",
                                         })
                                 except ValueError:

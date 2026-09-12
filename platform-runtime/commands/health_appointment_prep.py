@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import date, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -70,8 +70,8 @@ def _get_upcoming_appointments(lead_days: int) -> list[dict]:
         if not is_configured():
             log.warning("[appt-prep] Supabase not configured — skipping appointment check")
             return []
-        today = date.today().isoformat()
-        cutoff = (date.today() + timedelta(days=lead_days)).isoformat()
+        today = datetime.now(timezone.utc).date().isoformat()
+        cutoff = (datetime.now(timezone.utc).date() + timedelta(days=lead_days)).isoformat()
         rows = supabase_get(
             f"health_events"
             f"?event_type=eq.appointment"
@@ -92,7 +92,7 @@ def _get_next_appointment() -> dict | None:
         from supabase_client import is_configured, supabase_get
         if not is_configured():
             return None
-        today = date.today().isoformat()
+        today = datetime.now(timezone.utc).date().isoformat()
         rows = supabase_get(
             f"health_events"
             f"?event_type=eq.appointment"
@@ -112,7 +112,7 @@ def _get_health_summary_period(days: int = 7) -> dict:
         from supabase_client import is_configured, supabase_get
         if not is_configured():
             return {}
-        cutoff = (date.today() - timedelta(days=days)).isoformat()
+        cutoff = (datetime.now(timezone.utc).date() - timedelta(days=days)).isoformat()
         rows = supabase_get(
             f"analytics_health_daily"
             f"?log_date=gte.{cutoff}"
@@ -148,8 +148,8 @@ def _get_recent_health_events(since_days: int = 30) -> list[dict]:
         from supabase_client import is_configured, supabase_get
         if not is_configured():
             return []
-        cutoff = (date.today() - timedelta(days=since_days)).isoformat()
-        today = date.today().isoformat()
+        cutoff = (datetime.now(timezone.utc).date() - timedelta(days=since_days)).isoformat()
+        today = datetime.now(timezone.utc).date().isoformat()
         rows = supabase_get(
             f"health_events"
             f"?event_date=gte.{cutoff}"

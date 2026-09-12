@@ -20,7 +20,7 @@ Public API:
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 log = logging.getLogger(__name__)
 
@@ -230,7 +230,7 @@ class AdaptiveRoutingService:
             fallback_chain=fallback,
             routing_rationale=routing_rationale,
             quality_data_available=quality_data_available,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
         log.info("[adaptive-routing] Routing decision logged:")

@@ -11,7 +11,7 @@ briefing engine.
 from __future__ import annotations
 
 from collections import Counter
-from datetime import date
+from datetime import datetime, timezone
 
 OFFICER = "Communications & Presence Officer"
 
@@ -33,7 +33,7 @@ def compose_presence_line(opportunities: list) -> str | None:
 def compose_weekly_brief(opportunities: list, *, date_str: str | None = None,
                          limit: int = 5) -> str:
     """WP6: the weekly influence brief. Pure."""
-    d = date_str or date.today().strftime("%a %d %b %Y")
+    d = date_str or datetime.now(timezone.utc).date().strftime("%a %d %b %Y")
     pub = [o for o in opportunities if getattr(o, "is_publishable", True)]
 
     lines = [

@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -264,7 +264,7 @@ def _is_due(schedule: OfficerSchedule, last_run: datetime | None) -> bool:
     if last_run is None:
         return True
     interval = timedelta(days=schedule.interval_days)
-    return (datetime.utcnow() - last_run) >= interval
+    return (datetime.now(timezone.utc) - last_run) >= interval
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ def get_due_activities(ctx: Any = None) -> list[ScheduledActivity]:
         try:
             last_run, run_count = _get_schedule_state(schedule.activity_id)
             next_due = (
-                (last_run + timedelta(days=schedule.interval_days)) if last_run else datetime.utcnow()
+                (last_run + timedelta(days=schedule.interval_days)) if last_run else datetime.now(timezone.utc)
             )
             is_due = _is_due(schedule, last_run)
             due.append(ScheduledActivity(
@@ -306,7 +306,7 @@ def record_activity_run(activity_id: str) -> None:
             return
 
         last_run, run_count = _get_schedule_state(activity_id)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         next_due = now + timedelta(days=schedule.interval_days)
         new_count = run_count + 1
 

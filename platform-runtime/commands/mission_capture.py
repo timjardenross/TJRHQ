@@ -74,7 +74,7 @@ def handle_mission_capture(
         Formatted Slack mrkdwn string ready to post.
     """
     import sys
-    from datetime import datetime
+    from datetime import datetime, timezone
     from pathlib import Path
     _bot_dir = Path(__file__).resolve().parent.parent
     if str(_bot_dir) not in sys.path:
@@ -102,7 +102,7 @@ def handle_mission_capture(
         log.info("[mission-capture] Capture generated (%d chars)", len(output))
 
         # MSN-0040A: Persist to Command Memory (non-blocking)
-        mission_id = f"M-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        mission_id = f"M-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
         title = _extract_title(output) or text.strip()[:100] or "Untitled Mission"
         saved = _persist_mission_capture(mission_id, title, user_id or "slack-bot", description=output)
 

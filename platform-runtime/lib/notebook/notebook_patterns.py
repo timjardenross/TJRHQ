@@ -79,7 +79,7 @@ class PatternReport:
     domain_distribution: dict[str, int] = field(default_factory=dict)
     total_notes_analysed: int = 0
     lookback_days: int = 30
-    generated_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     @property
     def has_signals(self) -> bool:

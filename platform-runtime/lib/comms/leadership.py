@@ -14,7 +14,7 @@ get_content_candidates).
 from __future__ import annotations
 
 from collections import Counter
-from datetime import date
+from datetime import datetime, timezone
 
 OFFICER = "Communications & Presence Officer"
 
@@ -41,7 +41,7 @@ def compose_leadership_brief(candidates: list, lessons: list, *,
     leadership lens and free of sensitive/not_for_publication items.
     ``lessons`` are recent lessons_learned rows (dicts).
     """
-    d = date_str or date.today().strftime("%a %d %b %Y")
+    d = date_str or datetime.now(timezone.utc).date().strftime("%a %d %b %Y")
     lead = [c for c in (candidates or [])
             if c.get("content_classification") in _LEADERSHIP_CLASSES]
 
@@ -175,7 +175,7 @@ def _split(outcomes: list):
 def compose_leadership_insight(outcomes: list, lessons: list, *, date_str: str | None = None) -> str:
     """WP4: concise Leadership Insight — What changed · What leaders should know ·
     Emerging patterns · Recommended actions. Pure. Internal only."""
-    d = date_str or date.today().strftime("%a %d %b %Y")
+    d = date_str or datetime.now(timezone.utc).date().strftime("%a %d %b %Y")
     lines = [
         f"*Leadership Insight — {d}*  _(internal — for leadership reflection; not published)_",
         f"_{OFFICER} · \"What should leaders know?\" · evidence-backed_",
@@ -216,7 +216,7 @@ def compose_leadership_insight(outcomes: list, lessons: list, *, date_str: str |
 def compose_operational_resilience_brief(outcomes: list, lessons: list, *,
                                          date_str: str | None = None) -> str:
     """WP3: recurring internal Operational Resilience Brief. Pure. Internal only."""
-    d = date_str or date.today().strftime("%a %d %b %Y")
+    d = date_str or datetime.now(timezone.utc).date().strftime("%a %d %b %Y")
     _, res = _split(outcomes)
     lines = [
         f"*Operational Resilience Brief — {d}*  _(internal; not published)_",

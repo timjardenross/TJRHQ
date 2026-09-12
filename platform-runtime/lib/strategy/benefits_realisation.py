@@ -34,7 +34,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass
-from datetime import date
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -169,7 +169,7 @@ def advance_benefit_lifecycle(
         from command_memory_integration import log_decision_to_command_memory
         c = _client()
         owner_key = f"{BENEFIT_RL_OWNER_PREFIX}{benefit_id}"
-        today = date.today().isoformat()
+        today = datetime.now(timezone.utc).date().isoformat()
 
         # Check if record exists
         existing_rec = get_benefit_lifecycle(benefit_id)

@@ -33,7 +33,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -250,7 +250,7 @@ def _persist_synthesis(synthesis: XOSynthesis) -> None:
         if not (c.is_enabled() and c.raw_client):
             return
 
-        date_str = datetime.utcnow().strftime("%Y-%m-%d")
+        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         owner = f"xo_synthesis:{date_str}"
         statement = f"[XO SYNTHESIS] {date_str}: {synthesis.risk_level.upper()}"
         rationale = (
@@ -264,7 +264,7 @@ def _persist_synthesis(synthesis: XOSynthesis) -> None:
             c.raw_client.table("decisions").update({
                 "statement": statement,
                 "rationale": rationale,
-                "updated_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             }).eq("owner", owner).execute()
         else:
             c.raw_client.table("decisions").insert({

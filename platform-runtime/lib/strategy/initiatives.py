@@ -40,7 +40,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -116,7 +116,7 @@ class Initiative:
         if not self.review_date:
             return False
         try:
-            return date.fromisoformat(self.review_date[:10]) < date.today()
+            return date.fromisoformat(self.review_date[:10]) < datetime.now(timezone.utc).date()
         except ValueError:
             return False
 
@@ -231,7 +231,7 @@ def create_initiative(
         from command_memory_integration import log_decision_to_command_memory
 
         init_id = f"init-{uuid4().hex[:8]}"
-        review_date = (date.today() + timedelta(days=review_days)).isoformat()
+        review_date = (datetime.now(timezone.utc).date() + timedelta(days=review_days)).isoformat()
 
         init = Initiative(
             initiative_id=init_id,
@@ -386,7 +386,7 @@ def link_mission(initiative_id: str, mission_id: str) -> bool:
 
         log_decision_to_command_memory(
             statement=f"{_INITIATIVE_LINK_STATEMENT} {initiative_id} > {mission_id}",
-            rationale=f"INITIATIVE: {initiative_id} | MISSION: {mission_id} | LINKED: {datetime.utcnow().isoformat()}",
+            rationale=f"INITIATIVE: {initiative_id} | MISSION: {mission_id} | LINKED: {datetime.now(timezone.utc).isoformat()}",
             owner=owner,
         )
         return True

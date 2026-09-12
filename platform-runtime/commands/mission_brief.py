@@ -31,7 +31,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -492,7 +492,7 @@ def generate_mission_file_draft(
     mission_id: str,
 ) -> str:
     """Build a markdown mission file from raw text and LLM output."""
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     date_str = now.strftime("%Y-%m-%d")
     slug = _make_slug(mission_text)
 
@@ -673,14 +673,14 @@ def save_build_record(
     """Persist a /build artifact in the repo for later review and reuse."""
     _BUILD_RECORDS_DIR.mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     slug = _make_slug(request_text)
     filename = f"BUILD-{timestamp}-{slug}.md"
     target = _BUILD_RECORDS_DIR / filename
 
     markdown = (
         "# Build Record\n\n"
-        f"- Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"- Timestamp: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"- User ID: {user_id or 'unknown'}\n"
         f"- Channel ID: {channel_id or 'unknown'}\n\n"
         f"- Thread TS: {thread_ts or 'unknown'}\n\n"
@@ -762,7 +762,7 @@ def save_engineering_handoff_from_build_record(
         except OSError:
             build_record_body = ""
 
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     try:
         from lib.build_learning_loop import generate_build_decision_id
         decision_id = generate_build_decision_id()
@@ -780,7 +780,7 @@ def save_engineering_handoff_from_build_record(
         f"- Batch Group: unassigned\n"
         f"- Priority: P2\n"
         f"- Decision ID: {decision_id}\n"
-        f"- Approved At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"- Approved At: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}\n"
         "- Approved By: XO\n"
         f"- Requesting User: {approver_user_id}\n"
         "- System Actor: XO\n"
@@ -970,7 +970,7 @@ def mark_build_record_approved(
         "- Batch Group: unassigned\n"
         "- Priority: P2\n"
         f"- Decision ID: {build_record.get('decision_id', 'unknown')}\n"
-        f"- Approved At: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"- Approved At: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}\n"
         "- Approved By: XO\n"
         f"- Requesting User: {approver_user_id}\n"
         "- System Actor: XO\n"

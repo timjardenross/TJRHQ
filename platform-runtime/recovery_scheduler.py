@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -94,7 +94,7 @@ def _dispatch_check(slack_client: Any) -> None:
         from zoneinfo import ZoneInfo as _ZI
         today = datetime.now(_ZI("Australia/Brisbane")).strftime("%Y-%m-%d")
     except Exception:
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     bar_filled = int(conf / 10)
     bar        = "█" * bar_filled + "░" * (10 - bar_filled)
 

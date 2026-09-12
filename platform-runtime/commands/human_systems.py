@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import date, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ def _fetch_rows(days: int = 7) -> list[dict]:
     if db is None or not db.is_enabled() or db.raw_client is None:
         return []
     try:
-        since = (date.today() - timedelta(days=days)).isoformat()
+        since = (datetime.now(timezone.utc).date() - timedelta(days=days)).isoformat()
         result = (
             db.raw_client.table("analytics_health_daily")
             .select("*")
@@ -60,7 +60,7 @@ def _fetch_rows(days: int = 7) -> list[dict]:
 
 
 def _today_row(rows: list[dict]) -> dict | None:
-    today = date.today().isoformat()
+    today = datetime.now(timezone.utc).date().isoformat()
     for r in rows:
         if str(r.get("log_date")) == today:
             return r

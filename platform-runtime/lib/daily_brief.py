@@ -10,7 +10,7 @@ I do? What can wait? Framed by the four line officers (XO-001 structure).
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import datetime, timezone
 
 # Officer attributions (WP4 — brief reflects the simplified command structure).
 _OFFICER = {
@@ -72,7 +72,7 @@ def compose_daily_brief(
     """Compose the single daily operating picture. Pure — brief_doc, like
     every other param, is pre-fetched by the caller; this function does no
     I/O of its own."""
-    d = date_str or date.today().strftime("%a %d %b %Y")
+    d = date_str or datetime.now(timezone.utc).date().strftime("%a %d %b %Y")
     canon = _canonical_decision_metrics(brief_doc)
 
     # Escalation (red flag) always leads.

@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -153,7 +153,7 @@ class QualityScore:
     provider_route: str | None = None
 
     # Timestamps
-    scored_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    scored_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     created_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -335,7 +335,7 @@ class QualityScoring:
 
         # Use provided timestamp or current time
         if scored_at is None:
-            scored_at = datetime.utcnow().isoformat()
+            scored_at = datetime.now(timezone.utc).isoformat()
 
         # Create quality score record
         quality_score = QualityScore(
@@ -627,5 +627,5 @@ class QualityScoring:
         Returns:
             Unique, sortable quality score ID
         """
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return now.strftime("SCO-%Y%m%d-%H%M%S")

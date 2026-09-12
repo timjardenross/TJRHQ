@@ -33,7 +33,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -185,7 +185,7 @@ def _step_human_systems(entry: dict | None, ctx: CycleContext) -> None:
                 "source": "human_systems",
                 "priority": "P0" if status == "Red" else "P2",
             })
-        ctx.data_freshness["human_systems"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["human_systems"] = datetime.now(timezone.utc).isoformat()
     except Exception as exc:
         log.warning("[daily-cycle] Human Systems step failed (non-blocking): %s", exc)
         ctx.capacity_status = "Unknown"
@@ -209,7 +209,7 @@ def _step_strategic_planning(ctx: CycleContext) -> None:
                 "source": "strategic_planning",
                 "priority": item.get("priority", "P2"),
             })
-        ctx.data_freshness["strategic_planning"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["strategic_planning"] = datetime.now(timezone.utc).isoformat()
     except Exception as exc:
         log.warning("[daily-cycle] Strategic Planning step failed (non-blocking): %s", exc)
 
@@ -245,7 +245,7 @@ def _step_ori(ctx: CycleContext) -> None:
                 "priority": "P0" if ctx.resilience_risk == "RED" else "P1",
                 "mission_id": brief.get("brief_id", ""),
             })
-        ctx.data_freshness["ori"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["ori"] = datetime.now(timezone.utc).isoformat()
     except Exception as exc:
         log.warning("[daily-cycle] ORI step failed (non-blocking): %s", exc)
 
@@ -272,7 +272,7 @@ def _step_engineering(missions: list[dict], ctx: CycleContext) -> None:
             elif status in IN_PROGRESS:
                 ctx.engineering_in_progress += 1
 
-        ctx.data_freshness["engineering"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["engineering"] = datetime.now(timezone.utc).isoformat()
     except Exception as exc:
         log.warning("[daily-cycle] Engineering step failed (non-blocking): %s", exc)
 
@@ -294,7 +294,7 @@ def _step_communications(ctx: CycleContext) -> None:
                 "source": "communications",
                 "priority": "P3",
             })
-        ctx.data_freshness["communications"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["communications"] = datetime.now(timezone.utc).isoformat()
     except Exception as exc:
         log.warning("[daily-cycle] Communications step failed (non-blocking): %s", exc)
 
@@ -318,7 +318,7 @@ def _step_number_one(missions: list[dict], ctx: CycleContext) -> None:
                 "priority": e.priority,
                 "mission_id": e.mission_id,
             })
-        ctx.data_freshness["number_one"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["number_one"] = datetime.now(timezone.utc).isoformat()
     except Exception as exc:
         log.warning("[daily-cycle] Number One step failed (non-blocking): %s", exc)
 
@@ -430,7 +430,7 @@ def _step_investigation_review(ctx: CycleContext) -> None:
         except Exception:
             ctx.open_investigations_count = len(new_inv_ids)
 
-        ctx.data_freshness["investigation"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["investigation"] = datetime.now(timezone.utc).isoformat()
 
         log.info(
             "[daily-cycle] Investigation step: %d new, %d open, %d high-confidence findings, %d decision packages",
@@ -580,7 +580,7 @@ def _step_learning_review(ctx: CycleContext) -> None:
             ctx.knowledge_quality = brief.knowledge_quality.to_dict()
         ctx.learning_summary = format_learning_brief(brief)
 
-        ctx.data_freshness["learning"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["learning"] = datetime.now(timezone.utc).isoformat()
 
         log.info(
             "[daily-cycle] Learning step: %d patterns, %d cross-domain, %d lessons, KQ=%s",
@@ -628,7 +628,7 @@ def _step_strategic_outcomes(ctx: CycleContext, *, monthly_review: bool = False)
                 "*Strategic Outcomes:* _No initiatives defined — work is not yet "
                 "traced to measurable outcomes (D-062)._"
             )
-            ctx.data_freshness["strategic_outcomes"] = datetime.utcnow().isoformat()
+            ctx.data_freshness["strategic_outcomes"] = datetime.now(timezone.utc).isoformat()
             return
 
         # Refresh health for each initiative (persisted)
@@ -679,7 +679,7 @@ def _step_strategic_outcomes(ctx: CycleContext, *, monthly_review: bool = False)
             except Exception as exc:
                 log.debug("[daily-cycle] Executive strategic review failed: %s", exc)
 
-        ctx.data_freshness["strategic_outcomes"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["strategic_outcomes"] = datetime.now(timezone.utc).isoformat()
         log.info(
             "[daily-cycle] Strategic outcomes: %d initiatives (%s), %d stop, %d accelerate, alignment %.0f%%",
             ctx.initiatives_total, ctx.initiative_health_summary,
@@ -715,7 +715,7 @@ def _step_program_coordination(ctx: CycleContext, *, delivery_review: bool = Fal
             ctx.program_summary = (
                 "*Program Coordination:* _No initiatives — nothing to coordinate (D-063)._"
             )
-            ctx.data_freshness["program"] = datetime.utcnow().isoformat()
+            ctx.data_freshness["program"] = datetime.now(timezone.utc).isoformat()
             return
 
         inputs = {
@@ -793,7 +793,7 @@ def _step_program_coordination(ctx: CycleContext, *, delivery_review: bool = Fal
             except Exception as exc:
                 log.debug("[daily-cycle] Executive delivery review failed: %s", exc)
 
-        ctx.data_freshness["program"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["program"] = datetime.now(timezone.utc).isoformat()
         log.info(
             "[daily-cycle] Program coordination: %s health, %d blocked, %d conflicts, %d risks, %d interventions",
             hs, ctx.blocked_work_count, ctx.resource_conflicts_count,
@@ -850,7 +850,7 @@ def _step_improvement_review(
                 "priority": "P2",
             })
 
-        ctx.data_freshness["improvement"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["improvement"] = datetime.now(timezone.utc).isoformat()
 
         log.info(
             "[daily-cycle] Improvement step: %d candidates (%d High), "
@@ -887,7 +887,7 @@ def _step_portfolio_optimisation(
             ctx.portfolio_review_summary = (
                 "*Portfolio Optimisation:* _No initiatives — nothing to optimise (D-064)._"
             )
-            ctx.data_freshness["portfolio"] = datetime.utcnow().isoformat()
+            ctx.data_freshness["portfolio"] = datetime.now(timezone.utc).isoformat()
             return
 
         inputs = {
@@ -980,7 +980,7 @@ def _step_portfolio_optimisation(
         if not ctx.portfolio_review_summary:
             ctx.portfolio_review_summary = format_optimisation(opt)
 
-        ctx.data_freshness["portfolio"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["portfolio"] = datetime.now(timezone.utc).isoformat()
         log.info(
             "[daily-cycle] Portfolio optimisation: terminate=%d, pause=%d, accelerate=%d, value=%.0f%%, at_risk=%d",
             opt.terminate_count, opt.pause_count, opt.accelerate_count,
@@ -1017,7 +1017,7 @@ def _step_enterprise_architecture(
             ctx.capability_review_summary = (
                 "*Enterprise Architecture:* _No capabilities registered — register capabilities to enable planning (D-065)._"
             )
-            ctx.data_freshness["enterprise_architecture"] = datetime.utcnow().isoformat()
+            ctx.data_freshness["enterprise_architecture"] = datetime.now(timezone.utc).isoformat()
             return
 
         inputs = {
@@ -1129,7 +1129,7 @@ def _step_enterprise_architecture(
             except Exception as exc:
                 log.debug("[daily-cycle] Capability review failed: %s", exc)
 
-        ctx.data_freshness["enterprise_architecture"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["enterprise_architecture"] = datetime.now(timezone.utc).isoformat()
         log.info(
             "[daily-cycle] Enterprise architecture: %d caps, readiness=%.0f%%, critical gaps=%d, "
             "sim low=%d, tech debt critical=%d",
@@ -1311,7 +1311,7 @@ def _step_investment_governance(
             except Exception as exc:
                 log.debug("[daily-cycle] Investment review failed: %s", exc)
 
-        ctx.data_freshness["investment_governance"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["investment_governance"] = datetime.now(timezone.utc).isoformat()
         log.info(
             "[daily-cycle] Investment governance: investments=%d/%d active, "
             "bc approved=%d rejected=%d, blocked=%d, leakage critical=%d, constraints critical=%d",
@@ -1358,7 +1358,7 @@ def _step_autonomous_officers(
         elif result.triggers_fired or result.actions_created:
             ctx.officer_cycle_summary = format_officer_cycle_summary(result)
 
-        ctx.data_freshness["autonomous_officers"] = datetime.utcnow().isoformat()
+        ctx.data_freshness["autonomous_officers"] = datetime.now(timezone.utc).isoformat()
         log.info(
             "[daily-cycle] Autonomous officers: triggers=%d, actions=%d, escalations=%d, "
             "handoffs=%d, assignments=%d",
@@ -1523,7 +1523,7 @@ def _fallback_brief(ctx: CycleContext) -> str:
             f"{backlog_part}"
         )
     return (
-        f"*CAPTAIN BRIEF — {datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC*\n"
+        f"*CAPTAIN BRIEF — {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC*\n"
         f"Capacity: {ctx.capacity_status}\n"
         f"Engineering in progress: {ctx.engineering_in_progress} | Blocked: {ctx.engineering_blocked}\n"
         f"ORI Risk: {ctx.resilience_risk}\n"

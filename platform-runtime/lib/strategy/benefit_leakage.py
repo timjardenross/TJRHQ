@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -84,7 +84,7 @@ def _score_to_risk(score: float) -> LeakageRisk:
 def detect_benefit_leakage() -> list[BenefitLeakage]:
     """Detect all benefit leakage across the portfolio."""
     leakages: list[BenefitLeakage] = []
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
 
     try:
         from lib.program.forecasting import DeliveryForecast, forecast_initiative

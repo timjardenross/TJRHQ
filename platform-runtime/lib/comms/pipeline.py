@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -141,7 +141,7 @@ def advance(
     try:
         c.raw_client.table(COMMS_TABLE).update({
             "status": new_state,
-            "updated_at": datetime.utcnow().isoformat() + "Z",
+            "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
         }).eq("id", content_id).execute()
         log.info(
             "[comms.pipeline] %s: '%s' → '%s' (trigger=%s, actor=%s)",
@@ -203,7 +203,7 @@ def archive_content(content_id: str, actor: str) -> bool:
     try:
         c.raw_client.table(COMMS_TABLE).update({
             "status": "archived",
-            "updated_at": datetime.utcnow().isoformat() + "Z",
+            "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
         }).eq("id", content_id).execute()
         log.info("[comms.pipeline] Content %s archived by %s", content_id, actor)
         return True

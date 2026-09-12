@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -100,7 +100,7 @@ def build_lesson_record(
     mission_title: str,
     parsed: dict,
 ) -> LessonRecord:
-    date = datetime.now().strftime("%B %Y")
+    date = datetime.now(timezone.utc).strftime("%B %Y")
 
     # Extract entity IDs from outcome text
     all_text = " ".join(parsed.values())

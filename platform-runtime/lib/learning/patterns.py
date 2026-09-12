@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -115,7 +115,7 @@ def _fetch_recent_text(lookback_days: int) -> list[str]:
         if not (c.is_enabled() and c.raw_client):
             return texts
 
-        cutoff = (datetime.utcnow() - timedelta(days=lookback_days)).isoformat()
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=lookback_days)).isoformat()
 
         # Recent decisions (exclude our own pattern registry rows)
         dres = (
@@ -213,7 +213,7 @@ def _register_pattern(pattern: OrganisationalPattern) -> None:
                         "rationale": (
                             f"THEME: {pattern.theme} | OCCURRENCES: {pattern.occurrences} | "
                             f"WINDOW: {pattern.window_days}d | SIGNALS: {', '.join(pattern.signals_matched)} | "
-                            f"SEVERITY: {pattern.severity} | DETECTED: {datetime.utcnow().isoformat()}"
+                            f"SEVERITY: {pattern.severity} | DETECTED: {datetime.now(timezone.utc).isoformat()}"
                         ),
                     }).eq("id", existing.data[0]["id"]).execute()
                     return
@@ -228,7 +228,7 @@ def _register_pattern(pattern: OrganisationalPattern) -> None:
             rationale=(
                 f"THEME: {pattern.theme} | OCCURRENCES: {pattern.occurrences} | "
                 f"WINDOW: {pattern.window_days}d | SIGNALS: {', '.join(pattern.signals_matched)} | "
-                f"SEVERITY: {pattern.severity} | DETECTED: {datetime.utcnow().isoformat()}"
+                f"SEVERITY: {pattern.severity} | DETECTED: {datetime.now(timezone.utc).isoformat()}"
             ),
             owner=owner,
         )

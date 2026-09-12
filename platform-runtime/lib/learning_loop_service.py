@@ -39,7 +39,7 @@ Phase B1F (FUTURE):
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 
 log = logging.getLogger(__name__)
@@ -173,7 +173,7 @@ class LearningLoopService:
 
         # Default timestamp to now
         if decision_timestamp is None:
-            decision_timestamp = datetime.utcnow()
+            decision_timestamp = datetime.now(timezone.utc)
         elif isinstance(decision_timestamp, str):
             decision_timestamp = datetime.fromisoformat(decision_timestamp)
 
@@ -196,7 +196,7 @@ class LearningLoopService:
             "decision_maker": decision_maker,
             "decision_reason": decision_reason or "",
             "decision_timestamp": decision_timestamp.isoformat(),
-            "captured_timestamp": datetime.utcnow().isoformat(),
+            "captured_timestamp": datetime.now(timezone.utc).isoformat(),
             "metadata": metadata,
         }
 
@@ -310,7 +310,7 @@ class LearningLoopService:
 
         # Default timestamp
         if outcome_timestamp is None:
-            outcome_timestamp = datetime.utcnow()
+            outcome_timestamp = datetime.now(timezone.utc)
         elif isinstance(outcome_timestamp, str):
             outcome_timestamp = datetime.fromisoformat(outcome_timestamp)
 
@@ -321,7 +321,7 @@ class LearningLoopService:
         followup_scheduled = None
         if outcome_status in ["Pending", "In Progress"]:
             # Default: check again in 7 days
-            followup_scheduled = (datetime.utcnow() + timedelta(days=7)).isoformat()
+            followup_scheduled = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
 
         # Build record
         outcome_data = {
@@ -331,7 +331,7 @@ class LearningLoopService:
             "result_summary": result_summary,
             "effectiveness_score": effectiveness_score,
             "lessons_learned": lessons_learned or "",
-            "captured_timestamp": datetime.utcnow().isoformat(),
+            "captured_timestamp": datetime.now(timezone.utc).isoformat(),
             "outcome_timestamp": outcome_timestamp.isoformat(),
             "followup_scheduled_for": followup_scheduled,
             "quality_score": None,  # Will be filled by quality_scoring.py
@@ -406,12 +406,12 @@ class LearningLoopService:
 
     def _generate_decision_id(self) -> str:
         """Generate canonical decision ID: DEC-REC-YYYYMMDD-HHMMSS"""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return f"DEC-REC-{now.strftime('%Y%m%d-%H%M%S')}"
 
     def _generate_outcome_id(self) -> str:
         """Generate canonical outcome ID: OUT-YYYYMMDD-HHMMSS"""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return f"OUT-{now.strftime('%Y%m%d-%H%M%S')}"
 
     def _enqueue_followup(self, decision_id: str, scheduled_for: str) -> bool:

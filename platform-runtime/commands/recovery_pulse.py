@@ -53,7 +53,7 @@ def _suggested_pulse_type() -> str:
     # Rough AU AEST offset (UTC+10/11) — hour is UTC so adjust
     # Use local time from the server if available, fallback to UTC heuristic
     try:
-        local_hour = datetime.now().hour
+        local_hour = datetime.now(timezone.utc).hour
     except Exception:
         local_hour = hour
     if local_hour < 11:

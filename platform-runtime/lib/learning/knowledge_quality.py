@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -210,7 +210,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
 
     # 6. Documentation freshness — lessons/ADR activity in last 30 days
     try:
-        cutoff = (datetime.utcnow() - timedelta(days=30)).isoformat()
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
         recent_lessons = 0
         try:
             lr = rc.table("lessons_learned").select("id", count="exact").gte(

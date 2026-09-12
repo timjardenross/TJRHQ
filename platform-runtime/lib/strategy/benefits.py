@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -83,7 +83,7 @@ class Benefit:
         if not self.review_date:
             return False
         try:
-            return date.fromisoformat(self.review_date[:10]) < date.today()
+            return date.fromisoformat(self.review_date[:10]) < datetime.now(timezone.utc).date()
         except ValueError:
             return False
 
@@ -200,7 +200,7 @@ def register_benefit(
                 return None
 
         benefit_id = f"ben-{uuid4().hex[:8]}"
-        review_date = (date.today() + timedelta(days=review_days)).isoformat()
+        review_date = (datetime.now(timezone.utc).date() + timedelta(days=review_days)).isoformat()
 
         b = Benefit(
             benefit_id=benefit_id,

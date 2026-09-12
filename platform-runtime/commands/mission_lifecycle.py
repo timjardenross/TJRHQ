@@ -198,7 +198,7 @@ def _time_sensitivity_from_due_date(due_date: str | None) -> int | None:
     try:
         from datetime import date as _date
         d = _date.fromisoformat(str(due_date)[:10])
-        days_until = (d - _date.today()).days
+        days_until = (d - datetime.now(timezone.utc).date()).days
         if days_until <= 0:
             return 100  # due today or overdue
         if days_until <= 3:
@@ -303,7 +303,7 @@ def _write_transition_audit(mission_id: str, from_status: str, to_status: str, u
     # Secondary: local JSON backup (non-authoritative)
     try:
         _TRANSITION_LOG_DIR.mkdir(parents=True, exist_ok=True)
-        ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         log_file = _TRANSITION_LOG_DIR / f"TRANSITION-{mission_id}-{ts}.json"
         log_file.write_text(json.dumps({
             "mission_id":      mission_id,
@@ -695,14 +695,13 @@ def handle_mission_close(
     # Write closure log
     try:
         import json
-        from datetime import datetime
         log_dir = _REPO_ROOT / "USS-TJR-Control" / "logs" / "missions" / "closed"
         log_dir.mkdir(parents=True, exist_ok=True)
-        ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         log_file = log_dir / f"CLOSED-{mission_id}-{ts}.json"
         log_file.write_text(json.dumps({
             "mission_id": mission_id_full,
-            "closed_at": datetime.utcnow().isoformat() + "Z",
+            "closed_at": datetime.now(timezone.utc).isoformat() + "Z",
             "closed_by": user_id or "Captain",
             "closing_note": note or None,
         }, indent=2))
