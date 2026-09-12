@@ -22,7 +22,7 @@ numpy>=1.26.0
 # with no top-level `Mistral` export and breaks the import.
 mistralai>=1.0.0,<2
 # Gemini (Google) client used by the research decomposer (gemini_xo_decomposer).
-google-generativeai>=0.8.0
+google-generativeai>=0.8.6
 # Supabase client: research-metrics persistence + Command Memory / working memory.
 supabase>=2.0.0
 apscheduler>=3.10.0
