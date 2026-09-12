@@ -15,6 +15,10 @@ idna==3.18
 # needs >=3.x; verified against the actually-running platform, USS-TJR-MSN-0365
 # incident response). garak, which needs openai<3.0, is deliberately NOT in
 # this file for exactly this reason — see core/quality/requirements-garak.txt.
+# Docling (USS-TJR-MSN-0366) is deliberately NOT in this file either — no
+# version conflict, just a torch/transformers footprint (~6.2GB on a plain
+# `pip install docling`, confirmed live 2026-09-12) this file's other
+# consumers shouldn't have to carry. See core/knowledge/requirements-docling.txt.
 jiter==0.16.0
 openai==3.13.0
 pydantic==2.13.4

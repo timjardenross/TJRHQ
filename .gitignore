@@ -78,6 +78,15 @@ data/memory_graph.db*
 core/voice/chatterbox-venv/
 core/voice/cache/
 
+# Same gap, same fix: every dedicated `platform-runtime/.venv-<tool>`
+# isolation venv (core/quality/garak_gate.py's convention for a heavy or
+# conflicting-dependency pip install that shouldn't pollute the shared
+# platform-runtime/.venv) has a literal name the venv/ patterns above don't
+# match. .venv-garak was found untracked-but-not-ignored here too
+# (USS-TJR-MSN-0366 Stream 3, 2026-09-12) — same shape of gap, fixed the
+# same way rather than leaving the next one to repeat it.
+platform-runtime/.venv-*/
+
 # data/self-improvement/review/: the self-improvement engine's live review
 # state — mutated continuously between cycles as findings get reviewed
 # (decisions.jsonl, opportunities.jsonl) or a cycle runs (.evolution_cycle.lock).
