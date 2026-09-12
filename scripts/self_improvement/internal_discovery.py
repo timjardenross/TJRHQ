@@ -14,7 +14,10 @@ Two sources, both observable-evidence-only (no manufactured evidence):
 """
 
 import logging
-from typing import Any
+from pathlib import Path
+from typing import Any, Optional
+
+import staleness_check
 
 log = logging.getLogger("internal_discovery")
 
@@ -177,11 +180,37 @@ def discover(
     classified_findings: list[dict[str, Any]],
     evidence: dict[str, Any],
     max_candidates: int,
+    repo_root: Optional[Path] = None,
 ) -> list[dict[str, Any]]:
     """Bounded internal discovery: existing findings mapped 1:1, plus a
     small number of evidence-derived candidates, capped at max_candidates
-    total (section 42's cost bound)."""
-    from_findings = [finding_to_candidate(f) for f in classified_findings]
+    total (section 42's cost bound).
+
+    A classified finding was analysed at classification time, but nothing
+    re-checks its evidence between then and the moment it's turned into a
+    fresh Opportunity here — a finding fixed entirely outside this pipeline
+    (a human-authored PR, unrelated to self-improvement) still gets minted
+    as a brand-new "proposed" opportunity. When `repo_root` is given, each
+    finding is re-checked with staleness_check.py's deterministic
+    reconciliation (same honesty contract: only ever confirms or resolves
+    against a concrete signal, never guesses) and a finding whose evidence
+    no longer holds ("resolved") is skipped rather than turned into a
+    candidate — "unclear" or "confirmed" findings proceed unchanged.
+    `repo_root=None` (the default) skips this check entirely, preserving
+    prior behavior for callers that don't have a repo root handy."""
+    live_findings = []
+    for finding in classified_findings:
+        if repo_root is not None:
+            staleness = staleness_check.check_finding_staleness(finding, repo_root)
+            if staleness.get("status") == "resolved":
+                log.info(
+                    "internal_discovery: skipping finding %s (%r) — staleness_check found it already resolved",
+                    finding.get("finding_id"), finding.get("title"),
+                )
+                continue
+        live_findings.append(finding)
+
+    from_findings = [finding_to_candidate(f) for f in live_findings]
     remaining = max(0, max_candidates - len(from_findings))
     from_evidence = evidence_derived_candidates(evidence, remaining) if remaining else []
     return (from_findings + from_evidence)[:max_candidates]

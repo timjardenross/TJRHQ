@@ -68,6 +68,16 @@ class RelevanceGate:
         )
         existing = self.store.find_by_fingerprint(fingerprint)
         if not existing:
+            # Exact-hash dedup only catches byte-identical titles. Three
+            # independently re-derived titles for the same underlying
+            # finding never share a fingerprint, so this falls back to
+            # opportunity_store.find_near_duplicate()'s deterministic
+            # keyword-overlap/near-duplicate-title check before concluding
+            # this is genuinely new.
+            existing = self.store.find_near_duplicate(
+                candidate.get("title", ""), candidate.get("discovery_source", "internal"), candidate.get("change_class"),
+            )
+        if not existing:
             return False, None
 
         state = existing.get("lifecycle_state")

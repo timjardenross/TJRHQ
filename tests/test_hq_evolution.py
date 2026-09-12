@@ -134,6 +134,54 @@ class TestOpportunityStore(TempStoreTestCase):
                 f"{change_class} is in MISSION_ONLY_CLASSES but policy config doesn't mark it manual_only",
             )
 
+    def test_find_near_duplicate_collapses_three_real_reworded_titles(self):
+        """Regression test for a real duplication found live in HQ Evolution
+        review (2026-09-12): three separate internal-discovery cycles each
+        model-synthesised a differently-worded title for the exact same
+        underlying finding (glm-5.3:cloud unavailable in the model router).
+        new_fingerprint()'s exact-hash dedup never caught this — three
+        distinct fingerprints, three distinct EVO-* opportunities. These are
+        the actual three titles from that incident."""
+        title_a = "Model router routes escalate and fallback-complex to unavailable glm-5.3:cloud"
+        title_b = "Model router policy configures unlisted model glm-5.3:cloud"
+        title_c = "Routing policy configured for unavailable model glm-5.3:cloud"
+
+        first = self.store.create_new(
+            title=title_a, change_class="configuration", discovery_source="internal", lifecycle_state="proposed",
+        )
+
+        # Exact-hash fingerprints genuinely differ — this is the bug's
+        # precondition, not the fix itself.
+        self.assertNotEqual(new_fingerprint(title_a, "", "internal"), new_fingerprint(title_b, "", "internal"))
+        self.assertNotEqual(new_fingerprint(title_a, "", "internal"), new_fingerprint(title_c, "", "internal"))
+
+        near_b = self.store.find_near_duplicate(title_b, "internal", "configuration")
+        near_c = self.store.find_near_duplicate(title_c, "internal", "configuration")
+        self.assertIsNotNone(near_b)
+        self.assertEqual(near_b["opportunity_id"], first.opportunity_id)
+        self.assertIsNotNone(near_c)
+        self.assertEqual(near_c["opportunity_id"], first.opportunity_id)
+
+    def test_find_near_duplicate_ignores_different_change_class(self):
+        self.store.create_new(
+            title="Model router routes escalate and fallback-complex to unavailable glm-5.3:cloud",
+            change_class="configuration", discovery_source="internal", lifecycle_state="proposed",
+        )
+        result = self.store.find_near_duplicate(
+            "Model router policy configures unlisted model glm-5.3:cloud", "internal", "capability",
+        )
+        self.assertIsNone(result)
+
+    def test_find_near_duplicate_excludes_learned_and_resolved_before_research(self):
+        self.store.create_new(
+            title="Model router routes escalate and fallback-complex to unavailable glm-5.3:cloud",
+            change_class="configuration", discovery_source="internal", lifecycle_state="learned",
+        )
+        result = self.store.find_near_duplicate(
+            "Model router policy configures unlisted model glm-5.3:cloud", "internal", "configuration",
+        )
+        self.assertIsNone(result)
+
 
 class TestRelevanceGate(TempStoreTestCase):
     def setUp(self):
@@ -226,6 +274,23 @@ class TestRelevanceGate(TempStoreTestCase):
         verdict = self.gate.evaluate({**c, "fingerprint": fp})  # scores ~0.8+, well above 0.2 + 0.1
         self.assertFalse(verdict.is_duplicate)
 
+    def test_reworded_title_with_no_fingerprint_override_is_caught_as_near_duplicate(self):
+        """A candidate arriving WITHOUT a pre-set fingerprint (the normal
+        case — evolution_orchestrator.py sets one via new_fingerprint()
+        before this gate runs, but nothing forces callers to) must still be
+        caught if it's a reworded near-duplicate of a live opportunity, not
+        just when the exact fingerprint happens to match."""
+        self.store.create_new(
+            title="Model router routes escalate and fallback-complex to unavailable glm-5.3:cloud",
+            change_class="configuration", discovery_source="internal", lifecycle_state="proposed", relevance_score=0.9,
+        )
+        candidate = make_candidate(
+            title="Model router policy configures unlisted model glm-5.3:cloud",
+            source="internal_evidence_collector", discovery_source="internal", change_class="configuration",
+        )
+        verdict = self.gate.evaluate(candidate)
+        self.assertTrue(verdict.is_duplicate)
+
 
 class TestPolicyOnEvolutionCategories(unittest.TestCase):
     def setUp(self):
@@ -308,6 +373,49 @@ class TestInternalDiscovery(unittest.TestCase):
         evidence = {"model_router_audit": {"call_log_size_mb": 1.0}, "filesystem_audit": {"config_files": []}}
         candidates = internal_discovery.evidence_derived_candidates(evidence, max_candidates=5)
         self.assertEqual(candidates, [])
+
+    def test_discover_skips_finding_staleness_check_finds_already_resolved(self):
+        """Regression test: a classified finding whose evidence no longer
+        holds (e.g. fixed by an unrelated human PR between classification
+        and this cycle) used to be mapped 1:1 into a fresh 'proposed'
+        opportunity every time regardless — internal_discovery had no
+        current-state re-check of its own. When repo_root is given,
+        discover() must now skip a finding staleness_check.py confirms is
+        'resolved', and must NOT skip one it can only call 'confirmed' or
+        'unclear' (the never-guess-resolved honesty contract)."""
+        tmpdir = Path(tempfile.mkdtemp())
+        try:
+            resolved_finding = {
+                "finding_id": "FND-001", "category": "dead_code", "title": "Unused module still present",
+                "confidence": 0.9, "severity": "low",
+                "evidence": [{"type": "unreferenced_code", "location": "does_not_exist.py"}],
+            }
+            live_finding = {
+                "finding_id": "FND-002", "category": "dead_code", "title": "Another unused module",
+                "confidence": 0.9, "severity": "low",
+                "evidence": [{"type": "unreferenced_code", "location": "still_here.py"}],
+            }
+            (tmpdir / "still_here.py").write_text("# still here\n")
+
+            candidates = internal_discovery.discover(
+                [resolved_finding, live_finding], evidence={}, max_candidates=10, repo_root=tmpdir,
+            )
+            candidate_ids = [c["source_finding_id"] for c in candidates]
+            self.assertNotIn("FND-001", candidate_ids)
+            self.assertIn("FND-002", candidate_ids)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+
+    def test_discover_without_repo_root_keeps_prior_behavior(self):
+        """repo_root=None (the default) must skip the staleness check
+        entirely rather than treating every finding as resolvable."""
+        finding = {
+            "finding_id": "FND-001", "category": "dead_code", "title": "Unused module",
+            "confidence": 0.9, "severity": "low",
+            "evidence": [{"type": "unreferenced_code", "location": "does_not_exist.py"}],
+        }
+        candidates = internal_discovery.discover([finding], evidence={}, max_candidates=10)
+        self.assertEqual([c["source_finding_id"] for c in candidates], ["FND-001"])
 
 
 class TestExternalDiscovery(unittest.TestCase):
