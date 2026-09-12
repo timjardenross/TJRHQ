@@ -77,7 +77,7 @@ def persist_health_mission_correlations(
         req = urllib.request.Request(url, data=body, headers=headers, method="POST")
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return resp.status == 201
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase persist wrapper — caller sees False and handles it; already logged
         log.error(f"Failed to persist health-mission correlations: {exc}")
         return False
 
@@ -109,7 +109,7 @@ def run_health_mission_correlation_job() -> dict:
             )
             synthesis = synthesize_correlation_insights(results)
             log.info(f"Correlation synthesis: status={synthesis.get('status')}")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort synthesis, explicitly logged as non-blocking
             log.warning(f"Correlation synthesis failed (non-blocking): {exc}")
 
         # Persist results (+ synthesis if it ran)
@@ -126,7 +126,7 @@ def run_health_mission_correlation_job() -> dict:
             "synthesis": synthesis,
             "persisted": persisted,
         }
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level job boundary, already logged; caller gets a structured failed-status dict
         log.error(f"Health-mission correlation job failed: {exc}")
         return {
             "status": "failed",
@@ -162,6 +162,6 @@ def get_latest_correlations(supabase_url: str | None = None, supabase_key: str |
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             data = json.loads(resp.read())
             return data[0] if data else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort latest-correlations lookup — caller treats None as 'nothing computed yet'; already logged
         log.debug(f"Failed to fetch latest correlations: {exc}")
         return None

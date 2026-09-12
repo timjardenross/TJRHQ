@@ -53,7 +53,8 @@ def _parse_cutoff() -> tuple[int, int]:
         from intelligence.config import SCHEDULE_CRON
         parts = SCHEDULE_CRON.split()
         return int(parts[1]), int(parts[0])
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - SCHEDULE_CRON import/parse is config-shaped (could be missing/malformed in any way); falls back to the documented 06:30 default
+        log.warning("Could not resolve/parse SCHEDULE_CRON — falling back to 06:30: %s", exc)
         return 6, 30
 
 
@@ -71,11 +72,11 @@ def _resolve_tz():
     try:
         import pytz
         return pytz.timezone(SCHEDULE_TZ)
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort tz-library probe (pytz) — falls through to the zoneinfo fallback below on any failure
         try:
             from zoneinfo import ZoneInfo
             return ZoneInfo(SCHEDULE_TZ)
-        except Exception:
+        except Exception:  # noqa: BLE001 - final tz-resolution fallback; already logged and returns None so callers use the scheduler default
             log.warning("Could not resolve timezone %s for morning_cycle — using host local time", SCHEDULE_TZ)
             return None
 
@@ -135,7 +136,7 @@ def get_status(moment: datetime | None = None) -> MorningCycleStatus:
             f"&order=checked_at.desc&limit=1"
         )
         rows = supabase_get(path)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - heartbeat lookup failure — both branches below construct a MorningCycleStatus carrying the exception as `reason`, not a silent swallow
         if cutoff_reached:
             return MorningCycleStatus(
                 cycle_id=cycle_id, collection_status="unknown", collection_checked_at=None,

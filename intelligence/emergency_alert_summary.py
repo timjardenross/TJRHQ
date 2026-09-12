@@ -151,11 +151,11 @@ def _generate_summary(alerts: list[dict]) -> tuple[str, str] | None:
     prompt = _build_prompt(alerts)
     try:
         return call_gemini(_SYSTEM_PROMPT, prompt, api_key=os.environ.get("GEMINI_API_KEY", "")).text, "gemini"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - per-provider attempt inside a fallback chain (Gemini -> Mistral) — one provider failing must not abort the chain; already logged
         log.warning("[emergency-alert-summary] Gemini failed, falling back to Mistral: %s", exc)
     try:
         return call_mistral(_SYSTEM_PROMPT, prompt, api_key=os.environ.get("MISTRAL_API_KEY", "")).text, "mistral"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - final provider in the fallback chain; already logged, caller treats None as 'summary unavailable'
         log.warning("[emergency-alert-summary] Mistral also failed: %s", exc)
         return None
 
@@ -167,7 +167,7 @@ def run() -> dict:
             "alerts?is_active=eq.true&order=jurisdiction.asc,alert_type.asc"
             "&select=id,jurisdiction,alert_type,severity,status,headline,location,description,issued_at"
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level job boundary — already logged + heartbeat-recorded, surfaces error in the returned dict
         record_heartbeat(_DOMAIN_KEY, status="failed", error_message=str(exc)[:500])
         return {"error": str(exc)}
 
@@ -211,7 +211,7 @@ def run() -> dict:
         now_iso = datetime.now(timezone.utc).isoformat()
         try:
             _set_state(fingerprint, now_iso)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort dedupe-state persistence, already logged as non-blocking (email already sent by this point)
             log.warning("[emergency-alert-summary] sent email but failed to persist state — may re-send next hour: %s", exc)
 
     detail = f"{len(alerts)} active alert(s), summary via {provider}, email {'sent' if sent else 'FAILED'}"
