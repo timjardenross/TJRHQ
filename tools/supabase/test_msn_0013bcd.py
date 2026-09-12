@@ -290,7 +290,7 @@ class TestKnowledgePacks(unittest.TestCase):
         gen = DifferentialPackGenerator()
         # First review should include all docs
         pack1 = gen.generate("Chief Engineer", self.docs)
-        initial_count = len(pack1.documents)
+        self.assertEqual(len(pack1.documents), len(self.docs))
 
         # Second review immediately after should show 0 changes
         pack2 = gen.generate("Chief Engineer", self.docs)

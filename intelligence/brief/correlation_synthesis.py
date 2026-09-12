@@ -210,7 +210,11 @@ def display_correlation_brief(synthesis_result: dict) -> str:
             conf = insight.get("confidence", "unknown").upper()
             r = insight.get("r_value", "?")
             n = insight.get("sample_size", "?")
-            lines.append(f"- **{insight.get('dimension')}** [{conf}]: {insight.get('finding')}")
+            # r/n were computed but previously dropped on the floor before
+            # ever reaching the rendered line (ruff F841 caught the dead
+            # assignment) — they belong in the reader-facing evidence for a
+            # correlation finding, so surface them rather than discard them.
+            lines.append(f"- **{insight.get('dimension')}** [{conf}, r={r}, n={n}]: {insight.get('finding')}")
 
     if synthesis_result.get("operational_implications"):
         lines.append("\n### Operational Implications")

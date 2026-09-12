@@ -78,7 +78,7 @@ def list_brief_files(lookback_days: int = DEFAULT_LOOKBACK_DAYS,
     """
     api = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/git/trees/main?recursive=1"
     try:
-        status, body = _http_get(api, _UA, timeout)
+        _status, body = _http_get(api, _UA, timeout)
         tree = json.loads(body).get("tree", [])
         prefix = (BRIEF_ROOT + "/") if BRIEF_ROOT else ""
         files = [

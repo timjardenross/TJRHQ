@@ -74,16 +74,12 @@ def test_source(source: dict, timeout: int = 15) -> SourceTest:
 
     # Determine what to test
     test_url = None
-    test_type = None
     if source_type == "rss" and rss_url:
         test_url = rss_url
-        test_type = "RSS"
     elif source_type == "api" and api_endpoint:
         test_url = api_endpoint
-        test_type = "API"
     elif source_type == "scrape" and url:
         test_url = url
-        test_type = "SCRAPE"
     else:
         return SourceTest(
             source_name=name,

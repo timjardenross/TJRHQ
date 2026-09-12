@@ -86,7 +86,6 @@ def _find_d_decision(decision_id: str) -> str | None:
     if not _DECISION_REGISTER.exists():
         return None
     content = _DECISION_REGISTER.read_text(encoding="utf-8", errors="replace")
-    pattern = rf"\b({re.escape(decision_id)})\b(.{{0,400}}?)(?=\n[A-Z]{{2,}}|\Z)"
     import re
     m = re.search(rf"^{re.escape(decision_id)}[:\s].+", content, re.MULTILINE)
     if m:

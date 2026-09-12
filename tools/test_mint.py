@@ -106,7 +106,7 @@ def test_concurrent() -> None:
     results: list[str] = []
     lock = threading.Lock()
 
-    with IsolatedCounter() as ctx:
+    with IsolatedCounter():
         def mint() -> None:
             mid = id_registry.next_id("MSN")
             with lock:

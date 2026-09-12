@@ -344,7 +344,6 @@ def write_topology(filtered_nodes, filtered_links, id_map):
     }
 
     # Cap at 3000 nodes for layout speed; pick highest-degree nodes
-    id_to_node = {n["id"]: n for n in filtered_nodes}
     degree_f: dict[str, int] = defaultdict(int)
     for lnk in filtered_links:
         degree_f[lnk["source"]] += 1

@@ -214,7 +214,7 @@ def test_health_insights() -> None:
            f"id={inserted_id}")
 
     # 3b — select and verify jsonb round-trip
-    status2, resp2 = _req("GET", f"health_insights?id=eq.{inserted_id}")
+    _status2, resp2 = _req("GET", f"health_insights?id=eq.{inserted_id}")
     if resp2:
         sd = resp2[0].get("supporting_data", {})
         jsonb_ok = sd.get("avg_pain") == 5.2 and isinstance(sd.get("energy_distribution"), dict)
@@ -257,7 +257,7 @@ def test_privacy_boundary() -> None:
     prohibited = ["diagnosis", "diagnoses", "medication_name", "prescription",
                   "clinical_notes", "imaging_result", "blood_pressure", "heart_rate"]
 
-    status, resp = _req("GET", "health_daily_logs?limit=0")
+    _status, _resp = _req("GET", "health_daily_logs?limit=0")
     # A 200 response means the table exists; columns are validated by attempting
     # to insert with prohibited field names (PostgREST returns 400 for unknown columns)
 

@@ -204,10 +204,16 @@ class ContentIntelligenceService:
             return 0
 
         source_meta = _load_source_metadata()
-        approved_sources = _load_approved_source_ids()
+        # KNOWN GAP (flagged, not fixed here — MSN-0370 is a ruff-triage
+        # pass, not a governance-policy change): this loads the
+        # terms_reviewed=true governance gate but the result is never
+        # applied to filter `events` below, so content_signals can be
+        # written from sources that haven't cleared terms review. Left as
+        # a real behavior change requiring a policy decision, not a lint
+        # fix — flag for a follow-up mission.
+        approved_sources = _load_approved_source_ids()  # noqa: F841 - see KNOWN GAP comment above
         mission_keywords = _load_active_mission_keywords()
 
-        scored: list[tuple[ContentScore, float]] = []
         ori_rank_map: dict[str, float] = {}
         scoreable: list[ContentScore] = []
 

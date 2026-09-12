@@ -163,7 +163,6 @@ def generate_recommendations(analysis: dict, days: int) -> list[str]:
     coverage = analysis["morning_brief_coverage_pct"]
     failures = analysis["failure_count"]
     duplicates = analysis["duplicates"]
-    alerts = analysis["alerts_fired"]
 
     if coverage < 100:
         missed = days - analysis["days_with_morning_brief"]

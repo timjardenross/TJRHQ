@@ -146,10 +146,9 @@ class CommanderSupabaseClient:
             return []
         try:
             if self._supabase is not None:
-                # supabase-py path: parse table + params from query string
-                table, _, params_str = query.partition("?")
-                builder = self._supabase.table(table).select("*")
-                # Pass raw params via rpc-style for complex filters; fall back to REST
+                # supabase-py client is configured but this path always falls
+                # back to the raw REST call below (rpc-style query strings
+                # with complex filters aren't translated to the builder API).
                 result = self._rest_get(query, timeout)
                 return result
             return self._rest_get(query, timeout)
