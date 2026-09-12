@@ -972,8 +972,12 @@ def main():
           f"{len(corpus['adrs'])}ADR  {len(corpus['capabilities'])}CAP")
     print(f"  Packages built:    {len(packages)}")
     print(f"  Avg completeness:  {validation_data['avg_completeness']:.0%}")
-    print(f"  Captain Brief:     ✅ Generated ({sum(1 for l in open(p3_path) if l.startswith('##'))} sections)")
-    print(f"  Number One Brief:  ✅ Generated ({sum(1 for l in open(p4_path) if l.startswith('##'))} sections)")
+    with open(p3_path) as f:
+        p3_sections = sum(1 for l in f if l.startswith("##"))
+    with open(p4_path) as f:
+        p4_sections = sum(1 for l in f if l.startswith("##"))
+    print(f"  Captain Brief:     ✅ Generated ({p3_sections} sections)")
+    print(f"  Number One Brief:  ✅ Generated ({p4_sections} sections)")
     print(f"  Infrastructure:    {confidence['infrastructure_required']}")
     print("\n  ══════════════════════════════════")
     print(f"  RECOMMENDATION: {confidence['recommendation']}")

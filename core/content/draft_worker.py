@@ -170,8 +170,8 @@ def run_research(item: dict) -> str | None:
             len(result.consolidated_findings),
         )
         return result.consolidated_findings or None
-    except Exception as exc:
-        log.error("[%s] Research pass failed: %s", item["id"][:8], exc, exc_info=True)
+    except Exception:
+        log.exception("[%s] Research pass failed", item["id"][:8])
         return None
 
 
@@ -367,8 +367,8 @@ def main() -> None:
                 ok += 1
             else:
                 failed += 1
-        except Exception as exc:
-            log.error("Unhandled error processing %s: %s", item.get("id", "?")[:8], exc, exc_info=True)
+        except Exception:
+            log.exception("Unhandled error processing %s", item.get("id", "?")[:8])
             failed += 1
         time.sleep(2)
 

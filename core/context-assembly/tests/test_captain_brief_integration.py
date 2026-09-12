@@ -22,8 +22,8 @@ import json
 import os
 import sys
 import unittest
-from typing import ClassVar
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import MagicMock, patch
 
 # ---------------------------------------------------------------------------

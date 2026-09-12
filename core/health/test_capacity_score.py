@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import sys
 import unittest
-from typing import ClassVar
 from pathlib import Path
+from typing import ClassVar
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 

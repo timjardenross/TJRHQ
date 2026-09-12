@@ -26,7 +26,7 @@ async def speak_to_file(text: str) -> str | None:
     """
     try:
         import edge_tts
-        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)  # noqa: SIM115 - path must outlive this function (returned to the caller, closed immediately, reopened by edge_tts/Telegram); delete=False + explicit unlink elsewhere is the documented lifecycle
         tmp.close()
         communicate = edge_tts.Communicate(text, XO_VOICE)
         await communicate.save(tmp.name)

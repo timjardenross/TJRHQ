@@ -149,17 +149,15 @@ try:
         log.debug(f"Loaded research_delegator from {_research_delegator_file}")
     else:
         log.error(f"Could not create spec for research_delegator at {_research_delegator_file}")
-except (ImportError, AttributeError, FileNotFoundError) as e:
-    log.error(
-        f"Failed to import research_delegator from {_research_delegator_file}: {e}",
-        exc_info=True
+except (ImportError, AttributeError, FileNotFoundError):
+    log.exception(
+        f"Failed to import research_delegator from {_research_delegator_file}"
     )
     call_legacy_research_routing = None
     call_gemini_2_5_flash_lite_research = None
-except Exception as e:
-    log.error(
-        f"Unexpected error loading research_delegator from {_research_delegator_file}: {type(e).__name__}: {e}",
-        exc_info=True
+except Exception:
+    log.exception(
+        f"Unexpected error loading research_delegator from {_research_delegator_file}"
     )
     call_legacy_research_routing = None
     call_gemini_2_5_flash_lite_research = None
@@ -675,8 +673,8 @@ class ResearchOrchestrator:
                 log.info("[briefing] Captain's Brief generated and attached to result")
             else:
                 log.warning("[briefing] Brief generation failed; caller will use fallback format")
-        except Exception as e:
-            log.error(f"[briefing] Failed to load/call briefing officer: {e}", exc_info=True)
+        except Exception:
+            log.exception("[briefing] Failed to load/call briefing officer")
             # Non-blocking: continue without brief
 
         # Step 7b: Optional summary/challenge enrichments from recovered specialist layer.

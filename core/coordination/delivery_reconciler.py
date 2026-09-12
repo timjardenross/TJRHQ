@@ -260,14 +260,13 @@ def reconcile(apply: bool = False) -> dict[str, Any]:
                 # checks GitHub itself. Left un-stamped, a handoff whose PR the
                 # Captain already merged keeps nagging as "Awaiting Review"
                 # forever. Stamp it the moment live GitHub state shows merged.
-                if pr["state"] == "merged" and raw_status.upper() != "MERGED":
-                    if apply:
-                        try:
-                            _stamp_handoff(p, {"Batch Status": "MERGED"})
-                            actions_taken.append(
-                                f"{p.stem}: Batch Status → MERGED (PR #{pr['number']} merged)")
-                        except OSError as exc:
-                            actions_taken.append(f"{p.stem}: FAILED to stamp MERGED ({exc})")
+                if pr["state"] == "merged" and raw_status.upper() != "MERGED" and apply:
+                    try:
+                        _stamp_handoff(p, {"Batch Status": "MERGED"})
+                        actions_taken.append(
+                            f"{p.stem}: Batch Status → MERGED (PR #{pr['number']} merged)")
+                    except OSError as exc:
+                        actions_taken.append(f"{p.stem}: FAILED to stamp MERGED ({exc})")
             elif raw_status.upper() == "DELIVERED":
                 bucket, evidence = "AWAITING_REVIEW", "delivered, PR state unknown"
             elif raw_status.upper() == "FAILED":

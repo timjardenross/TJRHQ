@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import sys
 from dataclasses import asdict
-from typing import ClassVar
 from pathlib import Path
+from typing import ClassVar
 
 # Make core packages importable
 _REPO_ROOT = Path(__file__).resolve().parents[2]

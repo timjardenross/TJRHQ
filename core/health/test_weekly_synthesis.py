@@ -21,10 +21,9 @@ from __future__ import annotations
 
 import sys
 import unittest
-from typing import ClassVar
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
