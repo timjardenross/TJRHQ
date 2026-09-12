@@ -300,7 +300,7 @@ def test_priority_3_integration():
     log.info("\nStep 2: Generate Forecasts")
     forecasts = {}
     for provider, data in provider_quality.items():
-        slope, intercept, r2 = fit_linear_model(data['scores'])
+        slope, intercept, _r2 = fit_linear_model(data['scores'])
         forecast = forecast_values(slope, intercept, len(data['scores']), 5)
 
         confidence = 'high' if data['count'] >= 20 else 'medium' if data['count'] >= 10 else 'low'

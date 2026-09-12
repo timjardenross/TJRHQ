@@ -206,7 +206,7 @@ def test_propose_flow_hypothesis_then_change_then_save_now():
     app_module._supabase = _make_db()
 
     # tap "Propose new"
-    update, context, query = _make_update_and_context(callback_data="cx|a=propose")
+    update, context, _query = _make_update_and_context(callback_data="cx|a=propose")
     asyncio.run(handle_experiment_callback(update, context))
     check("propose sets hypothesis stage", context.user_data.get("experiment_stage") == "hypothesis")
 
@@ -225,7 +225,7 @@ def test_propose_flow_hypothesis_then_change_then_save_now():
     check("stage cleared after minimal fields collected", "experiment_stage" not in context2.user_data)
 
     # tap "Save now"
-    update3, context2b, query3 = _make_update_and_context(callback_data="cx|a=save_now")
+    update3, context2b, _query3 = _make_update_and_context(callback_data="cx|a=save_now")
     context2b.user_data["experiment_draft"] = context2.user_data["experiment_draft"]
     asyncio.run(handle_experiment_callback(update3, context2b))
     db = app_module._supabase
@@ -248,13 +248,13 @@ def test_add_details_branch_walks_through_optional_fields():
     context.job_queue = MagicMock()
 
     # add_details -> target_condition stage
-    update, _, query = _make_update_and_context(callback_data="cx|a=add_details")
+    update, _, _query = _make_update_and_context(callback_data="cx|a=add_details")
     update_ctx = context
     asyncio.run(handle_experiment_callback(update, update_ctx))
     check("moves to target_condition stage", update_ctx.user_data.get("experiment_stage") == "target_condition")
 
     # skip target_condition -> baseline stage
-    update, _, query = _make_update_and_context(callback_data="cx|a=skip_target_condition")
+    update, _, _query = _make_update_and_context(callback_data="cx|a=skip_target_condition")
     asyncio.run(handle_experiment_callback(update, update_ctx))
     check("moves to baseline stage", update_ctx.user_data.get("experiment_stage") == "baseline")
 
@@ -265,12 +265,12 @@ def test_add_details_branch_walks_through_optional_fields():
     check("stage cleared, trial window question next (no stage — buttons)", "experiment_stage" not in update_ctx.user_data)
 
     # tap a trial-window preset (2 weeks = 14 days)
-    update, _, query = _make_update_and_context(callback_data="cx|a=trial|d=14")
+    update, _, _query = _make_update_and_context(callback_data="cx|a=trial|d=14")
     asyncio.run(handle_experiment_callback(update, update_ctx))
     check("trial_window label saved from preset", update_ctx.user_data["experiment_draft"]["trial_window"] == "2 weeks")
 
     # skip outcome measures -> saves the experiment
-    update, _, query = _make_update_and_context(callback_data="cx|a=skip_measures")
+    update, _, _query = _make_update_and_context(callback_data="cx|a=skip_measures")
     asyncio.run(handle_experiment_callback(update, update_ctx))
     db = app_module._supabase
     payload = db.table("capacity_experiments").insert.call_args[0][0]
@@ -286,7 +286,7 @@ def test_activate_schedules_reminder_via_job_queue():
     from telegram_bots.capacitybot.app import handle_experiment_callback
 
     app_module._supabase = _make_db(experiments=[_experiment(id=8, status="active")])
-    update, context, query = _make_update_and_context(callback_data="cx|a=activate_confirm|id=8|d=7")
+    update, context, _query = _make_update_and_context(callback_data="cx|a=activate_confirm|id=8|d=7")
     asyncio.run(handle_experiment_callback(update, context))
 
     db = app_module._supabase
@@ -304,7 +304,7 @@ def test_activate_no_reminder_when_days_zero():
     from telegram_bots.capacitybot.app import handle_experiment_callback
 
     app_module._supabase = _make_db(experiments=[_experiment(id=8, status="active")])
-    update, context, query = _make_update_and_context(callback_data="cx|a=activate_confirm|id=8|d=0")
+    update, context, _query = _make_update_and_context(callback_data="cx|a=activate_confirm|id=8|d=0")
     asyncio.run(handle_experiment_callback(update, context))
     check("no reminder scheduled", context.job_queue.run_once.call_count == 0)
     app_module._supabase = None
@@ -320,7 +320,7 @@ def test_complete_flow_result_then_confidence():
     context.user_data = {}
     context.job_queue = MagicMock()
 
-    update, _, query = _make_update_and_context(callback_data="cx|a=complete|id=3")
+    update, _, _query = _make_update_and_context(callback_data="cx|a=complete|id=3")
     asyncio.run(handle_experiment_callback(update, context))
     check("stage set to result, target id recorded", context.user_data.get("experiment_stage") == "result")
     check("target id recorded", context.user_data.get("experiment_target_id") == "3")
@@ -330,7 +330,7 @@ def test_complete_flow_result_then_confidence():
     check("pending result stashed", context.user_data.get("experiment_pending_result") == "Post-work recovery was noticeably better.")
     check("stage cleared, awaiting confidence tap", "experiment_stage" not in context.user_data)
 
-    update, _, query = _make_update_and_context(callback_data="cx|a=conf|id=3|c=moderate")
+    update, _, _query = _make_update_and_context(callback_data="cx|a=conf|id=3|c=moderate")
     asyncio.run(handle_experiment_callback(update, context))
     db = app_module._supabase
     check("complete update called", db.table("capacity_experiments").update.called)
@@ -352,7 +352,7 @@ def test_stop_now_writes_stopped_with_no_reason():
     context.user_data = {"experiment_stage": "stop_reason", "experiment_target_id": "4"}
     context.job_queue = MagicMock()
 
-    update, _, query = _make_update_and_context(callback_data="cx|a=stop_now|id=4")
+    update, _, _query = _make_update_and_context(callback_data="cx|a=stop_now|id=4")
     asyncio.run(handle_experiment_callback(update, context))
 
     db = app_module._supabase

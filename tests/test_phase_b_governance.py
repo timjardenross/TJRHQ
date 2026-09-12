@@ -153,7 +153,7 @@ class TestDispatchCLI(unittest.TestCase):
         self.assertEqual(code, 1)
 
     def test_missing_role_403(self):
-        code, out = self._run({"action": "brief.escalate", "role": "", "payload": {"brief_id": "b"}})
+        _code, out = self._run({"action": "brief.escalate", "role": "", "payload": {"brief_id": "b"}})
         self.assertEqual(out["status"], 403)
 
     def test_bad_json_400(self):

@@ -106,11 +106,11 @@ class TestSanityGuard(unittest.TestCase):
         self.assertIn("positive integer", reason)
 
     def test_rejects_negative(self):
-        passed, reason = sanity_check(-10, self.summary, bootstrap=30)
+        passed, _reason = sanity_check(-10, self.summary, bootstrap=30)
         self.assertFalse(passed)
 
     def test_rejects_none(self):
-        passed, reason = sanity_check(None, self.summary, bootstrap=30)
+        passed, _reason = sanity_check(None, self.summary, bootstrap=30)
         self.assertFalse(passed)
 
     def test_rejects_at_or_below_quiet_max(self):
@@ -126,7 +126,7 @@ class TestSanityGuard(unittest.TestCase):
         self.assertIn("sanity cap", reason)
 
     def test_accepts_reasonable_value_above_quiet_max(self):
-        passed, reason = sanity_check(40, self.summary, bootstrap=30)
+        passed, _reason = sanity_check(40, self.summary, bootstrap=30)
         self.assertTrue(passed)
 
     def test_rejects_above_spike_derived_cap(self):

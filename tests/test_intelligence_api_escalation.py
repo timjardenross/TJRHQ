@@ -40,11 +40,11 @@ class TestDispatcher(unittest.TestCase):
         self.repo = InMemoryRepository()
 
     def test_unknown_action_404(self):
-        status, body = api.dispatch(self.repo, "signal.nuke", INTELLIGENCE_LEAD, {})
+        status, _body = api.dispatch(self.repo, "signal.nuke", INTELLIGENCE_LEAD, {})
         self.assertEqual(status, 404)
 
     def test_missing_role_403(self):
-        status, body = api.dispatch(self.repo, "signal.verify", "", {"event_id": "x",
+        status, _body = api.dispatch(self.repo, "signal.verify", "", {"event_id": "x",
                                                                       "confidence_level": "Confirmed"})
         self.assertEqual(status, 403)
 
@@ -55,18 +55,18 @@ class TestDispatcher(unittest.TestCase):
 
     def test_rbac_denied_403(self):
         eid = _scored_event(self.repo)
-        status, body = api.dispatch(self.repo, "signal.verify", ANALYST,
+        status, _body = api.dispatch(self.repo, "signal.verify", ANALYST,
                                     {"event_id": eid, "confidence_level": "Confirmed"})
         self.assertEqual(status, 403)
 
     def test_not_found_404(self):
-        status, body = api.dispatch(self.repo, "signal.verify", INTELLIGENCE_LEAD,
+        status, _body = api.dispatch(self.repo, "signal.verify", INTELLIGENCE_LEAD,
                                     {"event_id": "ghost", "confidence_level": "Confirmed"})
         self.assertEqual(status, 404)
 
     def test_bad_input_400(self):
         eid = _scored_event(self.repo)
-        status, body = api.dispatch(self.repo, "signal.verify", INTELLIGENCE_LEAD,
+        status, _body = api.dispatch(self.repo, "signal.verify", INTELLIGENCE_LEAD,
                                     {"event_id": eid, "confidence_level": "SuperSure"})
         self.assertEqual(status, 400)
 

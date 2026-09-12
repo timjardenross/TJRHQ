@@ -198,7 +198,7 @@ def test_guide_offer_another_excludes_and_reoffers():
     from telegram_bots.capacitybot.app import handle_guide_offer_callback
 
     app_module._supabase = _make_engine_db([_iv("a", 10), _iv("b", 10)])
-    update, context, query = _make_update_and_context("cgi|iid=a|act=another")
+    update, context, _query = _make_update_and_context("cgi|iid=a|act=another")
     context.user_data["guide_ctx"] = {"capacity_state": "green", "stimulation_state": None,
                                        "pain_state": None, "max_minutes": None}
     context.user_data["guide_seen"] = []
@@ -247,7 +247,7 @@ def test_guide_offer_accept_logs_event_source_guide():
     db.table.side_effect = side_effect
 
     app_module._supabase = db
-    update, context, query = _make_update_and_context("cgi|iid=quiet|act=accept")
+    update, context, _query = _make_update_and_context("cgi|iid=quiet|act=accept")
     context.user_data["guide_ctx"] = {"capacity_state": "orange", "stimulation_state": None, "pain_state": None}
 
     asyncio.run(handle_guide_offer_callback(update, context))
