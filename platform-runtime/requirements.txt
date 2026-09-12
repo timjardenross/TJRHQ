@@ -81,3 +81,11 @@ gunicorn>=23.0.0
 # unresolvable shared one. Found during USS-TJR-MSN-0365's incident response
 # (2026-09-12) after a live venv reached this exact inconsistent state via
 # incremental installs that bypassed the resolver.
+# 2026-09-12 (USS-TJR-MSN-0366 Stream 9): core/platform/notification_service.py's
+# Transport.APPRISE / _send_apprise() — a config-URL-per-transport hedge against
+# a repeat of the 2026-09-08 Slack-retirement migration (see that module's header
+# comment). Checked via `pip install --dry-run` before adding: no pinned (`==`)
+# dependencies of its own (requests, requests-oauthlib, markdown, PyYAML, click —
+# all already satisfied or unpinned), zero overlap/conflict with the
+# anthropic/google-genai/openai versions this file already pins.
+apprise>=1.13.1
