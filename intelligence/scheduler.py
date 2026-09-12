@@ -57,8 +57,8 @@ try:
     sys.path.insert(0, _REPO_ROOT)
     from platform_runtime.lib.telemetry import configure_tracing
     configure_tracing("intelligence-scheduler")
-except Exception:
-    pass
+except Exception as exc:  # noqa: BLE001 - tracing is observability-only; must never block scheduler startup, but a break here is worth knowing about (see MSN-0109's silent-import-break history)
+    log.warning("[scheduler] Telemetry tracing setup failed (non-fatal): %s", exc)
 
 
 def _record_heartbeat(domain_key: str, status: str, detail: str = None, error_message: str = None) -> None:

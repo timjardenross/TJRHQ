@@ -141,7 +141,7 @@ def _load_decisions(limit: int = 20) -> list[dict[str, Any]]:
             if "status" not in record:
                 record["status"] = "Proposed"
             records.append(record)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S112 - one malformed decision file must not abort the listing
             continue
     return records
 
@@ -167,7 +167,7 @@ def sync_mission_candidates(dry_run: bool = False) -> int:
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
             candidates.append(record)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S112 - one malformed mission-candidate file must not abort the listing
             continue
 
     if not candidates:
@@ -251,7 +251,7 @@ def sync_collaboration_digest(dry_run: bool = False, limit: int = 5) -> int:
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
             records.append(record)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S112 - one malformed collaboration record must not abort the listing
             continue
 
     if not records:

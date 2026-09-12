@@ -143,8 +143,8 @@ def _parse_feed_xml(xml_bytes: bytes, source: SourceRecord, limit: int) -> list[
         from email.utils import parsedate_to_datetime
         try:
             return parsedate_to_datetime(date_str)
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; falls through to the ISO 8601 attempt below
+            log.debug("RFC822 date parse failed for %r: %s", date_str, exc)
         # ISO 8601 fallback
         try:
             return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
@@ -261,8 +261,8 @@ def _collect_rss(sources: list[SourceRecord], limit_per_source: int = 25) -> lis
                             try:
                                 pub = datetime.fromtimestamp(_time.mktime(val), tz=timezone.utc)
                                 break
-                            except Exception:
-                                pass
+                            except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just tries the next one
+                                log.debug("[%s] %s field failed mktime parse: %s", source.source_name, field, exc)
                     items.append(IntelligenceItem(
                         source_id=source.source_id,
                         source_name=source.source_name,
@@ -277,8 +277,8 @@ def _collect_rss(sources: list[SourceRecord], limit_per_source: int = 25) -> lis
                     ))
                 log.info("[%s] %d items via feedparser", source.source_name, len(items))
                 return items
-        except Exception:
-            pass  # fall through to stdlib parser
+        except Exception as exc:  # noqa: BLE001 - feedparser failure is expected for some feeds; stdlib XML parser below is the real fallback
+            log.debug("[%s] feedparser failed, falling back to stdlib XML parser: %s", source.source_name, exc)
 
         # Fallback: stdlib XML parser
         try:

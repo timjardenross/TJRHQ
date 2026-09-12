@@ -18,7 +18,10 @@ decision, the ranker is never modified.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 from intelligence.governance.workflow_gate import (
     ANALYST,
@@ -226,8 +229,8 @@ def publish_brief(repo, actor_role: str, brief_id: str,
     try:
         from intelligence.brief_published_notifier import notify_published
         notify_published(brief)
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - notification failure must never break a real publish (see comment above)
+        log.warning("[workflow/service] Publish notification failed for brief %r: %s", getattr(brief, "id", "?"), exc)
 
     return updated
 

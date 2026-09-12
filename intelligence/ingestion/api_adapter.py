@@ -161,16 +161,16 @@ class APIAdapter(BaseSourceAdapter):
             if val:
                 try:
                     return datetime.fromtimestamp(_time.mktime(val), tz=timezone.utc)
-                except Exception:
-                    pass
+                except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through to the next format
+                    log.debug("[api_adapter] %s field failed mktime parse: %s", field, exc)
         from email.utils import parsedate_to_datetime
         for field in ("published", "updated"):
             val = entry.get(field)
             if val:
                 try:
                     return parsedate_to_datetime(val)
-                except Exception:
-                    pass
+                except Exception as exc:  # noqa: BLE001 - best-effort multi-format date probe; a bad field just falls through to the next format
+                    log.debug("[api_adapter] %s field failed RFC822 parse: %s", field, exc)
         return None
 
     # ─── Source-specific parsers ──────────────────────────────────────────────

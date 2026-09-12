@@ -69,7 +69,7 @@ async def _fetch(url: str, timeout_seconds: int) -> str:
                 if state in ("interactive", "complete"):
                     ready = True
                     break
-            except Exception:
+            except Exception:  # noqa: S110 - readyState poll; a transient eval failure just retries next tick, never fatal here
                 pass
             await asyncio.sleep(1)
         if not ready:
@@ -80,7 +80,7 @@ async def _fetch(url: str, timeout_seconds: int) -> str:
     finally:
         try:
             await asyncio.wait_for(session.close(), timeout=15)
-        except Exception:
+        except Exception:  # noqa: S110 - best-effort cleanup on the way out; a close failure must not mask/replace the real result or error
             pass
 
 

@@ -129,7 +129,7 @@ def collect_all(
                 "sources_total": len(all_health),
             },
         )
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort event-bus publish; a bus outage must never block/fail the actual collection result
+        log.debug("[collection_engine] Failed to publish collection_run_completed event: %s", exc)
 
     return all_items, all_health

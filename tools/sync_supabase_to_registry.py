@@ -109,7 +109,7 @@ def _record_heartbeat(status: str, detail: str = None, error_message: str = None
         sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
         from heartbeat import record_heartbeat
         record_heartbeat("mission_registry_sync", status=status, detail=detail, error_message=error_message)
-    except Exception:
+    except Exception:  # noqa: BLE001, S110 - heartbeat recording is observability-only; must never block the actual sync it's reporting on
         pass
 
 

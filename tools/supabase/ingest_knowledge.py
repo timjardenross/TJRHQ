@@ -206,8 +206,8 @@ def ingest(paths: list[str], dry_run: bool) -> None:
                 source="ingest-knowledge", linked_documents=[document["id"]],
                 recommended_action=relative,
             )
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - best-effort event-bus publish; a bus outage must never block a successful ingest
+            print(f"[ingest_knowledge] Failed to publish document_ingested event: {exc}", file=_sys.stderr)
 
 
 def main() -> None:

@@ -107,8 +107,8 @@ def _publish_core_event(event_type: str, **kwargs) -> None:
             sys.path.insert(0, str(repo_root))
         from core.platform.event_bus import publish_event
         publish_event(event_type, domain="operational-resilience-intelligence", source="intelligence_store", **kwargs)
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - best-effort event-bus publish; a bus outage must never block the underlying persistence operation
+        log.debug("[intelligence_store] Failed to publish %s event: %s", event_type, exc)
 
 
 # Part 2 of the 2026-08-09 Telegram usefulness + outage-alerts design
