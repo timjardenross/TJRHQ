@@ -130,7 +130,7 @@ def _classify_mission(
 
     except json.JSONDecodeError as exc:
         return {"initiative_id": "PARSE_ERROR", "confidence": 0.0, "reasoning": f"JSON parse failed: {exc}"}
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - LLM-response parse fallback — returns a structured PARSE_ERROR/ERROR record the caller can flag for manual review, not silently dropped
         return {"initiative_id": "ERROR", "confidence": 0.0, "reasoning": f"{type(exc).__name__}: {str(exc)[:100]}"}
 
 

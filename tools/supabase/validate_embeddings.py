@@ -74,7 +74,7 @@ def embed_with_provider(provider: str, text: str) -> list[float] | None:
     except EmbeddingError as exc:
         print(f"  [SKIP] {provider}: {exc}")
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - per-provider embedding probe in a validation script — already printed with the provider name and error type
         print(f"  [ERROR] {provider}: {type(exc).__name__}: {exc}")
         return None
     finally:

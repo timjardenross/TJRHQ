@@ -64,7 +64,7 @@ def print_quality_observations(client: SupabaseClient, semantic_runs: list[dict[
 
     try:
         candidates = client.rpc("poor_semantic_retrieval_candidates", {"max_length": 1800}) or []
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort diagnostic RPC call in a validation script; caller treats [] as 'no candidates to report'
         candidates = []
     if candidates:
         print("\nPotential retrieval candidates to improve:")

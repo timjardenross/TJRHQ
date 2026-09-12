@@ -254,7 +254,7 @@ def _classify(signal: dict[str, Any]) -> dict[str, Any]:
             result = _parse_classification(raw, name)
             if result is not None:
                 return result
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-provider attempt inside a fallback chain — one provider failing must not abort the chain; already logged
             log.warning("[curation] provider %s failed for signal %s: %s", name, signal.get("signal_id"), exc)
             continue
 

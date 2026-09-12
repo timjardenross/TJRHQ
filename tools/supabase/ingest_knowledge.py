@@ -27,7 +27,7 @@ try:
     if str(ROOT) not in _sys.path:
         _sys.path.insert(0, str(ROOT))
     from core.knowledge.docling_processor import extract_document as _docling_extract
-except Exception:
+except Exception:  # noqa: BLE001 - optional docling extraction import — module docstring above documents the raw-read_text fallback used when this is None
     _docling_extract = None  # type: ignore[assignment]
 DEFAULT_PATHS = [
     "core/governance/architecture-decision-records",

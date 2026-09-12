@@ -220,7 +220,7 @@ def test_source(source: dict, timeout: int = 15) -> SourceTest:
             recommendation=recommendation
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - per-source test inside an audit loop — one bad source must not abort the audit; returns a structured SourceTest(error=...) result
         latency_ms = (time.time() - start) * 1000
         return SourceTest(
             source_name=name,

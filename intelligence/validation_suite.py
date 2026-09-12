@@ -461,7 +461,7 @@ def run_suite() -> SuiteReport:
     for case_fn in CASES:
         try:
             results.append(case_fn())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-test-case failure inside a suite runner — one bad case must not abort the suite; captured into the returned SuiteReport.results
             results.append(_fail(case_fn.__name__, "unknown", "collectible", f"case raised {type(exc).__name__}: {exc}"))
     return SuiteReport(generated_at=datetime.now(timezone.utc).isoformat(), results=results)
 

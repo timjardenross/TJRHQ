@@ -137,7 +137,7 @@ def _rate_supabase(uuid: str, quality: int, notes: str) -> None:
         supabase_upsert("decisions", row, on_conflict="id")
         print(f"  ✅ Decision {uuid[:8]}... rated {quality}/5 — {QUALITY_LABELS[quality]}")
         _outcome_followup(uuid)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - interactive CLI top-level boundary — prints the failure and exits non-zero, already surfaced to the operator
         print(f"  ❌ Supabase update failed: {exc}")
         sys.exit(1)
 

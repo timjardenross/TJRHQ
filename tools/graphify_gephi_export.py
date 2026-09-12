@@ -365,7 +365,8 @@ def write_topology(filtered_nodes, filtered_links, id_map):
     # kamada_kawai uses pure numpy (no scipy needed); fall back to random if it fails
     try:
         pos = nx.kamada_kawai_layout(G)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - kamada_kawai can fail on disconnected/degenerate graphs; falls back to a seeded random layout so the export still completes
+        print(f"  kamada_kawai layout failed ({exc}), using random layout")
         pos = nx.random_layout(G, seed=42)
 
     node_colours = [

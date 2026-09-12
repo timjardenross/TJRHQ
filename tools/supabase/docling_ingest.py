@@ -211,7 +211,7 @@ def main() -> None:
     if not args.dry_run:
         try:
             client = SupabaseClient()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort client init with an explicit dry-run fallback right below, already printed
             print(f"Supabase not configured ({exc}) — running as dry-run instead.")
             args.dry_run = True
 

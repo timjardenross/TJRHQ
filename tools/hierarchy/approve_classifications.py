@@ -201,7 +201,7 @@ def run_approval(*, dry_run: bool = False) -> None:
         print(f"Sync complete: {result.nodes_upserted} nodes, {result.edges_upserted} edges")
         if result.errors:
             print(f"Sync warnings: {', '.join(result.errors)}")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort knowledge-graph sync, already logged + printed with a manual-retry hint
         log.error("[approve] Sync failed: %s", exc)
         print(f"Sync failed: {type(exc).__name__} — run sync.py manually")
 

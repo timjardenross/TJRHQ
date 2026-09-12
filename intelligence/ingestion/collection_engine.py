@@ -95,7 +95,7 @@ def collect_all(
                 items, health = future.result()
                 all_items.extend(items)
                 all_health.append(health)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-source future-result retrieval inside a ThreadPoolExecutor loop — one bad source must not abort the batch; already logged
                 log.error("Unexpected error collecting %s: %s", source.source_name, exc)
 
     # Persist health records (non-blocking; individual failures logged inside store)

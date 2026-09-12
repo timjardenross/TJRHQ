@@ -110,7 +110,7 @@ class EmbeddingGenerator:
                     embedding = self._embed_text(chunk['content'])
                     chunk['embedding'] = embedding
                     embedded_count += 1
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - per-chunk embed inside a batch loop — one bad chunk must not abort the batch; already printed + counted in failed_count/failed_ids
                     failed_ids.append(chunk['id'])
                     failed_count += 1
                     print(f"   ❌ Chunk {chunk['id']}: {str(e)[:50]}")

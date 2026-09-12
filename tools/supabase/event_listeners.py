@@ -57,7 +57,7 @@ class EventListener(ABC):
         for handler in self.handlers:
             try:
                 handler(event, context)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-handler dispatch inside a notify loop — one bad handler must not block other registered handlers from running; already printed
                 print(f"❌ Handler error: {e}")
 
 

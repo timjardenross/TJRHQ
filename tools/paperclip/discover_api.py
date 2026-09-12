@@ -42,7 +42,7 @@ def _get(path: str) -> Any:
         body = e.read().decode()
         try:
             return json.loads(body)
-        except Exception:
+        except Exception:  # noqa: BLE001 - best-effort JSON-body parse of an HTTP error response; falls back to the raw body text, which is still returned to the caller
             return {"error": f"HTTP {e.code}", "body": body}
     except OSError as e:
         return {"error": f"Connection failed: {e}"}

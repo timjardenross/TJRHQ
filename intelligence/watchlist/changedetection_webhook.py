@@ -148,7 +148,7 @@ class _Handler(BaseHTTPRequestHandler):
         raw = self.rfile.read(length) if length else b""
         try:
             body = json.loads(raw.decode("utf-8")) if raw else {}
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - webhook HTTP handler — malformed body returns 400 to the sender, already logged
             log.warning("[changedetection_webhook] non-JSON body: %s", exc)
             self.send_response(400)
             self.end_headers()
