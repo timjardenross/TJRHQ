@@ -30,7 +30,7 @@ def _deserialize_event(event_dict: dict):
                 pass  # Leave as-is if parse fails
     return event_dict
 
-def backfill_events(batch_size: int = 100, limit: int = None) -> None:
+def backfill_events(batch_size: int = 100, limit: int | None = None) -> None:
     """Backfill enrichment for all TO_COLLECT events."""
     log.info("Fetching unenriched events (signal_status=TO_COLLECT)...")
     

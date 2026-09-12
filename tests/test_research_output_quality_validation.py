@@ -55,10 +55,11 @@ class TestResearchOutputQualityValidation:
         lines = content.split("\n")
         consolidation_60s_found = False
         for i, line in enumerate(lines):
-            if "timeout_sec=60" in line and i > 500:  # After consolidation section starts
-                if "consolidation" in lines[max(0, i-5):i+5].__str__():
-                    consolidation_60s_found = True
-                    break
+            if "timeout_sec=60" in line and i > 500 and (  # After consolidation section starts
+                "consolidation" in lines[max(0, i-5):i+5].__str__()
+            ):
+                consolidation_60s_found = True
+                break
 
         assert consolidation_60s_found, "Consolidation timeout not set to 60s in code"
         log.info("✅ PASSED: Consolidation timeout increased to 60s")

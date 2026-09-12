@@ -341,10 +341,10 @@ class AutoRemediationExecutor:
         testing the autonomous-remediation changes. Independent copy of the
         same bug; fixed the same way (mtime, not name).
         """
-        run_dir = sorted(
+        run_dir = max(
             (d for d in (self.data_root / "runs").iterdir() if d.is_dir()),
-            key=lambda d: d.stat().st_mtime, reverse=True,
-        )[0]
+            key=lambda d: d.stat().st_mtime,
+        )
         findings_file = run_dir / "findings_classified.json"
 
         with open(findings_file) as f:
@@ -594,8 +594,8 @@ class AutoRemediationExecutor:
             from notification_service import Severity, Transport, notify  # type: ignore
 
             lines = [f"Self-improvement auto-remediation cycle ({results['run_id']}):",
-                     f"{results['remediated_count']} remediated, {results['failed_count']} failed, "
-                     f"{results['skipped_count']} skipped."]
+                     (f"{results['remediated_count']} remediated, {results['failed_count']} failed, "
+                      f"{results['skipped_count']} skipped.")]
             for entry in results["remediation_results"]:
                 for fid, msg in entry.items():
                     lines.append(f"• {fid}: {msg}")

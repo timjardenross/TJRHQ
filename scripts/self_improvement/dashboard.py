@@ -303,7 +303,7 @@ def api_opportunities():
     """List current opportunities, optionally filtered by lifecycle_state
     (?state=discovered,investigating,proposed,...) — comma-separated."""
     state_filter = request.args.get("state")
-    states = set(s.strip() for s in state_filter.split(",")) if state_filter else None
+    states = {s.strip() for s in state_filter.split(",")} if state_filter else None
 
     opportunities = opportunity_store.all_current()
     if states:

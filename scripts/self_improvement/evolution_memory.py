@@ -241,16 +241,14 @@ def format_related_experience(related: list[dict[str, Any]]) -> str:
         prefix = f"HQ has relevant prior experience with {count} similar idea{'s' if count != 1 else ''}: "
 
         summary = prefix
-        included = 0
         for i, clause in enumerate(clauses):
-            piece = clause if included == 0 else f"; {clause}"
-            if len(summary) + len(piece) + 1 > _MAX_SUMMARY_CHARS and included > 0:
-                remaining = count - included
+            piece = clause if i == 0 else f"; {clause}"
+            if len(summary) + len(piece) + 1 > _MAX_SUMMARY_CHARS and i > 0:
+                remaining = count - i
                 if remaining > 0:
                     summary += f"; and {remaining} more not shown here"
                 break
             summary += piece
-            included += 1
         else:
             summary += "."
 

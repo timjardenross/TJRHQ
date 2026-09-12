@@ -70,7 +70,7 @@ class EvolutionOrchestrator:
         blocks: a stuck prior run must not wedge every future scheduled
         run, it just means this run skips (and says so honestly)."""
         self._lock_path.parent.mkdir(parents=True, exist_ok=True)
-        fd = open(self._lock_path, "w")
+        fd = open(self._lock_path, "w")  # noqa: SIM115 - flock held across the run; closed explicitly in _release_lock(), can't use a `with` block here
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except (BlockingIOError, OSError):
@@ -438,15 +438,16 @@ class EvolutionOrchestrator:
                 if outcome_result == "regressed":
                     regressions += 1
 
-                if outcome_result in ("improved", "regressed"):
-                    if latest_material_learning_ts is None or evaluated_at > latest_material_learning_ts:
-                        latest_material_learning = {
-                            "opportunity_id": opportunity_id,
-                            "title": opp.get("title"),
-                            "outcome_result": outcome_result,
-                            "future_implication": result.get("future_implication"),
-                        }
-                        latest_material_learning_ts = evaluated_at
+                if outcome_result in ("improved", "regressed") and (
+                    latest_material_learning_ts is None or evaluated_at > latest_material_learning_ts
+                ):
+                    latest_material_learning = {
+                        "opportunity_id": opportunity_id,
+                        "title": opp.get("title"),
+                        "outcome_result": outcome_result,
+                        "future_implication": result.get("future_implication"),
+                    }
+                    latest_material_learning_ts = evaluated_at
 
             except Exception as exc:  # noqa: BLE001 - per-opportunity outcome evaluation loop; one opportunity's unpredictable evaluation failure must not abort evaluation of the rest, already logged and skipped via continue
                 log.warning(f"Outcome evaluation failed for {opportunity_id}: {exc}")
@@ -591,29 +592,29 @@ class EvolutionOrchestrator:
                  f"{len(failed_gate)} rejected at the gate")
 
         def _base_fields(candidate: dict[str, Any], verdict, lifecycle_state: str) -> dict[str, Any]:
-            return dict(
-                title=candidate["title"],
-                change_class=candidate["change_class"],
-                discovery_source=candidate["discovery_source"],
-                lifecycle_state=lifecycle_state,
-                fingerprint=candidate["fingerprint"],
-                summary=candidate.get("summary", ""),
-                why_relevant=candidate.get("why_relevant", ""),
-                value=candidate.get("value"),
-                cost_impact=candidate.get("cost_impact"),
-                complexity=candidate.get("complexity"),
-                fit=candidate.get("fit"),
-                relevance_score=verdict.score,
-                confidence=candidate.get("confidence", 0.0),
-                evidence_strength=candidate.get("evidence_strength", "weak"),
-                provenance=candidate.get("provenance", []),
-                source_finding_id=candidate.get("source_finding_id"),
-                validation_result=candidate.get("validation_result"),
-                validation_evidence=candidate.get("validation_evidence", []),
-                validated_at=candidate.get("validated_at"),
-                measurement_hint=candidate.get("measurement_hint"),
-                run_id=run_id,
-            )
+            return {
+                "title": candidate["title"],
+                "change_class": candidate["change_class"],
+                "discovery_source": candidate["discovery_source"],
+                "lifecycle_state": lifecycle_state,
+                "fingerprint": candidate["fingerprint"],
+                "summary": candidate.get("summary", ""),
+                "why_relevant": candidate.get("why_relevant", ""),
+                "value": candidate.get("value"),
+                "cost_impact": candidate.get("cost_impact"),
+                "complexity": candidate.get("complexity"),
+                "fit": candidate.get("fit"),
+                "relevance_score": verdict.score,
+                "confidence": candidate.get("confidence", 0.0),
+                "evidence_strength": candidate.get("evidence_strength", "weak"),
+                "provenance": candidate.get("provenance", []),
+                "source_finding_id": candidate.get("source_finding_id"),
+                "validation_result": candidate.get("validation_result"),
+                "validation_evidence": candidate.get("validation_evidence", []),
+                "validated_at": candidate.get("validated_at"),
+                "measurement_hint": candidate.get("measurement_hint"),
+                "run_id": run_id,
+            }
 
         def _persist(candidate: dict[str, Any], verdict, fields: dict[str, Any]):
             if dry_run:

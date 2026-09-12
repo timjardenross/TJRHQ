@@ -565,9 +565,11 @@ class TestModelRouterJudge:
         fake_response.__enter__ = lambda s: s
         fake_response.__exit__ = MagicMock(return_value=False)
         judge = self.qss._ModelRouterJudge()
-        with patch("urllib.request.urlopen", return_value=fake_response):
-            with pytest.raises(RuntimeError):
-                judge.generate("prompt")
+        with (
+            patch("urllib.request.urlopen", return_value=fake_response),
+            pytest.raises(RuntimeError),
+        ):
+            judge.generate("prompt")
 
 
 # ============================================================================

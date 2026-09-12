@@ -196,7 +196,7 @@ class TestOverlapPrevention(unittest.TestCase):
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
         orch._load_watchlist = list
         (self.tmpdir / "review").mkdir(parents=True, exist_ok=True)
-        held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")
+        held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")  # noqa: SIM115 - flock held across the try/finally below, can't use a `with` block
         fcntl.flock(held_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         try:
             result = orch.run_cycle(dry_run=False)
@@ -212,7 +212,7 @@ class TestOverlapPrevention(unittest.TestCase):
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
         orch._load_watchlist = list
         (self.tmpdir / "review").mkdir(parents=True, exist_ok=True)
-        held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")
+        held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")  # noqa: SIM115 - flock held across the try/finally below, can't use a `with` block
         fcntl.flock(held_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         try:
             result = orch.run_cycle(dry_run=True)

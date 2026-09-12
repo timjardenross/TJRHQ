@@ -69,7 +69,7 @@ class TestCPS230FinalValidation:
                 spec.loader.exec_module(module)
                 log.info("  ✓ research_orchestration.py loaded successfully")
             else:
-                raise Exception("Could not load research_orchestration.py")
+                raise RuntimeError("Could not load research_orchestration.py")
         except Exception as e:  # noqa: BLE001 - test asserts the module loads without raising any error at all
             log.error(f"  ✗ Failed to load: {e}")
             return False

@@ -41,25 +41,25 @@ VOICE_TMP_DIR      = Path(tempfile.gettempdir()) / "starship-captures" / "voice"
 
 _RULES: list[tuple[str, str, float]] = [
     # Decisions — most explicit markers, highest priority
-    (r"\b(i decided|decision|approved|i'?m going with|we'?re going with|"
-     r"going to go with|i'?ve decided|final answer)\b",
+    ((r"\b(i decided|decision|approved|i'?m going with|we'?re going with|"
+      r"going to go with|i'?ve decided|final answer)\b"),
      "decision", 0.85),
     # Content ideas — check before capacity_signal (e.g. "post about recovery" = content not health)
-    (r"\b(post idea|linkedin|blog post|tweet|newsletter|content idea|"
-     r"episode|podcast|article idea|social media post)\b",
+    ((r"\b(post idea|linkedin|blog post|tweet|newsletter|content idea|"
+      r"episode|podcast|article idea|social media post)\b"),
      "content_idea", 0.80),
     # Capacity signals — body/health language (MY CAPACITY TODAY, 2026-08-21;
     # was "recovery_pulse" before that model retired)
-    (r"\b(pain|fatigue|sleep|medication|recovery pulse|feeling tired|headache|cpap|"
-     r"energy level|my energy|exhausted|body is|i feel|not well|migraine|fibro)\b",
+    ((r"\b(pain|fatigue|sleep|medication|recovery pulse|feeling tired|headache|cpap|"
+      r"energy level|my energy|exhausted|body is|i feel|not well|migraine|fibro)\b"),
      "capacity_signal", 0.80),
     # Things to do — action intent
-    (r"\b(remind me|i need to|to[\s\-]?do|todo|follow up|don'?t forget|"
-     r"remember to|i should|need to|make sure to|schedule)\b",
+    ((r"\b(remind me|i need to|to[\s\-]?do|todo|follow up|don'?t forget|"
+      r"remember to|i should|need to|make sure to|schedule)\b"),
      "thing_to_do", 0.85),
     # Mission ideas
-    (r"\b(idea|we should build|new mission|mission idea|let'?s build|"
-     r"we could build|i want to build|we could create|build a|could we)\b",
+    ((r"\b(idea|we should build|new mission|mission idea|let'?s build|"
+      r"we could build|i want to build|we could create|build a|could we)\b"),
      "mission_idea", 0.78),
 ]
 

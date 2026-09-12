@@ -485,10 +485,12 @@ async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     lines = []
     for svc in services:
         try:
-            r = subprocess.run(
+            r = await asyncio.to_thread(
+                subprocess.run,
                 ["systemctl", "restart", svc],
                 capture_output=True, text=True, timeout=15,
-            check=False)
+                check=False,
+            )
             icon = "✅" if r.returncode == 0 else f"⚠️ rc={r.returncode}"
             lines.append(f"{icon} {svc.replace('.service', '')}")
         except Exception as exc:  # noqa: BLE001 - systemctl subprocess call surface is unpredictable, reported back to the caller
@@ -504,7 +506,7 @@ async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     if restart_xo:
         await asyncio.sleep(3)
-        subprocess.Popen(["systemctl", "restart", "tg-xo.service"])
+        await asyncio.create_subprocess_exec("systemctl", "restart", "tg-xo.service")
 
 
 # ── OR Intelligence brief ─────────────────────────────────────────────────────
@@ -1196,8 +1198,8 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 "XO here\\. LLM unreachable — use /recovery\\_status or /dispatch for now\\.",
                 parse_mode="MarkdownV2",
             )
-    except Exception as exc:
-        log.exception("[cmd_message] failed: %s", exc)
+    except Exception:
+        log.exception("[cmd_message] failed")
         await update.message.reply_text(
             "⚠️ Something went wrong processing that — try /recovery_status or /dispatch, "
             "or resend your message."
