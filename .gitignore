@@ -15,6 +15,10 @@
 venv/
 */.venv/
 */venv/
+# Isolated per-tool venvs (garak, ragas, ...) — created locally per each tool's own
+# requirements-*.txt (core/quality/requirements-garak.txt, requirements-ragas.txt),
+# never committed, same reasoning as .venv/ above.
+*/.venv-*/
 
 # Python
 __pycache__/
