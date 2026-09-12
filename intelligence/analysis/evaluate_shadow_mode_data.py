@@ -137,7 +137,7 @@ class EvaluationHarness:
             req = urllib.request.Request(url, headers=_headers())
             with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
                 signals = json.loads(resp.read())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - generic Supabase fetch wrapper — caller sees [] and handles it; already logged
             log.error(f"Failed to fetch signals: {exc}")
             return []
 
@@ -166,7 +166,7 @@ class EvaluationHarness:
                             # QA status: approved/rejected/pending
                             qa_approved = qa_entry.get("status") == "approved"
                             qa_timestamp = qa_entry.get("timestamp")
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - per-brief lookup inside a batch loop — one bad brief must not abort the batch; already logged, leaves qa_approved/timestamp as None
                     log.debug(f"Failed to fetch brief {brief_id}: {exc}")
 
             evaluations.append(

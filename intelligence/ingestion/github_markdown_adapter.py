@@ -93,7 +93,7 @@ def list_brief_files(lookback_days: int = DEFAULT_LOOKBACK_DAYS,
             log.info("[ORI-GitHub] listed %d briefs under '%s/' via git-tree API",
                      len(files), BRIEF_ROOT)
             return files
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort git-tree API attempt with an explicit date-probing fallback right below, already logged
         log.warning("[ORI-GitHub] git-tree API unavailable (%s) — using date fallback", exc)
 
     # Deterministic-date fallback: probe the last N days at the canonical path.
@@ -117,7 +117,7 @@ def fetch_brief(path: str, timeout: int = HTTP_TIMEOUT_SECONDS) -> str | None:
         if exc.code == 404:
             return None
         log.warning("[ORI-GitHub] fetch %s -> HTTP %s", path, exc.code)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic GitHub content fetch — caller treats None as 'not found/unavailable'; already logged
         log.warning("[ORI-GitHub] fetch %s failed: %s", path, exc)
     return None
 

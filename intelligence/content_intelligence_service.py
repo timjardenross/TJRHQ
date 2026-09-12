@@ -62,7 +62,7 @@ def _get(path: str) -> list:
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return json.loads(resp.read())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase GET wrapper — caller sees [] and handles it; already logged
         log.error("Supabase query failed (%s): %s", path, exc)
         return []
 
@@ -81,7 +81,7 @@ def _post(table: str, payload: dict, on_conflict: str | None = None) -> dict | N
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             result = json.loads(resp.read())
             return result[0] if isinstance(result, list) else result
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - generic Supabase POST wrapper — caller sees None and handles it; already logged
         log.error("Supabase insert failed (%s): %s", table, exc)
         return None
 

@@ -105,7 +105,7 @@ def synthesize_correlation_insights(
         try:
             from intelligence.brief.llm_provider import LLMProvider
             llm_provider = LLMProvider()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - already logged; caller returns a structured error-status dict
             log.error(f"Failed to load LLMProvider: {exc}")
             return {
                 "status": "error",
@@ -132,7 +132,7 @@ def synthesize_correlation_insights(
 
     try:
         raw_response, provider = llm_provider.generate(prompt)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logged; caller returns a structured error-status dict
         log.error(f"LLM generation failed: {exc}")
         return {
             "status": "error",

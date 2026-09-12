@@ -301,7 +301,7 @@ def _call_threshold_llm(prompt: str) -> tuple[int | None, str | None, str | None
                 "[downdetector-threshold] LLM provider %s returned unparseable output: %r",
                 name, raw,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-provider attempt inside a fallback chain — one provider failing must not abort the chain; already logged
             log.warning("[downdetector-threshold] LLM provider %s failed: %s", name, exc)
     return None, None, None
 
@@ -468,7 +468,7 @@ def recompute_all(
                 llm_provider=result.llm_provider,
             )
             results.append(result)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-source recompute inside a batch loop — one bad source must not abort the run; already logged
             log.error("[downdetector-threshold] recompute failed for %s: %s", source_name, exc)
 
     return results
