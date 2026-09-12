@@ -27,7 +27,13 @@ fi
 # shellcheck disable=SC1090
 source "$AUTH_FILE"
 
-TOKEN="$(infisical login --method=universal-auth \
+# Minted token is passed via the INFISICAL_TOKEN env var, not --token=,
+# so it never appears in argv (visible to any local user via plain
+# `ps aux` / `/proc/<pid>/cmdline`, no root needed). This CLI binds
+# --token to that env var name internally; env is still readable via
+# /proc/<pid>/environ, but that requires root/same-UID, matching every
+# other secret already exposed that way on this host.
+export INFISICAL_TOKEN="$(infisical login --method=universal-auth \
   --client-id="$INFISICAL_UA_CLIENT_ID" \
   --client-secret="$INFISICAL_UA_CLIENT_SECRET" \
   --domain="$DOMAIN" --plain --silent)"
@@ -36,5 +42,4 @@ exec infisical run \
   --domain="$DOMAIN" \
   --projectId="$PROJECT_ID" \
   --env="$ENVIRONMENT" \
-  --token="$TOKEN" \
   -- "$@"

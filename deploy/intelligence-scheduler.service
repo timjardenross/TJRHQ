@@ -32,7 +32,14 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=/opt/starship-endeavour
 EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
-ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/python -m intelligence.scheduler
+# 2026-09-05: wrapped with run-with-infisical.sh — layers Infisical's
+# project USSTJR/prod secrets (BOT_API_SECRET, Google Calendar creds,
+# Supabase keys, etc.) on top of the EnvironmentFile above rather than
+# replacing it, so anything not yet migrated to Infisical still falls back
+# to the .env file. See run-with-infisical.sh's own header for why a
+# wrapper script instead of a direct --client-id/--client-secret flag (this
+# CLI version's `run` subcommand only accepts a pre-minted --token).
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/.venv/bin/python -m intelligence.scheduler
 Restart=always
 RestartSec=10
 StandardOutput=journal
