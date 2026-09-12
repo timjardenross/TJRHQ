@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0066 Increment 7 — Lifecycle Coverage sweep ("nothing gets lost").
 
 Assigns EVERY open work item — missions, build requests, and engineering

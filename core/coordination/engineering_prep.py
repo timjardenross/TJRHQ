@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0066 Increment 4 — Ready-for-Engineering prep + linkage surfacing (AP3/AP4).
 
 When a handoff is approved but still pending engineering, the Captain currently

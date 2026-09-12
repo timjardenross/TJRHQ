@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Batch coding pipeline: send approved engineering handoffs to Mistral's Batch API
 for code generation, and collect the results as **review-only patch artifacts**.

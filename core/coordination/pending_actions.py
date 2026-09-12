@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0066 Increment 5 — Pending Actions aggregator + dashboard surface.
 
 Number One's headline ask (WP6 success criteria): *one place* that shows every

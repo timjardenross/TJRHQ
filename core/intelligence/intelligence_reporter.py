@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Intelligence Reporting Layer — WP10
 Mission: M-20260613-INTELLIGENCE-MATURITY-PHASE2

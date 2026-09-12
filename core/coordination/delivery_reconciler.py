@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Delivery Lifecycle Reconciler — make every item's state TRUE and VISIBLE.
 
 The M-20260617 audit found the delivery pipeline lets work die silently: draft

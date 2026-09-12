@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 sync.py: Reads hierarchy source files and upserts knowledge_nodes + knowledge_edges
 to Supabase (and rebuilds the in-memory graph).

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Build-Request Execution Verifier — MSN-0356 (Decide: Outcome Verification Gap).
 
 Every `build_request_inbox` row that reaches `status='approved'` is currently

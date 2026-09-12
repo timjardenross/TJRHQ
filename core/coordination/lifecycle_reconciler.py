@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0066 Increment 1 — Lifecycle Reconciler (read-only, advisory).
 
 The delivery reconciler (`delivery_reconciler.py`) already establishes the

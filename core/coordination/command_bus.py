@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Command Operations Bus — cross-service routing and health orchestration.
 
 Polls Supabase and systemd state on a configurable cycle, detects problems,

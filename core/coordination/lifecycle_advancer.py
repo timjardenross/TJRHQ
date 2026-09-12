@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0066 Increment 6 — Lifecycle Advancer (write-side, stops AT the gate).
 
 This is the one piece that *moves* an item rather than only observing it: once a

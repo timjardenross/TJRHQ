@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 core/security/llm_guardrails.py — LLM application security baseline for
 every real external-cloud-API dispatch point in this repo (USS-TJR-MSN-0366

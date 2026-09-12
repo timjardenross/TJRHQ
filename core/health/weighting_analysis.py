@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Weighting Analysis — WP4
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Weekly Health Intelligence Synthesis — WP2 / Sprint A
 

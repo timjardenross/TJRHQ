@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Health Insight Source Article Enricher
 

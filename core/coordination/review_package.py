@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """MSN-0066 Increment 2 — Review Package generator (Automation Point 5).
 
 The Lifecycle Reconciler (Increment 1) finds the items parked at the REVIEW
