@@ -276,7 +276,7 @@ def _send_telegram(
     payload = json.dumps(body_obj).encode()
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is api.telegram.org with a fixed path template, TELEGRAM_BOT_TOKEN is a trusted env credential - reviewed 2026-09-12
             parsed = json.loads(resp.read())
             message_id = (parsed.get("result") or {}).get("message_id")
             return True, None, message_id

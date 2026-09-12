@@ -142,7 +142,7 @@ def _call_model_router(prompt: str, *, url: str = _MODEL_ROUTER_URL, timeout: in
     try:
         body = json.dumps({"prompt": prompt}).encode()
         req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url defaults to hardcoded _MODEL_ROUTER_URL localhost constant, not user input - reviewed 2026-09-12
             result = json.loads(resp.read())
         if not result.get("success"):
             log.warning("[insight-engine] model router call failed: %s", result.get("error"))

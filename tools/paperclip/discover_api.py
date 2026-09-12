@@ -35,7 +35,7 @@ def _get(path: str) -> Any:
     url = f"{BASE_URL}{path}"
     req = urllib.request.Request(url, headers={"Accept": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:  # nosec B310 - url built from BASE_URL, a fixed local literal constant, not user input - reviewed 2026-09-12
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
         body = e.read().decode()

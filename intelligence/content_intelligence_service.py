@@ -58,7 +58,7 @@ def _get(path: str) -> list:
     url = f"{_SUPABASE_URL}/rest/v1/{path}"
     req = urllib.request.Request(url, headers=_headers(), method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return json.loads(resp.read())
     except Exception as exc:
         log.error("Supabase query failed (%s): %s", path, exc)
@@ -76,7 +76,7 @@ def _post(table: str, payload: dict, on_conflict: Optional[str] = None) -> Optio
     body = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             result = json.loads(resp.read())
             return result[0] if isinstance(result, list) else result
     except Exception as exc:

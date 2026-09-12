@@ -103,7 +103,7 @@ def record_heartbeat(
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout):
+        with urllib.request.urlopen(req, timeout=timeout):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return True
     except (urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
         log.warning("record_heartbeat(%s) write failed: %s", domain_key, exc)
@@ -136,7 +136,7 @@ def supabase_get(path: str, timeout: int = 10) -> List[Dict[str, Any]]:
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             body = resp.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8")
@@ -164,7 +164,7 @@ def supabase_insert(table: str, payload: Dict[str, Any], timeout: int = 10) -> b
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout):
+        with urllib.request.urlopen(req, timeout=timeout):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             return True
     except (urllib.error.HTTPError, urllib.error.URLError, OSError):
         return False

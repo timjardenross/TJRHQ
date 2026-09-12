@@ -58,7 +58,7 @@ def _blob_url(path: str) -> str:
 
 def _http_get(url: str, headers: dict, timeout: int) -> tuple[int, bytes]:
     req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - generic fetch helper; callers only pass this module's own fixed github.com/raw.githubusercontent.com URLs built from hardcoded REPO_OWNER/REPO_NAME constants, not user input - reviewed 2026-09-12
         return resp.status, resp.read()
 
 

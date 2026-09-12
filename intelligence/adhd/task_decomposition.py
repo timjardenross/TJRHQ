@@ -95,7 +95,7 @@ class TaskDecomposer:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url built from MODEL_ROUTER_URL config constant, not user input - reviewed 2026-09-12
                 data = json.loads(resp.read())
         except Exception as exc:
             raise RuntimeError(f"Model Router unavailable: {exc}") from exc

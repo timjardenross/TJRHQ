@@ -65,7 +65,7 @@ def _fetch(context_name: str) -> dict[str, Any] | None:
             if _key:
                 headers["X-Api-Key"] = _key  # backend requires API key (Mission 7)
             req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+            with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:  # nosec B310 - url is from _ENDPOINT, built from COMMAND_CENTRE_API env var (internal router base), not user input - reviewed 2026-09-12
                 envelope = json.loads(resp.read())
                 data = envelope.get("data") or envelope
                 source = (envelope.get("metadata") or {}).get("source", "api")

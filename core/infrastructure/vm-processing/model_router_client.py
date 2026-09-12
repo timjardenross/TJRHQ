@@ -117,7 +117,7 @@ class ModelRouterClient:
             headers={"Content-Type": "application/json"},
         )
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # nosec B310 - base_url is a ctor param, but callers (worker.py/healthcheck.py) always pass config.model_router.url sourced from MODEL_ROUTER_URL env config, not user input - reviewed 2026-09-12
                 return json.loads(resp.read())
         except urllib.error.HTTPError as exc:
             body = exc.read().decode(errors="replace")

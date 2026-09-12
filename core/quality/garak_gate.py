@@ -100,7 +100,7 @@ def _router_reachable(router_url: str, timeout: float = 5.0) -> bool:
     """Best-effort preflight, mirroring tools/garak_sweep.sh's curl check."""
     for path in ("/health", "/"):
         try:
-            with urllib.request.urlopen(f"{router_url.rstrip('/')}{path}", timeout=timeout):
+            with urllib.request.urlopen(f"{router_url.rstrip('/')}{path}", timeout=timeout):  # nosec B310 - router_url defaults to ROUTER_URL env var / fixed http://127.0.0.1:8891 constant, not user input - reviewed 2026-09-12
                 return True
         except (urllib.error.URLError, OSError):
             continue

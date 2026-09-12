@@ -148,7 +148,7 @@ def _send_slack_webhook(alert_text: str) -> None:
     )
     timeout = float(os.environ.get("DECISION_ALERT_TIMEOUT_SECONDS", "10"))
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as resp:
+        with urllib.request.urlopen(request, timeout=timeout) as resp:  # nosec B310 - webhook_url from DECISION_ALERT_SLACK_WEBHOOK env var, admin-configured, not user input - reviewed 2026-09-12
             if resp.status == 200:
                 # Update alert record to mark slack_sent=True
                 pass  # future: look up latest alert and update flag

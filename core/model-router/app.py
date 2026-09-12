@@ -382,7 +382,7 @@ def _ollama_generate(model: str, prompt: str, keep_alive: str, timeout: int, num
         "options": options,
     }).encode()
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url built from OLLAMA_BASE_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
         return json.loads(resp.read().decode())
 
 
@@ -395,7 +395,7 @@ def _ollama_embed(model: str, input_text: str, keep_alive: str, timeout: int) ->
         "keep_alive": keep_alive,
     }).encode()
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url built from OLLAMA_BASE_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
         return json.loads(resp.read().decode())
 
 
@@ -411,14 +411,14 @@ def _gemini_generate(model: str, prompt: str, timeout: int, api_key_env: str = "
         headers={"Content-Type": "application/json", "X-goog-api-key": api_key},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - url is fixed _GEMINI_BASE literal prefix + model name in path, scheme hardcoded regardless of model value - reviewed 2026-09-12
         return json.loads(resp.read().decode())
 
 
 def _ollama_status() -> dict[str, Any]:
     """GET /api/ps — loaded models. Returns dict."""
     try:
-        with urllib.request.urlopen(f"{_OLLAMA_BASE}/api/ps", timeout=5) as resp:
+        with urllib.request.urlopen(f"{_OLLAMA_BASE}/api/ps", timeout=5) as resp:  # nosec B310 - url built from OLLAMA_BASE_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
             return json.loads(resp.read().decode())
     except Exception as exc:
         return {"error": str(exc)}
@@ -427,7 +427,7 @@ def _ollama_status() -> dict[str, Any]:
 def _ollama_tags() -> dict[str, Any]:
     """GET /api/tags — available models."""
     try:
-        with urllib.request.urlopen(f"{_OLLAMA_BASE}/api/tags", timeout=5) as resp:
+        with urllib.request.urlopen(f"{_OLLAMA_BASE}/api/tags", timeout=5) as resp:  # nosec B310 - url built from OLLAMA_BASE_URL env var, fixed local/internal endpoint - reviewed 2026-09-12
             return json.loads(resp.read().decode())
     except Exception as exc:
         return {"error": str(exc)}

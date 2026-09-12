@@ -61,7 +61,7 @@ def _send_telegram(text: str, token: str, chat_id: str) -> tuple[bool, str | Non
         headers={"Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
+        with urllib.request.urlopen(request, timeout=20) as response:  # nosec B310 - url is the fixed api.telegram.org sendMessage endpoint with only the bot token (env var) interpolated, not user input - reviewed 2026-09-12
             body = json.loads(response.read().decode("utf-8"))
         if body.get("ok"):
             return True, None

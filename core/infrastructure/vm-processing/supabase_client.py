@@ -59,7 +59,7 @@ class SupabaseClient:
         self._require_config()
         req = urllib.request.Request(f"{self.url}/rest/v1/{path}", headers=self._headers())
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # nosec B310 - self.url is a ctor param, but callers (worker.py/healthcheck.py) always pass config.supabase.url sourced from SUPABASE_URL env config, not user input - reviewed 2026-09-12
                 return json.loads(resp.read())
         except urllib.error.HTTPError as exc:
             raise SupabaseError(f"GET {path} failed: {exc.code} {exc.read().decode(errors='replace')}") from exc
@@ -78,7 +78,7 @@ class SupabaseClient:
                      "Content-Length": str(len(payload))},
         )
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # nosec B310 - self.url is a ctor param, but callers always pass config.supabase.url sourced from SUPABASE_URL env config, not user input - reviewed 2026-09-12
                 result = json.loads(resp.read())
                 return result[0] if isinstance(result, list) else result
         except urllib.error.HTTPError as exc:
@@ -94,7 +94,7 @@ class SupabaseClient:
             headers={**self._headers(), "Content-Length": str(len(payload))},
         )
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout):
+            with urllib.request.urlopen(req, timeout=self.timeout):  # nosec B310 - self.url is a ctor param, but callers always pass config.supabase.url sourced from SUPABASE_URL env config, not user input - reviewed 2026-09-12
                 pass
         except urllib.error.HTTPError as exc:
             raise SupabaseError(f"PATCH {table} failed: {exc.code} {exc.read().decode(errors='replace')}") from exc
@@ -112,7 +112,7 @@ class SupabaseClient:
             headers=self._headers(),
         )
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout):
+            with urllib.request.urlopen(req, timeout=self.timeout):  # nosec B310 - self.url is a ctor param, but callers always pass config.supabase.url sourced from SUPABASE_URL env config, not user input - reviewed 2026-09-12
                 pass
         except urllib.error.HTTPError as exc:
             raise SupabaseError(f"DELETE {table} failed: {exc.code} {exc.read().decode(errors='replace')}") from exc

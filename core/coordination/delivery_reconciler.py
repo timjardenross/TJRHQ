@@ -75,7 +75,7 @@ def _github_prs() -> tuple[dict[str, dict], str]:
     req = urllib.request.Request(url, headers={
         "Authorization": f"Bearer {tok}", "Accept": "application/vnd.github+json"})
     try:
-        with urllib.request.urlopen(req, timeout=20) as r:
+        with urllib.request.urlopen(req, timeout=20) as r:  # nosec B310 - url built from fixed api.github.com prefix + GITHUB_REPO env var, not user input - reviewed 2026-09-12
             data = json.load(r)
     except Exception as exc:  # noqa: BLE001
         return {}, f"GitHub error: {exc}"

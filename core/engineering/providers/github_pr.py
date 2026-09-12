@@ -350,7 +350,7 @@ def _api_request(token: str, method: str, path: str,
     req.add_header("User-Agent", "starship-endeavour-batch-coding")
     if data is not None:
         req.add_header("Content-Type", "application/json")
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - url is fixed _GITHUB_API literal prefix + path segments, not user input - reviewed 2026-09-12
         return json.loads(resp.read().decode("utf-8"))
 
 

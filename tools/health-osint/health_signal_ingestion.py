@@ -69,7 +69,7 @@ def _direct_get(url: str) -> str:
     external_fetch_budget.py (that module only guards the paid providers)."""
     import urllib.request
     req = urllib.request.Request(url, headers={"User-Agent": "USS-TJR-Health-OSINT-Agent/1.0"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - generic fetch helper; url comes from this file's fixed per-source config (config["fetch_url"]), not user input - reviewed 2026-09-12
         return resp.read().decode("utf-8", errors="replace")
 
 
@@ -84,7 +84,7 @@ def _direct_post(url: str, body: dict) -> str:
         url, data=payload, method="POST",
         headers={"Content-Type": "application/json", "User-Agent": "USS-TJR-Health-OSINT-Agent/1.0"},
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - generic fetch helper; url comes from this file's fixed per-source config (config["fetch_url"]), not user input - reviewed 2026-09-12
         return resp.read().decode("utf-8", errors="replace")
 
 

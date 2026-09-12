@@ -53,7 +53,7 @@ def _get(path: str) -> dict:
         headers=_auth_headers(),
     )
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:  # nosec B310 - url is API_BASE (COMMAND_CENTRE_API env var, internal router) plus a fixed literal path from this file's own call sites, not user input - reviewed 2026-09-12
             return json.loads(resp.read())
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"API HTTP {exc.code}: {exc.reason}") from exc
@@ -70,7 +70,7 @@ def _post(path: str, payload: dict = None) -> dict:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:  # nosec B310 - url is API_BASE (COMMAND_CENTRE_API env var, internal router) plus a fixed literal path from this file's own call sites, not user input - reviewed 2026-09-12
             return json.loads(resp.read())
     except Exception as exc:
         raise RuntimeError(f"API call failed ({exc})") from exc

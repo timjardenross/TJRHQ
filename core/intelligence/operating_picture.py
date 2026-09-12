@@ -39,7 +39,7 @@ def _sb_get(table: str, query: str = "") -> list[dict]:
     }
     try:
         req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        with urllib.request.urlopen(req, timeout=8) as resp:  # nosec B310 - url built from SUPABASE_URL env var, fixed REST endpoint - reviewed 2026-09-12
             return json.loads(resp.read())
     except Exception as exc:
         log.warning("Supabase fetch failed (%s): %s", table, exc)

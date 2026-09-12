@@ -36,7 +36,7 @@ def _get_json(url: str, timeout: int) -> Optional[dict[str, Any]]:
         "User-Agent": USER_AGENT,
     })
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - generic fetch helper; url's host is the fixed GITHUB_API_BASE constant, query built from config/evolution_watchlist.json (operator-maintained config, not user input) - reviewed 2026-09-12
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
         log.warning(f"GitHub API HTTP error for {url}: {exc.code} {exc.reason}")

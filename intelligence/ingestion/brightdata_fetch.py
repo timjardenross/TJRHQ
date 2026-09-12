@@ -142,7 +142,7 @@ def fetch_html(url: str, timeout: Optional[int] = None) -> str:
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=timeout or BRIGHTDATA_TIMEOUT_SECONDS) as resp:
+        with urllib.request.urlopen(req, timeout=timeout or BRIGHTDATA_TIMEOUT_SECONDS) as resp:  # nosec B310 - generic fetch helper; callers pass source.url from the curated intelligence_sources registry, not user input - reviewed 2026-09-12
             # Bright Data signals its OWN refusals (IP not whitelisted, a
             # site requiring KYC-verified residential access per its
             # robots.txt, etc.) with a real HTTP 200 carrying one of these

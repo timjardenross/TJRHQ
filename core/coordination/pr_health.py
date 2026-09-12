@@ -51,7 +51,7 @@ def _api_get(token: str, path: str) -> Any:
     req.add_header("Accept", "application/vnd.github+json")
     req.add_header("X-GitHub-Api-Version", "2022-11-28")
     req.add_header("User-Agent", "starship-endeavour-number-one")
-    with urllib.request.urlopen(req, timeout=15) as resp:
+    with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - url is fixed https://api.github.com literal prefix + path segments parsed from a github.com/.../pull/N URL; scheme is hardcoded regardless of path content - reviewed 2026-09-12
         return json.loads(resp.read().decode("utf-8"))
 
 
