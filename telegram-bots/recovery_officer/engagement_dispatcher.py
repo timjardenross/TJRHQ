@@ -541,8 +541,8 @@ def _emit_and_return(result: dict) -> dict:
             linked_entities=[f"recovery_pulse_completion:{pulse_completion}"] if pulse_completion is not None else [],
             recommended_action=result.get("action"),
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("wellness.escalation.dispatched publish_event failed: %s", exc)
 
     # Chief Engineer 2026-08-09 EOD alert verification: the domain_registry
     # comment (migration 0083) claimed this publish_event() call above
@@ -559,8 +559,8 @@ def _emit_and_return(result: dict) -> dict:
             sys.path.insert(0, str(repo_root))
         from core.platform.heartbeat import record_heartbeat
         record_heartbeat("wellness-coaching", status="ok", detail=f"action={result.get('action')}")
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("wellness-coaching heartbeat record failed: %s", exc)
     return result
 
 

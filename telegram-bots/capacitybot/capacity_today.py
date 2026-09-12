@@ -967,8 +967,8 @@ async def write_midday_checkin(db, f: dict) -> tuple[bool, str | None]:
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat(TABLE, status="ok", detail="checkin_type=midday source=telegram")
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("heartbeat record failed (checkin_type=midday): %s", exc)
         return True, None
     except Exception as exc:
         log.error("capacity_checkins midday write failed: %s | payload=%s", exc, payload)
@@ -1101,8 +1101,8 @@ async def write_quick_checkin(db, f: dict) -> tuple[bool, dict | None, str | Non
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat(TABLE, status="ok", detail="checkin_type=capacity source=telegram")
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("heartbeat record failed (checkin_type=capacity): %s", exc)
         return True, row, None
     except Exception as exc:
         log.error("capacity_checkins write failed: %s | payload=%s", exc, payload)
@@ -1170,8 +1170,8 @@ async def write_deep_checkin(db, row_id: str, f: dict) -> tuple[bool, str | None
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat(TABLE, status="ok", detail="checkin_type=deep source=telegram")
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("heartbeat record failed (checkin_type=deep): %s", exc)
         return True, None
     except Exception as exc:
         log.error("capacity_checkins deep-check update failed: %s", exc)
@@ -1219,8 +1219,8 @@ async def write_evening(db, f: dict) -> tuple[bool, str | None]:
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat(TABLE, status="ok", detail="checkin_type=evening source=telegram")
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("heartbeat record failed (checkin_type=evening): %s", exc)
         return True, None
     except Exception as exc:
         log.error("capacity_checkins evening write failed: %s", exc)

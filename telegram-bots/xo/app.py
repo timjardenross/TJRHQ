@@ -57,8 +57,8 @@ def _ensure_mistral_env() -> None:
             if line.startswith("MISTRAL_API_KEY") and "=" in line:
                 k, _, v = line.partition("=")
                 os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
-    except Exception:
-        pass
+    except Exception as exc:
+        logging.getLogger(__name__).debug("failed to load MISTRAL_API_KEY from .env: %s", exc)
 
 
 _ensure_mistral_env()
@@ -93,8 +93,8 @@ sys.path.insert(0, str(_REPO_ROOT))
 try:
     from platform_runtime.lib.telemetry import configure_tracing
     configure_tracing("xo-bot")
-except Exception:
-    pass
+except Exception as exc:
+    logging.getLogger(__name__).debug("telemetry configure_tracing failed: %s", exc)
 
 # ── Telegram ──────────────────────────────────────────────────────────────────
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -719,8 +719,8 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         try:
             from core.voice.tts_edge import send_voice_reply
             await send_voice_reply(context.bot, update.effective_chat.id, brief_voice_text)
-        except Exception:
-            pass  # voice is optional — text reply already delivered
+        except Exception as exc:
+            log.debug("optional voice reply failed (text reply already delivered): %s", exc)
 
     except Exception as exc:
         log.error("[brief] OR brief fetch failed: %s", exc)
@@ -1185,8 +1185,8 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                         await send_voice_reply(
                             context.bot, update.effective_chat.id, debrief_result["reply"]
                         )
-                    except Exception:
-                        pass  # voice is optional — text reply already delivered
+                    except Exception as exc:
+                        log.debug("optional voice reply failed (text reply already delivered): %s", exc)
                     return
 
         status   = get_recovery_status(db)
@@ -1874,8 +1874,8 @@ async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat("captured_items", status="ok", detail="voice_type=text_note")
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("captured_items heartbeat record failed: %s", exc)
         await update.message.reply_text(
             f"✅ <b>Note captured</b>\n<i>{_escape(content[:200])}</i>",
             parse_mode="HTML",
@@ -2047,16 +2047,16 @@ async def handle_mission_approval_callback(update: Update, context: ContextTypes
             from core.platform.event_bus import mark_event_status
             if event_id:
                 mark_event_status(event_id, "acknowledged")
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("mark_event_status(acknowledged) failed: %s", exc)
     elif action == "dismiss":
         await query.edit_message_text("🔕 Dismissed.")
         try:
             from core.platform.event_bus import mark_event_status
             if event_id:
                 mark_event_status(event_id, "dismissed")
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("mark_event_status(dismissed) failed: %s", exc)
 
 
 async def handle_revs_generate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

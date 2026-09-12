@@ -382,8 +382,8 @@ class CodeAnalysis:
                     for line in result.stdout.strip().split('\n')[:2]:
                         if line:
                             findings.append(line)
-            except Exception:
-                pass
+            except Exception as exc:
+                log.debug("pattern search failed for %r: %s", pattern, exc)
         return findings[:10]  # limit overall
 
 

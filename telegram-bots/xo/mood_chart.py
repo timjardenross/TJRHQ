@@ -162,8 +162,8 @@ async def write_mood_entry(
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat("mood_chart", status="ok", detail=f"tod={time_of_day} mood={mood_score} source=telegram")
-        except Exception:
-            pass
+        except Exception as exc:
+            log.debug("mood_chart heartbeat record failed: %s", exc)
 
         return True, None
 

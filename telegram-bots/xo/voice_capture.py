@@ -203,8 +203,8 @@ def save_capture(
     try:
         from core.platform.heartbeat import record_heartbeat
         record_heartbeat("captured_items", status="ok", detail=f"voice_type={voice_type}")
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("captured_items heartbeat record failed: %s", exc)
     return result.data[0]
 
 
@@ -292,8 +292,8 @@ def promote_capacity_checkin(supabase, capture_id: str, transcript: str, capture
             sys.path.insert(0, str(repo_root))
         from core.platform.heartbeat import record_heartbeat
         record_heartbeat("capacity_checkins", status="ok", detail=f"source=telegram_voice action={action}")
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("capacity_checkins heartbeat record failed: %s", exc)
 
     return {"action": action, "capacity_checkin_id": checkin_id, "log_date": log_date}
 

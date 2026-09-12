@@ -486,7 +486,7 @@ def _run() -> int:
             try:
                 import importlib
                 importlib.reload(oc)
-            except Exception:
+            except Exception:  # noqa: S110 - best-effort module-state cleanup between tests, failure here must not mask the real test result
                 pass
     print(f"\n── Outcome Capture Tests: {passed} passed, {failed} failed ──")
     return 1 if failed else 0
