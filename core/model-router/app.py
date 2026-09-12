@@ -120,11 +120,11 @@ def _emit_router_span(task_type: str, model: str, duration_ms: int, success: boo
     except Exception:  # noqa: BLE001,S110 - tracing is best-effort observability; must never break the router it's instrumenting
         pass
 
-_PORT = int(os.environ.get("MODEL_ROUTER_PORT", 8891))
+_PORT = int(os.environ.get("MODEL_ROUTER_PORT", "8891"))
 _HOST = os.environ.get("MODEL_ROUTER_HOST", "127.0.0.1")
 _OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
 _LOG_FILE = Path(__file__).parent / "call_log.jsonl"
-_LOG_LIMIT = int(os.environ.get("MODEL_ROUTER_LOG_LIMIT", 200))
+_LOG_LIMIT = int(os.environ.get("MODEL_ROUTER_LOG_LIMIT", "200"))
 
 # ── Model catalogue ──────────────────────────────────────────────────────────
 

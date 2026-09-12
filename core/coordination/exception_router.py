@@ -46,7 +46,7 @@ CAPTAIN_ONLY: frozenset[str] = frozenset({
     "safety_issue",
     "priority_conflict",
     "resource_constraint",
-    "governance_exception",
+    "governance_exception",         # EXEC-010A L5 officer escalation reaching Captain level
     "mission_cancellation",
     "capacity_override",
     "cross_domain_conflict",
@@ -63,7 +63,6 @@ CAPTAIN_ONLY: frozenset[str] = frozenset({
     "investment_decision",          # EXEC-010 investment requiring Captain strategic sign-off
     "benefit_leakage_critical",     # EXEC-010 critical benefit leakage threatening strategic value
     "investment_review",            # EXEC-010 executive investment review escalation
-    "governance_exception",         # EXEC-010A L5 officer escalation reaching Captain level
     "officer_action_required",      # EXEC-010A officer action requiring Captain approval
 })
 

@@ -433,11 +433,10 @@ def run_daily_intelligence(dry_run: bool = False) -> dict[str, Any]:
 
     # Load each report's data to extract events
     all_events: list[dict] = []
-    for key in _REPORTS:
+    for key, (_, generator) in _REPORTS.items():
         if dry_run:
             # In dry-run, re-generate to get data (already printed above)
             try:
-                _, generator = _REPORTS[key]
                 data = generator()
             except Exception:  # noqa: BLE001 - dry-run re-generation is best-effort preview data only; empty dict degrades gracefully
                 data = {}

@@ -27,10 +27,13 @@ Design:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 try:
     from core.coordination.number_one_memory_adapter import (

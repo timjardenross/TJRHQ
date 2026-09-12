@@ -1082,7 +1082,7 @@ Provide only the consolidated summary, no headers or metadata."""
                 return consolidated
             else:
                 log.warning(f"Consolidation provider failed: {outcome.status}. Using local fallback.")
-                raise Exception("Legacy routing failed")
+                raise RuntimeError("Legacy routing failed")
 
         except Exception as e:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             # Consolidation timeout or error - use deterministic local fallback
