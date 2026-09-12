@@ -22,7 +22,7 @@
 'use client';
 
 import { QuickCapture, Sidebar, ThemeSelector, WorkbenchCard } from '@/components/ui';
-import { MobileCommandBar } from '@/components/MobileCommandBar';
+import { GlobalAlertNotifier } from '@/components/GlobalAlertNotifier';
 import { LIVE_WORKBENCHES } from '@/lib/workbenches';
 import { useTheme, THEME_TAGLINE } from '@/lib/theme';
 
@@ -54,7 +54,13 @@ export default function Workbenches() {
         </div>
       </div>
       <QuickCapture />
-      <MobileCommandBar />
+      {/* Mobile nav removed (2026-09-12, WORKBENCH-MOBILE-COMPAT): same fix
+          as WorkbenchShell — the fixed bottom bar sat on top of
+          QuickCapture's floating "+" button on phones, and this page's own
+          content IS a grid of every workbench, so it was a redundant second
+          way to the same destinations, not a needed one. GlobalAlertNotifier
+          keeps real push-notification firing alive. */}
+      <GlobalAlertNotifier />
     </div>
   );
 }

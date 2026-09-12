@@ -31,7 +31,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode } from 'react';
 import { Settings } from 'lucide-react';
 import { LIVE_WORKBENCHES } from '@/lib/workbenches';
-import { MobileCommandBar } from '@/components/MobileCommandBar';
+import { GlobalAlertNotifier } from '@/components/GlobalAlertNotifier';
 import { QuickCapture } from './QuickCapture';
 import { Sidebar } from './Sidebar';
 import { ThemeSelector } from './ThemeSelector';
@@ -155,7 +155,16 @@ export function WorkbenchShell({
         </div>
       </div>
       <QuickCapture />
-      <MobileCommandBar />
+      {/* Mobile nav removed (2026-09-12, WORKBENCH-MOBILE-COMPAT): the old
+          fixed bottom MobileCommandBar sat on top of QuickCapture's
+          floating "+" button and clipped the bottom of every page's
+          content on phones — this shell already gives mobile a way back
+          (home logo + Settings icon in the header above, both xl:hidden)
+          and a way to any other workbench (WorkbenchSwitcher, always
+          visible) without a second nav layer. GlobalAlertNotifier keeps
+          the bar's other job — firing real push notifications for
+          critical/high alerts — alive now that nothing else does it here. */}
+      <GlobalAlertNotifier />
     </div>
   );
 }
