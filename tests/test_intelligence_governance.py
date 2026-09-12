@@ -126,7 +126,7 @@ class TestMutationAudit(unittest.TestCase):
             # Must not propagate — audit failure cannot break the workflow.
             try:
                 result = log_mutation("t", "id", "UPDATE", ANALYST)
-            except Exception as exc:  # pragma: no cover
+            except Exception as exc:  # noqa: BLE001 - test asserts log_mutation never propagates any exception type  # pragma: no cover
                 self.fail(f"log_mutation raised: {exc}")
         self.assertIn(result, (True, False))
 

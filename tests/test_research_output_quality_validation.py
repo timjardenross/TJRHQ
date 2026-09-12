@@ -237,7 +237,7 @@ def run_validation():
         except AssertionError as e:
             failed += 1
             log.error(f"❌ FAILED: {test_func.__name__}: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test-runner harness: must catch any failure from a test function to tally it and continue
             failed += 1
             log.error(f"❌ ERROR: {test_func.__name__}: {type(e).__name__}: {e}")
 

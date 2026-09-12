@@ -478,7 +478,7 @@ def _run() -> int:
         except AssertionError as e:
             print(f"  ❌ {t.__name__}: {e}")
             failed += 1
-        except Exception as e:  # unexpected
+        except Exception as e:  # noqa: BLE001 - test-runner harness: catches any unexpected failure from a test function to tally it and continue
             print(f"  💥 {t.__name__}: {type(e).__name__}: {e}")
             failed += 1
         finally:
@@ -486,7 +486,7 @@ def _run() -> int:
             try:
                 import importlib
                 importlib.reload(oc)
-            except Exception:  # noqa: S110 - best-effort module-state cleanup between tests, failure here must not mask the real test result
+            except Exception:  # noqa: S110, BLE001 - best-effort module-state cleanup between tests, failure here must not mask the real test result
                 pass
     print(f"\n── Outcome Capture Tests: {passed} passed, {failed} failed ──")
     return 1 if failed else 0

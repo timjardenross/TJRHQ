@@ -160,7 +160,7 @@ def run_all() -> bool:
     for name, fn in SCENARIOS.items():
         try:
             passed = fn()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - test-runner harness: must catch any failure from a scenario fn to report it and keep running the rest
             passed = False
             print(f"  ERROR  {name}: {exc}")
         else:

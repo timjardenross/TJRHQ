@@ -368,7 +368,7 @@ class TestOutcomeSchema(unittest.TestCase):
         for garbage in (None, {}, {"unexpected_effects": "not a list"}):
             try:
                 outcome_schema.validate_outcome_evaluation(garbage if isinstance(garbage, dict) else {})
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - test asserts validate_outcome_evaluation never raises on garbage input
                 self.fail(f"validate_outcome_evaluation raised on {garbage!r}: {exc}")
 
     def test_honest_fallback_never_fabricates_success(self):

@@ -57,7 +57,7 @@ def smoke_test_mistral_research_scout():
     try:
         client = Mistral(api_key=api_key)
         log.info("✓ Mistral client initialized")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - smoke test: catch any client-init failure to report the step clearly
         log.error(f"✗ Failed to initialize Mistral client: {e}")
         return False
 
@@ -102,10 +102,10 @@ def smoke_test_mistral_research_scout():
             response_json = json.dumps(response.__dict__ if hasattr(response, '__dict__') else str(response))
             log.info("\nRESPONSE STRUCTURE (redacted):")
             log.info(f"  {response_json[:200]}...")  # First 200 chars only
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - best-effort debug serialization, must not fail the smoke test
             log.info(f"  (Could not serialize response: {type(e).__name__})")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - smoke test: catch any API-call failure to report the step clearly
         log.error(f"✗ Mistral call failed: {type(e).__name__}: {str(e)[:200]}")
         return False
 
@@ -148,7 +148,7 @@ def smoke_test_mistral_research_scout():
             log.info("\nFull response object:")
             log.info(f"  {response}")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - smoke test: catch any research-query failure to report the step clearly
         log.error(f"✗ Research query failed: {type(e).__name__}: {str(e)[:200]}")
         return False
 

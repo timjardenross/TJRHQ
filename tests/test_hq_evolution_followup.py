@@ -158,7 +158,7 @@ class TestInvestigationSchema(unittest.TestCase):
         for garbage in (None, {}, {"random": object()}, {"confidence": float("nan")}):
             try:
                 validate_investigation(garbage if isinstance(garbage, dict) else {})
-            except Exception as exc:  # pragma: no cover - the assertion is that this never happens
+            except Exception as exc:  # noqa: BLE001 - test asserts validate_investigation never raises on garbage input  # pragma: no cover - the assertion is that this never happens
                 self.fail(f"validate_investigation raised on {garbage!r}: {exc}")
 
     def test_honest_fallback_never_presents_a_model_confidence(self):

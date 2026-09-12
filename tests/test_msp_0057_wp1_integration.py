@@ -48,7 +48,7 @@ class TestWP1ResearchMemoryRetrieval:
             retriever = ResearchMemoryRetriever()
             assert retriever is not None
             print("✅ ResearchMemoryRetriever initializes successfully")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Failed to initialize ResearchMemoryRetriever: {e}")
 
     def test_search_prior_research_signature(self):
@@ -59,7 +59,7 @@ class TestWP1ResearchMemoryRetrieval:
             assert hasattr(retriever, 'search_prior_research')
             assert callable(retriever.search_prior_research)
             print("✅ search_prior_research method exists with correct signature")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"search_prior_research validation failed: {e}")
 
     def test_retrieval_result_structure(self):
@@ -79,7 +79,7 @@ class TestWP1ResearchMemoryRetrieval:
             assert hasattr(result, 'reason'), "Result missing 'reason' field"
 
             print("✅ Retrieval result has all required fields")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Retrieval result structure validation failed: {e}")
 
     def test_decision_options(self):
@@ -95,7 +95,7 @@ class TestWP1ResearchMemoryRetrieval:
                 f"Invalid recommendation: {result.recommendation}"
 
             print(f"✅ Decision options valid: {result.recommendation}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Decision option validation failed: {e}")
 
     def test_confidence_score_range(self):
@@ -109,7 +109,7 @@ class TestWP1ResearchMemoryRetrieval:
                 f"Confidence score out of range: {result.match_confidence}"
 
             print(f"✅ Confidence score in valid range: {result.match_confidence:.2f}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Confidence score validation failed: {e}")
 
     def test_execution_speed(self):
@@ -130,7 +130,7 @@ class TestWP1ResearchMemoryRetrieval:
                 f"Execution time exceeded target: {elapsed_ms:.2f}ms"
 
             print("✅ Execution speed meets target (<100ms)")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Execution speed validation failed: {e}")
 
     def test_similar_questions_return_reuse(self):
@@ -155,7 +155,7 @@ class TestWP1ResearchMemoryRetrieval:
                 print(f"  Question: '{q[:40]}...' → {result.recommendation}")
 
             print(f"✅ Similar question reuse rate: {reuse_count}/{len(test_questions)}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Similar question validation failed: {e}")
 
     def test_non_blocking_error_handling(self):
@@ -174,7 +174,7 @@ class TestWP1ResearchMemoryRetrieval:
             assert result.recommendation in {"REUSE", "REUSE_WITH_NOTE", "REFRESH", "NEW_RESEARCH"}
 
             print("✅ Error handling is non-blocking")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Error handling validation failed: {e}")
 
     def test_integration_with_research_command(self):
@@ -192,7 +192,7 @@ class TestWP1ResearchMemoryRetrieval:
                     "research_command.py does not check REUSE decision"
 
             print("✅ research_command.py properly integrates ResearchMemoryRetriever")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Integration validation failed: {e}")
 
     def test_retrieval_decision_logging(self):
@@ -208,7 +208,7 @@ class TestWP1ResearchMemoryRetrieval:
                 "Retrieval reason not populated"
 
             print(f"✅ Retrieval decision logged: {result.reason}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test converts any failure into pytest.fail with context
             pytest.fail(f"Logging validation failed: {e}")
 
 

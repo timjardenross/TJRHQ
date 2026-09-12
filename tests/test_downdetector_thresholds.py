@@ -203,7 +203,7 @@ class TestRecomputeThresholdForSource(unittest.TestCase):
         # recompute must never crash the nightly job over one source.
         try:
             recompute_threshold_for_source("X", "other", [{"observed_at": "bad", "status": "no_problems"}])
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:  # noqa: BLE001 - test asserts the function never raises on malformed input, must catch any error type  # pragma: no cover
             self.fail(f"recompute_threshold_for_source raised: {exc}")
 
 

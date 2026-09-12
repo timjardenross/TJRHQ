@@ -70,7 +70,7 @@ class TestCPS230FinalValidation:
                 log.info("  ✓ research_orchestration.py loaded successfully")
             else:
                 raise Exception("Could not load research_orchestration.py")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test asserts the module loads without raising any error at all
             log.error(f"  ✗ Failed to load: {e}")
             return False
 
@@ -348,7 +348,7 @@ def run_final_validation():
                 passed += 1
             else:
                 failed += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - test-runner harness: must catch any failure from a test function to tally it and continue
             failed += 1
             log.error(f"❌ ERROR in {test_func.__name__}: {e}")
 
