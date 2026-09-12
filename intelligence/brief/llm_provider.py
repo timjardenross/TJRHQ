@@ -121,7 +121,7 @@ class LLMProvider:
                 agent_version=int(MISTRAL_QA_AGENT_VERSION),
                 prompt=prompt,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - optional advisory QA check, already logged; a check failing must not block the brief (caller treats None as 'no note')
             log.warning("[qa-validation] check failed: %s", exc)
             return None
 
@@ -152,7 +152,7 @@ class LLMProvider:
                 agent_version=int(MISTRAL_CHALLENGE_AGENT_VERSION),
                 prompt=prompt,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - optional advisory risk-challenge check, already logged; a check failing must not block the brief
             log.warning("[risk-challenge] check failed: %s", exc)
             return None
 
@@ -190,7 +190,7 @@ class LLMProvider:
                 if result:
                     log.info("LLM narrative generated via %s", name)
                     return result, name
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-provider attempt inside a fallback chain — one provider failing must not abort the chain; already logged
                 log.warning("LLM provider %s failed: %s", name, exc)
 
         log.warning("All LLM providers failed — narrative will be unavailable")
@@ -502,7 +502,7 @@ class LLMProvider:
                 )
                 return self._call_mistral_direct(stage, prompt)
 
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - per-attempt retry logic — the exception message is inspected for retryable error codes right below, not silently dropped
                 exc_str = str(exc)
                 retryable = any(c in exc_str for c in ("429", "503", "502", "500", "timeout"))
                 if attempt == 1 and retryable:
@@ -553,7 +553,7 @@ class LLMProvider:
             text = data["choices"][0]["message"]["content"].strip()
             log.info("[pipeline] %s direct completions fallback succeeded (%d chars)", stage, len(text))
             return text
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - direct-completions fallback, already logged; caller treats None as 'pipeline unavailable'
             log.warning("[pipeline] %s direct completions fallback failed: %s", stage, exc)
             return None
 

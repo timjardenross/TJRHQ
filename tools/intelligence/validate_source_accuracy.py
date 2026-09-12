@@ -124,7 +124,7 @@ class SourceAccuracyValidator:
 
             events = response.data if response.data else []
             return [e for e in events if e["event_id"] not in validated_ids]
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - generic Supabase fetch wrapper — caller sees [] and handles it; already logged
             logger.error(f"Error fetching events for source {source_id}: {e}")
             return []
 
@@ -152,7 +152,7 @@ class SourceAccuracyValidator:
             self.validated_count += 1
             return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - per-event save inside a batch loop — one bad save must not abort the run; already logged + counted in self.validation_errors
             logger.error(f"Error saving validation for event {event_id}: {e}")
             self.validation_errors += 1
             return False
@@ -191,7 +191,7 @@ class SourceAccuracyValidator:
 
             return accuracy_ratio, false_positive_rate, total
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - per-source accuracy calc — caller falls back to documented conservative defaults on error; already logged
             logger.error(f"Error calculating accuracy for source {source_id}: {e}")
             return 0.50, 0.20, 0  # Defaults on error
 
@@ -210,7 +210,7 @@ class SourceAccuracyValidator:
 
             return True
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - generic Supabase update wrapper — caller sees False and handles it; already logged
             logger.error(f"Error updating source {source_id}: {e}")
             return False
 
@@ -300,7 +300,7 @@ class SourceAccuracyValidator:
             if self.dry_run:
                 logger.info("(DRY RUN: No changes written)")
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - top-level job boundary — already logged before a deliberate non-zero exit
             logger.error(f"Fatal error in validation job: {e}")
             sys.exit(1)
 
