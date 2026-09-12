@@ -2,14 +2,28 @@
 # Wraps a command's startup with a fresh Infisical machine-identity login,
 # then runs it with all project secrets injected as env vars.
 #
+# STATUS as of USS-TJR-MSN-0371 (2026-09-12): this is now the real, live
+# secret source for every deploy/*.service unit that has one plain shared
+# set of secrets (repo-wide check: no unit has an active EnvironmentFile=
+# pointing at a hand-maintained .env anymore — see the mission's Stream 6
+# knowledge record). A handful of services genuinely need nothing here
+# (no EnvironmentFile= ever existed for them) and were left alone.
+#
+# Bots with their OWN distinct secret values under the same key name
+# (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID differ per bot) do NOT use this
+# script — Infisical's "prod" environment is one flat namespace, one
+# value per key, so a single wrapper can't serve three different bots'
+# tokens. Those use run-with-infisical-bot.sh instead (root secrets +
+# a per-bot Infisical folder override — see that script's own header).
+#
 # Why a wrapper and not `infisical run --client-id=... --client-secret=...`
 # directly: this CLI version's `run` subcommand only accepts --token (a
 # pre-minted access token), not raw Universal Auth credentials — so this
 # script mints one via `infisical login` first. The bootstrap credential
-# (.infisical-auth.env, chmod 600, root-only) is the one secret that still
-# has to live on disk; everything else (Supabase keys, BOT_API_SECRET,
-# Google Calendar creds, etc.) now comes from Infisical instead of being
-# duplicated across every service's own .env file.
+# (.infisical-auth.env) is the one secret that still has to live on disk —
+# root:infisical-readers, chmod 640 (widened from root-only chmod 600 to
+# let vm-processing*.service's User=claude read it; see that unit's own
+# comment).
 #
 # Usage: run-with-infisical.sh <command> [args...]
 

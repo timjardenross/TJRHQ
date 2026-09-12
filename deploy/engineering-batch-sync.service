@@ -1,0 +1,18 @@
+[Unit]
+Description=Starship Endeavour — Engineering handoff batch sync (Mistral)
+After=network.target
+# One-shot: runs the sync and exits. The .timer unit re-fires it on schedule.
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/starship-endeavour
+# 2026-09-12 (USS-TJR-MSN-0371 Stream 4): cut over to Infisical, old
+# EnvironmentFile= kept commented as rollback.
+# EnvironmentFile=-/opt/starship-endeavour/platform-runtime/.env
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/.venv/bin/python -m core.engineering.batch_coding sync
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=engineering-batch-sync
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+[Unit]
+Description=USS TJR Self-Improvement Dashboard — findings review API (port 8892)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/starship-endeavour/scripts/self_improvement
+# 2026-09-12 (USS-TJR-MSN-0371 Stream 4): cut over to Infisical (this
+# file lived outside the repo entirely, at /etc/self-improvement/ — found
+# during Stream 0's audit, not in the original brief's file list). Old
+# EnvironmentFile= kept commented as rollback.
+# EnvironmentFile=/etc/self-improvement/dashboard.env
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/scripts/self_improvement/.venv/bin/python3 /opt/starship-endeavour/scripts/self_improvement/dashboard.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=self-improvement-dashboard
+
+[Install]
+WantedBy=multi-user.target

@@ -235,6 +235,28 @@ Every record follows the same field order: Capability Name, Description, Purpose
 - **Next Planned Evolution:** migrate at least one real service's config loading onto this (candidate: `intelligence/config.py` or `telegram-bot/config.py`) to prove adoption before it's forgotten.
 - **Last Updated:** 2026-07-05.
 
+### Secrets Management
+
+- **Description:** self-hosted Infisical (Docker, `127.0.0.1:8446`) as the single production secret source, reached via `platform-runtime/run-with-infisical.sh` (shared secrets) and `run-with-infisical-bot.sh` (per-bot folder override, for services needing distinct values under the same key name).
+- **Purpose:** stop a secret's real value and its on-disk `.env` copy from silently diverging — the exact failure mode that surfaced this capability (an expired `MISTRAL_API_KEY` in `platform-runtime/.env` during Meilisearch activation, root value already rotated in Infisical, nothing wired to the rotation).
+- **Engineering Confidence:** 80% — every `deploy/*.service` unit with an `EnvironmentFile=` was migrated and individually verified (active/healthy, no missing-var errors); a guardrail pre-commit hook (`tools/check_no_raw_env_secrets.py`) blocks regression. Not yet proven under a real key rotation against a production incident, and the Infisical instance itself still has no uptime monitoring — flagged, not fixed.
+- **Current Maturity:** L3 — Operational. Every active `deploy/*.service` unit with secrets uses it; a handful of inactive/retired units were reconciled but not restarted, and `command-centre` (pm2-managed, not systemd) and `lcars-portal`'s build-time `NEXT_PUBLIC_*` values are outside this mechanism's reach entirely.
+- **Current Status:** Streams 0-6 of USS-TJR-MSN-0371 complete. Stream 0's audit found the brief's own service inventory stale (38 live app services, not 21) and one service (`intelligence-scheduler`) already migrated live a week earlier with no matching commit. `run-with-infisical.sh` itself had its minted token on `--token=` argv (visible via plain `ps aux`) — fixed to pass it via the `INFISICAL_TOKEN` env var instead.
+- **Owner:** Chief Engineer.
+- **Canonical Implementation:** `platform-runtime/run-with-infisical.sh`, `platform-runtime/run-with-infisical-bot.sh`, `tools/check_no_raw_env_secrets.py`.
+- **Consumers:** every `deploy/*.service` unit that has secrets (bots, model-router, context-service, lcars-portal, intelligence-scheduler, mission-registry-sync, deadmans-switch, capture-enrichment, engineering-batch-sync, health-osint-collection, self-improvement-dashboard, vm-processing*, and others).
+- **Dependencies:** self-hosted Infisical (Docker: `infisical-infisical-1`, `infisical-db-1`, `infisical-redis-1`), `.infisical-auth.env` (root:infisical-readers, chmod 640 — widened from root-only to let `vm-processing*.service`'s `User=claude` read it).
+- **Capability Relationships:**
+  - *Depends On:* none.
+  - *Consumes:* nothing else in-platform.
+  - *Produces:* runtime secrets for every other capability's process env.
+  - *Future Dependencies:* Configuration (above) could plausibly source its own `.env` layering from this instead, if it ever gets real adopters.
+- **Related ADRs:** none yet — candidate for an ADR given it's now a load-bearing, platform-wide mechanism.
+- **Related Missions:** USS-TJR-MSN-0371 (this capability's origin, Streams 0-6).
+- **Technical Debt:** no uptime monitoring on the Infisical instance itself; `command-centre` (pm2) and `lcars-portal`'s build-time env are unaddressed; 3 inactive/retired services (`starship-chief-engineer-build-bot`, `starship-eng-bot`, `starfleet-slack-bot`) reference `.env` files that no longer exist on disk, never actively migrated since they're not running.
+- **Next Planned Evolution:** wire uptime monitoring for the Infisical instance; decide `command-centre`'s pm2-env path; rotate the 6 real-secret values that were printed in full to a session transcript during this migration (`GITHUB_TOKEN`, `SUPABASE_KEY`, `GLM_API_KEY`, `LCARS_API_SECRET`, `BACKEND_API_KEY`, `COMMAND_CENTRE_API`, plus `MISTRAL_API_KEY` from an earlier ad hoc test) — this CLI's `secrets set --file` prints the table with values, no quiet mode found.
+- **Last Updated:** 2026-09-12.
+
 ### Model Router
 
 - **Description:** local-first LLM inference gateway with cloud fallback.

@@ -11,8 +11,10 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/starship-endeavour
-EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
-ExecStart=/bin/sh -c '/opt/starship-endeavour/platform-runtime/.venv/bin/python -m core.platform.deadmans_switch >> /opt/starship-endeavour/outputs/deadmans_switch.log 2>&1'
+# 2026-09-12 (USS-TJR-MSN-0371 Stream 4): cut over to Infisical, old
+# EnvironmentFile= kept commented as rollback.
+# EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
+ExecStart=/bin/sh -c '/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/.venv/bin/python -m core.platform.deadmans_switch >> /opt/starship-endeavour/outputs/deadmans_switch.log 2>&1'
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=deadmans-switch
