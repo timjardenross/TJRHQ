@@ -313,7 +313,8 @@ def handle_recovery_pulse_submit(values: dict, user_id: str, client: Any) -> Non
             sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
             from heartbeat import record_heartbeat
             record_heartbeat("recovery_pulses", status="ok", detail=f"pulse_type={pulse_type} source=slack")
-        except Exception:
+        except Exception as _exc:
+            log.debug("[commands.recovery_pulse] best-effort step failed, continuing: %s", _exc)
             pass
 
     meta = _PULSE_META.get(pulse_type, _PULSE_META["morning"])
@@ -334,7 +335,8 @@ def handle_recovery_pulse_submit(values: dict, user_id: str, client: Any) -> Non
         confidence_text = _get_confidence_line(db, today)
         if confidence_text:
             lines += ["", confidence_text]
-    except Exception:
+    except Exception as _exc:
+        log.debug("[commands.recovery_pulse] best-effort step failed, continuing: %s", _exc)
         pass
 
     try:

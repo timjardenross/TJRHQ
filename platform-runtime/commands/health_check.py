@@ -383,7 +383,8 @@ def handle_health_check_submit(values: dict, user_id: str, client) -> None:
             sys.path.insert(0, str(_REPO_ROOT / "core" / "platform"))
             from heartbeat import record_heartbeat
             record_heartbeat("health_daily_logs", status="ok", detail=f"log_date={today}")
-        except Exception:
+        except Exception as _exc:
+            log.debug("[commands.health_check] best-effort step failed, continuing: %s", _exc)
             pass
 
     # ── Build confirmation message ────────────────────────────────────────────

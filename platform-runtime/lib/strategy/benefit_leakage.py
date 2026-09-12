@@ -182,7 +182,8 @@ def detect_benefit_leakage() -> list[BenefitLeakage]:
                             ),
                             recommended_action="Resolve initiative delivery crisis or reassign benefit",
                         )
-                except Exception:
+                except Exception as _exc:
+                    log.debug("[lib.strategy.benefit_leakage] best-effort step failed, continuing: %s", _exc)
                     pass
 
             if leakage:

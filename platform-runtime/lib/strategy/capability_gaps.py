@@ -101,7 +101,8 @@ def analyse_capability_gaps() -> list[CapabilityGap]:
                     recommendation=f"Initiate capability build for '{cap.name}'",
                     escalate_to="xo",
                 ))
-        except Exception:
+        except Exception as _exc:
+            log.debug("[lib.strategy.capability_gaps] best-effort step failed, continuing: %s", _exc)
             pass
 
     # Gap 2: Weak capabilities (active but maturity ≤ 2)
@@ -120,7 +121,8 @@ def analyse_capability_gaps() -> list[CapabilityGap]:
                     recommendation=f"Investment needed to mature '{cap.name}' to Managed level",
                     escalate_to="number_one",
                 ))
-        except Exception:
+        except Exception as _exc:
+            log.debug("[lib.strategy.capability_gaps] best-effort step failed, continuing: %s", _exc)
             pass
 
     # Gap 3: Over-invested capabilities (maturity 4-5, no objective linkage)
@@ -137,7 +139,8 @@ def analyse_capability_gaps() -> list[CapabilityGap]:
                     recommendation=f"Review '{cap.name}' — redirect investment or link to strategic objective",
                     escalate_to="number_one",
                 ))
-        except Exception:
+        except Exception as _exc:
+            log.debug("[lib.strategy.capability_gaps] best-effort step failed, continuing: %s", _exc)
             pass
 
     # Gap 4: Unsupported objectives (from capability mapping)

@@ -569,7 +569,8 @@ def _step_learning_review(ctx: CycleContext) -> None:
                 inv = get_investigation(inv_id)
                 if inv and lesson_from_investigation(inv):
                     lessons_created += 1
-            except Exception:
+            except Exception as _exc:
+                log.debug("[lib.daily_ops_cycle] best-effort step failed, continuing: %s", _exc)
                 pass
         ctx.lessons_generated_this_cycle = lessons_created
         ctx.lesson_candidates_pending = get_lesson_candidate_count(pending_only=True)
@@ -635,7 +636,8 @@ def _step_strategic_outcomes(ctx: CycleContext, *, monthly_review: bool = False)
         for init in initiatives:
             try:
                 refresh_initiative_health(init.initiative_id, inputs)
-            except Exception:
+            except Exception as _exc:
+                log.debug("[lib.daily_ops_cycle] best-effort step failed, continuing: %s", _exc)
                 pass
 
         # Dashboard (WP7)

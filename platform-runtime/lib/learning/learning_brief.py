@@ -106,7 +106,8 @@ def assemble_learning_brief(ctx: Any = None) -> LearningBrief:
         if ctx is not None:
             brief.collaborative_investigations = int(getattr(ctx, "collaborative_investigations", 0) or 0)
             brief.high_confidence_findings = len(getattr(ctx, "high_confidence_findings", []) or [])
-    except Exception:
+    except Exception as _exc:
+        log.debug("[lib.learning.learning_brief] best-effort step failed, continuing: %s", _exc)
         pass
 
     # Decision-quality insight

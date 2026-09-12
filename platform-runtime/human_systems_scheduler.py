@@ -157,7 +157,8 @@ def _publish_core_event(job: str, message, report: dict) -> None:
             recommended_action=message.title,
             metrics={"job": job, "delivered": report.get("delivered"), "dry_run": report.get("dry_run")},
         )
-    except Exception:
+    except Exception as _exc:
+        log.debug("[human_systems_scheduler] best-effort step failed, continuing: %s", _exc)
         pass
 
 

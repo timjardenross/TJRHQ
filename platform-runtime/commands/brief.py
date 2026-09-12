@@ -101,7 +101,8 @@ def build_brief() -> str:
                 "escalation": pkg.escalation,
             },
         )
-    except Exception:
+    except Exception as _exc:
+        log.debug("[commands.brief] best-effort step failed, continuing: %s", _exc)
         pass
 
     # EDO control tower (reused, not rebuilt).
@@ -163,7 +164,8 @@ def build_brief() -> str:
                     "orphan_count": strat_snapshot.orphan_count,
                 },
             )
-    except Exception:
+    except Exception as _exc:
+        log.debug("[commands.brief] best-effort step failed, continuing: %s", _exc)
         pass
 
     # MSN-0328 Wave 3: poll the canonical pipeline back so this brief's own

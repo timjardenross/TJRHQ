@@ -45,7 +45,8 @@ for p in (str(_BOT), str(_REPO_ROOT)):
 try:
     from platform_runtime.lib.telemetry import configure_tracing
     configure_tracing("daily-operations-cycle")
-except Exception:
+except Exception as _exc:
+    log.debug("[lib.officers.daily_operations_cycle] best-effort step failed, continuing: %s", _exc)
     pass
 
 

@@ -77,7 +77,8 @@ class _SupabaseInsert:
             try:
                 from supabase import create_client
                 self._client = create_client(self.url, self.key)
-            except Exception:
+            except Exception as _exc:
+                log.debug("[lib.captains_inbox_capture] best-effort step failed, continuing: %s", _exc)
                 pass
 
     def enabled(self) -> bool:
@@ -184,5 +185,6 @@ def alert_capture_failure(client: Any, channel: str, thread_ts: str) -> None:
             thread_ts=thread_ts,
             text="🚨 Capture failed after 3 retries. Contact Number One.",
         )
-    except Exception:
+    except Exception as _exc:
+        log.debug("[lib.captains_inbox_capture] best-effort step failed, continuing: %s", _exc)
         pass

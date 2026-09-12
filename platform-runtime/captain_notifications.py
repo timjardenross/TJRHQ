@@ -186,7 +186,8 @@ def _mission_last_activity(mission_id: str) -> datetime | None:
             # to `datetime.now(timezone.utc)` without a false offset.
             ts = lines[0]
             return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S %z")
-    except Exception:
+    except Exception as _exc:
+        log.debug("[captain_notifications] best-effort step failed, continuing: %s", _exc)
         pass
     return None
 

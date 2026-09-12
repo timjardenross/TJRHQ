@@ -1,4 +1,7 @@
+import logging
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -173,8 +176,8 @@ def _load_hierarchy_section(text: str) -> str:
         ctx = HierarchyMemoryAdapter().build_hierarchy_note(text=text)
         if ctx.found:
             return build_section("Structural Context", ctx.context_block.strip())
-    except Exception:
-        pass
+    except Exception as exc:
+        log.debug("[prompt_loader] structural context lookup failed, omitting section: %s", exc)
     return ""
 
 

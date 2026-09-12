@@ -251,7 +251,8 @@ def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: 
                         time_sensitivity=_time_sensitivity_from_due_date(due_date),
                         linked_missions=[mid_try], recommended_action=new_status,
                     )
-                except Exception:
+                except Exception as _exc:
+                    log.debug("[commands.mission_lifecycle] best-effort step failed, continuing: %s", _exc)
                     pass
                 # ADR-024 second-pass audit: the 'missions' domain_registry row
                 # (migration 0071) has had zero record_heartbeat() calls anywhere
@@ -264,7 +265,8 @@ def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: 
                         sys.path.insert(0, str(_REPO_ROOT))
                     from core.platform.heartbeat import record_heartbeat
                     record_heartbeat("missions", status="ok", detail=f"status_changed:{new_status}")
-                except Exception:
+                except Exception as _exc:
+                    log.debug("[commands.mission_lifecycle] best-effort step failed, continuing: %s", _exc)
                     pass
                 return True, _event_id
         return False, None

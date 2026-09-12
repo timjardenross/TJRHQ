@@ -94,7 +94,8 @@ def _should_notify_now(row: dict, today: date) -> bool:
         try:
             last = datetime.fromisoformat(last_notified).date()
             return (today - last).days >= _REPEAT_INTERVAL_DAYS
-        except Exception:
+        except Exception as _exc:
+            log.debug("[escalation_manager] best-effort step failed, continuing: %s", _exc)
             pass
     return False
 

@@ -178,7 +178,8 @@ def detect_patterns(
         try:
             created = datetime.fromisoformat(note["created_at"].replace("Z", "+00:00"))
             days_stalled = (now - created).days
-        except Exception:
+        except Exception as _exc:
+            log.debug("[lib.notebook.notebook_patterns] best-effort step failed, continuing: %s", _exc)
             continue
         if days_stalled >= 7:
             report.abandoned_ideas.append(AbandonedIdea(

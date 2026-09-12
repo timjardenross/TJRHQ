@@ -130,7 +130,8 @@ def optimise_initiative(
                 forecast_score = _band_scores.get(fr.forecast, 5.0)
                 forecast_band = fr.forecast
                 signals.append(f"forecast: {fr.forecast.value}")
-        except Exception:
+        except Exception as _exc:
+            log.debug("[lib.strategy.portfolio_optimisation] best-effort step failed, continuing: %s", _exc)
             pass
 
         # Program health (EXEC-007)
@@ -141,7 +142,8 @@ def optimise_initiative(
             if ph and getattr(ph, "health", None) == "red":
                 program_healthy = False
                 signals.append("program health: red")
-        except Exception:
+        except Exception as _exc:
+            log.debug("[lib.strategy.portfolio_optimisation] best-effort step failed, continuing: %s", _exc)
             pass
 
         # ── Decision logic ────────────────────────────────────────────────────

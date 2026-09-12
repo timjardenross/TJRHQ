@@ -166,7 +166,8 @@ def _create_strategic_initiative(note: dict[str, Any], supabase_client: Any) -> 
                 "strategy.objective_created", domain="strategic-planning",
                 source="notebook-route-executor", recommended_action=title,
             )
-        except Exception:
+        except Exception as _exc:
+            log.debug("[lib.notebook.notebook_route_executor] best-effort step failed, continuing: %s", _exc)
             pass
         return obj_id, "strategic_objectives"
     except Exception as exc:

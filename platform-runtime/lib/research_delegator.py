@@ -361,8 +361,8 @@ def call_gemini_2_flash_research(
                         match = re.search(r'retry_delay["\']?\s*:\s*(\d+)', error_str)
                         if match:
                             retry_delay_sec = int(match.group(1))
-                    except:
-                        pass
+                    except ValueError as exc:
+                        log.debug("[lib.research_delegator] could not parse retry_delay from error string: %s", exc)
 
                 log.warning(f"Gemini 2 Flash 429 rate limit. Retrying after {retry_delay_sec}s...")
                 time.sleep(retry_delay_sec + 2)
@@ -491,8 +491,8 @@ def call_gemini_2_5_flash_lite_research(
                         match = re.search(r'retry_delay["\']?\s*:\s*(\d+)', error_str)
                         if match:
                             retry_delay_sec = int(match.group(1))
-                    except:
-                        pass
+                    except ValueError as exc:
+                        log.debug("[lib.research_delegator] could not parse retry_delay from error string: %s", exc)
 
                 # If daily quota exhausted (large retry_delay), fail immediately
                 if retry_delay_sec >= 30 or "daily" in error_str.lower():

@@ -93,7 +93,8 @@ def relevant_knowledge(query: str, *, limit: int = 5) -> list[KnowledgeHit]:
         try:
             res = c.raw_client.table(table).select(select).limit(50).execute()
             rows = list(res.data or [])
-        except Exception:
+        except Exception as _exc:
+            log.debug("[lib.intel.knowledge] best-effort step failed, continuing: %s", _exc)
             continue
         hit = best_hit(q, rows, kind, fields)
         if hit:

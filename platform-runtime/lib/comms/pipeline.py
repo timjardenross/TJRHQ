@@ -230,7 +230,8 @@ def get_pipeline_status() -> dict[str, Any]:
             status["available"] = True
             status["ready_to_publish"] = status.get("ready_to_publish", 0)
             return status
-    except Exception:
+    except Exception as _exc:
+        log.debug("[lib.comms.pipeline] best-effort step failed, continuing: %s", _exc)
         pass
 
     # Fallback: direct table query

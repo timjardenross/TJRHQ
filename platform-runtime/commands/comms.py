@@ -199,7 +199,8 @@ def _draft(rest: str) -> str:
             status="draft", fmt=(fmt_key or o.suggested_format), strategic_domain=o.strategic_domain,
             notes=f"draft_mode={mode}",
         )
-    except Exception:  # pragma: no cover
+    except Exception as _exc:  # pragma: no cover
+        log.debug("[commands.comms] best-effort step failed, continuing: %s", _exc)
         pass
     return body
 

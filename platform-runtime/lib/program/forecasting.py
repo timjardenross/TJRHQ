@@ -128,7 +128,8 @@ def forecast_initiative(
         elif cp and cp.sequencing_risks:
             score += 1
             signals.append("sequencing risk on critical path")
-    except Exception:
+    except Exception as _exc:
+        log.debug("[lib.program.forecasting] best-effort step failed, continuing: %s", _exc)
         pass
 
     # Capacity

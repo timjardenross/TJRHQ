@@ -99,7 +99,8 @@ class CommandMemoryClient:
             detail = ""
             try:
                 detail = e.read().decode("utf-8")[:300]
-            except Exception:
+            except Exception as _exc:
+                log.debug("[command_memory_integration] best-effort step failed, continuing: %s", _exc)
                 pass
             log.error(
                 f"[command-memory] HTTP {e.code} ({method} {path}): {detail}"

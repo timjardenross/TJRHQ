@@ -916,7 +916,8 @@ def _persist_research_memory(result, user_id: str | None) -> None:
                 confidence=round(float(result.confidence or 0.0) * 100) if result.confidence else None,
                 recommended_action=result.recommendation or None,
             )
-        except Exception:
+        except Exception as _exc:
+            log.debug("[commands.research_command] best-effort step failed, continuing: %s", _exc)
             pass
     except Exception as exc:
         log.warning("[research] Failed to persist research memory (non-blocking): %s", exc)

@@ -105,14 +105,16 @@ def assess_portfolio_capacity(
                     for owner in (getattr(m, "owner", "") for m in (wbs.missions or [])):
                         if owner:
                             owners_seen[owner] = owners_seen.get(owner, 0) + 1
-            except Exception:
+            except Exception as _exc:
+                log.debug("[lib.strategy.capacity_planning] best-effort step failed, continuing: %s", _exc)
                 pass
 
             try:
                 fc = forecast_initiative(init.initiative_id)
                 if fc:
                     demand.forecast = fc.forecast.value
-            except Exception:
+            except Exception as _exc:
+                log.debug("[lib.strategy.capacity_planning] best-effort step failed, continuing: %s", _exc)
                 pass
 
             demand.demand_score = min(10.0, demand.mission_count * 0.8 + demand.blocked_count * 2.0)
@@ -186,7 +188,8 @@ def assess_portfolio_capacity(
                     plan.signals.append(
                         f"Accelerating top initiative displaces {ta.displaced_count} other(s)"
                     )
-        except Exception:
+        except Exception as _exc:
+            log.debug("[lib.strategy.capacity_planning] best-effort step failed, continuing: %s", _exc)
             pass
 
     log.info(

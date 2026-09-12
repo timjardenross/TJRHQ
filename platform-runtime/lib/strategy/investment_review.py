@@ -145,7 +145,8 @@ def generate_investment_review(inputs: dict[str, Any] | None = None) -> Investme
             inv = None
             try:
                 inv = get_investment_for_initiative(ps.initiative_id)
-            except Exception:
+            except Exception as _exc:
+                log.debug("[lib.strategy.investment_review] best-effort step failed, continuing: %s", _exc)
                 pass
             inv_status = inv.approval_status.value if inv else "no investment registered"
             review.funding_opportunities.append(

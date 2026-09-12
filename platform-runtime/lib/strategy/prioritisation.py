@@ -152,7 +152,8 @@ def score_initiative(
             signals.append("high-severity resource conflict")
         elif any(c.severity == "medium" for c in init_conflicts):
             capacity_score = max(0.0, capacity_score - 1.5)
-    except Exception:
+    except Exception as _exc:
+        log.debug("[lib.strategy.prioritisation] best-effort step failed, continuing: %s", _exc)
         pass
 
     # ── Dimension 5: Risk Reduction (0–10) ────────────────────────────────────
@@ -164,7 +165,8 @@ def score_initiative(
         if risk_benefits:
             risk_score += min(4.0, len(risk_benefits) * 2.0)
             signals.append(f"{len(risk_benefits)} risk-reduction benefit(s)")
-    except Exception:
+    except Exception as _exc:
+        log.debug("[lib.strategy.prioritisation] best-effort step failed, continuing: %s", _exc)
         pass
     if resilience_risk == "RED":
         risk_score = min(10.0, risk_score + 3.0)
@@ -183,7 +185,8 @@ def score_initiative(
         if outcome_threats:
             urgency_score = min(10.0, urgency_score + outcome_threats * 2.0)
             signals.append(f"{outcome_threats} outcome-threatening risk(s)")
-    except Exception:
+    except Exception as _exc:
+        log.debug("[lib.strategy.prioritisation] best-effort step failed, continuing: %s", _exc)
         pass
     if init.review_overdue:
         urgency_score = min(10.0, urgency_score + 1.5)

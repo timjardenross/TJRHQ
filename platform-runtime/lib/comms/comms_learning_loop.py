@@ -130,7 +130,8 @@ def record_comms_approval_event(
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat("decisions", status="ok", detail="source=comms-learning-loop")
-        except Exception:
+        except Exception as _exc:
+            log.debug("[lib.comms.comms_learning_loop] best-effort step failed, continuing: %s", _exc)
             pass
 
         # 4. quality_scores — needs the RAW supabase-py client, not the wrapper.

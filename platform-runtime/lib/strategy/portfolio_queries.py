@@ -307,7 +307,8 @@ def _log_portfolio_run(
             ),
             owner="strategic_planning",
         )
-    except Exception:
+    except Exception as _exc:
+        log.debug("[lib.strategy.portfolio_queries] best-effort step failed, continuing: %s", _exc)
         pass
 
 

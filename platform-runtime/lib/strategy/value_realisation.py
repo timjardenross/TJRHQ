@@ -113,7 +113,8 @@ def compute_benefit_realisation(benefit: Benefit) -> BenefitRealisation:
                 else:
                     pct = (c - b) / (t - b)
                 pct = round(max(0.0, pct), 3)
-        except Exception:
+        except Exception as _exc:
+            log.debug("[lib.strategy.value_realisation] best-effort step failed, continuing: %s", _exc)
             pass
 
     status = _classify_realisation(pct)
@@ -200,7 +201,8 @@ def assess_all_value() -> list[ValueRealisationReport]:
             r = assess_initiative_value(init.initiative_id)
             if r:
                 results.append(r)
-        except Exception:
+        except Exception as _exc:
+            log.debug("[lib.strategy.value_realisation] best-effort step failed, continuing: %s", _exc)
             pass
     results.sort(key=lambda r: r.overall_realisation_pct, reverse=True)
     return results

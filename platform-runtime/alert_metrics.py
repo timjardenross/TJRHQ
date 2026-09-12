@@ -109,7 +109,8 @@ def get_notification_metrics(days: int | None = 7) -> dict:
                 oldest_open_days = round(
                     (datetime.now(timezone.utc) - first).total_seconds() / 86400, 1
                 )
-            except Exception:
+            except Exception as _exc:
+                log.debug("[alert_metrics] best-effort step failed, continuing: %s", _exc)
                 pass
 
     except Exception as exc:
@@ -157,7 +158,8 @@ def _avg_time_between_event_types(
                 if t_to > t_from:
                     durations.append((t_to - t_from).total_seconds() / 3600)
                     break
-        except Exception:
+        except Exception as _exc:
+            log.debug("[alert_metrics] best-effort step failed, continuing: %s", _exc)
             continue
     return round(sum(durations) / len(durations), 1) if durations else None
 

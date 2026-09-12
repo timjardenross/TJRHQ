@@ -138,7 +138,8 @@ def _learning_note(init: Initiative) -> str:
         relevant = [c for c in cands if init.objective_id and init.objective_id in (c.context or "")]
         if relevant:
             return f"{len(relevant)} lesson(s) linked to this objective."
-    except Exception:
+    except Exception as _exc:
+        log.debug("[lib.strategy.strategic_review] best-effort step failed, continuing: %s", _exc)
         pass
     return "No specific lessons captured yet."
 

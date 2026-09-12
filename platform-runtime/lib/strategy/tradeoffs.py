@@ -94,7 +94,8 @@ def analyse_tradeoff(
         ps = score_initiative(initiative_id, inputs)
         if ps:
             target_priority = ps.composite_score
-    except Exception:
+    except Exception as _exc:
+        log.debug("[lib.strategy.tradeoffs] best-effort step failed, continuing: %s", _exc)
         pass
 
     # Estimate value gain from accelerating target
@@ -104,7 +105,8 @@ def analyse_tradeoff(
         if target_vr and target_vr.total_count > 0:
             # Acceleration captures ~20% more of unrealised benefit sooner
             target_benefit_gain = (1.0 - target_vr.overall_realisation_pct) * 0.2
-    except Exception:
+    except Exception as _exc:
+        log.debug("[lib.strategy.tradeoffs] best-effort step failed, continuing: %s", _exc)
         pass
 
     # Identify capacity displacements (lowest-priority others lose resource)
@@ -142,7 +144,8 @@ def analyse_tradeoff(
 
                     if displaced_init.objective_id and displaced_init.objective_id != init.objective_id:
                         opp_cost.append(displaced_init.objective_id)
-                except Exception:
+                except Exception as _exc:
+                    log.debug("[lib.strategy.tradeoffs] best-effort step failed, continuing: %s", _exc)
                     pass
 
         except Exception as exc:

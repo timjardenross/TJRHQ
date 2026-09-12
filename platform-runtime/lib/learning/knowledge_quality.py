@@ -217,7 +217,8 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
                 "created_at", cutoff
             ).execute()
             recent_lessons = int(getattr(lr, "count", None) or 0)
-        except Exception:
+        except Exception as _exc:
+            log.debug("[lib.learning.knowledge_quality] best-effort step failed, continuing: %s", _exc)
             pass
         recent_candidates = 0
         try:
@@ -225,7 +226,8 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
                 "owner", "lesson_candidate:%"
             ).gte("created_at", cutoff).execute()
             recent_candidates = int(getattr(cr, "count", None) or 0)
-        except Exception:
+        except Exception as _exc:
+            log.debug("[lib.learning.knowledge_quality] best-effort step failed, continuing: %s", _exc)
             pass
         # Freshness saturates at 5 recent knowledge events
         score.documentation_freshness = _safe_ratio(recent_lessons + recent_candidates, 5)
