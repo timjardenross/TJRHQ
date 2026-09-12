@@ -164,3 +164,30 @@ burned this platform once on a routing assumption that looked obviously
 safe until it wasn't. Any change there earns the same live-verification
 bar FND-001's own fix (`_resolve_cloud_escalation()`) was held to, not a
 lighter one just because the change is "only" adding a security check.
+
+## Addendum (2026-09-12, PR #180 review): CI coverage gap closed
+
+A review of PR #180 caught something this record understated: the
+"semantic layer verified only against FakeLLMModel, not live Ollama" gap
+above is real, but it isn't the gap that mattered most in practice — all
+9 tests in `core/security/test_llm_guardrails.py` were skipping outright
+in the actual `python-ci.yml` "core" matrix job, deterministic
+keyword-layer and Presidio-recognizer tests included, because
+`platform-runtime/.venv-llmsec` was never provisioned there. That means
+this stream's own evidence was proven exactly once, by hand, in the
+sandbox that built it — not by a repeatable CI gate, for the platform's
+single highest-strategic-value new control.
+
+Fixed in commit `d18be54`: the "core" matrix job now provisions
+`.venv-llmsec` (cached on `requirements-llmsec.txt`'s hash) before
+running pytest. None of the 9 tests need a live model — the
+injection/output-rail cases substitute NeMo's own `FakeLLMModel` via
+`fake_responses` — so this closes the WHOLE suite's CI gap, not just a
+model-free subset. Verified locally before pushing: a clean venv seeded
+exactly as CI seeds it went from 518 passed/21 skipped to 527
+passed/12 skipped, with the same 8 pre-existing (main-branch,
+unrelated) failures and no new ones.
+
+The live-Ollama gap for the semantic layer itself is unchanged and still
+real — this addendum only closes the "proven once by hand" problem for
+the parts that never needed a live model in the first place.
