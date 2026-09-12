@@ -99,6 +99,12 @@ platform-runtime/.venv-*/
 core/voice/kokoro-venv/
 core/voice/kokoro-models/
 
+# Presidio + NeMo Guardrails (core/security/, USS-TJR-MSN-0366 Stream 5) —
+# isolated venv, same "different literal name doesn't match venv/ patterns
+# above" gap the chatterbox-venv/ entry documents. Ignored explicitly up
+# front this time rather than found untracked-but-not-ignored later.
+platform-runtime/.venv-llmsec/
+
 # data/self-improvement/review/: the self-improvement engine's live review
 # state — mutated continuously between cycles as findings get reviewed
 # (decisions.jsonl, opportunities.jsonl) or a cycle runs (.evolution_cycle.lock).
