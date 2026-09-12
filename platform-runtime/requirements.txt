@@ -59,3 +59,9 @@ deepeval>=4.1.10
 # server) — that was never meant to serve production traffic and had no
 # concurrency/process-management guarantees under deploy/context-service.service.
 gunicorn>=23.0.0
+# 2026-09-12: core/quality/garak_gate.py (USS-TJR-MSN-0365 Stream C) — garak
+# pre-activation gate that probe-sweeps the local Model Router (:8891) before
+# a config is activated. GAP 1's other half (see OSS-Gap-Solutions-2026-08-23.md
+# Option A); deepeval above covers per-output scoring, this covers the
+# system-level vulnerability sweep. Pinned to the current PyPI release.
+garak==0.17.0
