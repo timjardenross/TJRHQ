@@ -54,3 +54,8 @@ openinference-instrumentation-mistralai
 # (HallucinationMetric-backed LLM-output quality scoring, GAP 1). Installed
 # and importable since e27d1ead, never declared here.
 deepeval>=4.1.10
+# 2026-09-12: core/context-assembly/context_service.py's `serve` command now
+# launches gunicorn instead of calling flask_app.run() (the Werkzeug dev
+# server) — that was never meant to serve production traffic and had no
+# concurrency/process-management guarantees under deploy/context-service.service.
+gunicorn>=23.0.0

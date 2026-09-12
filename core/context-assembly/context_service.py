@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import traceback
 import argparse
@@ -460,6 +461,18 @@ def _make_flask_app():
     return http_app
 
 
+def create_app():
+    """WSGI entrypoint for gunicorn.
+
+    Thin wrapper around _make_flask_app() so a production WSGI server gets
+    the exact same Flask app the CLI's `serve` subcommand builds — gunicorn
+    is pointed at this via the app-factory target syntax
+    `context_service:create_app()` (see _run_gunicorn() and
+    deploy/context-service.service, both of which use this same target).
+    """
+    return _make_flask_app()
+
+
 def _request_arg(name: str, default):
     """Reads a query-string arg from the active Flask request - deferred
     import so CLI usage never pays the Flask import cost, matching every
@@ -809,6 +822,49 @@ def _err(msg: str):
     print(f"[context-service] WARN: {msg}", file=sys.stderr)
 
 
+def _run_gunicorn(host: str, port: int):
+    """Launch gunicorn against this Flask app instead of calling
+    flask_app.run() (the Werkzeug dev server).
+
+    Replaces this process (os.execvp — no child process to babysit or
+    forget to reap) so `python3 context_service.py serve --host ... --port
+    ...` keeps working unchanged for every existing caller (deploy/
+    context-service.service, local dev, docs above) while gunicorn's
+    production workers actually handle every request from here on.
+
+    --chdir / --pythonpath both point at this script's own directory:
+    core/context-assembly isn't a dotted-importable package (the "-" in
+    the directory name rules that out, see the sys.path comment near the
+    top of this file), so gunicorn needs this directory on sys.path to
+    resolve the bare `context_service` module name in the app-factory
+    target below. config.py / loaders.py resolve everything via
+    Path(__file__), not cwd, so chdir-ing here is safe.
+
+    --worker-class gthread --threads 4 (single worker process) reproduces
+    flask_app.run(..., threaded=True)'s "don't let one slow request stall
+    every other route" behavior without also running N separate copies of
+    this stateless-but-not-cheap-to-import process. --timeout 300 is
+    required, not cosmetic: gunicorn's default 30s worker timeout would
+    kill /brief/evolved's real LLM calls mid-flight (50-260s observed,
+    MSN-0329 Phase 3) as unresponsive.
+    """
+    script_dir = str(Path(__file__).resolve().parent)
+    gunicorn_bin = shutil.which("gunicorn") or os.path.join(os.path.dirname(sys.executable), "gunicorn")
+    cmd = [
+        gunicorn_bin,
+        "--bind", f"{host}:{port}",
+        "--chdir", script_dir,
+        "--pythonpath", script_dir,
+        "--worker-class", "gthread",
+        "--workers", "1",
+        "--threads", "4",
+        "--timeout", "300",
+        "context_service:create_app()",
+    ]
+    _out(f"[context-service] Launching gunicorn: {' '.join(cmd)}")
+    os.execvp(cmd[0], cmd)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Context Assembly Service")
     parser.add_argument("command", nargs="?", default="all",
@@ -827,20 +883,9 @@ def main():
     # HTTP server mode (WP-A)
     if args.command == "serve":
         port = args.port or config.CONTEXT_SERVICE_PORT
-        flask_app = _make_flask_app()
         print(f"[context-service] Starting HTTP server on http://{args.host}:{port}")
         print(f"[context-service] Endpoints: GET /health  GET /brief/captain  GET /brief/number-one  GET /queue/health-adjusted  GET /brief/full  GET /recommendations/full  POST /brief/evolved")
-        # threaded=True (2026-08-09): /brief/evolved's real LLM calls run
-        # 50-260s (MSN-0329 Phase 3 measured latency). Werkzeug's dev
-        # server defaults to single-threaded/single-process, so without
-        # this, one in-flight /brief/evolved call would also stall every
-        # other route on this service - including /health and /brief/full,
-        # which Captain's Chair polls on every page load. This is still
-        # the Werkzeug dev server, not a production WSGI server; acceptable
-        # for this service's traffic level (matches the rest of this file's
-        # existing scope), but a real concurrency ceiling if load ever
-        # grows past that.
-        flask_app.run(host=args.host, port=port, debug=False, threaded=True)
+        _run_gunicorn(args.host, port)
         return
 
     try:
