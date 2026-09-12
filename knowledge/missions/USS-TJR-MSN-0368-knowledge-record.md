@@ -123,34 +123,82 @@ return the score) rather than deleting the function — Option B was the
 right call, just described slightly too narrowly in the PR body. No action
 needed; documenting the more precise claim for future reference.
 
-## Stream 6: scheduler consolidation — investigated, not implemented
+## Stream 6: scheduler consolidation — real count is 2 live, not 4-6; the two "dormant" files need a decision, not a merge
 
-Real count is **6** independent instances today, not 5 — the mission brief's
-list has drifted since Stage 1:
-- `platform-runtime/recovery_scheduler.py` — `BackgroundScheduler`
-- `platform-runtime/human_systems_scheduler.py` — `BlockingScheduler`
-- `intelligence/scheduler.py` — `BlockingScheduler`
-- `telegram-bots/revs/scheduler.py` — `AsyncIOScheduler`
-- `intelligence/proactive_cadences.py` — has `add_job()` call sites (one
-  carries its own "retirement comment," not yet confirmed whether it's
-  fully dormant)
-- `telegram-bots/recovery_officer/engagement_dispatcher.py` — imports
-  scheduling but no direct `Scheduler(`/`.start()` in this file; needs a
-  closer read to confirm whether it delegates to one of the above or is a
-  7th surface
+The mission brief's "5 APScheduler instances, disclosed double-fire risk"
+premise did not survive contact with the real, current deployment. Same
+pattern as issues #187/#201 this mission already found: code that was once
+true, never re-verified. Checked every candidate individually rather than
+trusting the survey count:
 
-`xo/app.py`, named in the original brief, does NOT instantiate a scheduler
-directly — it shells out to `python -m intelligence.scheduler --once` as a
-detached process, so it's a *caller* of one of the six, not a 7th instance.
+- `intelligence/proactive_cadences.py` and
+  `telegram-bots/recovery_officer/engagement_dispatcher.py` are **not**
+  independent scheduler instances at all — the first is a plain
+  `register_jobs(scheduler, tz)` function that registers its jobs onto
+  `intelligence/scheduler.py`'s own scheduler; the second was migrated to
+  be invoked *by* `human_systems_scheduler.py`, per its own docstring
+  ("was scheduled automatically via intelligence/scheduler.py's [...], now
+  via platform-runtime/human_systems_scheduler.py"). Neither instantiates
+  `Scheduler(`.
+- `xo/app.py` (named in the original brief) doesn't instantiate one
+  either — it shells out to `python -m intelligence.scheduler --once` as a
+  detached process, making it a *caller*, not an instance.
 
-**Not consolidated this session.** Four of these six back live, currently-
-deployed Telegram bots and daemons on this VM (recovery, human-systems,
-revs, intelligence brief) with real users depending on their daily dispatch
-jobs. Collapsing them into one canonical instance is a real production
-refactor across multiple services — the kind of blast-radius change that
-deserves its own reviewed PR with a specific rollout plan, not a rushed pass
-inside a 10-stream validation mission. Recommend spinning this out as its
-own follow-up mission scoped to just this consolidation.
+That leaves exactly 4 real `Scheduler(` call sites — and checking each
+against `systemctl`/`ps`/`crontab` found only **2 are actually live**:
+
+| File | Type | Live? |
+|---|---|---|
+| `intelligence/scheduler.py` | `BlockingScheduler` | **Yes** — `intelligence-scheduler.service`, confirmed `active` |
+| `telegram-bots/revs/scheduler.py` | `AsyncIOScheduler` | **Yes** — inside `tg-revs.service`, confirmed `active` |
+| `platform-runtime/recovery_scheduler.py` | `BackgroundScheduler` | **No** — zero systemd unit, zero cron entry, zero process, zero imports anywhere in the codebase. Fully dead. |
+| `platform-runtime/human_systems_scheduler.py` | `BlockingScheduler` | **No** daemon — `_start_daemon()` (the actual `BlockingScheduler` loop) has no systemd unit and isn't running. Its `run_job()` function, however, **is** live: imported on-demand by two real Telegram command handlers (`/hs push <job>` — dry-run preview; `/comms send` — real send of the `comms_weekly` job only). |
+
+**The "double-fire" framing was backwards.** The concrete overlap the brief
+worried about (`recovery_scheduler.py`'s 7:00/12:30/20:00 jobs exactly
+matching `human_systems_scheduler.py`'s morning/midday/evening cron
+defaults) can't actually double-fire today because neither runs as a
+daemon. `recovery_scheduler.py` predates the Human Systems consolidation
+(see `recovery-pulse-sole-capture-2026-08-10.md`, superseded 2026-08-22)
+and looks like exactly the kind of leftover the consolidation should have
+deleted.
+
+**Real, unrelated live incident surfaced while investigating this**: 8
+`human_systems.recommendation_computed` events fired in Supabase between
+11:11-11:24 UTC today (source `slack-bot:brief`), ~13 minutes, then
+stopped cleanly. Chased it hard: confirmed a live peer session (root-91)
+wasn't the cause; found the only static callers of the underlying
+`commands/brief.py:build_brief()` are the dormant scheduler and two
+on-demand Telegram command paths (`/hs push`, which is dry-run-only and
+shouldn't have produced a real dispatch; `/comms send`, which only runs
+the unrelated `comms_weekly` job) — neither cleanly explains a real,
+non-preview dispatch of the morning/evening capacity recommendation.
+Left unresolved (burst had already stopped, no new events since,
+remaining leads need Telegram-side logs or asking the other 70+ peer
+sessions individually) but flagging clearly rather than closing it: this
+means there IS a real, live path that fires this recommendation
+computation and dispatches it as a genuine Telegram message on-demand
+outside any documented cron, and its exact trigger is not yet found.
+
+**Recommendation, not implemented this session**: this is now a much
+smaller, much safer piece of work than the original "consolidate 4 live
+services" framing —
+1. Delete `platform-runtime/recovery_scheduler.py` outright (confirmed
+   dead code, zero references anywhere).
+2. Decide whether `human_systems_scheduler.py`'s daemon mode should ever
+   actually run (a systemd unit was apparently never created for it) or
+   whether `run_job()` being on-demand-only via Telegram commands is the
+   intended design — if the latter, delete `_start_daemon()` and the
+   `--daemon` flag rather than leaving working-but-unused code that looks
+   deployable.
+3. Find the real trigger behind the 11:11-11:24 UTC burst before
+   assuming it won't recur.
+None of this requires merging `intelligence/scheduler.py` and
+`telegram-bots/revs/scheduler.py` — the two schedulers that are actually
+live have no overlapping job times and back genuinely separate services
+(OR intelligence brief vs. a Telegram bot's own tick loop); forcing them
+into one process would couple two unrelated failure domains for no
+real benefit.
 
 ## Stream 7: ADR registry consolidation — started once unblocked
 
