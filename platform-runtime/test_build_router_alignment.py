@@ -194,16 +194,15 @@ class TestBuildRecordRouterMeta:
         self.mb = _import_mission_brief()
 
     def test_router_meta_written_to_record(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)):
-                path = self.mb.save_build_record(
-                    request_text="MSN-0056 --backend gemini --mode review",
-                    brief_text="Routed brief content",
-                    github_summary="Preview",
-                    thread_ts="ts1",
-                    router_meta={"mission_id": "USS-TJR-MSN-0056", "backend": "gemini", "mode": "review"},
-                )
-                content = (Path(tmpdir) / Path(path).name).read_text()
+        with tempfile.TemporaryDirectory() as tmpdir, patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)):
+            path = self.mb.save_build_record(
+                request_text="MSN-0056 --backend gemini --mode review",
+                brief_text="Routed brief content",
+                github_summary="Preview",
+                thread_ts="ts1",
+                router_meta={"mission_id": "USS-TJR-MSN-0056", "backend": "gemini", "mode": "review"},
+            )
+            content = (Path(tmpdir) / Path(path).name).read_text()
 
         assert "USS-TJR-MSN-0056" in content
         assert "gemini" in content
@@ -211,15 +210,14 @@ class TestBuildRecordRouterMeta:
         assert "Engineering Router Metadata" in content
 
     def test_no_router_meta_section_for_free_text(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)):
-                path = self.mb.save_build_record(
-                    request_text="add a health check command",
-                    brief_text="Plain brief",
-                    github_summary="Preview",
-                    router_meta=None,
-                )
-                content = (Path(tmpdir) / Path(path).name).read_text()
+        with tempfile.TemporaryDirectory() as tmpdir, patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)):
+            path = self.mb.save_build_record(
+                request_text="add a health check command",
+                brief_text="Plain brief",
+                github_summary="Preview",
+                router_meta=None,
+            )
+            content = (Path(tmpdir) / Path(path).name).read_text()
 
         assert "Engineering Router Metadata" not in content
 
@@ -353,9 +351,8 @@ class TestFindBuildRecordRouterMeta:
         with tempfile.TemporaryDirectory() as tmpdir:
             p = Path(tmpdir) / "BUILD-20260614-120000-msn-0056.md"
             p.write_text(content)
-            with patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)):
-                with patch.object(self.mb, "_REPO_ROOT", Path(tmpdir)):
-                    record = self.mb.find_build_record_by_thread("ts_test")
+            with patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)), patch.object(self.mb, "_REPO_ROOT", Path(tmpdir)):
+                record = self.mb.find_build_record_by_thread("ts_test")
 
         assert record is not None
         assert record.get("router_mission_id") == "USS-TJR-MSN-0056"
@@ -377,9 +374,8 @@ class TestFindBuildRecordRouterMeta:
         with tempfile.TemporaryDirectory() as tmpdir:
             p = Path(tmpdir) / "BUILD-20260614-120001-health-check.md"
             p.write_text(content)
-            with patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)):
-                with patch.object(self.mb, "_REPO_ROOT", Path(tmpdir)):
-                    record = self.mb.find_build_record_by_thread("ts_plain")
+            with patch.object(self.mb, "_BUILD_RECORDS_DIR", Path(tmpdir)), patch.object(self.mb, "_REPO_ROOT", Path(tmpdir)):
+                record = self.mb.find_build_record_by_thread("ts_plain")
 
         assert record is not None
         assert "router_mission_id" not in record
@@ -419,12 +415,11 @@ class TestSaveEngineeringHandoffReturnsDict:
             orig = getattr(bll, "record_build_lifecycle_event", None)
             bll.record_build_lifecycle_event = MagicMock()
             try:
-                with patch.object(self.mb, "_ENGINEERING_HANDOFFS_DIR", tmp / "Missions" / "Engineering-Handoffs"):
-                    with patch.object(self.mb, "_REPO_ROOT", tmp):
-                        result = self.mb.save_engineering_handoff_from_build_record(
-                            build_record=build_rec,
-                            approver_user_id="U_APPROVER",
-                        )
+                with patch.object(self.mb, "_ENGINEERING_HANDOFFS_DIR", tmp / "Missions" / "Engineering-Handoffs"), patch.object(self.mb, "_REPO_ROOT", tmp):
+                    result = self.mb.save_engineering_handoff_from_build_record(
+                        build_record=build_rec,
+                        approver_user_id="U_APPROVER",
+                    )
             finally:
                 if orig is not None:
                     bll.record_build_lifecycle_event = orig
@@ -447,12 +442,11 @@ class TestSaveEngineeringHandoffReturnsDict:
             orig = getattr(bll, "record_build_lifecycle_event", None)
             bll.record_build_lifecycle_event = MagicMock()
             try:
-                with patch.object(self.mb, "_ENGINEERING_HANDOFFS_DIR", tmp / "Missions" / "Engineering-Handoffs"):
-                    with patch.object(self.mb, "_REPO_ROOT", tmp):
-                        result = self.mb.save_engineering_handoff_from_build_record(
-                            build_record=build_rec,
-                            approver_user_id="U_APPROVER",
-                        )
+                with patch.object(self.mb, "_ENGINEERING_HANDOFFS_DIR", tmp / "Missions" / "Engineering-Handoffs"), patch.object(self.mb, "_REPO_ROOT", tmp):
+                    result = self.mb.save_engineering_handoff_from_build_record(
+                        build_record=build_rec,
+                        approver_user_id="U_APPROVER",
+                    )
             finally:
                 if orig is not None:
                     bll.record_build_lifecycle_event = orig

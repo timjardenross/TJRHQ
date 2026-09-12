@@ -181,9 +181,8 @@ class TestRunner(unittest.TestCase):
     def test_run_job_records_to_memory(self):
         calls = []
         with patch.object(hss.memory, "record_recommendation",
-                          lambda **k: calls.append(k) or True):
-            with patch.object(hss, "_fetch_rows", return_value=[GOOD]):
-                hss.run_job("weekly", dry_run=True)
+                          lambda **k: calls.append(k) or True), patch.object(hss, "_fetch_rows", return_value=[GOOD]):
+            hss.run_job("weekly", dry_run=True)
         self.assertTrue(calls)
         self.assertEqual(calls[0]["source"], "scheduler")
 

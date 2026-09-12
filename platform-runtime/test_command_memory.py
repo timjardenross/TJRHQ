@@ -198,15 +198,14 @@ class TestQueryHandlers(unittest.TestCase):
 
     def test_missions_active_formats_results(self):
         ack, respond = MagicMock(), MagicMock()
+        # get_active_missions is imported inside the function, so patch source too.
         with patch.object(
             self.mq, "get_active_missions",
             create=True,
             return_value=[{"id": "M-1", "title": "Test", "owner": "U001"}],
-        ):
-            # get_active_missions is imported inside the function, so patch source.
-            with patch("command_memory_integration.get_active_missions",
-                       return_value=[{"id": "M-1", "title": "Test", "owner": "U001"}]):
-                self.mq.handle_missions_active(ack, respond)
+        ), patch("command_memory_integration.get_active_missions",
+                 return_value=[{"id": "M-1", "title": "Test", "owner": "U001"}]):
+            self.mq.handle_missions_active(ack, respond)
         ack.assert_called_once()
         out = respond.call_args[0][0]
         self.assertIn("M-1", out)
