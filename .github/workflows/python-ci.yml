@@ -370,8 +370,55 @@ jobs:
       # pass clean repo-wide today -- nothing to triage, purely a secrets
       # tripwire, so there's no reason to let a new leak merge in the
       # meantime.
+      # `pre-commit run` only accepts a single optional hookid positional
+      # argument, not several -- `pre-commit run --all-files gitleaks
+      # detect-secrets` errors out before running any hook ("unrecognized
+      # arguments: detect-secrets"), so each hook needs its own invocation.
       - name: pre-commit (secrets scan — blocking)
-        run: pre-commit run --all-files gitleaks detect-secrets
+        run: pre-commit run --all-files gitleaks
+
+      # detect-secrets run directly via its own CLI, not `pre-commit run`
+      # (#189). `pre-commit run --all-files` on a hook with `files: .*`
+      # (this repo has 930+ files) can split the invocation across
+      # multiple subprocess batches once the combined command-line length
+      # crosses pre-commit's own conservative estimate -- `require_serial:
+      # true` only stops those batches running in *parallel*, it doesn't
+      # stop them being split in the first place. Each batch's
+      # detect-secrets-hook only knows about *that batch's* filenames, and
+      # its should_update_baseline() trims the loaded baseline down to
+      # just those files before comparing, so any batch boundary makes
+      # findings for files outside it look like they "disappeared".
+      #
+      # Switching to the base CLI does NOT fully fix this, though (found
+      # while landing this on PR #190): a plain `detect-secrets scan
+      # --baseline .secrets.baseline` on this same tree still occasionally
+      # fails to re-find two already-tracked, already-reviewed
+      # (is_verified: false) "IBM Cloud IAM Key" fixture findings in
+      # tools/supabase/test_decision_intelligence.py and
+      # test_decision_operationalisation.py under a fresh CI checkout --
+      # reproducible in CI, never locally with an identical command, so
+      # something about detect-secrets' own file-scanning under that
+      # environment (not the pre-commit/hook layer) is still involved.
+      # Root cause undetermined; tracked as a detect-secrets-side gap in
+      # #189 rather than re-litigated here.
+      #
+      # What actually matters for a "blocking secrets gate" is catching a
+      # NEW leak, not an existing, already-reviewed finding failing to
+      # re-detect for scanner reasons -- so tools/check_new_secrets.py only
+      # fails the build on a finding (filename + hashed_secret) that is
+      # NOT already in the committed baseline. A finding merely missing
+      # from this run's output (vs. HEAD's baseline) is not a leak by
+      # definition -- it can only shrink what's already been reviewed.
+      # (Kept as a standalone script rather than an inline `run: |` block:
+      # detect-secrets' own YAML transformer treats a long block scalar as
+      # one flattened value, which made the inline version trip its own
+      # Secret Keyword plugin as it grew -- a false positive on the
+      # checking script itself, confirmed while adding this on PR #190.)
+      - name: detect-secrets (secrets scan — blocking)
+        run: |
+          pip install "detect-secrets==1.5.0"
+          detect-secrets scan --baseline .secrets.baseline
+          python3 tools/check_new_secrets.py
 
       # Soft gate (visible, non-blocking): ruff-check + bandit. Flips to
       # blocking once Stream 9's triage lands (179 Medium bandit findings
@@ -380,7 +427,9 @@ jobs:
       # new code doesn't silently add to the pile without anyone seeing it.
       - name: pre-commit (lint/security — informational until Stream 9 lands)
         continue-on-error: true
-        run: pre-commit run --all-files ruff-check bandit
+        run: |
+          pre-commit run --all-files ruff-check
+          pre-commit run --all-files bandit
 
   actionlint:
     runs-on: ubuntu-latest
