@@ -27,7 +27,7 @@ log = logging.getLogger("captains-brief")
 # the whole brief.
 try:
     from core.platform.infra_narrative import generate_infra_narrative
-except Exception:  # pragma: no cover — import-time guard, not a runtime path
+except Exception:  # pragma: no cover — import-time guard, not a runtime path  # noqa: BLE001 - guarded import — a problem in the infra-verification module must degrade that one section, never the whole brief (see comment above)
     generate_infra_narrative = None  # type: ignore[assignment]
 
 # 2026-08-22: the daily digest — combines the OSINT/world-news brief above
@@ -38,7 +38,7 @@ except Exception:  # pragma: no cover — import-time guard, not a runtime path
 # a problem here degrades this one section, never the whole brief.
 try:
     from intelligence.brief.daily_digest import build_daily_digest
-except Exception:  # pragma: no cover — import-time guard, not a runtime path
+except Exception:  # pragma: no cover — import-time guard, not a runtime path  # noqa: BLE001 - guarded import — a problem in the daily-digest module must degrade that one section, never the whole brief (see comment above)
     build_daily_digest = None  # type: ignore[assignment]
 
 # Weekly OSINT exec-summary narration (2026-08-10) — reuses the exact same
@@ -48,7 +48,7 @@ except Exception:  # pragma: no cover — import-time guard, not a runtime path
 # (they fall back to the raw severity-count display), never the whole brief.
 try:
     from core.llm.provider_chain import call_gemini, call_mistral, call_ollama
-except Exception:  # pragma: no cover — import-time guard, not a runtime path
+except Exception:  # pragma: no cover — import-time guard, not a runtime path  # noqa: BLE001 - guarded import — a problem in the LLM provider chain must degrade the exec-summary sections only, never the whole brief (see comment above)
     call_gemini = call_mistral = call_ollama = None  # type: ignore[assignment]
 
 # Timezone — ZoneInfo available Python 3.9+; fall back to fixed UTC+10 if absent
@@ -99,7 +99,7 @@ def _sb_get(table: str, query: str = "") -> list[dict]:
     Supabase hiccup should degrade that section, not break the whole brief."""
     try:
         return _sb_request(table, query)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort fetch for optional/decorative data, already logged (see docstring above — a Supabase hiccup degrades that section, not the whole brief)
         log.warning("Supabase fetch failed (%s): %s", table, exc)
         return []
 
@@ -156,7 +156,7 @@ def _get_infra_verification() -> dict | None:
         return None
     try:
         return generate_infra_narrative()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - already logged; infra narrative is optional/degradable per the surrounding contract
         log.warning("Infra verification narrative failed: %s", exc)
         return None
 
@@ -261,7 +261,7 @@ def _persist_brief(
         with urllib.request.urlopen(req, timeout=8):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
             pass
         log.info("[brief-persist] %s brief stored", brief_type)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort brief persistence, already logged as a warning; the brief itself was already generated/sent by this point
         log.warning("[brief-persist] failed to persist %s brief: %s", brief_type, exc)
 
 
@@ -618,7 +618,7 @@ def _call_weekly_summary_providers(system_prompt: str, prompt: str, label: str) 
             if result:
                 log.info("[weekly-report] %s exec summary generated via %s", label, name)
                 return result
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-provider exec-summary attempt inside a fallback chain — one provider failing must not abort the chain; already logged
             log.warning("[weekly-report] %s exec summary provider %s failed: %s", label, name, exc)
     log.warning("[weekly-report] %s exec summary unavailable — all providers failed", label)
     return None
@@ -1054,7 +1054,7 @@ def generate_morning_brief() -> str:
     if build_daily_digest is not None:
         try:
             digest_text = build_daily_digest(signals=signals)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort daily-digest synthesis, already logged; caller falls back to the raw signal list
             log.warning("Daily digest synthesis failed: %s", exc)
             digest_text = None
 
@@ -1370,7 +1370,7 @@ def send_brief(brief_type: str, **kwargs) -> bool:
     if brief_type == "morning":
         try:
             _email_morning_brief(text)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort email delivery, already logged as non-blocking; Telegram is the real delivery/failure signal per this function's contract
             log.warning("Morning brief email failed (non-blocking): %s", exc)
     return _send_telegram(text)
 

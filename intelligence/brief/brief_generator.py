@@ -69,7 +69,7 @@ class BriefGenerator:
         # honest about its own coverage). Never allowed to break generation.
         try:
             cycle_status = morning_cycle.get_status()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - explicitly documented above as 'never allowed to break generation', already logged as non-fatal
             log.warning("Morning cycle status check failed (non-fatal): %s", exc)
             cycle_status = None
 
@@ -182,13 +182,13 @@ class BriefGenerator:
                 qa_note = self.llm.check_brief_quality(brief_text_for_checks)
                 if qa_note:
                     log.info("[qa-validation] %s", qa_note)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - QA validation is an optional advisory check, already logged; a check erroring must not block the brief
                 log.warning("[qa-validation] check errored: %s", exc)
             try:
                 risk_note = self.llm.check_risk_rating(brief_text_for_checks, overall_risk)
                 if risk_note:
                     log.info("[risk-challenge] %s", risk_note)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - risk-rating challenge is an optional advisory check, already logged; a check erroring must not block the brief
                 log.warning("[risk-challenge] check errored: %s", exc)
 
         # ── 8c. Coverage / comparison / domain picture (Sections 6, 11-13) ─────
@@ -238,20 +238,20 @@ class BriefGenerator:
 
         try:
             prior_brief = store.load_latest_brief()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort prior-brief fetch for the comparison section, already logged as non-fatal
             log.warning("Could not fetch prior brief for comparison (non-fatal): %s", exc)
             prior_brief = None
         comparison = None
         try:
             prior_top_events = (prior_brief or {}).get("top_events")
             comparison = compute_comparison(top_events_dicts, prior_top_events)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort comparison computation, already logged as non-fatal
             log.warning("Prior-brief comparison failed (non-fatal): %s", exc)
 
         domain_picture = None
         try:
             domain_picture = compute_domain_picture(top_events_dicts, external_signal_dicts)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort domain-picture computation, already logged as non-fatal
             log.warning("Domain picture computation failed (non-fatal): %s", exc)
 
         morning_cycle_id = cycle_status.cycle_id if cycle_status is not None else morning_cycle.cycle_id_for()
@@ -473,7 +473,7 @@ class BriefGenerator:
                 if isinstance(result, list) and len(result) == len(top):
                     log.info("LLM So What generated for %d events", len(result))
                     return [str(s).strip() for s in result]
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort LLM 'So What' generation with an explicit template fallback right below, already logged
             log.warning("LLM So What generation failed (%s) — using templates", exc)
 
         # Fallback: template per event
@@ -602,6 +602,6 @@ as given if you reference it."""
                 True,
                 provider,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - LLM JSON response parsing — malformed/unexpected LLM output is expected and handled by the None-tuple fallback, already logged with the raw response
             log.warning("Failed to parse LLM JSON response: %s\nRaw: %s", exc, raw[:200])
             return None, None, None, None, None, None, True, provider
