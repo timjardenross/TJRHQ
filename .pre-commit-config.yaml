@@ -16,19 +16,8 @@
 # repo-wide) and ruff's full backlog (0 findings repo-wide, including the
 # ~3,395 manual-judgment findings triaged in MSN-0370 after MSN-0369's
 # autofix PR) are clear. Both CI's bandit and ruff-check steps are now
-# blocking.
-#
-# Bandit's LOCAL hook (unlike CI's `-ll`/Medium-only gate) runs at its
-# default severity, which still surfaces ~2,500 pre-existing Low findings
-# (subprocess/random/etc. patterns) that were explicitly out of this
-# mission's Medium-only scope -- so editing an old file can still trip the
-# local bandit hook on a Low finding your change didn't introduce. If that
-# happens and the finding is genuinely pre-existing and unrelated, it's
-# fine to run:
-#     SKIP=bandit git commit -m "..."
-# Ruff should no longer need this treatment now that its backlog is
-# actually at zero -- if you hit a ruff finding blocking a commit, it's
-# more likely real drift from your own change than pre-existing debt.
+# blocking (see the bandit hook's own comment below for a real gap this had
+# in practice, fixed in USS-TJR-MSN-0373).
 # Never skip gitleaks or detect-secrets this way -- those stay hard-blocking
 # for a reason.
 repos:
@@ -43,7 +32,16 @@ repos:
     hooks:
       - id: bandit
         name: bandit (security lint)
-        args: ["-q"]
+        # -ll: report Medium+ severity only. CI's blocking gate (USS-TJR-MSN-0369)
+        # was triaged and verified against a manually-run `bandit -ll`, but this
+        # flag was never actually added here -- so the hook ran at bandit's
+        # default (all severities) and CI's "pre-commit run --all-files bandit"
+        # inherited that mismatch, failing on the ~2,503 pre-existing Low
+        # findings (assert/subprocess/random patterns) that triage explicitly
+        # left out of scope. Confirmed via `pre-commit run --all-files bandit`
+        # locally: 0 Medium, 0 High, 2503 Low -- so this flag now enforces
+        # exactly what was triaged, not more, and doesn't hide any real drift.
+        args: ["-q", "-ll"]
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
