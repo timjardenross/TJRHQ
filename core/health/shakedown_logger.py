@@ -138,8 +138,8 @@ def format_day_summary_for_slack(summary: dict) -> str:
 
     lines = [
         f"{status_emoji} *Shakedown Day {day_n} — {summary['date']}*",
-        f"Events logged: {total}  ({len(jobs)} distinct job{'s' if len(jobs) != 1 else ''})  |  "
-        f"Success: {ok}  |  Failures: {fail}  |  Skipped: {skip}",
+        (f"Events logged: {total}  ({len(jobs)} distinct job{'s' if len(jobs) != 1 else ''})  |  "
+         f"Success: {ok}  |  Failures: {fail}  |  Skipped: {skip}"),
         "",
     ]
     if jobs:

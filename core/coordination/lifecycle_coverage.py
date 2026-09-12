@@ -108,8 +108,8 @@ def format_coverage(report: dict[str, Any]) -> str:
     """Render a coverage report (accepts either build_coverage or sweep output)."""
     cov = report.get("coverage", report)
     lines = [
-        f"Lifecycle coverage — {cov['classified']}/{cov['total_items']} items assigned a stage"
-        f"  (by kind: {cov['kind_counts']})",
+        (f"Lifecycle coverage — {cov['classified']}/{cov['total_items']} items assigned a stage"
+         f"  (by kind: {cov['kind_counts']})"),
     ]
     for s in LIFECYCLE_SPINE:
         n = cov["stage_counts"][s.value]

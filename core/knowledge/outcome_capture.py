@@ -799,8 +799,8 @@ def learning_status_block() -> str:
         "*LEARNING STATUS*",
         f"Outcomes: {s.outcomes_recorded}   Pending: {s.pending_outcomes}"
         + (f" ({s.pending_red} overdue)" if s.pending_red else ""),
-        f"Lessons: {s.lessons_captured}   Reusable: {s.reusable_insights}   "
-        f"Content: {s.content_candidates}",
+        (f"Lessons: {s.lessons_captured}   Reusable: {s.reusable_insights}   "
+         f"Content: {s.content_candidates}"),
     ]
     if s.sensitive_pending:
         lines.append(f"Sensitive pending approval: {s.sensitive_pending}")

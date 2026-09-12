@@ -166,8 +166,8 @@ def format_advance(report: dict[str, Any]) -> str:
     newly = [r for r in report.get("results", []) if r["action"] in ("advanced", "would_advance")]
     if not newly:
         return f"Lifecycle advancer — nothing to advance ({report.get('already_ready', 0)} already Triage Ready)."
-    lines = [f"Lifecycle advancer — {verb} {len(newly)} item(s) to *Triage Ready* "
-             f"(awaiting Captain approval; NOT approved):"]
+    lines = [(f"Lifecycle advancer — {verb} {len(newly)} item(s) to *Triage Ready* "
+              f"(awaiting Captain approval; NOT approved):")]
     for r in newly:
         e = r["entry"]
         t = f" — {e['title']}" if e["title"] else ""

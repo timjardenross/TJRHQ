@@ -120,9 +120,9 @@ def _format_review_dossier(item: dict, ev: dict[str, Any]) -> str:
         f"Handoff     : {ev['handoff_file'] or 'n/a'}",
         f"Decision ID : {ev['decision_id'] or 'n/a'}",
         "",
-        "Assess whether this delivered change is ready to review/merge: confirm the "
-        "evidence above substantiates the work, call out missing validation, and give "
-        "a clear APPROVE-TO-REVIEW or FLAG recommendation. Do not approve closure.",
+        ("Assess whether this delivered change is ready to review/merge: confirm the "
+         "evidence above substantiates the work, call out missing validation, and give "
+         "a clear APPROVE-TO-REVIEW or FLAG recommendation. Do not approve closure."),
     ]
     return "\n".join(lines)
 

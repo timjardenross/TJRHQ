@@ -172,8 +172,8 @@ def format_prep_packages(report: dict[str, Any]) -> str:
     pkgs = report.get("packages", [])
     if not pkgs:
         return "Engineering prep — no approved-pending handoffs at the Build stage. ✅"
-    lines = [f"Engineering prep — {len(pkgs)} handoff(s) ready for engineering"
-             f"  ({report.get('linkage_gaps', 0)} linkage gap(s))"]
+    lines = [(f"Engineering prep — {len(pkgs)} handoff(s) ready for engineering"
+              f"  ({report.get('linkage_gaps', 0)} linkage gap(s))")]
     for p in pkgs:
         t = f" — {p['title']}" if p["title"] else ""
         lines.append(f"\n• {p['id']}{t}")
