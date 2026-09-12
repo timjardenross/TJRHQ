@@ -255,7 +255,7 @@ class HealthCollector:
             with urllib.request.urlopen(url, timeout=15) as resp:  # nosec B310 - hardcoded eutils.ncbi.nlm.nih.gov URL, not user input
                 import json
                 ids = json.loads(resp.read()).get("esearchresult", {}).get("idlist", [])
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - per-domain PubMed esearch call inside the collection loop — one bad domain must not abort the run; already logged + counted in self.stats['errors']
             logger.error(f"PubMed esearch failed for {health_domain}: {e}")
             self.stats["errors"] += 1
             return []
@@ -267,7 +267,7 @@ class HealthCollector:
         try:
             with urllib.request.urlopen(efetch_url, timeout=20) as resp:  # nosec B310 - hardcoded eutils.ncbi.nlm.nih.gov URL, not user input
                 xml_data = resp.read()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - per-domain PubMed efetch call — one bad domain must not abort the run; already logged + counted in self.stats['errors']
             logger.error(f"PubMed efetch failed for {health_domain}: {e}")
             self.stats["errors"] += 1
             return []
@@ -331,7 +331,7 @@ class HealthCollector:
             with urllib.request.urlopen(url, timeout=15) as resp:  # nosec B310 - hardcoded clinicaltrials.gov URL, not user input
                 import json
                 data = json.loads(resp.read())
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - per-domain ClinicalTrials.gov call — one bad domain must not abort the run; already logged + counted in self.stats['errors']
             logger.error(f"ClinicalTrials.gov fetch failed for {health_domain}: {e}")
             self.stats["errors"] += 1
             return []
@@ -340,7 +340,7 @@ class HealthCollector:
         for study in data.get("studies", []):
             try:
                 items.append(self._parse_ctgov_study(study, health_domain))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-study parse inside a batch loop — one malformed study must not abort the batch; already logged
                 logger.warning(f"Skipping malformed CTgov study: {e}")
         self.stats["ctgov_fetched"] += len(items)
         return items
@@ -392,7 +392,7 @@ class HealthCollector:
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310 - feed["url"] sourced from this file's own fixed feed registry, not user input
                 xml_data = resp.read()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - per-feed RSS fetch inside the collection loop — one bad feed must not abort the run; already logged + counted in self.stats['errors']
             logger.error(f"RSS fetch failed for {feed['source_name']}: {e}")
             self.stats["errors"] += 1
             return []
@@ -560,7 +560,7 @@ class HealthCollector:
         try:
             self.supabase.table("health_signals").insert(row).execute()
             self.stats["saved"] += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - per-item save inside a batch loop — one bad item must not abort the batch; already logged + counted in self.stats['errors']
             logger.error(f"Save failed for {item.get('pmid') or item.get('nct_id')}: {e}")
             self.stats["errors"] += 1
 
