@@ -335,8 +335,23 @@ class TestMissionRiskScoring(unittest.TestCase):
         self.assertGreater(r_xo["score"], r_nr1["score"])
 
     def test_old_mission_scores_higher_than_new(self):
-        old = self._mission(id="M-20260501-000001", timestamp="2026-05-01 09:00")
-        new = self._mission(id="M-20260612-000001", timestamp="2026-06-12 09:00")
+        # Dates must be relative to today, not hardcoded: _parse_open_date()
+        # prefers the YYYYMMDD embedded in `id` over `timestamp`, and the age
+        # component saturates at >=21 days — two fixed absolute dates both
+        # eventually age past that cap and stop differentiating (this is
+        # exactly what broke: as of 2026-09-12, both 2026-05-01 and
+        # 2026-06-12 are >21 days old, so both scored an identical 34).
+        today = date.today()
+        old_date = today - timedelta(days=134)
+        new_date = today - timedelta(days=1)
+        old = self._mission(
+            id=f"M-{old_date.strftime('%Y%m%d')}-000001",
+            timestamp=old_date.strftime("%Y-%m-%d") + " 09:00",
+        )
+        new = self._mission(
+            id=f"M-{new_date.strftime('%Y%m%d')}-000001",
+            timestamp=new_date.strftime("%Y-%m-%d") + " 09:00",
+        )
         r_old = self.mr.calculate_mission_risk_score(old)
         r_new = self.mr.calculate_mission_risk_score(new)
         self.assertGreater(r_old["score"], r_new["score"])
@@ -359,8 +374,16 @@ class TestMissionRiskScoring(unittest.TestCase):
         self.assertGreaterEqual(r["score"], 0)
 
     def test_risk_band_low(self):
+        # Same relative-date fix as test_old_mission_scores_higher_than_new —
+        # a hardcoded 2026-06-13 is now (as of 2026-09-12) >21 days old,
+        # which alone adds 30 points and pushed this into "Moderate".
+        recent = date.today()
         r = self.mr.calculate_mission_risk_score(
-            self._mission(status="Active", priority="Low", timestamp="2026-06-13 09:00")
+            self._mission(
+                status="Active", priority="Low",
+                id=f"M-{recent.strftime('%Y%m%d')}-000001",
+                timestamp=recent.strftime("%Y-%m-%d") + " 09:00",
+            )
         )
         self.assertEqual(r["band"], "Low")
 

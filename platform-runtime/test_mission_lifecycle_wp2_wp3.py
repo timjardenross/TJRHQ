@@ -36,13 +36,22 @@ from commands.mission_lifecycle import (
 
 class TestValidTransitions(unittest.TestCase):
     def test_all_statuses_covered(self):
-        expected = {"Idea", "Planned", "Active", "Blocked", "Review", "Completed", "Closed"}
+        # Governance lifecycle from M-20260614-GOVERNANCE-LIFECYCLE-CLOSURE
+        # WP2+WP3 superseded the original simple Idea/Planned/Active/Blocked/
+        # Review/Completed/Closed set — see handle_mission_status()'s own
+        # docstring for the current contract this mirrors.
+        expected = {
+            "Idea", "Designed", "Approved for Engineering", "Implemented",
+            "Tested", "Awaiting Number One Review", "Validated",
+            "Awaiting XO Approval", "Awaiting Captain Approval", "Approved",
+            "Closed", "Blocked", "Archived", "Requires Rework",
+        }
         self.assertEqual(_VALID_TRANSITIONS, expected)
 
     def test_lower_lookup(self):
         self.assertEqual(_VALID_TRANSITIONS_LOWER["idea"], "Idea")
-        self.assertEqual(_VALID_TRANSITIONS_LOWER["planned"], "Planned")
-        self.assertEqual(_VALID_TRANSITIONS_LOWER["active"], "Active")
+        self.assertEqual(_VALID_TRANSITIONS_LOWER["designed"], "Designed")
+        self.assertEqual(_VALID_TRANSITIONS_LOWER["closed"], "Closed")
 
 
 class TestFormatIdeaList(unittest.TestCase):
@@ -95,36 +104,38 @@ class TestHandleMissionStatus(unittest.TestCase):
         self.assertIn("Unknown status", result)
         self.assertIn("limbo", result)
 
-    @patch("commands.mission_lifecycle._supabase_update_mission_status", return_value=True)
+    # _supabase_update_mission_status returns (updated: bool, event_id: str | None)
+    # since the MSN-0328 Wave 2 Event Bus wiring — not a bare bool.
+    @patch("commands.mission_lifecycle._supabase_update_mission_status", return_value=(True, "evt-1"))
     @patch("commands.mission_lifecycle._supabase_missions", return_value=[
         {"id": "MSN-0001", "title": "Test", "status": "Idea"}
     ])
     @patch("commands.mission_lifecycle._write_transition_audit")
     def test_transition_success(self, mock_audit, _mock_sb, _mock_update):
-        result = handle_mission_status("MSN-0001 planned", "U001")
+        result = handle_mission_status("MSN-0001 designed", "U001")
         self.assertIn("Idea", result)
-        self.assertIn("Planned", result)
+        self.assertIn("Designed", result)
         self.assertIn("MSN-0001", result)
         mock_audit.assert_called_once()
 
-    @patch("commands.mission_lifecycle._supabase_update_mission_status", return_value=False)
+    @patch("commands.mission_lifecycle._supabase_update_mission_status", return_value=(False, None))
     @patch("commands.mission_lifecycle._supabase_missions", return_value=[])
     @patch("commands.mission_lifecycle._write_transition_audit")
     def test_transition_supabase_unavailable(self, mock_audit, _mock_sb, _mock_update):
-        result = handle_mission_status("MSN-0001 active", "U001")
+        result = handle_mission_status("MSN-0001 blocked", "U001")
         self.assertIn("recorded locally", result)
         mock_audit.assert_called_once()
 
     def test_case_insensitive_status(self):
         with (
-            patch("commands.mission_lifecycle._supabase_update_mission_status", return_value=True),
+            patch("commands.mission_lifecycle._supabase_update_mission_status", return_value=(True, "evt-1")),
             patch("commands.mission_lifecycle._supabase_missions", return_value=[
                 {"id": "MSN-0001", "title": "T", "status": "Idea"}
             ]),
             patch("commands.mission_lifecycle._write_transition_audit"),
         ):
-            result = handle_mission_status("MSN-0001 ACTIVE")
-            self.assertIn("Active", result)
+            result = handle_mission_status("MSN-0001 BLOCKED")
+            self.assertIn("Blocked", result)
 
 
 class TestTransitionAudit(unittest.TestCase):
