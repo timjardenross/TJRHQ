@@ -217,7 +217,7 @@ class NumberOneMemoryAdapter:
         if sb is None:
             return self._retrieve_from_files(query_type, query_text)
         try:
-            query_hash = _compute_query_hash(query_text)
+            _compute_query_hash(query_text)
             if query_type == "research_memory":
                 response = (
                     sb.table("research_memory")
@@ -362,7 +362,7 @@ class NumberOneMemoryAdapter:
             titles = [str(m.get("title") or "") for m in missions if m.get("title")]
             objectives = [str(m.get("description") or m.get("objective") or "") for m in missions if m.get("description") or m.get("objective")]
             status = str(missions[0].get("status") or "") if missions else ""
-            specialist = str(missions[0].get("assigned_role") or "") if missions else ""
+            str(missions[0].get("assigned_role") or "") if missions else ""
             capability = str(missions[0].get("capability") or missions[0].get("domain") or "") if missions else ""
             adr_reference = str(missions[0].get("adr_reference") or missions[0].get("decision_log") or "") if missions else ""
             text = " ".join(filter(None, titles + objectives))

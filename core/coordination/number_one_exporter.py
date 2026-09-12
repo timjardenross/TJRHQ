@@ -66,7 +66,7 @@ sys.path.insert(0, str(_REPO_ROOT / "core" / "context-assembly"))
 sys.path.insert(0, str(_REPO_ROOT / "core" / "knowledge"))
 
 try:
-    from models import RecommendationPackage
+    from models import RecommendationPackage  # noqa: F401 - availability probe, only ImportError matters
     from recommendation_engine import generate_recommendation_package
     _RECOMMENDATIONS_AVAILABLE = True
 except ImportError:
@@ -79,8 +79,8 @@ except ImportError:
     _READINESS_AVAILABLE = False
 
 try:
-    from lesson_capture import backfill_lessons_to_supabase
-    from supabase_client import is_configured as _supabase_configured
+    from lesson_capture import backfill_lessons_to_supabase  # noqa: F401 - availability probe, only ImportError matters
+    from supabase_client import is_configured as _supabase_configured  # noqa: F401 - availability probe, only ImportError matters
     _LESSONS_AVAILABLE = True
 except ImportError:
     _LESSONS_AVAILABLE = False
@@ -88,7 +88,7 @@ except ImportError:
 try:
     sys.path.insert(0, str(_REPO_ROOT / "core" / "intelligence"))
     from intelligence_reporter import run_all_reports as _run_intelligence_reports
-    from readiness_history import persist_readiness_snapshot as _persist_readiness
+    from readiness_history import persist_readiness_snapshot as _persist_readiness  # noqa: F401 - availability probe, only ImportError matters
     _INTELLIGENCE_AVAILABLE = True
 except ImportError:
     _INTELLIGENCE_AVAILABLE = False
@@ -629,7 +629,7 @@ class NumberOneExporter:
         missions = []
         for line in lines:
             line = line.strip()
-            if not line.startswith("|") or line.startswith("| Mission ID") or line.startswith("|---"):
+            if not line.startswith("|") or line.startswith(("| Mission ID", "|---")):
                 continue
             cols = [c.strip() for c in line.split("|")[1:-1]]
             if len(cols) < 4:

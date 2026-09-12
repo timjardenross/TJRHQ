@@ -26,6 +26,7 @@ if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
 from _local_import_advisory import import_sibling as _import_sibling
+import itertools
 
 _outcomes = _import_sibling("outcomes")
 
@@ -90,7 +91,7 @@ def confidence_alignment() -> dict[str, Any]:
     # Aligned if High >= Medium >= Low (where each has data).
     ordered = [by_band[b]["success_rate"] for b in ("High", "Medium", "Low")
                if by_band[b]["success_rate"] is not None]
-    aligned = all(earlier >= later for earlier, later in zip(ordered, ordered[1:])) if len(ordered) >= 2 else None
+    aligned = all(earlier >= later for earlier, later in itertools.pairwise(ordered)) if len(ordered) >= 2 else None
 
     total = sum(len(s) for s in bands.values())
     return {

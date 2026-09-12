@@ -87,7 +87,7 @@ def _engine(tmp_path, exclude_patterns=None, transport=None):
 def test_transfer_success_marks_verified_and_moves(tmp_path):
     entries = _make_source_files(tmp_path, "onedrive", {"a.txt": b"alpha", "sub/b.txt": b"beta"})
     manifest = _write_manifest(tmp_path, entries)
-    config, db, engine, transport = _engine(tmp_path)
+    _config, db, engine, transport = _engine(tmp_path)
 
     summary = engine.run_transfer(str(manifest), dry_run=False)
 
@@ -105,7 +105,7 @@ def test_transfer_success_marks_verified_and_moves(tmp_path):
 def test_transfer_excludes_pattern(tmp_path):
     entries = _make_source_files(tmp_path, "onedrive", {"keep.txt": b"keep", "hold.draft": b"draft"})
     manifest = _write_manifest(tmp_path, entries)
-    config, db, engine, transport = _engine(tmp_path, exclude_patterns=["*.draft"])
+    _config, db, engine, transport = _engine(tmp_path, exclude_patterns=["*.draft"])
 
     summary = engine.run_transfer(str(manifest), dry_run=False)
 
@@ -120,7 +120,7 @@ def test_transfer_excludes_pattern(tmp_path):
 def test_dry_run_transfer_persists_nothing(tmp_path):
     entries = _make_source_files(tmp_path, "onedrive", {"a.txt": b"alpha"})
     manifest = _write_manifest(tmp_path, entries)
-    config, db, engine, transport = _engine(tmp_path)
+    _config, db, engine, transport = _engine(tmp_path)
 
     summary = engine.run_transfer(str(manifest), dry_run=True)
 
@@ -137,7 +137,7 @@ def test_checksum_mismatch_marks_failed_and_routes_to_failed_dir(tmp_path):
     entries = _make_source_files(tmp_path, "onedrive", {"good.txt": b"good", "bad.txt": b"bad"})
     manifest = _write_manifest(tmp_path, entries)
     transport = FakeTransport(checksum_overrides={"onedrive": {"bad.txt": False}})
-    config, db, engine, transport = _engine(tmp_path, transport=transport)
+    _config, db, engine, transport = _engine(tmp_path, transport=transport)
 
     summary = engine.run_transfer(str(manifest), dry_run=False)
 
@@ -156,7 +156,7 @@ def test_rsync_failure_after_retries_marks_failed_without_verifying(tmp_path):
     entries = _make_source_files(tmp_path, "onedrive", {"a.txt": b"alpha"})
     manifest = _write_manifest(tmp_path, entries)
     transport = FakeTransport(rsync_results={"onedrive": [(1, "", "boom"), (1, "", "boom again")]})
-    config, db, engine, transport = _engine(tmp_path, transport=transport)
+    _config, db, engine, transport = _engine(tmp_path, transport=transport)
 
     summary = engine.run_transfer(str(manifest), dry_run=False)
 
@@ -172,7 +172,7 @@ def test_rsync_failure_after_retries_marks_failed_without_verifying(tmp_path):
 def test_second_run_skips_already_verified_files(tmp_path):
     entries = _make_source_files(tmp_path, "onedrive", {"a.txt": b"alpha"})
     manifest = _write_manifest(tmp_path, entries)
-    config, db, engine, transport = _engine(tmp_path)
+    _config, _db, engine, transport = _engine(tmp_path)
 
     engine.run_transfer(str(manifest), dry_run=False)
     transport.calls.clear()
@@ -191,7 +191,7 @@ def test_retry_failed_requeues_and_succeeds(tmp_path):
     entries = _make_source_files(tmp_path, "onedrive", {"bad.txt": b"bad"})
     manifest = _write_manifest(tmp_path, entries)
     failing_transport = FakeTransport(checksum_overrides={"onedrive": {"bad.txt": False}})
-    config, db, engine, _ = _engine(tmp_path, transport=failing_transport)
+    _config, db, engine, _ = _engine(tmp_path, transport=failing_transport)
     engine.run_transfer(str(manifest), dry_run=False)
     assert db.get_file_state("onedrive", "bad.txt")["status"] == "failed"
 
@@ -208,7 +208,7 @@ def test_retry_failed_respects_max_attempts(tmp_path):
     entries = _make_source_files(tmp_path, "onedrive", {"bad.txt": b"bad"})
     manifest = _write_manifest(tmp_path, entries)
     failing_transport = FakeTransport(rsync_results={"onedrive": [(1, "", "x"), (1, "", "x")]})
-    config, db, engine, _ = _engine(tmp_path, transport=failing_transport)
+    _config, db, engine, _ = _engine(tmp_path, transport=failing_transport)
     engine.run_transfer(str(manifest), dry_run=False)
     assert db.get_file_state("onedrive", "bad.txt")["attempts"] == 1
 
@@ -221,7 +221,7 @@ def test_retry_failed_respects_max_attempts(tmp_path):
 
 def test_verify_transfer_resumes_interrupted_run(tmp_path):
     entries = _make_source_files(tmp_path, "onedrive", {"a.txt": b"alpha"})
-    config, db, engine, transport = _engine(tmp_path)
+    _config, db, engine, transport = _engine(tmp_path)
 
     # Simulate a crash after rsync succeeded (status='transferred') but before
     # the checksum/move step ran.

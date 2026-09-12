@@ -205,7 +205,7 @@ def run_corpus_validation(corpus, packages):
         has_adrs        = bool(pkg.governing_adrs)
         has_deps        = bool(pkg.dependencies)
         has_caps        = bool(pkg.capabilities_built)
-        has_rels        = bool(pkg.relationships)
+        bool(pkg.relationships)
         # Traceability: every relationship has evidence text
         traceable = all(bool(r.evidence) for r in pkg.relationships) if pkg.relationships else None
         # Confidence proxy: avg relationship confidence
@@ -495,7 +495,7 @@ def build_number_one_brief(corpus, packages):
                 break
 
     # Top risk: governance traceability (no triggering decision)
-    no_decision_missions = [
+    [
         mid for mid, pkg in packages.items()
         if not pkg.triggering_decisions
     ]
@@ -717,7 +717,7 @@ def build_gap_analysis(corpus, packages):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def build_confidence_assessment(validation_data, packages):
-    n = validation_data["missions_assessed"]
+    validation_data["missions_assessed"]
     avg_c = validation_data["avg_completeness"]
     pct_adrs = validation_data["pct_with_governing_adrs"]
     pct_dec  = validation_data["pct_with_triggering_decision"]

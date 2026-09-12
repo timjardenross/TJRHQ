@@ -271,14 +271,14 @@ class TestNumberOne:
         queue = self.number_one.get_work_queue(missions, routing)
 
         # Check 1: High confidence specialist shown confidently
-        high_conf = [q for q in queue if q.mission_id == "MSN-1"][0]
+        high_conf = next(q for q in queue if q.mission_id == "MSN-1")
         self.assert_true(
             high_conf.confidence_band == ConfidenceBand.HIGH,
             "High confidence routing should be HIGH band"
         )
 
         # Check 2: Low confidence specialist escalated
-        low_conf = [q for q in queue if q.mission_id == "MSN-3"][0]
+        low_conf = next(q for q in queue if q.mission_id == "MSN-3")
         self.assert_true(
             "XO" in (low_conf.assigned_specialist or ""),
             "Low confidence should escalate to XO"

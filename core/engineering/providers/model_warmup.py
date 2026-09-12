@@ -53,7 +53,7 @@ class ModelWarmupManager:
         """Perform warm-up for a specific model."""
         try:
             log.info(f"Warming up model: {model_name}")
-            response, _ = router_call(self.warmup_prompt, model_name)
+            _response, _ = router_call(self.warmup_prompt, model_name)
             self.last_warmup[model_name] = datetime.now()
             log.info(f"Successfully warmed up model: {model_name}")
             return True
@@ -65,7 +65,7 @@ class ModelWarmupManager:
         """Maintain keep-alive connection for a specific model."""
         try:
             log.debug(f"Sending keep-alive for model: {model_name}")
-            response, _ = router_call(self.warmup_prompt, model_name)
+            _response, _ = router_call(self.warmup_prompt, model_name)
             self.keepalive_connections[model_name] = datetime.now()
             return True
         except Exception as e:

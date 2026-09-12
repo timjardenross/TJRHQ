@@ -757,7 +757,7 @@ class ResearchOrchestrator:
             List of task descriptions (2-3 tasks typically)
         """
 
-        ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         decompose_prompt = f"""You are a research planning expert. Break down the following research topic into 2-3 specific, actionable research tasks (maximum 3 to avoid rate limiting).
 
 Research Topic: {research_topic}

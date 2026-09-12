@@ -82,7 +82,7 @@ def run_verification_pass() -> dict[str, Any]:
     record_heartbeat(
         "command_centre_backend",
         status="ok" if backend_ok else "failed",
-        detail=None if backend_ok else None,
+        detail=None,
         error_message=None if backend_ok else f"GET {_BACKEND_HEALTH_URL} did not return status=operational",
     )
     if not backend_ok:

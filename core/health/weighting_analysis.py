@@ -137,7 +137,7 @@ def run_analysis(days: int = 45) -> dict[str, Any]:
         }
 
     captain_nums = [_captain_num(e) for e in paired]
-    valid_captain = [v for v in captain_nums if v is not None]
+    [v for v in captain_nums if v is not None]
 
     correlations: dict[str, float | None] = {}
     for var, (extractor, current_weight) in _EXTRACTORS.items():

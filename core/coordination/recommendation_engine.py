@@ -34,13 +34,13 @@ sys.path.insert(0, str(_REPO_ROOT / "core" / "coordination"))
 from models import HealthContextPackage, Recommendation, RecommendationPackage
 
 try:
-    from intelligence_store import IntelligenceEvidence, get_intelligence_evidence
+    from intelligence_store import IntelligenceEvidence, get_intelligence_evidence  # noqa: F401 - availability probe, only ImportError matters
     _INTELLIGENCE_STORE_AVAILABLE = True
 except ImportError:
     _INTELLIGENCE_STORE_AVAILABLE = False
 
 try:
-    from number_one import (
+    from number_one import (  # noqa: F401 - availability probe, only ImportError matters
         TERMINAL_STATUSES,
         Mission,
         MissionStatus,

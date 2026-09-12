@@ -100,7 +100,7 @@ def test_send_apprise_missing_urls_env(monkeypatch):
 
 def test_send_apprise_invalid_url(monkeypatch):
     monkeypatch.setenv("APPRISE_URLS", "not-a-real-apprise-scheme://nope")
-    ok, error, message_id = ns._send_apprise("hi")
+    ok, error, _message_id = ns._send_apprise("hi")
     assert ok is False
     assert error is not None
 

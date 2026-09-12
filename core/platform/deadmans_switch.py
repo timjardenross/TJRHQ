@@ -160,7 +160,7 @@ def check() -> dict[str, Any]:
             last_alert_dt = datetime.fromisoformat(last_alert)
             cooldown_elapsed = (now - last_alert_dt).total_seconds() > (_COOLDOWN_MINUTES * 60)
         if cooldown_elapsed:
-            ok, err = _send_telegram(
+            ok, _err = _send_telegram(
                 "I can't verify anything right now. "
                 f"{reason}. Treat silence as unknown, not as calm."
             )

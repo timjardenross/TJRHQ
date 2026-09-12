@@ -589,7 +589,7 @@ class TestMistralProvider:
         p1, p2 = self._passthrough_guardrails()
         with patch.dict(os.environ, {"MISTRAL_API_KEY": "test-key"}):
             with patch("core.engineering.providers.mistral_batch.Mistral", return_value=mock_client), p1, p2:
-                text, model = mistral_batch.call("hello", model="mistral-large-2411")
+                _text, model = mistral_batch.call("hello", model="mistral-large-2411")
         assert model == "mistral-large-2411"
         call_kwargs = mock_client.chat.complete.call_args
         assert call_kwargs.kwargs["model"] == "mistral-large-2411"
@@ -619,7 +619,7 @@ class TestVMOllamaProvider:
         mock_resp.__exit__ = MagicMock(return_value=False)
         with patch("core.engineering.providers.vm_ollama.check_connectivity", return_value=(True, "ok")):
             with patch("urllib.request.urlopen", return_value=mock_resp):
-                text, model = vm_ollama.call("hello")
+                text, _model = vm_ollama.call("hello")
         assert text == "plan output"
 
     def test_default_model_used(self):
@@ -826,7 +826,7 @@ class TestModelRouterProvider:
         with patch("core.engineering.providers.model_router.check_connectivity",
                    return_value=(True, "ok")):
             with patch("urllib.request.urlopen", return_value=mock_resp):
-                text, model = model_router.call("hello")
+                text, _model = model_router.call("hello")
         assert text == "plan from router"
 
     def test_call_success_content_key(self):

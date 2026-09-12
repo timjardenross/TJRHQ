@@ -364,6 +364,4 @@ def _detect_recovery(history: list[dict]) -> bool:
     statuses = [s.get("readiness_status") for s in recent]
     if "Red" in statuses[:-1] and statuses[-1] == "Amber":
         return True
-    if "Amber" in statuses[:-1] and statuses[-1] == "Green":
-        return True
-    return False
+    return bool("Amber" in statuses[:-1] and statuses[-1] == "Green")

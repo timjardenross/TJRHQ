@@ -552,7 +552,7 @@ def _parse_overrides(path: Path) -> list[HierarchyEdge]:
     for cd_id, obj_id in (data.get("directive_objectives") or {}).items():
         _add(cd_id, obj_id, "expresses")
 
-    for source_id, target_id in (data.get("custom_edges") or {}).items():
+    for source_id in (data.get("custom_edges") or {}):
         parts = str(source_id).split("→", 1)
         if len(parts) == 2:
             _add(parts[0].strip(), parts[1].strip(), "references")

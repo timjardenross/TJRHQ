@@ -381,14 +381,14 @@ class TestAnalyseStatuses(unittest.TestCase):
 class TestBuildDeterministicFindings(unittest.TestCase):
 
     def _default_args(self):
-        return dict(
-            cpap={"finding": None},
-            sleep_quality={"finding": None},
-            intention={"finding": None},
-            baseline_comparison={"pain": "insufficient_data"},
-            pain_avg=None,
-            baseline_30d={"pain_avg": None, "n_days": 0},
-        )
+        return {
+            "cpap": {"finding": None},
+            "sleep_quality": {"finding": None},
+            "intention": {"finding": None},
+            "baseline_comparison": {"pain": "insufficient_data"},
+            "pain_avg": None,
+            "baseline_30d": {"pain_avg": None, "n_days": 0},
+        }
 
     def test_empty_findings_when_nothing_to_report(self):
         result = _build_deterministic_findings(**self._default_args())
@@ -477,27 +477,27 @@ class TestParseLlmNarrative(unittest.TestCase):
 
 class TestBuildCombinedNarrative(unittest.TestCase):
 
-    _BASE_ARGS = dict(
-        week_start="2026-06-07",
-        n=5,
-        auto_status="Amber",
-        pain_avg=5.0,
-        pain_trend="stable",
-        sleep_avg=7.5,
-        sleep_trend="improving",
-        energy_modal="Moderate",
-        mood_modal="Stable",
-        capacity_avg=65.0,
-        risk_flags=[],
-        positive_flags=[],
-        decisions=[],
-        baseline_30d={"pain_avg": None, "sleep_avg": None, "capacity_avg": None, "n_days": 5},
-        baseline_comparison={"pain": "insufficient_data", "sleep": "insufficient_data",
+    _BASE_ARGS = {
+        "week_start": "2026-06-07",
+        "n": 5,
+        "auto_status": "Amber",
+        "pain_avg": 5.0,
+        "pain_trend": "stable",
+        "sleep_avg": 7.5,
+        "sleep_trend": "improving",
+        "energy_modal": "Moderate",
+        "mood_modal": "Stable",
+        "capacity_avg": 65.0,
+        "risk_flags": [],
+        "positive_flags": [],
+        "decisions": [],
+        "baseline_30d": {"pain_avg": None, "sleep_avg": None, "capacity_avg": None, "n_days": 5},
+        "baseline_comparison": {"pain": "insufficient_data", "sleep": "insufficient_data",
                               "capacity": "insufficient_data"},
-        deterministic_findings=[],
-        wins=[],
-        llm_narrative=None,
-    )
+        "deterministic_findings": [],
+        "wins": [],
+        "llm_narrative": None,
+    }
 
     def test_contains_week_start(self):
         result = _build_combined_narrative(**self._BASE_ARGS)

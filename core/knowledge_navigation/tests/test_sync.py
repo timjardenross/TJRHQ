@@ -98,7 +98,7 @@ def test_parse_objectives(tmp_path, monkeypatch):
     p = tmp_path / "Objectives.md"
     p.write_text(obj_md)
 
-    nodes, edges = _parse_objectives(p)
+    nodes, _edges = _parse_objectives(p)
     assert len(nodes) == 1
     assert nodes[0].node_id == "OBJ-001"
     assert nodes[0].node_type == "objective"

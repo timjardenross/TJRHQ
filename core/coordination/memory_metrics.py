@@ -68,9 +68,7 @@ def log_memory_metric(
 def _match_event(event: dict[str, Any], *, action: str | None = None, outcome: str | None = None) -> bool:
     if action is not None and str(event.get("action") or "") != action:
         return False
-    if outcome is not None and str(event.get("outcome") or "") != outcome:
-        return False
-    return True
+    return not (outcome is not None and str(event.get("outcome") or "") != outcome)
 
 
 def _parse_event_time(event: dict[str, Any]) -> datetime | None:

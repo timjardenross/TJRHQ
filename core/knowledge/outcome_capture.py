@@ -164,11 +164,7 @@ def _sensitivity_guard(inp: OutcomeInput) -> tuple[str, list[str]]:
     Reuse-aligned with COMMS-001's internal-only suppression."""
     warnings: list[str] = []
     if inp.content_classification in _EXTERNAL_CLASSIFICATIONS:
-        hay = " ".join([
-            inp.title, inp.outcome_summary, inp.decision_or_action_taken,
-            inp.actual_result, inp.expected_result, inp.variance,
-            inp.lesson_learned, inp.reusable_insight,
-        ]).lower()
+        hay = f"{inp.title} {inp.outcome_summary} {inp.decision_or_action_taken} {inp.actual_result} {inp.expected_result} {inp.variance} {inp.lesson_learned} {inp.reusable_insight}".lower()
         if any(m in hay for m in _SENSITIVE_MARKERS):
             warnings.append(
                 f"content_classification '{inp.content_classification}' downgraded to "

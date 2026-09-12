@@ -109,7 +109,7 @@ class PriorityAnalyzer:
         total = len(matrix.critical) + len(matrix.strategic) + len(matrix.routine) + len(matrix.delegate)
 
         # Assess workload
-        critical_ratio = len(matrix.critical) / total if total > 0 else 0
+        len(matrix.critical) / total if total > 0 else 0
         if len(matrix.critical) > 10:
             workload = "overload"
         elif len(matrix.critical) > 5:
@@ -273,7 +273,7 @@ class PriorityAnalyzer:
         if self.context_manager:
             priorities = self.context_manager.get_priorities()
             commitment_lower = commitment.title.lower()
-            for priority_name in priorities.keys():
+            for priority_name in priorities:
                 if priority_name.lower() in commitment_lower:
                     base_score = min(1.0, base_score + 0.2)
 

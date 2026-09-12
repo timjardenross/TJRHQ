@@ -105,7 +105,7 @@ def _gaps_narrative(gaps: list[dict]) -> str:
 def trust_metrics() -> dict[str, Any]:
     """Measure whether the system knows what it knows and recognises uncertainty."""
     cal = _calibration.calibration_report()
-    met = _metrics.advisory_metrics()
+    _metrics.advisory_metrics()
     records = _outcomes.load_records()
 
     total = len(records)

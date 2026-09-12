@@ -118,7 +118,7 @@ def compute_decision_effectiveness(
     accepted = sum(1 for r in records if str(r.get("status", "")).lower() == "accepted")
     rejected = sum(1 for r in records if str(r.get("status", "")).lower() == "rejected")
     deferred = sum(1 for r in records if str(r.get("captain_outcome_review", "")).upper() == "DEFERRED")
-    pending  = total - accepted - rejected
+    total - accepted - rejected
 
     with_review = sum(1 for r in records if _has_meaningful_review(r))
     with_held   = sum(1 for r in records if _normalise_held(r.get("captain_decision_held")) is not None)
