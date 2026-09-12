@@ -40,14 +40,74 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 try:
     from deepeval.metrics import HallucinationMetric
+    from deepeval.models.base_model import DeepEvalBaseLLM
     from deepeval.test_case import LLMTestCase
     _DEEPEVAL_AVAILABLE = True
 except ImportError:
     _DEEPEVAL_AVAILABLE = False
+    DeepEvalBaseLLM = object  # type: ignore[assignment,misc]
     log.warning(
         "[quality-scoring] deepeval not available; "
         "score_output() will return None until it is installed"
     )
+
+
+if _DEEPEVAL_AVAILABLE:
+    class _ModelRouterJudge(DeepEvalBaseLLM):
+        """DeepEval judge model backed by this platform's own
+        core/model-router, instead of deepeval's OpenAI default. This
+        platform has no OPENAI_API_KEY set anywhere (confirmed —
+        HallucinationMetric() with no `model=` arg would silently fail
+        every call before this class existed, always returning None from
+        score_output() regardless of the actual response).
+
+        Uses the "escalate" task_type — already availability-guarded
+        (falls back from glm-5.3:cloud to local mistral-small3.2:24b if the
+        cloud model isn't pulled, see core/model-router/app.py) and picks a
+        reasoning-capable model, appropriate for a hallucination judge.
+        Plain-text generate() only (no schema kwarg) — DeepEvalBaseLLM's
+        own generate_with_schema() default already degrades to plain
+        generate() + JSON-extraction for models that don't accept a schema
+        kwarg, which is exactly what HallucinationMetric needs here.
+        """
+
+        def __init__(self, router_url: Optional[str] = None):
+            self._router_url = (router_url or os.environ.get("MODEL_ROUTER_URL", "http://127.0.0.1:8891")).rstrip("/")
+            super().__init__(model=None)
+
+        def load_model(self):
+            return self
+
+        def _call_router(self, prompt: str) -> str:
+            import json
+            import urllib.error
+            import urllib.request
+
+            body = json.dumps({"prompt": prompt}).encode("utf-8")
+            req = urllib.request.Request(
+                f"{self._router_url}/api/model/escalate",
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                data = json.loads(resp.read())
+            if not data.get("success"):
+                raise RuntimeError(f"model-router escalate call failed: {data}")
+            return data.get("response", "")
+
+        def generate(self, prompt: str) -> str:
+            return self._call_router(prompt)
+
+        async def a_generate(self, prompt: str) -> str:
+            # HallucinationMetric is invoked with async_mode=False in
+            # score_output() below, so this path isn't exercised today —
+            # implemented for interface completeness (DeepEvalBaseLLM is
+            # abstract on this method) using the same sync call.
+            return self._call_router(prompt)
+
+        def get_model_name(self) -> str:
+            return "starship-model-router/escalate"
 
 
 # ============================================================================
@@ -210,7 +270,7 @@ class QualityScoring:
                 actual_output=response,
                 context=grounding_context if grounding_context else None,
             )
-            metric = HallucinationMetric(threshold=0.5, async_mode=False)
+            metric = HallucinationMetric(threshold=0.5, async_mode=False, model=_ModelRouterJudge())
             metric.measure(test_case)
 
             # deepeval returns hallucination *rate* in [0.0, 1.0].
