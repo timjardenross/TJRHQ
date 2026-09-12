@@ -95,7 +95,7 @@ def _get_supabase():
             from supabase import create_client
             _supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
             log.info("Supabase client initialised")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - client init surface (import/network/auth) is unpredictable, already logged
             log.warning("Supabase client failed: %s", exc)
     return _supabase
 

@@ -967,10 +967,10 @@ async def write_midday_checkin(db, f: dict) -> tuple[bool, str | None]:
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat(TABLE, status="ok", detail="checkin_type=midday source=telegram")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort telemetry heartbeat, must never fail the primary DB write
             log.debug("heartbeat record failed (checkin_type=midday): %s", exc)
         return True, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_checkins midday write failed: %s | payload=%s", exc, payload)
         return False, str(exc)
 
@@ -1101,10 +1101,10 @@ async def write_quick_checkin(db, f: dict) -> tuple[bool, dict | None, str | Non
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat(TABLE, status="ok", detail="checkin_type=capacity source=telegram")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort telemetry heartbeat, must never fail the primary DB write
             log.debug("heartbeat record failed (checkin_type=capacity): %s", exc)
         return True, row, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_checkins write failed: %s | payload=%s", exc, payload)
         return False, None, str(exc)
 
@@ -1116,7 +1116,7 @@ async def fetch_checkin(db, row_id: str) -> dict | None:
         res = db.table(TABLE).select("*").eq("id", row_id).limit(1).execute()
         rows = res.data or []
         return rows[0] if rows else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_checkins fetch by id failed: %s", exc)
         return None
 
@@ -1170,10 +1170,10 @@ async def write_deep_checkin(db, row_id: str, f: dict) -> tuple[bool, str | None
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat(TABLE, status="ok", detail="checkin_type=deep source=telegram")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort telemetry heartbeat, must never fail the primary DB write
             log.debug("heartbeat record failed (checkin_type=deep): %s", exc)
         return True, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_checkins deep-check update failed: %s", exc)
         return False, str(exc)
 
@@ -1194,7 +1194,7 @@ async def write_deep_sensory_channel(db, row_id: str, channel_key: str, value: s
         current[channel_key] = value
         db.table(TABLE).update({"sensory_channels": current, "updated_at": _now_iso()}).eq("id", row_id).execute()
         return True, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_checkins sensory_channels write failed: %s", exc)
         return False, str(exc)
 
@@ -1219,10 +1219,10 @@ async def write_evening(db, f: dict) -> tuple[bool, str | None]:
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat(TABLE, status="ok", detail="checkin_type=evening source=telegram")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort telemetry heartbeat, must never fail the primary DB write
             log.debug("heartbeat record failed (checkin_type=evening): %s", exc)
         return True, None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_checkins evening write failed: %s", exc)
         return False, str(exc)
 
@@ -1276,7 +1276,7 @@ async def fetch_recent(db, days: int) -> list[dict]:
             .execute()
         )
         return res.data or []
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.error("capacity_checkins fetch_recent failed: %s", exc)
         return []
 

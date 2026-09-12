@@ -57,7 +57,7 @@ def _ensure_mistral_env() -> None:
             if line.startswith("MISTRAL_API_KEY") and "=" in line:
                 k, _, v = line.partition("=")
                 os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort .env bootstrap, must not crash bot startup
         logging.getLogger(__name__).debug("failed to load MISTRAL_API_KEY from .env: %s", exc)
 
 
@@ -93,7 +93,7 @@ sys.path.insert(0, str(_REPO_ROOT))
 try:
     from platform_runtime.lib.telemetry import configure_tracing
     configure_tracing("xo-bot")
-except Exception as exc:
+except Exception as exc:  # noqa: BLE001 - best-effort .env bootstrap, must not crash bot startup
     logging.getLogger(__name__).debug("telemetry configure_tracing failed: %s", exc)
 
 # ── Telegram ──────────────────────────────────────────────────────────────────
@@ -154,7 +154,7 @@ def _get_supabase():
         if scoped_supabase is not None:
             try:
                 scoped = scoped_supabase.build_scoped_client(SUPABASE_URL)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - scoped-client construction surface is unpredictable, already logged, falls back to service_role
                 log.warning("[supabase] scoped xo_bot client construction failed, falling back to service_role: %s", exc)
                 scoped = None
             if scoped is not None:
@@ -169,7 +169,7 @@ def _get_supabase():
                 _supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
                 log.info("Supabase client initialised — service_role (scoped xo_bot role not configured; "
                          "see xo-bot-scoped-role-implemented.md)")
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - client init surface (network/auth) is unpredictable, already logged
                 log.warning("Supabase client failed: %s", exc)
     return _supabase
 
@@ -230,7 +230,7 @@ def _get_open_missions(db) -> str:
             title = (r.get("title") or "")[:70]
             lines.append(f"{pri}{mid} ({st}): {title}")
         return "\n".join(lines)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
         log.warning("[missions] fetch failed: %s", exc)
         return ""
 
@@ -455,7 +455,7 @@ async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"capacity\\_checkins\\_today: {checkins} check\\-ins \\({_escape(str(label))}\\)",
             parse_mode="MarkdownV2",
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - diagnostic /db_status probe surface is unpredictable by design, reported back to the caller
         await update.message.reply_text(
             f"⚠️ *Supabase: connected but query failed*\n\n`{_escape(str(exc))}`",
             parse_mode="MarkdownV2",
@@ -494,10 +494,10 @@ async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             r = subprocess.run(
                 ["systemctl", "restart", svc],
                 capture_output=True, text=True, timeout=15,
-            )
+            check=False)
             icon = "✅" if r.returncode == 0 else f"⚠️ rc={r.returncode}"
             lines.append(f"{icon} {svc.replace('.service', '')}")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - systemctl subprocess call surface is unpredictable, reported back to the caller
             lines.append(f"❌ {svc.replace('.service', '')}: {_escape(str(exc))}")
 
     restart_xo = arg in ("telegram", "all")
@@ -572,7 +572,7 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         rows = latest.data or []
         have_todays_brief = bool(rows) and rows[0].get("morning_cycle_id") == todays_cycle_id
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged, falls back to regenerate-allowed
         log.warning("[brief] could not check today's cycle status: %s", exc)
 
     now_mono = time.monotonic()
@@ -588,7 +588,8 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         try:
             cycle_status = get_cycle_status()
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - get_cycle_status() best-effort probe, missing/unreadable status file falls back to None
+            log.debug("get_cycle_status probe failed: %s", exc)
             cycle_status = None
 
         if cycle_status is not None and not cycle_status.ready:
@@ -605,7 +606,7 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     "collection + LLM synthesis). Showing the latest available digest below now; "
                     "run /brief again once that's had time to land."
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - background task launch surface is unpredictable, already logged
                 log.warning("[brief] failed to launch on-demand regenerate: %s", exc)
                 await update.message.reply_text("⚠️ Couldn't start a regenerate — showing the last available digest instead.")
 
@@ -719,10 +720,10 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         try:
             from core.voice.tts_edge import send_voice_reply
             await send_voice_reply(context.bot, update.effective_chat.id, brief_voice_text)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort voice reply, must never fail since the text reply is already delivered
             log.debug("optional voice reply failed (text reply already delivered): %s", exc)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - brief-fetch call surface is unpredictable, already logged
         log.error("[brief] OR brief fetch failed: %s", exc)
         await update.message.reply_text(f"⚠️ Brief fetch failed: {str(exc)[:120]}")
 
@@ -784,7 +785,7 @@ async def cmd_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text("\n\n".join(lines), parse_mode="MarkdownV2")
         log.info("[signals] filter=%s rows=%d", filt, len(rows))
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query + formatting surface is unpredictable, already logged
         log.error("[signals] failed: %s", exc)
         await update.message.reply_text(
             f"⚠️ Signals query failed: `{_escape_strict(str(exc)[:80])}`",
@@ -814,7 +815,7 @@ def _get_number_one_brief() -> dict | None:
                 sys.path.insert(0, str(p))
         import context_service
         return context_service._http_number_one_brief()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - cross-module HTTP call surface is unpredictable, already logged, returns None on failure
         log.warning("[priorities] Could not fetch Number One's brief: %s", exc)
         return None
 
@@ -919,7 +920,7 @@ async def cmd_themes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.message.reply_text("\n".join(lines), parse_mode="MarkdownV2")
         log.info("[themes] brief_id=%s", brief_id)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query + formatting surface is unpredictable, already logged
         log.error("[themes] failed: %s", exc)
         await update.message.reply_text(
             f"⚠️ Themes query failed: `{_escape_strict(str(exc)[:80])}`",
@@ -995,7 +996,7 @@ async def cmd_source_status(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await update.message.reply_text("\n".join(lines), parse_mode="MarkdownV2")
         log.info("[source-status] total=%d ok=%d fail=%d", total, ok, fail)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query + formatting surface is unpredictable, already logged
         log.error("[source-status] failed: %s", exc)
         await update.message.reply_text(
             f"⚠️ Source status query failed: `{_escape_strict(str(exc)[:80])}`",
@@ -1014,7 +1015,7 @@ def _advisory_cli_call(cli_args: list[str], timeout: int) -> str:
     result = subprocess.run(
         [sys.executable, str(advisory_cli), *cli_args],
         capture_output=True, text=True, timeout=timeout, cwd=str(_REPO_ROOT),
-    )
+    check=False)
     return (result.stdout or result.stderr or "No response.").strip()
 
 
@@ -1035,7 +1036,7 @@ async def _run_advisory(update: Update, title: str, cli_args: list[str],
     except subprocess.TimeoutExpired:
         await update.message.reply_text(f"⚠️ Advisory timed out ({timeout}s).")
         return
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - advisory CLI subprocess surface is unpredictable, already logged
         log.error("[advisory] %s failed: %s", title, exc)
         await update.message.reply_text(f"⚠️ Advisory failed: {str(exc)[:120]}")
         return
@@ -1120,7 +1121,7 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                             reply = await _ft_snooze_weekday(db, task_id, intent["weekday"])
                         else:
                             reply = None
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 - follow-through action dispatch surface is unpredictable, already logged
                         log.error("[follow-through-nl] update %s failed: %s", action, exc)
                         await update.message.reply_text("Something went wrong — try again.")
                         return
@@ -1161,7 +1162,7 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     f"I'll bring it back when it needs attention\\.",
                     parse_mode="MarkdownV2",
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - Supabase insert surface is unpredictable, already logged
                 log.error("[follow-through-nl] capture insert failed: %s", exc)
                 await update.message.reply_text("⚠️ Couldn't save that — try again.")
             return
@@ -1185,7 +1186,7 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                         await send_voice_reply(
                             context.bot, update.effective_chat.id, debrief_result["reply"]
                         )
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001 - best-effort voice reply, must never fail since the text reply is already delivered
                         log.debug("optional voice reply failed (text reply already delivered): %s", exc)
                     return
 
@@ -1361,7 +1362,7 @@ async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     try:
         tg_file = await msg.voice.get_file()
         await tg_file.download_to_drive(audio_path)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Telegram file-download surface is unpredictable, already logged
         log.error("[voice] download failed: %s", exc)
         await thinking.edit_text(f"⚠️ Could not download voice file: {exc}")
         return
@@ -1371,7 +1372,7 @@ async def cmd_voice_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # captured_items (debrief takes priority over quick-capture).
     try:
         t = vc.transcribe_audio(audio_path)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - transcription subprocess surface is unpredictable, already logged
         log.error("[voice] transcription error: %s", exc)
         await thinking.edit_text(f"⚠️ Capture failed: {exc}")
         return
@@ -1520,7 +1521,7 @@ async def handle_voice_capture_callback(update: Update, context: ContextTypes.DE
                 parse_mode="MarkdownV2",
             )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - voice-capture callback action dispatch surface is unpredictable, already logged
         log.error("[voice-cb] %s failed: %s", action, exc)
         await query.edit_message_text(f"⚠️ Action failed: {_escape(str(exc))}", parse_mode="MarkdownV2")
 
@@ -1590,7 +1591,7 @@ async def handle_voice_debrief_decision_callback(update: Update, context: Contex
             await query.edit_message_text(result["reply"])
             return
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - voice-debrief callback action dispatch surface is unpredictable, already logged
         log.error("[voice-debrief-cb] %s failed: %s", action, exc)
         await query.edit_message_text(f"⚠️ Action failed: {exc}")
 
@@ -1671,7 +1672,7 @@ def _ft_call_decompose(title: str) -> str | None:
             body = json.loads(resp.read())
         action = (body.get("action") or "").strip()
         return action or None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - cross-module HTTP call surface is unpredictable, already logged, returns None on failure
         log.warning("[follow-through] decompose call failed: %s", exc)
         return None
 
@@ -1829,7 +1830,7 @@ async def handle_task_followthrough_callback(update: Update, context: ContextTyp
                 await query.edit_message_text(await _ft_block(db, task_id, code))
         elif action == "drop":
             await query.edit_message_text(await _ft_drop(db, task_id))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - follow-through callback action dispatch surface is unpredictable, already logged
         log.error("[follow-through-cb] %s failed: %s", action, exc)
         await query.edit_message_text("Something went wrong — try again.")
 
@@ -1874,14 +1875,14 @@ async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         try:
             from core.platform.heartbeat import record_heartbeat
             record_heartbeat("captured_items", status="ok", detail="voice_type=text_note")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort telemetry heartbeat, must never fail the primary capture write
             log.debug("captured_items heartbeat record failed: %s", exc)
         await update.message.reply_text(
             f"✅ <b>Note captured</b>\n<i>{_escape(content[:200])}</i>",
             parse_mode="HTML",
         )
         log.info("[note] captured %d chars", len(content))
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase insert surface is unpredictable, already logged
         log.error("[note] failed: %s", exc)
         await update.message.reply_text(f"⚠️ Capture failed: {str(exc)[:120]}")
 
@@ -1928,7 +1929,7 @@ def _revs_generate_call(brief_path: str, formats: str | None, timeout: int) -> t
         args += ["--formats", formats]
     result = subprocess.run(
         args, capture_output=True, text=True, timeout=timeout, cwd=str(_REVS_ROOT),
-    )
+    check=False)
     return result.returncode, ((result.stdout or "") + (result.stderr or "")).strip()
 
 
@@ -1942,7 +1943,7 @@ async def _run_revs_generate(reply_fn, brief_path: str, formats: str | None) -> 
     except subprocess.TimeoutExpired:
         await reply_fn("⚠️ REVS generation timed out (10min).")
         return
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - REVS content-generation subprocess surface is unpredictable, already logged
         log.error("[revs] generate failed: %s", exc)
         await reply_fn(f"⚠️ REVS generation failed: {str(exc)[:200]}")
         return
@@ -1970,7 +1971,8 @@ async def _run_revs_generate(reply_fn, brief_path: str, formats: str | None) -> 
             reply.append(f"{icon} {o['format']} ({o['duration_seconds']}s){detail}")
         reply.append(f"\n📁 {version_dir}")
         await reply_fn("\n".join(reply))
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - reply formatting is best-effort; falls back to a simpler success message rather than losing the confirmation
+        log.debug("[revs] rich result reply formatting failed: %s", exc)
         await reply_fn(f"✅ {concept_id} v{version} — {ok}/{total} format(s)\n📁 {version_dir}")
 
 
@@ -2047,7 +2049,7 @@ async def handle_mission_approval_callback(update: Update, context: ContextTypes
             from core.platform.event_bus import mark_event_status
             if event_id:
                 mark_event_status(event_id, "acknowledged")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort event-status mark, must never fail the ack callback
             log.debug("mark_event_status(acknowledged) failed: %s", exc)
     elif action == "dismiss":
         await query.edit_message_text("🔕 Dismissed.")
@@ -2055,7 +2057,7 @@ async def handle_mission_approval_callback(update: Update, context: ContextTypes
             from core.platform.event_bus import mark_event_status
             if event_id:
                 mark_event_status(event_id, "dismissed")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort event-status mark, must never fail the dismiss callback
             log.debug("mark_event_status(dismissed) failed: %s", exc)
 
 

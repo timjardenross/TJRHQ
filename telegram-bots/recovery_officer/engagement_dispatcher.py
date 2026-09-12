@@ -47,7 +47,8 @@ def _brisbane_today() -> str:
     try:
         from zoneinfo import ZoneInfo
         return datetime.now(ZoneInfo("Australia/Brisbane")).date().isoformat()
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - zoneinfo lookup failure is an environment quirk; falls back to aware UTC rather than crashing a reminder-dispatch job
+        log.debug("Brisbane zoneinfo lookup failed, falling back to UTC date: %s", exc)
         return datetime.now(timezone.utc).date().isoformat()
 from pathlib import Path
 from typing import Any
@@ -69,7 +70,7 @@ def _get_supabase_client():
     except ImportError:
         log.error("[recovery-dispatcher] supabase-py not installed. Run: pip install supabase")
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - client init surface (network/auth) is unpredictable, already logged
         log.error("[recovery-dispatcher] Supabase client error: %s", exc)
         return None
 
@@ -175,7 +176,7 @@ def get_recovery_status(supabase_client: Any | None = None) -> RecoveryStatus:
                 latest_readiness=None,
                 last_pulse_at=row.get("last_checkin_at"),
             )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged, falls back to safe defaults
         log.error("[recovery-dispatcher] get_recovery_status failed: %s", exc)
     return _STATUS_DEFAULTS
 
@@ -310,7 +311,8 @@ def _brisbane_now() -> datetime:
     try:
         from zoneinfo import ZoneInfo
         return datetime.now(ZoneInfo("Australia/Brisbane"))
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - zoneinfo lookup failure is an environment quirk; falls back to aware UTC rather than crashing a reminder-dispatch job
+        log.debug("Brisbane zoneinfo lookup failed, falling back to UTC now(): %s", exc)
         return datetime.now(timezone.utc)
 
 
@@ -328,7 +330,8 @@ def _current_pulse_window(hour: int) -> str:
             sys.path.insert(0, str(repo_root))
         from telegram_bots.xo.pulse_time import pulse_type_for_hour
         return pulse_type_for_hour(hour)
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - import/lookup failure of the shared pulse-window helper is an environment quirk; falls back to an inline equivalent
+        log.debug("pulse_type_for_hour import/lookup failed, using inline fallback: %s", exc)
         if 5 <= hour < 12:
             return "morning"
         if 12 <= hour < 20:
@@ -360,7 +363,7 @@ def _reminder_already_sent(client, window_date: str, pulse_window: str, action: 
             .execute()
         )
         return bool(result.data)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged, deliberately fails closed
         log.error("[recovery-dispatcher] dedup check failed, failing closed (no send): %s", exc)
         return True
 
@@ -383,7 +386,7 @@ def _record_reminder_sent(
             "action": action,
             "confidence_at_send": confidence,
         }).execute()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - Supabase write surface is unpredictable, already logged, non-critical marker write
         log.warning("[recovery-dispatcher] failed to persist reminder dedup marker: %s", exc)
 
 
@@ -541,7 +544,7 @@ def _emit_and_return(result: dict) -> dict:
             linked_entities=[f"recovery_pulse_completion:{pulse_completion}"] if pulse_completion is not None else [],
             recommended_action=result.get("action"),
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort telemetry publish, must never fail the primary escalation flow
         log.debug("wellness.escalation.dispatched publish_event failed: %s", exc)
 
     # Chief Engineer 2026-08-09 EOD alert verification: the domain_registry
@@ -559,7 +562,7 @@ def _emit_and_return(result: dict) -> dict:
             sys.path.insert(0, str(repo_root))
         from core.platform.heartbeat import record_heartbeat
         record_heartbeat("wellness-coaching", status="ok", detail=f"action={result.get('action')}")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - best-effort telemetry heartbeat, must never fail the primary escalation flow
         log.debug("wellness-coaching heartbeat record failed: %s", exc)
     return result
 
@@ -568,7 +571,7 @@ def _send(bot: Any, chat_id: str | int, text: str) -> None:
     try:
         bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
         log.info("[recovery-dispatcher] Sent message to chat_id=%s", chat_id)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - external Telegram API call surface is unpredictable, already logged
         log.error("[recovery-dispatcher] send_message failed: %s", exc)
 
 

@@ -65,7 +65,7 @@ def _call_router(prompt: str, system_prompt: str | None = None) -> str | None:
             log.debug("[llm] router tier-1 ok")
             return content
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - network/timeout/JSON-decode surface from external router call is unpredictable, already logged
         log.warning("[llm] router unavailable: %s", exc)
         return None
 
@@ -100,7 +100,7 @@ def _call_cloud(prompt: str, system_prompt: str | None = None) -> str | None:
             log.warning("[llm] degraded to cloud tier-2 (router unavailable)")
             return content
         return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - network/timeout/JSON-decode surface from external API call is unpredictable, already logged
         log.warning("[llm] cloud fallback failed: %s", exc)
         return None
 
