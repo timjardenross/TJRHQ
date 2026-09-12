@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from datetime import datetime
 import logging
 
+import pytest
+
 logging.basicConfig(
     level=logging.INFO,
     format="[%(levelname)s] %(name)s: %(message)s"
@@ -478,6 +480,96 @@ class TestQualityScoringIntegration:
         assert len(qualities) >= 1, f"Expected route quality data, got {len(qualities)}"
         log.info(f"  ✓ Retrieved quality for {len(qualities)} routes")
         log.info("✅ PASSED: Route quality analysis works")
+
+
+class TestScoreOutputDeepEval:
+    """Tests for QualityScoring.score_output() — the deepeval/HallucinationMetric
+    path (GAP 1). No network calls: HallucinationMetric itself is mocked, so
+    these verify score_output()'s own logic (test-case construction, the
+    judge-model wiring, score inversion, error handling) without depending on
+    deepeval's internal prompt format or hitting core/model-router for real."""
+
+    def setup_method(self):
+        sys.path.insert(0, str(Path(__file__).parent.parent / "platform-runtime"))
+        import lib.quality_scoring_service as qss
+        self.qss = qss
+        self.QualityScoring = qss.QualityScoring
+
+    def test_score_output_inverts_hallucination_rate(self):
+        """0.2 hallucination rate -> 0.8 quality score."""
+        mock_metric = MagicMock()
+        mock_metric.score = 0.2
+        with patch.object(self.qss, "HallucinationMetric", return_value=mock_metric) as mock_cls:
+            scoring = self.QualityScoring()
+            result = scoring.score_output(
+                prompt="What is the capital of France?",
+                response="Paris.",
+                context=["Paris is the capital of France."],
+            )
+        assert result == 0.8
+        mock_metric.measure.assert_called_once()
+
+    def test_score_output_wires_model_router_judge_not_default(self):
+        """Regression: HallucinationMetric() with no model= arg defaults to
+        deepeval's OpenAI judge, which silently fails on this platform
+        (no OPENAI_API_KEY set anywhere) — every score_output() call would
+        return None regardless of the actual response. Confirms the fix:
+        a _ModelRouterJudge instance is always passed explicitly."""
+        mock_metric = MagicMock()
+        mock_metric.score = 0.0
+        with patch.object(self.qss, "HallucinationMetric", return_value=mock_metric) as mock_cls:
+            self.QualityScoring().score_output(prompt="p", response="r")
+        _, kwargs = mock_cls.call_args
+        assert "model" in kwargs, "HallucinationMetric must be given an explicit judge model"
+        assert isinstance(kwargs["model"], self.qss._ModelRouterJudge)
+
+    def test_score_output_returns_none_on_metric_failure(self):
+        """A judge-model call failure (timeout, router down, bad JSON from the
+        judge, etc.) must degrade to None, never raise into the caller."""
+        with patch.object(self.qss, "HallucinationMetric", side_effect=RuntimeError("router unreachable")):
+            result = self.QualityScoring().score_output(prompt="p", response="r")
+        assert result is None
+
+    def test_score_output_returns_none_when_deepeval_unavailable(self):
+        with patch.object(self.qss, "_DEEPEVAL_AVAILABLE", False):
+            result = self.QualityScoring().score_output(prompt="p", response="r")
+        assert result is None
+
+
+class TestModelRouterJudge:
+    """Tests for _ModelRouterJudge, the DeepEvalBaseLLM judge-model wrapper
+    around core/model-router's /api/model/escalate endpoint."""
+
+    def setup_method(self):
+        sys.path.insert(0, str(Path(__file__).parent.parent / "platform-runtime"))
+        import lib.quality_scoring_service as qss
+        self.qss = qss
+
+    def test_get_model_name(self):
+        judge = self.qss._ModelRouterJudge()
+        assert judge.get_model_name() == "starship-model-router/escalate"
+
+    def test_generate_calls_escalate_endpoint(self):
+        fake_response = MagicMock()
+        fake_response.read.return_value = b'{"success": true, "response": "Paris."}'
+        fake_response.__enter__ = lambda s: s
+        fake_response.__exit__ = MagicMock(return_value=False)
+        judge = self.qss._ModelRouterJudge(router_url="http://127.0.0.1:8891")
+        with patch("urllib.request.urlopen", return_value=fake_response) as mock_urlopen:
+            result = judge.generate("What is the capital of France?")
+        assert result == "Paris."
+        request = mock_urlopen.call_args[0][0]
+        assert request.full_url == "http://127.0.0.1:8891/api/model/escalate"
+
+    def test_generate_raises_on_router_error_response(self):
+        fake_response = MagicMock()
+        fake_response.read.return_value = b'{"success": false, "error": "model unavailable"}'
+        fake_response.__enter__ = lambda s: s
+        fake_response.__exit__ = MagicMock(return_value=False)
+        judge = self.qss._ModelRouterJudge()
+        with patch("urllib.request.urlopen", return_value=fake_response):
+            with pytest.raises(RuntimeError):
+                judge.generate("prompt")
 
 
 # ============================================================================

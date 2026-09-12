@@ -8,6 +8,8 @@ that downstream learning-loop consumers can query and understand.
 from __future__ import annotations
 
 import logging
+import os
+import threading
 from datetime import datetime
 from uuid import uuid4
 from typing import Any
@@ -17,6 +19,35 @@ from lib.feedback_loops_service import FeedbackLoops
 from lib.quality_scoring_service import QualityScoring
 
 log = logging.getLogger(__name__)
+
+# GAP 1 follow-up (2026-09-12): QualityScoring.score_output() (deepeval's
+# HallucinationMetric, now judge-model-backed via core/model-router — see
+# quality_scoring_service.py's _ModelRouterJudge) had zero callers anywhere
+# in the platform. This wires the first one, deliberately shadow-mode only
+# (compute + log, never persisted, never gates anything) — same convention
+# as intelligence/scheduler.py's enrich_and_save(..., shadow_mode=True).
+# Default OFF: a real LLM judge call can take up to ~300s (escalate's own
+# timeout), which is not acceptable inline latency for every mission build
+# event by default — this is for a monitored opt-in observation window, run
+# in a background thread so it can never slow down or block the actual
+# decision/outcome write path above it.
+_SHADOW_SCORE_OUTPUT_ENABLED = os.environ.get("QUALITY_SCORE_OUTPUT_SHADOW_ENABLED", "0").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _shadow_score_output(mission_title: str, event_type: str, memory_text: str, notes: str | None) -> None:
+    """Fire-and-log: compute a deepeval hallucination-based quality score for
+    the synthesized outcome narrative against whatever grounding text
+    (mission title, notes) is available, and log it. Never raises into the
+    caller, never persisted — see module docstring above."""
+    try:
+        shadow_score = QualityScoring().score_output(
+            prompt=f"Mission: {mission_title}\nEvent: {event_type}",
+            response=memory_text,
+            context=[notes] if notes else None,
+        )
+        log.info("[build-learning-loop] shadow score_output (observational, not persisted): %s", shadow_score)
+    except Exception as exc:
+        log.warning("[build-learning-loop] shadow score_output failed (non-blocking): %s", exc)
 
 
 def generate_build_decision_id() -> str:
@@ -244,6 +275,13 @@ def record_build_lifecycle_event(
                         )
                     except Exception as exc:
                         log.warning("[build-learning-loop] scoring/feedback skipped: %s", exc)
+
+                    if _SHADOW_SCORE_OUTPUT_ENABLED:
+                        threading.Thread(
+                            target=_shadow_score_output,
+                            args=(mission_title, event_type, memory_text, notes),
+                            daemon=True,
+                        ).start()
             else:
                 log.warning("[build-learning-loop] decision_outcomes write failed: %s", outcome_result.error)
     except Exception as exc:

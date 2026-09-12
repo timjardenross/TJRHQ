@@ -50,3 +50,7 @@ opentelemetry-sdk
 opentelemetry-exporter-otlp-proto-http
 openinference-instrumentation-openai
 openinference-instrumentation-mistralai
+# 2026-08-23: platform-runtime/lib/quality_scoring_service.py's score_output()
+# (HallucinationMetric-backed LLM-output quality scoring, GAP 1). Installed
+# and importable since e27d1ead, never declared here.
+deepeval>=4.1.10

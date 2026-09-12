@@ -27,8 +27,8 @@
       "github_query": "RAG evaluation framework retrieval metrics",
       "gap_hypothesis": "Retrieval quality across findings/briefs/advisory is judged qualitatively, with no systematic evaluation harness.",
       "validation_question": "Does a retrieval-evaluation harness exist anywhere under core/ or tests/ yet?",
-      "why_relevant": "Findings/briefs/advisory all depend on retrieval quality but HQ has no systematic retrieval eval; a lightweight OSS eval harness could catch regressions before they reach the Captain.",
-      "validation": {"check_type": "presence_resolves", "pattern": "retrieval_eval|RetrievalEval|eval_harness", "paths": ["core", "tests"]}
+      "why_relevant": "deepeval's HallucinationMetric now provides a real evaluation harness for LLM-output quality (platform-runtime/lib/quality_scoring_service.py's score_output(), judge-model-backed via core/model-router since 2026-09-12), wired as a shadow-mode-only caller in build_learning_loop.py to prove it end-to-end. Narrows this gap; does not close it — score_output() only checks hallucination/faithfulness against supplied context, not retrieval quality itself (what gets fetched in the first place), and has exactly one caller so far, in shadow mode. No separate RAGAS/open-rag-eval integration needed for now.",
+      "validation": {"check_type": "presence_resolves", "pattern": "score_output|HallucinationMetric", "paths": ["platform-runtime/lib"]}
     },
     {
       "id": "duplicate-synthesis",
