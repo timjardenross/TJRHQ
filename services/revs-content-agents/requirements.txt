@@ -27,7 +27,7 @@ Weasyprint==69.0
 PyPDF2==3.0.1
 
 # Image & Graphics
-Pillow==10.0.0
+Pillow==12.3.0
 numpy==2.4.6
 
 # Presentations
