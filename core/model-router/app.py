@@ -53,6 +53,26 @@ logging.basicConfig(
 )
 log = logging.getLogger("model-router")
 
+# LLM application security baseline (USS-TJR-MSN-0366 Stream 5): every
+# cloud-API dispatch in this file (the Gemini branch in _run_task) goes
+# through core.security.llm_guardrails first — Presidio PII/PHI redaction
+# (OWASP LLM02) and a NeMo Guardrails input rail (OWASP LLM01 prompt
+# injection) before the prompt leaves this process, plus an output rail on
+# the response. That module is stdlib-only, same constraint as this file
+# ("No external dependencies — stdlib only." above) — the actual Presidio/
+# NeMo Guardrails packages live in an isolated venv
+# (platform-runtime/.venv-llmsec) and are invoked via subprocess, never
+# imported in-process here. This import is therefore NOT optional/best-
+# effort like the OTel tracing import below: an unavailable guardrails venv
+# fails the cloud dispatch closed (see llm_guardrails.py's _FAIL_OPEN) rather
+# than silently sending an unredacted, unchecked prompt to Google/Mistral.
+# See docs/decisions/ADR-llm-application-security-baseline.md for the full
+# picture, including the routes this layer does NOT cover (glm-*:cloud via
+# Ollama — same _ollama_generate() code path as fully-local calls, not
+# interceptable at this layer without also touching every local call).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from core.security.llm_guardrails import check_output_rail, secure_outbound_prompt  # noqa: E402
+
 # Optional OTel tracing — stdlib-only fallback when platform-runtime venv is
 # not available (model-router runs under system Python with no external deps).
 try:
@@ -547,10 +567,18 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
     t0 = time.time()
     try:
         if policy.get("provider") == "gemini":
-            raw = _gemini_generate(model, prompt, timeout, policy.get("api_key_env", "GEMINI_API_KEY"))
+            # Guardrails gate (see the module-level comment above): raises
+            # BlockedByGuardrailsError/GuardrailsUnavailableError, both
+            # RuntimeError subclasses caught by this function's own
+            # `except Exception` below, on a blocked prompt or an
+            # unreachable guardrails venv — either way, nothing reaches
+            # Gemini until the prompt has been checked and redacted.
+            safe_prompt, _redaction = secure_outbound_prompt(prompt)
+            raw = _gemini_generate(model, safe_prompt, timeout, policy.get("api_key_env", "GEMINI_API_KEY"))
             candidates = raw.get("candidates", [])
             parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
             response_text = "".join(p.get("text", "") for p in parts).strip()
+            check_output_rail(response_text)
             embeddings = None
             usage = raw.get("usageMetadata", {})
             token_info = {

@@ -40,6 +40,42 @@ jobs:
       - run: npm run lint
       - run: npm run test
 
+  deadcode:
+    # USS-TJR-MSN-0366 Stream 8. lcars-portal had zero dead-code tooling
+    # before this (confirmed by reading package.json — lint/typecheck/test
+    # only). knip is the current standard for this on Next.js/TypeScript
+    # frontends: unlike a plain unused-export linter it does real whole-file
+    # reachability analysis from Next's own App Router entry points
+    # (page.tsx/layout.tsx/route.ts/etc, via knip's built-in Next.js
+    # plugin), so it catches an entire orphaned cluster of mutually-
+    # referencing files, not just symbols nothing calls — see
+    # reports/knip/README.md for a confirmed example (the paused
+    # knowledge-workbench "Library" branch). Advisory only
+    # (continue-on-error: true) — a finding never blocks merge; real
+    # findings from the first run are triaged in reports/knip/.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lcars-portal
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+          cache: "npm"
+          cache-dependency-path: lcars-portal/package-lock.json
+
+      - run: npm ci
+      # Job-level continue-on-error only protects the overall workflow RUN,
+      # not this job's own check-run conclusion — confirmed on PR #180's
+      # first real CI run, where the python-ci.yml `vulture` job (same
+      # job-level-only mistake) showed red despite the flag. Step-level is
+      # what actually makes a real finding show green-with-a-log here.
+      - name: Run knip
+        continue-on-error: true
+        run: npm run deadcode
+
   notification-sender-gate:
     # Council verdict 2026-08-29 ("make duplication impossible, not just
     # detectable"): blocks a new hand-rolled Telegram sendMessage call from

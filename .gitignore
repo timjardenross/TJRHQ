@@ -15,6 +15,10 @@
 venv/
 */.venv/
 */venv/
+# Isolated per-tool venvs (garak, ragas, ...) — created locally per each tool's own
+# requirements-*.txt (core/quality/requirements-garak.txt, requirements-ragas.txt),
+# never committed, same reasoning as .venv/ above.
+*/.venv-*/
 
 # Python
 __pycache__/
@@ -78,6 +82,29 @@ data/memory_graph.db*
 core/voice/chatterbox-venv/
 core/voice/cache/
 
+# Same gap, same fix: every dedicated `platform-runtime/.venv-<tool>`
+# isolation venv (core/quality/garak_gate.py's convention for a heavy or
+# conflicting-dependency pip install that shouldn't pollute the shared
+# platform-runtime/.venv) has a literal name the venv/ patterns above don't
+# match. .venv-garak was found untracked-but-not-ignored here too
+# (USS-TJR-MSN-0366 Stream 3, 2026-09-12) — same shape of gap, fixed the
+# same way rather than leaving the next one to repeat it.
+platform-runtime/.venv-*/
+
+# Kokoro TTS (core/voice/tts_kokoro.py, USS-TJR-MSN-0366 Stream 7) — same
+# gap, ignored up front this time. kokoro-venv/ is the isolated venv
+# (ONNX Runtime, no torch/CUDA); kokoro-models/ holds the ~340MB model
+# weights downloaded from GitHub Releases (see tts_kokoro.py's header
+# comment for why not huggingface.co) — binary, regenerable, not source.
+core/voice/kokoro-venv/
+core/voice/kokoro-models/
+
+# Presidio + NeMo Guardrails (core/security/, USS-TJR-MSN-0366 Stream 5) —
+# isolated venv, same "different literal name doesn't match venv/ patterns
+# above" gap the chatterbox-venv/ entry documents. Ignored explicitly up
+# front this time rather than found untracked-but-not-ignored later.
+platform-runtime/.venv-llmsec/
+
 # data/self-improvement/review/: the self-improvement engine's live review
 # state — mutated continuously between cycles as findings get reviewed
 # (decisions.jsonl, opportunities.jsonl) or a cycle runs (.evolution_cycle.lock).
@@ -111,3 +138,16 @@ CLAUDE.md
 # Local git worktrees created by parallel Claude Code subagents — ephemeral
 # per-session checkouts, not repo content.
 .claude/worktrees/
+
+# USS-TJR-MSN-0366 Stream 6 — watchlist execution engine (changedetection.io
+# + Uptime Kuma, see deploy/docker-compose.watchlist.yml). Bind-mounted
+# container data dirs: SQLite DBs, a per-container generated API
+# key/JWT secret, and a locally-copied TLS CA bundle — all machine-local
+# runtime state, never repo content, and never something to commit
+# (the API key/JWT secret are real, if low-stakes, credentials).
+deploy/watchlist-data/
+
+# webhook_queue.py's on-disk bridge between changedetection_webhook.py/
+# uptime_kuma_webhook.py and their adapters — transient runtime state
+# (drained every collection cycle), not repo content.
+intelligence/watchlist/_queue/*.jsonl

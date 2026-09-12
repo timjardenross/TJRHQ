@@ -1,0 +1,45 @@
+# TJR Model Router — NeMo Guardrails config (USS-TJR-MSN-0366 Stream 5)
+#
+# Covers OWASP LLM01 (Prompt Injection, input rail) and LLM02-adjacent
+# unsafe-output leakage (output rail) for every cloud-egress dispatch point
+# in core/model-router/app.py and the mistralai cloud client modules listed
+# in docs/decisions/ADR-llm-application-security-baseline.md.
+#
+# Checking model: this platform's OWN local Ollama model (gemma3:4b — the
+# router's fast classifier/XO-chat model, MODEL_MID in app.py), reached via
+# Ollama's OpenAI-compatible /v1 endpoint (native support since Ollama
+# 0.1.26+). No new model is installed or hosted for this — per the mission
+# brief's "no new model to host" constraint. NeMo Guardrails 0.24.0 has a
+# built-in "ollama" engine (nemoguardrails/llm/frameworks/default.py) that
+# talks to this endpoint directly; no langchain dependency required.
+#
+# base_url below is the default OLLAMA_BASE_URL (http://localhost:11434).
+# core/security/llm_guardrails.py rewrites parameters.base_url from the real
+# OLLAMA_BASE_URL env var at load time, so a non-default Ollama host still
+# works without editing this file.
+models:
+  - type: main
+    engine: ollama
+    model: gemma3:4b
+    parameters:
+      base_url: http://localhost:11434/v1
+      # Ollama's OpenAI-compat endpoint doesn't check this, but the
+      # underlying OpenAI-compatible client requires a non-empty string.
+      api_key: "ollama-local-no-key-required"
+
+rails:
+  input:
+    flows:
+      - self check input
+  output:
+    flows:
+      - self check output
+
+# Colang 1.0, deliberately — not 2.x. 2.x's runtime asserts a "main" flow
+# exists (it models a full stateful conversation loop); this config only
+# ever runs the input/output rails in isolation via GenerationOptions(rails=
+# {"input": [...]}) (see llm_guardrails.py), with no conversational "main"
+# flow to speak of. Colang 1.0's event/rule runtime doesn't have that
+# requirement — the right fit for a rails-only guard in front of a plain
+# prompt/completion call, not a chatbot.
+colang_version: "1.0"
