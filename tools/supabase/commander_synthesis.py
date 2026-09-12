@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import urllib.error
 import urllib.request
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 from challenge_review import ChallengeReview
 from specialist_executor import SpecialistOutput
@@ -322,7 +325,8 @@ def synthesize_commander(
         if not response.strip():
             return deterministic, {"provider": "deterministic", "model": "template"}
         return response, {"provider": "ollama", "model": model}
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort ollama attempt with an explicit deterministic-template fallback right here
+        log.debug("[commander-synthesis] ollama synthesis failed, using deterministic template: %s", exc)
         return deterministic, {"provider": "deterministic", "model": "template"}
 
 
@@ -337,7 +341,8 @@ def _build_hierarchy_block(question: str) -> str:
         from core.coordination.hierarchy_memory_adapter import HierarchyMemoryAdapter
         ctx = HierarchyMemoryAdapter().build_hierarchy_note(text=question)
         return ctx.context_block if ctx.found else ""
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 - best-effort hierarchy-note lookup; caller treats "" as "no context available"
+        log.debug("[commander-synthesis] hierarchy note lookup failed: %s", exc)
         return ""
 
 

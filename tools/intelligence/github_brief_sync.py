@@ -63,7 +63,7 @@ def _resolve_source(dry_run: bool) -> SourceRecord:
             for s in store.load_source_registry():
                 if s.source_type == "github_markdown":
                     return s
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - best-effort source-registry lookup, already logged; falls back to the synthesized placeholder right below
             log.warning("Could not load source registry (%s) — using placeholder", exc)
     return SourceRecord(
         source_id=_PLACEHOLDER_SOURCE_ID,
@@ -95,7 +95,7 @@ def _record_health(store, source, *, status: str, items: int,
             latency_ms=latency_ms,
             error_message=error,
         ))
-    except Exception as exc:  # pragma: no cover - defensive
+    except Exception as exc:  # pragma: no cover - defensive  # noqa: BLE001 - explicitly marked defensive above (pragma: no cover) — best-effort health logging, already logged
         log.warning("Could not record source health: %s", exc)
 
 

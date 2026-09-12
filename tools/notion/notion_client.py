@@ -169,7 +169,7 @@ def sync_records(database_name: str, database_id: str, records: list[dict[str, A
             else:
                 client.create_page(database_id, properties)
                 summary.created += 1
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - per-record sync inside a batch loop — one bad record must not abort the sync; already printed + counted in summary.errors
             summary.errors += 1
             print(f"ERROR {database_name} {source_id}: {error}")
 
@@ -179,7 +179,7 @@ def sync_records(database_name: str, database_id: str, records: list[dict[str, A
         try:
             client.update_page(page["id"], {"Status": select("Archived")})
             summary.archived += 1
-        except Exception as error:
+        except Exception as error:  # noqa: BLE001 - per-record archive inside a batch loop — one bad record must not abort the sync; already printed + counted in summary.errors
             summary.errors += 1
             print(f"ERROR archive {database_name} {source_id}: {error}")
     write_log(summary)

@@ -53,7 +53,7 @@ class MintHandler(BaseHTTPRequestHandler):
                     import json as _json
                     _json.loads(counter_file.read_text(encoding="utf-8"))
                     counter_ok = True
-                except Exception:
+                except Exception:  # noqa: BLE001 - health-check probe — the boolean result is surfaced via the 200/503 HTTP status returned right below, not silently dropped
                     counter_ok = False
             else:
                 counter_ok = True
@@ -100,7 +100,7 @@ class MintHandler(BaseHTTPRequestHandler):
                 "status": "allocated",
                 "allocated_at": datetime.now(timezone.utc).isoformat(),
             })
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - HTTP handler top-level boundary — the exception detail is returned to the caller in the 500 JSON response, not silently dropped
             self._send_json(500, {"error": "internal_error", "message": "Failed to allocate ID. Please retry.", "detail": str(exc)})
 
 

@@ -48,7 +48,8 @@ def load_state() -> dict[str, str]:
     if STATE_FILE.exists():
         try:
             return json.loads(STATE_FILE.read_text(encoding="utf-8"))
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - corrupt/unreadable state file; caller treats {} as "no prior state, everything looks new" (safe, just re-ingests)
+            print(f"⚠️  Could not load watchdog state ({exc}); treating all files as new", file=sys.stderr)
             return {}
     return {}
 
@@ -127,7 +128,7 @@ def ingest_files(paths: list[Path], dry_run: bool) -> bool:
     try:
         ingest(rel_paths, dry_run=False)
         return True
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - top-level ingestion boundary, already printed; caller treats False as "this scan cycle failed, retry next cycle"
         print(f"❌  Ingestion failed: {exc}")
         return False
 

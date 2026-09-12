@@ -154,7 +154,7 @@ def sync_records(records: list[dict[str, Any]]) -> tuple[int, int, int]:
                 created += 1
             else:
                 updated += 1
-        except Exception as primary_error:
+        except Exception as primary_error:  # noqa: BLE001 - primary upsert attempt inside a batch loop — the error is inspected right below to decide a retry-without-optional-fields path, not silently dropped
             # Check whether the error looks like a missing-property validation error.
             # If the record has dual commander data, retry without those fields so the
             # core log still syncs.
@@ -172,7 +172,7 @@ def sync_records(records: list[dict[str, Any]]) -> tuple[int, int, int]:
                         created += 1
                     else:
                         updated += 1
-                except Exception as fallback_error:
+                except Exception as fallback_error:  # noqa: BLE001 - fallback upsert attempt inside a batch loop — one bad record must not abort the sync; already printed + counted in errors
                     errors += 1
                     print(f"  ERROR collaboration {collaboration_id} (base fallback): {fallback_error}")
             else:

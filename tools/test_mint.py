@@ -189,7 +189,7 @@ def test_http_server() -> None:
                 with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=3) as r:  # nosec B310 - url is a fixed localhost test-server literal, not user input - reviewed 2026-09-12
                     body = json.loads(r.read())
                 check("/health status ok", body.get("status") == "ok", str(body))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - test-fixture HTTP probe — a connection failure is a real test result, reported via check(), not swallowed
                 check("/health reachable", False, str(exc))
 
             # POST /mint
@@ -205,7 +205,7 @@ def test_http_server() -> None:
                     body = json.loads(r.read())
                 check("POST /mint status allocated", body.get("status") == "allocated", str(body))
                 check("POST /mint canonical ID", "USS-TJR-MSN-" in body.get("mission_id", ""), str(body))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - test-fixture HTTP probe — a connection failure is a real test result, reported via check(), not swallowed
                 check("POST /mint reachable", False, str(exc))
         finally:
             proc.send_signal(signal.SIGINT)
