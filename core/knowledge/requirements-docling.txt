@@ -18,8 +18,20 @@
 # To avoid the CUDA-torch download (recommended on a CPU-only host — this
 # pipeline never uses a GPU): install the CPU-only torch wheel first, then
 # docling will see the requirement already satisfied and won't pull the
-# CUDA build:
-#   platform-runtime/.venv-docling/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
+# CUDA build. Install torchvision from that SAME CPU index in the same
+# command, not left to a later `pip install docling` to pull in on its
+# own — confirmed live 2026-09-12 (USS-TJR-MSN-0368 Docling activation):
+# letting docling's own resolution pull torchvision separately grabbed a
+# CUDA-expecting build even though torch itself was already the CPU-only
+# wheel, and the mismatch didn't fail at install time — it failed later,
+# at first real use, as `transformers.AutoImageProcessor` raising
+# `ModuleNotFoundError` with the underlying cause
+# `RuntimeError: operator torchvision::nms does not exist`. That took down
+# docling's real PDF layout/table model (StandardPdfPipeline), silently
+# degrading every PDF to the NativePdfPipeline text-only fallback (0
+# tables extracted) instead of erroring loudly. Fix confirmed live: force
+# torchvision onto the matching CPU build alongside torch, one command:
+#   platform-runtime/.venv-docling/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 #   platform-runtime/.venv-docling/bin/pip install -r core/knowledge/requirements-docling.txt
 #
 # core/knowledge/docling_processor.py and tools/supabase/docling_ingest.py
