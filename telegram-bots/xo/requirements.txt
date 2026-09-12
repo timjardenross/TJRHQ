@@ -1,6 +1,6 @@
 python-telegram-bot==20.7
 apscheduler==3.11.3
-supabase==2.3.4
+supabase==2.31.0
 gotrue==2.12.4
 python-dotenv==1.2.3
 # httpx<0.26 required: python-telegram-bot 20.7 passes `proxies` kwarg removed in httpx 0.26+
