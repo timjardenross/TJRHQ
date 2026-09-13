@@ -1,29 +1,7 @@
 'use client';
 
-import { Badge } from '@/components/ui';
+import { Badge, KpiCard } from '@/components/ui';
 import { CAPACITY_STATE_LABEL, capacityStateStatus, systemPostureStatus, type Kpis } from './types';
-
-function KpiCard({
-  label,
-  value,
-  sub,
-  badge,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  badge?: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-lg border border-wb-line bg-wb-surface p-4">
-      <div className="text-[11px] uppercase tracking-[0.12em] text-wb-ink2">{label}</div>
-      <div className="mt-1.5 flex items-center gap-2">
-        {badge ?? <span className="font-serif text-[20px] leading-none text-wb-ink">{value}</span>}
-      </div>
-      {sub && <div className="mt-1 text-[12px] text-wb-ink2">{sub}</div>}
-    </div>
-  );
-}
 
 /** Cross-domain KPI strip — always visible above every section so recovery,
  *  readiness, and medical concerns are all legible at a glance (design

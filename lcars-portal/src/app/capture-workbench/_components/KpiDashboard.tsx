@@ -5,7 +5,7 @@
 // Reuses fetchCaptureAnalytics() and SOURCE_BADGE from lib/capture unchanged;
 // clicking a stat/chip jumps to the Inbox domain pre-filtered.
 
-import { Card } from '@/components/ui';
+import { Card, KpiStat } from '@/components/ui';
 import { SOURCE_BADGE, type CaptureAnalytics } from '@/lib/capture';
 import type { InboxFilter } from './types';
 
@@ -26,21 +26,6 @@ const CLASS_TO_FILTER: Record<string, InboxFilter> = {
   decision: 'decision',
   unclassified: 'unclassified',
 };
-
-function Stat({ label, value, onClick, tone = 'ink' }: { label: string; value: number; onClick?: () => void; tone?: 'ink' | 'ok' | 'warn' }) {
-  const valueTone = tone === 'warn' ? 'text-wb-warn-on' : tone === 'ok' ? 'text-wb-ok-on' : 'text-wb-ink';
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!onClick}
-      className={`flex flex-col items-start rounded-md px-1 text-left ${onClick ? 'transition hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep' : 'cursor-default'}`}
-    >
-      <span className={`font-serif text-2xl ${valueTone}`}>{value}</span>
-      <span className="text-[10px] uppercase tracking-[0.14em] text-wb-ink2">{label}{onClick ? ' ↓' : ''}</span>
-    </button>
-  );
-}
 
 export function KpiDashboard({
   stats,
@@ -80,9 +65,9 @@ export function KpiDashboard({
     <Card className="mb-6">
       <p className="mb-3 text-[11px] uppercase tracking-[0.14em] text-wb-ink2">Capture · last 7 days</p>
       <div className="grid grid-cols-3 gap-3">
-        <Stat label="Today" value={stats.today} />
-        <Stat label="This week" value={stats.this_week} />
-        <Stat label="Pending" value={stats.pending} tone={stats.pending > 0 ? 'warn' : 'ok'} onClick={() => onFilter('all')} />
+        <KpiStat label="Today" value={stats.today} />
+        <KpiStat label="This week" value={stats.this_week} />
+        <KpiStat label="Pending ↓" value={stats.pending} tone={stats.pending > 0 ? 'warn' : 'ok'} onClick={() => onFilter('all')} />
       </div>
 
       {topSources.length > 0 && (

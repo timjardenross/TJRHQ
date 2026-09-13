@@ -5,39 +5,9 @@
 // / Human Systems Workbenches. Confidence gets a meter; warnings / priorities /
 // next-actions are stat tiles. A tile click jumps to the relevant view/section.
 
-import { Card } from '@/components/ui';
+import { Card, KpiStat } from '@/components/ui';
 import { ConfidenceMeter } from './cards';
 import type { CaptainBriefDocument } from './types';
-
-function Stat({
-  value,
-  label,
-  onClick,
-  emphasise,
-}: {
-  value: number;
-  label: string;
-  onClick?: () => void;
-  emphasise?: boolean;
-}) {
-  const body = (
-    <>
-      <div className={`font-serif text-2xl ${emphasise && value > 0 ? 'text-wb-crit-on' : 'text-wb-ink'}`}>
-        {value}
-      </div>
-      <div className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">{label}</div>
-    </>
-  );
-  if (!onClick) return <div className="text-left">{body}</div>;
-  return (
-    <button
-      onClick={onClick}
-      className="rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
-    >
-      {body}
-    </button>
-  );
-}
 
 function formatGeneratedAt(iso: string): string {
   const d = new Date(iso);
@@ -64,9 +34,14 @@ export function KpiDashboard({
           <ConfidenceMeter score={doc.confidence} label="Document confidence" />
         </div>
         <div className="grid flex-1 grid-cols-3 gap-4">
-          <Stat value={doc.warnings.length} label="Warnings" emphasise onClick={onJump && (() => onJump('warnings'))} />
-          <Stat value={doc.priorities.length} label="Priorities" onClick={onJump && (() => onJump('priorities'))} />
-          <Stat value={doc.next_actions.length} label="Next actions" onClick={onJump && (() => onJump('next_actions'))} />
+          <KpiStat
+            value={doc.warnings.length}
+            label="Warnings"
+            tone={doc.warnings.length > 0 ? 'crit' : 'ink'}
+            onClick={onJump && (() => onJump('warnings'))}
+          />
+          <KpiStat value={doc.priorities.length} label="Priorities" onClick={onJump && (() => onJump('priorities'))} />
+          <KpiStat value={doc.next_actions.length} label="Next actions" onClick={onJump && (() => onJump('next_actions'))} />
         </div>
       </div>
       <p className="mt-3 border-t border-wb-line pt-2 text-[11px] text-wb-ink2">

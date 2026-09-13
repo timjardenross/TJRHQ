@@ -21,6 +21,9 @@ export type { TabItem, TabsProps, BackLinkProps } from './Navigation';
 
 export { RiskPill, riskClass } from './RiskPill';
 
+export { KpiStat, KpiCard } from './KpiStat';
+export type { KpiStatProps, KpiStatTone, KpiCardProps } from './KpiStat';
+
 export { WorkbenchShell } from './WorkbenchShell';
 
 export { Sidebar } from './Sidebar';
