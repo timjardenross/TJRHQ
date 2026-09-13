@@ -105,3 +105,14 @@ gunicorn>=23.0.0
 # all already satisfied or unpinned), zero overlap/conflict with the
 # anthropic/google-genai/openai versions this file already pins.
 apprise>=1.13.1
+# tools/health-osint/health_signal_synthesis.py — cross-source semantic
+# clustering of published health_signals (catches the same finding covered
+# by different outlets with different wording; health_signal_curation.py's
+# own _dedup_key() only catches same-source re-publication). Small,
+# embedding-based (Model2Vec, not a large model) — its default encoder
+# downloads from Hugging Face Hub on first use; verified importable and
+# API-correct via direct source inspection, but the actual embedding
+# download could not be exercised in the authoring sandbox (proxy returns
+# 403 for huggingface.co) — confirm HF Hub is reachable from wherever this
+# runs before the first scheduled pass.
+semhash>=0.4.1
