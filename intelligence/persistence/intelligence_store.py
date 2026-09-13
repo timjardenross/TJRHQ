@@ -795,8 +795,17 @@ def load_latest_source_health() -> list[dict]:
 
 # ─── Events ───────────────────────────────────────────────────────────────────
 
+# USS-TJR-MSN-0378 (2026-09-13): these three only ever check `len(rows) > 0`,
+# but without a `select=` param PostgREST defaults to `select=*` — every call
+# was pulling back all ~80 intelligence_events columns (~1KB/row) just to test
+# existence. pg_stat_statements showed ~320K cumulative calls across these two
+# hash/URL checks alone, confirmed as one of the two dominant egress sources
+# behind the free-tier quota (the other is recompute_signal_scores.py's
+# discarded PATCH...RETURNING * calls, fixed separately). `select=event_id`
+# keeps the exact same existence-check behavior while returning a single
+# small column instead of the full row.
 def event_hash_exists(dedup_hash: str) -> bool:
-    rows = _get(f"intelligence_events?dedup_hash=eq.{dedup_hash}&limit=1")
+    rows = _get(f"intelligence_events?dedup_hash=eq.{dedup_hash}&select=event_id&limit=1")
     return len(rows) > 0
 
 
@@ -804,7 +813,7 @@ def event_canonical_url_exists(canonical_url: str) -> bool:
     """Check if any persisted event already has this canonical URL (cross-run dedup)."""
     import urllib.parse
     encoded = urllib.parse.quote(canonical_url, safe="")
-    rows = _get(f"intelligence_events?canonical_url=eq.{encoded}&limit=1")
+    rows = _get(f"intelligence_events?canonical_url=eq.{encoded}&select=event_id&limit=1")
     return len(rows) > 0
 
 
@@ -817,6 +826,7 @@ def event_title_date_exists(normalised_title: str, date_str: str) -> bool:
         f"?raw_title=ilike.{enc_title}"
         f"&published_at=gte.{date_str}T00:00:00"
         f"&published_at=lt.{date_str}T23:59:59"
+        f"&select=event_id"
         f"&limit=1"
     )
     return len(rows) > 0
