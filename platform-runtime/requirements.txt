@@ -38,6 +38,13 @@ google-generativeai>=0.8.6
 # Supabase client: research-metrics persistence + Command Memory / working memory.
 supabase>=2.0.0
 apscheduler>=3.10.0
+# USS-TJR-MSN-0375: Postgres-native durable-queue pilot for
+# human_systems_scheduler.py's --daemon mode (SKIP LOCKED dedup + a real
+# job ledger against the existing Supabase Postgres instance — no new
+# infra). Does not replace apscheduler above, which intelligence/scheduler.py
+# and revs/scheduler.py still use (out of scope for this pilot).
+pgqueuer>=1.3.2
+asyncpg>=0.29.0
 # intelligence/ RSS + scrape adapters (feedparser: ~25 RSS sources; beautifulsoup4:
 # ~15 scrape sources incl. APRA/ASIC/ACSC) — never declared here, so every
 # RSS/scrape source in intelligence_source_registry failed collection with

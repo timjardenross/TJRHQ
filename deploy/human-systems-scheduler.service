@@ -1,0 +1,39 @@
+[Unit]
+# USS-TJR-MSN-0375: formal supervision for platform-runtime/human_systems_
+# scheduler.py --daemon. Stream 0 of this mission searched the whole repo
+# (deploy/*.service, deploy/*.timer, /etc/crontab, USS-TJR-Control/tmux
+# configs) and found ZERO reference to this scheduler anywhere — unlike
+# intelligence-scheduler.service (deployed 2026-07-03, MSN-0207C), this
+# daemon has never had a supervision unit. Its 7 jobs (morning/midday/eod/
+# evening/weekly/degradation/comms_weekly) were previously invoked, if at
+# all, by some undocumented mechanism this repo search could not find, or
+# not running in production at all. This unit closes that gap and is the
+# first thing that has ever supervised this daemon.
+#
+# Pilot scope (MSN-0375): --daemon now runs on pgqueuer (Postgres-native
+# SKIP LOCKED queue against the existing Supabase Postgres instance, not
+# APScheduler) — see human_systems_scheduler.py's _start_daemon_async().
+# Requires SUPABASE_DB_URL (a direct Postgres connection string from the
+# Supabase project's Database settings — NOT the supabase-py REST client
+# credentials already in this env) to be present wherever run-with-
+# infisical.sh sources secrets from; add it there before enabling this unit.
+#
+# Type=simple, matching intelligence-scheduler.service's pattern: this is a
+# long-running daemon (pgqueuer's PgQueuer.run(), an asyncio event loop —
+# it never exits under normal operation), not a discrete job.
+Description=USS TJR Human Systems Scheduler — proactive pushes (pgqueuer pilot, MSN-0375)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/starship-endeavour
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/.venv/bin/python /opt/starship-endeavour/platform-runtime/human_systems_scheduler.py --daemon
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=human-systems-scheduler
+
+[Install]
+WantedBy=multi-user.target
