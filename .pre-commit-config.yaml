@@ -61,6 +61,30 @@ repos:
         language: system
         files: ^deploy/.*\.service$
 
+      # pip-audit: dependency CVE scan (USS-TJR-MSN-0374 Stream 2). This repo
+      # had no pip-audit gate at all before this hook. Local (not a hosted
+      # `repo:` hook like bandit/ruff-check above) because pip-audit itself
+      # has no "report but don't fail" flag -- a real finding always exits
+      # non-zero, and a real, uncounted pre-existing CVE backlog across this
+      # repo's ~15 requirements*.txt files is not this mission's job to
+      # triage/fix (see the mission's knowledge record). tools/
+      # run_pip_audit_advisory.py is the wrapper that makes it report-only:
+      # it runs pip-audit for real against every changed requirements*.txt
+      # and always exits 0, printing findings to stderr instead of blocking
+      # the commit -- the same non-blocking landing pattern bandit/ruff-check
+      # used before their own backlogs were triaged to zero (see those
+      # hooks' comments above). `language: python` + `additional_dependencies`
+      # gives pre-commit its own isolated env for pip-audit, matching how the
+      # hosted hooks above get isolated envs, rather than requiring a system
+      # install.
+      - id: pip-audit
+        name: pip-audit (dependency CVE scan — advisory/report-only)
+        entry: python3 tools/run_pip_audit_advisory.py
+        language: python
+        additional_dependencies: ["pip-audit==2.10.1"]
+        files: 'requirements.*\.txt$'
+        pass_filenames: true
+
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
     hooks:
