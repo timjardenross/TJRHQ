@@ -43,7 +43,16 @@ def _headers() -> dict:
     }
 
 
-def _post(table: str, payload: dict, on_conflict: str | None = None) -> dict | None:
+# USS-TJR-MSN-0378: `returning` defaults to "representation" (the original,
+# unconditional behavior — every existing caller that reads the result, e.g.
+# result.get("event_id")/("document_id")/("brief_id"), or repository.py's
+# `_s._post(...) or row` pattern needing server-generated fields, still gets
+# the full row back exactly as before). Pass returning="minimal" only from a
+# call site that discards the result outright — confirmed via live edge_logs
+# (2026-09-13) for save_source_health (3,497 calls/24h), a smaller real
+# saving than the three Stream 2 fixes but the same confirmed-waste pattern.
+def _post(table: str, payload: dict, on_conflict: str | None = None,
+          returning: str = "representation") -> dict | None:
     if not SUPABASE_URL or not SUPABASE_KEY:
         log.warning("Supabase not configured — skipping persist for %s", table)
         return None
@@ -52,14 +61,20 @@ def _post(table: str, payload: dict, on_conflict: str | None = None) -> dict | N
     if on_conflict:
         url += f"?on_conflict={on_conflict}"
     headers = _headers()
-    prefer = "return=representation,resolution=merge-duplicates"
+    prefer = f"return={returning},resolution=merge-duplicates"
     headers["Prefer"] = prefer
 
     body = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
-            result = json.loads(resp.read())
+            # return=minimal gets a 204 with an empty body -- nothing to
+            # parse, and empty bytes would otherwise raise inside json.loads
+            # and get misreported below as a failed insert.
+            raw = resp.read()
+            if not raw:
+                return None
+            result = json.loads(raw)
             return result[0] if isinstance(result, list) else result
     except urllib.error.HTTPError as exc:
         # 2026-08-09: str(exc) alone ("HTTP Error 400: Bad Request") gave no
@@ -760,6 +775,9 @@ def get_source_reliability_scores() -> list[dict]:
 # ─── Source Health ────────────────────────────────────────────────────────────
 
 def save_source_health(health: SourceHealth) -> None:
+    # returning="minimal": return value is never read below (this function
+    # is -> None); confirmed live at 3,497 calls/24h previously pulling back
+    # a full representation for nothing.
     _post("intelligence_source_health", {
         "source_id": health.source_id,
         "checked_at": health.checked_at.isoformat(),
@@ -770,7 +788,7 @@ def save_source_health(health: SourceHealth) -> None:
         "http_status": health.http_status,
         "content_valid": health.content_valid,
         "content_validity_reason": health.content_validity_reason,
-    })
+    }, returning="minimal")
     if health.status == "failed":
         _publish_core_event(
             "intelligence.source.failed",
@@ -795,8 +813,17 @@ def load_latest_source_health() -> list[dict]:
 
 # ─── Events ───────────────────────────────────────────────────────────────────
 
+# USS-TJR-MSN-0378 (2026-09-13): these three only ever check `len(rows) > 0`,
+# but without a `select=` param PostgREST defaults to `select=*` — every call
+# was pulling back all ~80 intelligence_events columns (~1KB/row) just to test
+# existence. pg_stat_statements showed ~320K cumulative calls across these two
+# hash/URL checks alone, confirmed as one of the two dominant egress sources
+# behind the free-tier quota (the other is recompute_signal_scores.py's
+# discarded PATCH...RETURNING * calls, fixed separately). `select=event_id`
+# keeps the exact same existence-check behavior while returning a single
+# small column instead of the full row.
 def event_hash_exists(dedup_hash: str) -> bool:
-    rows = _get(f"intelligence_events?dedup_hash=eq.{dedup_hash}&limit=1")
+    rows = _get(f"intelligence_events?dedup_hash=eq.{dedup_hash}&select=event_id&limit=1")
     return len(rows) > 0
 
 
@@ -804,7 +831,7 @@ def event_canonical_url_exists(canonical_url: str) -> bool:
     """Check if any persisted event already has this canonical URL (cross-run dedup)."""
     import urllib.parse
     encoded = urllib.parse.quote(canonical_url, safe="")
-    rows = _get(f"intelligence_events?canonical_url=eq.{encoded}&limit=1")
+    rows = _get(f"intelligence_events?canonical_url=eq.{encoded}&select=event_id&limit=1")
     return len(rows) > 0
 
 
@@ -817,6 +844,7 @@ def event_title_date_exists(normalised_title: str, date_str: str) -> bool:
         f"?raw_title=ilike.{enc_title}"
         f"&published_at=gte.{date_str}T00:00:00"
         f"&published_at=lt.{date_str}T23:59:59"
+        f"&select=event_id"
         f"&limit=1"
     )
     return len(rows) > 0
@@ -1326,12 +1354,14 @@ def save_downdetector_observation(
     Best-effort: _post() already logs and returns None on any failure
     rather than raising, so a Supabase hiccup here can never break the
     calling collect()."""
+    # returning="minimal": result is discarded either way per this function's
+    # own docstring above ("_post() already logs ... on any failure").
     _post("downdetector_baseline_history", {
         "source_name": source_name,
         "sector": sector,
         "status": status,
         "report_count": report_count,
-    })
+    }, returning="minimal")
 
 
 def load_downdetector_history(source_name: str, since_iso: str) -> list[dict]:
@@ -1368,6 +1398,7 @@ def save_downdetector_threshold(
     migration 0121's table comment. Called once per source per nightly
     recompute run."""
     from datetime import datetime, timezone
+    # returning="minimal": result is discarded (function returns -> None).
     _post(
         "downdetector_learned_thresholds",
         {
@@ -1381,6 +1412,7 @@ def save_downdetector_threshold(
             "computed_at": datetime.now(timezone.utc).isoformat(),
         },
         on_conflict="source_name",
+        returning="minimal",
     )
 
 

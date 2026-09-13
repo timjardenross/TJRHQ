@@ -169,6 +169,21 @@ class ProcessingWorker:
         if not received_root.exists():
             return {"new": 0, "skipped": 0, "root_missing": True}
 
+        # USS-TJR-MSN-0378: this used to issue one GET per file in
+        # received/ (existing = self.db.get_one(f"...source_path=eq...")),
+        # every scan() call, forever — already-tracked files are never
+        # moved out of received/, so the cost grew with the *cumulative*
+        # file count, not just new arrivals. Confirmed live (Supabase
+        # edge_logs, 2026-09-13): 113,012 GET /rest/v1/processing_documents
+        # calls in 24h alone, the single highest-volume route on the
+        # project and a real, confirmed top egress/request contributor
+        # against the Free Plan quota. One batched fetch of every known
+        # source_path replaces N per-scan round trips with 1.
+        existing_paths = {
+            row["source_path"]
+            for row in self.db.get("processing_documents?select=source_path&limit=10000")
+        }
+
         new_count = skipped_count = 0
         for path in sorted(received_root.rglob("*")):
             if not path.is_file():
@@ -179,10 +194,7 @@ class ProcessingWorker:
             # canonical location, not a staging symlink's own path.
             source_path = str(path.resolve())
 
-            existing = self.db.get_one(
-                f"processing_documents?source_path=eq.{_quote(source_path)}&select=id"
-            )
-            if existing:
+            if source_path in existing_paths:
                 skipped_count += 1
                 continue
 
