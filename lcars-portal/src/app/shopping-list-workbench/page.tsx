@@ -19,6 +19,7 @@ import {
   STATUSES,
   type ShoppingListItem,
   type NewShoppingListItemInput,
+  type ShoppingListResult,
 } from '@/lib/shoppingList';
 import { ItemFormModal } from './_components/ItemFormModal';
 import { ItemRow } from './_components/ItemRow';
@@ -64,15 +65,15 @@ export default function ShoppingListWorkbench() {
 
   const subtotals = useMemo(() => subtotalsByCurrency(filtered), [filtered]);
 
-  async function handleSave(input: NewShoppingListItemInput) {
-    if (editing) {
-      await updateShoppingListItem(editing.id, input);
-    } else {
-      await createShoppingListItem(input);
-    }
+  async function handleSave(input: NewShoppingListItemInput): Promise<ShoppingListResult> {
+    const result = editing
+      ? await updateShoppingListItem(editing.id, input)
+      : await createShoppingListItem(input);
+    if (!result.ok) return result;
     setModalOpen(false);
     setEditing(null);
     await load();
+    return result;
   }
 
   async function handleDelete(id: string) {
