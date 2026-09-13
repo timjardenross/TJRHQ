@@ -25,6 +25,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import * as Collapsible from '@radix-ui/react-collapsible';
 import { Badge, Card, WorkbenchShell } from '@/components/ui';
 import type { BadgeStatus } from '@/components/ui';
 
@@ -104,17 +105,18 @@ function ArtifactViewer({ path }: { path: string }) {
   }
 
   return (
-    <div>
-      <button
-        type="button"
-        onClick={toggle}
-        className="inline-flex items-center gap-1.5 rounded-md border border-wb-line px-3 py-1.5
-          text-[12px] font-semibold text-wb-ink2 transition-colors hover:bg-wb-line/20
-          focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-line"
-      >
-        {open ? 'Hide artifact ↑' : 'View artifact →'}
-      </button>
-      {open && (
+    <Collapsible.Root open={open} onOpenChange={toggle}>
+      <Collapsible.Trigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 rounded-md border border-wb-line px-3 py-1.5
+            text-[12px] font-semibold text-wb-ink2 transition-colors hover:bg-wb-line/20
+            focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-line"
+        >
+          {open ? 'Hide artifact ↑' : 'View artifact →'}
+        </button>
+      </Collapsible.Trigger>
+      <Collapsible.Content>
         <div className="mt-2 rounded-md border border-wb-line bg-wb-surface-raised p-3">
           {isLoading ? (
             <p className="text-[12px] italic text-wb-ink2">Loading artifact…</p>
@@ -135,8 +137,8 @@ function ArtifactViewer({ path }: { path: string }) {
             </>
           )}
         </div>
-      )}
-    </div>
+      </Collapsible.Content>
+    </Collapsible.Root>
   );
 }
 
