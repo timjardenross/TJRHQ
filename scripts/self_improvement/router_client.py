@@ -135,6 +135,69 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
 """
         return prompt
 
+    def assess_external_candidate(self, candidate: dict[str, Any], readme_excerpt: str | None,
+                                   gap_hypothesis: str | None = None) -> dict[str, Any]:
+        """
+        external_discovery.py's discover() sets every candidate's `fit` and
+        `evidence_strength` to hardcoded constants ("moderate"/"moderate")
+        — "public metadata only at discovery stage" is honest about why,
+        but it means relevance.py's RelevanceGate.score_candidate() (which
+        reads exactly those two fields, weighted 0.35 and 0.30 of the
+        total score) is, for every external candidate, really only scoring
+        GitHub stars and license/archived status — never whether the repo
+        actually addresses the watchlist topic's gap_hypothesis. This asks
+        the model to read the README against that specific hypothesis and
+        propose real fit/evidence_strength values instead of the
+        constants — same non-negotiable boundary as investigate_opportunity
+        above: relevance.py's deterministic score_candidate()/evaluate()
+        remain the only code that decides pass/fail. This method only
+        proposes better INPUT to that same unchanged formula.
+
+        Bounded by design: called for a small number of top-ranked
+        candidates per cycle (see external_enrichment.py), not every
+        external discovery hit — a README fetch + model call per candidate
+        is far more expensive than the metadata-only search that produced
+        the candidate in the first place.
+
+        Expected route: /api/model/hq-evolution-external-fit
+        Returns: dict with fit/evidence_strength/confidence/rationale, or
+        {} (via _parse_json_object's own empty-dict-on-failure contract)
+        if the model's response wasn't valid JSON.
+        """
+        prompt = self._build_external_fit_prompt(candidate, readme_excerpt, gap_hypothesis)
+        result = self._call_router("hq-evolution-external-fit", prompt)
+        if result.get("success"):
+            result["assessment"] = self._parse_json_object(result.get("response", ""))
+        return result
+
+    def _build_external_fit_prompt(self, candidate: dict[str, Any], readme_excerpt: str | None,
+                                    gap_hypothesis: str | None) -> str:
+        prompt = """TASK: Judge whether this GitHub repository's ACTUAL content (not just its name or popularity) plausibly closes the specific gap described below, for TJR HQ.
+
+CRITICAL: Base your judgment only on the README excerpt provided. If the excerpt doesn't give you enough to judge, say so honestly via low confidence rather than guessing. Do NOT invent features, benchmarks, or claims the README doesn't make. Output ONLY valid JSON, no markdown, no explanation outside the JSON.
+
+REPOSITORY: """
+        prompt += candidate.get("title", "unknown/unknown")
+        prompt += f"\nDESCRIPTION (from GitHub metadata): {candidate.get('summary', '(none)')}\n"
+        if gap_hypothesis:
+            prompt += f"\nGAP HYPOTHESIS THIS WAS SEARCHED FOR: {gap_hypothesis}\n"
+        if candidate.get("why_relevant"):
+            prompt += f"\nWHY THIS TOPIC MATTERS TO HQ: {candidate['why_relevant']}\n"
+        prompt += "\nREADME EXCERPT:\n"
+        prompt += readme_excerpt if readme_excerpt else "(no README could be fetched — judge on the description above only, and reflect that limitation in your confidence)"
+
+        prompt += """
+
+OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
+{
+  "fit": "weak|moderate|strong",
+  "evidence_strength": "weak|moderate|strong|conclusive",
+  "confidence": 0.6,
+  "rationale": "<one or two sentences, grounded in the README excerpt above>"
+}
+"""
+        return prompt
+
     def evaluate_outcome(self, evidence_bundle: dict[str, Any], context: str | None = None) -> dict[str, Any]:
         """
         HQ Evolution V2 (sections 10, 15): ask the model to interpret

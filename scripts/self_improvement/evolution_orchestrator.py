@@ -30,6 +30,7 @@ from typing import IO, Any
 
 import evolution_memory
 import external_discovery
+import external_enrichment
 import internal_discovery
 import outcome_evaluation
 import staleness_check
@@ -573,6 +574,23 @@ class EvolutionOrchestrator:
             active_topics = self._resolve_watchlist(run_id, dry_run)
             if active_topics:
                 external_candidates = external_discovery.discover(active_topics, self.evolution_config)
+                # Upgrades a bounded few candidates' fit/evidence_strength
+                # from discover()'s hardcoded metadata-only defaults to a
+                # real README-grounded assessment (see external_enrichment.py's
+                # own module docstring for why that matters) — LLM judgment
+                # only, RelevanceGate below remains the sole permission gate.
+                # Same belt-and-suspenders posture as the outcome-evaluation
+                # phase above: this is newer and less battle-tested than
+                # discovery itself, so a failure here must never take
+                # discovery/relevance/scoring down with it.
+                if external_candidates and router_reachable:
+                    try:
+                        external_candidates = external_enrichment.enrich(
+                            external_candidates, self.evolution_config, self.router,
+                            score_fn=self.gate.score_candidate,
+                        )
+                    except Exception as exc:  # noqa: BLE001 - external enrichment is optional upside, never load-bearing; a failure here must not affect discovery/relevance/scoring; already logged
+                        log.error(f"External candidate enrichment failed entirely — continuing with metadata-only fit/evidence_strength: {exc}")
 
         all_candidates = internal_candidates + external_candidates
         for c in all_candidates:
