@@ -70,8 +70,9 @@ log = logging.getLogger(__name__)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from core.health.capacity_score import capacity_zone_from_checkin  # noqa: E402
-from intervention_engine import TABLE as INTERVENTIONS_TABLE  # noqa: E402
+from intervention_engine import TABLE as INTERVENTIONS_TABLE
+
+from core.health.capacity_score import capacity_zone_from_checkin
 
 CHECKINS_TABLE = "capacity_checkins"
 

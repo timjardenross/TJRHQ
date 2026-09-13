@@ -45,7 +45,7 @@ def check(label: str, condition: bool) -> bool:
 
 def test_window_none_when_pre_days_short():
     onset = date(2026, 6, 1)
-    series = {onset + timedelta(days=i): 70.0 for i in range(0, 15)}  # only post-onset data
+    series = {onset + timedelta(days=i): 70.0 for i in range(15)}  # only post-onset data
     window = ee._prepare_window(series, onset, today=onset + timedelta(days=20))
     check("insufficient pre-period data returns None", window is None)
 
@@ -62,7 +62,7 @@ def test_window_ok_with_enough_both_sides():
     series = {}
     for i in range(1, 15):
         series[onset - timedelta(days=i)] = 70.0
-    for i in range(0, 15):
+    for i in range(15):
         series[onset + timedelta(days=i)] = 70.0
     window = ee._prepare_window(series, onset, today=onset + timedelta(days=20))
     check("sufficient both sides returns a Window", window is not None)
@@ -85,7 +85,7 @@ def test_window_ignores_none_values_in_series():
         onset - timedelta(days=i): (70.0 if i <= 5 else None)
         for i in range(1, 21)
     }
-    for i in range(0, 15):
+    for i in range(15):
         series[onset + timedelta(days=i)] = 70.0
     window = ee._prepare_window(series, onset, today=onset + timedelta(days=20), min_pre_days=10)
     check("None-valued days are not counted as coverage", window is None)
@@ -93,17 +93,17 @@ def test_window_ignores_none_values_in_series():
 
 # ── EvidenceEstimate — derived properties ────────────────────────────────────
 
-def _estimate(**overrides) -> "ee.EvidenceEstimate":
-    base = dict(
-        intervention_id="rest_20",
-        onset=date(2026, 6, 1),
-        pre_days=14,
-        post_days=14,
-        effect=8.5,
-        ci_lower=2.0,
-        ci_upper=15.0,
-        p_value=0.01,
-    )
+def _estimate(**overrides) -> ee.EvidenceEstimate:
+    base = {
+        "intervention_id": "rest_20",
+        "onset": date(2026, 6, 1),
+        "pre_days": 14,
+        "post_days": 14,
+        "effect": 8.5,
+        "ci_lower": 2.0,
+        "ci_upper": 15.0,
+        "p_value": 0.01,
+    }
     base.update(overrides)
     return ee.EvidenceEstimate(**base)
 
@@ -145,7 +145,7 @@ def test_to_payload_shape():
 
 def test_compute_estimate_returns_none_below_threshold():
     onset = date(2026, 6, 1)
-    series = {onset + timedelta(days=i): 70.0 for i in range(0, 3)}  # far too little data
+    series = {onset + timedelta(days=i): 70.0 for i in range(3)}  # far too little data
     result = ee.compute_estimate("rest_20", series, onset, today=onset + timedelta(days=5))
     check("compute_estimate returns None when window insufficient", result is None)
 
@@ -155,7 +155,7 @@ def test_compute_estimate_builds_estimate_from_fit(monkeypatch):
     series = {}
     for i in range(1, 15):
         series[onset - timedelta(days=i)] = 60.0
-    for i in range(0, 15):
+    for i in range(15):
         series[onset + timedelta(days=i)] = 75.0
 
     monkeypatch.setattr(ee, "_fit_causal_impact", lambda series, window: (12.3, 4.0, 20.0, 0.02))
@@ -171,7 +171,7 @@ def test_compute_estimate_none_when_fit_fails(monkeypatch):
     series = {}
     for i in range(1, 15):
         series[onset - timedelta(days=i)] = 60.0
-    for i in range(0, 15):
+    for i in range(15):
         series[onset + timedelta(days=i)] = 75.0
 
     monkeypatch.setattr(ee, "_fit_causal_impact", lambda series, window: None)

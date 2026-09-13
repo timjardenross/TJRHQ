@@ -30,8 +30,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
 
-import external_enrichment  # noqa: E402
-from router_client import ModelRouterClient  # noqa: E402
+import external_enrichment
+from router_client import ModelRouterClient
 
 
 def _candidate(**overrides) -> dict:

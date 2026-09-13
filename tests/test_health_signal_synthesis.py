@@ -32,9 +32,9 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "tools" / "health-osint"))
 
-import health_signal_synthesis as hss  # noqa: E402
+import health_signal_synthesis as hss
 
-from core.llm.provider_chain import LLMCallResult  # noqa: E402
+from core.llm.provider_chain import LLMCallResult
 
 
 def _signal(**overrides):
