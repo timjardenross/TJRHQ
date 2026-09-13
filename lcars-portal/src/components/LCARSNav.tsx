@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import * as Collapsible from '@radix-ui/react-collapsible';
 import { NAV_SECTIONS } from '@/lib/nav';
 
 /**
@@ -40,19 +41,21 @@ export function LCARSNav() {
           const collapsed = collapsedSections[section.label];
           return (
             <li key={section.label}>
-              <button
-                onClick={() => toggleSection(section.label)}
-                className={[
-                  'flex w-full items-center justify-between px-1 mb-1 cursor-pointer select-none',
-                  sectionIdx === 0 ? 'mt-0' : 'mt-3',
-                ].join(' ')}
-              >
-                <span className="text-[9px] uppercase tracking-[0.3em] text-[#61718c]">
-                  {section.label}
-                </span>
-                <span className="text-[9px] text-[#61718c]">{collapsed ? '▸' : '▾'}</span>
-              </button>
-              {!collapsed && (
+              <Collapsible.Root open={!collapsed} onOpenChange={() => toggleSection(section.label)}>
+                <Collapsible.Trigger asChild>
+                  <button
+                    className={[
+                      'flex w-full items-center justify-between px-1 mb-1 cursor-pointer select-none',
+                      sectionIdx === 0 ? 'mt-0' : 'mt-3',
+                    ].join(' ')}
+                  >
+                    <span className="text-[9px] uppercase tracking-[0.3em] text-[#61718c]">
+                      {section.label}
+                    </span>
+                    <span className="text-[9px] text-[#61718c]">{collapsed ? '▸' : '▾'}</span>
+                  </button>
+                </Collapsible.Trigger>
+                <Collapsible.Content>
                 <ul className="flex flex-col gap-1.5">
                   {section.items.map((item) => {
                     const active = isActive(item.href);
@@ -89,7 +92,8 @@ export function LCARSNav() {
                     );
                   })}
                 </ul>
-              )}
+                </Collapsible.Content>
+              </Collapsible.Root>
             </li>
           );
         })}
