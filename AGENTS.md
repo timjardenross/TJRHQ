@@ -77,3 +77,29 @@ careful" isn't enough, run the actual grep:
 
 This list will go stale as registries get added or consolidated — that's expected and fine;
 update it when the next instance of this pattern turns up rather than treating it as final.
+
+### Concurrent session git safety
+
+Many interactive sessions and scheduled services can share one checkout at
+`/opt/starship-endeavour` at once (observed live: 74 concurrent peer sessions,
+USS-TJR-MSN-0382). This has already caused real commit corruption once —
+diagnosed in `LL-146`, fixed for one caller in `LL-149`, and given a dedicated
+fix in `USS-TJR-MSN-0377` (`self-improving-system.service`'s own worktree).
+Generalized rule for any session or service doing real git work here:
+
+1. **Never `git checkout`/`switch` on the shared interactive checkout** if
+   you're about to do real work — create an isolated worktree first:
+   `git worktree add <path> -b <branch>`.
+2. **Path and branch names must include a unique identifier** (session ID or
+   mission ID) — a generic worktree/branch name just relocates the collision,
+   it doesn't remove it.
+3. **Prune after merge.** Run `git worktree list` / `git worktree prune` once
+   a worktree's branch is merged — undocumented accumulation is exactly how
+   74 concurrent sessions turns into 740 stale worktrees.
+4. **The shared checkout is reference-only for interactive sessions.** Treat
+   it as read space. Anything that must run from a canonical, always-current
+   location (systemd services) gets its own dedicated worktree, per
+   `USS-TJR-MSN-0377`'s precedent — not a claim on the shared checkout.
+
+Enforcement tooling (a pre-flight check, a lint rule) is a legitimate future
+follow-up; this section documents the convention only.
