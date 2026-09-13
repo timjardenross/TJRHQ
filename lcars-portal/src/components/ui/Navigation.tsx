@@ -26,7 +26,7 @@ export function Tabs<T extends string = string>({ tabs, active, onChange, ariaLa
             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
               active === t.key
                 ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep'
-                : 'border-wb-line text-wb-ink2 hover:text-wb-ink'
+                : 'border-wb-line text-wb-ink'
             }`}
         >
           {t.label}
