@@ -1,0 +1,1 @@
+{"timestamp": "2026-09-12T17:03:07.933200+00:00", "run_id": "2026-09-09-210043", "finding_id": "FND-003", "title": "In-tree virtual environment chatterbox-venv unignored in repository tree", "status": "confirmed", "items": [{"status": "confirmed", "detail": "core/voice/chatterbox-venv still exists", "location": "core/voice/chatterbox-venv"}]}
