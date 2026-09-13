@@ -169,13 +169,13 @@ export function DocumentDetail({
                 placeholder={`Reason for ${DECISION_LABELS[reasonFor].toLowerCase()} (required)`}
                 value={reasonDraft}
                 onChange={(e) => onSetReasonDraft(e.target.value)}
-                className="w-full rounded border border-wb-line bg-wb-surface px-2 py-1.5 text-xs text-wb-ink placeholder:text-wb-ink2 focus:border-wb-crit/60 focus:outline-none"
+                className="w-full rounded border border-wb-line bg-wb-surface px-2 py-1.5 text-xs text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
               />
               <div className="flex gap-2">
                 <button
                   disabled={!reasonDraft.trim() || acting === detail.id}
                   onClick={() => onDecide(detail.id, reasonFor, reasonDraft.trim())}
-                  className="flex-1 rounded border border-wb-crit/60 bg-wb-crit/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/20 disabled:opacity-40 transition-colors"
+                  className="flex-1 rounded border border-wb-crit/60 bg-wb-crit/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/20 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {acting === detail.id ? 'Working…' : `Confirm ${DECISION_LABELS[reasonFor]}`}
                 </button>
@@ -207,14 +207,14 @@ export function DocumentDetail({
               <button
                 disabled={acting === detail.id}
                 onClick={() => onDecide(detail.id, 'approved_chunks')}
-                className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-ok-on hover:bg-wb-ok/20 disabled:opacity-40 transition-colors"
+                className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-ok-on hover:bg-wb-ok/20 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Approve
               </button>
               <button
                 disabled={acting === detail.id}
                 onClick={() => onDecide(detail.id, 'approved_metadata')}
-                className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-ok-on hover:bg-wb-ok/20 disabled:opacity-40 transition-colors"
+                className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-ok-on hover:bg-wb-ok/20 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {DECISION_LABELS.approved_metadata}
               </button>
@@ -222,14 +222,14 @@ export function DocumentDetail({
                 <button
                   disabled={acting === detail.id}
                   onClick={() => onSetReasonFor('needs_review')}
-                  className="flex-1 rounded border border-wb-warn/40 bg-wb-warn/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-warn-on hover:bg-wb-warn/10 disabled:opacity-40 transition-colors"
+                  className="flex-1 rounded border border-wb-warn/40 bg-wb-warn/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-warn-on hover:bg-wb-warn/10 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Needs Review
                 </button>
                 <button
                   disabled={acting === detail.id}
                   onClick={() => onSetReasonFor('rejected')}
-                  className="flex-1 rounded border border-wb-crit/40 bg-wb-crit/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/10 disabled:opacity-40 transition-colors"
+                  className="flex-1 rounded border border-wb-crit/40 bg-wb-crit/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/10 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Reject
                 </button>

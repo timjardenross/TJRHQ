@@ -319,7 +319,7 @@ function LibraryViewInner() {
             placeholder="Search filename, summary, source…"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="min-w-[220px] flex-1 rounded-lg border border-wb-line bg-wb-surface/40 px-3 py-1.5 text-xs text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep/60 focus:outline-none"
+            className="min-w-[220px] flex-1 rounded-lg border border-wb-line bg-wb-surface/40 px-3 py-1.5 text-xs text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           />
           <select value={category} onChange={(e) => setCategory(e.target.value)} className={selectClass}>
             <option value="">All categories</option>
