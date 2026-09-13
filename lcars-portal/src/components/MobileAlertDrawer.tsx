@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import { useAlerts } from '@/lib/useAlerts';
 import { fetchDecisionsInbox, type DecisionItem } from '@/lib/decisions';
 import { stateToneClasses, alertSeverityToTone } from '@/lib/departments';
@@ -49,62 +50,60 @@ export function MobileAlertDrawer() {
   const totalCount = alerts.length + decisions.length;
 
   return (
-    <>
+    <Dialog.Root open={open} onOpenChange={setOpen}>
       {/* Trigger button — mobile only, hidden on xl+ where sidebar is visible */}
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="xl:hidden flex items-center gap-2 rounded-lcars border border-edge bg-panel/60 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-lcars-muted hover:border-command/60 hover:text-lcars-text transition-colors"
-        aria-label={`Open alerts and decisions (${totalCount} items)`}
-      >
-        {totalCount > 0 && (
-          <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-operations px-1 text-[10px] font-bold text-space">
-            {totalCount > 9 ? '9+' : totalCount}
-          </span>
+      <Dialog.Trigger asChild>
+        <button
+          type="button"
+          className="xl:hidden flex items-center gap-2 rounded-lcars border border-edge bg-panel/60 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-lcars-muted hover:border-command/60 hover:text-lcars-text transition-colors"
+          aria-label={`Open alerts and decisions (${totalCount} items)`}
+        >
+          {totalCount > 0 && (
+            <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-operations px-1 text-[10px] font-bold text-space">
+              {totalCount > 9 ? '9+' : totalCount}
+            </span>
+          )}
+          <span>Alerts &amp; Decisions</span>
+        </button>
+      </Dialog.Trigger>
+
+      <Dialog.Portal forceMount>
+        {/* Backdrop */}
+        {open && (
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-space/70 backdrop-blur-sm xl:hidden" />
         )}
-        <span>Alerts &amp; Decisions</span>
-      </button>
 
-      {/* Backdrop */}
-      {open && (
-        <div
-          className="fixed inset-0 z-40 bg-space/70 backdrop-blur-sm xl:hidden"
-          onClick={() => setOpen(false)}
-          aria-hidden="true"
-        />
-      )}
+        {/* Drawer — slides up from bottom */}
+        <Dialog.Content
+          forceMount
+          aria-hidden={!open}
+          className={[
+            'fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] overflow-y-auto rounded-t-2xl border-t border-edge bg-panel xl:hidden',
+            'transition-transform duration-300 ease-out',
+            open ? 'translate-y-0' : 'translate-y-full pointer-events-none',
+          ].join(' ')}
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+          <Dialog.Title className="sr-only">Alerts and Decisions</Dialog.Title>
+          <div className="mx-auto max-w-[640px] px-4 pt-4 pb-6">
+            {/* Drag handle */}
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-edge" aria-hidden="true" />
 
-      {/* Drawer — slides up from bottom */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Alerts and Decisions"
-        aria-hidden={!open}
-        className={[
-          'fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] overflow-y-auto rounded-t-2xl border-t border-edge bg-panel xl:hidden',
-          'transition-transform duration-300 ease-out',
-          open ? 'translate-y-0' : 'translate-y-full pointer-events-none',
-        ].join(' ')}
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-      >
-        <div className="mx-auto max-w-[640px] px-4 pt-4 pb-6">
-          {/* Drag handle */}
-          <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-edge" aria-hidden="true" />
-
-          {/* Header */}
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[11px] font-bold uppercase tracking-[0.25em] text-lcars-muted">
-              Alerts &amp; Decisions
-            </h2>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="text-[11px] uppercase tracking-[0.15em] text-lcars-muted hover:text-lcars-text transition-colors"
-              aria-label="Close alerts and decisions drawer"
-            >
-              ✕ Close
-            </button>
-          </div>
+            {/* Header */}
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.25em] text-lcars-muted" aria-hidden="true">
+                Alerts &amp; Decisions
+              </h2>
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  className="text-[11px] uppercase tracking-[0.15em] text-lcars-muted hover:text-lcars-text transition-colors"
+                  aria-label="Close alerts and decisions drawer"
+                >
+                  ✕ Close
+                </button>
+              </Dialog.Close>
+            </div>
 
           {/* Active alerts — live via useAlerts() */}
           <section className="mb-5">
@@ -172,8 +171,9 @@ export function MobileAlertDrawer() {
               </ol>
             )}
           </section>
-        </div>
-      </div>
-    </>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
