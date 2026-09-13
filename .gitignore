@@ -46,8 +46,10 @@ outputs/
 
 # tools/garak_sweep.sh and core/quality/garak_gate.py (USS-TJR-MSN-0365) both
 # write timestamped garak vulnerability-scan reports here — runtime evidence,
-# regenerated on every run, not durable source.
-reports/garak/
+# regenerated on every run, not durable source. The README.md is a tracked
+# placeholder/handoff doc (USS-TJR-MSN-0374 Stream 5), not a report.
+reports/garak/*
+!reports/garak/README.md
 
 # Editor
 .vscode/
