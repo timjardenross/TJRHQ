@@ -200,7 +200,7 @@ Every record follows the same field order: Capability Name, Description, Purpose
 - **Current Status:** fully built and operationally validated (retry behaviour, real delivery, logging all confirmed working end-to-end). 2026-09-08 (Slack platform-wide retirement, Captain direction): `Transport.SLACK`/`_send_slack()` removed outright — Telegram is now the only transport this module supports, and `command_bus.py`'s routing (`_route()`) sends every severity to Telegram (previously Slack carried everything and Telegram was ALERT/CRITICAL-only overflow).
 - **Owner:** Chief Engineer.
 - **Canonical Implementation:** `core/platform/notification_service.py` (`notify()`).
-- **Consumers:** `command_bus.py` (all severities, since 2026-09-08); `scripts/self_improvement/auto_remediation.py`'s cycle-summary notify.
+- **Consumers:** `command_bus.py` (all severities, since 2026-09-08); `scripts/self_improvement/auto_remediation.py`'s cycle-summary notify; `scripts/self_improvement/orchestrator.py`'s cycle-artifact commit-failure alert (USS-TJR-MSN-0377, 2026-09-13 — the fail-closed branch-mismatch refusal from LL-149 previously produced no operator-visible signal at all, and refused silently for ~24h+/~64 cycles before a human noticed by hand).
 - **Dependencies:** Telegram Bot API, env vars (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_CHAT_IDS`).
 - **Capability Relationships:**
   - *Depends On:* Configuration (env vars — not yet via the actual service).
@@ -209,9 +209,9 @@ Every record follows the same field order: Capability Name, Description, Purpose
   - *Future Dependencies:* Audit (to persist its log), Event Bus (future trigger source for notifications).
 - **Related ADRs:** ADR-027.
 - **Related Missions:** MSN-0210F Phase 1 (built), MSN-0210G (full operational validation incl. a real delivery test), MSN-0210H (Hermes discovery's unified-gateway pattern validates this design direction).
-- **Technical Debt:** in-process call log not persisted to Audit.
-- **Next Planned Evolution:** none pending — the `command_bus.py` cutover this entry used to describe as held is complete, and Slack transport support has been removed rather than merely deprioritised.
-- **Last Updated:** 2026-09-08.
+- **Technical Debt:** in-process call log not persisted to Audit. **2026-09-13 (USS-TJR-MSN-0377):** no capability in this Registry owns self-improvement's own operational health (heartbeat staleness, cycle-commit success/failure) — this pipeline's `record_heartbeat()` writes to `domain_heartbeats` but nothing alerts on staleness there, consistent with the already-tracked "wire the remaining 23 silent `domain_heartbeats` domains" backlog item (see Content Intelligence's 2026-07-17 note for the one domain that has been wired). This mission added a point notification for one specific failure mode (cycle-artifact commit refusal) rather than building general heartbeat-staleness alerting — that broader gap is not closed by this fix and has no clear owning capability yet.
+- **Next Planned Evolution:** none pending for Notification itself — the `command_bus.py` cutover this entry used to describe as held is complete, and Slack transport support has been removed rather than merely deprioritised. Separately (not this capability's own backlog): decide who owns `domain_heartbeats` staleness alerting platform-wide.
+- **Last Updated:** 2026-09-13 (USS-TJR-MSN-0377).
 
 ### Configuration
 

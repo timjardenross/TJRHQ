@@ -9,8 +9,16 @@ User=root
 WorkingDirectory=/opt/starship-endeavour
 Environment="PATH=/opt/starship-endeavour/scripts/self_improvement/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
 
-# Run full cycle: collect → analyze → classify → decide → remediate
-ExecStart=/opt/starship-endeavour/scripts/self_improvement/.venv/bin/python3 /opt/starship-endeavour/scripts/self_improvement/orchestrator.py
+# USS-TJR-MSN-0377: this used to invoke orchestrator.py directly against
+# /opt/starship-endeavour -- the same checkout every interactive session on
+# this host also uses, routinely left on whatever feature branch a human
+# was last working on. orchestrator.py's git_commit() fails closed unless
+# that checkout is on `self-improvement` (LL-146/LL-149), so this ran daily
+# and silently refused to commit for ~24h+ straight (~64 cycles) before
+# anyone noticed. run_daily_cycle.sh gives this its own dedicated worktree,
+# permanently on `self-improvement`, so the branch check now passes by
+# construction. See knowledge/missions/USS-TJR-MSN-0377-knowledge-record.md.
+ExecStart=/opt/starship-endeavour/scripts/self_improvement/run_daily_cycle.sh
 
 # Logging
 StandardOutput=journal
