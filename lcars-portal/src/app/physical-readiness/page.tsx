@@ -81,7 +81,7 @@ export default function PhysicalReadinessHome() {
           ) : !lastSession ? (
             <p className="text-xs text-wb-ink2">No sessions on record.</p>
           ) : (
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-wb-ink">
                   {SESSION_TYPE_LABELS[lastSession.session_type] ?? lastSession.session_type}

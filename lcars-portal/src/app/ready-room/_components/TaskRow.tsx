@@ -141,7 +141,7 @@ export function TaskRow({
             onClick={() => setShowDetails((v) => !v)}
             aria-expanded={showDetails}
             aria-label="More options"
-            className="ml-auto rounded px-2 py-1 text-[13px] text-wb-ink2 opacity-70 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+            className="ml-auto rounded px-2.5 py-2.5 text-[13px] text-wb-ink2 opacity-70 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           >
             •••
           </button>
@@ -189,7 +189,7 @@ export function TaskRow({
                 onClick={togglePause}
                 title={task.follow_through_paused ? 'Reminders muted — click to unmute' : 'Mute reminders for this item'}
                 aria-label={task.follow_through_paused ? 'Reminders muted — click to unmute' : 'Mute reminders for this item'}
-                className="text-[13px] text-wb-ink2 opacity-60 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                className="p-2 text-[13px] text-wb-ink2 opacity-60 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
               >
                 {task.follow_through_paused ? '🔕' : '🔔'}
               </button>
@@ -201,7 +201,7 @@ export function TaskRow({
                   title={task.pinned_today ? 'Keeping this in Today regardless of capacity — click to unpin' : 'Keep this in Today even on a constrained day'}
                   aria-label={task.pinned_today ? 'Unpin from Today' : 'Pin to Today'}
                   aria-pressed={task.pinned_today}
-                  className={`text-[13px] opacity-60 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${task.pinned_today ? 'text-wb-sage-deep opacity-100' : 'text-wb-ink2'}`}
+                  className={`p-2 text-[13px] opacity-60 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${task.pinned_today ? 'text-wb-sage-deep opacity-100' : 'text-wb-ink2'}`}
                 >
                   {task.pinned_today ? '📌 Pinned' : '📌 Keep in Today'}
                 </button>

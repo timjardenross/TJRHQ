@@ -761,10 +761,10 @@ function ImproveTab({
                       className="w-full p-2 rounded border border-wb-line bg-wb-bg text-wb-ink text-sm mb-3 font-mono"
                       rows={3}
                     />
-                    <div className="flex gap-2">
-                      <button onClick={() => onLegacyDecision('approved')} className="flex-1 px-4 py-2 rounded bg-wb-ok text-wb-ok-on font-semibold text-sm hover:opacity-90">Approve</button>
-                      <button onClick={() => onLegacyDecision('more_evidence')} className="flex-1 px-4 py-2 rounded bg-wb-warn text-wb-warn-on font-semibold text-sm hover:opacity-90">More Evidence</button>
-                      <button onClick={() => onLegacyDecision('rejected')} className="flex-1 px-4 py-2 rounded bg-wb-crit text-wb-crit-on font-semibold text-sm hover:opacity-90">Reject</button>
+                    <div className="flex flex-wrap gap-2">
+                      <button onClick={() => onLegacyDecision('approved')} className="flex-1 basis-full px-4 py-2 rounded bg-wb-ok text-wb-ok-on font-semibold text-sm hover:opacity-90 sm:basis-0">Approve</button>
+                      <button onClick={() => onLegacyDecision('more_evidence')} className="flex-1 basis-full px-4 py-2 rounded bg-wb-warn text-wb-warn-on font-semibold text-sm hover:opacity-90 sm:basis-0">More Evidence</button>
+                      <button onClick={() => onLegacyDecision('rejected')} className="flex-1 basis-full px-4 py-2 rounded bg-wb-crit text-wb-crit-on font-semibold text-sm hover:opacity-90 sm:basis-0">Reject</button>
                     </div>
                   </>
                 ) : (
