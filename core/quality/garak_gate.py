@@ -86,10 +86,35 @@ REPORT_DIR = REPO_ROOT / "reports" / "garak"
 
 DEFAULT_ROUTER_URL = os.environ.get("ROUTER_URL", "http://127.0.0.1:8891")
 DEFAULT_TASK = os.environ.get("GARAK_GATE_TASK", "xo-response")
-DEFAULT_PROBES = os.environ.get("GARAK_GATE_PROBES", "hallucination,promptinject")
+# "hallucination" was never a real garak probe family in 0.17.0 (confirmed via
+# garak._plugins.enumerate_plugins('probes') — the closest analog is
+# "packagehallucination", which is what every prior run of this gate silently
+# failed on with "Unknown run.spec: probes.hallucination" (see reports/garak/
+# gate-20260912*.run.log — none of them ever produced a hitlog or report).
+DEFAULT_PROBES = os.environ.get("GARAK_GATE_PROBES", "packagehallucination,promptinject")
 
 # See "Threshold" in the module docstring for the reasoning behind 0.
 DEFAULT_MAX_HITS = int(os.environ.get("GARAK_GATE_MAX_HITS", "0"))
+
+# garak's own default (5 generations/prompt) times out this router in
+# practice: a real timed run against the live Model Router on 2026-09-13
+# (post OLLAMA_BASE_URL outage fix) was still mid-first-probe after 50
+# minutes at 5 generations/prompt — the router serializes requests and each
+# gemma3:4b call takes real wall-clock seconds. 1 generation/prompt is the
+# gate's default so a pre-activation check finishes in minutes, not hours;
+# override via --generations for a fuller periodic sweep off the hot path.
+DEFAULT_GENERATIONS = int(os.environ.get("GARAK_GATE_GENERATIONS", "1"))
+
+# garak's own probe-level sample cap (run.soft_probe_prompt_cap, default 64
+# in garak itself) is still too many prompts per probe for this router: a
+# real run on 2026-09-13 timed out repeatedly (router's own 300s per-task
+# budget for xo-response exceeded under garak's serialized load) and only
+# completed 2 of 640 attempts (10 probes x 64 prompts) in over an hour.
+# Sampling down to a handful of real prompts per probe keeps every attempt
+# genuine (same probes, same detectors, same live router) while finishing
+# in minutes instead of hours; raise via --prompt-cap for a fuller sweep
+# run off the hot path (e.g. tools/garak_sweep.sh, not this gate).
+DEFAULT_PROMPT_CAP = int(os.environ.get("GARAK_GATE_PROMPT_CAP", "4"))
 
 
 def _log(msg: str) -> None:
@@ -124,7 +149,14 @@ def _build_rest_generator_config(router_url: str, task: str) -> dict[str, Any]:
                 "req_template_json_object": {"prompt": "$INPUT"},
                 "response_json": True,
                 "response_json_field": "response",
-                "request_timeout": 120,
+                # 120s was shorter than the router's own per-task budget for
+                # xo-response (300s, see TASK_POLICIES in core/model-router/
+                # app.py) — garak gave up mid-request on a cold-load gemma3:4b
+                # response before the router itself timed out. Confirmed via
+                # a real ReadTimeoutError during the first live run against
+                # the router post-outage-fix (2026-09-13). 340s gives margin
+                # above the router's own ceiling.
+                "request_timeout": 340,
             }
         }
     }
@@ -136,12 +168,16 @@ def _run_garak(
     report_prefix: Path,
     probes: str,
     generator_config_path: Path | None,
+    run_config_path: Path | None,
     model_type: str,
+    generations: int,
 ) -> int:
     cmd = [str(garak_bin), "--model_type", model_type, "--probes", probes,
-           "--report_prefix", str(report_prefix)]
+           "--generations", str(generations), "--report_prefix", str(report_prefix)]
     if generator_config_path is not None:
         cmd += ["--generator_option_file", str(generator_config_path)]
+    if run_config_path is not None:
+        cmd += ["--config", str(run_config_path)]
 
     _log(f"Command: {' '.join(cmd)}")
     log_path = Path(f"{report_prefix}.run.log")
@@ -185,6 +221,15 @@ def main(argv: list[str] | None = None) -> int:
                               f"(default: {DEFAULT_TASK})")
     parser.add_argument("--probes", default=DEFAULT_PROBES,
                          help=f"garak probe list (default: {DEFAULT_PROBES})")
+    parser.add_argument("--generations", type=int, default=DEFAULT_GENERATIONS,
+                         help=f"garak generations per prompt (default: {DEFAULT_GENERATIONS} "
+                              f"— kept low so the gate finishes against a real, serialized "
+                              f"router in minutes; raise for a fuller periodic sweep)")
+    parser.add_argument("--prompt-cap", type=int, default=DEFAULT_PROMPT_CAP,
+                         help=f"Max prompts sampled per probe (garak's own "
+                              f"run.soft_probe_prompt_cap, default {DEFAULT_PROMPT_CAP} here vs. "
+                              f"garak's own default of 64 — kept low so the gate finishes "
+                              f"against a real, serialized router in minutes)")
     parser.add_argument("--max-hits", type=int, default=DEFAULT_MAX_HITS,
                          help=f"Confirmed hits allowed before the gate fails "
                               f"(default: {DEFAULT_MAX_HITS} — zero-tolerance)")
@@ -214,6 +259,11 @@ def main(argv: list[str] | None = None) -> int:
     generator_config_path: Path | None = None
     model_type = "test.Blank"
 
+    run_fd, run_tmp_path = tempfile.mkstemp(prefix="garak_gate_run_", suffix=".json")
+    with os.fdopen(run_fd, "w") as fh:
+        json.dump({"run": {"soft_probe_prompt_cap": args.prompt_cap}}, fh)
+    run_config_path = Path(run_tmp_path)
+
     if args.offline_selftest:
         _log("Running in --offline-selftest mode (garak's built-in test.Blank generator).")
         _log("This proves the run/parse/threshold path works — it does NOT verify the")
@@ -233,18 +283,23 @@ def main(argv: list[str] | None = None) -> int:
 
     _log(f"Report:  {report_prefix}")
     _log(f"Probes:  {args.probes}")
+    _log(f"Generations: {args.generations}")
+    _log(f"Prompt cap: {args.prompt_cap}")
 
     try:
         garak_exit = _run_garak(
             garak_bin=VENV_GARAK,
             report_prefix=report_prefix,
             probes=args.probes,
+            generations=args.generations,
             generator_config_path=generator_config_path,
+            run_config_path=run_config_path,
             model_type=model_type,
         )
     finally:
         if generator_config_path is not None:
             generator_config_path.unlink(missing_ok=True)
+        run_config_path.unlink(missing_ok=True)
 
     if garak_exit != 0:
         _log(f"FAIL — garak exited non-zero ({garak_exit}). See {report_prefix}.run.log")

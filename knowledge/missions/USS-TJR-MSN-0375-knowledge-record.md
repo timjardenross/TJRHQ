@@ -1,6 +1,41 @@
 # USS-TJR-MSN-0375 — Postgres-Native Durable-Execution Pilot (pgqueuer) — Knowledge Record
 
-**Priority:** P2 pilot | **Source:** `knowledge/OSS-Capability-Search-2026-09-12.md` §5/§8 | **Status:** DELIVERED
+**Priority:** P2 pilot | **Source:** `knowledge/OSS-Capability-Search-2026-09-12.md` §5/§8 | **Status:** PILOT DELIVERED; ROLLOUT IN PROGRESS (2026-09-13) — see Rollout Update below
+
+## Rollout Update (2026-09-13)
+
+Completed the Go/No-Go's three prerequisites, in order, verifying each
+rather than assuming success:
+
+1. **`SUPABASE_DB_URL` provisioned.** User reset the Postgres password and
+   provided it directly; DSN built and stored in Infisical `prod`. Verified
+   with a real `asyncpg.connect()` — `PostgreSQL 17.6` confirmed, not just
+   "secret exists." `pgqueuer`/`asyncpg` were in `requirements.txt` from the
+   pilot but had never actually been `pip install`ed on this VM's
+   `platform-runtime/.venv` — installed now. `pgq --pg-dsn ... install` run
+   for real; `pgq ... verify --expect present` confirms all PgQueuer schema
+   objects exist in the live database (not a local Docker Postgres this
+   time — the real Supabase instance).
+2. **`deploy/human-systems-scheduler.service` installed and enabled.**
+   `systemctl status` confirms `active (running)`, the real daemon log line
+   `pgqueuer daemon started (jobs=morning, midday, eod, evening, weekly,
+   degradation, comms_weekly)` — all 7, matching the pilot's `JOBS`.
+3. **Live-day verification: IN PROGRESS, not yet complete.** Queried
+   `pgqueuer_schedules` directly: all 7 jobs are registered with the exact
+   cron expressions `_CRON_DEFAULTS` specifies, and `next_run` for each
+   matches what those expressions predict. **Zero dispatches so far** —
+   correctly, since nothing is due yet (checked at 2026-09-13 13:20 AEST /
+   03:20 UTC; nearest due job is `morning` at 07:00 UTC, ~3h40m out).
+   Today is a Sunday, so `eod` (weekdays only) and `weekly`/`comms_weekly`
+   (Mondays only) cannot fire until 2026-09-14 regardless — genuine
+   coverage of all 7 needs checking back through Monday, not just today.
+   **Do not treat this as "verified live" yet** — that requires observing
+   real rows land in `pgqueuer_log`/`pgqueuer_schedules.last_run`, per this
+   same mission's own bar (Stream 3 refused to assert dedup without a
+   queryable ledger; this update holds itself to the same standard). Next
+   check: after `morning`'s 07:00 UTC run, then progressively through
+   `midday`/`evening`/`degradation` today and `eod`/`weekly`/`comms_weekly`
+   Monday.
 
 ## Summary
 

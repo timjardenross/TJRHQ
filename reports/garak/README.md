@@ -1,5 +1,25 @@
 # reports/garak/ — status
 
+**Update 2026-09-13 (USS-TJR-MSN-0368 follow-up):** the paragraph below
+("the script itself needs no code changes") was written from a sandbox
+without VM access and turned out to be wrong on the one point that
+mattered — it was never actually executed there. Run from the real VM,
+`core/quality/garak_gate.py` immediately hit three real bugs (all now
+fixed): `DEFAULT_PROBES` referenced `hallucination`, which was never a
+valid garak 0.17.0 probe family (every prior run had silently failed with
+`Unknown run.spec: probes.hallucination` and produced zero output); its
+REST client timeout (120s) was shorter than the router's own per-task
+budget (300s); and garak's own generation/prompt-cap defaults made a full
+run take many hours against this router. See
+`knowledge/missions/USS-TJR-MSN-0368-garak-verification-2026-09-13.md` for
+the full writeup, including a real production outage (Model Router
+`OLLAMA_BASE_URL` misconfigured to Ollama Cloud) found and fixed as a side
+effect of getting a genuine run. **A trustworthy pass/fail verdict from
+this gate still does not exist as of this update** — host CPU/memory
+contention on the VM (8 vCPUs, CPU-only `gemma3:4b` inference, ~30
+concurrent systemd services) is blocking even the trimmed-scope run from
+completing in practice. Status: ON HOLD, not abandoned.
+
 No garak report has been generated yet. This directory previously did not
 exist; it is being created now purely as a placeholder tracking entry so the
 handoff has somewhere to land its output.
@@ -17,15 +37,11 @@ $ curl -s -m 5 http://127.0.0.1:8891/health
 # times out — no router listening here
 ```
 
-The script itself needs **no code changes**. It already has a working
-`--router-url` CLI (default `http://127.0.0.1:8891`), builds the correct
-`RestGenerator` config for the router's `{"prompt": str} -> {"success",
-"response"}` contract, and writes its own timestamped report files under
-this directory (`REPORT_DIR = REPO_ROOT / "reports" / "garak"`, see
-`core/quality/garak_gate.py`). It just needs to actually be *run* from a
+It just needs to actually be *run* from a
 host that has both VM/systemd access to the router and the dedicated garak
 venv (`platform-runtime/.venv-garak`, per
-`core/quality/requirements-garak.txt`).
+`core/quality/requirements-garak.txt`) — see the 2026-09-13 update above for
+what actually happened when it was.
 
 ## Handoff command
 
@@ -76,7 +92,12 @@ for the real run above before trusting a green result in production.
 
 ## Status
 
-Handoff only. No run has been performed as part of USS-TJR-MSN-0374 Stream
-5. This mission does not wire `garak_gate.py` into any blocking CI/deploy
-gate — that remains a separate, future decision (see Observability's Next
-Planned Evolution backlog).
+USS-TJR-MSN-0374 Stream 5 was handoff-only (see above) — no run was
+performed there. USS-TJR-MSN-0368's 2026-09-13 follow-up (see the update
+note at the top of this file) picked up that handoff, ran it for real, and
+found/fixed real bugs plus a live production outage, but a trustworthy
+pass/fail verdict is still ON HOLD pending host capacity — see that
+mission's knowledge record for the full state and next steps. This gate
+is still not wired into any blocking CI/deploy pipeline — that remains a
+separate, future decision (see Observability's Next Planned Evolution
+backlog).

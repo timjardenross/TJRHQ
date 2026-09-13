@@ -34,6 +34,7 @@ from router_client import ModelRouterClient
 # config), matching every other scheduled job's heartbeat convention.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "core" / "platform"))
 from heartbeat import record_heartbeat
+from notification_service import Severity, notify
 
 log = logging.getLogger("orchestrator")
 _HEARTBEAT_DOMAIN = "self_improvement_cycle"
@@ -198,6 +199,37 @@ class SelfImprovementOrchestrator:
         summary["artifacts_commit_sha"] = commit_sha
         if commit_sha is None:
             log.warning("Cycle artifacts commit failed or had nothing to commit")
+            # USS-TJR-MSN-0377: this refusal was previously silent past a
+            # single log line nobody read -- LL-149's fail-closed
+            # branch-mismatch check (auto_remediation.py's git_commit())
+            # fired on essentially every cycle for ~24h+ with zero
+            # operator-visible signal until a human noticed 64 uncommitted
+            # run directories by hand. A real notification here is the
+            # actual fix for that visibility gap; the branch-mismatch
+            # itself is fixed separately by giving this service its own
+            # dedicated worktree (see run_daily_cycle.sh).
+            try:
+                import subprocess
+                current_branch = subprocess.run(
+                    ["git", "-C", str(self.repo_root), "rev-parse", "--abbrev-ref", "HEAD"],
+                    check=True, capture_output=True, text=True,
+                ).stdout.strip()
+                notify(
+                    body=(
+                        f"self-improvement cycle {run_id} did not commit its "
+                        f"artifacts (git_commit() returned None). Checked-out "
+                        f"branch: {current_branch!r} (expected "
+                        f"{self.executor.expected_branch!r}). See "
+                        f"orchestrator.py's run_full_cycle() log for the exact "
+                        f"reason (branch mismatch vs. nothing-to-commit vs. "
+                        f"commit failure)."
+                    ),
+                    title="Self-improvement cycle: artifacts not committed",
+                    severity=Severity.WARNING,
+                    template="alert",
+                )
+            except Exception:
+                log.exception("Failed to send commit-failure notification")
 
         return summary
 
