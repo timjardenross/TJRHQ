@@ -134,7 +134,7 @@ export function ContentStudio({ item, onChanged, onClose }: { item: ContentItem;
 
       <ProgressSteps steps={progressSteps(item)} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_280px]">
         <div className="min-w-0 rounded-xl border border-wb-line bg-wb-surface p-4">
           {item.stage === 'capture' && <CaptureStageBody item={item} onChanged={onChanged} />}
           {item.stage === 'research' && <ResearchStageBody item={item} onChanged={onChanged} />}

@@ -355,7 +355,7 @@ function LibraryViewInner() {
         </div>
       </Card>
 
-      <div className="flex flex-col gap-4 lg:flex-row">
+      <div className="flex flex-col gap-4 xl:flex-row">
         <Card className="flex-1 p-4">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="font-serif text-[14px] uppercase tracking-wide text-wb-ink">
