@@ -1,0 +1,53 @@
+# deepteam (LLM red-teaming framework), isolated from platform-runtime/requirements.txt.
+#
+# USS-TJR-MSN-0374 Stream 3. Companion to deepeval's existing shadow-mode
+# HallucinationMetric wiring (platform-runtime/lib/quality_scoring_service.py),
+# not a replacement for it — deepteam probes for security/safety/robustness
+# vulnerabilities (bias, PII leakage, prompt injection, ...) via simulated
+# attacks against a target model, a different axis from deepeval's
+# per-output hallucination scoring.
+#
+# Why isolated, even though a plain `pip install deepteam` did NOT hit a hard
+# version conflict like garak's openai<3.0 pin (core/quality/requirements-garak.txt)
+# or ragas's langchain-community import bug (core/quality/requirements-ragas.txt) —
+# confirmed via a real `pip install deepteam` into a throwaway venv:
+#   1. deepteam declares `deepeval` as an UNPINNED dependency. This platform
+#      already pins `deepeval>=4.1.10` in platform-runtime/requirements.txt and
+#      platform-runtime/lib/quality_scoring_service.py's live (if gated)
+#      HallucinationMetric caller depends on deepeval's behavior. Installing
+#      deepteam into the shared venv would let pip silently bump the shared
+#      deepeval install (confirmed: a vanilla `pip install deepteam` pulled
+#      deepeval==4.2.2) as a side effect of installing an unrelated, standalone
+#      script's dependency — exactly the kind of shared-venv version drift the
+#      garak/ragas isolation already guards against for other reasons.
+#   2. deepteam's own dependency tree pulls ~20 packages platform-runtime has no
+#      other use for: grpcio, opentelemetry-api, posthog (telemetry), aiohttp,
+#      typer/rich/questionary/pyfiglet/portalocker (deepteam's own CLI), and a
+#      full pytest + pytest-asyncio/xdist/repeat/rerunfailures stack (deepteam
+#      bundles a test-runner CLI as a runtime dependency, not a dev-only extra).
+#      Confirmed via `pip show deepteam deepeval` cross-referenced against
+#      platform-runtime/requirements.txt.
+#
+# A REAL, confirmed packaging bug in deepteam 1.0.9 itself, not a theoretical
+# concern: deepteam/telemetry.py does `import sentry_sdk` unconditionally at
+# module import time, but `sentry_sdk` is NOT declared anywhere in deepteam's
+# own Requires-Dist metadata (confirmed via
+# `importlib.metadata.metadata('deepteam').get_all('Requires-Dist')`) or
+# deepeval's. A vanilla `pip install deepteam` therefore raises
+# `ModuleNotFoundError: No module named 'sentry_sdk'` on `import deepteam`
+# (deepteam.__init__ -> deepteam.red_team -> deepteam.red_teamer -> this
+# unconditional import), before a single line of red-teaming code runs.
+# Pinning sentry-sdk here fixes it — no version conflict once added.
+#
+# Install into a dedicated venv, not platform-runtime/.venv:
+#   python3 -m venv platform-runtime/.venv-deepteam
+#   platform-runtime/.venv-deepteam/bin/pip install -r core/quality/requirements-deepteam.txt
+#
+# core/quality/deepteam_scan.py is a standalone script meant to be *run* with
+# this venv's python (platform-runtime/.venv-deepteam/bin/python3
+# core/quality/deepteam_scan.py), not imported from platform-runtime's own
+# process, and is NOT wired as a caller of build_learning_loop.py or any other
+# live path — same isolation reasoning and the same "costs the live platform
+# nothing at runtime" conclusion as garak and ragas.
+deepteam==1.0.9
+sentry-sdk
