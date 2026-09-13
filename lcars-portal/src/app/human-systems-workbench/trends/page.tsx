@@ -271,17 +271,17 @@ export default function TrendsPage() {
         </Card>
 
         <Card className="print:hidden">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-[13px] text-wb-ink2">
               {trends === null && !loadError ? 'Loading…' : `${recordedDays} of ${windowed.length} day(s) in this window have at least one recorded field.`}
             </p>
             <div className="flex items-center gap-2">
-              <div className="flex overflow-hidden rounded-md border border-wb-line text-[11px]">
+              <div className="flex flex-nowrap overflow-x-auto rounded-md border border-wb-line text-[11px] [scrollbar-width:thin]">
                 {WINDOWS.map((w) => (
                   <button
                     key={w.key}
                     onClick={() => setWindowKey(w.key)}
-                    className={`px-2.5 py-1 ${windowKey === w.key ? 'bg-wb-sage-deep text-white' : 'text-wb-ink2 hover:bg-wb-line/40'}`}
+                    className={`shrink-0 px-2.5 py-1 ${windowKey === w.key ? 'bg-wb-sage-deep text-white' : 'text-wb-ink2 hover:bg-wb-line/40'}`}
                   >
                     {w.label}
                   </button>

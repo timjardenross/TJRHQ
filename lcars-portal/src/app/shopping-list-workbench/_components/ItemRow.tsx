@@ -42,7 +42,7 @@ export function ItemRow({
       onDragStart={draggable ? onDragStart : undefined}
       onDragOver={draggable ? onDragOver : undefined}
       onDrop={draggable ? onDrop : undefined}
-      className="flex items-center gap-3 rounded-md border border-wb-line bg-wb-surface p-3"
+      className="flex flex-wrap items-center gap-3 rounded-md border border-wb-line bg-wb-surface p-3"
     >
       <span
         aria-hidden
@@ -59,7 +59,7 @@ export function ItemRow({
         <div className="h-12 w-12 shrink-0 rounded bg-wb-surface-raised" />
       )}
 
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-40">
         <div className="flex items-start justify-between gap-2">
           <span className="break-words text-[14px] font-medium text-wb-ink">{item.product_name}</span>
           <span className="shrink-0 text-[13px] font-medium text-wb-ink">
@@ -76,7 +76,7 @@ export function ItemRow({
 
       <Badge status={STATUS_TONE[item.status]}>{statusLabel(item.status)}</Badge>
 
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex w-full shrink-0 flex-wrap items-center gap-1.5 sm:w-auto sm:justify-end">
         {item.status !== 'purchased' && (
           <Button size="sm" variant="secondary" onClick={onMarkPurchased}>Mark purchased</Button>
         )}
