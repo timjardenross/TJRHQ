@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import * as Collapsible from '@radix-ui/react-collapsible';
 import { stateToneClasses } from '@/lib/departments';
 
 /**
@@ -161,61 +162,76 @@ export function ApprovalQueue({
               </div>
             </div>
 
-            {rejectReasonFor === item.id ? (
-              <div className="mt-2 flex flex-col gap-2">
-                <input
-                  type="text"
-                  placeholder="Rejection reason (required)"
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  className={`w-full min-h-[44px] rounded border px-2 py-1.5 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-state-crit focus-visible:outline-offset-1 ${t.input}`}
-                />
-                <div className="flex gap-2">
-                  <button
-                    disabled={!rejectReason.trim() || actingId === item.id}
-                    onClick={() => {
-                      const reason = rejectReason.trim();
-                      setRejectReasonFor(null);
-                      setRejectReason('');
-                      onReject(item.id, reason);
-                    }}
-                    className={`flex-1 rounded border ${stateToneClasses('crit').border} ${stateToneClasses('crit').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('crit').text} hover:bg-state-crit/20 disabled:opacity-40 transition-colors`}
-                  >
-                    {actingId === item.id ? 'Rejecting…' : 'Confirm Reject'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setRejectReasonFor(null);
-                      setRejectReason('');
-                    }}
-                    className={`rounded border px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] transition-colors ${t.cancel}`}
-                  >
-                    Cancel
-                  </button>
+            <Collapsible.Root
+              open={rejectReasonFor === item.id}
+              onOpenChange={(open) => {
+                if (open) {
+                  setRejectReasonFor(item.id);
+                } else {
+                  setRejectReasonFor(null);
+                  setRejectReason('');
+                }
+              }}
+            >
+              {rejectReasonFor !== item.id && (
+                <div className="flex gap-2 mt-2">
+                  {item.canApprove !== false && (
+                    <button
+                      disabled={actingId === item.id}
+                      onClick={() => onApprove(item.id)}
+                      className={`flex-1 rounded border ${stateToneClasses('ok').border} ${stateToneClasses('ok').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('ok').text} hover:bg-state-ok/20 disabled:opacity-40 transition-colors`}
+                    >
+                      {actingId === item.id ? 'Working…' : 'Approve'}
+                    </button>
+                  )}
+                  {item.canReject !== false && (
+                    <Collapsible.Trigger asChild>
+                      <button
+                        disabled={actingId === item.id}
+                        className={`flex-1 rounded border ${stateToneClasses('crit').border} ${stateToneClasses('crit').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('crit').text} hover:bg-state-crit/10 disabled:opacity-40 transition-colors`}
+                      >
+                        Reject
+                      </button>
+                    </Collapsible.Trigger>
+                  )}
                 </div>
-              </div>
-            ) : (
-              <div className="flex gap-2 mt-2">
-                {item.canApprove !== false && (
-                  <button
-                    disabled={actingId === item.id}
-                    onClick={() => onApprove(item.id)}
-                    className={`flex-1 rounded border ${stateToneClasses('ok').border} ${stateToneClasses('ok').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('ok').text} hover:bg-state-ok/20 disabled:opacity-40 transition-colors`}
-                  >
-                    {actingId === item.id ? 'Working…' : 'Approve'}
-                  </button>
-                )}
-                {item.canReject !== false && (
-                  <button
-                    disabled={actingId === item.id}
-                    onClick={() => setRejectReasonFor(item.id)}
-                    className={`flex-1 rounded border ${stateToneClasses('crit').border} ${stateToneClasses('crit').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('crit').text} hover:bg-state-crit/10 disabled:opacity-40 transition-colors`}
-                  >
-                    Reject
-                  </button>
-                )}
-              </div>
-            )}
+              )}
+
+              <Collapsible.Content>
+                <div className="mt-2 flex flex-col gap-2">
+                  <input
+                    type="text"
+                    placeholder="Rejection reason (required)"
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    className={`w-full min-h-[44px] rounded border px-2 py-1.5 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-state-crit focus-visible:outline-offset-1 ${t.input}`}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      disabled={!rejectReason.trim() || actingId === item.id}
+                      onClick={() => {
+                        const reason = rejectReason.trim();
+                        setRejectReasonFor(null);
+                        setRejectReason('');
+                        onReject(item.id, reason);
+                      }}
+                      className={`flex-1 rounded border ${stateToneClasses('crit').border} ${stateToneClasses('crit').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('crit').text} hover:bg-state-crit/20 disabled:opacity-40 transition-colors`}
+                    >
+                      {actingId === item.id ? 'Rejecting…' : 'Confirm Reject'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setRejectReasonFor(null);
+                        setRejectReason('');
+                      }}
+                      className={`rounded border px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] transition-colors ${t.cancel}`}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </Collapsible.Content>
+            </Collapsible.Root>
           </li>
         ))}
       </ul>
