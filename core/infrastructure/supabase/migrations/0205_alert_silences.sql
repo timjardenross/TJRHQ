@@ -19,6 +19,16 @@
 -- table is written to support other future notification paths
 -- (core/coordination/command_bus.py's own alerting) beyond just the
 -- alerts table this migration ships alongside.
+--
+-- RLS write access: the Emergency Alert Hub workbench's own Silences panel
+-- (lcars-portal/src/app/api/emergency-alerts/silences/) creates/expires
+-- silences through the Captain's own authenticated session
+-- (createSupabaseServerClient() — anon key + user cookies, NOT service
+-- role), so `authenticated` needs real insert/update/delete grants here,
+-- not just the service_role policy a backend-job-only table would need.
+-- Same convention as shopping_list_items (migration 0199 / 0193's
+-- authenticated-RLS precedent): single-Captain app, no per-row ownership
+-- to filter by, so `using (true)`/`with check (true)`.
 
 create table if not exists alert_silences (
   id                 uuid primary key default gen_random_uuid(),
@@ -45,3 +55,10 @@ create policy alert_silences_read on alert_silences for select using (true);
 drop policy if exists alert_silences_service_write on alert_silences;
 create policy alert_silences_service_write on alert_silences
   for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
+
+drop policy if exists alert_silences_authenticated_insert on alert_silences;
+create policy alert_silences_authenticated_insert on alert_silences
+  for insert to authenticated with check (true);
+drop policy if exists alert_silences_authenticated_update on alert_silences;
+create policy alert_silences_authenticated_update on alert_silences
+  for update to authenticated using (true) with check (true);
