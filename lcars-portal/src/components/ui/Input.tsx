@@ -9,12 +9,12 @@ function FieldWrapper({ id, label, hint, children }: { id: string; label?: strin
   return (
     <div className="flex flex-col gap-1">
       {label && (
-        <label htmlFor={id} className="text-[12px] font-medium text-wb-ink2">
+        <label htmlFor={id} className="text-[12px] font-medium text-wb-ink">
           {label}
         </label>
       )}
       {children}
-      {hint && <span className="text-[11px] text-wb-ink2">{hint}</span>}
+      {hint && <span className="text-[11px] text-wb-ink">{hint}</span>}
     </div>
   );
 }
