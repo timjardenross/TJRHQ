@@ -338,6 +338,58 @@ jobs:
         run: |
           vulture core/ intelligence/ platform-runtime/ .vulture_whitelist.py --min-confidence 60
 
+  # USS-TJR-MSN-0374 Stream 2. Net-new: nothing in this repo ran pip-audit
+  # before this job — `grep -n "pip-audit\|pip_audit" .pre-commit-config.yaml`
+  # found nothing prior to this change. Runs directly with `pip-audit -r`
+  # against every tracked requirements*.txt (found via `find . -name
+  # "requirements*.txt"`), not through `pre-commit run` — pip-audit has no
+  # "report but don't fail" flag, so a real finding always exits non-zero;
+  # `continue-on-error: true` on each step (not just the job) is what
+  # actually shows green-with-a-log instead of red on a finding, matching
+  # the confirmed-in-practice behavior documented on the vulture/semgrep
+  # jobs above (job-level continue-on-error alone still reports the job's
+  # own check-run as failed).
+  #
+  # Advisory only, deliberately, on this first landing: a real, previously
+  # unmeasured pre-existing CVE count across this repo's ~15
+  # requirements*.txt files is not this mission's job to remediate (see
+  # knowledge/missions/USS-TJR-MSN-0374-stream2-pip-audit-knowledge-record.md
+  # for the actual captured finding count from running this for real).
+  pip-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pip-audit
+        run: pip install pip-audit==2.10.1
+
+      - name: Find tracked requirements files
+        id: find-reqs
+        run: |
+          files=$(find . -name "requirements*.txt" -not -path "*/node_modules/*" | sort)
+          echo "Found:"
+          echo "$files"
+          {
+            echo "files<<PIPAUDIT_EOF"
+            echo "$files"
+            echo "PIPAUDIT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Run pip-audit (advisory — findings do not fail the build)
+        continue-on-error: true
+        run: |
+          status=0
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            echo "=== pip-audit: $f ==="
+            pip-audit -r "$f" || status=1
+          done <<< "${{ steps.find-reqs.outputs.files }}"
+          exit "$status"
+
   pre-commit:
     runs-on: ubuntu-latest
     steps:

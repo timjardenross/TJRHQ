@@ -40,6 +40,43 @@ jobs:
       - run: npm run lint
       - run: npm run test
 
+  test-storybook:
+    # USS-TJR-MSN-0374 Stream 1. @storybook/addon-a11y, axe-core,
+    # vitest-axe and eslint-plugin-jsx-a11y were already installed in
+    # lcars-portal, but nothing ran an a11y check across ALL stories in
+    # CI — the addon only surfaces violations in its interactive panel,
+    # and existing tests only import vitest-axe ad hoc in a handful of
+    # component tests. This job builds Storybook and runs axe-core
+    # against every story headlessly via scripts/storybook-a11y-check.mjs
+    # (see that file for why a hand-rolled Playwright+axe-core script was
+    # used instead of @storybook/test-runner, which is incompatible with
+    # Storybook 10's ESM loader).
+    #
+    # Report-only for now (continue-on-error): first real run found 28
+    # stories checked, 8 with violations (all color-contrast, "serious"),
+    # 145 passing checks. Fixing that backlog is explicitly not this
+    # mission's job — see knowledge/missions/
+    # USS-TJR-MSN-0374-stream1-storybook-a11y-knowledge-record.md.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lcars-portal
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24.18.0"
+          cache: "npm"
+          cache-dependency-path: lcars-portal/package-lock.json
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build-storybook
+      - name: Run Storybook a11y check
+        continue-on-error: true
+        run: npm run test-storybook
+
   deadcode:
     # USS-TJR-MSN-0366 Stream 8. lcars-portal had zero dead-code tooling
     # before this (confirmed by reading package.json — lint/typecheck/test
