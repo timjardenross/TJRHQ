@@ -137,7 +137,7 @@ export function ThinkView({
         <div className="space-y-2 text-left">
           <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }} rows={3}
             placeholder="Bring a decision, problem, question or idea…" disabled={loading}
-            className="w-full resize-y rounded-md border border-wb-line bg-wb-bg px-3 py-2.5 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-50" />
+            className="w-full resize-y rounded-md border border-wb-line bg-wb-bg px-3 py-2.5 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-50" />
           <button onClick={submit} disabled={loading || !input.trim()}
             className="w-full rounded-md bg-wb-sage-deep px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-40 disabled:cursor-not-allowed">
             Think it through

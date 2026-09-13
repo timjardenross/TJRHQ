@@ -125,7 +125,7 @@ export function MemoryView() {
           placeholder="Search records…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full rounded-lg border border-wb-line bg-transparent px-3 py-2 text-sm text-wb-ink placeholder:text-wb-ink2 focus:border-wb-ink focus:outline-none"
+          className="w-full rounded-lg border border-wb-line bg-transparent px-3 py-2 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         />
         <p className="text-xs text-wb-ink2">
           {loading ? 'Loading…' : loadError ? 'Records unavailable' : `${totalRecords} records`}

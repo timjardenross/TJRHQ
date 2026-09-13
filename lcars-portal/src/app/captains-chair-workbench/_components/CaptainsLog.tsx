@@ -70,7 +70,7 @@ export function CaptainsLog() {
           onClick={submit}
           disabled={saving || !text.trim()}
           aria-label="Capture"
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-wb-sage-deep text-[16px] font-semibold text-white transition hover:opacity-90 disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-wb-sage-deep text-[16px] font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
         >
           +
         </button>
