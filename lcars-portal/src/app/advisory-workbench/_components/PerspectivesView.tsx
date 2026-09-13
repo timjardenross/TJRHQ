@@ -351,7 +351,7 @@ export function PerspectivesView() {
                   {r.error && <p className="text-sm text-wb-crit-on">{r.error}</p>}
                   {!r.loading && !r.error && !r.response && <p className="text-sm text-wb-ink2">No response.</p>}
                   {r.response && !r.loading && (
-                    <div className="prose prose-base prose-headings:font-serif prose-headings:text-wb-ink prose-p:my-2 prose-p:leading-7 prose-strong:text-wb-ink">
+                    <div className="prose prose-base prose-headings:font-serif prose-headings:text-wb-ink prose-p:my-2 prose-p:leading-7 prose-strong:text-wb-ink [overflow-wrap:anywhere]">
                       <ReactMarkdown>{r.response}</ReactMarkdown>
                     </div>
                   )}

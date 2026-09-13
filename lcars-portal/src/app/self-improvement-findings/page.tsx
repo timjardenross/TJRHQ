@@ -878,7 +878,7 @@ function LearnedTab({
               // doesn't gate on lifecycle_state, only on requiring a mission_id.
               const canRetroCreateMission = o.lifecycle_state === 'approved' && !o.mission_id;
               return (
-                <div key={o.opportunity_id} className="p-3 rounded border border-wb-line bg-wb-bg text-sm text-wb-ink flex items-center justify-between gap-3">
+                <div key={o.opportunity_id} className="p-3 rounded border border-wb-line bg-wb-bg text-sm text-wb-ink flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="font-semibold">{o.title}</div>
                     <div className="text-xs text-wb-ink2">{CHANGE_CLASS_LABEL[o.change_class]} · updated {new Date(o.updated_at).toLocaleDateString()}</div>
@@ -931,7 +931,7 @@ function LearnedTab({
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
                     {canRetroCreateMission && (
                       <button
                         onClick={() => onCreateMission(o)}

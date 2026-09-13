@@ -235,7 +235,7 @@ export function ConsultView() {
                     {m.error
                       ? <p className="text-sm text-wb-crit-on">{m.content}</p>
                       : (
-                        <div className="prose prose-base prose-headings:font-serif prose-headings:text-wb-ink prose-p:my-2 prose-p:leading-7 prose-strong:text-wb-ink">
+                        <div className="prose prose-base prose-headings:font-serif prose-headings:text-wb-ink prose-p:my-2 prose-p:leading-7 prose-strong:text-wb-ink [overflow-wrap:anywhere]">
                           <ReactMarkdown>{m.content}</ReactMarkdown>
                         </div>
                       )}

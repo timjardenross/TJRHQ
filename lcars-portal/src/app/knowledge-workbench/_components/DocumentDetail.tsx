@@ -75,7 +75,7 @@ export function DocumentDetail({
       ) : (
         <div className="flex flex-col gap-3">
           <div>
-            <p className="text-sm font-semibold text-wb-ink">{detail.filename}</p>
+            <p className="break-words text-sm font-semibold text-wb-ink">{detail.filename}</p>
             <p className="mt-0.5 break-all text-[10px] text-wb-ink2">{detail.source_path}</p>
           </div>
 
@@ -100,7 +100,7 @@ export function DocumentDetail({
             </div>
           )}
 
-          <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+          <dl className="grid grid-cols-1 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-2">
             <dt className="text-wb-ink2">OCR status</dt>
             <dd className="text-wb-ink">
               {detail.ocr_used ? `OCR (${detail.ocr_engine ?? 'unknown engine'})` : detail.status === 'ocr_required' ? 'Required — pending' : 'Not required'}

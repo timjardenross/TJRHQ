@@ -145,8 +145,8 @@ export default function Escalation({ params }: { params: { id: string } }) {
             <Card title="Audit trail">
               <div className="flex flex-col gap-2.5">
                 {auditTrail.map((a) => (
-                  <div key={a.id} className="flex items-start gap-3 border-b border-wb-line py-2 text-[12.5px] last:border-0">
-                    <span className="w-[140px] shrink-0 text-wb-ink2">
+                  <div key={a.id} className="flex flex-col gap-0.5 border-b border-wb-line py-2 text-[12.5px] last:border-0 sm:flex-row sm:items-start sm:gap-3">
+                    <span className="shrink-0 text-wb-ink2 sm:w-[140px]">
                       {new Date(a.created_at).toLocaleString()}
                     </span>
                     <span className="flex-1">
