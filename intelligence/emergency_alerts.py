@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
+import alert_silences
 from heartbeat import _KEY, _URL, record_heartbeat, supabase_get
 
 from core.notifications.resend_email import send_email
@@ -137,19 +138,41 @@ def _send_emergency_warning_emails(source_key: str) -> int:
     hasn't been emailed yet (alerts.emergency_email_sent_at is null —
     persistent dedupe, migration 0175). Runs after the upsert so it only
     sees this run's real, current state. Never raises — a notification
-    failure must never break the ingestion job it's attached to."""
+    failure must never break the ingestion job it's attached to.
+
+    A row matching an active alert_silences rule (migration 0205 — e.g. a
+    planned hazard-reduction burn muted for this jurisdiction+alert_type)
+    is skipped WITHOUT setting emergency_email_sent_at, so a still-active
+    alert is naturally picked up and emailed on the next run once the
+    silence expires — no separate "resume" step needed."""
     try:
         rows = supabase_get(
             f"alerts?source_key=eq.{source_key}&severity=eq.emergency_warning"
             "&is_active=eq.true&emergency_email_sent_at=is.null"
-            "&select=id,headline,jurisdiction,location,description,canonical_url,issued_at"
+            "&select=id,headline,jurisdiction,alert_type,location,description,canonical_url,issued_at"
         )
     except Exception as exc:  # noqa: BLE001 - best-effort unnotified-warnings read, already logged; caller treats 0 as 'nothing to notify'
         log.warning("[emergency-alerts] %s: failed to read unnotified emergency warnings: %s", source_key, exc)
         return 0
+    if not rows:
+        return 0
+
+    try:
+        active_silences = alert_silences.list_active_silences()
+    except Exception as exc:  # noqa: BLE001 - a silence-lookup failure must never block a real emergency warning email; degrade to "no active silences"
+        log.warning("[emergency-alerts] %s: failed to read active silences (proceeding as if none): %s", source_key, exc)
+        active_silences = []
 
     sent = 0
     for row in rows:
+        silenced = alert_silences.check_silence(
+            {"jurisdiction": row["jurisdiction"], "alert_type": row.get("alert_type"), "severity": "emergency_warning", "source_key": source_key},
+            active_silences,
+        )
+        if silenced:
+            log.info("[emergency-alerts] %s: alert %s silenced (%s) — email suppressed", source_key, row["id"], silenced.get("reason"))
+            continue
+
         subject = f"🚨 EMERGENCY WARNING — {row['jurisdiction']} — {row['headline']}"
         html = (
             f"<p><strong>{row['headline']}</strong></p>"
