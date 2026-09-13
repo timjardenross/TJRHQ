@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Modal, Button, Input, Textarea, Select } from '@/components/ui';
-import { previewShoppingListUrl, STATUSES, type NewShoppingListItemInput, type ShoppingListItem } from '@/lib/shoppingList';
+import { previewShoppingListUrl, STATUSES, type NewShoppingListItemInput, type ShoppingListItem, type ShoppingListResult } from '@/lib/shoppingList';
 
 /** Add/edit form for one shopping list item. Paste-a-URL is an assist, not
  * a requirement — "Fetch details" pre-fills the fields below via
@@ -16,7 +16,7 @@ export function ItemFormModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onSave: (input: NewShoppingListItemInput) => Promise<void>;
+  onSave: (input: NewShoppingListItemInput) => Promise<ShoppingListResult>;
   initial?: ShoppingListItem | null;
 }) {
   const [sourceUrl, setSourceUrl] = useState('');
@@ -33,6 +33,7 @@ export function ItemFormModal({
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -48,6 +49,7 @@ export function ItemFormModal({
     setStatus(initial?.status ?? 'wishlist');
     setNotes(initial?.notes ?? '');
     setFetchError(null);
+    setSaveError(null);
   }, [open, initial]);
 
   async function fetchDetails() {
@@ -70,7 +72,8 @@ export function ItemFormModal({
 
   async function handleSave() {
     setSaving(true);
-    await onSave({
+    setSaveError(null);
+    const result = await onSave({
       product_name: productName.trim(),
       vendor: vendor.trim() || null,
       image_url: imageUrl.trim() || null,
@@ -84,6 +87,7 @@ export function ItemFormModal({
       notes: notes.trim() || null,
     });
     setSaving(false);
+    if (!result.ok) setSaveError(result.error ?? 'Could not save this item.');
   }
 
   const canSave = productName.trim() !== '' && category.trim() !== '' && cost !== '' && Number.isFinite(Number(cost));
@@ -142,6 +146,8 @@ export function ItemFormModal({
         </Select>
 
         <Textarea label="Notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+
+        {saveError && <p className="text-[12px] text-wb-crit">{saveError}</p>}
 
         <div className="mt-2 flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
