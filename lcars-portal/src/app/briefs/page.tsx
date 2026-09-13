@@ -11,6 +11,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import * as Collapsible from '@radix-ui/react-collapsible';
 import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
 import type { ApprovalStatus, BriefListItem } from '@/lib/briefsShared';
 import { buildMorningIntelligenceView, isToday } from '@/lib/briefsShared';
@@ -234,37 +235,40 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
             <option value="GREEN">Green</option>
             <option value="UNKNOWN">Unknown</option>
           </select>
-          <button
-            type="button"
-            onClick={() => setShowAdvanced((v) => !v)}
-            className="rounded-md border border-wb-line px-3 py-1.5 text-[13px] text-wb-ink2 hover:bg-wb-bg"
-          >
-            {showAdvanced ? 'Hide' : 'Show'} advanced filters
-          </button>
         </div>
 
-        {showAdvanced && (
-          <div className="mt-3 border-t border-wb-line pt-3">
-            <p className="mb-2 text-[11px] uppercase tracking-wider text-wb-ink2">
-              Historical publication state (legacy — every brief since 2026-08-22 auto-publishes)
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {(['all', 'PUBLISHED', 'IN_REVIEW', 'QA_PASSED'] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setStatusFilter(s)}
-                  aria-pressed={statusFilter === s}
-                  className={`rounded-full border px-3 py-1 text-[12px] ${
-                    statusFilter === s ? 'border-wb-sage-deep bg-wb-sage-deep text-white' : 'border-wb-line text-wb-ink2'
-                  }`}
-                >
-                  {s === 'all' ? 'All' : STATUS_LABEL[s]}
-                </button>
-              ))}
+        <Collapsible.Root open={showAdvanced} onOpenChange={setShowAdvanced}>
+          <Collapsible.Trigger asChild>
+            <button
+              type="button"
+              className="rounded-md border border-wb-line px-3 py-1.5 text-[13px] text-wb-ink2 hover:bg-wb-bg"
+            >
+              {showAdvanced ? 'Hide' : 'Show'} advanced filters
+            </button>
+          </Collapsible.Trigger>
+          <Collapsible.Content>
+            <div className="mt-3 border-t border-wb-line pt-3">
+              <p className="mb-2 text-[11px] uppercase tracking-wider text-wb-ink2">
+                Historical publication state (legacy — every brief since 2026-08-22 auto-publishes)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(['all', 'PUBLISHED', 'IN_REVIEW', 'QA_PASSED'] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStatusFilter(s)}
+                    aria-pressed={statusFilter === s}
+                    className={`rounded-full border px-3 py-1 text-[12px] ${
+                      statusFilter === s ? 'border-wb-sage-deep bg-wb-sage-deep text-white' : 'border-wb-line text-wb-ink2'
+                    }`}
+                  >
+                    {s === 'all' ? 'All' : STATUS_LABEL[s]}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          </Collapsible.Content>
+        </Collapsible.Root>
       </Card>
 
       <Card title={`${filtered.length} Brief${filtered.length === 1 ? '' : 's'}`}>
