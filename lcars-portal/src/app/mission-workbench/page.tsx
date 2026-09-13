@@ -163,7 +163,7 @@ export default function MissionWorkbenchPage() {
         </Card>
 
         {/* Open/In Progress vs Closed tabs */}
-        <div className="flex gap-2 border-b border-wb-line">
+        <div className="flex flex-wrap gap-2 border-b border-wb-line">
           <button
             type="button"
             onClick={() => setView('open')}

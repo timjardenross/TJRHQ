@@ -196,8 +196,8 @@ export default function BriefReview({ params }: { params: { id: string } }) {
             <Card title="Audit trail">
               <div className="flex flex-col gap-2.5">
                 {auditTrail.map((a) => (
-                  <div key={a.id} className="flex items-start gap-3 border-b border-wb-line py-2 text-[12.5px] last:border-0">
-                    <span className="w-[140px] shrink-0 text-wb-ink2">
+                  <div key={a.id} className="flex flex-col gap-0.5 border-b border-wb-line py-2 text-[12.5px] last:border-0 sm:flex-row sm:items-start sm:gap-3">
+                    <span className="shrink-0 text-wb-ink2 sm:w-[140px]">
                       {new Date(a.created_at).toLocaleString()}
                     </span>
                     <span className="flex-1">
@@ -245,7 +245,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
                   </p>
                 )}
 
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px]">
+                <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 text-[12px] sm:grid-cols-2">
                   <dt className="text-wb-ink2">Operational relevance</dt>
                   <dd>{openSignal.operational_relevance != null ? openSignal.operational_relevance : '—'}</dd>
                   <dt className="text-wb-ink2">Customer impact</dt>
