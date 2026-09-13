@@ -100,7 +100,7 @@ export function WorkbenchShell({
         <Sidebar />
         <div className="min-w-0 flex-1">
           <header className="border-b border-wb-line bg-wb-bg/80 backdrop-blur">
-            <div className={`mx-auto flex ${shellWidth} items-center gap-3 px-6 py-4`}>
+            <div className={`mx-auto flex ${shellWidth} flex-wrap items-center gap-3 px-6 py-4`}>
               <Link
                 href={GLOBAL_HOME}
                 className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-wb-sage-deep text-[14px] font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink xl:hidden"

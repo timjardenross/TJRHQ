@@ -74,7 +74,7 @@ function Workbench() {
       back={{ href: '/workbenches', label: 'Workbenches' }}
       right={
         <Button variant="secondary" size="sm" onClick={() => setShowDetails((v) => !v)}>
-          {showDetails ? '← Back' : 'Details (Technical view)'}
+          {showDetails ? '← Back' : 'Details'}
         </Button>
       }
     >

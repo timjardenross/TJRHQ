@@ -106,7 +106,7 @@ export default function HumanSystemsReportPage() {
           <button
             onClick={() => window.print()}
             disabled={!data}
-            className="rounded-md border border-wb-line px-3 py-1 text-[11px] font-medium text-wb-ink transition hover:border-wb-sage-deep disabled:opacity-50"
+            className="rounded-md border border-wb-line px-3 py-1 text-[11px] font-medium text-wb-ink transition hover:border-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-50"
           >
             Download PDF
           </button>

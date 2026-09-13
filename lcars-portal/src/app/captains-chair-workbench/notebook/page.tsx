@@ -180,7 +180,7 @@ function NoteCard({
           <p className="text-sm font-semibold text-wb-ink truncate w-full">
             {note.title || note.raw_content.slice(0, 60) + (note.raw_content.length > 60 ? '…' : '')}
           </p>
-          <div className="flex items-center gap-3 text-[10px] text-wb-ink2">
+          <div className="flex flex-wrap items-center gap-3 text-[10px] text-wb-ink2">
             <span>{relativeAge(note.created_at)}</span>
             {note.tags.length > 0 && (
               <span>{note.tags.slice(0, 3).join(' · ')}</span>
@@ -268,7 +268,7 @@ function NoteCard({
           )}
 
           {!isArchived && (
-            <div className="flex gap-2 pt-1">
+            <div className="flex flex-wrap gap-2 pt-1">
               {canRoute && (
                 <button
                   type="button"

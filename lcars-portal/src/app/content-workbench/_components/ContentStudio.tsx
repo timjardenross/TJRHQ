@@ -118,7 +118,7 @@ export function ContentStudio({ item, onChanged, onClose }: { item: ContentItem;
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={onClose}>← Back</Button>
-        <h2 className="text-[15px] font-semibold text-wb-ink">{item.title}</h2>
+        <h2 className="min-w-0 flex-1 break-words text-[15px] font-semibold text-wb-ink">{item.title}</h2>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -134,7 +134,7 @@ export function ContentStudio({ item, onChanged, onClose }: { item: ContentItem;
 
       <ProgressSteps steps={progressSteps(item)} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_280px]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_280px]">
         <div className="min-w-0 rounded-xl border border-wb-line bg-wb-surface p-4">
           {item.stage === 'capture' && <CaptureStageBody item={item} onChanged={onChanged} />}
           {item.stage === 'research' && <ResearchStageBody item={item} onChanged={onChanged} />}

@@ -81,16 +81,13 @@ function Workbench() {
   };
 
   const right = (
-    <div className="flex items-center gap-2">
-      <button
-        onClick={load}
-        disabled={loading}
-        className="rounded-md border border-wb-line px-2.5 py-1 text-[12px] text-wb-ink2 transition hover:bg-wb-line disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
-      >
-        {loading ? 'Refreshing…' : '↻ Refresh'}
-      </button>
-      <DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Captain’s Brief view" />
-    </div>
+    <button
+      onClick={load}
+      disabled={loading}
+      className="rounded-md border border-wb-line px-2.5 py-1 text-[12px] text-wb-ink2 transition hover:bg-wb-line disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
+    >
+      {loading ? 'Refreshing…' : '↻ Refresh'}
+    </button>
   );
 
   return (
@@ -99,6 +96,7 @@ function Workbench() {
       eyebrow={EYEBROW[domain]}
       tagline="USS TJR · Captain’s Brief · assembled on request — reports the signals received, not an all-clear"
       right={right}
+      tabs={<DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Captain’s Brief view" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
     >
       {loading && !doc && <p className="text-sm text-wb-ink2">Assembling brief…</p>}

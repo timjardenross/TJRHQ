@@ -761,10 +761,10 @@ function ImproveTab({
                       className="w-full p-2 rounded border border-wb-line bg-wb-bg text-wb-ink text-sm mb-3 font-mono"
                       rows={3}
                     />
-                    <div className="flex gap-2">
-                      <button onClick={() => onLegacyDecision('approved')} className="flex-1 px-4 py-2 rounded bg-wb-ok text-wb-ok-on font-semibold text-sm hover:opacity-90">Approve</button>
-                      <button onClick={() => onLegacyDecision('more_evidence')} className="flex-1 px-4 py-2 rounded bg-wb-warn text-wb-warn-on font-semibold text-sm hover:opacity-90">More Evidence</button>
-                      <button onClick={() => onLegacyDecision('rejected')} className="flex-1 px-4 py-2 rounded bg-wb-crit text-wb-crit-on font-semibold text-sm hover:opacity-90">Reject</button>
+                    <div className="flex flex-wrap gap-2">
+                      <button onClick={() => onLegacyDecision('approved')} className="flex-1 basis-full px-4 py-2 rounded bg-wb-ok text-wb-ok-on font-semibold text-sm hover:opacity-90 sm:basis-0">Approve</button>
+                      <button onClick={() => onLegacyDecision('more_evidence')} className="flex-1 basis-full px-4 py-2 rounded bg-wb-warn text-wb-warn-on font-semibold text-sm hover:opacity-90 sm:basis-0">More Evidence</button>
+                      <button onClick={() => onLegacyDecision('rejected')} className="flex-1 basis-full px-4 py-2 rounded bg-wb-crit text-wb-crit-on font-semibold text-sm hover:opacity-90 sm:basis-0">Reject</button>
                     </div>
                   </>
                 ) : (
@@ -878,7 +878,7 @@ function LearnedTab({
               // doesn't gate on lifecycle_state, only on requiring a mission_id.
               const canRetroCreateMission = o.lifecycle_state === 'approved' && !o.mission_id;
               return (
-                <div key={o.opportunity_id} className="p-3 rounded border border-wb-line bg-wb-bg text-sm text-wb-ink flex items-center justify-between gap-3">
+                <div key={o.opportunity_id} className="p-3 rounded border border-wb-line bg-wb-bg text-sm text-wb-ink flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="font-semibold">{o.title}</div>
                     <div className="text-xs text-wb-ink2">{CHANGE_CLASS_LABEL[o.change_class]} · updated {new Date(o.updated_at).toLocaleDateString()}</div>
@@ -931,7 +931,7 @@ function LearnedTab({
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
                     {canRetroCreateMission && (
                       <button
                         onClick={() => onCreateMission(o)}

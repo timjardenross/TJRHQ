@@ -213,7 +213,7 @@ export default function LifeOSHub() {
           <>
             {/* ── 3. Next commitments — only meaningful upcoming Calendar items ── */}
             {!sanctuary && (
-              <div className="rounded-lg border border-wb-line bg-white p-4">
+              <div className="rounded-lg border border-wb-line bg-wb-surface p-4">
                 <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-wb-ink2">Next</h2>
                 {calendarStatus === 'disconnected' ? (
                   <p className="text-sm text-wb-ink2">
@@ -239,7 +239,7 @@ export default function LifeOSHub() {
             )}
 
             {/* ── 4. Needs You — prefer 0–3 genuinely actionable items ── */}
-            <div className="rounded-lg border border-wb-line bg-white p-4">
+            <div className="rounded-lg border border-wb-line bg-wb-surface p-4">
               <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-wb-ink2">Needs You</h2>
               {needsYouItems.length === 0 ? (
                 <p className="text-sm font-medium text-wb-ink2">✓ Nothing needs your attention.</p>
@@ -268,7 +268,7 @@ export default function LifeOSHub() {
 
             {/* ── 5. World / intelligence — one headline or honest unknown ── */}
             {!hideWorldSection && (
-              <div className="rounded-lg border border-wb-line bg-white p-4">
+              <div className="rounded-lg border border-wb-line bg-wb-surface p-4">
                 <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-wb-ink2">World</h2>
                 <p className="text-sm font-medium text-wb-ink">{intelligenceHeadline.headline === 'NO MATERIAL CHANGE' ? 'No material change' : intelligenceHeadline.headline}</p>
                 <p className="mt-0.5 text-xs text-wb-ink2">{intelligenceHeadline.detail}</p>
@@ -297,7 +297,7 @@ export default function LifeOSHub() {
                 type="button"
                 onClick={speakCommandPicture}
                 disabled={speakState === 'generating' || speakState === 'playing'}
-                className="text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:opacity-60 disabled:no-underline"
+                className="text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-60 disabled:no-underline"
               >
                 {speakState === 'generating' ? 'Generating…' : speakState === 'playing' ? '🔊 Playing…' : speakState === 'error' ? '⚠️ Failed — retry' : '🔊 Read aloud'}
               </button>

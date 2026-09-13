@@ -147,7 +147,7 @@ function HandoffCard({ handoff }: { handoff: Handoff }) {
   return (
     <div className="rounded-lg border border-wb-line bg-wb-bg p-4">
       <div className="mb-2 flex items-start justify-between gap-3">
-        <h3 className="font-serif text-[15px] text-wb-ink">{displayTitle(handoff.title)}</h3>
+        <h3 className="min-w-0 flex-1 break-words font-serif text-[15px] text-wb-ink">{displayTitle(handoff.title)}</h3>
         <span className="shrink-0 rounded-md border border-wb-line px-2 py-0.5 font-mono text-[11px] text-wb-ink2">
           {handoff.priority}
         </span>

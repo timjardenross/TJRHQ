@@ -15,14 +15,14 @@ export interface TabsProps<T extends string = string> {
 /** TJR Design System — generalized from comms-workbench's tab nav. */
 export function Tabs<T extends string = string>({ tabs, active, onChange, ariaLabel }: TabsProps<T>) {
   return (
-    <nav className="flex gap-2 border-b border-wb-line pb-2" aria-label={ariaLabel}>
+    <nav className="flex flex-nowrap gap-2 overflow-x-auto border-b border-wb-line pb-2 [scrollbar-width:thin]" aria-label={ariaLabel}>
       {tabs.map((t) => (
         <button
           key={t.key}
           type="button"
           onClick={() => onChange(t.key)}
           aria-current={active === t.key ? 'page' : undefined}
-          className={`rounded border px-3 py-1.5 text-xs transition-colors focus-visible:outline
+          className={`shrink-0 rounded border px-3 py-1.5 text-xs transition-colors focus-visible:outline
             focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
               active === t.key
                 ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep'

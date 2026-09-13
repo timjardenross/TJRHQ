@@ -214,7 +214,7 @@ export function EvidencePanel({
 // ── Result section primitive (mission §7 result hierarchy) ───────────────────
 function ResultSection({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <section aria-labelledby={`think-${label}`} className="rounded-md border border-wb-line bg-wb-surface px-4 py-3">
+    <section aria-labelledby={`think-${label}`} className="[overflow-wrap:anywhere] rounded-md border border-wb-line bg-wb-surface px-4 py-3">
       <h3 id={`think-${label}`} className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-wb-sage-deep">{label}</h3>
       {children}
     </section>

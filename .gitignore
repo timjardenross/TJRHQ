@@ -34,6 +34,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# log4brains build output (generated static ADR site; rebuild with `npm run adr:build`)
+.log4brains/
+
 # macOS
 .DS_Store
 ._*
@@ -46,8 +49,10 @@ outputs/
 
 # tools/garak_sweep.sh and core/quality/garak_gate.py (USS-TJR-MSN-0365) both
 # write timestamped garak vulnerability-scan reports here — runtime evidence,
-# regenerated on every run, not durable source.
-reports/garak/
+# regenerated on every run, not durable source. The README.md is a tracked
+# placeholder/handoff doc (USS-TJR-MSN-0374 Stream 5), not a report.
+reports/garak/*
+!reports/garak/README.md
 
 # Editor
 .vscode/

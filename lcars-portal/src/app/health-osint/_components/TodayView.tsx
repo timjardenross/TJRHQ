@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Card, Badge } from '@/components/ui';
+import { Card, Badge, Button, Select } from '@/components/ui';
 import { EVIDENCE_CONTRIBUTION_LABEL, IGNORE_REASONS, type EvidenceItem } from './shared';
 
 interface NeedsReviewItem {
@@ -189,31 +189,33 @@ export function TodayView() {
                 </div>
                 {item.reason && <p className="mt-1 italic text-wb-ink2">{item.reason}</p>}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="primary"
+                    size="sm"
                     disabled={busyId === item.signal_id}
                     onClick={() => decide(item.signal_id, 'publish')}
-                    className="rounded bg-wb-sage-deep px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
                   >
                     Include
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="sm"
                     disabled={busyId === item.signal_id}
                     onClick={() => decide(item.signal_id, 'reject')}
-                    className="rounded bg-wb-crit/10 px-3 py-1 text-xs font-medium text-wb-crit disabled:opacity-50"
+                    className="border-transparent bg-wb-crit/10 text-wb-crit hover:border-transparent hover:bg-wb-crit/20 active:border-transparent active:bg-wb-crit/20"
                   >
                     Ignore
-                  </button>
-                  <select
+                  </Button>
+                  <Select
                     value={reasonById[item.signal_id] ?? ''}
                     onChange={(e) => setReasonById((prev) => ({ ...prev, [item.signal_id]: e.target.value }))}
-                    className="rounded border border-wb-line bg-transparent px-2 py-1 text-xs text-wb-ink2"
                     aria-label="Ignore reason (optional)"
                   >
                     <option value="">Ignore reason (optional)</option>
                     {IGNORE_REASONS.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}
-                  </select>
+                  </Select>
                 </div>
               </div>
             ))}

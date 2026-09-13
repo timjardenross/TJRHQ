@@ -193,7 +193,7 @@ export function ConsultView() {
           <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKeyDown} rows={3}
             placeholder={isOffline ? `${activeAdvisor.label} is offline.` : `Message ${activeAdvisor.label}…`}
             disabled={loading || isOffline}
-            className="min-h-[72px] flex-1 resize-y rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-50" />
+            className="min-h-[72px] flex-1 resize-y rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-50" />
           <button onClick={() => send(input)} disabled={loading || !input.trim() || isOffline}
             className="self-stretch rounded-md bg-wb-sage-deep px-4 text-sm font-semibold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-40 disabled:cursor-not-allowed">
             Send
@@ -235,7 +235,7 @@ export function ConsultView() {
                     {m.error
                       ? <p className="text-sm text-wb-crit-on">{m.content}</p>
                       : (
-                        <div className="prose prose-base prose-headings:font-serif prose-headings:text-wb-ink prose-p:my-2 prose-p:leading-7 prose-strong:text-wb-ink">
+                        <div className="prose prose-base prose-headings:font-serif prose-headings:text-wb-ink prose-p:my-2 prose-p:leading-7 prose-strong:text-wb-ink [overflow-wrap:anywhere]">
                           <ReactMarkdown>{m.content}</ReactMarkdown>
                         </div>
                       )}

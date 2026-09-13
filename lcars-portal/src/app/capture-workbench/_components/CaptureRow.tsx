@@ -41,7 +41,7 @@ const BTN_TONE: Record<BtnTone, string> = {
 function ActionBtn({ label, onClick, disabled, tone }: { label: string; onClick: () => void; disabled: boolean; tone: BtnTone }) {
   return (
     <button type="button" disabled={disabled} onClick={onClick}
-      className={`rounded-md border px-3 py-1 text-xs font-medium transition-colors disabled:opacity-40 ${BTN_TONE[tone]}`}>
+      className={`rounded-md border px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${BTN_TONE[tone]}`}>
       {label}
     </button>
   );

@@ -7,7 +7,7 @@
 // when no explicit date range is given).
 
 import { useEffect, useState } from 'react';
-import { Select } from '@/components/ui';
+import { Button, Input, Select } from '@/components/ui';
 import { EVIDENCE_CONTRIBUTION_LABEL, type EvidenceItem } from './shared';
 
 const EVIDENCE_CONTRIBUTION_OPTIONS = Object.keys(EVIDENCE_CONTRIBUTION_LABEL);
@@ -82,12 +82,12 @@ export function LibraryView() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <input
+        <Input
           type="text"
           value={q}
           onChange={(e) => resetPage(setQ)(e.target.value)}
           placeholder="Search title or summary…"
-          className="min-w-[200px] flex-1 rounded border border-wb-line bg-transparent px-2 py-1.5 text-[12.5px] text-wb-ink"
+          className="min-w-[200px] flex-1"
           aria-label="Search library"
         />
         <Select value={evidenceContribution} onChange={(e) => resetPage(setEvidenceContribution)(e.target.value)} aria-label="Filter by what changed">
@@ -98,8 +98,8 @@ export function LibraryView() {
           <option value="">All strengths</option>
           {STRENGTH_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
         </Select>
-        <input type="date" value={since} onChange={(e) => resetPage(setSince)(e.target.value)} className="rounded border border-wb-line bg-transparent px-2 py-1.5 text-[12px] text-wb-ink" aria-label="Since date" />
-        <input type="date" value={until} onChange={(e) => resetPage(setUntil)(e.target.value)} className="rounded border border-wb-line bg-transparent px-2 py-1.5 text-[12px] text-wb-ink" aria-label="Until date" />
+        <Input type="date" value={since} onChange={(e) => resetPage(setSince)(e.target.value)} aria-label="Since date" />
+        <Input type="date" value={until} onChange={(e) => resetPage(setUntil)(e.target.value)} aria-label="Until date" />
       </div>
 
       {error && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>}
@@ -117,8 +117,8 @@ export function LibraryView() {
       <div className="flex items-center justify-between text-[12px] text-wb-ink2">
         <span>{total} total</span>
         <div className="flex gap-2">
-          <button type="button" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))} className="rounded border border-wb-line px-2 py-1 disabled:opacity-40">Prev</button>
-          <button type="button" disabled={!hasMore} onClick={() => setPage((p) => p + 1)} className="rounded border border-wb-line px-2 py-1 disabled:opacity-40">Next</button>
+          <Button type="button" variant="secondary" size="sm" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>Prev</Button>
+          <Button type="button" variant="secondary" size="sm" disabled={!hasMore} onClick={() => setPage((p) => p + 1)}>Next</Button>
         </div>
       </div>
     </div>

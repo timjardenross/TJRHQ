@@ -39,6 +39,7 @@ actionable signal (push.capacity_degradation_alert returns None otherwise).
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
 import os
@@ -211,33 +212,70 @@ def _timezone():
         return None
 
 
-def _start_daemon():
-    """Blocking daemon mode — parity with intelligence/scheduler.py."""
-    try:
-        from apscheduler.schedulers.blocking import BlockingScheduler
-        from apscheduler.triggers.cron import CronTrigger
-    except ImportError:
-        log.error("APScheduler not installed. Run: pip install apscheduler")
+def _cron_expression(job: str) -> str:
+    """Env-var-overridable cron string for `job`, in pgqueuer's cron syntax
+    (identical 5-field crontab format to the old CronTrigger kwargs)."""
+    env_key, default = _CRON_DEFAULTS[job]
+    return os.environ.get(env_key, default)
+
+
+async def _run_job_async(job: str) -> None:
+    """pgqueuer entrypoints are coroutines; run_job() itself is sync (it
+    calls synchronous Supabase/Telegram clients), so it runs in a thread to
+    avoid blocking pgqueuer's event loop."""
+    await asyncio.to_thread(run_job, job)
+
+
+async def _start_daemon_async():
+    """Postgres-native durable queue daemon (USS-TJR-MSN-0375 pilot).
+
+    Replaces the BlockingScheduler/CronTrigger pair with pgqueuer, whose
+    dequeue() uses `FOR UPDATE SKIP LOCKED` (pgqueuer/adapters/persistence/
+    qb.py) so two co-running instances of this daemon (e.g. during a
+    delayed-restart window) cannot both execute the same due job — the
+    double-fire risk this pilot was scoped to close. JOBS/_CRON_DEFAULTS/
+    _JOB_DOMAIN and every env-var cron override are unchanged; only the
+    execution substrate changed.
+    """
+    import asyncpg
+    from pgqueuer import PgQueuer
+    from pgqueuer.db import AsyncpgDriver
+
+    dsn = os.environ.get("SUPABASE_DB_URL") or os.environ.get("HS_SCHEDULER_DB_URL")
+    if not dsn:
+        log.error(
+            "SUPABASE_DB_URL (or HS_SCHEDULER_DB_URL) not set — pgqueuer needs a "
+            "direct Postgres DSN (Supabase project settings -> Database -> "
+            "Connection string), not the supabase-py REST client."
+        )
         sys.exit(1)
 
-    tz = _timezone()
-    scheduler = BlockingScheduler(timezone=tz) if tz else BlockingScheduler()
+    conn = await asyncpg.connect(dsn=dsn)
+    pq = PgQueuer(AsyncpgDriver(conn))
+
+    # pgqueuer's SchedulerManager.run() polls pgqueuer_schedules with the
+    # same FOR UPDATE SKIP LOCKED primitive as the main job queue (see
+    # pgqueuer/adapters/persistence/qb.py) — two co-running daemons cannot
+    # both dispatch the same due tick.
     for job in JOBS:
-        env_key, default = _CRON_DEFAULTS[job]
-        parts = os.environ.get(env_key, default).split()
-        kw = {"minute": parts[0], "hour": parts[1], "day": parts[2], "month": parts[3], "day_of_week": parts[4]}
-        if tz:
-            kw["timezone"] = tz
-        scheduler.add_job(
-            run_job, CronTrigger(**kw),
-            kwargs={"job": job},
-            id=f"human_systems_{job}", replace_existing=True,
-        )
-    log.info("[human-systems-scheduler] daemon started")
+        def _make_handler(job_name: str):
+            async def _handler(_schedule) -> None:
+                await _run_job_async(job_name)
+            return _handler
+
+        pq.schedule(f"human_systems_{job}", _cron_expression(job))(_make_handler(job))
+
+    log.info("[human-systems-scheduler] pgqueuer daemon started (jobs=%s)", ", ".join(JOBS))
     try:
-        scheduler.start()
+        await pq.run()
     except (KeyboardInterrupt, SystemExit):
         log.info("[human-systems-scheduler] stopped")
+    finally:
+        await conn.close()
+
+
+def _start_daemon():
+    asyncio.run(_start_daemon_async())
 
 
 if __name__ == "__main__":
