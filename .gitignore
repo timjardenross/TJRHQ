@@ -34,9 +34,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# log4brains build output (generated static ADR site; rebuild with `npm run adr:build`)
-.log4brains/
-
 # macOS
 .DS_Store
 ._*
@@ -49,10 +46,22 @@ outputs/
 
 # tools/garak_sweep.sh and core/quality/garak_gate.py (USS-TJR-MSN-0365) both
 # write timestamped garak vulnerability-scan reports here — runtime evidence,
-# regenerated on every run, not durable source. The README.md is a tracked
-# placeholder/handoff doc (USS-TJR-MSN-0374 Stream 5), not a report.
-reports/garak/*
-!reports/garak/README.md
+# regenerated on every run, not durable source (same reasoning as every
+# other reports/<tool>/ directory below it, e.g. reports/ragas/,
+# reports/semgrep/, reports/knip/, reports/vulture/ — all of which ARE
+# committed despite that same reasoning applying to them too).
+#
+# garak is the deliberate exception, for a second, garak-specific reason:
+# its report.jsonl/hitlog.jsonl contain the raw adversarial prompt payloads
+# garak sent to the target (prompt-injection strings, hallucination-bait,
+# etc.) as literal text, not just findings about them — unlike ragas/
+# semgrep/knip/vulture reports, which log scores or code-quality findings,
+# never raw attack content. Committing that raw payload text to a public-ish
+# repo history is a different risk profile from committing a coverage
+# report, so it stays excluded even after the inconsistency with its
+# siblings was investigated and confirmed (USS-TJR-MSN-0368,
+# 2026-09-13) — not an oversight.
+reports/garak/
 
 # Editor
 .vscode/
