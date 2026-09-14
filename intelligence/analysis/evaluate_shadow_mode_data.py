@@ -24,6 +24,7 @@ import json
 import logging
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -141,7 +142,30 @@ class EvaluationHarness:
             log.error(f"Failed to fetch signals: {exc}")
             return []
 
-        # 2. For each signal, fetch its brief's QA decision
+        # 2. Fetch every referenced brief's QA decision in batched `in.()`
+        # queries instead of one request per signal -- up to 10000 signals
+        # previously meant up to 10000 sequential round trips here (2026-09-15
+        # adversarial review). Distinct brief_ids are usually far fewer than
+        # signals (many signals share a brief), and batching keeps each
+        # request's URL a sane length.
+        brief_ids = sorted({sig["brief_id"] for sig in signals if sig.get("brief_id")})
+        briefs_by_id: dict[str, dict] = {}
+        _BATCH_SIZE = 200
+        for i in range(0, len(brief_ids), _BATCH_SIZE):
+            batch = brief_ids[i : i + _BATCH_SIZE]
+            ids_param = ",".join(urllib.parse.quote(str(b), safe="") for b in batch)
+            try:
+                briefs_url = (
+                    f"{SUPABASE_URL}/rest/v1/intelligence_briefs"
+                    f"?brief_id=in.({ids_param})&select=brief_id,approval_audit,updated_at"
+                )
+                briefs_req = urllib.request.Request(briefs_url, headers=_headers())
+                with urllib.request.urlopen(briefs_req, timeout=30) as resp:  # nosec B310 - briefs_url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
+                    for brief in json.loads(resp.read()):
+                        briefs_by_id[brief["brief_id"]] = brief
+            except Exception as exc:  # noqa: BLE001 - one bad batch must not abort the whole evaluation; already logged, leaves those briefs' qa_approved/timestamp as None
+                log.debug(f"Failed to fetch brief batch {i}-{i + len(batch)}: {exc}")
+
         evaluations = []
         for sig in signals:
             event_id = sig["event_id"]
@@ -149,25 +173,13 @@ class EvaluationHarness:
             qa_approved = None
             qa_timestamp = None
 
-            if brief_id:
-                try:
-                    # Fetch brief's approval_audit
-                    brief_url = (
-                        f"{SUPABASE_URL}/rest/v1/intelligence_briefs"
-                        f"?brief_id=eq.{brief_id}&select=approval_audit,updated_at"
-                    )
-                    brief_req = urllib.request.Request(brief_url, headers=_headers())
-                    with urllib.request.urlopen(brief_req, timeout=10) as resp:  # nosec B310 - brief_url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
-                        briefs = json.loads(resp.read())
-                        if briefs:
-                            brief = briefs[0]
-                            audit = brief.get("approval_audit", {})
-                            qa_entry = audit.get("qa", {})
-                            # QA status: approved/rejected/pending
-                            qa_approved = qa_entry.get("status") == "approved"
-                            qa_timestamp = qa_entry.get("timestamp")
-                except Exception as exc:  # noqa: BLE001 - per-brief lookup inside a batch loop — one bad brief must not abort the batch; already logged, leaves qa_approved/timestamp as None
-                    log.debug(f"Failed to fetch brief {brief_id}: {exc}")
+            brief = briefs_by_id.get(brief_id) if brief_id else None
+            if brief:
+                audit = brief.get("approval_audit", {})
+                qa_entry = audit.get("qa", {})
+                # QA status: approved/rejected/pending
+                qa_approved = qa_entry.get("status") == "approved"
+                qa_timestamp = qa_entry.get("timestamp")
 
             evaluations.append(
                 SignalEvaluation(
