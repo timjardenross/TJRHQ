@@ -1,3 +1,12 @@
+-- Renamed from 0193_missions_authenticated_rls.sql to 0193b_* on
+-- 2026-09-15 (adversarial review): this and
+-- 0193_domain_registry_scheduler_drift.sql shared the ordinal prefix
+-- 0193 with no disambiguating suffix, unlike the repo's existing
+-- 0031/0031b, 0036/0036b convention. Already applied in production under
+-- its original filename before this rename -- this is a repo-only
+-- filename fix for future disaster-recovery/replay clarity, not a new
+-- migration to run.
+--
 -- RLS gap fix: authenticated-role INSERT access for public.missions, same
 -- root cause and fix pattern as 0044_knowledge_library_authenticated_rls.sql.
 --
