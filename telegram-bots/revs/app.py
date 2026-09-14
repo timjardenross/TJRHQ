@@ -30,6 +30,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import commands
+import crisis_layer2
 import daily
 import db
 import onboarding
@@ -71,10 +72,27 @@ async def _crisis_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     to prevent onboarding/tools/weekly/etc. from also processing the same
     message once a crisis is flagged — 'do not counsel, do not ask
     follow-up questions, do not attempt assessment. One message,
-    resources, silence.'"""
+    resources, silence.'
+
+    Two detection layers, in order — Layer 1 (safety.classify_free_text,
+    deliberately high-recall regex) first; only if that misses does Layer 2
+    (crisis_layer2, an LLM disambiguation pass over bare method/acquisition
+    words Layer 1 intentionally excludes) get a look. Either layer matching
+    runs the exact same user-facing response and escalation — the layer
+    that caught it only changes the trigger_type recorded for audit."""
     if not update.message or not update.message.text or update.message.text.startswith("/"):
         return
-    if not safety.classify_free_text(update.message.text):
+    text = update.message.text
+
+    if safety.classify_free_text(text):
+        trigger_type = "language"
+    elif crisis_layer2.should_run_layer2(text):
+        verdict = await crisis_layer2.confirm_crisis_context(text)
+        trigger_type = "layer2" if verdict != "not_crisis" else None
+    else:
+        trigger_type = None
+
+    if trigger_type is None:
         return
 
     client = _get_client()
@@ -90,11 +108,11 @@ async def _crisis_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     now = dt.datetime.now(dt.timezone.utc)
     recontact_due = now + dt.timedelta(hours=24)
-    db.insert_crisis_event(client, user_id, "language", recontact_due)
+    db.insert_crisis_event(client, user_id, trigger_type, recontact_due)
     db.update_user(client, user_id, quiet_until=(now + dt.timedelta(hours=48)).isoformat())
 
-    text = crisis_language_response(safety.locale_resources(row.get("locale")))
-    await update.message.reply_text(text)
+    response_text = crisis_language_response(safety.locale_resources(row.get("locale")))
+    await update.message.reply_text(response_text)
 
     # Escalation runs after the user's own resources message is already
     # sent — never delays it — and a failure here (bad XO credentials,
@@ -103,9 +121,9 @@ async def _crisis_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await notify_captain(
         user_id=user_id,
         first_name=row.get("first_name"),
-        trigger_type="language",
+        trigger_type=trigger_type,
         locale=row.get("locale"),
-        triggered_text=update.message.text,
+        triggered_text=text,
     )
     raise ApplicationHandlerStop
 

@@ -34,6 +34,7 @@ _TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"
 _TRIGGER_LABELS = {
     "language": "flagged from something they typed",
     "nontext": "flagged from check-in pattern — no message text involved",
+    "layer2": "flagged by Layer-2 LLM confirmation (ambiguous wording, Layer-1 keywords alone didn't match)",
 }
 
 # parse_mode="HTML" — chosen over Markdown/MarkdownV2 specifically because
@@ -46,6 +47,7 @@ _TRIGGER_LABELS = {
 _RESOURCE_NOTE = {
     "language": "Bot already sent this user {locale} crisis resources and will check back with them in 24h.",
     "nontext": "No text from the user to act on — this fired from their check-in pattern alone. Bot sent a light-touch resources message.",
+    "layer2": "Layer-1 keywords alone didn't match; an LLM confirmation pass judged the message a likely/possible crisis in context. Bot already sent this user {locale} crisis resources and will check back with them in 24h.",
 }
 
 
