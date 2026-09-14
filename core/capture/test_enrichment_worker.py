@@ -157,6 +157,47 @@ class TestEnrichItem:
         assert "enriched_at" in summary
         assert "enrichment_model" in summary
 
+    def test_duplicate_match_skips_llm_and_flags_item(self):
+        fake_match = ew.dedup.DuplicateMatch(duplicate_of_id="dup-source-id", similarity=0.91, matched_text="earlier capture")
+        captured_patch_calls = []
+
+        def fake_patch(table, match, update):
+            captured_patch_calls.append(update)
+
+        with patch.object(ew.dedup, "find_duplicate", return_value=fake_match), \
+             patch("urllib.request.urlopen") as mock_urlopen, \
+             patch.object(ew, "_sb_patch", side_effect=fake_patch):
+            result = ew.enrich_item(self._item(), dedup_index=object())
+
+        assert result is True
+        mock_urlopen.assert_not_called()  # no LLM call once a duplicate is found
+        update = captured_patch_calls[-1]
+        assert update["duplicate_of_id"] == "dup-source-id"
+        assert update["duplicate_similarity"] == 0.91
+        assert "duplicate_checked_at" in update
+        assert update["ai_enrichment_status"] == "enriched"
+
+    def test_duplicate_match_dry_run_writes_nothing(self, capsys):
+        fake_match = ew.dedup.DuplicateMatch(duplicate_of_id="dup-source-id", similarity=0.91, matched_text="earlier capture")
+        with patch.object(ew.dedup, "find_duplicate", return_value=fake_match), \
+             patch.object(ew, "_sb_patch") as mock_patch:
+            result = ew.enrich_item(self._item(), dry_run=True, dedup_index=object())
+        assert result is True
+        mock_patch.assert_not_called()
+        assert "dedup DRY RUN" in capsys.readouterr().out
+
+    def test_no_dedup_index_behaves_as_before(self):
+        """Passing no dedup_index (the default) must never call find_duplicate
+        with anything that touches semhash — behaviour identical to before
+        this feature existed."""
+        suggestion_json = json.dumps({
+            "classification": "reference", "importance": "low",
+            "suggested_route": "note", "confidence": 0.6, "reasoning": "test",
+        })
+        with _mock_ollama(suggestion_json), patch.object(ew, "_sb_patch"):
+            result = ew.enrich_item(self._item())
+        assert result is True
+
     def test_does_not_auto_route(self):
         """Enrichment must never update processing_status or classification on the item."""
         suggestion_json = json.dumps({
@@ -201,6 +242,7 @@ class TestRunBatch:
             "suggested_route": "note", "confidence": 0.6, "reasoning": "test",
         })
         with patch.object(ew, "_sb_get", return_value=items), \
+             patch.object(ew.dedup, "build_recent_index", return_value=None), \
              _mock_ollama(suggestion_json), \
              patch.object(ew, "_sb_patch"), \
              patch("time.sleep"):
@@ -214,12 +256,34 @@ class TestRunBatch:
             {"id": "id-0001", "title": "Test", "raw_text": "test", "summary": None, "ai_enrichment_status": "not_enriched"},
         ]
         with patch.object(ew, "_sb_get", return_value=items), \
+             patch.object(ew.dedup, "build_recent_index", return_value=None), \
              patch("urllib.request.urlopen", side_effect=Exception("connection refused")), \
              patch.object(ew, "_sb_patch"), \
              patch("time.sleep"):
             result = ew.run_batch(limit=10)
         assert result["errors"] == 1
         assert result["ok"] == 0
+
+    def test_builds_dedup_index_once_and_passes_to_every_item(self):
+        items = [
+            {"id": f"id-{i:04d}", "title": f"Item {i}", "raw_text": f"text {i}", "summary": None, "ai_enrichment_status": "not_enriched"}
+            for i in range(3)
+        ]
+        sentinel_index = object()
+        seen_indexes = []
+
+        def fake_enrich_item(item, dry_run=False, dedup_index=None):
+            seen_indexes.append(dedup_index)
+            return True
+
+        with patch.object(ew, "_sb_get", return_value=items), \
+             patch.object(ew.dedup, "build_recent_index", return_value=sentinel_index) as build_mock, \
+             patch.object(ew, "enrich_item", side_effect=fake_enrich_item), \
+             patch("time.sleep"):
+            ew.run_batch(limit=10)
+
+        build_mock.assert_called_once()
+        assert seen_indexes == [sentinel_index, sentinel_index, sentinel_index]
 
 
 # ── _safe_parse_summary ────────────────────────────────────────────────────────

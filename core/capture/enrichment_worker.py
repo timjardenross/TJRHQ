@@ -57,6 +57,9 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO_ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import dedup  # sibling-directory import, needs the sys.path insert above first (this repo's ruff config doesn't enable E402)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -239,6 +242,39 @@ def _sb_get_one(path: str) -> dict | None:
     return rows[0] if rows else None
 
 
+# ── Duplicate detection (see dedup.py) ───────────────────────────────────────
+
+def _fetch_recent_window(
+    exclude_id: str | None = None,
+    window_days: int = dedup.DEFAULT_WINDOW_DAYS,
+    limit: int = dedup.DEFAULT_WINDOW_LIMIT,
+) -> list[dict]:
+    """Recent captured_items (any processing_status — an already-routed
+    item from days ago is exactly what a new duplicate should be checked
+    against) for dedup.build_recent_index(). `exclude_id` is a convenience
+    filter (skip indexing an item that's about to be checked against
+    itself) — not load-bearing for correctness, since find_duplicate()
+    already guards against a same-id self-match regardless. Never raises
+    — a fetch failure here means dedup is skipped for this batch, not
+    that enrichment itself fails."""
+    import datetime as _dt
+
+    cutoff = (_dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(days=window_days)).isoformat()
+    exclude_clause = f"&id=neq.{exclude_id}" if exclude_id else ""
+    try:
+        return _sb_get(
+            f"captured_items"
+            f"?captured_at=gte.{urllib.request.quote(cutoff)}"
+            f"{exclude_clause}"
+            f"&select=id,title,raw_text,captured_at"
+            f"&order=captured_at.desc"
+            f"&limit={limit}"
+        )
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; a dedup-window fetch failure must never block enrichment itself
+        log.warning("Recent-window fetch for dedup failed (continuing without dedup check): %s", exc)
+        return []
+
+
 def _auto_route_personal(item: dict, suggestion: dict, dry_run: bool = False) -> bool:
     """
     Auto-route a 'personal' capture by appending its text to today's Captain's Log.
@@ -386,13 +422,46 @@ def _promote_to_intelligence_note(item: dict, suggestion: dict, dry_run: bool = 
 
 # ── Core enrichment logic ─────────────────────────────────────────────────────
 
-def enrich_item(item: dict, dry_run: bool = False) -> bool:
-    """Enrich one captured_items row. Returns True on success."""
+def enrich_item(item: dict, dry_run: bool = False, dedup_index: object | None = None) -> bool:
+    """Enrich one captured_items row. Returns True on success.
+
+    `dedup_index` (from dedup.build_recent_index(), built once per batch —
+    see run_batch/run_single) is checked FIRST: a match short-circuits
+    before the LLM call and before any auto-route/promotion, since a
+    flagged duplicate must never trigger either (see dedup.py's module
+    docstring). Passing None skips the check entirely — dedup is optional
+    enrichment, never a required dependency of a healthy run.
+    """
     item_id  = item["id"]
     text     = (item.get("raw_text") or item.get("title") or "").strip()
     if not text:
         log.warning("[%s] No text to enrich — skipping", item_id[:8])
         return False
+
+    duplicate = dedup.find_duplicate(dedup_index, item)
+    if duplicate is not None:
+        log.info(
+            "[%s] Duplicate of %s (similarity=%.2f) — flagged, skipping classification/auto-route",
+            item_id[:8], duplicate.duplicate_of_id[:8], duplicate.similarity,
+        )
+        if dry_run:
+            print(f"[dedup DRY RUN] Would flag {item_id} as duplicate of {duplicate.duplicate_of_id} "
+                  f"(similarity={duplicate.similarity:.2f})")
+            return True
+        existing = _safe_parse_summary(item.get("summary"))
+        _sb_patch("captured_items", {"id": item_id}, {
+            "ai_enrichment_status": "enriched",
+            "duplicate_of_id": duplicate.duplicate_of_id,
+            "duplicate_similarity": round(duplicate.similarity, 3),
+            "duplicate_checked_at": _now(),
+            "summary": json.dumps({
+                **existing,
+                "duplicate_of_id": duplicate.duplicate_of_id,
+                "duplicate_similarity": duplicate.similarity,
+                "enriched_at": _now(),
+            }),
+        })
+        return True
 
     log.info("[%s] Enriching: %s…", item_id[:8], text[:60])
 
@@ -527,10 +596,17 @@ def run_batch(limit: int = 10, dry_run: bool = False) -> dict:
         f"&limit={limit}"
     )
     log.info("Batch: %d items to enrich (limit=%d)", len(rows), limit)
+
+    # Built once per batch, not once per item — see dedup.py's module
+    # docstring on why a shared index across the batch is both cheaper
+    # and (since the window query isn't filtered by processing_status)
+    # still catches duplicates landing within the same batch.
+    dedup_index = dedup.build_recent_index(_fetch_recent_window())
+
     ok = err = 0
     for item in rows:
         try:
-            if enrich_item(item, dry_run=dry_run):
+            if enrich_item(item, dry_run=dry_run, dedup_index=dedup_index):
                 ok += 1
             else:
                 err += 1
@@ -550,7 +626,8 @@ def run_single(item_id: str, dry_run: bool = False) -> bool:
     if not rows:
         log.error("Item %s not found", item_id)
         return False
-    return enrich_item(rows[0], dry_run=dry_run)
+    dedup_index = dedup.build_recent_index(_fetch_recent_window(exclude_id=item_id))
+    return enrich_item(rows[0], dry_run=dry_run, dedup_index=dedup_index)
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
