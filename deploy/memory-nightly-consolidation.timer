@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the nightly memory consolidation job (USS-TJR-MSN-0378 Stream 5)
+
+[Timer]
+# Off-the-hour by design (not 00:00) — avoids clustering with every other
+# midnight-scheduled job on this host.
+OnCalendar=*-*-* 02:17:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
