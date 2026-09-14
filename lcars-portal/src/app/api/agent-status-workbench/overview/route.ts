@@ -71,7 +71,12 @@ function stageHealth(
     return { key, label, tone: 'unknown', detail: 'No items discovered today yet.' };
   }
   if (observedCount === null || observedCount === 0) {
-    return { key, label, tone: 'warn', detail: 'Discovery is flowing but this stage shows zero today — may be pre-rollout NULL or a real stall, worth a look.' };
+    return {
+      key,
+      label,
+      tone: 'warn',
+      detail: `Discovery flowed (${discoveredToday} item${discoveredToday === 1 ? '' : 's'} today) but ${label} shows zero — may be pre-rollout NULL or a real stall, worth a look.`,
+    };
   }
   return { key, label, tone: 'ok', detail: `${observedCount} today.` };
 }
