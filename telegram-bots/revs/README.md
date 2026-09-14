@@ -57,11 +57,15 @@ handler at all, not even a stub.
   had), coded/euphemistic language ("unalive" etc.), and caregiver-strain
   phrasing. Deliberately did NOT add bare method/acquisition nouns
   ("pills", "rope") — too generic to regex without context; the research
-  recommends a Layer 2 LLM-based confirmation pass for that
-  disambiguation specifically, which is **not built** — logged here as a
-  real next step, not silently dropped. Still needs the adversarial
-  review the source doc's §8.3 checklist calls for — a wider list isn't
-  the same thing as a reviewed one.
+  recommended a Layer 2 LLM-based confirmation pass for that
+  disambiguation specifically. **Built 2026-09-14** (`crisis_layer2.py`):
+  a regex pre-filter over those same bare nouns gates an LLM
+  (Gemini→Mistral→Ollama) disambiguation call, wired into `app.py`'s
+  `_crisis_gate` after Layer 1 — any parse/provider failure fails open to
+  "uncertain" (treated the same as a confirmed crisis), never silently to
+  "not a crisis". Still needs the adversarial review the source doc's
+  §8.3 checklist calls for — a wider list, and now a second detection
+  layer, aren't the same thing as a reviewed one.
 - **Q4 system rotation (`weekly.py`) only has names for 6 of the 12 REVS
   capacity systems** — the source docs name systems 3, 6, 8, 9, 11, 12 by
   number; the full 1–12 registry lives in a framework doc (REG-001 or
@@ -112,10 +116,11 @@ client, and `app.py` exits rather than run unscoped.
       what-the-bot-already-did note). Confirmed landing correctly.
 - [x] Crisis classifier pattern list expanded from a best-practices
       research pass (see "Known gaps" above) — still needs the
-      adversarial review itself, and a Layer 2 LLM confirmation pass is
-      a recommended-but-unbuilt next step for the method/acquisition
-      phrasing a keyword list can't safely cover without false-positive
-      blowup.
+      adversarial review itself. Layer 2 LLM confirmation pass for the
+      method/acquisition phrasing a keyword list can't safely cover
+      without false-positive blowup — **built 2026-09-14**
+      (`crisis_layer2.py`) — likewise still needs that same adversarial
+      review before this bot talks to a real stranger.
 - [ ] Emergency numbers (§1.2b/§5.4a) verified current per locale — AU
       now includes Lifeline/13YARN/Beyond Blue with websites, not just
       phone numbers (2026-08-14). UK/US still phone-only, unchanged.

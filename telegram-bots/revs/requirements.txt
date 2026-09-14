@@ -1,7 +1,17 @@
+# USS-TJR: supabase bumped 2.3.4 -> 2.31.0 (2026-09-14) to resolve a real
+# pip ResolutionImpossible against python-telegram-bot==22.8 (supabase
+# 2.3.4 requires httpx<0.26; python-telegram-bot 22.8 requires
+# httpx>=0.27,<0.29 — mutually unsatisfiable, exposed by CI's first-ever
+# telegram-bots-revs install once a PR finally touched this directory).
+# supabase>=2.5.0 replaced the standalone `gotrue` package with
+# `supabase_auth` (installed transitively) and dropped the private
+# `client._auth_token` attribute scoped_supabase.py used to rely on — see
+# that module's updated docstring for the verified replacement mechanism.
+# The old `gotrue==2.12.4` pin below is therefore dropped as dead weight,
+# not silently kept as an unused duplicate auth stack.
 python-telegram-bot==22.8
 apscheduler==3.11.3
-supabase==2.3.4
-gotrue==2.12.4
+supabase==2.31.0
 python-dotenv==1.2.3
 httpx<0.29
 pyjwt>=2.13.0

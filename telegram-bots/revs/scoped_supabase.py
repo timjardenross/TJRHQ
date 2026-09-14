@@ -16,6 +16,46 @@ path hands a bot that talks to strangers full read/write on all ~112+
 public tables, not just the 7 this bot needs. build_scoped_client()
 therefore returns None on any failure, and app.py refuses to start rather
 than run unscoped.
+
+Mechanism history (2026-09-14, supabase-py 2.3.4 -> 2.31.0 bump): this
+module previously gave Authorization a different value than apikey via a
+private-attribute patch, `client._auth_token = {"Authorization": ...}`,
+documented at the time as "the only verified way (supabase-py 2.3.4)".
+That attribute is now DEAD — confirmed by grepping the installed 2.31.0
+`supabase`/`postgrest` package source for `_auth_token` (zero hits) and by
+constructing a real client, setting the attribute, and checking that
+`client.postgrest.session.headers` never changes. Setting it silently does
+nothing; a naive version bump that kept the old patch would have made this
+public-facing bot run as the *anon* role with no error, no log line, and
+no failed live-verification query (the verification query itself would
+just quietly execute as anon rather than revs_bot) — exactly the failure
+mode this module's own "no service_role fallback" design was built to
+prevent, just via a different unscoped role.
+
+The verified, public replacement — same one telegram-bots/xo/
+scoped_supabase.py already documents and this module now uses too —
+passes Authorization through `ClientOptions.headers` at construction time:
+
+    from supabase import create_client, ClientOptions
+    client = create_client(
+        supabase_url, anon_key,
+        options=ClientOptions(headers={"Authorization": f"Bearer {token}"}),
+    )
+
+One import detail worth flagging since it cost real debugging time here:
+`ClientOptions` must come from the top-level `supabase` package (or
+equivalently `supabase._sync.client.ClientOptions`, the `SyncClientOptions`
+alias), NOT `supabase.lib.client_options.ClientOptions` — the latter is
+that class's own *base* class, missing a `storage` field `Client.__init__`
+requires on 2.31.0, and raises `AttributeError: 'ClientOptions' object has
+no attribute 'storage'` at construction. Empirically verified end-to-end
+on supabase-py 2.31.0 + httpx 0.28.1: the resulting
+`client.postgrest.session.headers` carries the real anon key under
+`apikey` and the scoped `revs_bot` JWT under `authorization`, genuinely
+independent, exactly like the old patch was trying to achieve. `.table()`
+calls resolve through this same `client.postgrest` instance (via
+`.from_()`), so every query this module's caller makes carries the scoped
+role correctly.
 """
 
 from __future__ import annotations
@@ -66,13 +106,17 @@ def build_scoped_client(supabase_url: str):
         log.error("[scoped-supabase] no SUPABASE_JWT_SECRET or REVS_BOT_SCOPED_TOKEN configured")
         return None
 
-    from supabase import create_client
+    from supabase import ClientOptions, create_client
 
-    client = create_client(supabase_url, anon_key)
-    # Private-attribute patch — see xo/scoped_supabase.py's docstring for
-    # why this is the only verified way (supabase-py 2.3.4) to give
-    # Authorization a different value than apikey.
-    client._auth_token = {"Authorization": f"Bearer {token}"}
+    # See module docstring: since supabase-py 2.4.3 (and re-verified live
+    # against 2.31.0 here), passing Authorization via ClientOptions.headers
+    # is the public, supported way to give Authorization a different value
+    # than apikey — the old private `_auth_token` attribute patch is dead
+    # on this version and would silently do nothing.
+    client = create_client(
+        supabase_url, anon_key,
+        options=ClientOptions(headers={"Authorization": f"Bearer {token}"}),
+    )
 
     try:
         client.table("revs_users").select("id").limit(1).execute()
