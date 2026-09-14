@@ -88,6 +88,16 @@ _SCAN_INCLUDE_GLOBS: tuple[str, ...] = ("*.md", "*.py", "*.ts", "*.tsx", "*.json
 _SCAN_EXCLUDE_DIRS: tuple[str, ...] = (
     "node_modules", ".git", ".next", ".venv", "__pycache__", "dist", "build",
     "tests", "__tests__",
+    # 2026-09-15 adversarial review: a generated API-graph doc
+    # (.cortex/apigraph/docs/primary/types.md) and self-improvement run
+    # artifacts (data/self-improvement/runs/*/evidence.json) both contain
+    # literal "USS-TJR-MSN-9999" text (a commit-message/example value, not
+    # a real allocation) that this scan otherwise picks up as a candidate
+    # max ID. _MAX_SANE_DRIFT rejects the resulting implausible jump, but
+    # a smaller in-drift-window false positive from either dir would
+    # silently skip real IDs. See
+    # docs/security/2026-09-15-adversarial-review-remediation.md.
+    ".cortex", "data",
 )
 _MAX_SANE_DRIFT: int = 100
 

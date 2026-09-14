@@ -12,6 +12,11 @@
 Description=Pull-based auto-deploy (git pull --ff-only + scoped service restarts)
 After=network-online.target
 Wants=network-online.target
+# 2026-09-15 adversarial review: this ran every 5 minutes and failed every
+# single time for 3+ days straight (dirty working tree correctly aborts the
+# pull, but nothing ever told anyone) before it was noticed. See
+# docs/security/2026-09-15-adversarial-review-remediation.md.
+OnFailure=alert-on-failure@%n.service
 
 [Service]
 Type=oneshot

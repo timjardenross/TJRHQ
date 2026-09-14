@@ -132,6 +132,14 @@ class RepositoryState:
                     parts = line.split(None, 1)
                     if len(parts) > 1:
                         files.append(parts[1])
+            # Cap the list: an unbounded working tree (e.g. a stuck deploy
+            # or a crash-looping job piling up untracked run artifacts) must
+            # not make this payload grow without bound — it gets fed
+            # straight into an LLM call with a hard input-size limit
+            # downstream (llmsec/spaCy NER, ~1M chars), and an oversized
+            # payload there causes a hard failure, not a graceful truncation.
+            if len(files) > 50:
+                return files[:50] + [f"... and {len(files) - 50} more uncommitted files (truncated)"]
             return files
         except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
             log.warning(f"Failed to get uncommitted files: {exc}")

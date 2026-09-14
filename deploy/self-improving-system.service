@@ -2,6 +2,17 @@
 Description=USS TJR Self-Improving System
 Documentation=file:///opt/starship-endeavour/docs/self-improvement/DECISION-REMEDIATION-WORKFLOW.md
 After=network.target
+# 2026-09-15 adversarial review: the live deployed unit had drifted from
+# this file (still ran orchestrator.py directly, pre-MSN-0377) and was
+# crash-looping every ~5.5min for 3+ days (518 restarts) because the
+# growing uncommitted-file list fed into evidence.json blew past a
+# downstream 1M-char LLM redaction limit -- fixed in collector.py, but
+# StartLimit below is a circuit breaker against the *next* unrelated
+# failure mode, not just this one. See
+# docs/security/2026-09-15-adversarial-review-remediation.md.
+OnFailure=alert-on-failure@%n.service
+StartLimitIntervalSec=3600
+StartLimitBurst=5
 
 [Service]
 Type=oneshot
