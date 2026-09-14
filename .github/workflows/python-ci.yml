@@ -390,6 +390,52 @@ jobs:
           done <<< "${{ steps.find-reqs.outputs.files }}"
           exit "$status"
 
+  # Net-new: zero JS/npm dependency vulnerability scanning existed anywhere
+  # in this repo before this job — `grep -rli "osv-scanner\|npm audit\|snyk\|trivy"
+  # .github/ .` found nothing but this comment. pip-audit above only ever
+  # covers Python; Dependabot's version-bump PRs cover npm too, but only for
+  # lcars-portal/package.json — the other three package.json files in this
+  # repo (root, core/command-centre/backend, tools/runtime-validation) have
+  # no Dependabot coverage and no CVE scanning of any kind.
+  #
+  # Uses google/osv-scanner-action's own PR-scanning reusable workflow
+  # rather than calling the composite action directly — that action's own
+  # action.yml says as much ("Not intended to be used directly... behavior
+  # might change in a minor patch update"). Pinned to the exact tag
+  # v2.6.0, confirmed real via `git ls-remote --tags` (not just a changelog
+  # claim) before pinning it here. It diffs a scan of the PR's base branch
+  # against a scan of the PR head and reports only newly-introduced
+  # vulnerabilities — recursive (`-r ./`) so it also incidentally rescans
+  # the same requirements*.txt files pip-audit above already covers;
+  # that overlap is harmless (both advisory) and the actual new coverage
+  # is the npm lockfiles across all four package.json files.
+  #
+  # Advisory only, deliberately, on this first landing — same posture as
+  # vulture/semgrep/pip-audit above: `fail-on-vuln: false` so a real,
+  # previously unmeasured pre-existing CVE count isn't this job's problem
+  # to fix on day one. `upload-sarif: false` too — this repo's GitHub plan
+  # / Code Scanning availability was never confirmed, and the action's
+  # SARIF upload step would itself fail loudly on a repo without GHAS;
+  # skip it rather than guess. Revisit both flags (flip to true) once the
+  # initial finding set has actually been triaged.
+  #
+  # Only meaningful on `pull_request` events — the reusable workflow diffs
+  # against `$GITHUB_BASE_REF`, which doesn't exist on a plain `push`.
+  osv-scanner:
+    if: github.event_name == 'pull_request'
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.6.0
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    with:
+      scan-args: |-
+        -r
+        --skip-git
+        ./
+      fail-on-vuln: false
+      upload-sarif: false
+
   # USS-TJR-MSN-0379. Advisory only (same pattern as vulture/pip-audit
   # above, continue-on-error at job AND step level — job-level alone still
   # reports the job's own check-run as failed, confirmed on PR #180 per
