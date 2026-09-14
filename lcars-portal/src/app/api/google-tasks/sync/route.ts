@@ -20,6 +20,7 @@
 // timestamp, no merge — the simplest thing that won't corrupt data for a
 // single-user app.
 
+import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/supabase-server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase-service-role';
@@ -43,7 +44,14 @@ interface PersonalTaskRow {
 
 function isAuthorized(request: Request): boolean {
   const botSecret = request.headers.get('x-bot-secret');
-  return !!botSecret && !!process.env.BOT_API_SECRET && botSecret === process.env.BOT_API_SECRET;
+  const expected = process.env.BOT_API_SECRET;
+  if (!botSecret || !expected) return false;
+  const a = Buffer.from(botSecret);
+  const b = Buffer.from(expected);
+  // 2026-09-15 adversarial review: `===` on a secret comparison is the
+  // wrong pattern regardless of practical exploitability at this secret
+  // length -- switched to a constant-time comparison.
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 export async function POST(request: Request) {

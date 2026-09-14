@@ -1,6 +1,24 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { PUBLIC_ROUTE_ALLOWLIST } from '@/lib/public-site';
+import { timingSafeEqual } from 'crypto';
+
+// Routes intended for server-to-server calls carrying X-Bot-Secret, not
+// interactive browsing. 2026-09-15 adversarial review: previously any
+// /api/* route accepted the bot secret, which is broader than any actual
+// caller needs -- the only confirmed live caller (intelligence/
+// scheduler.py, for Google Tasks capture) only ever calls this one route.
+// Add a route here only when a real caller needs it.
+const BOT_SECRET_ROUTE_ALLOWLIST = new Set<string>([
+  '/api/google-tasks/sync',
+]);
+
+function timingSafeSecretEqual(provided: string, expected: string): boolean {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -42,17 +60,22 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Allow bot requests carrying the shared secret — API routes only.
-  // SUOC Wave 1 (MSN-0210E): this previously bypassed auth for the entire
-  // app surface (any page, not just API calls) for any request holding a
-  // valid secret. Scoped to /api/* so a leaked/shared bot secret grants
-  // programmatic access only, not full authenticated-UI browsing.
+  // Allow bot requests carrying the shared secret — explicit route
+  // allowlist only. SUOC Wave 1 (MSN-0210E) scoped this from the entire
+  // app surface down to /api/*; 2026-09-15 adversarial review scoped it
+  // further to only the routes a real caller actually uses, since a
+  // leaked bot secret previously granted access to every API route
+  // (missions, wellness, advisory-sessions, etc.), not just the
+  // machine-to-machine ones it was meant for. Also switched to a
+  // timing-safe comparison (the secret is long enough that a timing
+  // attack is impractical, but `===` on a secret comparison is the
+  // wrong pattern regardless).
   const botSecret = request.headers.get('x-bot-secret');
   if (
-    pathname.startsWith('/api/') &&
+    BOT_SECRET_ROUTE_ALLOWLIST.has(pathname) &&
     botSecret &&
     process.env.BOT_API_SECRET &&
-    botSecret === process.env.BOT_API_SECRET
+    timingSafeSecretEqual(botSecret, process.env.BOT_API_SECRET)
   ) {
     return supabaseResponse;
   }
