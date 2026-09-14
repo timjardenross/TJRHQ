@@ -23,7 +23,7 @@ export function ProgressBar({ value, max = 100, label }: ProgressBarProps) {
       >
         <span className="block h-full bg-wb-sage" style={{ width: `${pct}%` }} />
       </span>
-      <span className="w-8 text-right text-wb-ink2">
+      <span className="w-8 text-right text-wb-ink">
         {value}/{max}
       </span>
     </div>
@@ -55,7 +55,7 @@ export function ProgressSteps({ steps }: ProgressStepsProps) {
             >
               {s.complete ? '✓' : i + 1}
             </span>
-            <span className={s.complete ? 'text-wb-ink' : 'text-wb-ink2'}>
+            <span className="text-wb-ink">
               {s.label}
               <span className="sr-only">{s.complete ? ' (complete)' : ' (pending)'}</span>
             </span>
