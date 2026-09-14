@@ -269,8 +269,15 @@ class SignalScoreRecomputer:
                 chunk = updates[i:i + 200]
                 for row in chunk:
                     try:
+                        # USS-TJR-MSN-0378: result is never read (loop only
+                        # tracks self.stats['errors']) — returning="minimal"
+                        # skips PostgREST's PATCH...RETURNING * (~80 columns)
+                        # and returns 204 No Content instead. Confirmed via
+                        # pg_stat_statements as one of the two dominant real
+                        # egress sources on the free-tier quota.
                         self.supabase.table("intelligence_events").update(
-                            {"osint_confidence_level": row["osint_confidence_level"], "criticality_score": row["criticality_score"]}
+                            {"osint_confidence_level": row["osint_confidence_level"], "criticality_score": row["criticality_score"]},
+                            returning="minimal",
                         ).eq("event_id", row["event_id"]).execute()
                     except Exception as e:  # noqa: BLE001 - per-row update inside a batch loop — one bad row must not abort the run; already logged + counted in self.stats['errors']
                         logger.error(f"Confidence/criticality update failed for {row['event_id']}: {e}")
@@ -331,8 +338,11 @@ class SignalScoreRecomputer:
         if not self.dry_run:
             for i, ev in enumerate(ranked):
                 try:
+                    # USS-TJR-MSN-0378: same discarded-result fix as the
+                    # confidence/criticality loop above.
                     self.supabase.table("intelligence_events").update(
-                        {"rank_score": ev.rank_score}
+                        {"rank_score": ev.rank_score},
+                        returning="minimal",
                     ).eq("event_id", ev.event_id).execute()
                 except Exception as e:  # noqa: BLE001 - per-event rank_score update inside a batch loop — one bad event must not abort the run; already logged + counted in self.stats['errors']
                     logger.error(f"rank_score update failed for {ev.event_id}: {e}")
