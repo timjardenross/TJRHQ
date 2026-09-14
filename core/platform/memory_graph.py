@@ -136,6 +136,68 @@ def _episode_body(event: dict[str, Any], workbench: str | None = None) -> str:
     return "\n".join(parts)
 
 
+async def add_fact(
+    text: str,
+    *,
+    name: str | None = None,
+    group_id: str = "general",
+    workbench: str | None = None,
+    reference_time: datetime | None = None,
+) -> bool:
+    """Write one arbitrary fact/episode into Graphiti — the generic write
+    path core_events-specific backfill_from_core_events() doesn't provide.
+
+    USS-TJR-MSN-0378 Stream 5 needed this: unified_memory.py's remember()
+    had NO write path for MemoryType.RELATIONSHIPS at all before this
+    function existed (checked live — remember() only ever wrote to mem0,
+    for SEMANTIC/FACTUAL; every other type, RELATIONSHIPS included, was
+    silently a no-op). This is what remember()'s RELATIONSHIPS branch
+    calls into.
+
+    Args:
+        text: The fact/episode content, already-composed plain text.
+        name: Episode name; auto-generated from a hash-free timestamp if
+            omitted (Graphiti requires a name but doesn't need it unique
+            across calls the way core_events' event_id-based names are).
+        group_id: Which FalkorDB graph this lands in — same "multi-tenant
+            by group_id" caveat as search()/backfill_from_core_events.
+        workbench: Same tagging convention as backfill_from_core_events —
+            written into both episode_body and source_description so
+            search()'s workbench resolution finds it.
+        reference_time: When the fact was true; defaults to now().
+
+    Returns:
+        True on success, False on any failure (logged, never raised —
+        matches this module's existing per-call error-isolation pattern).
+    """
+    from graphiti_core.nodes import EpisodeType
+
+    if not text or not text.strip():
+        log.warning("[memory-graph] add_fact called with empty text; skipping")
+        return False
+
+    ref_time = reference_time or datetime.now(timezone.utc)
+    episode_name = name or f"fact:{ref_time.isoformat()}"
+    body = f"workbench: {workbench}\n{text}" if workbench else text
+    description = f"workbench={workbench}; " if workbench else ""
+    description += "unified_memory.remember() write"
+
+    try:
+        graphiti = await _build_graphiti()
+        await graphiti.add_episode(
+            name=episode_name,
+            episode_body=body,
+            source_description=description,
+            reference_time=ref_time,
+            source=EpisodeType.text,
+            group_id=group_id,
+        )
+        return True
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
+        log.warning("[memory-graph] add_fact failed (non-blocking): %s", exc)
+        return False
+
+
 async def backfill_from_core_events(
     hours: int = 48,
     limit: int = 100,

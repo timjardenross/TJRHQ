@@ -17,7 +17,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from core.platform.unified_memory import MemoryType, recall
+from core.platform.unified_memory import MemoryType, recall, remember
 
 
 def _fake_table_result(rows: list[dict]) -> MagicMock:
@@ -58,3 +58,34 @@ class TestRecallRelationships:
         with patch("core.platform.memory_graph.search", new=AsyncMock(return_value=[])) as mock_search:
             recall(MemoryType.RELATIONSHIPS, query="q", group_ids=["health-intelligence"])
         mock_search.assert_awaited_once_with("q", num_results=10, group_ids=["health-intelligence"])
+
+
+class TestRememberRelationships:
+    """USS-TJR-MSN-0378 Stream 5: remember(RELATIONSHIPS, ...) previously had
+    no write path at all — this covers the new memory_graph.add_fact() route."""
+
+    def test_writes_via_memory_graph_add_fact(self):
+        with patch("core.platform.memory_graph.add_fact", new=AsyncMock(return_value=True)) as mock_add:
+            result = remember(MemoryType.RELATIONSHIPS, "Captain deferred MSN-0388", user_id="captain")
+        mock_add.assert_awaited_once_with(
+            "Captain deferred MSN-0388", group_id="captain", workbench=None,
+        )
+        assert result == {"added": True}
+
+    def test_passes_workbench_from_metadata(self):
+        with patch("core.platform.memory_graph.add_fact", new=AsyncMock(return_value=True)) as mock_add:
+            remember(
+                MemoryType.RELATIONSHIPS, "fact text", user_id="captain",
+                metadata={"workbench": "xo"},
+            )
+        mock_add.assert_awaited_once_with("fact text", group_id="captain", workbench="xo")
+
+    def test_returns_empty_dict_on_failure(self):
+        with patch("core.platform.memory_graph.add_fact", new=AsyncMock(return_value=False)):
+            result = remember(MemoryType.RELATIONSHIPS, "fact text", user_id="captain")
+        assert result == {}
+
+    def test_returns_empty_dict_on_exception(self):
+        with patch("core.platform.memory_graph.add_fact", new=AsyncMock(side_effect=RuntimeError("boom"))):
+            result = remember(MemoryType.RELATIONSHIPS, "fact text", user_id="captain")
+        assert result == {}

@@ -219,24 +219,46 @@ def remember(
     user_id: str,
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Store a memory of the given type. Returns the mem0 result dict, or {}.
+    """Store a memory of the given type. Returns a result dict, or {}.
 
-    Currently active for SEMANTIC and FACTUAL memory types, which route through
-    the mem0 backend (dedup + versioning + semantic retrieval). All other types
-    are read-only via recall() — their stores have dedicated write paths
-    elsewhere in the platform and this function returns {} for them without error.
+    Active for SEMANTIC and FACTUAL (route through the mem0 backend — dedup
+    + versioning + semantic retrieval) and, as of USS-TJR-MSN-0378 Stream 5,
+    RELATIONSHIPS (routes through core/platform/memory_graph.py's Graphiti
+    write path). Before Stream 5, RELATIONSHIPS had no write path here at
+    all — recall() could read the graph but nothing could write into it
+    through this interface, only backfill_from_core_events()'s own
+    core_events-specific loop. All other types are read-only via recall() —
+    their stores have dedicated write paths elsewhere in the platform and
+    this function returns {} for them without error.
 
     Args:
-        memory_type: Which memory category to write. Only SEMANTIC and FACTUAL
-            are actively stored; others are silently ignored.
+        memory_type: Which memory category to write.
         text: The natural-language memory to persist.
         user_id: Scoping key (e.g. "captain", an officer name, a mission ID).
-        metadata: Optional key-value bag attached to the memory record.
+            For RELATIONSHIPS, doubles as the Graphiti group_id.
+        metadata: Optional key-value bag. For RELATIONSHIPS, an optional
+            "workbench" key tags the episode per Stream 4's convention.
 
     Returns:
-        mem0 result dict on success, {} if the type is unsupported or mem0
-        is unavailable.
+        mem0 result dict for SEMANTIC/FACTUAL; {"added": True} for a
+        successful RELATIONSHIPS write; {} if the type is unsupported or
+        the backing store is unavailable.
     """
+    if memory_type == MemoryType.RELATIONSHIPS:
+        import asyncio
+
+        from core.platform import memory_graph
+
+        try:
+            added = asyncio.run(memory_graph.add_fact(
+                text,
+                group_id=user_id,
+                workbench=(metadata or {}).get("workbench"),
+            ))
+            return {"added": added} if added else {}
+        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
+            log.warning("[unified-memory] remember (relationships) failed (non-blocking): %s", exc)
+            return {}
     if memory_type not in (MemoryType.SEMANTIC, MemoryType.FACTUAL):
         log.debug("[unified-memory] remember: no write path for %r (read-only type)", memory_type)
         return {}
