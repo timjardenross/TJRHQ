@@ -37,6 +37,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
+import alert_silences
 from heartbeat import _KEY, _URL, record_heartbeat, supabase_get
 
 from core.llm.provider_chain import call_gemini, call_mistral
@@ -160,16 +161,40 @@ def _generate_summary(alerts: list[dict]) -> tuple[str, str] | None:
         return None
 
 
+def _exclude_silenced(alerts: list[dict]) -> list[dict]:
+    """Drops any alert currently covered by an active alert_silences rule
+    (migration 0205) before this hourly digest does anything else with the
+    active set — fingerprinting, the urgent-tier check, the LLM prompt, and
+    the verbatim official-wording section all only ever see what's left.
+    A planned hazard-reduction burn silenced for a jurisdiction should stop
+    showing up in the hourly email the same way it stops triggering its own
+    per-alert emergency-warning email (emergency_alerts.py's
+    _send_emergency_warning_emails) — otherwise "mute this" would still
+    leave it narrated in the digest an hour later.
+
+    Never raises: a silence-lookup failure degrades to "nothing silenced"
+    rather than blocking a real hourly summary — same posture as
+    emergency_alerts.py's own silence check."""
+    try:
+        active_silences = alert_silences.list_active_silences()
+    except Exception as exc:  # noqa: BLE001 - a silence-lookup failure must never block the hourly digest; degrade to "no active silences"
+        log.warning("[emergency-alert-summary] failed to read active silences (proceeding as if none): %s", exc)
+        return alerts
+    return [a for a in alerts if alert_silences.check_silence(a, active_silences) is None]
+
+
 def run() -> dict:
     t0 = time.monotonic()
     try:
         alerts = supabase_get(
             "alerts?is_active=eq.true&order=jurisdiction.asc,alert_type.asc"
-            "&select=id,jurisdiction,alert_type,severity,status,headline,location,description,issued_at"
+            "&select=id,jurisdiction,alert_type,severity,status,headline,location,description,issued_at,source_key"
         )
     except Exception as exc:  # noqa: BLE001 - top-level job boundary — already logged + heartbeat-recorded, surfaces error in the returned dict
         record_heartbeat(_DOMAIN_KEY, status="failed", error_message=str(exc)[:500])
         return {"error": str(exc)}
+
+    alerts = _exclude_silenced(alerts)
 
     fingerprint = _fingerprint(alerts)
     state = _get_state()
