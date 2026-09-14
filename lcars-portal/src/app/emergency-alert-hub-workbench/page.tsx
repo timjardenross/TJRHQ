@@ -37,12 +37,13 @@
  * only shows an interpreted coverage state + a link out.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Badge, Card, WorkbenchShell, toneToStatus } from '@/components/ui';
 import { emergencyAlertTierToTone } from '@/lib/departments';
 import type { EmergencyAlertEntry } from '@/app/api/emergency-alerts/route';
 import type { EmergencyAlertSourceEntry } from '@/app/api/emergency-alerts/sources/route';
+import type { AlertSilenceEntry } from '@/app/api/emergency-alerts/silences/route';
 
 const ACTIVE_HOURS_START = 7;  // 07:00 local
 const ACTIVE_HOURS_END = 19;   // 19:00 local
@@ -68,6 +69,19 @@ function msUntilNextRefresh(now: Date): number {
 }
 
 const JURISDICTIONS = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'] as const;
+// alerts.alert_type CHECK constraint (migration 0174).
+const ALERT_TYPES = ['bushfire', 'flood', 'storm', 'cyclone', 'heatwave', 'hazard_reduction', 'structure_fire', 'other'] as const;
+const ALERT_TYPE_LABELS: Record<string, string> = {
+  bushfire: 'Bushfire', flood: 'Flood', storm: 'Storm', cyclone: 'Cyclone', heatwave: 'Heatwave',
+  hazard_reduction: 'Hazard Reduction Burn', structure_fire: 'Structure Fire', other: 'Other',
+};
+// alert_sources.source_key (migration 0174/0176).
+const SOURCE_KEY_LABELS: Record<string, string> = {
+  nsw_rfs: 'NSW RFS', vic_emergency: 'VicEmergency', qld_fire: 'QLD Fire', sa_cfs: 'SA CFS',
+  act_esa: 'ACT ESA', wa_dfes: 'WA DFES', tas_fire: 'TAS Fire', nt_securent: 'NT SecureNT',
+  bom_nsw: 'BOM NSW', bom_nt: 'BOM NT', bom_qld: 'BOM QLD', bom_sa: 'BOM SA',
+  bom_tas: 'BOM TAS', bom_vic: 'BOM VIC', bom_wa: 'BOM WA', bom_act: 'BOM ACT',
+};
 
 const SEVERITY_LABELS: Record<string, string> = {
   emergency_warning: 'Emergency Warning',
@@ -75,6 +89,28 @@ const SEVERITY_LABELS: Record<string, string> = {
   advice: 'Advice',
   unknown: 'Severity Not Supplied',
 };
+
+/** Mirrors core/platform/alert_silences.py's _matches() /
+ * api/emergency-alerts/silences/route.ts's silenceMatchesAlert() — every
+ * non-null match_* field on the silence must equal the alert's
+ * corresponding field. Used client-side only to badge alerts already in
+ * hand; the API route is the source of truth for matchingActiveAlertCount. */
+function silenceCoversAlert(silence: AlertSilenceEntry, alert: EmergencyAlertEntry): boolean {
+  if (silence.matchJurisdiction !== null && silence.matchJurisdiction !== alert.jurisdiction) return false;
+  if (silence.matchAlertType !== null && silence.matchAlertType !== alert.alertType) return false;
+  if (silence.matchSeverity !== null && silence.matchSeverity !== alert.severity) return false;
+  if (silence.matchSourceKey !== null && silence.matchSourceKey !== alert.sourceKey) return false;
+  return true;
+}
+
+function describeSilenceScope(silence: AlertSilenceEntry): string {
+  const parts: string[] = [];
+  if (silence.matchJurisdiction) parts.push(silence.matchJurisdiction);
+  if (silence.matchAlertType) parts.push(ALERT_TYPE_LABELS[silence.matchAlertType] ?? silence.matchAlertType);
+  if (silence.matchSeverity) parts.push(SEVERITY_LABELS[silence.matchSeverity] ?? silence.matchSeverity);
+  if (silence.matchSourceKey) parts.push(SOURCE_KEY_LABELS[silence.matchSourceKey] ?? silence.matchSourceKey);
+  return parts.length > 0 ? parts.join(' · ') : 'Everything';
+}
 
 // BOM's RSS feeds carry no AWS-tier (Advice/Watch and Act/Emergency
 // Warning) data at all - severity is stored as 'unknown' rather than
@@ -127,7 +163,22 @@ function relativeTime(isoTimestamp: string | null): string {
   return `${diffDays}d ago`;
 }
 
-function AlertRow({ alert, isSelected, onSelect }: { alert: EmergencyAlertEntry; isSelected: boolean; onSelect: () => void }) {
+/** A small "muted" cue for an alert currently covered by an active
+ * silence — the alert stays fully visible either way (silencing suppresses
+ * notifications, never the record itself), this just explains why no
+ * email fired for it. */
+function MutedBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-wb-ink2"
+      title="An active silence is currently suppressing notifications for this alert."
+    >
+      🔇 Muted
+    </span>
+  );
+}
+
+function AlertRow({ alert, isSelected, isMuted, onSelect }: { alert: EmergencyAlertEntry; isSelected: boolean; isMuted: boolean; onSelect: () => void }) {
   return (
     <tr
       className={`cursor-pointer border-b border-wb-line last:border-0 hover:bg-wb-bg/60 ${isSelected ? 'bg-wb-bg' : ''}`}
@@ -137,7 +188,12 @@ function AlertRow({ alert, isSelected, onSelect }: { alert: EmergencyAlertEntry;
         <Badge status="neutral">{alert.jurisdiction}</Badge>
       </td>
       <td className="py-3 pr-4"><SeverityBadge alert={alert} /></td>
-      <td className="py-3 pr-4 text-[13px] font-medium text-wb-ink">{alert.headline}</td>
+      <td className="py-3 pr-4 text-[13px] font-medium text-wb-ink">
+        <div className="flex items-center gap-2">
+          <span>{alert.headline}</span>
+          {isMuted && <MutedBadge />}
+        </div>
+      </td>
       <td className="py-3 pr-4 text-[12px] text-wb-ink2">{alert.location ?? <span className="italic">—</span>}</td>
       <td className="py-3 text-[12px] tabular-nums text-wb-ink2">{relativeTime(alert.lastSeenAt)}</td>
     </tr>
@@ -146,7 +202,7 @@ function AlertRow({ alert, isSelected, onSelect }: { alert: EmergencyAlertEntry;
 
 /** Compact card for a high-severity (Emergency Warning / Watch and Act)
  * alert — readable without opening the dense Browse table. */
-function HighSeverityCard({ alert, onSelect }: { alert: EmergencyAlertEntry; onSelect: () => void }) {
+function HighSeverityCard({ alert, isMuted, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; onSelect: () => void }) {
   const isEmergency = alert.severity === 'emergency_warning';
   return (
     <div
@@ -155,6 +211,7 @@ function HighSeverityCard({ alert, onSelect }: { alert: EmergencyAlertEntry; onS
       <div className="mb-2 flex items-center gap-2">
         <SeverityBadge alert={alert} />
         <Badge status="neutral">{alert.jurisdiction}</Badge>
+        {isMuted && <MutedBadge />}
       </div>
       <h3 className="font-serif text-base text-wb-ink">{alert.headline}</h3>
       {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
@@ -269,12 +326,216 @@ function CoveragePanel({ sources, latestCheckedAt }: { sources: EmergencyAlertSo
   );
 }
 
+const DURATION_PRESETS: { label: string; hours: number }[] = [
+  { label: '1 hour', hours: 1 },
+  { label: '4 hours', hours: 4 },
+  { label: '12 hours', hours: 12 },
+  { label: '24 hours', hours: 24 },
+  { label: '3 days', hours: 72 },
+];
+
+function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
+  const [reason, setReason] = useState('');
+  const [durationHours, setDurationHours] = useState(DURATION_PRESETS[3].hours); // default 24h
+  const [jurisdiction, setJurisdiction] = useState('');
+  const [alertType, setAlertType] = useState('');
+  const [severity, setSeverity] = useState('');
+  const [sourceKey, setSourceKey] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!reason.trim()) {
+      setSubmitError('Reason is required.');
+      return;
+    }
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const endsAt = new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString();
+      const res = await fetch('/api/emergency-alerts/silences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason.trim(), endsAt, jurisdiction, alertType, severity, sourceKey }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+      setReason('');
+      setJurisdiction('');
+      setAlertType('');
+      setSeverity('');
+      setSourceKey('');
+      onCreated();
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to create silence');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Card>
+      <h2 className="font-serif text-base text-wb-ink">Create a silence</h2>
+      <p className="mt-1 text-[12px] text-wb-ink2">
+        Mute matching alert notifications for a bounded window — e.g. a planned hazard-reduction burn. The alert
+        record itself always stays visible; only outbound notifications (email) are suppressed while a silence is active.
+      </p>
+      <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-3">
+        <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+          Reason (required)
+          <input
+            type="text"
+            className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. Planned RFS hazard-reduction burn, western Sydney"
+          />
+        </label>
+        <div className="flex flex-wrap gap-3">
+          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+            Duration
+            <select
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              value={durationHours}
+              onChange={(e) => setDurationHours(Number(e.target.value))}
+            >
+              {DURATION_PRESETS.map((p) => (
+                <option key={p.hours} value={p.hours}>{p.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+            Jurisdiction
+            <select
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              value={jurisdiction}
+              onChange={(e) => setJurisdiction(e.target.value)}
+            >
+              <option value="">Any</option>
+              {JURISDICTIONS.map((j) => (<option key={j} value={j}>{j}</option>))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+            Alert type
+            <select
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              value={alertType}
+              onChange={(e) => setAlertType(e.target.value)}
+            >
+              <option value="">Any</option>
+              {ALERT_TYPES.map((t) => (<option key={t} value={t}>{ALERT_TYPE_LABELS[t]}</option>))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+            Severity
+            <select
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              value={severity}
+              onChange={(e) => setSeverity(e.target.value)}
+            >
+              <option value="">Any</option>
+              {Object.entries(SEVERITY_LABELS).map(([key, label]) => (<option key={key} value={key}>{label}</option>))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+            Source
+            <select
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              value={sourceKey}
+              onChange={(e) => setSourceKey(e.target.value)}
+            >
+              <option value="">Any</option>
+              {Object.entries(SOURCE_KEY_LABELS).map(([key, label]) => (<option key={key} value={key}>{label}</option>))}
+            </select>
+          </label>
+        </div>
+        {submitError && <p className="text-[12px] text-state-crit-on">{submitError}</p>}
+        <div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-md bg-wb-ink px-3 py-1.5 text-[12px] font-semibold text-wb-bg hover:opacity-90 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          >
+            {isSubmitting ? 'Creating…' : 'Create silence'}
+          </button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+function SilenceRow({ silence, onExpired }: { silence: AlertSilenceEntry; onExpired: () => void }) {
+  const [isExpiring, setIsExpiring] = useState(false);
+  const isUpcoming = new Date(silence.startsAt).getTime() > Date.now();
+
+  async function handleExpire() {
+    setIsExpiring(true);
+    try {
+      const res = await fetch(`/api/emergency-alerts/silences/${silence.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      onExpired();
+    } catch {
+      setIsExpiring(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-wb-line py-3 last:border-0">
+      <div>
+        <div className="flex items-center gap-2">
+          <Badge status={silence.isActive ? 'success' : isUpcoming ? 'neutral' : 'error'}>
+            {silence.isActive ? 'Active' : isUpcoming ? 'Upcoming' : 'Expired'}
+          </Badge>
+          <span className="text-[13px] font-medium text-wb-ink">{silence.reason}</span>
+        </div>
+        <p className="mt-1 text-[11px] text-wb-ink2">
+          Scope: {describeSilenceScope(silence)} · {silence.isActive ? `Ends ${relativeTime(silence.endsAt)}` : isUpcoming ? `Starts ${relativeTime(silence.startsAt)}` : `Ended ${relativeTime(silence.endsAt)}`}
+          {silence.isActive && ` · Currently matching ${silence.matchingActiveAlertCount} active alert${silence.matchingActiveAlertCount === 1 ? '' : 's'}`}
+        </p>
+      </div>
+      {(silence.isActive || isUpcoming) && (
+        <button
+          onClick={handleExpire}
+          disabled={isExpiring}
+          className="rounded-md border border-wb-line px-3 py-1.5 text-[12px] text-wb-ink hover:bg-wb-bg disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+        >
+          {isExpiring ? 'Ending…' : 'End now'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SilencesPanel({ silences, onRefresh }: { silences: AlertSilenceEntry[]; onRefresh: () => void }) {
+  return (
+    <>
+      <CreateSilenceForm onCreated={onRefresh} />
+      <Card>
+        <h2 className="font-serif text-base text-wb-ink">Silences</h2>
+        {silences.length === 0 ? (
+          <p className="mt-2 text-[12px] italic text-wb-ink2">No silences created yet.</p>
+        ) : (
+          <div className="mt-2">
+            {silences.map((s) => (
+              <SilenceRow key={s.id} silence={s} onExpired={onRefresh} />
+            ))}
+          </div>
+        )}
+      </Card>
+    </>
+  );
+}
+
 export default function EmergencyAlertsWorkbench() {
   const [allAlerts, setAllAlerts] = useState<EmergencyAlertEntry[]>([]);
   const [sources, setSources] = useState<EmergencyAlertSourceEntry[]>([]);
+  const [silences, setSilences] = useState<AlertSilenceEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [view, setView] = useState<'overview' | 'browse'>('overview');
+  const [view, setView] = useState<'overview' | 'browse' | 'silences'>('overview');
   const [jurisdictionFilter, setJurisdictionFilter] = useState<string>('');
   const [severityFilter, setSeverityFilter] = useState<string>('');
   const [showInactive, setShowInactive] = useState(false);
@@ -286,22 +547,39 @@ export default function EmergencyAlertsWorkbench() {
   async function fetchData(withSpinner: boolean) {
     if (withSpinner) setIsLoading(true);
     try {
-      const [alertsRes, sourcesRes] = await Promise.all([
+      const [alertsRes, sourcesRes, silencesRes] = await Promise.all([
         fetch('/api/emergency-alerts?activeOnly=false', { cache: 'no-store' }),
         fetch('/api/emergency-alerts/sources', { cache: 'no-store' }),
+        fetch('/api/emergency-alerts/silences', { cache: 'no-store' }),
       ]);
       if (!alertsRes.ok) throw new Error(`Alerts HTTP ${alertsRes.status}`);
       if (!sourcesRes.ok) throw new Error(`Sources HTTP ${sourcesRes.status}`);
+      if (!silencesRes.ok) throw new Error(`Silences HTTP ${silencesRes.status}`);
 
       const alertsData = await alertsRes.json();
       const sourcesData = await sourcesRes.json();
+      const silencesData = await silencesRes.json();
       setAllAlerts(alertsData.alerts ?? []);
       setSources(sourcesData.sources ?? []);
+      setSilences(silencesData.silences ?? []);
       setLoadError(null);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load Emergency Alerts');
     } finally {
       if (withSpinner) setIsLoading(false);
+    }
+  }
+
+  /** Refresh just the silences panel after a create/expire action — avoids
+   * a full-page spinner for what's a small, local state change. */
+  async function refreshSilences() {
+    try {
+      const res = await fetch('/api/emergency-alerts/silences', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setSilences(data.silences ?? []);
+    } catch {
+      // best-effort refresh — the next scheduled fetchData() will catch up
     }
   }
 
@@ -327,6 +605,15 @@ export default function EmergencyAlertsWorkbench() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const activeSilences = useMemo(() => silences.filter((s) => s.isActive), [silences]);
+  const mutedAlertIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const alert of allAlerts) {
+      if (activeSilences.some((s) => silenceCoversAlert(s, alert))) ids.add(alert.id);
+    }
+    return ids;
+  }, [allAlerts, activeSilences]);
 
   const activeAlerts = useMemo(() => allAlerts.filter((a) => a.isActive), [allAlerts]);
   const emergencyAlerts = useMemo(() => activeAlerts.filter((a) => a.severity === 'emergency_warning'), [activeAlerts]);
@@ -398,6 +685,13 @@ export default function EmergencyAlertsWorkbench() {
               >
                 Browse all alerts
               </button>
+              <button
+                onClick={() => setView('silences')}
+                className={`rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'silences' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                aria-pressed={view === 'silences'}
+              >
+                Silences{activeSilences.length > 0 ? ` (${activeSilences.length})` : ''}
+              </button>
             </div>
 
             {view === 'overview' && (
@@ -423,7 +717,7 @@ export default function EmergencyAlertsWorkbench() {
                     </h2>
                     <div className="flex flex-col gap-3">
                       {emergencyAlerts.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                       ))}
                     </div>
                   </Card>
@@ -436,7 +730,7 @@ export default function EmergencyAlertsWorkbench() {
                     </h2>
                     <div className="flex flex-col gap-3">
                       {watchAlerts.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                       ))}
                     </div>
                   </Card>
@@ -535,6 +829,7 @@ export default function EmergencyAlertsWorkbench() {
                             key={alert.id}
                             alert={alert}
                             isSelected={alert.id === selectedAlertId}
+                            isMuted={mutedAlertIds.has(alert.id)}
                             onSelect={() => selectAndMaybeSwitch(alert.id)}
                           />
                         ))}
@@ -546,6 +841,10 @@ export default function EmergencyAlertsWorkbench() {
                   </div>
                 </Card>
               </>
+            )}
+
+            {view === 'silences' && (
+              <SilencesPanel silences={silences} onRefresh={refreshSilences} />
             )}
 
             {selectedAlert && (
