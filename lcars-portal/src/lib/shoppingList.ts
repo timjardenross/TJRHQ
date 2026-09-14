@@ -63,7 +63,11 @@ export interface ShoppingListResult {
 
 async function parseResult(resp: Response): Promise<ShoppingListResult> {
   const json = await resp.json().catch(() => ({}));
-  if (!resp.ok) return { ok: false, error: json?.error ?? `Request failed (${resp.status})` };
+  if (!resp.ok) {
+    const error = json?.error ?? `Request failed (${resp.status})`;
+    if (json?.detail) console.error(`${error}: ${json.detail}`);
+    return { ok: false, error };
+  }
   return { ok: true, id: json?.item?.id ?? json?.id };
 }
 
