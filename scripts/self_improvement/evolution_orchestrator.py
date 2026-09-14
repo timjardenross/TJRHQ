@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import IO, Any
 
+import calibration
 import evolution_memory
 import external_discovery
 import external_enrichment
@@ -755,6 +756,27 @@ class EvolutionOrchestrator:
 
         cycle_timestamp = datetime.now(timezone.utc).isoformat()
 
+        # Fatebook-style calibration read-out (calibration.py) — does this
+        # subsystem's own fit/relevance_score prediction actually track
+        # what happened once an opportunity's outcome resolves? Cheap: a
+        # pure read over the same OpportunityStore already loaded for this
+        # cycle, no network/LLM call, so computed on every cycle
+        # (dry_run included) rather than gated like the write below.
+        # Trimmed to the top-line numbers this "morning-compression"
+        # summary is meant to carry (see this file's own summary_file
+        # comment above and dashboard.py's docstring on
+        # /api/evolution-summary) — the full by-band/bucket breakdown
+        # stays available via calibration.py's own CLI, not duplicated
+        # into this smaller payload.
+        calibration_report = calibration.calibration_report(self.store)
+        calibration_summary = {
+            "resolved_opportunities": calibration_report["total_resolved_opportunities"],
+            "overall_success_rate": calibration_report["overall_success_rate"],
+            "sufficient_data": calibration_report["sufficient_data"],
+            "fit_aligned": calibration_report["fit_alignment"]["aligned"],
+            "brier_score": calibration_report["relevance_score_calibration"]["brier_score"],
+        }
+
         summary = {
             "run_id": run_id,
             "timestamp": cycle_timestamp,
@@ -776,6 +798,7 @@ class EvolutionOrchestrator:
             "regressions_count": outcome_eval_summary["regressions"],
             "latest_material_learning": outcome_eval_summary["latest_material_learning"],
             "implementations_confirmed_count": outcome_eval_summary["implementations_confirmed"],
+            "calibration": calibration_summary,
             # This cycle reached completion — a crash never reaches this
             # line, so "ok" is the only value ever written here. Distinct
             # from record_heartbeat()'s own failed/skipped tracking in
