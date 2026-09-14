@@ -521,15 +521,25 @@ def _get_weekly_capacity(days: int = 7) -> dict:
     still trusted it unconditionally, so the weekly Capacity block silently
     rendered "No capacity logs this week" every week regardless of reality.
     Falls back to recovery_pulses, aggregated across the window instead of a
-    single day. Returns {"source": "log"|"pulse"|"none", "entries": [...]}
+    single day. Returns {"source": "log"|"pulse"|"checkin"|"none", "entries": [...]}
     so the renderer can tell which shape it got.
 
-    2026-08-22 note: both captains_log_entries and recovery_pulses are now
-    permanently frozen (see _get_capacity_today() — Morning/EOD moved to
-    capacity_checkins). This weekly fetcher was NOT part of that migration
-    and will keep degrading toward "source: none" as the 7-day window rolls
-    past 2026-08-21 — a real gap, left open here since only the daily briefs
-    were in scope for the capacity_checkins cutover."""
+    2026-09-13 fix (capability-portfolio data-quality pass): both
+    captains_log_entries and recovery_pulses have been permanently frozen
+    since 2026-06-28/2026-08-21 respectively, so by now this fetcher's first
+    two tiers can never return anything real — every week silently rendered
+    "No capacity logs or recovery pulses this week", identical to a
+    genuinely quiet week, when the truth was "the only two sources this
+    function knows how to read stopped being written to months ago." This
+    was flagged as a known open gap in this function's own prior comment
+    (_get_capacity_today() already made the same cutover for the daily
+    briefs back on 2026-08-22; this weekly fetcher just never followed).
+    Third tier now reads capacity_checkins (checkin_type='capacity') — the
+    live replacement — before finally giving up. "none" is now a real,
+    meaningful signal (the Captain logged zero check-ins all week) rather
+    than a masked structural failure, since capacity_checkins is written
+    interactively by the XO bot on every check-in, not by a dead
+    scheduled job."""
     since = (datetime.now(_AEST).date() - timedelta(days=days - 1)).isoformat()
     log_entries = _sb_get(
         "captains_log_entries",
@@ -546,6 +556,14 @@ def _get_weekly_capacity(days: int = 7) -> dict:
     )
     if pulses:
         return {"source": "pulse", "entries": pulses}
+
+    checkins = _sb_get(
+        "capacity_checkins",
+        f"checkin_type=eq.capacity&log_date=gte.{since}&order=log_date.asc,captured_at.asc"
+        f"&select=log_date,capacity_state,stimulation_state,pain_score,regulation_state",
+    )
+    if checkins:
+        return {"source": "checkin", "entries": checkins}
 
     return {"source": "none", "entries": []}
 
@@ -966,7 +984,21 @@ def _format_weekly_capacity_block(capacity: dict, days: int = 7) -> list[str]:
         lines.append("")
         return lines
 
-    return ["<b>⚡ CAPACITY THIS WEEK</b>", "  No capacity logs or recovery pulses this week.", ""]
+    if source == "checkin":
+        counts = Counter((e.get("capacity_state") or "unknown") for e in entries)
+        order = ["green", "orange", "red"]
+        parts = [f"{counts[c]} {c.capitalize()}" for c in order if counts.get(c)]
+        parts += [f"{v} {k.capitalize()}" for k, v in counts.items() if k not in order]
+        days_logged = len({e.get("log_date") for e in entries})
+        trend = " ".join(_capacity_state_emoji(e.get("capacity_state")) for e in entries)
+        return [
+            f"<b>⚡ CAPACITY THIS WEEK ({len(entries)} check-in(s) across {days_logged} day(s))</b>",
+            f"  {' · '.join(parts) if parts else 'no state recorded'}",
+            f"  <code>{trend}</code>",
+            "",
+        ]
+
+    return ["<b>⚡ CAPACITY THIS WEEK</b>", "  No capacity check-ins, logs, or recovery pulses this week.", ""]
 
 
 # ── Brief generators ──────────────────────────────────────────────────────────
