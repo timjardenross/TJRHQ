@@ -4,7 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import { errorDetail } from '@/lib/errorDetail';
 
@@ -16,12 +16,12 @@ const ACTIVE_STATUSES = [
 const AWAITING_APPROVAL_STATUSES = ['Awaiting Captain Approval', 'Awaiting XO Approval'];
 const BLOCKED_STATUSES = ['Blocked'];
 
-function readCounterState(): Record<string, number> | null {
+async function readCounterState(): Promise<Record<string, number> | null> {
   try {
     const REPO_ROOT = process.env.REPO_ROOT
       ? path.resolve(process.env.REPO_ROOT)
       : path.resolve(process.cwd(), '..');
-    const raw = fs.readFileSync(path.join(REPO_ROOT, '.id-counters.json'), 'utf8');
+    const raw = await fs.readFile(path.join(REPO_ROOT, '.id-counters.json'), 'utf8');
     return JSON.parse(raw);
   } catch {
     return null;
@@ -75,7 +75,16 @@ export async function GET() {
       decisionsOpenCount = recentDecisions.length;
     } catch { /* degrade gracefully */ }
 
-    // Top intelligence signals — high/medium risk, last 7 days, not suppressed, exclude CVEs
+    // Top intelligence signals — last 7 days, not suppressed, exclude CVEs.
+    // Prefer high/medium customer_impact, falling back to any recent event
+    // when there are none, in one query — this used to be two round trips
+    // (a high/medium-only query, then an unfiltered fallback query
+    // whenever the first came back empty), hitting the DB twice on every
+    // request during any lull in high/medium signals. Fetches a wider
+    // rank_score-ordered window once and does the impact-tier preference
+    // client-side instead (customer_impact is free-text, not an ordered
+    // enum, so ORDER BY on it directly wouldn't rank high above medium
+    // above low/null correctly) (2026-09-15 adversarial review).
     let topSignals: unknown[] = [];
     try {
       const since = new Date(Date.now() - 7 * 86_400_000).toISOString();
@@ -85,22 +94,13 @@ export async function GET() {
         .eq('suppressed', false)
         .not('raw_title', 'ilike', 'CVE-%')
         .gte('collected_at', since)
-        .in('customer_impact', ['high', 'medium'])
         .order('rank_score', { ascending: false })
-        .limit(5);
-      topSignals = sigs ?? [];
-      // Fall back to any recent events if no high/medium
-      if (topSignals.length === 0) {
-        const { data: fallback } = await supabase
-          .from('intelligence_events')
-          .select('event_id,raw_title,event_type,customer_impact,banking_relevance,organisation,rank_score,collected_at,canonical_url')
-          .eq('suppressed', false)
-          .not('raw_title', 'ilike', 'CVE-%')
-          .gte('collected_at', since)
-          .order('rank_score', { ascending: false })
-          .limit(5);
-        topSignals = fallback ?? [];
-      }
+        .limit(20);
+      const candidates = sigs ?? [];
+      const highMedium = candidates.filter((s: { customer_impact?: string }) =>
+        ['high', 'medium'].includes(s.customer_impact ?? ''),
+      );
+      topSignals = (highMedium.length > 0 ? highMedium : candidates).slice(0, 5);
     } catch { /* degrade gracefully */ }
 
     // Recent state transitions (last 10 approvals/rejections)
@@ -116,7 +116,7 @@ export async function GET() {
     } catch { /* degrade gracefully */ }
 
     // Counter state (read-only filesystem read)
-    const counters = readCounterState();
+    const counters = await readCounterState();
 
     return NextResponse.json({
       generated_at: generatedAt,
