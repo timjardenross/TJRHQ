@@ -566,8 +566,43 @@ async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 _RISK_ICON = {"HIGH": "🔴", "MEDIUM": "🟡", "LOW": "🟢", "GREEN": "🟢", "AMBER": "🟡", "RED": "🔴"}
 
 
-_brief_regen_started_at: float | None = None  # monotonic timestamp — cooldown guard, not a completion signal
 _BRIEF_REGEN_COOLDOWN_SECONDS = 25 * 60  # a detached Popen can't report back when it's actually done
+_BRIEF_REGEN_RATE_KEY = "brief_regen"
+
+
+def _get_brief_regen_started_at(db) -> float | None:
+    """Cooldown state persisted in bot_rate_limits (2026-09-15 adversarial
+    review) instead of a process-global -- a bot restart no longer resets
+    the cooldown and lets an already-running ~15-25min regenerate get
+    kicked off a second time. Returns a monotonic-comparable value (time
+    since epoch, compared against time.time() by the caller) or None."""
+    try:
+        row = (
+            db.table("bot_rate_limits")
+            .select("triggered_at")
+            .eq("rate_key", _BRIEF_REGEN_RATE_KEY)
+            .limit(1)
+            .execute()
+        )
+        rows = row.data or []
+        if not rows:
+            return None
+        from datetime import datetime
+        return datetime.fromisoformat(rows[0]["triggered_at"].replace("Z", "+00:00")).timestamp()
+    except Exception as exc:  # noqa: BLE001 - best-effort cooldown read; a lookup failure just means "not cooling down"
+        log.debug("[brief] cooldown lookup failed: %s", exc)
+        return None
+
+
+def _set_brief_regen_started_at(db, when: float) -> None:
+    try:
+        from datetime import datetime, timezone
+        db.table("bot_rate_limits").upsert({
+            "rate_key": _BRIEF_REGEN_RATE_KEY,
+            "triggered_at": datetime.fromtimestamp(when, tz=timezone.utc).isoformat(),
+        }).execute()
+    except Exception as exc:  # noqa: BLE001 - best-effort cooldown write; a write failure just means the next call re-checks time.time() against no stored cooldown
+        log.debug("[brief] cooldown write failed: %s", exc)
 
 
 def _launch_brief_regen_detached() -> None:
@@ -599,7 +634,6 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     against an incomplete collection window. Otherwise (collection is done
     or past its bounded cutoff, brief just hasn't run yet) kick off the
     canonical generation path and say so."""
-    global _brief_regen_started_at
     db = _get_supabase()
     if not db:
         await update.message.reply_text("⚠️ Supabase unavailable\\.", parse_mode="MarkdownV2")
@@ -623,10 +657,11 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged, falls back to regenerate-allowed
         log.warning("[brief] could not check today's cycle status: %s", exc)
 
-    now_mono = time.monotonic()
+    now_ts = time.time()
+    regen_started_at = _get_brief_regen_started_at(db)
     cooling_down = (
-        _brief_regen_started_at is not None
-        and (now_mono - _brief_regen_started_at) < _BRIEF_REGEN_COOLDOWN_SECONDS
+        regen_started_at is not None
+        and (now_ts - regen_started_at) < _BRIEF_REGEN_COOLDOWN_SECONDS
     )
 
     if have_todays_brief:
@@ -648,7 +683,7 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else:
             try:
                 _launch_brief_regen_detached()
-                _brief_regen_started_at = now_mono
+                _set_brief_regen_started_at(db, now_ts)
                 await update.message.reply_text(
                     "⚙️ Kicked off a fresh regenerate in the background (~15-25 min — full source "
                     "collection + LLM synthesis). Showing the latest available digest below now; "

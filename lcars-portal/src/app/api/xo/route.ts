@@ -4,6 +4,7 @@ import { buildShipContext } from '@/lib/ai-context';
 import { parseAndProposeActions } from '@/lib/ai-actions';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { errorDetail } from '@/lib/errorDetail';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 /**
  * XO Chat endpoint (MSN-IOS-001 WP4).
@@ -111,6 +112,13 @@ export async function POST(request: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // 2026-09-15 adversarial review: every call is an LLM spend with no
+  // prior cap -- limits accidental loop/retry hammering, not a security
+  // boundary (single-user app, no distributed limiter configured).
+  if (!checkRateLimit('xo-chat', 20, 60_000)) {
+    return NextResponse.json({ error: 'Too many requests — try again shortly' }, { status: 429 });
   }
 
   if (process.env.OLLAMA_CLOUD_ENABLED !== 'true') {
