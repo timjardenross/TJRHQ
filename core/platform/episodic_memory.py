@@ -2,13 +2,19 @@
 
 Hot layer: completed research records queryable by vector similarity, backed
 by the existing research_memory table (migration 0014) extended with an
-embedding column (migration 0162).
+embedding column (migration 0162, superseded by embedding_mistral in 0209).
 
 Responsibilities:
-- embed_text: produce a 768-dim nomic-embed-text vector via Model Router
+- embed_text: produce a 1024-dim mistral-embed vector via
+  tools/supabase/embedding_client.py — same model/client as document_chunks
+  (migration 0102), converged onto one embedding model in
+  USS-TJR-MSN-0378 Stream 3. (Was a 768-dim nomic-embed-text vector via the
+  local Model Router prior to that mission; the old `embedding` column and
+  `match_research_memories` RPC are left in place, unused, per the
+  mission's no-destructive-changes scope — see migration 0209.)
 - store_memory: write a new research_memory row and attach its embedding
 - recall_similar: nearest-neighbour search, falling back to keyword search
-  when the Model Router is unavailable
+  when embedding generation is unavailable
 - increment_reuse: track how many times a recalled memory was reused
 
 Non-responsibilities:
@@ -23,16 +29,9 @@ Non-responsibilities:
 
 from __future__ import annotations
 
-import json
 import logging
-import urllib.error
-import urllib.request
 
 log = logging.getLogger(__name__)
-
-_MODEL_ROUTER_EMBED_URL = "http://localhost:8891/api/model/embed"
-_EMBED_MODEL = "nomic-embed-text"
-_EMBED_TIMEOUT_SECONDS = 30
 
 
 def _supabase_raw():
@@ -50,58 +49,31 @@ def _supabase_raw():
 
 
 def embed_text(text: str) -> list[float] | None:
-    """Produce a 768-dim nomic-embed-text embedding vector via the Model Router.
+    """Produce a 1024-dim mistral-embed vector via tools/supabase/embedding_client.py.
 
-    POSTs to http://localhost:8891/api/model/embed with the nomic-embed-text
-    model. Returns the first embedding vector on success.
-
-    Returns None (and logs a warning) on any connection or response error so
-    callers can degrade gracefully when the Model Router is down. The calling
-    code must treat None as "embedding unavailable, fall back to keyword search".
+    Returns None (and logs a warning) on any error so callers can degrade
+    gracefully when embedding generation is unavailable. The calling code
+    must treat None as "embedding unavailable, fall back to keyword search".
 
     Args:
         text: The text to embed. Should be non-empty.
 
     Returns:
-        A list of 768 floats, or None on failure.
+        A list of 1024 floats, or None on failure.
     """
     if not text or not text.strip():
         log.warning("[episodic-memory] embed_text called with empty text; skipping")
         return None
 
-    payload = json.dumps({"model": _EMBED_MODEL, "input": text}).encode()
-    req = urllib.request.Request(
-        _MODEL_ROUTER_EMBED_URL,
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=_EMBED_TIMEOUT_SECONDS) as resp:  # nosec B310 - req.url is the hardcoded _MODEL_ROUTER_EMBED_URL localhost constant, not user input - reviewed 2026-09-12
-            body = json.loads(resp.read().decode())
-    except urllib.error.URLError as exc:
-        log.warning("[episodic-memory] Model Router unreachable for embedding: %s", exc)
+        from tools.supabase.embedding_client import EmbeddingClient, EmbeddingError
+        return EmbeddingClient().create_one(text)
+    except EmbeddingError as exc:
+        log.warning("[episodic-memory] embedding generation failed: %s", exc)
         return None
     except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning("[episodic-memory] embed_text failed unexpectedly: %s", exc)
         return None
-
-    # Model Router wraps the Ollama /api/embed response under result["embeddings"],
-    # which is a list-of-lists: [[float, ...]]. Return the first vector.
-    embeddings = body.get("embeddings")
-    if not embeddings or not isinstance(embeddings, list):
-        log.warning(
-            "[episodic-memory] Model Router returned no embeddings field: %s",
-            list(body.keys()),
-        )
-        return None
-
-    first = embeddings[0] if isinstance(embeddings[0], list) else embeddings
-    if not first:
-        log.warning("[episodic-memory] Model Router returned an empty embedding vector")
-        return None
-
-    return first
 
 
 def store_memory(
@@ -175,7 +147,7 @@ def store_memory(
         return new_id
 
     try:
-        raw.table("research_memory").update({"embedding": vector}).eq("id", new_id).execute()
+        raw.table("research_memory").update({"embedding_mistral": vector}).eq("id", new_id).execute()
         log.info("[episodic-memory] Stored and embedded memory %s", new_id)
     except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning(
@@ -194,13 +166,13 @@ def recall_similar(
 ) -> list[dict]:
     """Return research memories semantically similar to query.
 
-    Primary path: embed the query and call the match_research_memories RPC
-    (migration 0162). The RPC returns rows ordered by cosine similarity, above
-    the given threshold, restricted to successfully completed research.
+    Primary path: embed the query and call the match_research_memories_mistral
+    RPC (migration 0209). The RPC returns rows ordered by cosine similarity,
+    above the given threshold, restricted to successfully completed research.
 
-    Fallback: if embed_text returns None (Model Router down), run an ILIKE
-    keyword search over original_question so the caller always gets results
-    when any research records exist.
+    Fallback: if embed_text returns None (embedding generation unavailable),
+    run an ILIKE keyword search over original_question so the caller always
+    gets results when any research records exist.
 
     Args:
         query: The natural-language query to match against stored memories.
@@ -208,8 +180,8 @@ def recall_similar(
         limit: Maximum number of results to return.
 
     Returns:
-        List of dicts with keys matching the match_research_memories return
-        columns: id, original_question, consolidated_findings, recommendation,
+        List of dicts with keys matching the match_research_memories_mistral
+        return columns: id, original_question, consolidated_findings, recommendation,
         confidence_level, tags, reuse_count, created_at, similarity.
         Returns [] on any error or when no Supabase client is available.
     """
@@ -226,7 +198,7 @@ def recall_similar(
     if vector is not None:
         try:
             rpc_result = raw.rpc(
-                "match_research_memories",
+                "match_research_memories_mistral",
                 {
                     "query_embedding": vector,
                     "match_threshold": threshold,
@@ -236,7 +208,7 @@ def recall_similar(
             return list(rpc_result.data or [])
         except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning(
-                "[episodic-memory] match_research_memories RPC failed, falling back to keyword: %s",
+                "[episodic-memory] match_research_memories_mistral RPC failed, falling back to keyword: %s",
                 exc,
             )
 

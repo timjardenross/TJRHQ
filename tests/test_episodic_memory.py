@@ -7,9 +7,7 @@ and increment_reuse.
 
 from __future__ import annotations
 
-import json
 import sys
-import urllib.error
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -27,29 +25,28 @@ from core.platform.episodic_memory import (
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _fake_embed_response(vector: list[float]) -> MagicMock:
-    """Build a urllib response mock that returns an embed JSON body."""
-    body = json.dumps({"embeddings": [vector]}).encode()
-    resp = MagicMock()
-    resp.read.return_value = body
-    resp.__enter__ = lambda s: s
-    resp.__exit__ = MagicMock(return_value=False)
-    return resp
-
-
-_SAMPLE_VECTOR = [0.1] * 768
+_SAMPLE_VECTOR = [0.1] * 1024
 
 
 # ── embed_text ────────────────────────────────────────────────────────────────
+# USS-TJR-MSN-0378 Stream 3: embed_text now delegates to
+# tools/supabase/embedding_client.EmbeddingClient (mistral-embed, 1024-dim)
+# instead of POSTing to the Model Router directly, so these tests mock that
+# client rather than urllib.
 
 class TestEmbedText:
-    def test_returns_first_vector_on_success(self):
-        with patch("urllib.request.urlopen", return_value=_fake_embed_response(_SAMPLE_VECTOR)):
+    def test_returns_vector_on_success(self):
+        fake_client = MagicMock()
+        fake_client.create_one.return_value = _SAMPLE_VECTOR
+        with patch("tools.supabase.embedding_client.EmbeddingClient", return_value=fake_client):
             result = embed_text("hello world")
         assert result == _SAMPLE_VECTOR
 
-    def test_returns_none_on_url_error(self):
-        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("connection refused")):
+    def test_returns_none_on_embedding_error(self):
+        from tools.supabase.embedding_client import EmbeddingError
+        fake_client = MagicMock()
+        fake_client.create_one.side_effect = EmbeddingError("boom")
+        with patch("tools.supabase.embedding_client.EmbeddingClient", return_value=fake_client):
             result = embed_text("hello world")
         assert result is None
 
@@ -61,35 +58,15 @@ class TestEmbedText:
         result = embed_text("   ")
         assert result is None
 
-    def test_returns_none_when_no_embeddings_field(self):
-        body = json.dumps({"success": False}).encode()
-        resp = MagicMock()
-        resp.read.return_value = body
-        resp.__enter__ = lambda s: s
-        resp.__exit__ = MagicMock(return_value=False)
-        with patch("urllib.request.urlopen", return_value=resp):
-            result = embed_text("hello")
-        assert result is None
-
-    def test_posts_to_model_router_with_correct_payload(self):
-        captured_requests = []
-
-        def fake_urlopen(req, timeout=None):
-            captured_requests.append(req)
-            return _fake_embed_response(_SAMPLE_VECTOR)
-
-        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+    def test_calls_client_with_exact_text(self):
+        fake_client = MagicMock()
+        fake_client.create_one.return_value = _SAMPLE_VECTOR
+        with patch("tools.supabase.embedding_client.EmbeddingClient", return_value=fake_client):
             embed_text("test query")
-
-        assert len(captured_requests) == 1
-        req = captured_requests[0]
-        payload = json.loads(req.data.decode())
-        assert payload["model"] == "nomic-embed-text"
-        assert payload["input"] == "test query"
-        assert "localhost:8891" in req.full_url
+        fake_client.create_one.assert_called_once_with("test query")
 
     def test_returns_none_on_unexpected_exception(self):
-        with patch("urllib.request.urlopen", side_effect=RuntimeError("unexpected")):
+        with patch("tools.supabase.embedding_client.EmbeddingClient", side_effect=RuntimeError("unexpected")):
             result = embed_text("test")
         assert result is None
 
@@ -131,12 +108,14 @@ class TestStoreMemory:
         ):
             store_memory("q", "findings", "rec", 0.8, [], "hash1")
 
-        # Verify update was called with the embedding vector
+        # Verify update was called with the mistral embedding vector
+        # (embedding_mistral, per USS-TJR-MSN-0378 Stream 3 — the legacy
+        # nomic-embed-text `embedding` column is no longer written to).
         update_calls = raw.table.return_value.update.call_args_list
         assert any(
-            "embedding" in (args[0] if args else kwargs)
+            "embedding_mistral" in (args[0] if args else kwargs)
             for args, kwargs in update_calls
-        ), "update() should have been called with embedding"
+        ), "update() should have been called with embedding_mistral"
 
     def test_returns_row_id_even_when_embed_unavailable(self):
         """Row must be stored even when the Model Router is down."""
@@ -202,7 +181,7 @@ class TestRecallSimilar:
             result = recall_similar("risk analysis")
         assert result == rpc_rows
         raw.rpc.assert_called_once_with(
-            "match_research_memories",
+            "match_research_memories_mistral",
             {"query_embedding": _SAMPLE_VECTOR, "match_threshold": 0.75, "match_count": 10},
         )
 
@@ -267,7 +246,7 @@ class TestRecallSimilar:
         ):
             recall_similar("query", threshold=0.85, limit=3)
         raw.rpc.assert_called_once_with(
-            "match_research_memories",
+            "match_research_memories_mistral",
             {"query_embedding": _SAMPLE_VECTOR, "match_threshold": 0.85, "match_count": 3},
         )
 
