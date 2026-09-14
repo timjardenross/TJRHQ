@@ -61,12 +61,13 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
 
-    const { data: maxRow } = await supabase
+    const { data: maxRow, error: maxRowError } = await supabase
       .from('shopping_list_items')
       .select('priority_rank')
       .order('priority_rank', { ascending: false })
       .limit(1)
       .maybeSingle<{ priority_rank: number }>();
+    if (maxRowError) throw maxRowError;
     const nextRank = (maxRow?.priority_rank ?? 0) + 1;
 
     const { data, error } = await supabase
