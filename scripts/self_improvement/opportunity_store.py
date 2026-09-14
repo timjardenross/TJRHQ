@@ -13,6 +13,7 @@ not grant automation authority (policy.py remains the sole authority for
 that — see PolicyEngine.classify_finding, reused here unchanged).
 """
 
+import fcntl
 import hashlib
 import json
 import logging
@@ -208,15 +209,26 @@ class OpportunityStore:
         self.counter_path = data_root / "review" / "opportunity_id_counter.txt"
 
     def _next_id(self) -> str:
+        # fcntl-locked read-modify-write, mirroring id_registry.py's
+        # next_id() pattern -- without this, two concurrent cycles (a
+        # manual trigger overlapping the scheduled one, or a restart
+        # racing a still-shutting-down prior run) can both read the same
+        # counter value and mint the same EVO-#### id, silently losing
+        # one opportunity's dedup history to the other (2026-09-15
+        # adversarial review).
         self.counter_path.parent.mkdir(parents=True, exist_ok=True)
-        n = 0
-        if self.counter_path.exists():
-            try:
-                n = int(self.counter_path.read_text().strip() or "0")
-            except ValueError:
-                n = 0
-        n += 1
-        self.counter_path.write_text(str(n))
+        lock_path = self.counter_path.with_suffix(".lock")
+        lock_path.touch(exist_ok=True)
+        with open(lock_path, "w") as lf:
+            fcntl.flock(lf, fcntl.LOCK_EX)  # auto-released on close
+            n = 0
+            if self.counter_path.exists():
+                try:
+                    n = int(self.counter_path.read_text().strip() or "0")
+                except ValueError:
+                    n = 0
+            n += 1
+            self.counter_path.write_text(str(n))
         return f"EVO-{n:04d}"
 
     def all_records(self) -> list[dict[str, Any]]:
