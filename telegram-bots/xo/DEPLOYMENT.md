@@ -28,26 +28,27 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-`requirements.txt` pinned versions:
+`requirements.txt` pinned versions (kept in sync with the actual file — see
+`requirements.txt` itself for the full version-pin rationale, particularly the
+`supabase`/`gotrue`/`httpx` chain, which is pinned to work around a real
+`python-telegram-bot==20.7` httpx conflict, not an arbitrary choice):
 ```
 python-telegram-bot==20.7
-apscheduler==3.10.4
-supabase==2.3.4
-gotrue==1.3.1
-python-dotenv==1.0.0
+supabase==2.7.4
+gotrue<2.9.0
+python-dotenv==1.2.3
 httpx<0.26
+pyjwt>=2.13.0
+edge-tts>=7.2.8
 ```
-
-`apscheduler` is listed but not currently imported anywhere in `app.py`,
-`voice_capture.py`, or `pulse_time.py` — see the scheduling note below. It's a
-dead dependency left over from an earlier version of this bot.
 
 ## Scheduling — this process does not self-schedule
 
 This bot only responds to inbound Telegram updates (commands, free text, voice
 notes, button taps). It does **not** run `AsyncIOScheduler`, `BackgroundScheduler`,
 or any other in-process scheduler — there is no `apscheduler` import anywhere in
-`telegram-bots/xo/`.
+`telegram-bots/xo/`, and `apscheduler` itself was dropped from `requirements.txt`
+(Chief Engineer review 2026-08-09) since nothing here ever imported it.
 
 Proactive pushes advertised in `/help` (07:00 Daily Operating Picture, 21:00
 Evening Recovery Reflection, Monday Weekly Human Systems Review, etc.) are owned
@@ -135,14 +136,8 @@ python3 tools/backfill_missions_to_supabase.py             # execute
 
 This is idempotent — existing mission_ids are skipped.
 
-## Known gaps (as of 2026-08-09)
+## Known gaps
 
-- `telegram_bots.xo.debrief_engine` is imported by five call sites in `app.py`
-  but does not exist in this repo or its git history. All five sites guard the
-  import with `try/except ImportError` and degrade gracefully (plain
-  quick-capture / plain LLM reply, or an honest "unavailable" message) rather
-  than crashing — but debrief session functionality itself is not available
-  until that module is rebuilt or recovered.
 - `app.py` (~2,300 lines, the bulk of this bot) has no automated test coverage.
   Only `voice_capture.py` is covered, via `test_voice_capture.py` (run directly
   with `python test_voice_capture.py`, not via `pytest`/`unittest discover` —
