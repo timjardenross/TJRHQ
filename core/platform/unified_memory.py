@@ -32,9 +32,14 @@ memory_graph.py's first real caller (see that module's own docstring:
 route). Falls through to the existing `knowledge_edges` table when no query
 is given, or if Graphiti/GEMINI_API_KEY is unavailable.
 
-Standalone module. Not yet adopted by any existing caller — each existing
-memory-reading module keeps working exactly as it does today; this is an
-additive convergence point for future code, not a forced migration.
+One real caller as of USS-TJR-MSN-0378 (2026-09-14):
+platform-runtime/lib/officers/daily_operations_cycle.py imports
+`MemoryType`/`recall` directly. Adoption is still far from platform-wide —
+the other ~14 memory-reading modules identified in the SUOC platform audit
+still bypass this module and read their backing stores directly — so this
+remains an additive convergence point for future code, not a forced
+migration, but "zero callers" is no longer accurate and should not be
+repeated.
 """
 
 from __future__ import annotations
