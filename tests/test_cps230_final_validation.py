@@ -230,8 +230,8 @@ class TestCPS230FinalValidation:
         log.info("TEST 9: Security — Backend-Only Access Model")
 
         files_to_check = [
-            Path("/Users/timjarden-ross/Documents/GitHub/USSTJROS/platform-runtime/lib/learning_loop_service.py"),
-            Path("/Users/timjarden-ross/Documents/GitHub/USSTJROS/core/coordination/research_orchestration.py"),
+            Path(__file__).parent.parent / "platform-runtime" / "lib" / "learning_loop_service.py",
+            Path(__file__).parent.parent / "core" / "coordination" / "research_orchestration.py",
         ]
 
         for filepath in files_to_check:

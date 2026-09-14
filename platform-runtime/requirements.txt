@@ -124,3 +124,8 @@ apprise>=1.13.1
 # capture-enrichment.timer and the health-signal-synthesis pass actually
 # run before relying on either.
 semhash>=0.4.1
+
+# 2026-09-15 adversarial review: caps a single hanging/slow test at
+# --timeout=30 (set in pytest.ini) instead of letting it stall the whole
+# suite/CI job indefinitely.
+pytest-timeout>=2.3.1
