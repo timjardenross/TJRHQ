@@ -37,7 +37,32 @@ WorkingDirectory=/opt/starship-endeavour
 # missing key), so Stream 6 dropped the fallback file entirely — old line
 # kept commented as rollback.
 # EnvironmentFile=/opt/starship-endeavour/platform-runtime/.env
-ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/.venv/bin/python -m intelligence.scheduler
+#
+# 2026-09-13: switched to run-with-infisical-bot.sh xo. TELEGRAM_BOT_TOKEN/
+# TELEGRAM_CHAT_ID intentionally live only in the XO bot's Infisical folder
+# (per-bot secrets, XO-only Telegram policy) — run-with-infisical.sh's flat
+# root namespace never had them. This module's captains_brief.py sends the
+# morning/midday/eod briefs over Telegram, so it needs XO's creds the same
+# way tg-xo.service does. Root cause of the 2026-09-13 silent morning-brief
+# delivery failure (captains-brief: "Telegram not configured — printing to
+# stdout") introduced by the Stream 6 migration above. (2026-09-15
+# adversarial review: this fix was live on the host but had never been
+# backported into this repo file until now -- found via a live/repo diff
+# while adding the flock guard below.)
+#
+# 2026-09-15 adversarial review: this daemon owns cron-scheduled jobs
+# (brief generation, daily source collection) inside its own in-process
+# APScheduler -- that only prevents duplicate firing *within* one
+# process, not across two. If a restart (Restart=always, RestartSec=10)
+# starts a new instance while a prior one is still mid-shutdown, both
+# briefly co-exist and can double-fire the same scheduled job (duplicate
+# captains_daily_briefs rows + double LLM spend; intelligence_events
+# dedup is content-hash-based so that side is partially, not fully,
+# protected). Wrapping ExecStart in `flock -n` held for the process's
+# whole lifetime (not just at start) means a second instance that can't
+# get the lock exits immediately instead of running alongside the first
+# -- Restart=always/RestartSec=10 then just retries until the lock frees.
+ExecStart=/usr/bin/flock -n /run/intelligence-scheduler.lock /opt/starship-endeavour/platform-runtime/run-with-infisical-bot.sh xo -- /opt/starship-endeavour/platform-runtime/.venv/bin/python -m intelligence.scheduler
 Restart=always
 RestartSec=10
 StandardOutput=journal
