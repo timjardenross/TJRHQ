@@ -182,3 +182,23 @@
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
 }
+
+/* Mobile check, iPhone (2026-09-12, WORKBENCH-MOBILE-COMPAT): every
+   *-workbench page has form controls styled at text-xs/text-[11-13px] for
+   density (LibraryView filters, CaptureRow/TaskRow inline selects, date
+   pickers, etc, dozens of call sites across the app) — desktop-only, since
+   iOS Safari force-zooms the whole page on focusing any input/select/
+   textarea under 16px, with no per-element opt-out. That zoom is exactly
+   what "typing in a workbench filter on my phone doesn't work" looks like:
+   the whole page snaps to a zoomed-in view centred on the tapped control
+   the moment it's focused, and stays that way (manual pinch-to-zoom out
+   required) until the Captain taps away. Scoped to below Tailwind's sm
+   breakpoint only, so the desktop-density type these controls were
+   actually designed at is completely unaffected. */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
