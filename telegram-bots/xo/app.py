@@ -235,7 +235,58 @@ def _get_open_missions(db) -> str:
         return ""
 
 
-def _xo_system_prompt(status: RecoveryStatus, snap=None, missions: str = "") -> str:
+# ── Conversation turn memory (USS-TJR-MSN-0378 Stream 2) ────────────────────
+# XO's reply hot path had no turn-replay mechanism at all — each reply was
+# generated with zero knowledge of what was said a message ago. This is the
+# standalone, low-risk piece of the mission: replay the last few turns into
+# the system prompt. Long-term extraction (Stream 5, into Graphiti) stays
+# off this path entirely — these two helpers only ever do a cheap
+# insert/select against conversation_turns, never an LLM call.
+
+_RECENT_TURNS_LIMIT = 10
+_RECENT_TURNS_WINDOW_MINUTES = 120
+
+
+def _log_conversation_turn(db, chat_id: int, role: str, text: str) -> None:
+    """Best-effort insert — a logging failure must never break the reply path."""
+    if not db or not text:
+        return
+    try:
+        db.table("conversation_turns").insert({
+            "chat_id": chat_id,
+            "role": role,
+            "text": text[:4000],
+        }).execute()
+    except Exception as exc:  # noqa: BLE001 - Supabase insert surface is unpredictable, best-effort only
+        log.debug("[conversation_turns] insert failed (non-fatal): %s", exc)
+
+
+def _get_recent_turns(db, chat_id: int) -> str:
+    """Last few turns for this chat, oldest-first, formatted for the system prompt."""
+    if not db:
+        return ""
+    try:
+        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=_RECENT_TURNS_WINDOW_MINUTES)).isoformat()
+        rows = (
+            db.table("conversation_turns")
+            .select("role,text,created_at")
+            .eq("chat_id", chat_id)
+            .gte("created_at", cutoff)
+            .order("created_at", desc=True)
+            .limit(_RECENT_TURNS_LIMIT)
+            .execute()
+        )
+        turns = list(reversed(rows.data or []))
+    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, degrade to no recall
+        log.debug("[conversation_turns] recall failed (non-fatal): %s", exc)
+        return ""
+    if not turns:
+        return ""
+    lines = [f"{'Captain' if t['role'] == 'captain' else 'XO'}: {t['text']}" for t in turns]
+    return "\n\nRecent conversation (most recent last):\n" + "\n".join(lines)
+
+
+def _xo_system_prompt(status: RecoveryStatus, snap=None, missions: str = "", recent_turns: str = "") -> str:
     signals = ", ".join(filter(None, [
         f"energy={status.latest_energy}"              if status.latest_energy          else None,
         f"ns={status.latest_nervous_system}"          if status.latest_nervous_system  else None,
@@ -269,7 +320,8 @@ def _xo_system_prompt(status: RecoveryStatus, snap=None, missions: str = "") -> 
         f"- Signals: {signals}\n"
         f"- Escalation: L{status.escalation_level} (0=clear 1=low 2=concern 3=critical)"
         f"{wellness_ctx}"
-        f"{missions_ctx}\n\n"
+        f"{missions_ctx}"
+        f"{recent_turns}\n\n"
         "Your role:\n"
         "- Primary daily companion. The Captain talks to you first.\n"
         "- Help make decisions through a capacity lens — can we do this given recovery state?\n"
@@ -1189,9 +1241,12 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         status   = get_recovery_status(db)
         snap     = get_wellness_snapshot(db)
         missions = _get_open_missions(db)
+        recent_turns = _get_recent_turns(db, update.effective_chat.id)
+        _log_conversation_turn(db, update.effective_chat.id, "captain", text)
         await update.message.chat.send_action("typing")
-        reply = await generate_async(text, _xo_system_prompt(status, snap, missions))
+        reply = await generate_async(text, _xo_system_prompt(status, snap, missions, recent_turns))
         if reply:
+            _log_conversation_turn(db, update.effective_chat.id, "xo", reply)
             await update.message.reply_text(_escape(reply), parse_mode="MarkdownV2")
         else:
             await update.message.reply_text(
