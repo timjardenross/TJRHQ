@@ -3,3 +3,17 @@ supabase==2.31.0
 gotrue==2.12.4
 python-dotenv==1.2.3
 httpx<0.29
+# evidence_engine.py's personal causal-effect estimate (capacity_interventions
+# .personal_causal_effect*, migration 0202) — Bayesian structural time-series
+# fit over capacity_checkins history around an intervention's first use.
+# Pulls in TensorFlow Probability (large wheel) as a transitive dependency;
+# could not be installed in the authoring sandbox (proxy timeout on the
+# TFP wheel itself, not a metadata/version problem) — smoke-test
+# _fit_causal_impact() against real data on a host that can actually
+# resolve this before evidence_engine.py runs on a schedule. pandas is
+# tfcausalimpact's own direct dependency, not pinned separately here.
+# 0.0.18 is the actual latest release on PyPI (verified via the PyPI JSON
+# API directly, 2026-09-13) — the package has never reached a 0.1.x/0.2.x
+# version despite active use; an earlier >=0.2.1 pin here was wrong and
+# failed CI with no matching distribution.
+tfcausalimpact>=0.0.18
