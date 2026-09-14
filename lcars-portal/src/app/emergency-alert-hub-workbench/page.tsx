@@ -535,6 +535,7 @@ export default function EmergencyAlertsWorkbench() {
   const [silences, setSilences] = useState<AlertSilenceEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [silencesError, setSilencesError] = useState<string | null>(null);
   const [view, setView] = useState<'overview' | 'browse' | 'silences'>('overview');
   const [jurisdictionFilter, setJurisdictionFilter] = useState<string>('');
   const [severityFilter, setSeverityFilter] = useState<string>('');
@@ -544,24 +545,39 @@ export default function EmergencyAlertsWorkbench() {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detailPanelRef = useRef<HTMLDivElement | null>(null);
 
+  /** Silences are a supplementary management feature layered on top of the
+   * core alert feed (see module docstring — this page's job is "is there an
+   * alert I should know about", not silence bookkeeping). A silences-only
+   * outage must not take down the Overview/Browse views that answer that
+   * question, so it's fetched and error-handled independently of
+   * alerts/sources rather than failing the whole page load. */
+  async function fetchSilences() {
+    try {
+      const res = await fetch('/api/emergency-alerts/silences', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Silences HTTP ${res.status}`);
+      const data = await res.json();
+      setSilences(data.silences ?? []);
+      setSilencesError(null);
+    } catch (err) {
+      setSilencesError(err instanceof Error ? err.message : 'Failed to load silences');
+    }
+  }
+
   async function fetchData(withSpinner: boolean) {
     if (withSpinner) setIsLoading(true);
     try {
-      const [alertsRes, sourcesRes, silencesRes] = await Promise.all([
+      const [alertsRes, sourcesRes] = await Promise.all([
         fetch('/api/emergency-alerts?activeOnly=false', { cache: 'no-store' }),
         fetch('/api/emergency-alerts/sources', { cache: 'no-store' }),
-        fetch('/api/emergency-alerts/silences', { cache: 'no-store' }),
+        fetchSilences(),
       ]);
       if (!alertsRes.ok) throw new Error(`Alerts HTTP ${alertsRes.status}`);
       if (!sourcesRes.ok) throw new Error(`Sources HTTP ${sourcesRes.status}`);
-      if (!silencesRes.ok) throw new Error(`Silences HTTP ${silencesRes.status}`);
 
       const alertsData = await alertsRes.json();
       const sourcesData = await sourcesRes.json();
-      const silencesData = await silencesRes.json();
       setAllAlerts(alertsData.alerts ?? []);
       setSources(sourcesData.sources ?? []);
-      setSilences(silencesData.silences ?? []);
       setLoadError(null);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load Emergency Alerts');
@@ -573,14 +589,7 @@ export default function EmergencyAlertsWorkbench() {
   /** Refresh just the silences panel after a create/expire action — avoids
    * a full-page spinner for what's a small, local state change. */
   async function refreshSilences() {
-    try {
-      const res = await fetch('/api/emergency-alerts/silences', { cache: 'no-store' });
-      if (!res.ok) return;
-      const data = await res.json();
-      setSilences(data.silences ?? []);
-    } catch {
-      // best-effort refresh — the next scheduled fetchData() will catch up
-    }
+    await fetchSilences();
   }
 
   useEffect(() => {
@@ -844,7 +853,17 @@ export default function EmergencyAlertsWorkbench() {
             )}
 
             {view === 'silences' && (
-              <SilencesPanel silences={silences} onRefresh={refreshSilences} />
+              <>
+                {silencesError && (
+                  <Card>
+                    <div className="rounded-md border border-state-crit/40 bg-state-crit/10 px-4 py-3">
+                      <p className="text-[13px] font-semibold text-state-crit-on">Silences could not be loaded</p>
+                      <p className="mt-1 text-[12px] text-wb-ink2">{silencesError}</p>
+                    </div>
+                  </Card>
+                )}
+                <SilencesPanel silences={silences} onRefresh={refreshSilences} />
+              </>
             )}
 
             {selectedAlert && (
