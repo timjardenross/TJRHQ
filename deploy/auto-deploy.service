@@ -12,11 +12,14 @@
 Description=Pull-based auto-deploy (git pull --ff-only + scoped service restarts)
 After=network-online.target
 Wants=network-online.target
-# 2026-09-15 adversarial review: this ran every 5 minutes and failed every
-# single time for 3+ days straight (dirty working tree correctly aborts the
-# pull, but nothing ever told anyone) before it was noticed. See
-# docs/security/2026-09-15-adversarial-review-remediation.md.
-OnFailure=alert-on-failure@%n.service
+# OnFailure alerting was added 2026-09-15 after this unit failed silently
+# for 3+ days straight, but turned out too aggressive in practice: it
+# pages on every 5-minute retry for as long as the tree is legitimately
+# dirty mid-edit (a normal, expected state during active development on
+# this checkout), not just on a real failure. Disabled per explicit
+# request (2026-09-15) rather than tuned — dirty-tree aborts are visible
+# in `systemctl status auto-deploy.service` / journalctl on demand.
+#OnFailure=alert-on-failure@%n.service
 
 [Service]
 Type=oneshot
