@@ -141,6 +141,15 @@ def scan_repo_max(prefix: str) -> tuple[int, str | None]:
         if not match:
             continue
         n = int(match.group(1))
+        if n == 9999:
+            # 2026-09-15, 3rd recurrence of this exact drift: 9999 is a
+            # universal test-fixture/placeholder sentinel across this repo,
+            # never a real minted ID -- keeps recurring in new docs/tests
+            # that quote it (2 more sources found this session alone, in
+            # knowledge/missions/*.md, outside the tests/-dir excludes
+            # above). Reject the sentinel value itself so a new source
+            # doesn't need its own file added to the exclude list.
+            continue
         if n > best_n:
             best_n, best_hit = n, line
     return best_n, best_hit
