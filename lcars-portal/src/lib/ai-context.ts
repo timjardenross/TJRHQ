@@ -14,10 +14,16 @@ import { filterGeneralAccess } from '@/lib/knowledgeSensitivity';
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  // Prefer service role key for full read access; fall back to anon key
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // 2026-09-15 adversarial review: this used to fall back to the anon key
+  // when SUPABASE_SERVICE_ROLE_KEY was unset. Several tables this module
+  // reads (e.g. working_memory) have zero RLS policies — anon-key reads
+  // against them silently return empty rows rather than erroring, so a
+  // missing service-role key degraded context quality with no visible
+  // signal (unlike the `!url || !key` branch below, which does surface a
+  // "context unavailable" marker to the caller). Treat a missing
+  // service-role key the same way instead of masking it with a key that
+  // can't actually read the data.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) return null;
   return createClient(url, key);

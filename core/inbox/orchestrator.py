@@ -178,9 +178,17 @@ def _run_research(item_id: str, item: dict) -> None:
     _db.update("captured_items", item_id, {"research_status": "running"})
     try:
         topic = _build_research_topic(item)
+        # 2026-09-15 adversarial review: this used to pass mission_id=item_id
+        # — since run_research_mission() only auto-generates a mission_id
+        # when none is given, every call echoed item_id straight back
+        # unchanged, so research_mission_id below was always identical to
+        # the row's own id (confirmed live: 10/10 non-null rows were
+        # self-referential) instead of a distinct research-run tracking ID.
+        # item_id is already the primary key on every captured_items write
+        # in this function and is in every log line here, so nothing is
+        # lost by letting this generate its own real MSN-YYYYMMDD-HHMMSS id.
         result = ResearchOrchestrator().run_research_mission(
             research_topic=topic,
-            mission_id=item_id,
         )
         _db.update("captured_items", item_id, {
             "research_status": "completed" if result.status in ("success", "partial") else "failed",

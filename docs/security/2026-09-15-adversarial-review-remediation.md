@@ -89,30 +89,111 @@ consolidates what both passes found and fixed.
   `data/self-improvement/runs/`. Reconciled by committing them (tracked
   evidence by design, per this repo's own `.gitignore` comment).
 
+## Fixed — follow-up pass (later the same day)
+
+- **auto-deploy.service de-rooted.** Was running full root for git pull +
+  npm build + systemctl restart. Now `User=deploy` (new system user, repo
+  `chgrp -R deploy` + setgid dirs — additive group grant, root's own
+  access from the ~30 other root-run jobs sharing this tree is untouched),
+  with the one root-required step (`systemctl restart`) scoped through
+  `deploy/scoped-restart.sh` (checks the target unit against
+  `auto-deploy-services.conf` before restarting) via
+  `/etc/sudoers.d/deploy-restart`, one line, NOPASSWD only for that exact
+  script. Verified end-to-end as the `deploy` user (git fetch/status, npm
+  build-directory writes, a real dry-run pull cycle) before cutover.
+- **auto-deploy.service failure paging disabled.** The `OnFailure=`
+  alerting added earlier the same day turned out too aggressive in
+  practice — paged every 5-minute retry for as long as the tree was
+  legitimately dirty mid-edit (normal during active development), not
+  just on a real failure. Commented out per explicit request rather than
+  tuned; dirty-tree aborts are still visible via `systemctl status
+  auto-deploy.service` / journalctl on demand.
+- **~44/51 `useEffect` data-fetch hooks in lcars-portal lacked
+  `AbortController`/cleanup.** Added a shared `src/hooks/useAbortEffect.ts`
+  and converted 41 of the 45 affected files to it. 3 left unconverted
+  (self-improvement-findings, emergency-alert-hub-workbench,
+  captains-chair-workbench/notebook) — polling/multi-reuse shapes too
+  complex for a safe mechanical diff, noted for a manual pass.
+- **`core/governance` had zero real test coverage** (the one existing
+  `test_governance_alignment.py` covers an unrelated captain-intelligence
+  domain, not `authority_validator.py`/`authority_enforcement.py` at all).
+  Writing tests surfaced a much bigger live bug: `governance/authority/` —
+  the manifest directory the whole officer-authority gate is built around
+  (EXEC-001 WP1, MSN-0326 Waves 3/4) — **never existed in the repo**.
+  `load_manifest()` always returned `{}`, so `can_officer()` always hit
+  the manifest-gap branch, which (since `AUTHORITY_MANIFEST_GAP_MODE`
+  defaults to `"raise"`, Wave 3/4's documented fail-closed-by-default)
+  raised `ManifestGapError` on every single check, for every officer,
+  everywhere. Both real call sites (`core/coordination/execution_engine.py`,
+  `platform-runtime/command_memory_integration.py`) only caught
+  `AuthorityError` specifically or a broad `except Exception: log
+  non-blocking, proceed` — `ManifestGapError` fell through and was
+  silently swallowed. The whole gate was 100% fail-open in practice at
+  both its only real call sites, opposite of its documented intent.
+  Fixed: added baseline (deliberately unrestricted — matches prior de
+  facto behaviour, doesn't invent new policy) manifests for all 13
+  officer slugs found in real callers; both call sites now catch
+  `ManifestGapError` explicitly and treat it as a denial. 32 tests added,
+  covering both modules.
+- **`core/command-centre/backend/*.js`** (Node, 19 routes + `app.js`) —
+  first pass this session. `api/search.js`'s `_enc()` used
+  `encodeURIComponent` alone to build PostgREST `or(...)` filter strings —
+  doesn't escape `(` `)` `*`, all three significant in that syntax; a `q`
+  containing `)` could prematurely close the filter group. Fixed by
+  percent-encoding those three chars after the normal URI-encoding pass.
+  `npm audit fix` cleared 3 moderate CVEs (transitive via express) with no
+  breaking changes. Separately: the live process turned out to run under
+  PM2 (`pm2 start app.js`, ad-hoc, no config file), while the only
+  systemd record (`starfleet-backend.service`, disabled/inactive) had a
+  drop-in pointing `WorkingDirectory` at an archived, non-live path —
+  anyone using `systemctl status/restart` on it would've been acting on
+  the wrong thing entirely. Removed the stale unit + drop-in, added
+  `core/command-centre/backend/ecosystem.config.js` so the real PM2 setup
+  (including the live port, 5000 — not the code's own `5050` fallback,
+  confirmed via `ss -tlnp` and cross-checked against Caddy/lcars-portal
+  config) is reproducible instead of tribal-knowledge-only.
+- **210-file migration sweep** — checked live schema directly
+  (`information_schema`, `pg_constraint`) rather than parsing migration
+  history, same approach as the earlier RLS pass. Found and fixed real
+  orphan-risk gaps on the mission-tracking tables:
+  `mission_state_transitions.mission_id` / `mission_execution_events.
+  mission_id` had no FK to `missions(mission_id)` (5 live orphan rows —
+  test data + one legacy pre-ID-standardization dispatch — deleted, then
+  FK added); `missions.status`/`created_at` were nullable despite being
+  load-bearing for every status-filtered/ordered query (confirmed zero
+  existing NULLs, added `NOT NULL`). Separately found (not a schema gap —
+  a real application bug): `captured_items.research_mission_id` had 10
+  non-null values, all self-referential (each row's own `id` echoed back
+  under a different column name) — traced to
+  `core/inbox/orchestrator.py` passing the captured_items row's own id as
+  the `mission_id=` seed into `ResearchOrchestrator.run_research_mission()`,
+  which only auto-generates a real tracking id when none is given. Fixed
+  the call site (stopped passing the seed) and nulled out the 10
+  meaningless existing values. See migration `0216_mission_fk_and_not_
+  null_constraints.sql`.
+- **36 tables with RLS enabled and zero policies** — classified all 36.
+  Zero were actually broken: every real caller found uses the
+  service-role key (bypasses RLS entirely by design), so these tables
+  work fine despite having no PostgREST policies. One related latent-risk
+  finding: `lcars-portal/src/lib/ai-context.ts` had the same
+  silent-anon-key-fallback pattern already fixed once this session in
+  `learning/route.ts` — not currently broken (service-role key is set),
+  but would silently degrade AI-console context quality with no visible
+  signal if it were ever unset. Fixed the same way (removed the fallback).
+  5 of the 36 tables (`daily_health_snapshot`, `external_fetch_usage`,
+  `intelligence_health_correlations`, `llm_cost_governance`,
+  `system_heartbeat`) have real row counts but no caller found by a repo
+  grep — likely written by something outside the searched paths/languages;
+  flagged as unresolved rather than confidently dead, not chased further.
+
 ## Not fixed — flagged for follow-up
 
-- **auto-deploy.service / self-improving-system.service run as full root**
-  for git pull + npm build + systemctl restart. Scripts themselves are
-  well-guarded (dirty-tree abort, ff-only, no push) but have no privilege
-  scoping. Needs a sudoers-scoped non-root deploy user restricted to the
-  exact `systemctl restart <unit>` / `npm` commands needed — not attempted
-  here since it changes how every deploy on this VM runs and needs a live
-  deploy-cycle test to verify before cutover.
-- **lcars-portal.service `User=root`** — see above; needs an ownership
-  audit of the build pipeline before a non-root service user is safe.
-- **~44/51 `useEffect` data-fetch hooks in lcars-portal lack
-  `AbortController`/cleanup** — silent stale UI on fast navigation, not a
-  crash. Fix via one shared `useFetch` hook rather than touching each file.
-- **`core/governance`** (`authority_validator.py`'s fail-open default
-  included) has one test file for 483 lines — thin coverage on a
-  safety-critical module.
-- **`core/command-centre/backend/*.js`** (Node, ~20 routes) untouched by
-  this review — Python-focused tooling skipped it; needs a JS-focused pass.
-- **210-file migration constraint audit** not completed — this review
-  checked live `pg_policies`/`get_advisors` directly rather than every
-  historical migration file, which is more reliable for *current* state
-  but doesn't rule out missing `NOT NULL`/FK constraints elsewhere.
-- **36 tables with RLS enabled and zero policies** (`get_advisors`
-  security lint) — default-deny, safe, but likely means some intended
-  feature silently can't read/write these tables via PostgREST. Worth a
-  pass to confirm which are dead vs. broken.
+- **lcars-portal.service `User=root`** — needs an ownership audit of the
+  build pipeline before a non-root service user is safe (the auto-deploy
+  de-rooting above only covers the deploy pipeline, not the service
+  itself).
+- **3 lcars-portal fetch effects** left unconverted to `useAbortEffect`
+  (see above) — polling/multi-reuse shapes, need a manual per-file pass.
+- **5 tables with live data but no found caller** (see above) — worth a
+  wider grep (other languages/paths) or a live PostgREST access-log check
+  to actually identify the writer before deciding dead vs. needs-policies.
