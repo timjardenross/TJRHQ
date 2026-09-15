@@ -106,9 +106,32 @@ repos:
         # file list, matching detect-secrets' own documented pre-commit
         # setup for this reason.
         require_serial: true
+        # 2026-09-15: data/self-improvement/runs/*/evidence.json is
+        # auto-generated per-cycle evidence (mechanical dumps of scan
+        # output, never secrets — same class of exclusion as
+        # data/mem0_qdrant/ above), and by 2026-09-15 there were 451 such
+        # files (494MB) staged in one commit. Scanning that volume against
+        # this repo's ~10.8k-line baseline made a single detect-secrets
+        # invocation run for 45+ minutes single-threaded (require_serial
+        # above forces exactly one process — see its own comment for why),
+        # long enough to hold the shared git index open and collide with
+        # another concurrent commit on this host. Excluding this
+        # known-safe, high-volume, mechanically-generated path keeps the
+        # hook fast without touching require_serial or weakening it for
+        # anything a human actually writes.
+        # Note: `.*/data/mem0_qdrant/.*` below never actually matched —
+        # data/mem0_qdrant/ is top-level (no leading path segment before
+        # "data/"), and `.*/` requires a literal `/` immediately before
+        # the match, which a path starting at "data/" doesn't have.
+        # Verified via `pre-commit run detect-secrets --files
+        # data/self-improvement/runs/.../evidence.json` still flagging
+        # (false-positive) hits after adding the equivalently-anchored
+        # runs/ pattern below — dropped the forced leading slash on both
+        # so a match at the very start of the path works too.
         exclude: |
           (?x)^(
             .*\.lock|
             .*package-lock\.json|
-            .*/data/mem0_qdrant/.*
+            .*data/mem0_qdrant/.*|
+            .*data/self-improvement/runs/.*/evidence\.json
           )$

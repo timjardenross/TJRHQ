@@ -16,4 +16,12 @@ paths = [
   '''(^|/)package-lock\.json$''',
   '''(^|/)yarn\.lock$''',
   '''\.lock$''',
+  # 2026-09-15: auto-generated per-cycle self-improvement evidence dumps
+  # (git commit SHAs, timestamp-based directory names) — same
+  # high-entropy-but-not-a-secret class as the baseline/lockfiles above.
+  # At 451 files / 494MB in one commit this made gitleaks take ~12min on
+  # a single commit; see .pre-commit-config.yaml's detect-secrets exclude
+  # for the matching, much larger (45min+) slowdown that hook hit from
+  # the same path.
+  '''(^|/)data/self-improvement/runs/.*/evidence\.json$''',
 ]
