@@ -36,9 +36,38 @@ def _tail_journal(unit: str, lines: int = 15) -> str:
         return f"(failed to read journal: {exc})"
 
 
+# 2026-09-15: auto-deploy.service's OnFailure= was disabled outright
+# after paging on every 5-minute retry for as long as the working tree
+# is legitimately dirty mid-edit -- a normal, expected state during
+# active development on this shared checkout, not a real failure. That
+# threw out real-failure coverage too (a genuine fast-forward or build
+# failure now pages nobody). Filtering the one known-noisy, expected
+# abort message here -- scoped to this exact unit, not a blanket
+# "suppress anything containing a certain word" rule that could hide a
+# real problem in some other service's output -- restores paging for
+# every other auto-deploy.sh failure (diverged history, npm build
+# failure, etc.) without reintroducing the noise. Keyed on unit name
+# because this is the one unit known to abort routinely for a benign,
+# self-explanatory reason; extend this dict only for another unit with
+# the same property, never with a generic substring match.
+_EXPECTED_NOISE = {
+    "auto-deploy.service": "ABORT: working tree is dirty",
+}
+
+
 def main() -> int:
     unit = sys.argv[1] if len(sys.argv) > 1 else "unknown-unit"
     tail = _tail_journal(unit)
+
+    expected_marker = _EXPECTED_NOISE.get(unit)
+    if expected_marker and expected_marker in tail:
+        print(
+            f"alert suppressed: {unit} failed with expected/benign condition "
+            f"({expected_marker!r} in tail) -- not paging",
+            file=sys.stderr,
+        )
+        return 0
+
     body = f"Unit: {unit}\n\nLast log lines:\n{tail}"
     result = notify(body, title="systemd unit failed", severity=Severity.CRITICAL)
     if not result.ok:
