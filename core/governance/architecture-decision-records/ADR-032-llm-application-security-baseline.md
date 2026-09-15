@@ -1,4 +1,12 @@
-# ADR: LLM Application Security Baseline
+---
+status: "Accepted (partial coverage — see Gaps)"
+date: 2026-09-12
+decision-makers: {Chief Engineer}
+consulted: {unknown}
+informed: {unknown}
+---
+
+# ADR-032: LLM Application Security Baseline
 
 | Field | Value |
 |---|---|

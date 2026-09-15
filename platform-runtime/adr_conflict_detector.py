@@ -6,18 +6,18 @@ Purpose: Parse Architecture Decision Records for cross-references and potential
          conflicts. Surfaces as a Slack report or command response.
 
 Writing a new ADR? Start from the MADR template at
-docs/decisions/TEMPLATE-madr.md (adopted USS-TJR-MSN-0366 Stream 10,
-2026-09-12 — format only, no new tool/dependency) — see
+core/governance/architecture-decision-records/TEMPLATE-madr.md (adopted
+USS-TJR-MSN-0366 Stream 10, 2026-09-12; moved here from docs/decisions/ as
+part of the ADR-registry consolidation, 2026-09-15 — that was the last
+holdout of a second registry location) — see
 docs/decisions/EXAMPLE-ADR-001-model-router-cloud-escalation-degrade-chain.md
-for a filled-out real example. That directory isn't scanned by this module
-yet (see below); wiring it in is scoped to a later ADR-consolidation
-mission, not this one.
+for a filled-out real example (left in docs/decisions/ as reference
+material, not a real filed ADR, so not moved).
 
-This module currently only scans `core/governance/architecture-decision-
-records/` and `knowledge/architecture/` (see `_ADR_DIRS` below) for files
-named `ADR-NNN-*.{md,txt}` with plain `Title:`/`Status:` header lines — a
-simpler shape than MADR's YAML front matter. Neither directory has any
-files in it yet in this repo as of 2026-09-12.
+This module scans `core/governance/architecture-decision-records/` and
+`knowledge/architecture/` (see `_ADR_DIRS` below) for files named
+`ADR-NNN-*.{md,txt}`. Supports both the plain `Title:`/`Status:` header
+line shape and MADR's YAML front matter (`status: "..."`, H1 title).
 
 Public API:
     scan_adrs() -> ADRScanResult
