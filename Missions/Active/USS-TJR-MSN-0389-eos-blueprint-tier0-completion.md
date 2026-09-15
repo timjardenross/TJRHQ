@@ -29,16 +29,20 @@ the remaining 4.
 
 ## Remaining scope (this mission)
 
-1. **Wire Priority Engine into the Decisions Inbox.** Core scoring (`core/platform/priority_engine.py`)
-   is real and already wired into the Captain's Brief Workbench
-   (`lcars-portal/src/app/captains-brief-workbench/_components/ItemRow.tsx`). The Decisions
-   Inbox (`lcars-portal/src/lib/decisions.ts`) still runs its own separate, unrelated
-   `priorityRank` heuristic from P0/P1 labels + age — never touched by the fix. This is
-   the specific surface MSN-0347 §1.4's structural ranking gate was actually about.
-   Task: replace or bridge `decisions.ts`'s heuristic with `priority_engine.py`'s real
-   score, respecting §1.4's own gate (unranked/attention-grouped rendering until Priority
-   Engine's confidence tier clears Emerging — check current confidence tier before wiring
-   ranked display).
+1. **DONE 2026-09-15 (commit `dcb57e7d2`).** Re-scoped after investigation: the original
+   ask had no live target. `decisions.ts`'s engineering-queue heuristic (P0/P1+age) is
+   domain-appropriate as-is — Priority Engine's value/urgency/risk model doesn't obviously
+   transfer to build-review items. The real gap was upstream: the `intelligence` list
+   (the one Priority Engine's signal would actually feed) is permanently empty because
+   nothing anywhere ever sets `requires_approval: true` on an OI recommendation (confirmed
+   zero occurrences). Fixed at the actual production source —
+   `core/platform/reasoning_engine.py`'s `build_recommendation()` — by extending its
+   existing evidence-bound LLM prompt/parsing to populate the two already-defined-but-unused
+   `action_type`/`requires_approval` fields directly (no risk taxonomy exists yet to build
+   a separate heuristic from — same gap the confidence-tier validation found). Inconsistent
+   model responses (`requires_approval=True` but `action_type != "approve"`) are discarded,
+   not silently resolved. `decisions.ts`'s intelligence list now sorts by confidence
+   (previously unsorted, since always empty). Typecheck clean.
 
 2. **Instrument the shrinking-Stream metric + anti-gaming guardrail.** Confirmed not built —
    zero hits for `stream_size`/`override_rate`/`false_suppression` anywhere in code or SQL.
