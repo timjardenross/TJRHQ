@@ -20,7 +20,16 @@ OnFailure=alert-on-failure@%n.service
 
 [Service]
 Type=oneshot
-User=root
+# 2026-09-15 adversarial review: ran as root end-to-end (git pull + npm
+# build + systemctl restart) with no privilege scoping. Repo is now
+# group-owned by `deploy` (chgrp -R, setgid dirs — root's existing access
+# from the ~30 other root-run cron/systemd jobs sharing this tree is
+# untouched, this is an additive group grant) and the one root-required
+# step (systemctl restart) goes through deploy/scoped-restart.sh, which
+# checks the unit against auto-deploy-services.conf before restarting —
+# see deploy/scoped-restart.sh's own header and /etc/sudoers.d/deploy-restart.
+User=deploy
+Environment=AUTO_DEPLOY_SYSTEMCTL=/opt/starship-endeavour/deploy/sudo-scoped-restart.sh
 WorkingDirectory=/opt/starship-endeavour
 ExecStart=/opt/starship-endeavour/deploy/auto-deploy.sh
 StandardOutput=journal
