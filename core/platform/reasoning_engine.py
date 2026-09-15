@@ -28,7 +28,9 @@ log = logging.getLogger(__name__)
 
 _MODEL_ROUTER_URL = "http://localhost:8891/api/model/captain-reasoning-synthesis"
 
-_REQUIRED_FIELDS = {"recommended_action", "trade_offs", "expected_outcome", "confidence"}
+_REQUIRED_FIELDS = {"recommended_action", "trade_offs", "expected_outcome", "confidence", "action_type", "requires_approval"}
+
+_VALID_ACTION_TYPES = {"review", "approve", "investigate", "acknowledge", "dismiss"}
 
 # 2026-08-10: see insight_engine.py's identical _PLATFORM_CONTEXT — this
 # stage made the same category of error (a real production recommendation
@@ -63,7 +65,15 @@ def _build_reasoning_prompt(insight: Insight) -> str:
         '"trade_offs": "one sentence on what is given up by choosing the recommended '
         'action over an alternative", "expected_outcome": "one sentence on what should '
         'be observably true if the recommended action is taken", "confidence": '
-        '<integer 0-100, how confident this specific recommendation is correct>}'
+        '<integer 0-100, how confident this specific recommendation is correct>, '
+        '"action_type": "one of: review, approve, investigate, acknowledge, dismiss '
+        '- approve means the action changes something (data, a setting, an external '
+        'communication) and is not trivially reversible; investigate/review/acknowledge/'
+        'dismiss mean nothing changes without a further, separate action", '
+        '"requires_approval": <true only if action_type is approve AND the action is '
+        'costly or hard to reverse if wrong (e.g. sending a message on the Captain'
+        "'s behalf, changing a live setting, spending money) - false for anything the "
+        'Captain could safely ignore or undo with no real cost>}'
     )
 
 
@@ -122,10 +132,31 @@ def _parse_reasoning_response(raw_text: str | None, insight: Insight) -> Recomme
     if not isinstance(alternatives, list):
         alternatives = []
 
+    action_type = data["action_type"]
+    if action_type not in _VALID_ACTION_TYPES:
+        log.warning("[reasoning-engine] action_type not one of %s, discarding: %r", _VALID_ACTION_TYPES, action_type)
+        return None
+
+    requires_approval = data["requires_approval"]
+    if not isinstance(requires_approval, bool):
+        log.warning("[reasoning-engine] requires_approval not a bool, discarding: %r", requires_approval)
+        return None
+    if requires_approval and action_type != "approve":
+        # The model's own two fields disagree with each other -- rather than
+        # silently pick one, discard: a recommendation this internally
+        # inconsistent isn't safe to route into a Captain-approval surface.
+        log.warning(
+            "[reasoning-engine] requires_approval=True but action_type=%r, discarding inconsistent response",
+            action_type,
+        )
+        return None
+
     return Recommendation(
         description=str(data["recommended_action"]),
+        action_type=action_type,
         confidence=confidence,
         evidence=list(insight.evidence_chain),
+        requires_approval=requires_approval,
         supporting_context=insight.why_it_matters,
         alternatives=[str(a) for a in alternatives],
         trade_offs=str(data["trade_offs"]),
