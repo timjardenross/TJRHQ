@@ -79,7 +79,13 @@ from core.security.llm_guardrails import (
 # Optional OTel tracing — stdlib-only fallback when platform-runtime venv is
 # not available (model-router runs under system Python with no external deps).
 try:
-    sys.path.insert(0, '/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
+    # append, not insert(0): don't shadow model-router's own site-packages
+    # for any package name platform-runtime's venv also happens to have
+    # (see core/llm/provider_chain.py for the tg-revs crash-loop this
+    # caused elsewhere, 2026-09-15). This path is a fallback for names
+    # absent locally (opentelemetry, platform_runtime.lib), not a priority
+    # override.
+    sys.path.append('/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
     from opentelemetry import trace as _otel_trace
 
     from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing

@@ -12,8 +12,15 @@ function getSupabase() {
   // outcome_records holds sensitive personal_story / not_for_publication content.
   // This is a SERVER-side route handler, so use the service-role key (never exposed
   // to the browser). Requires session authentication first.
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  //
+  // 2026-09-15 adversarial review: this used to silently fall back to the
+  // anon key if SUPABASE_SERVICE_ROLE_KEY was unset — RLS would then just
+  // return an empty/partial result instead of failing loudly, masking a
+  // misconfiguration as "no data yet". Fail fast instead.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY not configured — refusing anon-key fallback for outcome_records');
+  }
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key);
 }
 

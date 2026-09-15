@@ -1,0 +1,16 @@
+[Unit]
+# 2026-09-15 adversarial review: core/inbox/event_listeners.py's
+# sweep_expired_governance_cache() was fully implemented (WP3B) but had
+# zero callers and no scheduled entrypoint — governance assessments on
+# captured_items whose cache expired were never re-queued for
+# re-processing, so they went stale indefinitely instead of being
+# refreshed. This gives it the same polling-timer pattern every other
+# periodic job on this VM uses (see delivery-reconciler.timer).
+Description=Re-queue captured_items with expired governance cache for re-assessment
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/starship-endeavour
+ExecStart=/bin/sh -c '/opt/starship-endeavour/platform-runtime/.venv/bin/python -m core.inbox.event_listeners >> /opt/starship-endeavour/outputs/governance_cache_sweep.log 2>&1'

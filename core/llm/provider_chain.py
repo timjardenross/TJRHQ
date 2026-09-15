@@ -21,7 +21,16 @@ from dataclasses import dataclass
 
 try:
     import sys as _sys
-    _sys.path.insert(0, '/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
+    # append, not insert(0): callers (e.g. telegram bots) run under their own
+    # venv, which may pin different versions of packages platform-runtime's
+    # venv also has (supabase/httpx/gotrue). insert(0) shadowed the caller's
+    # own site-packages for any name collision, breaking bots whose eager
+    # imports pulled this module in before their own supabase client was
+    # built (tg-revs crash-loop, 2026-09-15: TypeError on gotrue's httpx.Client
+    # from platform-runtime's newer supabase/httpx being picked up instead of
+    # the bot's pinned 2.3.4). append() makes this path a fallback used only
+    # for names absent from the caller's own venv (opentelemetry, platform_runtime.lib).
+    _sys.path.append('/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
     from opentelemetry import trace as _trace
 
     from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing

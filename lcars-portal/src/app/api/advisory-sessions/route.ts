@@ -44,7 +44,10 @@ export async function POST(req: NextRequest) {
       .select('id, created_at')
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error('[advisory-sessions POST] insert failed:', error);
+      return NextResponse.json({ error: 'internal error' }, { status: 500 });
+    }
 
     // Heartbeat only after the real advisory_sessions row is confirmed
     // written — never before, never on the error path above.
@@ -52,7 +55,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, id: data.id, created_at: data.created_at });
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    console.error('[advisory-sessions POST] unhandled error:', err);
+    return NextResponse.json({ error: 'internal error' }, { status: 500 });
   }
 }
 
@@ -80,9 +84,13 @@ export async function GET(req: NextRequest) {
     if (advisorId) query = query.eq('advisor_id', advisorId);
 
     const { data, error } = await query;
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error('[advisory-sessions GET] query failed:', error);
+      return NextResponse.json({ error: 'internal error' }, { status: 500 });
+    }
     return NextResponse.json({ sessions: data ?? [] });
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    console.error('[advisory-sessions GET] unhandled error:', err);
+    return NextResponse.json({ error: 'internal error' }, { status: 500 });
   }
 }

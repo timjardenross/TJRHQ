@@ -41,5 +41,23 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=lcars-portal
 
+# 2026-09-15 adversarial review: unit had no User= (ran as root, same as
+# every other process on this box) and no systemd sandboxing at all for a
+# service that serves requests directly (via Caddy) from the public
+# internet. Not switching User= away from root here — the whole repo tree
+# is root:root and auto-deploy.sh's `npm run build` step (also root, see
+# auto-deploy.service) writes .next/ as root between deploys, so a
+# non-root User= would need a matching ownership/permissions change
+# verified against a live deploy cycle before it's safe; flagged as a
+# longer-term follow-up rather than attempted blind against the live
+# dashboard. NoNewPrivileges/ProtectSystem/ProtectHome/PrivateTmp reduce
+# blast radius without touching file ownership: ReadWritePaths scopes the
+# one directory `next start` actually writes to (ISR/data cache).
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/starship-endeavour/lcars-portal/.next/cache
+
 [Install]
 WantedBy=multi-user.target

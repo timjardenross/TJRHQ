@@ -24,7 +24,12 @@ log = logging.getLogger(__name__)
 
 try:
     import sys as _sys
-    _sys.path.insert(0, '/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
+    # append, not insert(0): don't shadow this caller's own site-packages
+    # for any package name platform-runtime's venv also has (see
+    # core/llm/provider_chain.py for the tg-revs crash-loop this caused
+    # elsewhere, 2026-09-15). Fallback for names absent locally, not a
+    # priority override.
+    _sys.path.append('/opt/starship-endeavour/platform-runtime/.venv/lib/python3.12/site-packages')
     from opentelemetry import trace as _trace
 
     from platform_runtime.lib.telemetry import configure_tracing as _configure_tracing

@@ -140,3 +140,14 @@ def sweep_expired_governance_cache(limit: int = 50) -> list[str]:
         log.info("[inbox-events] Re-queued %d items with expired governance cache", len(item_ids))
 
     return item_ids
+
+
+if __name__ == "__main__":
+    # 2026-09-15 adversarial review: sweep_expired_governance_cache() had
+    # zero callers anywhere in the repo and no cron entry — expired
+    # governance assessments on captured_items sat un-requeued forever.
+    # `python -m core.inbox.event_listeners` gives it a periodic entrypoint
+    # (see deploy/governance-cache-sweep.service/.timer).
+    logging.basicConfig(level=logging.INFO)
+    requeued = sweep_expired_governance_cache(limit=200)
+    print(f"Re-queued {len(requeued)} item(s) with expired governance cache")
