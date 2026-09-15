@@ -1,0 +1,25 @@
+{
+  "expectations": [
+    {
+      "text": "Grounds the priority ranking in the actual current SUOC Platform Registry Fix Now items and real commit/mission history (cites real capability names, risk levels, file paths), not a generic to-do list",
+      "passed": true,
+      "evidence": "Cites all 5 current Fix Now items by name (Attention Engine, Priority & Opportunity Engine, Knowledge, Confidence, Holistic Wellness Coaching) with their exact registry-stated risk levels, plus real commit hashes and docs/security/2026-09-15-adversarial-review-remediation.md."
+    },
+    {
+      "text": "Ranks by leverage/risk with explicit reasoning, not just a flat list",
+      "passed": true,
+      "evidence": "Numbered 1-5 under 'Priority Assessment' with a stated reason per item (e.g. #1 Attention Engine because it's 'the one place a real failure would be silent, not just messy')."
+    },
+    {
+      "text": "Names unresolved ownership/decision gaps explicitly (e.g. TBD-owned capabilities) rather than passing over them silently",
+      "passed": true,
+      "evidence": "'Decisions Needed' names Search and Scheduling as both Owner: TBD in the registry and states 'nobody's on the hook to actually converge either one.'"
+    }
+  ],
+  "summary": {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0},
+  "execution_metrics": {"total_tool_calls": 19},
+  "timing": {"executor_duration_seconds": 184.0},
+  "notes": [
+    "Also corrects the prior iteration's eval finding in real time: the three commit hashes (ac9c3b95b, 22fb55f68, 8fe215074) cited in the original grading.md as possibly-already-fixing registry items do not exist anywhere in current git history. Verified via `git show`/`git log --all` fresh for this run rather than assumed. This is a genuine, disclosed correction, not a defect."
+  ]
+}

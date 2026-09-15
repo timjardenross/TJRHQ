@@ -1,0 +1,25 @@
+{
+  "expectations": [
+    {
+      "text": "Finds and cites the real existing authority_validator.py/authority_enforcement.py module and its governing mission (MSN-0326) before recommending anything",
+      "passed": true,
+      "evidence": "Cites both files by name with real function names (can_officer, requires_approval, enforce_authority, AuthorityContext), the 13 governance/authority/*.yaml manifests, real consumers, and MSN-0326 (5-wave, Captain-accepted 2026-07-06)."
+    },
+    {
+      "text": "Recommends against building a new module (composition-first), while naming what's actually still a disclosed gap on the existing one",
+      "passed": true,
+      "evidence": "'Recommendation: don't build a new officer-authority checking module' plus names the 3 disclosed residual gaps (unexercised blocking path, implicit NUMBER_ONE fallback, broad exception handlers) as 'disclosed residual risk on the existing one,' not missing coverage."
+    },
+    {
+      "text": "Distinguishes the coordination-level 'don't build new' call from any deeper engineering/architecture follow-up, routing the latter to Chief Engineer rather than deciding it unilaterally",
+      "passed": true,
+      "evidence": "'What I won't do is make the deeper engineering call myself... that's an architecture judgment inside Chief Engineer's lane, not mine to decide unilaterally... route it to Chief Engineer.' Coordination Status section reiterates the split explicitly."
+    }
+  ],
+  "summary": {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0},
+  "execution_metrics": {"total_tool_calls": 15},
+  "timing": {"executor_duration_seconds": 143.0},
+  "notes": [
+    "Cites MSN-0327 (a real, closed incident where a concurrent session mistook commit-timestamp proximity for an authorization gap) as a genuine historical example of the exact 'verify a claim before trusting it forward' failure mode this charter targets — checked against knowledge/SUOC-Platform-Registry.md's own text, not invented for this eval."
+  ]
+}

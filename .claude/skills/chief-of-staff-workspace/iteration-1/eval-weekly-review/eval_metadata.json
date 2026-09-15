@@ -1,0 +1,10 @@
+{
+  "eval_id": 2,
+  "eval_name": "weekly-review",
+  "prompt": "Give me a weekly review of missions and risks.",
+  "assertions": [
+    "Rolls up real mission and risk state from the repo (cites actual mission IDs / registry Fix-Now items), not invented status",
+    "Flags a grounding/staleness caveat honestly (e.g. what the commit timestamps can and can't establish about a 'weekly' window) rather than presenting everything with uniform confidence",
+    "Produces one actionable pass with named decisions/owners, not just a status wall"
+  ]
+}
