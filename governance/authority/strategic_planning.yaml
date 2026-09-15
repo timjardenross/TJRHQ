@@ -1,0 +1,13 @@
+# Baseline permissive authority manifest — see _template_notes.md in this
+# directory for why this file exists and what "baseline" means here.
+officer: strategic_planning
+notes: >
+  Baseline permissive manifest. No action-specific restrictions defined.
+  Tighten allowed_actions/disallowed_actions/requires_captain/requires_xo/
+  requires_number_one deliberately, action by action, as real policy is
+  decided.
+allowed_actions: []
+disallowed_actions: []
+requires_captain: []
+requires_xo: []
+requires_number_one: []

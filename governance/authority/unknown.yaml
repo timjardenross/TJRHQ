@@ -1,0 +1,14 @@
+# Baseline permissive authority manifest — see _template_notes.md in this
+# directory for why this file exists and what "baseline" means here.
+officer: unknown
+notes: >
+  Baseline permissive manifest. "unknown" is an observed fallback officer
+  slug used by at least one caller (grep: officer="unknown") — kept
+  permissive/unrestricted like every other baseline manifest rather than
+  singled out, since a caller passing "unknown" is a data-quality issue
+  to fix at the source, not something this gate should silently block on.
+allowed_actions: []
+disallowed_actions: []
+requires_captain: []
+requires_xo: []
+requires_number_one: []

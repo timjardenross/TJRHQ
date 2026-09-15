@@ -388,10 +388,22 @@ def create_mission_from_officer(
     """
     try:
         from core.governance.authority_validator import (
+            ManifestGapError,
             audit_authority_action,
             can_officer,
         )
-        approved, reason = can_officer(officer, "create_mission_draft")
+        try:
+            approved, reason = can_officer(officer, "create_mission_draft")
+        except ManifestGapError as exc:
+            # 2026-09-15 adversarial review: this used to propagate to the
+            # broad `except Exception` below, which logged it as "skipped
+            # (non-blocking)" and let mission creation proceed anyway —
+            # silently defeating Wave 3/4's fail-closed-by-default design
+            # for every officer, since governance/authority/ had no
+            # manifests at all until this same review added them. Treat a
+            # gap the same as an explicit denial (captain_override still
+            # bypasses it) instead of silently permitting.
+            approved, reason = False, exc.reason
         if not approved and not captain_override:
             log.warning(
                 "[command-memory] Officer '%s' denied create_mission_draft: %s", officer, reason
@@ -406,7 +418,7 @@ def create_mission_from_officer(
             approved=True, reason=reason,
             captain_override=captain_override,
         )
-    except Exception as exc:  # noqa: BLE001 - best-effort authority check, already logged
+    except Exception as exc:  # noqa: BLE001 - genuinely unexpected failure (e.g. Supabase down for the audit write) — best-effort authority check, already logged
         log.warning("[command-memory] Authority check skipped (non-blocking): %s", exc)
 
     # Build mission ID

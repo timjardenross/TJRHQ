@@ -119,7 +119,10 @@ class NumberOneExecutionEngine:
         # is unchanged.
         try:
             from core.governance.authority_enforcement import AuthorityContext
-            from core.governance.authority_validator import AuthorityError
+            from core.governance.authority_validator import (
+                AuthorityError,
+                ManifestGapError,
+            )
 
             try:
                 with AuthorityContext(
@@ -132,7 +135,19 @@ class NumberOneExecutionEngine:
             except AuthorityError as exc:
                 log.warning("[exec-engine] Assignment blocked by authority gate: %s", exc.reason)
                 return None
-        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
+            except ManifestGapError as exc:
+                # 2026-09-15 adversarial review: this used to fall through to
+                # the broad `except Exception` below, which logged it as
+                # "non-blocking" and let the assignment proceed anyway —
+                # silently defeating Wave 3/4's fail-closed-by-default
+                # design for every officer, since governance/authority/ had
+                # no manifests at all until this same review added them. A
+                # manifest gap now means what it says: block, same as an
+                # explicit denial, so a newly-introduced officer/action pair
+                # with no manifest decision yet fails loud instead of quiet.
+                log.warning("[exec-engine] Assignment blocked — manifest gap: %s", exc.reason)
+                return None
+        except Exception as exc:  # noqa: BLE001 - genuinely unexpected failure (e.g. Supabase down for the audit write) — already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[exec-engine] Authority check failed (non-blocking): %s", exc)
 
         days = review_days or self.REVIEW_DATE_DEFAULT_DAYS
