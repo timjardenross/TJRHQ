@@ -55,14 +55,18 @@ the remaining 4.
    Bus record (not a new subsystem) supporting silent checkpoint → proxy nudge →
    Captain-escalation-with-default → non-response-default-fires.
 
-4. **Get Captain sign-off on LCARS retirement.** Confirmed still fully open — LCARS is
-   still the live, unmixed visual identity (`lcars-portal/tailwind.config.*`,
-   `globals.css`), no decision commit found. A 2026-09-13 tooling decision
-   (`lcars-portal/docs/design-tokens/STYLE-DICTIONARY-LEONARDO-DECISION.md`) explicitly
-   kept LCARS conventions as governance-locked brand values — that was a tooling call,
-   not this decision. This item needs a Captain decision, then (if retiring) the
-   skin-agnostic token abstraction gets built at Tier 0/1 per MSN-0347 §13.3's
-   sequencing — the visual reskin itself stays Tier 4.
+4. **LCARS retirement — DECIDED 2026-09-15: retire.** Captain sign-off obtained during
+   this mission's own planning pass. LCARS stops being the platform's primary visual
+   identity. Per MSN-0347 §13.3's corrected sequencing: the **decision** and the
+   **skin-agnostic token abstraction** land here at Tier 0/1 (so the shared renderer
+   this mission's item 1 touches isn't built coupled to LCARS-specific color/chrome
+   conventions); the **actual visual reskin execution** is deferred to Tier 4, a
+   separate future mission. Note: the 2026-09-13 tooling decision
+   (`lcars-portal/docs/design-tokens/STYLE-DICTIONARY-LEONARDO-DECISION.md`) declined
+   Style Dictionary/Leonardo and called LCARS colors "governance-locked brand values" —
+   that was a tooling-choice call made before this identity decision and will need
+   revisiting now that LCARS itself is being retired as primary identity, not just its
+   tooling.
 
 ## Out of scope
 
