@@ -15,6 +15,19 @@
 # plus the `deploy` system user (repo chgrp'd, not chowned, so the ~30
 # other root-run cron/systemd jobs sharing this tree keep working
 # untouched) closes that gap.
+#
+# 2026-09-15 SECOND adversarial pass: that fix was defeated — this file
+# sat inside the same git tree `deploy` can write to (group-writable
+# dirs + `git merge --ff-only` on every pull), so anything landing on
+# main, or `deploy` itself, could rewrite the exact script sudoers
+# trusted, closing the loop back to root. THIS COPY IS NOW SOURCE ONLY —
+# reviewed here via normal PRs/git history, but sudo no longer executes
+# it. The enforced copy lives at /opt/deploy-guard/scoped-restart.sh
+# (root:root, mode 750, outside any `deploy`-writable path). After a
+# reviewed change lands here, a human with root must run
+# deploy/sync-deploy-guard.sh to promote it — never automate that step
+# from the deploy account or a git/CI hook, or this fix is defeated
+# again the same way.
 
 set -euo pipefail
 

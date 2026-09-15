@@ -256,7 +256,14 @@ def main() -> None:
         sys.exit(1)
     _CLIENT = client
 
-    app = Application.builder().token(token).build()
+    async def _post_init(application: Application) -> None:
+        # apscheduler>=3.11 requires a running event loop at
+        # AsyncIOScheduler.start() time; run_polling() only creates that
+        # loop once it starts, so this must run inside PTB's post_init hook
+        # (already inside the loop) rather than synchronously in main().
+        scheduler.start(application, client)
+
+    app = Application.builder().token(token).post_init(_post_init).build()
 
     # §5.4a crisis gate first, before anything else can touch free text.
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _crisis_gate), group=-1)
@@ -277,8 +284,6 @@ def main() -> None:
 
     app.add_handler(CallbackQueryHandler(_callback_router))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, _text_router))
-
-    scheduler.start(app, client)
 
     log.info("[startup] REVS bot polling…")
     app.run_polling(allowed_updates=Update.ALL_TYPES)

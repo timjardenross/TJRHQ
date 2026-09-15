@@ -58,6 +58,23 @@ if [ "$only_allowlisted" = false ]; then
   exit 0
 fi
 
+# 2026-09-15 second adversarial pass: this script had no check that
+# $REPO_ROOT was actually on $BRANCH before committing - the exact
+# "hq-evolution commits to whatever branch is checked out" bug class
+# already fixed in auto_remediation.py (see its
+# current_branch != self.expected_branch guard) but missed here because
+# this script was added the same day, after that fix landed. Without
+# this, a human/agent on a feature branch in this shared checkout with
+# the 4 allowlisted files dirty would get this timer's commit silently
+# landed on their branch, then `git push origin main` pushing the local
+# main ref regardless of what's checked out - a stranded, mis-attributed
+# commit and a confusing push.
+current_branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$current_branch" != "$BRANCH" ]; then
+  echo "$LOG_PREFIX refusing to commit: checked out on '$current_branch', expected '$BRANCH' - leaving dirty state for a human." >&2
+  exit 1
+fi
+
 echo "$LOG_PREFIX auto-syncing known self-improvement state files"
 git add "${STATE_FILES[@]}"
 git commit --quiet -m "chore(self-improvement): auto-sync tracked state files
