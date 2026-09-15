@@ -34,7 +34,16 @@ sys.path.insert(0, str(_REPO_ROOT / "core" / "coordination"))
 from models import HealthContextPackage, Recommendation, RecommendationPackage
 
 try:
-    from intelligence_store import (  # noqa: F401 - availability probe, only ImportError matters
+    # 2026-09-15 adversarial review: this imported a bare `intelligence_store`
+    # module that has never existed anywhere in the repo -- IntelligenceEvidence
+    # and get_intelligence_evidence actually live in mission_knowledge_store.py,
+    # in this same directory (already on sys.path via the insert above).
+    # _INTELLIGENCE_STORE_AVAILABLE has been False in every real invocation
+    # since whatever rename left this stale, silently falling back to the
+    # null-evidence object in _gather_evidence() below -- recommendations
+    # have been running without historical-outcome/lessons-learned evidence
+    # enrichment this whole time, with nothing surfacing that degradation.
+    from mission_knowledge_store import (  # noqa: F401 - availability probe, only ImportError matters
         IntelligenceEvidence,
         get_intelligence_evidence,
     )
@@ -155,7 +164,7 @@ def _gather_evidence(mission_type: str, objective: str):
     """Return IntelligenceEvidence if the store is available, else a null-object."""
     if not _INTELLIGENCE_STORE_AVAILABLE:
         try:
-            from intelligence_store import IntelligenceEvidence
+            from mission_knowledge_store import IntelligenceEvidence
             return IntelligenceEvidence()
         except ImportError:
             pass
