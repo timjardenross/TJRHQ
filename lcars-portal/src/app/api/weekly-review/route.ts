@@ -75,26 +75,23 @@ async function reviewChair(sb: SB, since: string): Promise<WorkbenchSection> {
 // ── Technical OSINT ───────────────────────────────────────────────────────────
 // Sources: intelligence_events, signal_corroboration, signal_escalation_history.
 async function reviewOsint(sb: SB, since: string): Promise<WorkbenchSection> {
-  const [highConf, escalations, thisWeekEvents] = await Promise.all([
+  // Uncorroborated count used to fetch up to 500 event ids + a second
+  // matching query, then filter in JS. count_uncorroborated_events (RPC,
+  // migration 0214) does it as one exact DB-side count, no row cap.
+  const [highConf, escalations, uncorroborated] = await Promise.all([
     safe(() => sb.from('intelligence_events').select('event_id, raw_title, canonical_url, confidence, collected_at').eq('suppressed', false).gte('collected_at', since).gte('confidence', 0.7).order('confidence', { ascending: false }).limit(20)),
     safe(() => sb.from('signal_escalation_history').select('signal_id, reason, escalated_at').gte('escalated_at', since).limit(20)),
-    safe(() => sb.from('intelligence_events').select('event_id').eq('suppressed', false).gte('collected_at', since).limit(500)),
+    sb.rpc('count_uncorroborated_events', { p_since: since }),
   ]);
 
-  let corroboration: { rows: { signal_id: string }[]; unavailable: boolean } = { rows: [], unavailable: false };
-  if (!thisWeekEvents.unavailable && thisWeekEvents.rows.length > 0) {
-    const ids = thisWeekEvents.rows.map((r) => r.event_id);
-    corroboration = await safe(() => sb.from('signal_corroboration').select('signal_id').in('signal_id', ids));
-  }
-  const corroboratedIds = new Set(corroboration.rows.map((r) => r.signal_id));
-  const uncorroboratedCount = thisWeekEvents.rows.filter((r) => !corroboratedIds.has(r.event_id)).length;
+  const uncorroboratedCount = uncorroborated.error ? 0 : (uncorroborated.data as number ?? 0);
 
   return {
     key: 'osint', title: 'Technical OSINT', href: '/intelligence-workbench',
     signals: [
       signal('high-confidence', 'New high-confidence findings', highConf.rows.map((r) => ({ id: r.event_id, title: r.raw_title, href: r.canonical_url ?? undefined, meta: `${Math.round((r.confidence ?? 0) * 100)}%` })), 'ok', highConf.unavailable),
       signal('escalated', 'Crossed an escalation threshold', escalations.rows.map((r) => ({ id: r.signal_id, title: r.reason ?? '(no reason recorded)' })), 'crit', escalations.unavailable),
-      { key: 'uncorroborated', label: 'Needs corroboration', count: uncorroboratedCount, tone: 'warn', items: [], unavailable: thisWeekEvents.unavailable || corroboration.unavailable },
+      { key: 'uncorroborated', label: 'Needs corroboration', count: uncorroboratedCount, tone: 'warn', items: [], unavailable: !!uncorroborated.error },
     ],
   };
 }
@@ -323,9 +320,24 @@ async function fetchStrategicPosture(sb: SB) {
   }
 }
 
+// Simple in-process TTL cache for the computed payload. `export const
+// revalidate` (Next's route-segment cache) does NOT apply here: requireSession()
+// calls cookies(), which forces this route into dynamic rendering and
+// disables segment-level revalidation regardless of any revalidate export
+// (documented Next.js behavior). This route fans out ~15 tables / ~20
+// queries per call and the data is inherently stale-tolerant (a review of
+// the last 7 days), so a short-lived process-local cache is the correct
+// fix instead. Single-user system — no per-session keying needed.
+const CACHE_TTL_MS = 5 * 60_000;
+let cache: { expiresAt: number; body: unknown } | null = null;
+
 export async function GET() {
   const session = await requireSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (cache && cache.expiresAt > Date.now()) {
+    return NextResponse.json(cache.body);
+  }
 
   try {
     const sb = await createSupabaseServerClient();
@@ -376,7 +388,9 @@ export async function GET() {
         }
       : null;
 
-    return NextResponse.json({ summary, workbenches, synthesis, signalCounts, priorWeek });
+    const responseBody = { summary, workbenches, synthesis, signalCounts, priorWeek };
+    cache = { expiresAt: Date.now() + CACHE_TTL_MS, body: responseBody };
+    return NextResponse.json(responseBody);
   } catch (err) {
     return NextResponse.json({ error: 'Failed to build weekly review', detail: errorDetail(err) }, { status: 500 });
   }
@@ -385,6 +399,10 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await requireSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // POST freezes this week's summary/notes — invalidate so the next GET
+  // reflects it immediately instead of serving a stale pre-completion cache.
+  cache = null;
 
   try {
     const body = await req.json();
