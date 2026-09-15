@@ -1,24 +1,29 @@
 {
-  "run_id": "2026-09-14-170222",
-  "timestamp": "2026-09-14T17:03:34.569530+00:00",
+  "run_id": "2026-09-15-170141",
+  "timestamp": "2026-09-15T17:06:34.908463+00:00",
   "dry_run": false,
   "investigated_count": 22,
-  "cleared_relevance_gate_count": 0,
-  "rejected_at_gate_count": 9,
-  "duplicate_count": 13,
-  "shortlisted_count": 0,
-  "deep_investigated_count": 0,
-  "worth_considering_count": 0,
-  "nothing_worth_changing": true,
-  "highest_value_opportunity": null,
-  "pending_decisions_count": 1,
-  "duration_ms": 71870,
+  "cleared_relevance_gate_count": 1,
+  "rejected_at_gate_count": 10,
+  "duplicate_count": 11,
+  "shortlisted_count": 1,
+  "deep_investigated_count": 1,
+  "worth_considering_count": 1,
+  "nothing_worth_changing": false,
+  "highest_value_opportunity": {
+    "opportunity_id": "EVO-0039",
+    "title": "Model router policy configures unlisted model glm-5.3:cloud",
+    "change_class": "configuration",
+    "summary": "Align routing_policy for 'escalate' and 'fallback-complex' to match available model 'glm-5.2:cloud' or configure provider credentials and catalogue registration for 'glm-5.3:cloud'."
+  },
+  "pending_decisions_count": 2,
+  "duration_ms": 293042,
   "outcomes_completed_count": 0,
   "regressions_count": 0,
   "latest_material_learning": null,
   "implementations_confirmed_count": 0,
   "cycle_status": "ok",
-  "freshness": "2026-09-14T17:03:34.569530+00:00",
+  "freshness": "2026-09-15T17:06:34.908463+00:00",
   "cost_accounting": {
     "internal_candidates_checked": 2,
     "watchlist_topics_total": 6,
@@ -26,6 +31,6 @@
     "external_searches_made": 6,
     "external_candidates_found": 20,
     "investigation_model_calls": 0,
-    "investigation_template_fallbacks": 0
+    "investigation_template_fallbacks": 1
   }
 }
