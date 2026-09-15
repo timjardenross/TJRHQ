@@ -18,8 +18,9 @@
 // Captain direction (2026-09-08): "Number One should also drive what lands
 // in my face" — this is that, not a replacement for the existing filter.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Badge, Card } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import type { BadgeStatus } from '@/components/ui';
 
 interface Escalation {
@@ -67,21 +68,21 @@ function TodaysFocus() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/health-adjusted-queue')
+  useAbortEffect((signal, alive) => {
+    fetch('/api/health-adjusted-queue', { signal })
       .then(async (res) => {
         const body = await res.json().catch(() => ({}));
         if (!res.ok || 'error' in body) {
           throw new Error(body?.detail ?? body?.error ?? `HTTP ${res.status}`);
         }
-        if (!cancelled) { setQueue(body); setLoadError(null); }
+        if (alive()) { setQueue(body); setLoadError(null); }
       })
       .catch((e) => {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Couldn’t reach Number One right now.');
+        if (alive() && !(e instanceof Error && e.name === 'AbortError')) {
+          setLoadError(e instanceof Error ? e.message : 'Couldn’t reach Number One right now.');
+        }
       })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => { if (alive()) setLoading(false); });
   }, []);
 
   if (loading) return null;
@@ -122,21 +123,21 @@ export function NumberOneCoordination() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/number-one-brief')
+  useAbortEffect((signal, alive) => {
+    fetch('/api/number-one-brief', { signal })
       .then(async (res) => {
         const body = await res.json().catch(() => ({}));
         if (!res.ok || 'error' in body) {
           throw new Error(body?.detail ?? body?.error ?? `HTTP ${res.status}`);
         }
-        if (!cancelled) { setBrief(body); setLoadError(null); }
+        if (alive()) { setBrief(body); setLoadError(null); }
       })
       .catch((e) => {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Couldn’t reach Number One right now.');
+        if (alive() && !(e instanceof Error && e.name === 'AbortError')) {
+          setLoadError(e instanceof Error ? e.message : 'Couldn’t reach Number One right now.');
+        }
       })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => { if (alive()) setLoading(false); });
   }, []);
 
   if (loading) {

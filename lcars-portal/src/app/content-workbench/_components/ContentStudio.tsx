@@ -12,7 +12,7 @@
 // did. Both entry points (the legacy Board's Modal and this Studio) stay
 // on one canonical implementation per stage.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge, Button, ProgressSteps } from '@/components/ui';
 import {
   STAGE_LABEL,
@@ -200,21 +200,32 @@ export function ContentStudio({ item, onChanged, onClose }: { item: ContentItem;
 export function ContentStudioById({ contentId, onChanged, onClose }: { contentId: string; onChanged: () => void; onClose: () => void }) {
   const [item, setItem] = useState<ContentItem | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const loadControllerRef = useRef<AbortController | null>(null);
 
   async function load() {
+    loadControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadControllerRef.current = controller;
     try {
-      const res = await fetch('/api/content-workbench');
+      const res = await fetch('/api/content-workbench', { signal: controller.signal });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to load item');
+      if (controller.signal.aborted) return;
       const found = (data.items as ContentItem[]).find((i) => i.id === contentId);
       if (!found) { setError('Item not found — it may have been discarded or already advanced past this board.'); return; }
       setItem(found);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load item');
+      if (!controller.signal.aborted && !(e instanceof Error && e.name === 'AbortError')) {
+        setError(e instanceof Error ? e.message : 'Failed to load item');
+      }
     }
   }
 
-  useEffect(() => { load(); }, [contentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    load();
+    return () => loadControllerRef.current?.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contentId]);
 
   function handleChanged() {
     onChanged();

@@ -295,13 +295,18 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
     setActiveMobileStage(stage);
   }
 
+  const loadControllerRef = useRef<AbortController | null>(null);
   async function load() {
+    loadControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadControllerRef.current = controller;
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await fetch('/api/content-workbench');
+      const res = await fetch('/api/content-workbench', { signal: controller.signal });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to load board');
+      if (controller.signal.aborted) return;
       setItems(data.items ?? []);
       setCounts(data.counts ?? null);
       if (onLoaded) onLoaded(data.counts);
@@ -310,14 +315,17 @@ export function ContentBoard({ refreshSignal, onLoaded }: { refreshSignal: numbe
         if (firstNonEmpty) setActiveMobileStage(firstNonEmpty);
       }
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : 'Failed to load board');
+      if (!controller.signal.aborted && !(e instanceof Error && e.name === 'AbortError')) {
+        setLoadError(e instanceof Error ? e.message : 'Failed to load board');
+      }
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }
 
   useEffect(() => {
     load();
+    return () => loadControllerRef.current?.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshSignal]);
 

@@ -1,7 +1,7 @@
 'use client';
 
 // Phase B — Screens 2 & 3: Brief Review + Approval Gate (standalone brand).
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Modal, RiskPill, WorkbenchShell } from '@/components/ui';
 import { runAction } from '../../_components/actions';
 
@@ -49,19 +49,33 @@ export default function BriefReview({ params }: { params: { id: string } }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [openSignal, setOpenSignal] = useState<Signal | null>(null);
 
+  // Aborts the previous in-flight fetch both on unmount and when load() is
+  // called again (e.g. after an approval action) before the prior request
+  // resolved, so a slower stale response can't overwrite a newer state.
+  const loadControllerRef = useRef<AbortController | null>(null);
   const load = useCallback(() => {
+    loadControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadControllerRef.current = controller;
     setLoading(true);
     setError(null);
-    fetch(`/api/intelligence-workbench/brief?id=${id}`)
+    fetch(`/api/intelligence-workbench/brief?id=${id}`, { signal: controller.signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(typeof d?.error === 'string' ? d.error : 'Failed to load');
-        setBrief(d.brief); setSignals(d.signals ?? []); setAuditTrail(d.audit ?? []);
+        if (!controller.signal.aborted) {
+          setBrief(d.brief); setSignals(d.signals ?? []); setAuditTrail(d.audit ?? []);
+        }
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (!controller.signal.aborted && !(e instanceof Error && e.name === 'AbortError')) {
+          setError(e instanceof Error ? e.message : 'Failed to load');
+        }
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, [id]);
   useEffect(load, [load]);
+  useEffect(() => () => loadControllerRef.current?.abort(), []);
 
   const act = async (action: string, payload: Record<string, unknown>, label: string) => {
     setBusy(label); setMsg(null);

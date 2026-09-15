@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { stateToneClasses } from '@/lib/departments';
 import { stageToneGlyph } from './shared';
 import type { StageTone } from './shared';
@@ -89,25 +90,25 @@ export function PipelineHealthView() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  useAbortEffect((signal, alive) => {
     async function load() {
       try {
         const [ovRes, qRes] = await Promise.all([
-          fetch('/api/agent-status-workbench/overview', { cache: 'no-store' }),
-          fetch('/api/agent-status-workbench/pipeline-quality', { cache: 'no-store' }),
+          fetch('/api/agent-status-workbench/overview', { cache: 'no-store', signal }),
+          fetch('/api/agent-status-workbench/pipeline-quality', { cache: 'no-store', signal }),
         ]);
         if (!ovRes.ok || !qRes.ok) throw new Error('Failed to load pipeline health');
         const [ov, q] = await Promise.all([ovRes.json(), qRes.json()]);
-        if (!cancelled) { setOverview(ov); setQuality(q); }
+        if (alive()) { setOverview(ov); setQuality(q); }
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load pipeline health');
+        if (alive() && !(err instanceof Error && err.name === 'AbortError')) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load pipeline health');
+        }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (alive()) setIsLoading(false);
       }
     }
     load();
-    return () => { cancelled = true; };
   }, []);
 
   if (isLoading) return <Card><p className="text-[13px] italic text-wb-ink2">Loading pipeline health…</p></Card>;

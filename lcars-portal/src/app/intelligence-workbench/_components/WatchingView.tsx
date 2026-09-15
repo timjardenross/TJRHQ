@@ -6,9 +6,10 @@
 // of hundreds", each item states why it's being watched and what would move
 // it, so scanning the list is itself informative rather than a wall of text.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { RiskPill } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 interface WatchItem {
   event_id: string;
@@ -28,18 +29,16 @@ export function WatchingView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  useAbortEffect((signal, alive) => {
     setLoading(true);
-    fetch('/api/intelligence-workbench/watching')
+    fetch('/api/intelligence-workbench/watching', { signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d?.error || 'Failed to load');
-        if (!cancelled) { setItems(d.items ?? []); setError(null); }
+        if (alive()) { setItems(d.items ?? []); setError(null); }
       })
-      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .catch((e) => { if (alive() && e instanceof Error && e.name !== 'AbortError') setError(e.message || 'Failed to load'); })
+      .finally(() => { if (alive()) setLoading(false); });
   }, []);
 
   if (loading) return <p className="text-[13px] text-wb-ink2">Loading watching list…</p>;

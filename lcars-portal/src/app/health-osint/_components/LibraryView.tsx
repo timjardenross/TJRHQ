@@ -6,8 +6,9 @@
 // every ingested paper (server applies a 1-year lookback + page size cap
 // when no explicit date range is given).
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button, Input, Select } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { EVIDENCE_CONTRIBUTION_LABEL, type EvidenceItem } from './shared';
 
 const EVIDENCE_CONTRIBUTION_OPTIONS = Object.keys(EVIDENCE_CONTRIBUTION_LABEL);
@@ -49,7 +50,7 @@ export function LibraryView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  useAbortEffect((signal, alive) => {
     setLoading(true);
     const params = new URLSearchParams();
     if (q.trim()) params.set('q', q.trim());
@@ -60,17 +61,14 @@ export function LibraryView() {
     params.set('page', String(page));
 
     const t = setTimeout(() => {
-      fetch(`/api/health-osint/library?${params.toString()}`)
+      fetch(`/api/health-osint/library?${params.toString()}`, { signal })
         .then(async (r) => {
           const d = await r.json();
           if (!r.ok) throw new Error(d?.error || 'Failed to load');
-          setItems(d.items ?? []);
-          setTotal(d.total ?? 0);
-          setHasMore(!!d.has_more);
-          setError(null);
+          if (alive()) { setItems(d.items ?? []); setTotal(d.total ?? 0); setHasMore(!!d.has_more); setError(null); }
         })
-        .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-        .finally(() => setLoading(false));
+        .catch((e) => { if (alive() && !(e instanceof Error && e.name === 'AbortError')) setError(e instanceof Error ? e.message : 'Failed to load'); })
+        .finally(() => { if (alive()) setLoading(false); });
     }, 250); // debounce free-text search
     return () => clearTimeout(t);
   }, [q, evidenceContribution, strength, since, until, page]);

@@ -8,10 +8,11 @@
  * this is a look-back view, not a live status board.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card } from '@/components/ui';
 import { stateToneClasses } from '@/lib/departments';
 import { relativeTime } from './shared';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 type HistoryEvent =
   | { domainKey: string; label: string; at: string; kind: 'down'; detail: string | null }
@@ -92,27 +93,25 @@ export function HistoryView() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  useAbortEffect((signal, alive) => {
     async function load() {
       try {
-        const res = await fetch('/api/agent-status-workbench/history', { cache: 'no-store' });
+        const res = await fetch('/api/agent-status-workbench/history', { cache: 'no-store', signal });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body?.error ?? `HTTP ${res.status}`);
         }
         const json = await res.json();
-        if (!cancelled) setData(json);
+        if (alive()) setData(json);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load history');
+        if (alive() && !(err instanceof Error && err.name === 'AbortError')) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load history');
+        }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (alive()) setIsLoading(false);
       }
     }
     load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   if (isLoading) return <Card><p className="text-[13px] italic text-wb-ink2">Loading history…</p></Card>;

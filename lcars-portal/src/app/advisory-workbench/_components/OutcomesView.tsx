@@ -13,9 +13,10 @@
 // true — never fabricated, never inferred from a handful of outcomes.
 // Recording an outcome grants no authority; it only feeds calibration.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Panel } from './shared';
 import { stateToneClasses } from '@/lib/departments';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 interface Loop {
   advisory_id: string;
@@ -68,10 +69,10 @@ function WhatHqHasLearned() {
   const [report, setReport] = useState<CalibrationReport | null>(null);
   const [showEvidence, setShowEvidence] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/advisory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'calibration' }) })
+  useAbortEffect((signal, alive) => {
+    fetch('/api/advisory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'calibration' }), signal })
       .then((r) => r.json())
-      .then((d: { result?: CalibrationReport }) => setReport(d.result ?? (d as unknown as CalibrationReport)))
+      .then((d: { result?: CalibrationReport }) => { if (alive()) setReport(d.result ?? (d as unknown as CalibrationReport)); })
       .catch(() => { /* calibration is best-effort */ });
   }, []);
 
@@ -114,15 +115,16 @@ export function OutcomesView() {
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    fetch('/api/advisory/loops')
+  useAbortEffect((signal, alive) => {
+    fetch('/api/advisory/loops', { signal })
       .then((r) => r.json())
       .then((d: { loops?: Loop[]; error?: string }) => {
+        if (!alive()) return;
         if (d.error) setApiError(d.error);
         setLoops(d.loops ?? []);
         setLoading(false);
       })
-      .catch((e: Error) => { setApiError(e.message); setLoading(false); });
+      .catch((e: Error) => { if (alive() && e.name !== 'AbortError') { setApiError(e.message); setLoading(false); } });
   }, []);
 
   const close = useCallback(async (id: string, outcome: OutcomeValue) => {

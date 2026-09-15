@@ -8,21 +8,24 @@
 // dispatched. "Think it through" only prefills Think's input — the user
 // still has to ask.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import type { AdvisoryResult } from './types';
 
 export function ProactiveBanner({ onThinkItThrough }: { onThinkItThrough: (text: string) => void }) {
   const [signals, setSignals] = useState<{ headline?: string; triggers?: unknown[]; attention_required?: boolean } | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
+  useAbortEffect((signal, alive) => {
     fetch('/api/advisory', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'proactive' }),
+      signal,
     })
       .then((r) => r.json())
       .then((data: { result?: AdvisoryResult }) => {
+        if (!alive()) return;
         const r = data.result ?? (data as unknown as AdvisoryResult);
         const triggers = (r?.triggers ?? []) as unknown[];
         if (triggers.length > 0 || r?.attention_required) setSignals(r as typeof signals);

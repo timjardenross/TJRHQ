@@ -6,8 +6,9 @@
 // appropriate per the counts rule (§18) — they describe evidence quality,
 // not machine workload.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Badge, Button, Card, toneToStatus } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import {
   CONFIDENCE_LABEL, EVIDENCE_CONTRIBUTION_LABEL, STRENGTH_LABEL, TREND_LABEL,
   strengthTone, type EvidenceItem,
@@ -53,17 +54,16 @@ export function TopicDetail({ topicKey, onBack }: { topicKey: string; onBack: ()
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  useAbortEffect((signal, alive) => {
     setLoading(true);
-    fetch(`/api/health-osint/topics/${encodeURIComponent(topicKey)}`)
+    fetch(`/api/health-osint/topics/${encodeURIComponent(topicKey)}`, { signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d?.error || 'Failed to load');
-        setData(d);
-        setError(null);
+        if (alive()) { setData(d); setError(null); }
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLoading(false));
+      .catch((e) => { if (alive() && !(e instanceof Error && e.name === 'AbortError')) setError(e instanceof Error ? e.message : 'Failed to load'); })
+      .finally(() => { if (alive()) setLoading(false); });
   }, [topicKey]);
 
   if (loading) return <p className="text-sm text-wb-ink2">Loading…</p>;

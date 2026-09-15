@@ -8,8 +8,9 @@
 // is a lift-and-shift into its own component so the new Today/My
 // Evidence/Library IA can be the primary nav instead.
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Card, DomainToggle } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import type { StateTone } from '@/lib/types';
 import { stateToneClasses } from '@/lib/departments';
 
@@ -74,29 +75,28 @@ export function LegacyDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback((withSpinner: boolean) => {
-    if (withSpinner) setLoading(true);
+  useAbortEffect((signal, alive) => {
+    setLoading(true);
     const endpoints: Record<Domain, string> = {
       'confidence-matrix': '/api/health-osint/confidence-matrix',
       'intelligence-summary': '/api/health-osint/intelligence-summary',
       'source-network': '/api/health-osint/source-network',
       'threat-assessment': '/api/health-osint/threat-assessment',
     };
-    return fetch(endpoints[domain])
+    fetch(endpoints[domain], { signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d?.error || 'Failed');
-        setError(null);
-        setData(d);
+        if (alive()) { setError(null); setData(d); }
       })
       .catch((e) => {
-        setError(e instanceof Error ? e.message : 'Failed');
-        setData({ domain } as Payload);
+        if (alive() && !(e instanceof Error && e.name === 'AbortError')) {
+          setError(e instanceof Error ? e.message : 'Failed');
+          setData({ domain } as Payload);
+        }
       })
-      .finally(() => { if (withSpinner) setLoading(false); });
+      .finally(() => { if (alive()) setLoading(false); });
   }, [domain]);
-
-  useEffect(() => { load(true); }, [load]);
 
   const renderSignal = (s: any) => {
     let discoveredNote: string | null = null;

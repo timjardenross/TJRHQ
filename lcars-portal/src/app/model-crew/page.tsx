@@ -8,7 +8,7 @@
 // rendered inside the (app) group's light LCARS chrome. Same data, same
 // refresh behaviour — /api/model/status and /api/model/recent-calls are
 // unchanged; only the presentation moved onto Card/Badge/WorkbenchShell.
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Badge, Card, WorkbenchShell, type BadgeStatus } from '@/components/ui';
 
 interface LoadedModel {
@@ -91,30 +91,35 @@ export default function ModelCrewPage() {
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
+  const refreshControllerRef = useRef<AbortController | null>(null);
   const refresh = useCallback(async () => {
+    refreshControllerRef.current?.abort();
+    const controller = new AbortController();
+    refreshControllerRef.current = controller;
     setLoading(true);
     setError(null);
     try {
       const [statusRes, callsRes] = await Promise.all([
-        fetch('/api/model/status', { cache: 'no-store' }),
-        fetch('/api/model/recent-calls?n=30', { cache: 'no-store' }),
+        fetch('/api/model/status', { cache: 'no-store', signal: controller.signal }),
+        fetch('/api/model/recent-calls?n=30', { cache: 'no-store', signal: controller.signal }),
       ]);
       const statusData = await statusRes.json();
       const callsData = await callsRes.json();
+      if (controller.signal.aborted) return;
       setStatus(statusData);
       setCalls(callsData.calls ?? []);
       setLastRefresh(new Date());
     } catch (err) {
-      setError(String(err));
+      if (!controller.signal.aborted && !(err instanceof Error && err.name === 'AbortError')) setError(String(err));
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void refresh();
     const interval = setInterval(() => void refresh(), 30_000);
-    return () => clearInterval(interval);
+    return () => { clearInterval(interval); refreshControllerRef.current?.abort(); };
   }, [refresh]);
 
   const reachable = status?.ollama_reachable ?? false;

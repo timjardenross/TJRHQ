@@ -22,6 +22,7 @@ import { useEffect, useState } from 'react';
 import { fetchRecommendations, type RecommendationPackage } from '@/lib/recommendations';
 import { fetchInvestigation, type InvestigationRunResult } from '@/lib/investigate';
 import { Dots, useElapsed, PullApartReasoning, ThinkResult } from './shared';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { ConsultView } from './ConsultView';
 import { REASONING_LENSES, type AdvisoryResult, type ReasoningGroup, type ReasoningLens, type ThinkSession } from './types';
 
@@ -58,13 +59,13 @@ export function ThinkView({
     try { const raw = localStorage.getItem(LS_BOARD_LOG); if (raw) setLog(JSON.parse(raw) as ThinkSession[]); } catch { /* ignore */ }
   }, []);
 
-  useEffect(() => {
-    fetchRecommendations().then(setRecommendations);
+  useAbortEffect((_signal, alive) => {
+    fetchRecommendations().then((r) => { if (alive()) setRecommendations(r); });
   }, []);
 
-  useEffect(() => {
+  useAbortEffect((_signal, alive) => {
     if (investigationType && investigationReason) {
-      fetchInvestigation(investigationType, investigationReason).then(setInvestigation);
+      fetchInvestigation(investigationType, investigationReason).then((r) => { if (alive()) setInvestigation(r); });
     }
   }, [investigationType, investigationReason]);
 

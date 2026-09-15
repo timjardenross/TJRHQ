@@ -6,9 +6,10 @@
 // list, and folds the separate curation workbench in as a small
 // high-value-only "Needs Your Review" card.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Card, Badge, Button, Select } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { EVIDENCE_CONTRIBUTION_LABEL, IGNORE_REASONS, type EvidenceItem } from './shared';
 
 interface NeedsReviewItem {
@@ -63,20 +64,17 @@ export function TodayView() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [reasonById, setReasonById] = useState<Record<string, string>>({});
 
-  function load() {
+  useAbortEffect((signal, alive) => {
     setLoading(true);
-    fetch('/api/health-osint/today')
+    fetch('/api/health-osint/today', { signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d?.error || 'Failed to load');
-        setData(d);
-        setError(null);
+        if (alive()) { setData(d); setError(null); }
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(() => { load(); }, []);
+      .catch((e) => { if (alive() && !(e instanceof Error && e.name === 'AbortError')) setError(e instanceof Error ? e.message : 'Failed to load'); })
+      .finally(() => { if (alive()) setLoading(false); });
+  }, []);
 
   async function decide(signalId: string, action: 'publish' | 'reject') {
     setBusyId(signalId);

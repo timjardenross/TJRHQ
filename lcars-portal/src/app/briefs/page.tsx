@@ -10,7 +10,8 @@
 // primary navigation.
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
 import type { ApprovalStatus, BriefListItem } from '@/lib/briefsShared';
@@ -313,16 +314,15 @@ export default function BriefsPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('latest');
 
-  useEffect(() => {
-    fetch('/api/briefs')
+  useAbortEffect((signal, alive) => {
+    fetch('/api/briefs', { signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d?.error || 'Failed to load');
-        setBriefs(d.briefs ?? []);
-        setError(null);
+        if (alive()) { setBriefs(d.briefs ?? []); setError(null); }
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLoading(false));
+      .catch((e) => { if (alive() && !(e instanceof Error && e.name === 'AbortError')) setError(e instanceof Error ? e.message : 'Failed to load'); })
+      .finally(() => { if (alive()) setLoading(false); });
   }, []);
 
   const latest = briefs[0] ?? null; // API already orders generated_at desc

@@ -9,8 +9,9 @@
  * same grouping, same tone/badge mapping.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Badge, Card } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { stateToneClasses } from '@/lib/departments';
 import type { AgentStatusEntry } from '@/app/api/agent-status/route';
 import { CAPABILITIES } from '@/lib/hqStatusInterpreter';
@@ -120,33 +121,32 @@ export function JobsView() {
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  async function fetchStatus(withSpinner: boolean) {
-    if (withSpinner) setIsLoading(true);
-    try {
-      const res = await fetch('/api/agent-status', { cache: 'no-store' });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error ?? `HTTP ${res.status}`);
+  useAbortEffect((signal, alive) => {
+    async function fetchStatus(withSpinner: boolean) {
+      if (withSpinner) setIsLoading(true);
+      try {
+        const res = await fetch('/api/agent-status', { cache: 'no-store', signal });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body?.error ?? `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        if (alive()) {
+          setJobs(data.jobs ?? []);
+          setFetchedAt(data.fetchedAt ?? null);
+          setLoadError(null);
+        }
+      } catch (err) {
+        if (alive() && !(err instanceof Error && err.name === 'AbortError')) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load agent status');
+        }
+      } finally {
+        if (alive() && withSpinner) setIsLoading(false);
       }
-      const data = await res.json();
-      setJobs(data.jobs ?? []);
-      setFetchedAt(data.fetchedAt ?? null);
-      setLoadError(null);
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Failed to load agent status');
-    } finally {
-      if (withSpinner) setIsLoading(false);
     }
-  }
-
-  useEffect(() => {
     fetchStatus(true);
-    intervalRef.current = setInterval(() => fetchStatus(false), REFRESH_INTERVAL_MS);
-    return () => {
-      if (intervalRef.current !== null) clearInterval(intervalRef.current);
-    };
+    const intervalId = setInterval(() => fetchStatus(false), REFRESH_INTERVAL_MS);
+    return () => clearInterval(intervalId);
   }, []);
 
   const groups = groupByDomain(jobs);

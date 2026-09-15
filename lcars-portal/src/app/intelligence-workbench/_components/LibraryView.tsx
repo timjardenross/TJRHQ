@@ -6,9 +6,10 @@
 // into brief/[id] (still live, unchanged by this uplift) where a brief_id
 // exists.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Badge, Button, Input, Select } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 interface LibraryItem {
   event_id: string;
@@ -52,8 +53,7 @@ export function LibraryView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  useAbortEffect((signal, alive) => {
     setLoading(true);
     const sp = new URLSearchParams();
     if (q) sp.set('q', q);
@@ -61,15 +61,14 @@ export function LibraryView() {
     if (until) sp.set('until', new Date(until).toISOString());
     if (disposition) sp.set('disposition', disposition);
     sp.set('page', String(page));
-    fetch(`/api/intelligence-workbench/library?${sp.toString()}`)
+    fetch(`/api/intelligence-workbench/library?${sp.toString()}`, { signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d?.error || 'Failed to load');
-        if (!cancelled) { setItems(d.items ?? []); setTotal(d.total ?? 0); setError(null); }
+        if (alive()) { setItems(d.items ?? []); setTotal(d.total ?? 0); setError(null); }
       })
-      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .catch((e) => { if (alive() && e instanceof Error && e.name !== 'AbortError') setError(e.message || 'Failed to load'); })
+      .finally(() => { if (alive()) setLoading(false); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, since, until, disposition, page]);
 

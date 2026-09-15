@@ -15,12 +15,13 @@
  * the fuller note.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Badge, Button, Card, Textarea } from '@/components/ui';
 import { WorkbenchShell } from '@/components/ui';
 import { STATUS_OPTIONS, statusToBadge, fmtDate } from '../_components/shared';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import type { Mission } from '@/lib/types';
 
 function Field({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
@@ -46,7 +47,7 @@ export default function MissionWorkbenchDetailPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  useAbortEffect((_signal, alive) => {
     async function load() {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
@@ -55,6 +56,7 @@ export default function MissionWorkbenchDetailPage() {
         .eq('mission_id', id)
         .single();
 
+      if (!alive()) return;
       if (data) {
         setMission(data as Mission);
         setNewStatus(data.status);

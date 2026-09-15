@@ -6,8 +6,9 @@
 // is retained unchanged as the secondary "Board" toggle for anyone who
 // wants the column view back.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { PILLAR_LABEL, STAGE_LABEL, rankBadgeStatus, type ContentItem, type Stage } from './shared';
 
 const STAGE_PRIORITY: Record<Stage, number> = { proofing: 0, content_prep: 1, research: 2, capture: 3 };
@@ -45,19 +46,21 @@ export function QueueView({ refreshSignal, onOpenStudio }: { refreshSignal: numb
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
+  useAbortEffect((signal, alive) => {
     async function load() {
       setLoading(true);
       setLoadError(null);
       try {
-        const res = await fetch('/api/content-workbench');
+        const res = await fetch('/api/content-workbench', { signal });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? 'Failed to load queue');
-        setItems(data.items ?? []);
+        if (alive()) setItems(data.items ?? []);
       } catch (e) {
-        setLoadError(e instanceof Error ? e.message : 'Failed to load queue');
+        if (alive() && !(e instanceof Error && e.name === 'AbortError')) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load queue');
+        }
       } finally {
-        setLoading(false);
+        if (alive()) setLoading(false);
       }
     }
     load();

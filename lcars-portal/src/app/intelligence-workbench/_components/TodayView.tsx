@@ -7,9 +7,10 @@
 // statement. Mobile order matches mission §30: status -> worth knowing ->
 // watching summary -> what we don't know yet, no horizontal scroll.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import type { Development } from './shared';
 import { KNOWN_UNKNOWNS } from './shared';
 
@@ -62,18 +63,16 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  useAbortEffect((signal, alive) => {
     setLoading(true);
-    fetch('/api/intelligence-workbench/today')
+    fetch('/api/intelligence-workbench/today', { signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d?.error || 'Failed to load');
-        if (!cancelled) { setData(d); setError(null); }
+        if (alive()) { setData(d); setError(null); }
       })
-      .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .catch((e) => { if (alive() && e instanceof Error && e.name !== 'AbortError') setError(e.message || 'Failed to load'); })
+      .finally(() => { if (alive()) setLoading(false); });
   }, []);
 
   if (loading) return <p className="text-[13px] text-wb-ink2">Loading today&apos;s briefing…</p>;

@@ -41,7 +41,7 @@
 // (this route ignores the param and always renders everything it
 // fetches), so none of them needed touching.
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DomainToggle, WorkbenchShell } from '@/components/ui';
 import { NowView } from './_components/NowView';
@@ -75,13 +75,18 @@ function Workbench() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [live, setLive] = useState(false);
 
+  const loadControllerRef = useRef<AbortController | null>(null);
   const load = useCallback((withSpinner: boolean) => {
+    loadControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadControllerRef.current = controller;
     if (withSpinner) setLoading(true);
     return Promise.all([
-      fetch('/api/human-systems?domain=recovery').then((r) => r.json()),
-      fetch('/api/human-systems?domain=medical').then((r) => r.json()),
+      fetch('/api/human-systems?domain=recovery', { signal: controller.signal }).then((r) => r.json()),
+      fetch('/api/human-systems?domain=medical', { signal: controller.signal }).then((r) => r.json()),
     ])
       .then(([recovery, medical]: [unknown, unknown]) => {
+        if (controller.signal.aborted) return;
         const clean = <T,>(p: unknown): T | null =>
           p && typeof p === 'object' && !('error' in (p as Record<string, unknown>)) ? (p as T) : null;
         setData({ recovery: clean<RecoveryPayload>(recovery), medical: clean<MedicalPayload>(medical) });
@@ -91,12 +96,17 @@ function Workbench() {
         setLoadError(!recovery ? 'Couldn’t load Human Systems data right now.' : recoveryErr);
         setLastUpdated(new Date());
       })
-      .catch((e) => setLoadError(e instanceof Error ? e.message : 'Couldn’t load Human Systems data right now.'))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (!controller.signal.aborted && !(e instanceof Error && e.name === 'AbortError')) {
+          setLoadError(e instanceof Error ? e.message : 'Couldn’t load Human Systems data right now.');
+        }
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, []);
 
   useEffect(() => {
     load(true);
+    return () => loadControllerRef.current?.abort();
   }, [load]);
 
   // Live refresh: every remaining section reads the capacity_checkins signal.

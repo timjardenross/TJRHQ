@@ -10,8 +10,9 @@
 // doesn't split health/operational, Portfolio here is just "everything
 // published."
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Badge, Button, Input, Select } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { PILLAR_LABEL, toMarkdown, toPlainText, download, type PublishedItem } from './shared';
 
 function ExportMenu({ item }: { item: PublishedItem }) {
@@ -129,19 +130,21 @@ export function PortfolioTab() {
   const [search, setSearch] = useState('');
   const [pillarFilter, setPillarFilter] = useState('all');
 
-  useEffect(() => {
+  useAbortEffect((signal, alive) => {
     async function load() {
       setLoading(true);
       setLoadError(null);
       try {
-        const res = await fetch('/api/comms?status=published');
+        const res = await fetch('/api/comms?status=published', { signal });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? 'Failed to load portfolio');
-        setItems(data.items ?? []);
+        if (alive()) setItems(data.items ?? []);
       } catch (e) {
-        setLoadError(e instanceof Error ? e.message : 'Failed to load portfolio');
+        if (alive() && !(e instanceof Error && e.name === 'AbortError')) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load portfolio');
+        }
       } finally {
-        setLoading(false);
+        if (alive()) setLoading(false);
       }
     }
     load();

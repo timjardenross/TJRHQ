@@ -32,7 +32,7 @@
  * also from Library's evidence links.
  */
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, WorkbenchShell, DomainToggle, Button } from '@/components/ui';
@@ -92,7 +92,11 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const loadControllerRef = useRef<AbortController | null>(null);
   const load = useCallback((withSpinner: boolean) => {
+    loadControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadControllerRef.current = controller;
     if (withSpinner) setLoading(true);
     const endpoints: Record<AnalystDomain, string> = {
       'confidence-matrix': '/api/intelligence-workbench/confidence-matrix',
@@ -101,21 +105,23 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
       'threat-assessment': '/api/intelligence-workbench/threat-assessment',
       'credibility': '/api/intelligence-workbench/credibility',
     };
-    return fetch(endpoints[domain])
+    return fetch(endpoints[domain], { signal: controller.signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d?.error || 'Failed');
-        setError(null);
-        setData(d);
+        if (!controller.signal.aborted) { setError(null); setData(d); }
       })
       .catch((e) => {
-        setError(e instanceof Error ? e.message : 'Failed');
-        setData({ domain } as Payload);
+        if (!controller.signal.aborted && !(e instanceof Error && e.name === 'AbortError')) {
+          setError(e instanceof Error ? e.message : 'Failed');
+          setData({ domain } as Payload);
+        }
       })
-      .finally(() => { if (withSpinner) setLoading(false); });
+      .finally(() => { if (withSpinner && !controller.signal.aborted) setLoading(false); });
   }, [domain]);
 
   useEffect(() => { load(true); }, [load]);
+  useEffect(() => () => loadControllerRef.current?.abort(), []);
 
   const renderSignal = (s: any) => (
     <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">

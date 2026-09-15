@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { deriveRisk } from '@/lib/intelligenceRisk';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 /**
  * Intelligence Centre — MSN-0201 rewire.
@@ -28,9 +29,9 @@ const RISK_COLOUR: Record<string, string> = {
 };
 const RISK_ICON: Record<string, string> = { HIGH: '🔴', MEDIUM: '🟡', LOW: '🟢' };
 
-async function fetchIntel(params: Record<string, string>): Promise<unknown> {
+async function fetchIntel(params: Record<string, string>, signal?: AbortSignal): Promise<unknown> {
   const qs = new URLSearchParams(params).toString();
-  const res = await fetch(`/api/intelligence?${qs}`);
+  const res = await fetch(`/api/intelligence?${qs}`, { signal });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? 'Intelligence query failed');
   return data;
@@ -568,8 +569,7 @@ export default function IntelligencePage() {
   const [contentDays, setContentDays] = useState('7');
   const [contentPillar, setContentPillar] = useState('');
 
-  useEffect(() => {
-    let cancelled = false;
+  useAbortEffect((signal, alive) => {
     setLoading(true);
     setError(null);
     setData(null);
@@ -586,12 +586,10 @@ export default function IntelligencePage() {
       if (contentPillar) params.pillar = contentPillar;
     }
 
-    fetchIntel(params)
-      .then(r => !cancelled && setData(r as Record<string, unknown>))
-      .catch(e => !cancelled && setError(e instanceof Error ? e.message : 'Failed.'))
-      .finally(() => !cancelled && setLoading(false));
-
-    return () => { cancelled = true; };
+    fetchIntel(params, signal)
+      .then(r => { if (alive()) setData(r as Record<string, unknown>); })
+      .catch(e => { if (alive() && !(e instanceof Error && e.name === 'AbortError')) setError(e instanceof Error ? e.message : 'Failed.'); })
+      .finally(() => { if (alive()) setLoading(false); });
   }, [tab, signalDays, signalRisk, contentDays, contentPillar]);
 
   return (

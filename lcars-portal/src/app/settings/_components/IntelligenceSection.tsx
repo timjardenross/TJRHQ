@@ -19,11 +19,12 @@
 // forward-compatible property intact, checking every currently-known
 // item collapses the stored list back to [] rather than an explicit
 // "all of today's keys" list — see saveTechnical/saveHealth below.
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Checkbox } from '@/components/ui/Input';
 import { SectionHeading } from './SectionHeading';
 import { SaveStatusLine } from './SaveStatusLine';
 import { useSectionSettings } from './useSectionSettings';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 interface TechnicalCategory {
   key: string;
@@ -51,22 +52,18 @@ export function IntelligenceSection() {
   const [taxonomy, setTaxonomy] = useState<Taxonomy | null>(null);
   const [taxonomyError, setTaxonomyError] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/settings/intelligence/taxonomy')
+  useAbortEffect((signal, alive) => {
+    fetch('/api/settings/intelligence/taxonomy', { signal })
       .then((res) => {
         if (!res.ok) throw new Error('load failed');
         return res.json();
       })
       .then((body: Taxonomy) => {
-        if (!cancelled) setTaxonomy(body);
+        if (alive()) setTaxonomy(body);
       })
-      .catch(() => {
-        if (!cancelled) setTaxonomyError(true);
+      .catch((e) => {
+        if (alive() && !(e instanceof Error && e.name === 'AbortError')) setTaxonomyError(true);
       });
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const allTechnicalKeys = taxonomy?.technical.map((c) => c.key) ?? [];

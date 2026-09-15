@@ -12,9 +12,10 @@
 // checked and why sleep_quality/body_signal_clarity/predictability are
 // excluded — 0 real rows for all three).
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { WorkbenchShell, Card } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { Sparkline } from '../_components/Sparkline';
 import {
   STIMULATION_STATE_TREND_LABEL,
@@ -206,16 +207,15 @@ export default function TrendsPage() {
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
 
-  useEffect(() => {
-    fetch('/api/human-systems/trends', { cache: 'no-store' })
+  useAbortEffect((signal, alive) => {
+    fetch('/api/human-systems/trends', { cache: 'no-store', signal })
       .then((r) => r.json())
       .then((data) => {
         if (data?.error) throw new Error(data.error);
-        setTrends(data.trends ?? []);
-        setSummary(data.summary ?? null);
+        if (alive()) { setTrends(data.trends ?? []); setSummary(data.summary ?? null); }
       })
-      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load trends'))
-      .finally(() => setSummaryLoading(false));
+      .catch((err) => { if (alive() && !(err instanceof Error && err.name === 'AbortError')) setLoadError(err instanceof Error ? err.message : 'Failed to load trends'); })
+      .finally(() => { if (alive()) setSummaryLoading(false); });
   }, []);
 
   const activeWindow = WINDOWS.find((w) => w.key === windowKey)!;

@@ -9,8 +9,9 @@
 // this pipeline reaches the main /health-osint dashboard until a human
 // looks at it here and clicks Publish.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { WorkbenchShell, Card } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 interface PendingSignal {
   signal_id: string;
@@ -57,23 +58,19 @@ export default function HealthOsintCurationPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
 
-  function load() {
+  useAbortEffect((signal, alive) => {
     setLoading(true);
-    fetch('/api/health-osint-curation/pending')
+    fetch('/api/health-osint-curation/pending', { signal })
       .then((r) => {
         if (!r.ok) throw new Error(`Failed to load (${r.status})`);
         return r.json();
       })
       .then((data) => {
-        setPending(data.signals ?? []);
-        setFetchStats(data.fetch_stats ?? []);
-        setError(null);
+        if (alive()) { setPending(data.signals ?? []); setFetchStats(data.fetch_stats ?? []); setError(null); }
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(() => { load(); }, []);
+      .catch((e) => { if (alive() && !(e instanceof Error && e.name === 'AbortError')) setError(e instanceof Error ? e.message : 'Failed to load'); })
+      .finally(() => { if (alive()) setLoading(false); });
+  }, []);
 
   async function decide(signalId: string, action: 'publish' | 'reject') {
     setBusyId(signalId);

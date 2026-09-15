@@ -7,7 +7,7 @@
 // /intelligence-workbench/brief/[id] (see BRIEFS_CANONICAL_UPLIFT.md §3);
 // this page never writes to the brief.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Modal, RiskPill, WorkbenchShell } from '@/components/ui';
 import type { BriefDetail } from '@/lib/briefsShared';
 import { buildMorningIntelligenceView } from '@/lib/briefsShared';
@@ -37,20 +37,30 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
   const [showEvidence, setShowEvidence] = useState(false);
   const [openSignal, setOpenSignal] = useState<Signal | null>(null);
 
+  const loadControllerRef = useRef<AbortController | null>(null);
   const load = useCallback(() => {
+    loadControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadControllerRef.current = controller;
     setLoading(true);
     setError(null);
-    fetch(`/api/briefs/${encodeURIComponent(id)}`)
+    fetch(`/api/briefs/${encodeURIComponent(id)}`, { signal: controller.signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(typeof d?.error === 'string' ? d.error : 'Failed to load');
-        setBrief(d.brief);
-        setSignals(d.signals ?? []);
+        if (!controller.signal.aborted) { setBrief(d.brief); setSignals(d.signals ?? []); }
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (!controller.signal.aborted && !(e instanceof Error && e.name === 'AbortError')) {
+          setError(e instanceof Error ? e.message : 'Failed to load');
+        }
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, [id]);
-  useEffect(load, [load]);
+  useEffect(() => {
+    load();
+    return () => loadControllerRef.current?.abort();
+  }, [load]);
 
   const view = buildMorningIntelligenceView(brief, 5);
 

@@ -24,10 +24,11 @@
  * opening the diff before it lands on main.
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { Badge, Card, WorkbenchShell } from '@/components/ui';
 import type { BadgeStatus } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 interface HandoffMetadata {
   engineering_status: string;
@@ -199,18 +200,19 @@ export default function EngineeringHandoffsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
+  useAbortEffect((signal, alive) => {
     async function load() {
       try {
-        const res = await fetch('/api/engineering-handoffs?include_completed=true', { cache: 'no-store' });
+        const res = await fetch('/api/engineering-handoffs?include_completed=true', { cache: 'no-store', signal });
         const body = await res.json();
         if (!res.ok) throw new Error(body?.error || 'bad upstream response');
-        setHandoffs(body.handoffs ?? []);
+        if (alive()) setHandoffs(body.handoffs ?? []);
       } catch (e) {
+        if (!alive() || (e instanceof Error && e.name === 'AbortError')) return;
         console.error('engineering handoffs fetch failed', e);
         setLoadError('Couldn’t load engineering handoffs right now.');
       } finally {
-        setIsLoading(false);
+        if (alive()) setIsLoading(false);
       }
     }
     load();

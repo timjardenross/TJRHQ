@@ -16,9 +16,10 @@
 // persona outputs are framed honestly: inspired by documented ideas, not a
 // simulation of the person or their literal endorsement (mission §12).
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { Panel, Dots, useElapsed } from './shared';
 import { PERSPECTIVE_LENSES, type Perspective, type PerspectiveLens, type PerspectiveResponse, type PerspectiveSession } from './types';
 
@@ -82,11 +83,11 @@ export function PerspectivesView() {
   const [showVoices, setShowVoices] = useState(false);
   const elapsed = useElapsed(anyLoading || synthesising);
 
-  useEffect(() => {
-    fetch('/api/perspectives')
+  useAbortEffect((signal, alive) => {
+    fetch('/api/perspectives', { signal })
       .then((r) => r.json())
-      .then((d: { perspectives?: Perspective[] }) => { setAvailable(d.perspectives ?? []); setLoadingList(false); })
-      .catch(() => setLoadingList(false));
+      .then((d: { perspectives?: Perspective[] }) => { if (alive()) { setAvailable(d.perspectives ?? []); setLoadingList(false); } })
+      .catch((e) => { if (alive() && !(e instanceof Error && e.name === 'AbortError')) setLoadingList(false); });
     try {
       const raw = localStorage.getItem(LS_PERSPECTIVES_LOG);
       if (raw) setLog(JSON.parse(raw) as PerspectiveSession[]);

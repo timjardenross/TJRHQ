@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card, Badge } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { relativeTime, sourceStatusToBadge, sourceStatusLabel } from './shared';
 import type { SourceStatus } from './shared';
 
@@ -41,25 +42,25 @@ export function SourcesView() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  useAbortEffect((signal, alive) => {
     async function load() {
       try {
-        const res = await fetch('/api/agent-status-workbench/sources', { cache: 'no-store' });
+        const res = await fetch('/api/agent-status-workbench/sources', { cache: 'no-store', signal });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body?.error ?? `HTTP ${res.status}`);
         }
         const json = await res.json();
-        if (!cancelled) setData(json);
+        if (alive()) setData(json);
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load source health');
+        if (alive() && !(err instanceof Error && err.name === 'AbortError')) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load source health');
+        }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (alive()) setIsLoading(false);
       }
     }
     load();
-    return () => { cancelled = true; };
   }, []);
 
   if (isLoading) return <Card><p className="text-[13px] italic text-wb-ink2">Loading source health…</p></Card>;

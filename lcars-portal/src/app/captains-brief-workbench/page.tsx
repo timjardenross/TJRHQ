@@ -45,25 +45,30 @@ function Workbench() {
   const prioritiesRef = useRef<HTMLDivElement>(null);
   const nextActionsRef = useRef<HTMLDivElement>(null);
 
+  const loadControllerRef = useRef<AbortController | null>(null);
   const load = useCallback(() => {
+    loadControllerRef.current?.abort();
+    const controller = new AbortController();
+    loadControllerRef.current = controller;
     setLoading(true);
     setError(null);
     setDetail(null);
-    fetch('/api/captain-brief')
+    fetch('/api/captain-brief', { signal: controller.signal })
       .then(async (r) => {
         const body = await r.json();
         if (!r.ok) {
           if (typeof body?.detail === 'string' && body.detail) setDetail(body.detail);
           throw new Error(body.error ?? 'Failed to load Captain Brief');
         }
-        setDoc(body);
+        if (!controller.signal.aborted) setDoc(body);
       })
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false));
+      .catch((e) => { if (!controller.signal.aborted && !(e instanceof Error && e.name === 'AbortError')) setError(String(e)); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
   }, []);
 
   useEffect(() => {
     load();
+    return () => loadControllerRef.current?.abort();
   }, [load]);
 
   const changeDomain = (d: Domain) => {

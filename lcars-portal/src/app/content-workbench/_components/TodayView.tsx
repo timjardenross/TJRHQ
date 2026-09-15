@@ -8,10 +8,11 @@
 // because it exists (brief's own rule): every section here only renders
 // when it has real content.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui';
 import { PILLAR_LABEL, rankBadgeStatus, type ContentItem, type Stage } from './shared';
 import { Badge } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 interface Props {
   onOpenStudio: (contentId: string) => void;
@@ -63,22 +64,25 @@ export function TodayView({ onOpenStudio, onOpenPipeline, refreshSignal }: Props
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  async function load() {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const res = await fetch('/api/content-workbench');
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Failed to load');
-      setItems(data.items ?? []);
-    } catch (e) {
-      setLoadError(e instanceof Error ? e.message : 'Failed to load');
-    } finally {
-      setLoading(false);
+  useAbortEffect((signal, alive) => {
+    async function load() {
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const res = await fetch('/api/content-workbench', { signal });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? 'Failed to load');
+        if (alive()) setItems(data.items ?? []);
+      } catch (e) {
+        if (alive() && !(e instanceof Error && e.name === 'AbortError')) {
+          setLoadError(e instanceof Error ? e.message : 'Failed to load');
+        }
+      } finally {
+        if (alive()) setLoading(false);
+      }
     }
-  }
-
-  useEffect(() => { load(); }, [refreshSignal]); // eslint-disable-line react-hooks/exhaustive-deps
+    load();
+  }, [refreshSignal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) return <p className="text-sm text-wb-ink2">Loading…</p>;
   if (loadError) return <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{loadError}</p>;

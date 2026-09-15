@@ -13,8 +13,9 @@
 // need 11 sparkline tiles, they need "what changed and what's worth
 // discussing," in plain language, on one clean page.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { WorkbenchShell, Card } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 interface SummaryStats {
   totalDays: number;
@@ -64,14 +65,14 @@ export default function HumanSystemsReportPage() {
   const [data, setData] = useState<ReportResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch('/api/human-systems/report', { cache: 'no-store' })
+  useAbortEffect((signal, alive) => {
+    fetch('/api/human-systems/report', { cache: 'no-store', signal })
       .then((r) => r.json())
       .then((d) => {
         if (d?.error) throw new Error(d.error);
-        setData(d);
+        if (alive()) setData(d);
       })
-      .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load report'));
+      .catch((err) => { if (alive() && !(err instanceof Error && err.name === 'AbortError')) setLoadError(err instanceof Error ? err.message : 'Failed to load report'); });
   }, []);
 
   const stats = data?.stats;

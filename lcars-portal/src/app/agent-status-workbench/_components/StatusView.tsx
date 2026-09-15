@@ -10,8 +10,9 @@
  * §44, §57).
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Card } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 // HQ V1 Integration QA §22 (recovery propagation) fix: this tab previously
 // fetched once on mount only — a Captain with the Status tab open during an
@@ -103,35 +104,32 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
   const [data, setData] = useState<StatusData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  useAbortEffect((signal, alive) => {
     async function load(withSpinner: boolean) {
       if (withSpinner) setIsLoading(true);
       try {
-        const res = await fetch('/api/agent-status-workbench/overview', { cache: 'no-store' });
+        const res = await fetch('/api/agent-status-workbench/overview', { cache: 'no-store', signal });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body?.error ?? `HTTP ${res.status}`);
         }
         const json = await res.json();
-        if (!cancelled) {
+        if (alive()) {
           setData(json);
           setLoadError(null);
         }
       } catch (err) {
-        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load HQ status');
+        if (alive() && !(err instanceof Error && err.name === 'AbortError')) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load HQ status');
+        }
       } finally {
-        if (!cancelled && withSpinner) setIsLoading(false);
+        if (alive() && withSpinner) setIsLoading(false);
       }
     }
     load(true);
-    intervalRef.current = setInterval(() => load(false), REFRESH_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      if (intervalRef.current !== null) clearInterval(intervalRef.current);
-    };
+    const intervalId = setInterval(() => load(false), REFRESH_INTERVAL_MS);
+    return () => clearInterval(intervalId);
   }, []);
 
   if (isLoading) {

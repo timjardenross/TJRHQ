@@ -5,12 +5,13 @@
 // sync timestamps, retry counts, or token-refresh diagnostics here (those
 // belong to Agent & Job Status) — this section links out to it instead of
 // duplicating it.
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Badge, type BadgeStatus } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { SectionHeading } from './SectionHeading';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import type { ConnectionState, ConnectionStatus } from '@/app/api/settings/connections/route';
 
 const STATE_BADGE: Record<ConnectionState, { status: BadgeStatus; label: string }> = {
@@ -73,22 +74,18 @@ export function ConnectionsSection() {
   const [connections, setConnections] = useState<ConnectionStatus[] | null>(null);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/settings/connections')
+  useAbortEffect((signal, alive) => {
+    fetch('/api/settings/connections', { signal })
       .then((res) => {
         if (!res.ok) throw new Error('load failed');
         return res.json();
       })
       .then((body: { connections: ConnectionStatus[] }) => {
-        if (!cancelled) setConnections(body.connections);
+        if (alive()) setConnections(body.connections);
       })
-      .catch(() => {
-        if (!cancelled) setError(true);
+      .catch((e) => {
+        if (alive() && !(e instanceof Error && e.name === 'AbortError')) setError(true);
       });
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const stateFor = (service: ConnectionStatus['service']): ConnectionState | 'loading' =>

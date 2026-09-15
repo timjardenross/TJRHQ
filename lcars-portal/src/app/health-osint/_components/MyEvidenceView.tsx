@@ -5,8 +5,9 @@
 // are derived from health_domain via lib/healthOsintTopics.ts, not a new
 // taxonomy table (none exists) — see /api/health-osint/topics for detail.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Badge, toneToStatus } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { STRENGTH_LABEL, TREND_LABEL, strengthTone, type TopicSummary } from './shared';
 
 interface Props {
@@ -18,16 +19,15 @@ export function MyEvidenceView({ onOpenTopic }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch('/api/health-osint/topics')
+  useAbortEffect((signal, alive) => {
+    fetch('/api/health-osint/topics', { signal })
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d?.error || 'Failed to load');
-        setTopics(d.topics ?? []);
-        setError(null);
+        if (alive()) { setTopics(d.topics ?? []); setError(null); }
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
-      .finally(() => setLoading(false));
+      .catch((e) => { if (alive() && !(e instanceof Error && e.name === 'AbortError')) setError(e instanceof Error ? e.message : 'Failed to load'); })
+      .finally(() => { if (alive()) setLoading(false); });
   }, []);
 
   if (loading) return <p className="text-sm text-wb-ink2">Loading…</p>;

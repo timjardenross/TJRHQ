@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button, Input, Select } from '@/components/ui';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 import {
   attendBucket, createTask, fetchTasks, getReadyRoomContext, rankToday, pickUpItems,
   buildStatusSentence, deferNotToday, CATEGORIES,
@@ -148,35 +149,31 @@ export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number
   // green); only a confirmed 'failed' shows a caveat.
   const [syncStatus, setSyncStatus] = useState<'ok' | 'failed' | 'unknown'>('unknown');
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/ready-room/sync-status')
+  useAbortEffect((signal, alive) => {
+    fetch('/api/ready-room/sync-status', { signal })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => { if (!cancelled && data?.status) setSyncStatus(data.status); })
+      .then((data) => { if (alive() && data?.status) setSyncStatus(data.status); })
       .catch(() => { /* stays 'unknown' — never claim ok on a fetch failure */ });
-    return () => { cancelled = true; };
   }, []);
 
-  async function load() {
+  useAbortEffect((_signal, alive) => {
     setState('loading');
-    try {
-      const [open, done, readyRoomContext] = await Promise.all([
-        fetchTasks({ includeCompleted: false }),
-        fetchTasks({ includeCompleted: true, limit: 10 }),
-        getReadyRoomContext(),
-      ]);
-      setOpenTasks(open);
-      setDoneTasks(done);
-      setContext(readyRoomContext);
-      onLoaded(open);
-      setState('clear');
-    } catch {
-      setState('unavailable');
-    }
-  }
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { load(); }, [refreshSignal, internalRefresh]);
+    Promise.all([
+      fetchTasks({ includeCompleted: false }),
+      fetchTasks({ includeCompleted: true, limit: 10 }),
+      getReadyRoomContext(),
+    ])
+      .then(([open, done, readyRoomContext]) => {
+        if (!alive()) return;
+        setOpenTasks(open);
+        setDoneTasks(done);
+        setContext(readyRoomContext);
+        onLoaded(open);
+        setState('clear');
+      })
+      .catch(() => { if (alive()) setState('unavailable'); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal, internalRefresh]);
 
   // Keep the active-task overlay's data in sync with the latest fetch, so a
   // "Not today"/state change elsewhere doesn't leave it showing stale info.
