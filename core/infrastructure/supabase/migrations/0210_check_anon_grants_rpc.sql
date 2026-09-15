@@ -49,5 +49,14 @@ $$;
 -- similar CI checks) may call this -- it is a security-audit primitive,
 -- not a general-purpose catalog query, so it must not itself be callable
 -- by anon/authenticated.
-REVOKE ALL ON FUNCTION public.check_anon_grants(text) FROM PUBLIC;
+--
+-- 2026-09-15 correction: `REVOKE ALL ... FROM PUBLIC` alone was NOT
+-- sufficient -- verified live that the anon key could still call this via
+-- POST /rest/v1/rpc/check_anon_grants and get a 200 (empty result for a
+-- clean table, but it would have returned real policy text -- USING/CHECK
+-- expressions -- for a table that actually had one). Revoking from PUBLIC,
+-- anon, and authenticated explicitly closes it; verified live afterwards
+-- that the anon key now gets 42501 permission denied and service_role
+-- calls still succeed.
+REVOKE ALL ON FUNCTION public.check_anon_grants(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.check_anon_grants(text) TO service_role;
