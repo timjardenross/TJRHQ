@@ -165,3 +165,4 @@ deploy/watchlist-data/
 # uptime_kuma_webhook.py and their adapters — transient runtime state
 # (drained every collection cycle), not repo content.
 intelligence/watchlist/_queue/*.jsonl
+.claude/settings.local.json
