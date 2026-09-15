@@ -1,4 +1,4 @@
-# USS-TJR-MSN-0389 — Number One / XO: Round 2 Chief-of-Staff Upgrade (Corrected)
+# USS-TJR-MSN-0391 — Number One / XO: Round 2 Chief-of-Staff Upgrade (Corrected)
 
 **Mission type:** persona/architecture design. Skill-layer only — no mission-lifecycle schema change, no Supabase migration, no Mission Registry status-enum change performed or recommended-as-immediate here.
 **Status:** complete, superseding an earlier version of this same document from the same session.
