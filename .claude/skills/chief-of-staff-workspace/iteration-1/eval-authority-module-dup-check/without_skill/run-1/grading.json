@@ -1,0 +1,25 @@
+{
+  "expectations": [
+    {
+      "text": "Finds and cites the real existing authority_validator.py/authority_enforcement.py module and its governing mission (MSN-0326) before recommending anything",
+      "passed": true,
+      "evidence": "Cites both files, real function/manifest details, and MSN-0326 as the completed, Captain-accepted mission that built it."
+    },
+    {
+      "text": "Recommends against building a new module (composition-first), while naming what's actually still a disclosed gap on the existing one",
+      "passed": true,
+      "evidence": "'No, don't build a new module — it would duplicate something that already works and is actively used,' with the same 3 disclosed gaps named."
+    },
+    {
+      "text": "Distinguishes the coordination-level 'don't build new' call from any deeper engineering/architecture follow-up, routing the latter to Chief Engineer rather than deciding it unilaterally",
+      "passed": false,
+      "evidence": "'If the disclosed gaps above... are worth addressing, that should be scoped as a follow-up to the existing system, not a rebuild' — makes the engineering-scoping judgment itself; never names Chief Engineer or any other owner for that follow-up."
+    }
+  ],
+  "summary": {"passed": 2, "failed": 1, "total": 3, "pass_rate": 0.67},
+  "execution_metrics": {"total_tool_calls": 9},
+  "timing": {"executor_duration_seconds": 96.0},
+  "notes": [
+    "Matches the original grading.md's Q3 pattern almost exactly: baseline reaches the same accurate composition-over-duplication conclusion, but the gap is specifically the missing ownership-boundary/escalation framing, not the factual investigation."
+  ]
+}

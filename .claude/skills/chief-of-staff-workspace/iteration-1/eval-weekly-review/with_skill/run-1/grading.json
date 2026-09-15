@@ -1,0 +1,26 @@
+{
+  "expectations": [
+    {
+      "text": "Rolls up real mission and risk state from the repo (cites actual mission IDs / registry Fix-Now items), not invented status",
+      "passed": true,
+      "evidence": "Cites MSN-0388 through MSN-0370 by ID with real detail (MSN-0388's Stream 0 kill-gate), plus all 5 current registry Fix Now items with their risk levels."
+    },
+    {
+      "text": "Flags a grounding/staleness caveat honestly (e.g. what the commit timestamps can and can't establish about a 'weekly' window) rather than presenting everything with uniform confidence",
+      "passed": true,
+      "evidence": "'This repo's entire git history — all 62 commits — is dated 2026-09-15, a single calendar day... I can't use commit timestamps to bound \"the past week\" reliably, so this review is organized around mission-record dates and the platform registry's own review timestamps instead.'"
+    },
+    {
+      "text": "Produces one actionable pass with named decisions/owners, not just a status wall",
+      "passed": true,
+      "evidence": "'Decisions Needed' names the Search/Scheduling ownership gap and the CI-gate triage deadline; 'Next Actions' routes each to a named owner (Captain for ownership assignment, Chief Engineer for CI-gate triage)."
+    }
+  ],
+  "summary": {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0},
+  "execution_metrics": {"total_tool_calls": 23},
+  "timing": {"executor_duration_seconds": 209.0},
+  "notes": [
+    "Also names a genuine coordination risk not present in the original grading.md: an adversarial-security-review pass and a concurrent, independent self-improvement-automation pass both found overlapping issues on the same day without visible prior coordination. Verified against docs/security/2026-09-15-adversarial-review-remediation.md's own text, not invented.",
+    "Correctly retires the prior iteration's '451 uncommitted self-improvement JSON files' finding as resolved (commit 45b8f77 committed the backlog, 1369e98 fixed the underlying cause) rather than re-flagging stale information."
+  ]
+}

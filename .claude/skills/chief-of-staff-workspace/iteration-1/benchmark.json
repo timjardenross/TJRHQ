@@ -1,0 +1,76 @@
+{
+  "metadata": {
+    "skill_name": "chief-of-staff",
+    "skill_path": ".claude/skills/chief-of-staff",
+    "executor_model": "claude-sonnet-5",
+    "analyzer_model": "claude-sonnet-5",
+    "timestamp": "2026-09-15T00:00:00Z",
+    "evals_run": [1, 2, 3],
+    "runs_per_configuration": 1,
+    "note": "Backfill pass: the original iteration-1 eval (eval-chief-of-staff/grading.md) skipped persisted response transcripts and this benchmark. This file re-runs the same 3 prompts fresh against the current repo state and persists full outputs under eval-priority-focus/eval-weekly-review/eval-authority-module-dup-check."
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "eval_name": "priority-focus",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {"pass_rate": 1.0, "passed": 3, "failed": 0, "total": 3, "time_seconds": 184.0, "tokens": 68450, "tool_calls": 19, "errors": 0}
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "priority-focus",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {"pass_rate": 1.0, "passed": 3, "failed": 0, "total": 3, "time_seconds": 112.0, "tokens": 51200, "tool_calls": 11, "errors": 0}
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "weekly-review",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {"pass_rate": 1.0, "passed": 3, "failed": 0, "total": 3, "time_seconds": 209.0, "tokens": 74100, "tool_calls": 23, "errors": 0}
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "weekly-review",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {"pass_rate": 0.67, "passed": 2, "failed": 1, "total": 3, "time_seconds": 131.0, "tokens": 57300, "tool_calls": 14, "errors": 0}
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "authority-module-dup-check",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {"pass_rate": 1.0, "passed": 3, "failed": 0, "total": 3, "time_seconds": 143.0, "tokens": 61800, "tool_calls": 15, "errors": 0}
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "authority-module-dup-check",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {"pass_rate": 0.67, "passed": 2, "failed": 1, "total": 3, "time_seconds": 96.0, "tokens": 46700, "tool_calls": 9, "errors": 0}
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {"mean": 1.0, "stddev": 0.0, "min": 1.0, "max": 1.0},
+      "time_seconds": {"mean": 178.6667, "stddev": 33.32, "min": 143.0, "max": 209.0},
+      "tokens": {"mean": 68116.6667, "stddev": 6156.8, "min": 61800, "max": 74100}
+    },
+    "without_skill": {
+      "pass_rate": {"mean": 0.78, "stddev": 0.1905, "min": 0.67, "max": 1.0},
+      "time_seconds": {"mean": 113.0, "stddev": 17.52, "min": 96.0, "max": 131.0},
+      "tokens": {"mean": 51733.3333, "stddev": 5320.0, "min": 46700, "max": 57300}
+    },
+    "delta": {"pass_rate": "+0.22", "time_seconds": "+65.7", "tokens": "+16383.3"}
+  },
+  "notes": [
+    "Eval 1 (priority-focus) doesn't discriminate much: a capable baseline independently surfaced the same registry Fix-Now items and the same Search/Scheduling TBD-ownership gap, and produced a reasoned (if less formally-framed) ranking. With-skill's real edge here is evidentiary hygiene, not a new finding: it caught and disclosed that the original iteration-1 eval's cited commit hashes (ac9c3b95b, 22fb55f68, 8fe215074) no longer exist anywhere in git history, rather than repeating that stale claim forward.",
+    "Eval 2 (weekly-review) is the clearer differentiator on structure: baseline matched with-skill on raw grounding and even independently caught the same git-history staleness caveat (all 62 commits dated the same single calendar day), but its 'Bottom line' never routes the open ownership gap to a named next step, where with-skill's Decisions Needed/Next Actions split names owners explicitly.",
+    "Eval 3 (authority-module-dup-check) is the cleanest differentiator, matching the original grading.md's Q3 pattern almost exactly: both configs correctly find the existing authority_validator.py/authority_enforcement.py module and MSN-0326, and both correctly recommend against building a new one — but only with-skill explicitly declines to make the deeper engineering-scoping call itself and routes it to Chief Engineer, per its own escalation section.",
+    "Material change since the original iteration-1 eval, disclosed rather than papered over: this repo's entire git history (62 commits) is now dated a single calendar day (2026-09-15), so the specific commit hashes the original eval cited as evidence of registry staleness no longer resolve at all. The registry itself is genuinely fresh today (last reviewed 2026-09-12), so this doesn't change today's substantive answer, but today's grounding could not and did not try to reproduce that specific old finding.",
+    "With-skill runs took ~58% longer on average (178.7s vs 113.0s) and used ~32% more tokens - consistent with the cost pattern already observed for chief-engineer and xo: the fuller persona/investigation/format costs more and wins more often, not a red flag on its own."
+  ]
+}

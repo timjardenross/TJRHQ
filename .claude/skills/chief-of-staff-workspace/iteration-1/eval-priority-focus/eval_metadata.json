@@ -1,0 +1,10 @@
+{
+  "eval_id": 1,
+  "eval_name": "priority-focus",
+  "prompt": "What should I be focused on right now across TJRHQ?",
+  "assertions": [
+    "Grounds the priority ranking in the actual current SUOC Platform Registry Fix Now items and real commit/mission history (cites real capability names, risk levels, file paths), not a generic to-do list",
+    "Ranks by leverage/risk with explicit reasoning, not just a flat list",
+    "Names unresolved ownership/decision gaps explicitly (e.g. TBD-owned capabilities) rather than passing over them silently"
+  ]
+}

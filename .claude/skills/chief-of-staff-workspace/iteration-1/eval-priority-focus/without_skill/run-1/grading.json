@@ -1,0 +1,25 @@
+{
+  "expectations": [
+    {
+      "text": "Grounds the priority ranking in the actual current SUOC Platform Registry Fix Now items and real commit/mission history (cites real capability names, risk levels, file paths), not a generic to-do list",
+      "passed": true,
+      "evidence": "Cites the same 5 Fix Now items with risk framing and today's real security-remediation commits."
+    },
+    {
+      "text": "Ranks by leverage/risk with explicit reasoning, not just a flat list",
+      "passed": true,
+      "evidence": "'If I had to pick what to focus on: 1... 2... 3...' with a one-line reason per item — thinner than the with-skill run's explicit leverage framework, but still a reasoned ranking, not a bare list."
+    },
+    {
+      "text": "Names unresolved ownership/decision gaps explicitly (e.g. TBD-owned capabilities) rather than passing over them silently",
+      "passed": true,
+      "evidence": "'Two areas in the registry — Search and Scheduling — don't have an owner listed (shown as \"TBD\")... should get assigned to someone.'"
+    }
+  ],
+  "summary": {"passed": 3, "failed": 0, "total": 3, "pass_rate": 1.0},
+  "execution_metrics": {"total_tool_calls": 11},
+  "timing": {"executor_duration_seconds": 112.0},
+  "notes": [
+    "This eval doesn't strongly discriminate: a capable baseline independently found the same registry items, the same TBD-ownership gap, and produced a reasoned ranking without the charter's explicit leverage/escalation framework. The with-skill run's edge here is evidentiary hygiene (the stale-commit-hash correction, explicit routing/coordination-status framing) rather than finding something baseline missed entirely."
+  ]
+}

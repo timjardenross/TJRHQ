@@ -1,0 +1,10 @@
+{
+  "eval_id": 3,
+  "eval_name": "authority-module-dup-check",
+  "prompt": "Should we build a new officer-authority checking module, or is something already covering it?",
+  "assertions": [
+    "Finds and cites the real existing authority_validator.py/authority_enforcement.py module and its governing mission (MSN-0326) before recommending anything",
+    "Recommends against building a new module (composition-first), while naming what's actually still a disclosed gap on the existing one",
+    "Distinguishes the coordination-level 'don't build new' call from any deeper engineering/architecture follow-up, routing the latter to Chief Engineer rather than deciding it unilaterally"
+  ]
+}
