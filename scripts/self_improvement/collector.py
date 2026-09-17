@@ -108,7 +108,7 @@ class RepositoryState:
         """Check if working tree has uncommitted changes."""
         try:
             result = subprocess.run(
-                ["git", "-C", str(self.repo_root), "status", "--porcelain"],
+                ["git", "-C", str(self.repo_root), "--no-optional-locks", "status", "--porcelain"],
                 capture_output=True, text=True, timeout=5, check=False
             )
             return bool(result.stdout.strip()) if result.returncode == 0 else None
@@ -120,7 +120,7 @@ class RepositoryState:
         """Get list of uncommitted files."""
         try:
             result = subprocess.run(
-                ["git", "-C", str(self.repo_root), "status", "--porcelain"],
+                ["git", "-C", str(self.repo_root), "--no-optional-locks", "status", "--porcelain"],
                 capture_output=True, text=True, timeout=5, check=False
             )
             if result.returncode != 0:
