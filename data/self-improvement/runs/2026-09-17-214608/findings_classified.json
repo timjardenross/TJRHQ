@@ -1,0 +1,102 @@
+{
+  "findings": [
+    {
+      "category": "router_bypass",
+      "title": "Direct LLM API calls in emergency alerts bypass model router",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct invocations of call_gemini and call_mistral bypassing the central model router",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert_<URL>"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Refactor emergency alert generation to route requests through the centralized model router endpoint"
+      },
+      "expected_benefit": "Ensures centralized logging, quota management, fallback routing, and observability for emergency alerts",
+      "finding_id": "FND-001",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: router_bypass; Evidence strength: conclusive; Confidence: 0.95; Risk: medium; Automation: needs_signoff; Category reason: Router bypasses must be corrected by design review"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Model router call log missing",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "Configured call log path does not exist on disk (call_log_exists is false)",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure the model router service creates and persists request logs to the designated call_log.jsonl path"
+      },
+      "expected_benefit": "Restores visibility into routing decisions, token usage, latency metrics, and error rates",
+      "finding_id": "FND-002",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: conclusive; Confidence: 0.90; Risk: medium; Automation: needs_signoff; Category reason: Changes to running services require verification"
+    },
+    {
+      "category": "operational_failure",
+      "title": "Recent request failures detected in model router",
+      "evidence": [
+        {
+          "type": "service_status",
+          "observation": "Model router status reports 4 recent failed requests",
+          "location": "http://localhost:8891"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "high",
+      "proposed_action": {
+        "type": "monitor",
+        "description": "Investigate router failure logs and implement automatic circuit breaking or alert notifications"
+      },
+      "expected_benefit": "Reduces downstream request failures and identifies model backend unavailability",
+      "finding_id": "FND-003",
+      "evidence_strength": "strong",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "high",
+      "policy_decision_rationale": "Category: operational_failure; Evidence strength: strong; Confidence: 0.85; Risk: high; Automation: needs_signoff; Category reason: Operational failures need manual triage"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 logic and query stubs in platform runtime",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "TODO stubs for Phase 5 authorization checking, decision_to_memory integration, and quality_anomalies query",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/commands/research_<URL>"
+        },
+        {
+          "type": "code_reference",
+          "observation": "TODO stub for querying quality_anomalies table in quality forecasting",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/lib/quality_forecasting_<URL>"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement Supabase authorization checks and quality_anomalies table integration"
+      },
+      "expected_benefit": "Completes planned Phase 5 functionality and prevents silent data gaps in quality forecasting",
+      "finding_id": "FND-004",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: conclusive; Confidence: 0.90; Risk: low; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    }
+  ],
+  "errors": []
+}

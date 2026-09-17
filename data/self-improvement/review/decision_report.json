@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-09-17T21:17:47.252274+00:00",
+  "timestamp": "2026-09-17T21:48:06.311040+00:00",
   "model_confidence": 0.5,
   "model_confidence_rating": "low",
   "total_decisions": 0,
@@ -12,13 +12,15 @@
   "manual_review_needed": [
     "FND-001",
     "FND-002",
-    "FND-003"
+    "FND-003",
+    "FND-004"
   ],
-  "manual_review_count": 3,
+  "manual_review_count": 4,
   "finding_scores": {
     "FND-001": 0.5,
     "FND-002": 0.5,
-    "FND-003": 0.5
+    "FND-003": 0.5,
+    "FND-004": 0.5
   },
   "recommendations": [
     "Model confidence is 50% \u2014 recommend manual review before auto-fix",
