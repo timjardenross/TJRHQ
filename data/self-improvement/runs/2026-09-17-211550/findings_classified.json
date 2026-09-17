@@ -1,0 +1,79 @@
+{
+  "findings": [
+    {
+      "category": "observability_gap",
+      "title": "Model router call log file is missing despite recorded failures",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "call_log_exists is false and call_log_size_mb is null for path /opt/starship-endeavour/core/model-router/call_log.jsonl",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        },
+        {
+          "type": "service_status",
+          "observation": "Model router has 5 recent failures and recent_avg_ms is null with call logging disabled or uninitialised",
+          "location": "model_router_audit.router_status.recent_failed"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "high",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure model router creates and writes to call_log.jsonl upon request processing, and investigate the 5 recent failures"
+      },
+      "expected_benefit": "Restores visibility into LLM latency, routing failures, and debugging telemetry",
+      "finding_id": "FND-001",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "high",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: conclusive; Confidence: 0.95; Risk: high; Automation: needs_signoff; Category reason: Changes to running services require verification"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Stubbed authorization and memory integration in research command handlers",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "TODO markers indicate missing Phase 5 authorization checking via Supabase and missing memory integration",
+          "location": "platform-runtime/commands/research_<URL>"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Implement Supabase authorization checks and integrate research command execution with decision_to_memory"
+      },
+      "expected_benefit": "Enforces access control and ensures research findings are correctly committed to persistent memory",
+      "finding_id": "FND-002",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: conclusive; Confidence: 0.90; Risk: medium; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Quality anomaly forecasting stubbed with empty list",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "recent_anomalies defaults to hardcoded empty list with 'TODO: Query quality_anomalies table'",
+          "location": "platform-runtime/lib/quality_forecasting_<URL>"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Implement query against quality_anomalies table to supply real anomaly data to forecasting logic"
+      },
+      "expected_benefit": "Enables accurate quality anomaly forecasting rather than silently omitting anomaly metrics",
+      "finding_id": "FND-003",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: conclusive; Confidence: 0.95; Risk: medium; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    }
+  ],
+  "errors": []
+}
