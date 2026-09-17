@@ -9,6 +9,7 @@ runs tests to verify, and handles rollback on failure.
 import json
 import logging
 import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -514,17 +515,29 @@ class AutoRemediationExecutor:
             log.error(f"Git commit failed: {exc}")
             return None
 
-        try:
-            subprocess.run(
-                ["git", "-C", str(self.repo_root), "push", "origin", current_branch],
-                check=True, capture_output=True,
-            )
-            log.info(f"Pushed {sha[:8]} to origin/{current_branch}")
-        except subprocess.CalledProcessError as exc:
+        push_cmd = ["git", "-C", str(self.repo_root), "push", "origin", current_branch]
+        last_exc: subprocess.CalledProcessError | None = None
+        for attempt, delay in enumerate((0, 5, 15), start=1):
+            if delay:
+                time.sleep(delay)
+            try:
+                subprocess.run(push_cmd, check=True, capture_output=True)
+                log.info(f"Pushed {sha[:8]} to origin/{current_branch} (attempt {attempt})")
+                last_exc = None
+                break
+            except subprocess.CalledProcessError as exc:
+                last_exc = exc
+                log.warning(
+                    f"Git push attempt {attempt}/3 failed for {sha[:8]} on "
+                    f"{current_branch!r}: {exc}"
+                )
+
+        if last_exc is not None:
             log.error(
-                f"Git push failed after local commit {sha[:8]} on {current_branch!r}: "
-                f"{exc}. Commit exists LOCALLY ONLY and was NOT pushed to origin - "
-                f"this needs manual attention or it will dangle exactly like LL-146."
+                f"Git push failed after local commit {sha[:8]} on {current_branch!r} "
+                f"(3 attempts): {last_exc}. Commit exists LOCALLY ONLY and was NOT "
+                f"pushed to origin - this needs manual attention or it will dangle "
+                f"exactly like LL-146."
             )
 
         return sha
