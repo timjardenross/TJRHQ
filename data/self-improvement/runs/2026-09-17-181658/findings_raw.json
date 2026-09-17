@@ -1,0 +1,63 @@
+{
+  "findings": [
+    {
+      "category": "router_bypass",
+      "title": "Direct LLM API calls bypass model router in emergency alert handler",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct invocation of call_gemini and call_mistral using raw environment variables instead of dispatching to model router",
+          "location": "intelligence/emergency_alert_<URL>"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Refactor emergency alert intelligence calls to route through model router client"
+      },
+      "expected_benefit": "Centralized observability, rate limit enforcement, and automated fallback for emergency intelligence queries"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Model router call log file is missing despite active failures",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "Router status indicates 5 recent failed requests, but configured log_file at /opt/starship-endeavour/core/model-router/call_log.jsonl does not exist",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Verify model router logging configuration and ensure call_log.jsonl is created with appropriate directory permissions"
+      },
+      "expected_benefit": "Enables latency tracking, error diagnostics, and auditability for LLM routing decisions"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented query stubs in quality forecasting and research commands",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "recent_anomalies assigned to empty list with TODO to query quality_anomalies table",
+          "location": "platform-runtime/lib/quality_forecasting_<URL>"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Unimplemented Phase 5 authorization checking and memory integration TODOs",
+          "location": "platform-runtime/commands/research_<URL>"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement quality_anomalies table query and Phase 5 authorization and memory integration logic"
+      },
+      "expected_benefit": "Accurate anomaly detection in quality forecasting and secure research command workflows"
+    }
+  ]
+}
