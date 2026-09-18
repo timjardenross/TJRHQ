@@ -26,6 +26,14 @@ models:
       # Ollama's OpenAI-compat endpoint doesn't check this, but the
       # underlying OpenAI-compatible client requires a non-empty string.
       api_key: "ollama-local-no-key-required"  # pragma: allowlist secret
+      # System-wide OLLAMA_KEEP_ALIVE=0 (see ollama.service.d/keep-alive-
+      # zero.conf) unloads every model right after each request, so back-
+      # to-back check_input/check_output calls each cold-load gemma3:4b
+      # (~50s+, confirmed 2026-09-18) and blow LLM_GUARDRAILS_TIMEOUT_S.
+      # This extra field passes straight through nemoguardrails' OpenAI-
+      # compat client into the request body, and Ollama's /v1 endpoint
+      # does honor it (verified live: model stays loaded across calls).
+      keep_alive: "5m"
 
 rails:
   input:
