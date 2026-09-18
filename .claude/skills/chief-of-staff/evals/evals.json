@@ -1,0 +1,38 @@
+{
+  "skill_name": "chief-of-staff",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "What should I be focused on right now across TJRHQ?",
+      "expected_output": "A leverage-ranked priority stack grounded in the actual current platform registry and recent commit/mission history, not a generic productivity list. Should name unresolved ownership/decision gaps explicitly rather than passing over them.",
+      "assertions": [
+        "Grounds the priority ranking in the actual current SUOC Platform Registry Fix Now items and real commit/mission history (cites real capability names, risk levels, file paths), not a generic to-do list",
+        "Ranks by leverage/risk with explicit reasoning, not just a flat list",
+        "Names unresolved ownership/decision gaps explicitly (e.g. TBD-owned capabilities) rather than passing over them silently"
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Give me a weekly review of missions and risks.",
+      "expected_output": "One actionable rollup of real mission and risk state, with an honest caveat about what the available evidence (e.g. commit timestamps) can and can't establish, and named decisions/owners rather than a status wall.",
+      "assertions": [
+        "Rolls up real mission and risk state from the repo (cites actual mission IDs / registry Fix-Now items), not invented status",
+        "Flags a grounding/staleness caveat honestly (e.g. what the commit timestamps can and can't establish about a 'weekly' window) rather than presenting everything with uniform confidence",
+        "Produces one actionable pass with named decisions/owners, not just a status wall"
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Should we build a new officer-authority checking module, or is something already covering it?",
+      "expected_output": "Investigates the actual repo, finds the existing authority-checking module and its governing mission before recommending anything, recommends against building a new one, and routes any deeper engineering/architecture follow-up to Chief Engineer rather than deciding it unilaterally.",
+      "assertions": [
+        "Finds and cites the real existing authority_validator.py/authority_enforcement.py module and its governing mission (MSN-0326) before recommending anything",
+        "Recommends against building a new module (composition-first), while naming what's actually still a disclosed gap on the existing one",
+        "Distinguishes the coordination-level 'don't build new' call from any deeper engineering/architecture follow-up, routing the latter to Chief Engineer rather than deciding it unilaterally"
+      ],
+      "files": []
+    }
+  ]
+}

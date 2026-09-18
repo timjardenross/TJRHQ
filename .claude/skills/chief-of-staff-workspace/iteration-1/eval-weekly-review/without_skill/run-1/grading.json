@@ -1,0 +1,25 @@
+{
+  "expectations": [
+    {
+      "text": "Rolls up real mission and risk state from the repo (cites actual mission IDs / registry Fix-Now items), not invented status",
+      "passed": true,
+      "evidence": "Cites the same mission range (MSN-0388 down to MSN-0371) and the same 5 registry risk items."
+    },
+    {
+      "text": "Flags a grounding/staleness caveat honestly (e.g. what the commit timestamps can and can't establish about a 'weekly' window) rather than presenting everything with uniform confidence",
+      "passed": true,
+      "evidence": "'the git log shows 62 total commits, all dated 2026-09-15, so I can't actually reconstruct \"the last 7 days\" from commit timestamps... likely a rewritten or squashed history.'"
+    },
+    {
+      "text": "Produces one actionable pass with named decisions/owners, not just a status wall",
+      "passed": false,
+      "evidence": "Ends in a 'Bottom line' summary judgment ('the unassigned ownership on Search/Scheduling is worth a decision sooner rather than later') that observes the gap but never names who it should go to or what the next concrete step is — no equivalent of a routed Decisions Needed / Next Actions split with owners attached."
+    }
+  ],
+  "summary": {"passed": 2, "failed": 1, "total": 3, "pass_rate": 0.67},
+  "execution_metrics": {"total_tool_calls": 14},
+  "timing": {"executor_duration_seconds": 131.0},
+  "notes": [
+    "Substance and grounding are comparably thorough to the with-skill run here (weekly review is close to baseline's home turf) and it independently reached the same staleness caveat unprompted. The gap is specifically the lack of an explicit decision/ownership-routing structure, consistent with the original grading.md's Q2 finding that with-skill's evaluative/ownership framing was the differentiator, not raw information-gathering."
+  ]
+}

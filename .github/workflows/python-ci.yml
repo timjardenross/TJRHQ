@@ -525,7 +525,17 @@ jobs:
       - name: detect-secrets (secrets scan — blocking)
         run: |
           pip install "detect-secrets==1.5.0"
-          detect-secrets scan --baseline .secrets.baseline
+          # data/self-improvement/runs/*/evidence.json (451 auto-generated
+          # files, 494MB as of 2026-09-15) is excluded from the
+          # pre-commit-hook path in .pre-commit-config.yaml already, but
+          # that hook-level `exclude:` only applies when pre-commit itself
+          # invokes detect-secrets -- this raw CLI scan is a separate
+          # invocation and needs its own --exclude-files. Without it, every
+          # high-entropy string in those never-baselined files reads as a
+          # brand-new finding to tools/check_new_secrets.py below. Same
+          # pattern as the pre-commit hook's exclude, and as
+          # .gitleaks.toml's allowlist entry for the same path.
+          detect-secrets scan --baseline .secrets.baseline --exclude-files 'data/self-improvement/runs/.*/evidence\.json'
           python3 tools/check_new_secrets.py
 
       # Bandit: blocking (USS-TJR-MSN-0369). Was informational pending this
