@@ -495,6 +495,12 @@ def api_evolution_summary():
         "outcomes_completed_count": outcomes_completed_count,
         "regressions_count": regressions_count,
         "latest_material_learning": cycle_summary.get("latest_material_learning"),
+        # calibration.py's read-out — see evolution_orchestrator.py's own
+        # comment on why it's computed fresh every cycle. This handler
+        # picks named fields rather than passing cycle_summary through raw
+        # (see every other field above), so a new evolution_orchestrator.py
+        # summary key needs adding here explicitly or it's silently dropped.
+        "calibration": cycle_summary.get("calibration"),
         "cycle_status": cycle_summary.get("cycle_status", "unknown" if not cycle_summary else "ok"),
         "freshness": cycle_summary.get("freshness", cycle_summary.get("timestamp")),
     })
