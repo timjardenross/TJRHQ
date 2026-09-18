@@ -1,5 +1,9 @@
 python-telegram-bot==20.7
-apscheduler==3.11.3
+# apscheduler was removed here (Chief Engineer review 2026-08-09, Finding 5 /
+# Recommendation 5): confirmed unused — no import of apscheduler,
+# AsyncIOScheduler, or BackgroundScheduler anywhere in telegram-bots/xo/.
+# Proactive scheduled pushes are owned by the separate
+# intelligence-scheduler.service, not this process (see DEPLOYMENT.md).
 # USS-TJR-MSN-0370: bumped 2.3.4 -> 2.7.4, NOT the full Dependabot PR #157
 # target (2.31.0) — see scoped_supabase.py's module docstring and
 # knowledge/missions/USS-TJR-MSN-0370-supabase-investigation-knowledge-record.md.

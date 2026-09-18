@@ -501,9 +501,10 @@ async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"capacity\\_checkins\\_today: {checkins} check\\-ins \\({_escape(str(label))}\\)",
             parse_mode="MarkdownV2",
         )
-    except Exception as exc:  # noqa: BLE001 - diagnostic /db_status probe surface is unpredictable by design, reported back to the caller
+    except Exception as exc:  # noqa: BLE001 - diagnostic /db_status probe surface is unpredictable by design
+        log.error("[db_status] query failed: %s", exc)
         await update.message.reply_text(
-            f"⚠️ *Supabase: connected but query failed*\n\n`{_escape(str(exc))}`",
+            "⚠️ *Supabase: connected but query failed* — see journalctl for details\\.",
             parse_mode="MarkdownV2",
         )
 
@@ -513,6 +514,12 @@ async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 # XO is the only Telegram bot (Captain decision 2026-07-05); tg-engineer /
 # tg-engineering-dept are retired. The "telegram" group is therefore empty here —
 # XO self-restarts tg-xo.service separately below (restart_xo).
+#
+# starfleet-slack-bot.service is currently inactive/disabled (confirmed live,
+# Chief Engineer review 2026-08-09, Finding 3) — restarting it is harmless
+# (systemd starts a disabled unit once, it doesn't re-enable it), but it is
+# NOT a live service right now; don't read "slack"/"all" restarting it as a
+# signal that Slack bot traffic is currently being served.
 _RESTARTABLE_SERVICES = {
     "slack":    ["starfleet-slack-bot.service"],
     "telegram": [],
@@ -545,8 +552,9 @@ async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             )
             icon = "✅" if r.returncode == 0 else f"⚠️ rc={r.returncode}"
             lines.append(f"{icon} {svc.replace('.service', '')}")
-        except Exception as exc:  # noqa: BLE001 - systemctl subprocess call surface is unpredictable, reported back to the caller
-            lines.append(f"❌ {svc.replace('.service', '')}: {_escape(str(exc))}")
+        except Exception as exc:  # noqa: BLE001 - systemctl subprocess call surface is unpredictable
+            log.error("[restart_bots] %s restart failed: %s", svc, exc)
+            lines.append(f"❌ {svc.replace('.service', '')}: see journalctl for details")
 
     restart_xo = arg in ("telegram", "all")
     suffix = "\n\n_XO rebooting in 3s\\.\\.\\._" if restart_xo else ""
@@ -808,7 +816,7 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as exc:  # noqa: BLE001 - brief-fetch call surface is unpredictable, already logged
         log.error("[brief] OR brief fetch failed: %s", exc)
-        await update.message.reply_text(f"⚠️ Brief fetch failed: {str(exc)[:120]}")
+        await update.message.reply_text("⚠️ Brief fetch failed — see journalctl for details.")
 
 
 # ── Intelligence query commands (MSN-0201) ───────────────────────────────────
@@ -871,7 +879,7 @@ async def cmd_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     except Exception as exc:  # noqa: BLE001 - Supabase query + formatting surface is unpredictable, already logged
         log.error("[signals] failed: %s", exc)
         await update.message.reply_text(
-            f"⚠️ Signals query failed: `{_escape_strict(str(exc)[:80])}`",
+            "⚠️ Signals query failed — see journalctl for details\\.",
             parse_mode="MarkdownV2",
         )
 
@@ -1006,7 +1014,7 @@ async def cmd_themes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     except Exception as exc:  # noqa: BLE001 - Supabase query + formatting surface is unpredictable, already logged
         log.error("[themes] failed: %s", exc)
         await update.message.reply_text(
-            f"⚠️ Themes query failed: `{_escape_strict(str(exc)[:80])}`",
+            "⚠️ Themes query failed — see journalctl for details\\.",
             parse_mode="MarkdownV2",
         )
 
@@ -1082,7 +1090,7 @@ async def cmd_source_status(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     except Exception as exc:  # noqa: BLE001 - Supabase query + formatting surface is unpredictable, already logged
         log.error("[source-status] failed: %s", exc)
         await update.message.reply_text(
-            f"⚠️ Source status query failed: `{_escape_strict(str(exc)[:80])}`",
+            "⚠️ Source status query failed — see journalctl for details\\.",
             parse_mode="MarkdownV2",
         )
 
@@ -1121,7 +1129,7 @@ async def _run_advisory(update: Update, title: str, cli_args: list[str],
         return
     except Exception as exc:  # noqa: BLE001 - advisory CLI subprocess surface is unpredictable, already logged
         log.error("[advisory] %s failed: %s", title, exc)
-        await update.message.reply_text(f"⚠️ Advisory failed: {str(exc)[:120]}")
+        await update.message.reply_text("⚠️ Advisory failed — see journalctl for details.")
         return
     # Plain text, no parse_mode: response is now GFM markdown (# headers, **bold**),
     # not HTML — HTML parse_mode would show the raw ** / # characters literally,
@@ -1609,7 +1617,7 @@ async def handle_voice_capture_callback(update: Update, context: ContextTypes.DE
 
     except Exception as exc:  # noqa: BLE001 - voice-capture callback action dispatch surface is unpredictable, already logged
         log.error("[voice-cb] %s failed: %s", action, exc)
-        await query.edit_message_text(f"⚠️ Action failed: {_escape(str(exc))}", parse_mode="MarkdownV2")
+        await query.edit_message_text("⚠️ Action failed — see journalctl for details\\.", parse_mode="MarkdownV2")
 
 
 async def handle_voice_debrief_decision_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1970,7 +1978,7 @@ async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         log.info("[note] captured %d chars", len(content))
     except Exception as exc:  # noqa: BLE001 - Supabase insert surface is unpredictable, already logged
         log.error("[note] failed: %s", exc)
-        await update.message.reply_text(f"⚠️ Capture failed: {str(exc)[:120]}")
+        await update.message.reply_text("⚠️ Capture failed — see journalctl for details.")
 
 
 async def cmd_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2031,7 +2039,7 @@ async def _run_revs_generate(reply_fn, brief_path: str, formats: str | None) -> 
         return
     except Exception as exc:  # noqa: BLE001 - REVS content-generation subprocess surface is unpredictable, already logged
         log.error("[revs] generate failed: %s", exc)
-        await reply_fn(f"⚠️ REVS generation failed: {str(exc)[:200]}")
+        await reply_fn("⚠️ REVS generation failed — see journalctl for details.")
         return
 
     if returncode != 0:
