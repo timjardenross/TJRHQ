@@ -11,35 +11,35 @@
 #  - numpy/mypy bumped: pinned versions predate Python 3.12 support.
 
 # Core
-python-dotenv==1.0.0
+python-dotenv==1.2.3
 
 # LLM (Local Model Router client)
-pydantic==2.13.4
-requests==2.31.0
+pydantic==2.13.5
+requests==2.34.2
 
 # Image + speech generation (Gemini API - see gemini-imagegen skill)
-google-genai==2.17.0
+google-genai==2.23.0
 tenacity==9.1.4
 
 # Text Processing
 pypandoc==1.17
-Weasyprint==69.0
+Weasyprint==70.0
 PyPDF2==3.0.1
 
 # Image & Graphics
 Pillow==12.3.0
-numpy==2.4.6
+numpy==2.5.3
 
 # Presentations
 python-pptx==1.0.2
 
 # Development
 pytest==9.1.1
-pytest-cov==4.1.0
-black==24.4.2
-pylint==2.17.0
+pytest-cov==7.1.0
+black==26.5.1
+pylint==4.0.8
 mypy==2.3.1
 flake8==7.3.0
 
 # Utilities
-pyyaml==6.0.2
+pyyaml==6.0.3
