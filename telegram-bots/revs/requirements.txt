@@ -14,8 +14,8 @@ apscheduler==3.11.3
 supabase==2.31.0
 python-dotenv==1.2.3
 httpx<0.29
-pyjwt>=2.13.0
-# realtime 2.31.0 requires websockets<16,>=11; unpinned pip resolves 17.x
+pyjwt>=2.14.0
+# realtime 2.31.0 requires websockets>=17.1,<18; unpinned pip resolves 17.x
 # (breaks: `from websockets.asyncio.client import ClientConnection`, moved
 # in websockets 16). Pin explicitly so `pip install -r` stays reproducible.
-websockets<16,>=11
+websockets>=17.1,<18
