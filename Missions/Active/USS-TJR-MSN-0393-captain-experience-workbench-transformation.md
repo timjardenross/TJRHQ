@@ -341,6 +341,26 @@ before converting":**
   live links" with genuinely dead pages) would have been exactly the kind of rushed,
   unverified deletion this whole sweep has been careful to avoid.
 
+## 3.6 Phase 5 continued — `intelligence` retired, `commander_events` plan corrected
+
+Two more items resolved in the same session, kept separate from §3.5 above only because they
+landed after that section was written, not because they're a new phase in spirit:
+
+- **`intelligence` (693 lines) — converted.** The largest page in the sweep, and the one
+  hypothesised-but-not-yet-verified in §3.5. Traced all 6 tabs through `/api/intelligence`'s
+  actual Supabase table queries rather than guessing from tab names: 3 tabs map to Briefs, 2
+  to Technical OSINT Workbench, 1 to Content Workbench — all 3 confirmed live and currently
+  reading the same tables. Multi-link stub, same pattern as `medical`. See §5 item 11 for the
+  full trace.
+- **`operations`'s Commander Events panel — the §3.5 plan was wrong, corrected rather than
+  carried forward.** Inspecting the actual `commander_events` payload (not just the table
+  name) showed it's build/handoff-lifecycle data from an older Slack-based flow
+  (`source: "slack-build"`), and Engineering Handoffs already gets its data from a separate,
+  purpose-built pipeline (`core/coordination/engineering_handoff_reader.py`) — so the "port a
+  view into HQ Evolution" recommendation in §3.5 was likely solving a problem that doesn't
+  exist. Not resolved either way within this pass; see §5 item 13 for the corrected, honest
+  state of this question rather than a wrong plan left standing.
+
 ## 4. Core end-to-end test (§40) — status
 
 The backend path this test exercises (remember → what am I forgetting → help me start →
@@ -429,22 +449,31 @@ where the next pass should start:
 10. **Full adversarial UX pass** (§45) — the items in §1.2–1.6 above were found through a
     bounded discovery pass, not an exhaustive adversarial review of every surface; more
     almost certainly exists.
-11. **Legacy `(app)`-group page retirement — 2 of 8 done (`medical`, `captains-log`,
-    `automation-centre` = 3 actually converted across Phases 4-5), 5 remain, all fully or
-    partially scoped, none guessed at.** See §3.4/§3.5 for the full evidence trail per page:
-    - `operations` (371 lines) — fully traced. Recent Decisions/Captured Items/Friction
-      Sources all superseded elsewhere; Commander Events needs a small "recent learning
-      events" port into HQ Evolution first (real live data, `commander_events` via
-      `build_learning_loop.py`, currently zero Captain-facing UI anywhere) — port that, then
-      convert this page with the standard stub pattern.
+11. **Legacy `(app)`-group page retirement — 4 of 8 converted (`medical`, `captains-log`,
+    `automation-centre`, `intelligence`), 4 remain, all fully or partially scoped, none
+    guessed at.** See §3.4/§3.5/§3.6 for the full evidence trail per page:
+    - `intelligence` (693 lines, the largest page in the sweep) — **converted in Phase 5**.
+      All 6 tabs traced through `/api/intelligence`'s actual table queries (not tab names
+      alone): Latest Brief/Daily Briefs/ORI Archive → `intelligence_briefs`/
+      `captains_daily_briefs` → Briefs; Signals/Themes → `intelligence_events`/
+      `intelligence_source_registry`/`_health` → Technical OSINT Workbench (its own header
+      comment confirms it's the direct re-anchoring of this exact tab pair); Content →
+      `content_signals`/`comms_content` → Content Workbench (owns the same two tables per its
+      own header comment). All 3 successors confirmed live; multi-link stub, same pattern as
+      `medical`.
+    - `operations` (371 lines) — 3 of 4 views traced and superseded (Recent
+      Decisions/Captured Items/Friction Sources). Commander Events is the one still open —
+      **see item 13 below for a correction**: the original "port a view into HQ Evolution"
+      plan turned out to be based on an incomplete read of what `commander_events` actually
+      holds; needs the investigation in item 13 resolved first, not that port.
     - `engineering` (337 lines) — partially traced. `build_request_inbox` confirmed
       superseded (Captain's Chair's Engineering Queue). `agent_performance`/`batch_jobs` not
-      yet confirmed live-or-dead — neither is read in `agent-status-workbench`; needs the
-      same backend-write-path trace `commander_events` got.
-    - `intelligence` (693 lines) — not yet traced at all (largest page, lowest priority given
-      `intelligence-workbench` + `briefs` both look like plausible successors by name/tab
-      overlap — Latest Brief/Signals/Themes/Archive/Daily Briefs — but that's a hypothesis,
-      not yet verified the way every other item on this list was).
+      yet confirmed live-or-dead — neither is read in `agent-status-workbench`, and a
+      migration 0183 comment ("research_input_archived_2026 -> batch_jobs (live, untouched)")
+      is a real signal `batch_jobs` is still live via *some* writer not found by a plain
+      Python grep, contradicting the naive "zero string-literal matches = dead" read — needs
+      the same careful backend-write-path trace `commander_events` got, done properly this
+      time, not a quick grep.
     - `operating-model` (249 lines) — **deliberately not converted, different reason than the
       others.** Static doctrine/principles content with no duplicate anywhere else in the
       app and no internal sign of staleness — retiring it risks silently deleting real
@@ -462,11 +491,23 @@ where the next pass should start:
     `human-systems-workbench` (closing the last redirect hop in the `medical` cluster) or
     make a deliberate call that the redirect stays permanently; currently just preserved,
     not resolved either way.
-13. **HQ Evolution "recent learning events" port** (found in §3.5, needed by item 11's
-    `operations` conversion) — a small read-only view over `commander_events` (filtered to
-    the `build_learning_loop.py` event shape) inside `self-improvement-findings`. Scoped, not
-    built — needs the actual `commander_events` payload shape inspected first (not done this
-    pass) before designing the view.
+13. **`operations`'s "Commander Events" panel — correction to the §3.5 finding, now scoped
+    differently.** Inspected the actual `commander_events` payload `build_learning_loop.py`
+    writes: it's build/handoff-lifecycle data (`decision_id`, `outcome_id`, `mission_title`,
+    `status`, `batch_status`, `handoff_path`, `source: "slack-build"`), not "learning loop"
+    content in the HQ Evolution sense — the "port into HQ Evolution" idea in §3.5 was based on
+    the table name alone, before reading what it actually holds. More importantly:
+    Engineering Handoffs (`engineering-handoffs`, confirmed live) already gets its handoff
+    data from a separate, purpose-built pipeline
+    (`core/coordination/engineering_handoff_reader.py`, not `commander_events`) — so this
+    `commander_events` write looks like a vestigial side-effect of an older Slack-based build
+    flow (`source: "slack-build"`) that predates the current pipeline, not a genuine gap
+    needing a new UI at all. Not confirmed either way within this pass (would need to trace
+    whether anything still reads what `engineering_handoff_reader.py` itself consumes, and
+    whether that trace connects back to `build_learning_loop.py`'s writes) — flagged as
+    "investigate before building anything," reversing the earlier "port a view" conclusion
+    rather than carrying a wrong plan forward. `operations`'s Commander Events panel stays
+    unconverted until this is actually resolved.
 
 ## 6. Recommended next steps
 
