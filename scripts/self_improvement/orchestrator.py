@@ -191,10 +191,25 @@ class SelfImprovementOrchestrator:
         # dirty unrelated in-progress edit sitting elsewhere in the tree at
         # cycle time never gets swept into this commit (confirmed
         # 2026-09-10: it had been).
-        artifacts_path = str(self.data_root.relative_to(self.repo_root))
-        commit_sha = self.executor.git_commit(
-            f"self-improvement: cycle {run_id} artifacts",
-            paths=[artifacts_path],
+        try:
+            artifacts_path = str(self.data_root.relative_to(self.repo_root))
+        except ValueError:
+            # data_root isn't under repo_root — a legitimate configuration
+            # (e.g. tests deliberately point it at a scratch tmpdir so a
+            # cycle run never touches the real data/self-improvement/ tree).
+            # git_commit's paths= is meant to scope `git add` to this
+            # cycle's own artifacts within the repo working tree; when
+            # there's no such relative path, there's nothing in the repo
+            # for this cycle to commit.
+            artifacts_path = None
+
+        commit_sha = (
+            self.executor.git_commit(
+                f"self-improvement: cycle {run_id} artifacts",
+                paths=[artifacts_path],
+            )
+            if artifacts_path is not None
+            else None
         )
         summary["artifacts_commit_sha"] = commit_sha
         if commit_sha is None:
