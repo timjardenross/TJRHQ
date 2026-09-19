@@ -74,7 +74,10 @@ class CaptainBriefItem:
     domain: str
     event_type: str
     category: AttentionCategory
-    reason: str
+    # Renamed from `reason` (consolidation mission follow-up) — see
+    # AttentionDecision._routing_reason's comment for why. Carried straight
+    # from AttentionDecision._routing_reason; still never Captain-facing.
+    _routing_reason: str
     priority_score: float | None = None
     priority_explanation: str | None = None
     risk_score: float | None = None
@@ -166,7 +169,7 @@ def assemble_captain_brief(
             domain=decision.domain,
             event_type=decision.event_type,
             category=decision.category,
-            reason=decision.reason,
+            _routing_reason=decision._routing_reason,
             priority_score=score.total_score if score else None,
             priority_explanation=score.explanation if score else None,
             risk_score=score.risk_score if score else None,

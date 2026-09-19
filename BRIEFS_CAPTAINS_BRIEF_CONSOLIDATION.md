@@ -991,3 +991,98 @@ serving the genuine, current `main` tip with nothing lost from either
 branch. Worth a platform-level fix outside this mission's scope: something
 in this deploy pipeline let a feature-branch redeploy silently steal the
 production alias with no apparent guard rail.
+
+---
+
+## 14. Post-mission follow-up: the three deliberately-deferred items (this pass)
+
+§9's remaining follow-up list carried three items forward after Phase 5:
+the joint-documentation half of the Convergence Review, the `.reason`
+naming-collision guardrail §12 flagged but didn't fix, and the Domains
+detail page §13 deliberately didn't build. All three are now done, worked
+directly in this session per the user's standing "work from this session"
+instruction (spawning parallel sessions is what caused earlier coordination
+problems — see this doc's own history). One item flagged during the
+GREEN-posture-blind-spot discussion earlier in this doc turned out to
+already be resolved by PR #284 on re-verification against current code —
+corrected before starting new work, not left to be "fixed" a second time.
+
+**Joint-documentation Convergence Review — done.** [ADR-033](core/governance/architecture-decision-records/ADR-033-captain-brief-convergence-review.md)
+documents `captain_brief_orchestrator.py` (System A), `captain_brief_evolution.py`
+(System B), and `intelligence/captains_brief.py` (System C) as a
+deliberate three-layer architecture, not unreconciled duplication — System
+B exists specifically to keep System A's "no I/O" contract intact for its
+real 10-minute-cadence scheduled caller while adding graceful Model-Router
+degradation; System C already calls System A's own
+`assemble_captain_brief_document()` directly for its platform-events
+section rather than reimplementing it. The ADR names two real,
+disclosed-but-unfixed follow-ups (a guardrail-coverage gap on System C's
+LLM fallback tier, and a pre-existing double-`evaluate_batch()`-call
+inefficiency between A and B) rather than rubber-stamping the status quo.
+`knowledge/SUOC-Platform-Registry.md`'s "Continuous Captain Brief
+Orchestration" record closes the named MSN-0342/0343 action, citing
+ADR-033.
+
+**`.reason` naming-collision guardrail — done, and it found two live bugs.**
+`AttentionDecision.reason`/`CaptainBriefItem.reason` renamed to
+`_routing_reason` across `attention_engine.py`, `captain_brief_contract.py`,
+`interrupt_dispatcher.py`, `attention_drill.py`, and `domains_view.py` —
+the leading underscore makes the field read as internal-only at every call
+site, per §12's own suggested fix. While tracing every real touch point
+(not just the ones already known), this surfaced two genuine,
+previously-unknown instances of the exact signal-leakage pattern this
+mission has fixed repeatedly elsewhere, in modules the earlier sweeps
+(§7, §12) never checked:
+
+- `core/platform/approval_router.py::send_approval_notification()` was
+  appending the raw Attention Engine scoring formula
+  (`"Attention: importance=X >= Y AND confidence=Z >= W"`) to every
+  Telegram mission-approval push — same bug class as PR #275, in a module
+  neither §7 nor §12 covered. Fixed by dropping the line: the transition
+  text already in the body carries the real information, and urgency is
+  already conveyed by the title/severity styling, so there was nothing
+  genuine to fall back to.
+- `lcars-portal/src/lib/commsStudio.ts` (Executive Communications Studio —
+  live, `/api/comms-studio`) was rendering the same raw trace into every
+  Executive Brief document's "Priorities"/"Warnings" sections. This
+  module's own header explicitly commits to "no fabrication... every
+  sentence traces to a countable fact," which this bug directly violated.
+  Its local `CaptainBriefItem` type predated PR #275 and had no
+  `description` field to fall back to at all. Fixed: added `description`,
+  added a `readableText()` helper mirroring `domains_view.py`'s own
+  `_readable_text()` convention (recommendation → description → omit,
+  never the routing trace), and filtered both sections through it.
+
+Both fixes have regression tests (`tests/test_approval_router.py`,
+`lcars-portal/src/lib/__tests__/commsStudio.test.ts`, new). All 103+109
+touched backend tests and 12 touched frontend tests pass; `ruff`, `tsc
+--noEmit`, and `eslint` all clean on every touched file.
+
+**Found but not fixed — blocked by sandbox policy, needs a human action.**
+Tracing every live consumer surfaced that Phase 5's `captains-brief-workbench/page.tsx`
+rewrite (§13) never deleted the `_components/` directory it stopped
+importing (`BriefView.tsx`, `DomainsView.tsx`, `ItemRow.tsx`,
+`KpiDashboard.tsx`, `cards.tsx`, `types.ts`, `__tests__/ItemRow.test.tsx`)
+— confirmed via `git show --stat` on the Phase 5 commit and a repo-wide
+import search that nothing references that path anymore. This is genuinely
+dead code, not a design choice, but the deletion itself was refused by this
+environment's destructive-action sandbox policy (`git rm -r` on a tracked
+directory). Left in place, unrenamed and untouched, rather than worked
+around; someone with the right permission should delete
+`lcars-portal/src/app/captains-brief-workbench/_components/` in a follow-up.
+
+**Domains per-domain detail page — done.** A new route,
+`lcars-portal/src/app/briefs/domains/[key]/page.tsx`, restores a stable,
+bookmarkable per-domain URL — reusing the same `/api/briefs/domains`
+endpoint and the same `DomainCard` component the Domains tab itself
+renders (now exported from `DomainsView.tsx`), so this adds no new backend
+capability or data shape, just a dedicated destination for one domain's
+already-computed picture. `_event_bus_domain_summary()`'s `detail_href`
+now points at `/briefs/domains/{key}` instead of the flat `/briefs` link
+Phase 5 used as its interim simplification. OSINT domains' `detail_href`
+(`/briefs/{brief_id}`) is unchanged — that was never the gap this item
+named. `interrupt_dispatcher.py`'s Telegram deep-link (`/briefs`, event-id
+precision already accepted as lost per §13) was deliberately left as-is —
+restoring that would need threading `item.domain` through a private
+`_section_for_domain()` cross-module import, a real scope-add beyond what
+this item asked for, not a rename-safety fix like the two above.
