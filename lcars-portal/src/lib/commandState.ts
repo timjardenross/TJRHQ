@@ -126,6 +126,12 @@ export interface NumberOneAttentionItem {
   source: string;
   ref: string | null;
   generated_at: string;
+  /** Mission 2 (Capacity & Attention Engine) — set only when capacity
+   * actually changed this item's category (e.g. "DEFERRED — Red capacity:
+   * P0 only today"). null/absent means capacity made no difference to
+   * this item. Structured reason, not a re-derived explanation (mission
+   * §22: prefer concise reason codes over verbose AI text). */
+  capacity_adjusted_reason?: string | null;
 }
 
 export interface NeedsYouBuildInputs {
@@ -246,7 +252,7 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
       id: `number-one-${item.id}`,
       kind: item.category === 'decision_required' ? 'blocker' : 'time_critical',
       title: item.title,
-      detail: item.reason || 'Number One flagged this for your attention.',
+      detail: item.capacity_adjusted_reason || item.reason || 'Number One flagged this for your attention.',
       href: item.ref ? `/mission-workbench?mission=${encodeURIComponent(item.ref)}` : '/mission-workbench',
       actionLabel: 'Review',
     });

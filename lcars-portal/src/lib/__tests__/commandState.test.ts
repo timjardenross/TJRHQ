@@ -677,3 +677,30 @@ describe('buildNeedsYouItems — Number One attention_items (Mission 1 Round 2)'
     expect(sorted.map((i) => i.title)).toEqual(['The needs-now one', 'The decision one']);
   });
 });
+
+// ── Mission 2 (Capacity & Attention Engine): capacity_adjusted_reason ───────
+describe('buildNeedsYouItems — capacity_adjusted_reason (Mission 2)', () => {
+  it('prefers capacity_adjusted_reason over reason when both are present', () => {
+    const items = buildNeedsYouItems(baseNeedsYouInputs({
+      numberOneAttentionItems: [numberOneItem({
+        reason: 'Because it is a test',
+        capacity_adjusted_reason: 'DEFERRED — Red capacity: P0 only today',
+      })],
+    }));
+    expect(items[0].detail).toBe('DEFERRED — Red capacity: P0 only today');
+  });
+
+  it('falls back to reason when capacity_adjusted_reason is null (capacity made no difference)', () => {
+    const items = buildNeedsYouItems(baseNeedsYouInputs({
+      numberOneAttentionItems: [numberOneItem({ reason: 'Because it is a test', capacity_adjusted_reason: null })],
+    }));
+    expect(items[0].detail).toBe('Because it is a test');
+  });
+
+  it('falls back to reason when capacity_adjusted_reason is absent entirely (older brief shape)', () => {
+    const items = buildNeedsYouItems(baseNeedsYouInputs({
+      numberOneAttentionItems: [numberOneItem({ reason: 'Because it is a test' })],
+    }));
+    expect(items[0].detail).toBe('Because it is a test');
+  });
+});

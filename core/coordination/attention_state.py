@@ -102,6 +102,13 @@ class AttentionItem:
     ref: str | None  # mission_id or equivalent, for the presentation layer's href
     generated_at: str  # ISO timestamp, from the brief this was derived from —
     # never re-stamped "now" here, so staleness is traceable to its origin.
+    # Mission 2 (USS-TJR-MSN-2): set only when capacity_status actually
+    # produced a note for this item (mirrors NumberOne.get_health_adjusted_
+    # queue()'s existing capacity_note text verbatim -- not a new rule).
+    # None means capacity either wasn't supplied or didn't affect this item
+    # (Green/Unknown/no-checkin all leave every item's note empty, same as
+    # that function's own per-item behaviour).
+    capacity_adjusted_reason: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -109,11 +116,55 @@ class AttentionItem:
         return d
 
 
-def attention_items_from_brief(brief: CoordinationBrief) -> list[AttentionItem]:
+# Mission 2 (USS-TJR-MSN-2): mirrors NumberOne.get_health_adjusted_queue()'s
+# existing per-item capacity_note rules verbatim (core/coordination/
+# number_one.py) so this module doesn't invent a second capacity policy.
+# That function only overlays get_work_queue()'s output (WorkQueueItem,
+# which carries a real mission `priority`) -- it never touches escalations
+# or follow_ups, so neither does this: those sections have no mission-
+# priority field to gate on, and capacity is deliberately NOT applied to
+# them here, matching the one place this behaviour already exists in
+# production.
+def _capacity_note_and_category(
+    category: AttentionCategory, mission_priority: Priority, capacity_status: str | None,
+) -> tuple[AttentionCategory, str | None]:
+    if capacity_status == "Red":
+        if mission_priority == Priority.P0:
+            return category, "CRITICAL — proceed regardless of capacity"
+        # Blocked items stay BLOCKED (already off the Needs You path) --
+        # only non-blocked items get demoted, matching get_health_adjusted_
+        # queue()'s uniform "P0 only today" note without inventing a
+        # steeper reclassification it doesn't itself apply.
+        demoted = AttentionCategory.CAN_WAIT if category != AttentionCategory.BLOCKED else category
+        return demoted, "DEFERRED — Red capacity: P0 only today"
+    if capacity_status == "Amber":
+        if mission_priority in (Priority.P0, Priority.P1):
+            return category, "Proceed — priority justifies reduced capacity"
+        return category, "Advisory: consider deferring on reduced capacity days"
+    # Green, "Unknown", or None (no check-in / not supplied): no per-item
+    # adjustment -- exactly get_health_adjusted_queue()'s own behaviour,
+    # where only the *advisory* wording differs between Green and Unknown,
+    # never the per-item capacity_note. Absence must not imply Green; it
+    # simply means nothing here is capacity-adjusted.
+    return category, None
+
+
+def attention_items_from_brief(
+    brief: CoordinationBrief, capacity_status: str | None = None,
+) -> list[AttentionItem]:
     """Pure, lossless transform of an already-computed CoordinationBrief —
     no new data access, no new derivation logic. Every item traces back to
     something NumberOne already put in the brief; this only reclassifies
     it into the shared category vocabulary and orders it.
+
+    `capacity_status` (Mission 2, USS-TJR-MSN-2): optional, defaults to
+    None for full backward compatibility with existing callers (e.g.
+    context_service.py's _http_number_one_brief(), which doesn't pass it).
+    When supplied ("Green"/"Amber"/"Red"/"Unknown"), applies
+    NumberOne.get_health_adjusted_queue()'s existing per-item capacity
+    rules to `top_priorities`/`blocked_missions` items only -- see
+    _capacity_note_and_category()'s docstring for why escalations/
+    follow_ups are deliberately untouched.
 
     "Lossless" means nothing is dropped, not deduplicated: a mission can
     legitimately appear more than once across sections (e.g. once via
@@ -139,19 +190,26 @@ def attention_items_from_brief(brief: CoordinationBrief) -> list[AttentionItem]:
         ))
 
     for item in brief.blocked_missions:
+        category, capacity_reason = _capacity_note_and_category(
+            AttentionCategory.BLOCKED, item.priority, capacity_status,
+        )
         items.append(AttentionItem(
             id=f"number_one:blocked:{item.mission_id}",
-            category=AttentionCategory.BLOCKED,
-            priority=_CATEGORY_PRIORITY[AttentionCategory.BLOCKED],
+            category=category,
+            priority=_CATEGORY_PRIORITY[category],
             title=item.title,
             reason=item.rationale or (item.blockers[0] if item.blockers else "Blocked"),
             source="number_one",
             ref=item.mission_id,
             generated_at=generated_at,
+            capacity_adjusted_reason=capacity_reason,
         ))
 
     for item in brief.top_priorities:
-        category = _PRIORITY_TO_CATEGORY.get(item.priority, AttentionCategory.CAN_WAIT)
+        base_category = _PRIORITY_TO_CATEGORY.get(item.priority, AttentionCategory.CAN_WAIT)
+        category, capacity_reason = _capacity_note_and_category(
+            base_category, item.priority, capacity_status,
+        )
         items.append(AttentionItem(
             id=f"number_one:priority:{item.mission_id}",
             category=category,
@@ -161,6 +219,7 @@ def attention_items_from_brief(brief: CoordinationBrief) -> list[AttentionItem]:
             source="number_one",
             ref=item.mission_id,
             generated_at=generated_at,
+            capacity_adjusted_reason=capacity_reason,
         ))
 
     for fu in brief.follow_ups:

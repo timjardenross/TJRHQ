@@ -438,14 +438,28 @@ def _assemble_eligible_candidates(raw_rows: list[dict], now: datetime) -> list[d
 
 
 def _apply_capacity_gate(candidates: list[dict], capacity_state: str | None, now: datetime) -> list[dict]:
-    if capacity_state != "red":
+    """Green: fully unrestricted. Amber ("orange"): trims only the
+    lowest-urgency "gentle" mode items not due soon. Red: also trims
+    "normal" mode items (unchanged from before this fix).
+
+    Unknown capacity (no check-in today, capacity_state is None) is
+    treated as Amber, never as Green (Mission 2, Capacity & Attention
+    Engine: "absence of capacity data must not automatically imply
+    Green") -- no signal should never read as full confidence to send
+    every nudge unrestricted, but it also shouldn't over-restrict to
+    Red's stricter cut on a guess. Amber is the safe, explainable
+    middle ground.
+    """
+    effective_state = capacity_state if capacity_state is not None else "orange"
+    if effective_state not in ("orange", "red"):
         return candidates
+    modes_to_trim = ("gentle", "normal") if effective_state == "red" else ("gentle",)
     today = _today(now)
     kept = []
     for task in candidates:
         mode = task.get("follow_through_mode")
         due = _parse_date(task.get("due_date"))
-        if mode in ("gentle", "normal") and (due is None or (due - today).days > 1):
+        if mode in modes_to_trim and (due is None or (due - today).days > 1):
             continue
         kept.append(task)
     return kept
