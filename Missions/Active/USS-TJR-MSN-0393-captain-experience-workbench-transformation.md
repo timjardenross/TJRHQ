@@ -524,10 +524,18 @@ capture reassessment, capacity-aware presentation tuning beyond what already exi
 notification-entry review. None of that fits one implementation pass honestly. Ordered by
 where the next pass should start:
 
-1. **Per-workbench deep review** (mission §11) — only Hub, Captain's Chair's Needs You
-   panel, and the directory got a structural pass. Ready Room, Human Systems, Content
-   Workbench, and the 3 intelligence workbenches have not individually been reviewed
-   against PURPOSE/ENTRY/EXIT/NOISE/DUPLICATION/CONTEXT/CONTINUITY/MOBILE.
+1. **Per-workbench deep review** (mission §11) — **substantially broadened since first
+   written.** Every live workbench has now at least had its purpose/architecture/recency
+   verified by opening and reading it (Hub, Captain's Chair, Ready Room, Human Systems,
+   Weekly Review, Engineering Handoffs, Emergency Alerts, Content Workbench, Settings,
+   Knowledge Workbench, Physical Readiness, Shopping List, Search, Timeline) — none showed
+   the kind of drift this mission expected to find; each had already been through a
+   deliberate, recent, well-reasoned redesign of its own (see §7's knowledge record). Not yet
+   done: a full formal PURPOSE/ENTRY/EXIT/NOISE/DUPLICATION/CONTEXT/CONTINUITY/MOBILE write-up
+   per workbench (mission §11's exact template) — what happened instead was closer to "prove
+   it's not broken before assuming it needs a review," which is what this pass's remaining
+   time allowed. The 3 intelligence workbenches (Technical OSINT, Health OSINT, Briefs) and
+   Advisory got a lighter read than the others.
 2. **Hub → Ready Room contextual "Help me start" — partially closed in Phase 2** (§18/§40,
    see §3.1). Once the Captain is looking at a task in Ready Room (via Hub's "Do this" link
    or any other path), `number_one_context` is now set automatically and the ambient
@@ -585,16 +593,35 @@ where the next pass should start:
 7. **Before/after screenshot evidence** (§39/§56) — not captured; this environment has no
    way to run the app against live data (no Supabase/OLLAMA env configured) to produce
    faithful screenshots. Needs a real environment.
-8. **Capacity-aware presentation tuning** (§24) — Hub's existing sanctuary/quiet-mode
-   behaviour (PROTECT/RECOVER + zero Needs You collapses secondary sections) was preserved
-   untouched; no new capacity-driven presentation logic was added or reviewed beyond that.
-9. **Design-system consistency audit** (§30) — not performed across all 19 workbenches;
+8. **Capacity-aware presentation tuning (§24) — reviewed further, confirmed sound, no gap
+   found.** Hub's sanctuary/quiet-mode behaviour (PROTECT/RECOVER + zero Needs You collapses
+   secondary sections) was preserved untouched. Additionally checked the UNKNOWN case
+   specifically, since §24 calls it out by name ("use conservative presentation rather than
+   assuming Green") — `commandState.ts` already handles it exactly that way, in its own
+   words: `"No capacity check-in yet today — today is unknown, not clear."` (deliberately
+   distinct language from an actual clear/green day, not defaulted to looking calm). Ready
+   Room's own posture-driven mode default (`app/ready-room/page.tsx`) explicitly does nothing
+   on UNKNOWN rather than guessing a mode — same discipline. No UI-invented capacity logic
+   found anywhere reviewed this session; every capacity read traced back to the same
+   canonical Human Systems posture. Not exhaustively reviewed (every workbench individually),
+   but the pattern held everywhere it was checked.
+9. **Design-system consistency audit (§30) — extended in Phase 8, still not exhaustive.**
    Phase 1's own new UI (`NumberOne.tsx`) deliberately reused existing primitives (`Modal`,
    the `QuickCapture` floating-button pattern, `wb-*` tokens) rather than introducing new
-   ones, but the rest of the surface set wasn't re-audited.
-10. **Full adversarial UX pass** (§45) — the items in §1.2–1.6 above were found through a
-    bounded discovery pass, not an exhaustive adversarial review of every surface; more
-    almost certainly exists.
+   ones. Phase 8 (§3.9) went further and made the token system itself more consistent with
+   its own documented claims — 2 themes' text contrast actually fixed to match what the
+   header comment already asserted, plus found the deeper `state-*`/theme mismatch (item 14).
+   Still not done: a full visual pass across all 21 workbenches for spacing/typography/
+   component-choice drift, since that needs eyes on a rendered page, not just token math.
+10. **Full adversarial UX pass (§45) — ongoing self-review found and fixed 3 real issues in
+    this mission's own new code, not just pre-existing surfaces.** Phase 3: Modal's missing
+    focus trap, Number One's missing `aria-live`. Phase 6: Timeline's new toggle buttons
+    missing `aria-pressed`/focus-visible on the very commit that shipped them. Each caught by
+    treating this mission's own output with the same suspicion as everything else, not by a
+    separate dedicated pass — the discipline generalizes, but a genuinely separate, focused
+    adversarial pass (the items §45 itself lists: duplicate navigation, stale UI state,
+    misleading state, back-button problems, giant text walls, notification loops, ...) was
+    not run as its own exercise across the whole product.
 11. **Legacy `(app)`-group page retirement — 7 of 8 resolved (§3.8 closes the last tractable
     one).** 6 converted to honest stubs (`medical`, `captains-log`, `automation-centre`,
     `intelligence`, `engineering`, `operations`); `search` and `timeline` relocated rather
