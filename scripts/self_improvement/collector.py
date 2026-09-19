@@ -52,8 +52,10 @@ def _find_prune_args() -> list[str]:
 
 
 def _grep_exclude_args() -> list[str]:
-    """`grep -r` arguments that skip _WALK_EXCLUDED_DIRS entirely."""
-    return [f"--exclude-dir={d}" for d in _WALK_EXCLUDED_DIRS]
+    """`grep -r` arguments that skip _WALK_EXCLUDED_DIRS entirely, plus any
+    dir whose name contains "venv" (glob, matches grep's --exclude-dir
+    semantics) — same non-canonical-venv gap as _find_prune_args()."""
+    return [f"--exclude-dir={d}" for d in _WALK_EXCLUDED_DIRS] + ["--exclude-dir=*venv*"]
 
 
 class RepositoryState:
