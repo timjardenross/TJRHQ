@@ -11,7 +11,7 @@
 #  - numpy/mypy bumped: pinned versions predate Python 3.12 support.
 
 # Core
-python-dotenv==1.0.0
+python-dotenv==1.2.3
 
 # LLM (Local Model Router client)
 pydantic==2.13.4
