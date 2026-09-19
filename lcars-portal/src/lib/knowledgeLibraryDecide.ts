@@ -203,7 +203,10 @@ export async function decideDocument(
     domain: 'knowledge',
     source: 'lcars-portal:knowledge-library-decide',
     linkedDocuments: memoryDocumentId ? [memoryDocumentId] : [],
-    recommendedAction: `${decision} (${doc.filename})`,
+    // A review outcome + filename is observational content, not a reasoned
+    // recommendation — belongs in `description` (Briefs/Captain's Brief
+    // consolidation signal-leakage fix).
+    description: `${decision} (${doc.filename})`,
     metrics: { review_status: reviewStatus, decision },
   });
 
