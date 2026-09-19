@@ -34,14 +34,19 @@ _WALK_EXCLUDED_DIRS = (".git", "node_modules", ".venv", "venv", "__pycache__", "
 
 def _find_prune_args() -> list[str]:
     """`find` arguments that prune _WALK_EXCLUDED_DIRS (at any depth)
-    before descending into them. Caller appends the real `-name`/`-type`
-    filter plus a trailing `-print` (required once `-prune` is combined
-    with `-o`, since find no longer prints by default)."""
+    before descending into them, plus any dir whose name contains "venv"
+    (case-insensitive) so non-canonically-named venvs like
+    core/voice/chatterbox-venv or platform-runtime/.venv-docling are
+    pruned too, not just the exact ".venv"/"venv" names. Caller appends
+    the real `-name`/`-type` filter plus a trailing `-print` (required
+    once `-prune` is combined with `-o`, since find no longer prints by
+    default)."""
     args: list[str] = ["("]
     for i, d in enumerate(_WALK_EXCLUDED_DIRS):
         if i:
             args.append("-o")
         args += ["-path", f"*/{d}"]
+    args += ["-o", "-ipath", "*venv*"]
     args += [")", "-prune", "-o"]
     return args
 
@@ -212,12 +217,21 @@ class FileSystemAudit:
         findings. Count + a small recency sample is enough signal for
         "is documentation stale/sprawling" without the noise.
         """
-        docs = []
-        for pattern in ["*.md", "docs/**/*.md", "**/*.md"]:
-            for f in self.repo_root.glob(pattern):
-                if f.is_file() and "archive/" not in str(f.relative_to(self.repo_root)):
-                    docs.append(f)
-        docs = list(set(docs))  # dedup
+        try:
+            result = subprocess.run(
+                ["find", str(self.repo_root)] + _find_prune_args()
+                + ["-name", "*.md", "-type", "f", "-print"],
+                capture_output=True, text=True, timeout=10, check=False
+            )
+            if result.returncode != 0:
+                return {"count": 0, "most_recent": []}
+            docs = [
+                Path(p) for p in result.stdout.strip().splitlines()
+                if p and "archive/" not in str(Path(p).relative_to(self.repo_root))
+            ]
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/parse failure) must not kill the whole collection run
+            log.warning(f"Failed to find doc files: {exc}")
+            return {"count": 0, "most_recent": []}
         docs.sort(key=lambda f: f.stat().st_mtime, reverse=True)
         return {
             "count": len(docs),
