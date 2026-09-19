@@ -57,6 +57,11 @@ export function DecomposeView({
   const [clarifyQuestion, setClarifyQuestion] = useState<string | null>(null);
   const [regulateSuggestion, setRegulateSuggestion] = useState<string | null>(null);
   const [pickUp, setPickUp] = useState<PersonalTask[]>([]);
+  // Kept separate from `goal` — `goal` becomes the saved task/mission title
+  // verbatim (startHere/turnIntoMission below), so a clarifying Q&A must
+  // never be folded into it. Only used to build the text sent to the
+  // decompose endpoint.
+  const [clarification, setClarification] = useState<string | null>(null);
 
   useEffect(() => { onExecutingChange?.(stage === 'started'); }, [stage, onExecutingChange]);
   useAbortEffect((_signal, alive) => {
@@ -111,24 +116,58 @@ export function DecomposeView({
     setStage('result');
   }
 
+  function decomposeQuery(): string {
+    return clarification ? `${goal}\n\nClarification: ${clarification}` : goal;
+  }
+
   async function tryVariant(mode: 'smaller' | 'another') {
     if (busy) return;
     setBusy(true);
-    const { action, error } = await decomposeTask(goal, { mode, previousAction: microAction, posture: context.posture });
+    const { action, error } = await decomposeTask(decomposeQuery(), { mode, previousAction: microAction, posture: context.posture });
     setBusy(false);
     applyDecomposeResult(action, error, { countsAsSmaller: mode === 'smaller' });
   }
 
-  /** Captain answers the model's clarifying question — folds it into the
-   * goal text and re-runs decomposition rather than starting a second,
-   * disconnected exchange. */
+  /** Captain answers the model's clarifying question — used only to build
+   * the text sent back to decompose (decomposeQuery), never written into
+   * `goal` itself (that stays the clean, saveable task title/description). */
   async function answerClarify(answer: string) {
     if (!answer.trim() || busy) return;
-    const combined = `${goal}\n\nClarification: ${answer.trim()}`;
-    setGoal(combined);
+    setClarification(answer.trim());
     setStage('thinking');
     setBusy(true);
-    const { action, error } = await decomposeTask(combined, { posture: context.posture });
+    const { action, error } = await decomposeTask(`${goal}\n\nClarification: ${answer.trim()}`, { posture: context.posture });
+    setBusy(false);
+    applyDecomposeResult(action, error, { countsAsSmaller: false });
+    setStage('result');
+  }
+
+  /** The model asked to clarify but the Captain would rather just get
+   * something to try — retries decomposition on the plain goal (no
+   * clarification, no artificial restriction) rather than leaving an
+   * empty box behind a button that promised "something to try". */
+  async function skipClarify() {
+    if (busy) return;
+    setClarifyQuestion(null);
+    setStage('thinking');
+    setBusy(true);
+    const { action, error } = await decomposeTask(goal, { mode: 'another', posture: context.posture });
+    setBusy(false);
+    applyDecomposeResult(action, error, { countsAsSmaller: false });
+    setStage('result');
+  }
+
+  /** Captain explicitly overrode a REGULATE suggestion ("I'd still like to
+   * try something small") — per Captain Override (mission §22: no repeated
+   * challenge), this omits `posture` so the model cannot offer REGULATE
+   * again on the same request; one override is final, not a starting point
+   * for a loop. */
+  async function tryAnywaySmallAction() {
+    if (busy) return;
+    setRegulateSuggestion(null);
+    setStage('thinking');
+    setBusy(true);
+    const { action, error } = await decomposeTask(decomposeQuery());
     setBusy(false);
     applyDecomposeResult(action, error, { countsAsSmaller: false });
     setStage('result');
@@ -178,6 +217,7 @@ export function DecomposeView({
     setShowMissionPrompt(false);
     setClarifyQuestion(null);
     setRegulateSuggestion(null);
+    setClarification(null);
   }
 
   if (stage === 'started' && startedTask) {
@@ -232,7 +272,7 @@ export function DecomposeView({
             <Button
               variant="secondary"
               disabled={busy}
-              onClick={() => { setRegulateSuggestion(null); tryVariant('another'); }}
+              onClick={tryAnywaySmallAction}
             >
               I&apos;d still like to try something small
             </Button>
@@ -242,7 +282,7 @@ export function DecomposeView({
       )}
 
       {stage === 'result' && clarifyQuestion && (
-        <ClarifyPrompt question={clarifyQuestion} busy={busy} onAnswer={answerClarify} onSkip={() => setClarifyQuestion(null)} />
+        <ClarifyPrompt question={clarifyQuestion} busy={busy} onAnswer={answerClarify} onSkip={skipClarify} />
       )}
 
       {stage === 'result' && !regulateSuggestion && !clarifyQuestion && (
