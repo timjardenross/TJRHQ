@@ -206,6 +206,11 @@ def _find_relevant_files(title: str) -> list[str]:
                 continue
             if "archive" in path.parts or "quarantine" in path.parts:
                 continue
+            if any(
+                part.startswith(".venv") or "venv" in part.lower() or part == "node_modules"
+                for part in path.parts
+            ):
+                continue
 
             name_lower = path.stem.lower().replace("_", " ").replace("-", " ")
             score = sum(4 for kw in keywords if kw in name_lower)
