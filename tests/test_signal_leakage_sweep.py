@@ -120,7 +120,7 @@ def test_mission_status_change_uses_description_not_recommended_action(monkeypat
         lambda *a, **k: calls.append(k) or "evt-fake",
     )
 
-    ok, event_id = ml._supabase_update_mission_status("USS-TJR-0100", "Blocked")
+    ok, _event_id = ml._supabase_update_mission_status("USS-TJR-0100", "Blocked")
 
     assert ok is True
     assert len(calls) == 1
