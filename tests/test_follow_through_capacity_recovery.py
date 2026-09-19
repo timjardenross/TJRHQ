@@ -32,20 +32,20 @@ CANDIDATES = [
 
 class TestTrimmedItemsReturnWhenCapacityRecovers:
     def test_red_trims_gentle_and_normal(self):
-        kept = fte._apply_capacity_gate(CANDIDATES, "red", NOW)
+        kept = fte._apply_capacity_gate(CANDIDATES, "Red", NOW)
         assert {t["id"] for t in kept} == {"t-persistent"}
 
     def test_green_on_the_identical_candidates_restores_everything(self):
-        kept = fte._apply_capacity_gate(CANDIDATES, "green", NOW)
+        kept = fte._apply_capacity_gate(CANDIDATES, "Green", NOW)
         assert {t["id"] for t in kept} == {"t-gentle", "t-normal", "t-persistent"}
 
     def test_full_recovery_sequence_red_then_amber_then_green(self):
         """Same list object, three capacity readings in sequence -- each
         step's result must match what a fresh call with that state alone
         would produce, proving no state leaks between calls."""
-        red = fte._apply_capacity_gate(CANDIDATES, "red", NOW)
-        amber = fte._apply_capacity_gate(CANDIDATES, "orange", NOW)
-        green = fte._apply_capacity_gate(CANDIDATES, "green", NOW)
+        red = fte._apply_capacity_gate(CANDIDATES, "Red", NOW)
+        amber = fte._apply_capacity_gate(CANDIDATES, "Amber", NOW)
+        green = fte._apply_capacity_gate(CANDIDATES, "Green", NOW)
 
         assert {t["id"] for t in red} == {"t-persistent"}
         assert {t["id"] for t in amber} == {"t-normal", "t-persistent"}
@@ -55,13 +55,13 @@ class TestTrimmedItemsReturnWhenCapacityRecovers:
 class TestNoStatefulSuppression:
     def test_candidates_list_and_dicts_are_not_mutated_by_a_red_pass(self):
         before = copy.deepcopy(CANDIDATES)
-        fte._apply_capacity_gate(CANDIDATES, "red", NOW)
+        fte._apply_capacity_gate(CANDIDATES, "Red", NOW)
         assert CANDIDATES == before
 
     def test_unknown_capacity_recovery_path_is_also_stateless(self):
-        """Unknown (None) is treated as Amber (Mission 2 fix) -- confirm
-        that treatment doesn't persist once a real reading arrives."""
-        unknown = fte._apply_capacity_gate(CANDIDATES, None, NOW)
-        green = fte._apply_capacity_gate(CANDIDATES, "green", NOW)
+        """Unknown is treated as Amber (Mission 2 fix) -- confirm that
+        treatment doesn't persist once a real reading arrives."""
+        unknown = fte._apply_capacity_gate(CANDIDATES, "Unknown", NOW)
+        green = fte._apply_capacity_gate(CANDIDATES, "Green", NOW)
         assert {t["id"] for t in unknown} == {"t-normal", "t-persistent"}  # Amber-equivalent
         assert {t["id"] for t in green} == {"t-gentle", "t-normal", "t-persistent"}

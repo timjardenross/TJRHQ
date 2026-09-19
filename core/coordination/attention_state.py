@@ -126,10 +126,22 @@ class AttentionItem:
 # them here, matching the one place this behaviour already exists in
 # production.
 def _capacity_note_and_category(
-    category: AttentionCategory, mission_priority: Priority, capacity_status: str | None,
+    category: AttentionCategory, is_critical: bool, is_high_priority: bool, capacity_status: str | None,
 ) -> tuple[AttentionCategory, str | None]:
+    """Mission 3: generalised so this one canonical policy function can be
+    reused by any source with its own notion of priority tiers (Number
+    One's Priority enum, or a personal task's urgency/importance), not
+    just Number One's. `is_critical` was `mission_priority == Priority.P0`
+    and `is_high_priority` was `mission_priority in (Priority.P0,
+    Priority.P1)` before this mission — kept as two separate booleans
+    (not one) because Red and Amber gate on two DIFFERENT tiers (Red:
+    P0-only; Amber: P0-or-P1), so collapsing them into a single boolean
+    would silently narrow Amber's existing bypass to P0-only. Behaviour
+    for existing Number One callers is unchanged — they now pass both
+    booleans explicitly instead of the enum comparisons happening inside
+    this function."""
     if capacity_status == "Red":
-        if mission_priority == Priority.P0:
+        if is_critical:
             return category, "CRITICAL — proceed regardless of capacity"
         # Blocked items stay BLOCKED (already off the Needs You path) --
         # only non-blocked items get demoted, matching get_health_adjusted_
@@ -138,7 +150,7 @@ def _capacity_note_and_category(
         demoted = AttentionCategory.CAN_WAIT if category != AttentionCategory.BLOCKED else category
         return demoted, "DEFERRED — Red capacity: P0 only today"
     if capacity_status == "Amber":
-        if mission_priority in (Priority.P0, Priority.P1):
+        if is_high_priority:
             return category, "Proceed — priority justifies reduced capacity"
         return category, "Advisory: consider deferring on reduced capacity days"
     # Green, "Unknown", or None (no check-in / not supplied): no per-item
@@ -191,7 +203,10 @@ def attention_items_from_brief(
 
     for item in brief.blocked_missions:
         category, capacity_reason = _capacity_note_and_category(
-            AttentionCategory.BLOCKED, item.priority, capacity_status,
+            AttentionCategory.BLOCKED,
+            item.priority == Priority.P0,
+            item.priority in (Priority.P0, Priority.P1),
+            capacity_status,
         )
         items.append(AttentionItem(
             id=f"number_one:blocked:{item.mission_id}",
@@ -208,7 +223,10 @@ def attention_items_from_brief(
     for item in brief.top_priorities:
         base_category = _PRIORITY_TO_CATEGORY.get(item.priority, AttentionCategory.CAN_WAIT)
         category, capacity_reason = _capacity_note_and_category(
-            base_category, item.priority, capacity_status,
+            base_category,
+            item.priority == Priority.P0,
+            item.priority in (Priority.P0, Priority.P1),
+            capacity_status,
         )
         items.append(AttentionItem(
             id=f"number_one:priority:{item.mission_id}",

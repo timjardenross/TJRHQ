@@ -37,11 +37,13 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys as _sys
 import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from datetime import time as dt_time
+from pathlib import Path as _Path
 from typing import Any
 
 from intelligence.config import SUPABASE_KEY, SUPABASE_URL
@@ -50,6 +52,20 @@ from intelligence.settings_store import (
     follow_through_increase_as_deadline_approaches,
     follow_through_reminder_style,
 )
+
+# Mission 3: reuse the one canonical raw-capacity_checkins-row -> Green/
+# Amber/Red/Unknown mapping (core/health/capacity_score.py's
+# capacity_zone_from_checkin(), already the mapping health_context_adapter.py
+# and the Human Systems Capacity Gate consume) instead of this engine's own
+# ad-hoc "orange"/"red" string handling. Deliberately NOT importing the
+# heavier health_context_adapter.build_health_context_live() here — that
+# pulls in a captains_log_entries round-trip + fallback chain this engine
+# doesn't need; capacity_score.py has zero heavy dependencies (stdlib only)
+# and is safe to import into this cron-driven process.
+_CAPACITY_SCORE_DIR = _Path(__file__).resolve().parents[2] / "core" / "health"
+if str(_CAPACITY_SCORE_DIR) not in _sys.path:
+    _sys.path.insert(0, str(_CAPACITY_SCORE_DIR))
+from capacity_score import capacity_zone_from_checkin
 
 log = logging.getLogger(__name__)
 
@@ -253,7 +269,13 @@ def _fetch_candidates(now: datetime) -> list[dict]:
     return rows
 
 
-def _fetch_todays_capacity_state(now: datetime) -> str | None:
+def _fetch_todays_capacity_state(now: datetime) -> str:
+    """Returns the canonical "Green"/"Amber"/"Red"/"Unknown" status —
+    same raw capacity_checkins row this engine always queried, now run
+    through capacity_zone_from_checkin() (the single canonical mapper)
+    instead of this engine's own inline "orange"/"red" string handling.
+    No today check-in still means "Unknown" (never Green), matching
+    Mission 2's absence-must-not-imply-Green requirement exactly."""
     today_iso = _today(now).isoformat()
     query = (
         "capacity_checkins"
@@ -261,9 +283,9 @@ def _fetch_todays_capacity_state(now: datetime) -> str | None:
         "&order=captured_at.desc&limit=1"
     )
     rows, _ = _pg_get(query)
-    if not rows:
-        return None
-    return rows[0].get("capacity_state")
+    row = rows[0] if rows else None
+    _score, status = capacity_zone_from_checkin(row)
+    return status
 
 
 def _count_todays_surfaced(now: datetime) -> int:
@@ -437,23 +459,30 @@ def _assemble_eligible_candidates(raw_rows: list[dict], now: datetime) -> list[d
     return eligible
 
 
-def _apply_capacity_gate(candidates: list[dict], capacity_state: str | None, now: datetime) -> list[dict]:
-    """Green: fully unrestricted. Amber ("orange"): trims only the
-    lowest-urgency "gentle" mode items not due soon. Red: also trims
-    "normal" mode items (unchanged from before this fix).
+def _apply_capacity_gate(candidates: list[dict], capacity_status: str, now: datetime) -> list[dict]:
+    """Green: fully unrestricted. Amber: trims only the lowest-urgency
+    "gentle" mode items not due soon. Red: also trims "normal" mode items
+    (unchanged from before this fix).
 
-    Unknown capacity (no check-in today, capacity_state is None) is
-    treated as Amber, never as Green (Mission 2, Capacity & Attention
-    Engine: "absence of capacity data must not automatically imply
-    Green") -- no signal should never read as full confidence to send
-    every nudge unrestricted, but it also shouldn't over-restrict to
-    Red's stricter cut on a guess. Amber is the safe, explainable
-    middle ground.
+    Unknown capacity (no check-in today) is treated as Amber, never as
+    Green (Mission 2, Capacity & Attention Engine: "absence of capacity
+    data must not automatically imply Green") -- no signal should never
+    read as full confidence to send every nudge unrestricted, but it also
+    shouldn't over-restrict to Red's stricter cut on a guess. Amber is
+    the safe, explainable middle ground.
+
+    `capacity_status` is the canonical "Green"/"Amber"/"Red"/"Unknown"
+    string (Mission 3: sourced from capacity_zone_from_checkin(), the
+    same mapper every other capacity-status consumer in the platform
+    uses -- this function no longer interprets the raw capacity_checkins
+    "green"/"orange"/"red" strings itself). Behaviour is unchanged from
+    before this mapping fix: raw orange/None both landed in this
+    function's "restrict to gentle only" branch, exactly what
+    Amber/Unknown do here; raw red and Green/canonical-Red are identical.
     """
-    effective_state = capacity_state if capacity_state is not None else "orange"
-    if effective_state not in ("orange", "red"):
+    if capacity_status not in ("Amber", "Red", "Unknown"):
         return candidates
-    modes_to_trim = ("gentle", "normal") if effective_state == "red" else ("gentle",)
+    modes_to_trim = ("gentle", "normal") if capacity_status == "Red" else ("gentle",)
     today = _today(now)
     kept = []
     for task in candidates:
