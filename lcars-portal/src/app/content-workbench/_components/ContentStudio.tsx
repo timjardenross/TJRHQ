@@ -82,6 +82,7 @@ function ScheduleControl({ item, onChanged }: { item: ContentItem; onChanged: ()
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="datetime-local"
+          aria-label="Schedule"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           className="rounded-md border border-wb-line bg-wb-bg px-2 py-1.5 text-[12.5px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"

@@ -36,8 +36,15 @@ function NeedsYouRow({ item }: { item: NeedsYouItem }) {
       <p className={`text-[10px] font-semibold uppercase tracking-wider ${c.text}`}>{KIND_LABEL[item.kind]}</p>
       <p className="mt-0.5 text-sm font-semibold text-wb-ink">{item.title}</p>
       <p className="mt-0.5 text-xs text-wb-ink2">{item.detail}</p>
-      <Link href={item.href} className="mt-1.5 inline-block text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-        {item.actionLabel} →
+      {/* Mission 7 §22/§30: matches Hub's own Needs You action treatment
+          (same items, same actionLabel field — the two surfaces must not
+          just agree on content, but read consistently) — a visible button,
+          not an easy-to-miss trailing text link. */}
+      <Link
+        href={item.href}
+        className="mt-2 inline-block rounded-md bg-wb-sage-deep px-2.5 py-1 text-[11px] font-semibold text-white hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+      >
+        {item.actionLabel}
       </Link>
     </li>
   );

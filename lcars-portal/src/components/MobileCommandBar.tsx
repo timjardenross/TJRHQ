@@ -11,6 +11,17 @@ import type { NavHref } from '@/lib/nav';
  * Fixed, thumb-friendly bottom tab bar. This is the ONLY nav rendered on
  * mobile/tablet (LCARSNav and LCARSBottomNav are `xl:`-gated, desktop-only)
  * — a page not listed here is unreachable below 1280px, full stop.
+ *
+ * Mission 7 §17/§45 fix (2026-09-19): tab 1 pointed at /workbenches with a
+ * home glyph (⌂), while desktop Sidebar's own Home entry — added the same
+ * day as this bar's last edit — points at /hub. Two different pages both
+ * calling themselves "Home" depending on device width is exactly the kind
+ * of topology the Captain shouldn't have to notice. /hub is the confirmed
+ * front door (root '/' redirects there; see app/page.tsx) and the one
+ * place the core Captain journey (Needs You -> act, "Where was I?", "Too
+ * much", ...) actually lives, so it wins. The full directory doesn't lose
+ * reachability: every WorkbenchShell page's top-left logo (visible below
+ * `xl`) already links to /workbenches, including from /hub itself.
  * `xl:hidden` (2026-09-05, was `lg:hidden`): this component is also
  * unconditionally mounted inside WorkbenchShell (~20 non-(app) workbenches,
  * including captains-chair-workbench), which has no desktop nav equivalent
@@ -37,13 +48,17 @@ interface Tab {
 // /workbenches as the new home (lib/nav.ts) but this bar was never
 // updated, which broke the build (stale hrefs failed the NavHref type
 // check) and, worse, left mobile with zero path back to the new home -
-// this is the ONLY nav on mobile (see doc comment above). Workbenches
-// takes the first slot for that reason. Capture and Physical Readiness
-// are kept - both are real task tools (docs/INVENTORY.md:
-// MIGRATE/TASK-TOOL), not dashboards, and mobile is their primary device
-// with no other nav path once NAV_SECTIONS stopped listing them.
+// this is the ONLY nav on mobile (see doc comment above). Capture and
+// Physical Readiness are kept - both are real task tools (docs/
+// INVENTORY.md: MIGRATE/TASK-TOOL), not dashboards, and mobile is their
+// primary device with no other nav path once NAV_SECTIONS stopped
+// listing them.
+//
+// Mission 7: slot 1 repointed /workbenches -> /hub (see doc comment
+// above) — same reasoning that made root '/' redirect to /hub over
+// /workbenches, now applied consistently on mobile too.
 const TABS: Tab[] = [
-  { href: '/workbenches', label: 'Workbenches', glyph: '⌂' },
+  { href: '/hub', label: 'Home', glyph: '⌂' },
   { href: '/capture-workbench', label: 'Capture', glyph: '＋' },
   { href: '/physical-readiness', label: 'Readiness', glyph: '✚' },
 ];

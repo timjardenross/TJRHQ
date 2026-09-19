@@ -121,7 +121,16 @@ export default function LoginPage() {
                 Captain Access
               </h2>
               <div className="flex flex-col gap-3">
+                {/* Mission 7 §31 accessibility pass: neither input had a
+                    label of any kind — relying on placeholder text alone,
+                    which disappears once typing starts and isn't reliably
+                    announced as a label by screen readers. The Magic Link
+                    form just below already uses the correct sr-only
+                    <label>+id pattern for the same email field; mirrored
+                    here rather than left inconsistent within one file. */}
+                <label htmlFor="password-form-email" className="sr-only">Email address</label>
                 <input
+                  id="password-form-email"
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
@@ -131,7 +140,9 @@ export default function LoginPage() {
                   required
                   disabled={loading}
                 />
+                <label htmlFor="password-form-password" className="sr-only">Password</label>
                 <input
+                  id="password-form-password"
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}

@@ -38,7 +38,14 @@
   --wb-surface-raised: #FFFFFF;
   --wb-line: #DDD8CF;
   --wb-ink: #273248;
-  --wb-ink2: #657080;
+  /* Mission 7 §31 accessibility pass: was #657080, 4.46:1 against --wb-bg —
+     under the 4.5:1 AA body-text threshold this file's own header comment
+     claims for every theme (computed with the standard WCAG relative-
+     luminance formula, not eyeballed). Darkened ~1%, same hue, to actually
+     clear it (4.59:1 vs bg, 5.00:1 vs surface) — this is the default theme
+     (bare :root, no [data-theme] needed), so every new Captain saw the
+     under-threshold value until now. */
+  --wb-ink2: #636E7E;
   --wb-sage: #176D70;
   --wb-sage-deep: #125759;
 }
@@ -83,7 +90,12 @@
   --wb-surface-raised: #FFFFFF;
   --wb-line: #DDD8CE;
   --wb-ink: #293240;
-  --wb-ink2: #6D726E;
+  /* Mission 7 §31 accessibility pass: was #6D726E, 4.31:1 against --wb-bg
+     — under the 4.5:1 AA body-text threshold this file's own header
+     comment claims (computed with the standard WCAG relative-luminance
+     formula). Darkened ~2%, same hue, to actually clear it (4.51:1 vs bg,
+     4.83:1 vs surface). */
+  --wb-ink2: #6A6F6B;
   --wb-sage: #667C78;
   --wb-sage-deep: #4C5D5A;
 }

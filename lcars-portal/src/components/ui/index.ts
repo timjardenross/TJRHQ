@@ -34,3 +34,5 @@ export { DomainToggle } from './DomainToggle';
 export type { DomainToggleOption } from './DomainToggle';
 
 export { QuickCapture } from './QuickCapture';
+
+export { NumberOne } from './NumberOne';
