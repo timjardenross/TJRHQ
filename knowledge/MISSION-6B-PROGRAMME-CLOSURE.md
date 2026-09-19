@@ -78,6 +78,14 @@ Not re-litigated in this mission (no new capability register item required it) �
 - Adversarial review of the full diff against base `807671fdd` found no critical/high-severity defects.
 - Convergence register: all 10 items from Missions 6A/5 carry an explicit disposition (2 IMPLEMENTED-and-fixed items corrected mid-mission from an initial discovery fork's mistaken "defect" call, after reading the actual documented rationale in the code — an example of the mission's own "verify before trusting a prior claim" discipline working as intended).
 
+## Production verification — migrations 0219 + 0220 (applied, Captain-approved)
+
+Both applied to live Supabase (project `cjvrpjwewsrumnbdydgg`) after Captain authorisation. Verified post-apply:
+- `number_one_context`: exists, `relrowsecurity = true`, policy `number_one_context_authenticated_all` present (`authenticated`, `ALL`, `using(true)`/`with_check(true)`), 0 rows (clean — no unexpected/pre-existing data).
+- `captured_items.idempotency_key`: column exists, nullable text.
+- `captured_items_idempotency_key_uidx`: unique partial index confirmed exactly as written (`WHERE idempotency_key IS NOT NULL`).
+- `get_advisors(security)`: no new finding attributable to either migration. The pre-existing `user_settings` RLS-enabled-zero-policies finding (36 tables total in that state) is confirmed still present and unrelated — recorded as separate debt, not expanded into this mission.
+
 ## Final PR / merge status
 
-Not yet pushed. Branch `mission6b-final-cos-convergence`, worktree isolated from `main`, all changes committed locally. Awaiting explicit Captain go-ahead to push and open the PR (shared-state/visible action per repo git discipline) — see next message in the conversation.
+PR #281, branch `mission6b-final-cos-convergence`. Idempotency fix applied, migrations 0219+0220 live, final CI run pending at time of writing — see chat transcript for final head/merge SHAs once complete.
