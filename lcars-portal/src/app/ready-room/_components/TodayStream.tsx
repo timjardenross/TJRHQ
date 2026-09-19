@@ -6,11 +6,12 @@ import { useAbortEffect } from '@/hooks/useAbortEffect';
 import {
   attendBucket, createTask, fetchTasks, getReadyRoomContext, rankToday, pickUpItems,
   buildStatusSentence, deferNotToday, CATEGORIES,
-  type PersonalTask, type TaskCategory, type FollowThroughMode, type ReadyRoomContext,
+  type PersonalTask, type TaskCategory, type FollowThroughMode, type ReadyRoomContext, type ReadyRoomPosture,
 } from '@/lib/personalTasks';
 import { FOLLOW_THROUGH_MODES, autoSwitchModeOnDueDate } from './followThroughMode';
 import { TaskRow } from './TaskRow';
 import { ActiveTaskView } from './ActiveTaskView';
+import { SupportFeedbackPrompt } from './SupportFeedback';
 
 /** Mission 4 overload sequence (spec §16/§17): "too much" must REDUCE
  * cognitive demand, not produce more information. Reuses rankToday's own
@@ -20,11 +21,15 @@ import { ActiveTaskView } from './ActiveTaskView';
  * ephemeral (no new persistence): leaving the page or clicking "Back to
  * full view" forgets it. */
 function OverloadView({
-  onlyTask, onStart, onExit,
+  onlyTask, onStart, onExit, posture,
 }: {
   onlyTask: PersonalTask | null;
   onStart: (task: PersonalTask) => void;
   onExit: () => void;
+  /** Mission 5: this whole view IS the rr_overload_reduction intervention
+   *  being offered — feeding posture through lets the feedback event carry
+   *  the same context_snapshot every other ready_room event does. */
+  posture: ReadyRoomPosture;
 }) {
   return (
     <div className="flex flex-col gap-4 rounded-md border border-wb-line bg-wb-surface p-4">
@@ -49,6 +54,16 @@ function OverloadView({
         </a>
         <Button size="sm" variant="ghost" onClick={onExit}>Back to full view</Button>
       </div>
+      {/* Mission 5 — Evidence & Adaptive Support (spec §12/§30). Reaching
+          this view at all is the overload-reduction intervention being
+          offered, so it's a natural, non-fatiguing attach point — it
+          doesn't fire on every "This feels like too much" tap, only once
+          this view is actually showing. */}
+      <SupportFeedbackPrompt
+        interventionId="rr_overload_reduction"
+        posture={posture}
+        label="Did reducing the list to one thing help?"
+      />
     </div>
   );
 }
@@ -282,6 +297,7 @@ export function TodayStream({
         onlyTask={onlyTask}
         onStart={(t) => { setOverloaded(false); setActiveTask(t); }}
         onExit={() => setOverloaded(false)}
+        posture={context.posture}
       />
     );
   }

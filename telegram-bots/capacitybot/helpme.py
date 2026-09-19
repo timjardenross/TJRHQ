@@ -179,6 +179,11 @@ def kb_offer(state: str, intervention_id: str) -> InlineKeyboardMarkup:
             InlineKeyboardButton("🔄 Something else", callback_data=f"{base}|act=skip"),
             InlineKeyboardButton("🚫 Can't do that", callback_data=f"{base}|act=skip"),
         ],
+        # Mission 5 (spec §17/§20/§29) — explicit Captain correction, not
+        # just a one-off skip: records a durable do_not_suggest preference
+        # via intervention_engine.set_preference so this stops being
+        # offered again, not only for the rest of this session.
+        [InlineKeyboardButton("🙅 Don't suggest this again", callback_data=f"{base}|act=never")],
         [InlineKeyboardButton("🛑 Stop", callback_data=f"{base}|act=stop")],
     ])
 
@@ -199,6 +204,13 @@ def render_accepted(intervention: dict, reminder_minutes: int | None) -> str:
 
 def render_stopped() -> str:
     return "Okay — stopping here."
+
+
+def render_never_suggest_ack(title: str) -> str:
+    """Mission 5 — confirms the durable correction was recorded, in the
+    same breath as moving on to the next candidate (kept as a preface
+    line, not a separate message, to stay low-friction)."""
+    return f"🙅 Won't suggest \"{title}\" again."
 
 
 # ── Reassessment (spec §12) ──────────────────────────────────────────────────
