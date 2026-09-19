@@ -1,25 +1,30 @@
-# Mission 5 — 50-Accommodation Reconciliation (Provisional)
+# Mission 5 — 50-Accommodation Reconciliation
 
-**Status: OPEN ITEM, not a closed reconciliation.** The literal "original 50
-accommodations" list does not exist anywhere in this repository's reachable
-git history (confirmed by repository discovery). The closest artifact is a
-37-item draft matrix at `docs/architecture/ADHD-ACCOMMODATION-DISCOVERY.md`
-on the orphaned, never-merged branch `origin/claude/tjr-adhd-accommodation-discovery-aike59`
-(commit `7dc1f0a59`), whose own author states it is incomplete: *"remaining
-items to reach 50 should be filled in once the Captain's actual list is
-available."* A second, narrower 11-item matrix exists in
+**Status: rows 1–50 now identified.** The literal "original 50
+accommodations" list did not exist anywhere in this repository's reachable
+git history at the time of initial discovery. The closest repository
+artifact was a 37-item draft matrix at
+`docs/architecture/ADHD-ACCOMMODATION-DISCOVERY.md` on the orphaned,
+never-merged branch `origin/claude/tjr-adhd-accommodation-discovery-aike59`
+(commit `7dc1f0a59`), whose own author stated it was incomplete. A second,
+narrower 11-item matrix exists in
 `knowledge/missions/MISSION-3-CAPTURE-REMEMBER-FOLLOWTHROUGH-knowledge-record.md`
 (§L), scoped only to items Mission 3 explicitly named — it does not add new
 titles beyond the 37-item draft, only independent status confirmations for a
 subset, folded in below.
 
-Per Captain-approved decision: the programme baseline **stays 50**, not 37.
-Rows 1–37 below are the draft's content, carried in as real repository-evidence
-and re-verified against current code where the task called for it (see
-"Verification" column). Rows 38–50 are **explicitly unresolved** — no titles
-are invented for them; they are placeholders awaiting the Captain's
-authoritative source list. Closing that 13-item gap is an open item for the
-Mission 5 knowledge record, not something this document resolves.
+Items 38–50 were subsequently supplied directly by the Captain as the
+programme's authoritative list for this range (final closure directive,
+2026-09-19). They are recorded here as **programme-spec-only** — classified
+honestly against current repository state, with no implementation evidence
+invented for them. This mission did not build anything new to make items
+38–50 appear more complete than they are; several are correctly classified
+as outside HQ's remit entirely.
+
+Rows 1–37 are the 37-item draft's content, carried in as real
+repository-evidence and re-verified against current code where the task
+called for it (see "Verification" column). Rows 38–50 are the Captain-supplied
+titles, classified using the same taxonomy.
 
 | # | Accommodation | Source | Status | Evidence-aware? | Citation | Verification |
 |---|---|---|---|---|---|---|
@@ -60,19 +65,19 @@ Mission 5 knowledge record, not something this document resolves.
 | 35 | Weekly reflective retrospective | repo-evidence-37 | IMPLEMENTED | n/a | Weekly Review workbench | relied on source doc, unverified this session |
 | 36 | Track whether a recommendation/decision was actually good | repo-evidence-37 | IMPLEMENTED | yes | `insight_outcomes` (migrations 0062, 0137, 0215); Advisory outcome-tracking | relied on source doc for the Advisory-side claim; `insight_outcomes` table lineage personally re-checked this session |
 | 37 | Voice-based end-of-day debrief | repo-evidence-37 | IMPLEMENTED | no | XO Telegram `debrief_engine.py` | relied on source doc, unverified this session |
-| 38 | UNKNOWN — item 38 of 50, awaiting Captain's list | programme-spec-only | NO REPOSITORY EVIDENCE — AWAITING CAPTAIN LIST | n/a | none | no repository evidence located, awaiting Captain's authoritative 50-item source list |
-| 39 | UNKNOWN — item 39 of 50, awaiting Captain's list | programme-spec-only | NO REPOSITORY EVIDENCE — AWAITING CAPTAIN LIST | n/a | none | no repository evidence located, awaiting Captain's authoritative 50-item source list |
-| 40 | UNKNOWN — item 40 of 50, awaiting Captain's list | programme-spec-only | NO REPOSITORY EVIDENCE — AWAITING CAPTAIN LIST | n/a | none | no repository evidence located, awaiting Captain's authoritative 50-item source list |
-| 41 | UNKNOWN — item 41 of 50, awaiting Captain's list | programme-spec-only | NO REPOSITORY EVIDENCE — AWAITING CAPTAIN LIST | n/a | none | no repository evidence located, awaiting Captain's authoritative 50-item source list |
-| 42 | UNKNOWN — item 42 of 50, awaiting Captain's list | programme-spec-only | NO REPOSITORY EVIDENCE — AWAITING CAPTAIN LIST | n/a | none | no repository evidence located, awaiting Captain's authoritative 50-item source list |
-| 43 | UNKNOWN — item 43 of 50, awaiting Captain's list | programme-spec-only | NO REPOSITORY EVIDENCE — AWAITING CAPTAIN LIST | n/a | none | no repository evidence located, awaiting Captain's authoritative 50-item source list |
-| 44 | UNKNOWN — item 44 of 50, awaiting Captain's list | programme-spec-only | NO REPOSITORY EVIDENCE — AWAITING CAPTAIN LIST | n/a | none | no repository evidence located, awaiting Captain's authoritative 50-item source list |
-| 45 | UNKNOWN — item 45 of 50, awaiting Captain's list | programme-spec-only | NO REPOSITORY EVIDENCE — AWAITING CAPTAIN LIST | n/a | none | no repository evidence located, awaiting Captain's authoritative 50-item source list |
-| 46 | UNKNOWN — item 46 of 50, awaiting Captain's list | programme-spec-only | NO REPOSITORY EVIDENCE — AWAITING CAPTAIN LIST | n/a | none | no repository evidence located, awaiting Captain's authoritative 50-item source list |
-| 47 | UNKNOWN — item 47 of 50, awaiting Captain's list | programme-spec-only | NO REPOSITORY EVIDENCE — AWAITING CAPTAIN LIST | n/a | none | no repository evidence located, awaiting Captain's authoritative 50-item source list |
-| 48 | UNKNOWN — item 48 of 50, awaiting Captain's list | programme-spec-only | NO REPOSITORY EVIDENCE — AWAITING CAPTAIN LIST | n/a | none | no repository evidence located, awaiting Captain's authoritative 50-item source list |
-| 49 | UNKNOWN — item 49 of 50, awaiting Captain's list | programme-spec-only | NO REPOSITORY EVIDENCE — AWAITING CAPTAIN LIST | n/a | none | no repository evidence located, awaiting Captain's authoritative 50-item source list |
-| 50 | UNKNOWN — item 50 of 50, awaiting Captain's list | programme-spec-only | NO REPOSITORY EVIDENCE — AWAITING CAPTAIN LIST | n/a | none | no repository evidence located, awaiting Captain's authoritative 50-item source list |
+| 38 | Boredom / unstructured space | programme-spec-only | NATIVE PLATFORM | n/a | none — unstructured downtime is an absence of a task, not a software feature; better served by not prescribing anything | classified honestly, no implementation evidence invented |
+| 39 | Contextual outfits | programme-spec-only | EXTERNAL/HUMAN | n/a | none — physical/wardrobe, outside any digital platform's remit | classified honestly, no implementation evidence invented |
+| 40 | Write instead of talk when activated | programme-spec-only | NATIVE PLATFORM | n/a | the whole platform is text-first (Telegram/Ready Room capture) by default design, not a dedicated accommodation feature — same "capture anytime" infrastructure as #1, but this item is about a communication *preference*, not a capture mechanism | classified honestly, no new feature invented; not double-counted as IMPLEMENTED since nothing was built specifically for this |
+| 41 | Let others process differently | programme-spec-only | EXTERNAL/HUMAN | n/a | none — interpersonal/relational, not a platform concern | classified honestly, no implementation evidence invented |
+| 42 | Delay emotional responses | programme-spec-only | EXTERNAL/HUMAN | n/a | none found; same category as #31 (delay-send) — native OS "undo send" is the better fit, not a TJR HQ feature | classified honestly, no implementation evidence invented |
+| 43 | "Feedback not failure" framing | programme-spec-only | PARTIALLY IMPLEMENTED | no | same partial evidence as #33 — Weekly Review avoids framing non-completion as failure as a general principle, not yet generalised across every surface | reused #33's existing citation, not fabricated new evidence |
+| 44 | Understand rejection response | programme-spec-only | PARTIALLY IMPLEMENTED | no | same as #33 — RSD-aware framing exists as a stated principle in Weekly Review, not a dedicated "understand my rejection response" capability | reused #33's existing citation, not fabricated new evidence |
+| 45 | Notes instead of interrupting | programme-spec-only | IMPLEMENTED | no | same capture infrastructure as #1 — async note capture (Telegram voice/text, `captured_items`) already lets the Captain leave a note without interrupting a task | reused #1's existing citation; not a dedicated new feature, an existing capability applied to this use case |
+| 46 | Disclose ADHD where useful | programme-spec-only | EXTERNAL/HUMAN | n/a | none — a Captain-to-other-people disclosure decision, not appropriate for HQ to automate or template | classified honestly, no implementation evidence invented |
+| 47 | Disclose reduced capacity / emotional state | programme-spec-only | EXTERNAL/HUMAN | n/a | none — same as #46, a disclosure to other people, not a platform feature; HQ tracks the Captain's own capacity internally but does not manage external disclosure of it | classified honestly, no implementation evidence invented |
+| 48 | Evidence library | programme-spec-only | IMPLEMENTED | yes | this is the one item in 38–50 with genuine, direct repository evidence: Human Systems Workbench's `WhatHelpsMeCard.tsx`/`WhatHelpsView.tsx` + `intervention-effectiveness.ts`, now extended this mission to cover `domain='ready_room'` via `support-effectiveness/route.ts` | personally verified this session — this is exactly what Mission 5 built/extended, not a coincidental prior match |
+| 49 | Avoid rigid diet systems | programme-spec-only | NOT APPROPRIATE FOR HQ | n/a | none, deliberately — this reads as a guardrail against building something (a rigid tracking/compliance system), consistent with Mission 5 §27's own "no productivity/compliance scoring" principle, not a capability gap to fill | classified honestly, no implementation evidence invented |
+| 50 | Permission to stop chasing normal / design around the brain | programme-spec-only | NATIVE PLATFORM | n/a | this is the whole platform's founding design philosophy (accommodation-first, "past effectiveness is evidence not command," never turning adaptation into control — Mission 5's own §2/§29) rather than a discrete feature; it is embodied throughout, not owned by any one component | classified honestly — a principle already structurally present, not something to build as a standalone feature |
 
 ## Notes on cross-check against the Mission 3 11-item matrix
 
@@ -84,25 +89,45 @@ explicitly defers "planning tomorrow" and "reduced-capacity disclosure" framing
 to Mission 4/prior missions. No new rows were added from it; it was used only
 to corroborate rows above (particularly #1, #2, #7, #13).
 
-## Summary counts (rows 1–37 only; rows 38–50 are the open gap, counted separately)
+## Summary counts — all 50 items
 
+Rows 1–37 (repository-evidence draft):
 - IMPLEMENTED: 19 (#1, 2, 8, 9, 12, 13, 14, 15, 17, 18, 19, 23, 24, 28, 32, 34, 35, 36, 37)
 - PARTIALLY IMPLEMENTED: 11 (#3, 4, 5, 7, 11, 16, 20, 21, 26, 30, 33)
 - NATIVE PLATFORM: 2 (#6, 22)
 - EXTERNAL/HUMAN: 4 (#10, 25, 29, 31)
 - DEFERRED: 1 (#27)
-- Total rows 1–37: 19+11+2+4+1 = 37 ✓
-- Rows 38–50 (13 rows): NO REPOSITORY EVIDENCE — AWAITING CAPTAIN LIST
-- **Of the 19 IMPLEMENTED, 2 were upgraded this session from the source doc's PARTIAL/broken classification after independent re-verification (#14, #34), and 1 (#2) plus 1 partial-improvement (#7) were upgraded per Mission 3's own confirmed fix.**
+- Total: 37 ✓
 
-## The single most important open question for the Captain
+Rows 38–50 (Captain-supplied, programme-spec-only):
+- IMPLEMENTED: 2 (#45, #48)
+- PARTIALLY IMPLEMENTED: 2 (#43, #44)
+- NATIVE PLATFORM: 3 (#38, #40, #50)
+- EXTERNAL/HUMAN: 5 (#39, #41, #42, #46, #47)
+- NOT APPROPRIATE FOR HQ: 1 (#49)
+- Total: 2+2+3+5+1 = 13 ✓
 
-**Where is the actual 50-item list, and does it supersede or extend the
-37-item draft?** Everything in this document downstream of that question is
-provisional. Until the Captain supplies the authoritative list, rows 38–50
-cannot be given real titles without either (a) fabricating plausible-sounding
-accommodations that were never actually specified, which this document
-deliberately refuses to do, or (b) the programme silently re-baselining to 37
-and quietly dropping 13 items nobody has re-derived — which the Captain's own
-decision explicitly rejected. This reconciliation should be treated as
-**interim** and re-run in full once the source list surfaces.
+**All 50 items now classified.** Of the 13 Captain-supplied items, only 2
+(#45, #48) map onto genuine existing/extended repository capability; 3 are
+foundational design principles rather than discrete features (#38, #40,
+#50); 5 are correctly out of scope for HQ entirely (interpersonal/physical
+disclosure or preference, not a software gap); 1 is explicitly a guardrail
+against building something (#49), consistent with Mission 5's own
+no-compliance-scoring principle. Nothing was invented or retrofitted to make
+this range look more complete than it is.
+
+- **Of the 19 IMPLEMENTED in rows 1–37, 2 were upgraded this session from the
+  source doc's PARTIAL/broken classification after independent
+  re-verification (#14, #34), and 1 (#2) plus 1 partial-improvement (#7) were
+  upgraded per Mission 3's own confirmed fix.**
+
+## Closure note
+
+The open question this document previously carried — "where is the actual
+50-item list" — is resolved: the Captain supplied items 38–50 directly as
+part of the Mission 5 final closure directive (2026-09-19). This
+reconciliation is complete for all 50 items. Reconciliation completion does
+not imply every accommodation belongs inside TJR HQ, and does not convert
+this matrix into an automatic feature backlog — several items above are
+correctly EXTERNAL/HUMAN, NATIVE PLATFORM, or NOT APPROPRIATE FOR HQ by
+design, not by omission.

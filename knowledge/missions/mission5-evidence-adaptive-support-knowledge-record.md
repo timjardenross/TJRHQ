@@ -62,7 +62,7 @@ Migration `0218_mission5_evidence_domain_generalisation.sql` (applied live, veri
 - **Orphan finding**: `get_decision_quality_stats()` has zero callers anywhere in the repo — the actual live "G008" decision-quality gate is a wholly separate, independent implementation in `core/intelligence/decision_effectiveness.py` that never touched `mission_knowledge_store.py`. The fold-in fixed real functionality, but it's currently unwired to anything. No behaviour-change risk (nothing consumed the old dead version either), but worth knowing before assuming this function matters yet.
 
 ### 2.6 Accommodation reconciliation
-`knowledge/missions/mission5-accommodation-reconciliation.md`. **The literal 50-item accommodation list does not exist anywhere in this repo's reachable git history.** Reconciled per Captain decision: combined the best available repository evidence (a 37-item draft on an orphaned, never-merged branch, `origin/claude/tjr-adhd-accommodation-discovery-aike59`) with the 50-item programme baseline — items 1-37 classified and re-verified against current live code (not just trusted from the 8-day-old source doc; found and corrected 3 items where source-doc classification had drifted), items 38-50 explicitly left as `UNKNOWN — awaiting Captain's list`, no titles invented. 19 IMPLEMENTED / 11 PARTIALLY IMPLEMENTED / 4 EXTERNAL-HUMAN / 2 NATIVE-PLATFORM / 1 DEFERRED / 13 UNRESOLVED. **Open item, not silently closed**: the 13 unknowns could be entirely new categories the draft's author never considered, not just more of the same 8 — this reconciliation cannot rule that out without the Captain's actual list.
+`knowledge/missions/mission5-accommodation-reconciliation.md`. The literal 50-item accommodation list did not exist anywhere in this repo's reachable git history at initial discovery. Reconciled per Captain decision: combined the best available repository evidence (a 37-item draft on an orphaned, never-merged branch, `origin/claude/tjr-adhd-accommodation-discovery-aike59`) with the 50-item programme baseline — items 1-37 classified and re-verified against current live code (not just trusted from the 8-day-old source doc; found and corrected 3 items where source-doc classification had drifted). Items 38-50 were subsequently supplied directly by the Captain (final closure directive, 2026-09-19) and classified honestly against current repository state with no implementation evidence invented: 2 IMPLEMENTED (#45 notes-instead-of-interrupting via existing capture infra, #48 evidence library — the one genuine, direct match, since this is exactly what Mission 5 built/extended), 2 PARTIALLY IMPLEMENTED (#43/#44, reusing #33's existing RSD-framing citation), 3 NATIVE PLATFORM (#38, #40, #50 — foundational design properties, not discrete features), 5 EXTERNAL/HUMAN (#39, #41, #42, #46, #47 — interpersonal/physical, correctly outside HQ's remit), 1 NOT APPROPRIATE FOR HQ (#49, a guardrail against building something, consistent with §27's no-compliance-scoring principle). **All 50 items now classified.** Reconciliation completion does not imply every accommodation belongs inside TJR HQ — several are correctly out of scope by design.
 
 ## 3. Adversarial review self-check (spec §38)
 
@@ -80,11 +80,60 @@ Migration `0218_mission5_evidence_domain_generalisation.sql` (applied live, veri
 
 54 Python tests (reasoning_engine outcome-evidence: 7 new; mission_knowledge_store/decision-quality: rewritten against real data; recommendation_engine: 28, unchanged, confirms public contract held; cognitive_core regression: 6) + 60/60 + 35/35 capacitybot (intervention_engine incl. 5 new preference-override tests; evidence_engine, unchanged, confirms evidence_strength/personal_causal_effect separation untouched) + `tsc --noEmit` clean + 50/50 vitest (Ready Room, human-systems effectiveness). Live schema verified against production before and after migration apply; zero drift found; migration verified idempotent (`if not exists`/`if exists` throughout); no new security advisories introduced (checked via Supabase advisors post-apply).
 
-## 5. Deferred / open items for Mission 6B
+### 4.1 CI gate fix (unrelated pre-existing gap, surfaced by this PR)
 
-1. Mission_type/category recording at write time, if the mission-ranking blend in `recommendation_engine.py` should actually activate (currently an honest no-op).
-2. `PickUpBanner.tsx` (interruption recovery) feedback wiring — 4th attach point, same pattern as the 3 already done.
-3. The 13 unresolved accommodation items (38-50) — needs the Captain's actual source list.
-4. `preferred` preference state has no UI trigger yet in capacitybot (only `do_not_suggest` does) — ranking/write support is fully built and tested, just not exposed via a button.
-5. `outcome_records`/`decision_outcomes` duplication — pre-existing technical debt, explicitly not deepened, not fixed. Recorded per instruction, not expanded into this mission's scope.
-6. `get_decision_quality_stats()` orphan status — real, fixed, correct — but nothing calls it. Worth a decision on whether to wire it to something or leave it as available-but-unused.
+PR #274's `merge-gate` initially failed on the `test (telegram-bots-capacitybot...)` job. Root-caused before touching anything: Mission 5 was the first PR to touch enough of `telegram-bots/capacitybot/` to make CI's path-filtered test matrix actually run that whole directory to completion — this exposed two pre-existing, unrelated-to-Mission-5 test-isolation gaps, not a Mission 5 code defect:
+
+1. `app.py` hard-requires `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` via `os.environ[...]` at import time, loaded from a gitignored `.env` that never reaches a clean CI checkout — every test file importing `app.py` failed at collection (46 `KeyError`s).
+2. Several handler-level tests call the real, unmocked `app._get_supabase()`, which returns `None` with no `SUPABASE_URL`/`SUPABASE_KEY` set in a clean checkout — genuinely different from every developer machine's local `.env`, which is why this was never caught before.
+
+Fixed with a new `telegram-bots/capacitybot/conftest.py` (commit `4090432dd`): `os.environ.setdefault` env defaults (never overrides a real value) + an autouse fixture that fills `app._supabase`'s memoisation slot with a fake db only when it's still `None` (existing tests that inject their own `app_module._supabase = db` still win, since they run after fixture setup). Verified locally against a fresh venv with all four env vars unset, matching CI exactly: 153/153 capacitybot tests pass. This is a test-infrastructure fix only — no production code path, no gate definition, and no branch-protection rule was touched or weakened.
+
+## 5. Residuals (explicitly not hidden — see final closure directive §9)
+
+**Residual A — Mission ranking mapping.** No authoritative mission_id → mission_type mapping exists anywhere in this repo. The mission-ranking blend in `recommendation_engine.py` therefore remains an intentional no-op. Classification: **KNOWN DATA-MODEL GAP / DEFERRED**. Not manufactured; carry into future architecture work only if a real consumer requires it.
+
+**Residual B — PickUpBanner evidence hook.** `PickUpBanner.tsx` (interruption recovery) does not yet participate in the Mission 5 feedback/evidence loop, though it has a catalogue row (`rr_interruption_recovery`) and appears in ranking/effectiveness reads. The primary Ready Room intervention paths (DecomposeView, ActiveTaskView, TodayStream) are implemented. Classification: **MISSION 6B CONVERGENCE INPUT**. Not reopened in Mission 5 — its absence does not break a Mission 5 invariant.
+
+**Residual C — decision-quality consumer.** `get_decision_quality_stats()` now reads canonical real data correctly (108 `outcome_records` rows, 82 decision-type) but has zero live callers anywhere in the repo — the actual live "G008" decision-quality gate is a wholly separate implementation in `core/intelligence/decision_effectiveness.py` that never touched `mission_knowledge_store.py`. Classification: **CANONICALISED BUT UNCONSUMED**. No consumer was invented to make it appear active.
+
+**Residual D — accommodation implementation.** The full 50-item accommodation baseline is now known (see `mission5-accommodation-reconciliation.md`). Reconciliation does not imply every accommodation belongs inside TJR HQ — the matrix distinguishes supported+evidence-aware / supported-but-not-evidence-aware / partial / human-external / native-platform / not-appropriate-for-HQ, and several of items 38-50 are correctly out of scope by design. Not converted into an automatic feature backlog.
+
+## 6. Mission 6B handoff — contracts Mission 6B can rely upon
+
+- **Evidence**: canonical intervention evidence architecture exists (`capacity_interventions`/`capacity_intervention_events`, domain-scoped) and can be consumed by Captain-facing experiences without building a new evidence store.
+- **Feedback**: Ready Room supports meaningful feedback semantics — HELPFUL / NOT HELPFUL / NOT NOW, with NOT NOW guaranteed non-negative.
+- **Captain preference**: explicit Captain corrections can hard-exclude support (`capacity_preferences`, `do_not_suggest`), consumed by `intervention_engine.py`'s ranking.
+- **Adaptation**: adaptive support is conservative (sample floors, bounded adjustments), evidence-aware, and subordinate to current Captain intent — never the reverse.
+- **Number One**: can consume canonical evidence and outcome history (`insight_outcomes`, `outcome_records`) without owning a competing evidence engine — the one it used to own (`mission_knowledge_store.py`) has been reconciled.
+- **Explainability**: evidence-aware support should be explained in human terms ("this has helped before when...") not exposed scoring machinery ("intervention score 0.82") — the `support-effectiveness` route's `reason` string and `reasoning_engine.py`'s evidence-grounded `supporting_context` are the reference pattern.
+
+### Updated Mission 6B convergence register
+
+Preserving Mission 6A's existing findings (1-5) and adding Mission 5's residual/integration findings (6-10):
+
+1. XO bot / Capacity Bot Telegram convergence
+2. Command Centre duplicate notification path
+3. Capacity-aware delivery across notification classes
+4. Hub → Ready Room continuity
+5. Web voice → canonical Capture pipeline
+6. PickUpBanner interruption-recovery evidence hook (Residual B)
+7. Evidence-aware Number One orchestration (deepen beyond the conservative floor/clamp wiring already shipped)
+8. Captain preference/correction consumption across relevant experiences beyond Ready Room + capacitybot
+9. Evidence-aware support explanation, generalised across surfaces
+10. Any justified consumer for canonical decision-quality evidence (Residual C)
+
+None of these were solved from the Mission 5 session — they are recorded here as inputs, not implemented.
+
+## 7. Final status
+
+| Field | Value |
+|---|---|
+| PR | [#274](https://github.com/timjardenross/TJRHQ/pull/274) |
+| Merge SHA | *(recorded post-merge, §7 below at closure)* |
+| Authoritative main SHA (post-merge) | *(recorded post-merge)* |
+| CI result | See PR #274 check runs — `merge-gate` green after the conftest.py fix (commit `4090432dd`) |
+| Production migration status | `0218_mission5_evidence_domain_generalisation.sql` applied live 2026-09-19, verified against production schema before and after, 4 Ready Room catalogue rows confirmed present, no new security advisories |
+| Regression result | Zero regressions across 54+60+35+50 tests plus `tsc --noEmit`; 153/153 capacitybot tests green in a clean-env CI-equivalent run |
+| Residuals | A (mission-ranking mapping, deferred), B (PickUpBanner hook, Mission 6B input), C (decision-quality consumer, canonicalised but unconsumed), D (accommodation implementation, not auto-backlogged) |
+| Mission 6B handoff | Confirmed — §6 above |
