@@ -91,7 +91,10 @@ async function wellnessAlerts(): Promise<AlertGroupResult> {
         title: 'Health red flag detected',
         detail: hs.snapshot.escalation,
         why: 'A safety-relevant signal was logged. This needs attention before anything operational.',
-        href: '/medical',
+        // Mission 6A (2026-09-19): /medical is retired-in-place (dead
+        // check-in/pulse tabs). Point at the live consolidated surface,
+        // matching the recovery-debt repoint below.
+        href: '/human-systems-workbench',
         at: nowIso(),
       });
     }
@@ -141,7 +144,7 @@ async function wellnessAlerts(): Promise<AlertGroupResult> {
         title: 'Nervous-system load elevated',
         detail: emo.message,
         why: 'Sustained activation changes what load is safe. Adjust commitments accordingly.',
-        href: '/medical',
+        href: '/human-systems-workbench',
         at: nowIso(),
       });
     }
@@ -176,7 +179,7 @@ async function wellnessAlerts(): Promise<AlertGroupResult> {
             title: 'Pain critically high',
             detail: `Average pain score over last ${data.length} check-ins is ${avg.toFixed(1)} (threshold: 8).`,
             why: 'A sustained high-pain trend changes what load is safe today, not just how you feel about it.',
-            href: '/medical',
+            href: '/human-systems-workbench',
             at: nowIso(),
           });
         } else if (avg > 6) {
@@ -187,7 +190,7 @@ async function wellnessAlerts(): Promise<AlertGroupResult> {
             title: 'Pain trend elevated',
             detail: `Average pain score over last ${data.length} check-ins is ${avg.toFixed(1)} (threshold: 6).`,
             why: 'A rising pain trend is worth acting on before it becomes a red-flag escalation.',
-            href: '/medical',
+            href: '/human-systems-workbench',
             at: nowIso(),
           });
         }
