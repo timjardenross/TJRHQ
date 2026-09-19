@@ -12,6 +12,47 @@ import { FOLLOW_THROUGH_MODES, autoSwitchModeOnDueDate } from './followThroughMo
 import { TaskRow } from './TaskRow';
 import { ActiveTaskView } from './ActiveTaskView';
 
+/** Mission 4 overload sequence (spec §16/§17): "too much" must REDUCE
+ * cognitive demand, not produce more information. Reuses rankToday's own
+ * ordering (already the single source of "what matters most") capped to
+ * one — no second prioritisation engine — and offers regulation as an
+ * equally valid exit, never just a smaller task list. Purely client-side,
+ * ephemeral (no new persistence): leaving the page or clicking "Back to
+ * full view" forgets it. */
+function OverloadView({
+  onlyTask, onStart, onExit,
+}: {
+  onlyTask: PersonalTask | null;
+  onStart: (task: PersonalTask) => void;
+  onExit: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4 rounded-md border border-wb-line bg-wb-surface p-4">
+      <p className="text-[13px] text-wb-ink">
+        That&apos;s okay. Everything else is being protected — you don&apos;t need to look at it right now.
+      </p>
+      {onlyTask ? (
+        <div className="rounded-md bg-wb-sage/10 p-3">
+          <p className="text-[11px] uppercase tracking-wide text-wb-sage-deep">One thing, if you want it</p>
+          <p className="mt-1 text-[14px] text-wb-ink">{onlyTask.title}</p>
+          <Button size="sm" className="mt-2" onClick={() => onStart(onlyTask)}>Start this</Button>
+        </div>
+      ) : (
+        <p className="text-[13px] text-wb-ink2">Nothing urgent needs you at all right now.</p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <a
+          href="/human-systems-workbench?domain=recovery"
+          className="inline-flex items-center rounded-md border border-wb-line bg-wb-bg px-3 py-1.5 text-[13px] text-wb-ink hover:bg-wb-surface-raised"
+        >
+          Take a break instead
+        </a>
+        <Button size="sm" variant="ghost" onClick={onExit}>Back to full view</Button>
+      </div>
+    </div>
+  );
+}
+
 /** Title-first capture (spec §9) — no forced urgency/importance/source
  * decisions. Category/due/follow-through sit behind "Add details ▾". */
 function QuickAdd({ onAdded }: { onAdded: () => void }) {
@@ -132,7 +173,17 @@ function CollapsedSection({
 
 type LoadState = 'loading' | 'clear' | 'unavailable';
 
-export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number; onLoaded: (tasks: PersonalTask[]) => void }) {
+export function TodayStream({
+  refreshSignal,
+  onLoaded,
+  onExecutingChange,
+}: {
+  refreshSignal: number;
+  onLoaded: (tasks: PersonalTask[]) => void;
+  /** Mission 4: reports whether ActiveTaskView is showing, so the page
+   * shell can drop into minimal/nav-free mode. */
+  onExecutingChange?: (executing: boolean) => void;
+}) {
   const [openTasks, setOpenTasks] = useState<PersonalTask[]>([]);
   const [doneTasks, setDoneTasks] = useState<PersonalTask[]>([]);
   const [state, setState] = useState<LoadState>('loading');
@@ -142,6 +193,7 @@ export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number
   const [activeTask, setActiveTask] = useState<PersonalTask | null>(null);
   const [internalRefresh, setInternalRefresh] = useState(0);
   const [doneOpen, setDoneOpen] = useState(false);
+  const [overloaded, setOverloaded] = useState(false);
   // HQ V1 Integration QA §21 fix: surfaces a genuine Google Tasks sync
   // failure in-page, distinct from "no tasks" — the backend already makes
   // this distinction (google-tasks/sync/route.ts), Ready Room's own page
@@ -184,6 +236,8 @@ export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number
     else if (doneTasks.find((t) => t.id === activeTask.id)) setActiveTask(null);
   }, [openTasks, doneTasks, activeTask]);
 
+  useEffect(() => { onExecutingChange?.(!!activeTask); }, [activeTask, onExecutingChange]);
+
   const refresh = () => setInternalRefresh((n) => n + 1);
 
   if (state === 'unavailable') {
@@ -221,11 +275,31 @@ export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number
     todayCount: today.length, waitingCount: waiting.length, capacityLow, hasCheckinToday: context.hasCheckinToday,
   });
 
+  if (overloaded) {
+    const onlyTask = pickUp[0] ?? today[0] ?? null;
+    return (
+      <OverloadView
+        onlyTask={onlyTask}
+        onStart={(t) => { setOverloaded(false); setActiveTask(t); }}
+        onExit={() => setOverloaded(false)}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <p className="rounded-md border border-wb-line bg-wb-surface px-4 py-3 text-[13px] text-wb-ink">
-        {statusSentence}
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-wb-line bg-wb-surface px-4 py-3">
+        <p className="text-[13px] text-wb-ink">{statusSentence}</p>
+        {(today.length > 0 || radar.length > 0) && (
+          <button
+            type="button"
+            onClick={() => setOverloaded(true)}
+            className="shrink-0 text-[12px] text-wb-ink2 underline-offset-2 hover:underline"
+          >
+            This feels like too much
+          </button>
+        )}
+      </div>
       {syncStatus === 'failed' && (
         <p className="rounded-md border border-wb-warn/40 bg-wb-warn/10 px-4 py-2 text-[12px] text-wb-warn-on">
           Google Tasks sync is currently failing — tasks added or completed on your phone may not appear here yet.

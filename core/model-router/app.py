@@ -342,6 +342,25 @@ _ADHD_DECOMPOSE_SYSTEM_PROMPT = (
     "Respond with ONLY the micro-action, nothing else. No preamble, no explanation."
 )
 
+# Mission 4: opt-in only (appended when the caller sent a `posture` field at
+# all — see _handle_adhd_decompose) so this never changes behaviour for
+# intelligence/adhd/task_decomposition.py's TaskDecomposer._model_router,
+# which calls this same endpoint with a bare {"task": ...} body and treats
+# whatever string comes back as a literal micro-action — a "CLARIFY: ..."
+# response would silently corrupt that caller's output with no way for it
+# to recognise the prefix. Ready Room's route always sends `posture`
+# (getReadyRoomContext never returns undefined), so this only ever fires
+# for Ready Room's own UI, which knows how to render the prefix.
+_ADHD_DECOMPOSE_CLARIFY_SUFFIX = (
+    "\n\nIf the task description is too vague or ambiguous to identify any "
+    "concrete action (e.g. \"sort out the specialist thing\") — not merely "
+    "big, but genuinely unclear what it refers to — respond with exactly "
+    "\"CLARIFY: \" followed by ONE short, specific question that would "
+    "unblock you. Only use this for genuine ambiguity, not for tasks that "
+    "are simply large or vague-but-actionable. Otherwise respond with ONLY "
+    "the micro-action as above."
+)
+
 _ADHD_DECOMPOSE_SMALLER_SUFFIX = (
     "\n\nThe person tried the first action above and it still feels too big. "
     "Propose an even smaller sub-step of that SAME action — something "
@@ -355,6 +374,30 @@ _ADHD_DECOMPOSE_ANOTHER_SUFFIX = (
     "goal — not a bigger plan, not the same action reworded. Respond with "
     "ONLY the alternative action, nothing else."
 )
+
+# Mission 4 (Executive Function & Regulation): appended only for
+# PROTECT/RECOVER posture (Ready Room's own ReadyRoomPosture, read
+# server-side and passed through untouched — this endpoint never derives
+# or validates it, matching this router's existing thin-proxy contracts
+# elsewhere). Gives the model permission to suggest regulation/rest as a
+# legitimate answer instead of always forcing an executable step, per
+# mission spec §7/§14 ("regulation/recovery may be more useful than
+# execution"). Still respects Captain choice — the UI always offers "I'd
+# still like to try something small" alongside it.
+_ADHD_DECOMPOSE_LOW_CAPACITY_SUFFIX = (
+    "\n\nImportant context: the person's current capacity/regulation state "
+    "is constrained right now (posture: {posture}). If, given that, doing "
+    "literally anything on this task right now doesn't seem like the right "
+    "call — e.g. it needs energy or focus they may not have — you may "
+    "instead respond with exactly \"REGULATE: \" followed by one short, "
+    "warm, non-clinical sentence suggesting rest or a pause is a reasonable "
+    "choice right now. Only use this when it's genuinely a better answer "
+    "than a tiny action would be — most tasks still have SOME 5-15 minute "
+    "step that's fine even on a constrained day, so don't reach for this by "
+    "default."
+)
+
+_LOW_CAPACITY_POSTURES = {"PROTECT", "RECOVER", "RESET"}
 
 # Escalation triggers — checked against PROMPT ONLY (not response) for classify-capture.
 # Narrow and intent-based: matches things the Captain is actually asking to do,
@@ -810,6 +853,14 @@ class RouterHandler(BaseHTTPRequestHandler):
         this mirrors TaskDecomposer._model_router's existing contract
         (task_decomposition.py) rather than the {"prompt"}/{"response"}
         convention used everywhere else in this router.
+
+        Mission 4: optional `posture` (Ready Room's ReadyRoomPosture)
+        conditions the prompt only — the response stays the same single
+        string field. It may come back prefixed "CLARIFY: " (ambiguous
+        task — model wants one clarifying question) or "REGULATE: "
+        (PROTECT/RECOVER/RESET only — model judges rest is a better answer
+        than an action). Callers that don't check for these prefixes just
+        treat them as the micro-action text, which degrades acceptably.
         """
         body = self._read_body()
         task_text = (body.get("task") or "").strip()[:2000]
@@ -818,11 +869,22 @@ class RouterHandler(BaseHTTPRequestHandler):
             return
         mode = body.get("mode") or "first"
         previous_action = (body.get("previous_action") or "").strip()[:500]
+        # Mission 4: Ready Room's own ReadyRoomPosture, passed through
+        # as-is (this endpoint doesn't re-derive it, same boundary as the
+        # rest of this router's proxy handlers). Presence of the key (not
+        # just its value) is also the opt-in signal for CLARIFY — see
+        # _ADHD_DECOMPOSE_CLARIFY_SUFFIX.
+        is_ready_room_caller = "posture" in body
+        posture = (body.get("posture") or "").strip().upper()[:20]
         prompt = f"{_ADHD_DECOMPOSE_SYSTEM_PROMPT}\n\nTask: {task_text}"
         if mode == "smaller" and previous_action:
             prompt += f"\n\nFirst action given: {previous_action}{_ADHD_DECOMPOSE_SMALLER_SUFFIX}"
         elif mode == "another" and previous_action:
             prompt += f"\n\nFirst action given: {previous_action}{_ADHD_DECOMPOSE_ANOTHER_SUFFIX}"
+        if is_ready_room_caller:
+            prompt += _ADHD_DECOMPOSE_CLARIFY_SUFFIX
+        if posture in _LOW_CAPACITY_POSTURES:
+            prompt += _ADHD_DECOMPOSE_LOW_CAPACITY_SUFFIX.format(posture=posture)
         result = _run_task("adhd-decompose", prompt, body)
         if not result.get("success"):
             self._send_json(502, {"action": None, "error": result.get("error")})

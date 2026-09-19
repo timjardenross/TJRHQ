@@ -82,6 +82,14 @@ export function WorkbenchShell({
    * standard reading-width shell every other workbench uses. Off by default
    * so this stays a per-page choice, not a blanket layout change. */
   wide?: boolean;
+  /** Mission 4 (Executive Function & Regulation): suppress Sidebar, the
+   * workbench switcher, back-link and tagline while the Captain is inside
+   * a single active-execution moment (Ready Room's ActiveTaskView) — one
+   * fewer decision surface competing for attention mid-task. Opt-in, off
+   * by default, so every other workbench is unaffected. Settings/theme
+   * stay reachable (never trap the Captain), QuickCapture/MobileCommandBar
+   * stay mounted. */
+  minimal?: boolean;
   children: ReactNode;
 }) {
   const shellWidth = wide ? 'max-w-7xl' : 'max-w-4xl';
@@ -95,9 +103,10 @@ export function WorkbenchShell({
       </a>
       {/* Adaptive Themes mission (2026-09-05): Sidebar is global chrome on
           every *-workbench page, not just Home — Captain's explicit call.
-          xl:flex on Sidebar itself, no extra breakpoint class needed here. */}
+          xl:flex on Sidebar itself, no extra breakpoint class needed here.
+          Mission 4: hidden in `minimal` mode (see prop doc above). */}
       <div className="flex">
-        <Sidebar />
+        {!minimal && <Sidebar />}
         <div className="min-w-0 flex-1">
           <header className="border-b border-wb-line bg-wb-bg/80 backdrop-blur">
             <div className={`mx-auto flex ${shellWidth} flex-wrap items-center gap-3 px-6 py-4`}>
@@ -129,17 +138,17 @@ export function WorkbenchShell({
                   <Settings className="h-4 w-4" aria-hidden />
                 </Link>
                 <ThemeSelector />
-                <WorkbenchSwitcher />
+                {!minimal && <WorkbenchSwitcher />}
               </span>
             </div>
-            {tabs && (
+            {tabs && !minimal && (
               <div className={`mx-auto ${shellWidth} px-6 pb-4`}>
                 {tabs}
               </div>
             )}
           </header>
           <main id="wb-main" className={`mx-auto ${shellWidth} px-6 py-8`}>
-            {back && (
+            {back && !minimal && (
               <Link
                 href={back.href}
                 className="mb-4 inline-block text-[13px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
@@ -148,9 +157,11 @@ export function WorkbenchShell({
               </Link>
             )}
             {children}
-            <p className="mt-8 text-center text-[11px] text-wb-ink2">
-              {tagline}
-            </p>
+            {!minimal && (
+              <p className="mt-8 text-center text-[11px] text-wb-ink2">
+                {tagline}
+              </p>
+            )}
           </main>
         </div>
       </div>

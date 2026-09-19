@@ -36,6 +36,10 @@ function Workbench() {
   const [domain, setDomain] = useState<Domain>(hadExplicitDomain ? initialDomain : 'do');
   const [todayBadge, setTodayBadge] = useState<number | undefined>(undefined);
   const [refreshSignal, setRefreshSignal] = useState(0);
+  // Mission 4: true while either sub-view is showing ActiveTaskView (a
+  // single task actually underway) — drives WorkbenchShell's `minimal`
+  // mode so nav/switcher/tagline stop competing for attention mid-task.
+  const [executing, setExecuting] = useState(false);
 
   // Only a posture-driven default is allowed to move `domain` on its own --
   // once the Captain has explicitly picked (URL param on load, or any
@@ -77,15 +81,16 @@ function Workbench() {
       title="Ready Room"
       eyebrow={EYEBROW[domain]}
       tagline="The place where things become doable. Nothing falls through. Nothing has to be figured out alone."
-      right={right}
+      right={executing ? undefined : right}
       back={{ href: '/workbenches', label: 'Workbenches' }}
+      minimal={executing}
       wide
     >
       {domain === 'do' && (
-        <TodayStream refreshSignal={refreshSignal} onLoaded={handleLoaded} />
+        <TodayStream refreshSignal={refreshSignal} onLoaded={handleLoaded} onExecutingChange={setExecuting} />
       )}
       {domain === 'unstick' && (
-        <DecomposeView onSaved={() => setRefreshSignal((n) => n + 1)} />
+        <DecomposeView onSaved={() => setRefreshSignal((n) => n + 1)} onExecutingChange={setExecuting} />
       )}
     </WorkbenchShell>
   );

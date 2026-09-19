@@ -488,10 +488,17 @@ export type DecomposeMode = 'first' | 'smaller' | 'another';
  * can fall back to "write your own first step" rather than block.
  * `mode` drives "Make it smaller" / "Try another" without creating a new
  * task or losing the original goal — see spec §17/§18. `previousAction` is
- * passed along so the router can vary its answer instead of repeating it. */
+ * passed along so the router can vary its answer instead of repeating it.
+ *
+ * Mission 4: `posture` is Human Systems' already-derived ReadyRoomPosture
+ * (read via getReadyRoomContext, never re-derived here) — passed through so
+ * the model can vary its answer for PROTECT/RECOVER (offer regulation) or
+ * an ambiguous goal (ask one clarifying question) instead of always forcing
+ * an executable step. Optional and additive: omitting it behaves exactly as
+ * before. */
 export async function decomposeTask(
   taskText: string,
-  opts?: { mode?: DecomposeMode; previousAction?: string },
+  opts?: { mode?: DecomposeMode; previousAction?: string; posture?: ReadyRoomPosture },
 ): Promise<DecomposeResult> {
   try {
     const resp = await fetch('/api/ready-room/decompose', {
@@ -501,6 +508,7 @@ export async function decomposeTask(
         task: taskText,
         mode: opts?.mode ?? 'first',
         previous_action: opts?.previousAction,
+        posture: opts?.posture,
       }),
     });
     const json = await resp.json();
