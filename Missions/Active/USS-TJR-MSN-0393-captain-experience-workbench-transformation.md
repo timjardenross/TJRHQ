@@ -193,6 +193,11 @@ See §5 item 4 for the full finding: investigated and closed, no gap, no fix nee
   surface was already close to the mission's target shape before Phase 1/2 touched it.
 - **Notification deep-linking (§25)** — see §5.3 below; reviewed, confirmed sound, moved out
   of the deferred list.
+- **Reduced motion (§32)** — `globals.css` already zeroes `animation-duration`/
+  `transition-duration` globally under both OS-level `prefers-reduced-motion: reduce` and a
+  manual Settings → Appearance → Motion override (`data-motion="reduced"`) — a blanket `*`
+  rule, so `NumberOne`'s "Thinking…" `animate-pulse` and every other loading animation in the
+  app already comply with no per-component work needed.
 
 ## 3.3 Phase 3 — adversarial self-review of Phase 1/2's own new code (§45)
 
