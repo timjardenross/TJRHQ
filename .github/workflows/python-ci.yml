@@ -64,6 +64,16 @@ on:
 permissions:
   contents: read
 
+# CI/CD friction mission 2026-09-19: same concurrency gap as
+# lcars-portal-ci.yml (see its comment) — no group here meant a
+# superseded push's full pytest matrix + advisory scans (vulture,
+# pip-audit, semgrep, promptfoo, pre-commit, actionlint) kept running to
+# completion instead of being cancelled, burning runner slots that
+# queued behind them for no reason. Only the latest ref's run matters.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   changes:
     runs-on: ubuntu-latest

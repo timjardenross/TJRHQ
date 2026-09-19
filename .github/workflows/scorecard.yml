@@ -10,6 +10,21 @@ on:
 
 permissions: read-all
 
+# CI/CD friction mission 2026-09-19: this workflow triggers on every direct
+# push to main (frequent in this repo's direct-to-main delivery model, see
+# knowledge/ — not just weekly cron), and scorecard-action's own analysis
+# run routinely takes well over an hour (GitHub API rate-limited fan-out
+# across the repo's history/dependencies). With no concurrency group, `gh
+# run list` showed 15 of these simultaneously in-progress, each still
+# holding a hosted-runner slot for a commit multiple pushes back — direct
+# competition with real PR checks (Python CI, LCARS Portal CI) for the
+# same limited runner concurrency. Scorecard isn't a required check and
+# only the latest main HEAD's score is ever meaningful, so cancelling
+# superseded runs costs nothing and frees that capacity immediately.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analysis:
     name: Scorecard analysis
