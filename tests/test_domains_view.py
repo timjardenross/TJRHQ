@@ -111,9 +111,114 @@ def test_event_bus_summary_flags_interrupt_now_as_what_changed():
 
 
 def test_event_bus_summary_watch_conditions_exclude_low_risk_items():
-    items = [_item(risk_score=5.0, reason="Fine"), _item(risk_score=40.0, reason="Watch this")]
+    items = [
+        _item(risk_score=5.0, reason="Fine", description="Fine"),
+        _item(risk_score=40.0, reason="Watch this (diagnostic trace)", description="Watch this"),
+    ]
     summary = _event_bus_domain_summary("engineering", "Engineering", items, "2026-09-19T00:00:00Z")
     assert summary.watch_conditions == ["Watch this"]
+
+
+# ─── Signal-leakage regression coverage (post-Phase-3 production bug:      ─
+# `AttentionDecision.reason` — internal audit trail, not a finding —      ─
+# surfacing verbatim as "What Matters"/"Watch" bullets) ───────────────────
+
+
+def test_what_matters_never_uses_raw_reason_text():
+    """An item with only a diagnostic `reason` and no description/
+    recommendation contributes nothing — `reason` is never the fallback
+    for a user-facing bullet, unlike interrupt_dispatcher.py's push body."""
+    item = _item(
+        priority_score=90,
+        reason="importance=90 >= 75 AND confidence=80 >= 70",
+        description=None,
+        recommendation=None,
+    )
+    summary = _event_bus_domain_summary("engineering", "Engineering", [item], "2026-09-19T00:00:00Z")
+    assert summary.what_matters == []
+
+
+def test_what_matters_prefers_recommendation_over_description_and_reason():
+    item = _item(
+        priority_score=90,
+        reason="importance=90 >= 75 AND confidence=80 >= 70",
+        description="A readable description",
+        recommendation=Recommendation(description="Do the genuinely recommended thing"),
+    )
+    summary = _event_bus_domain_summary("engineering", "Engineering", [item], "2026-09-19T00:00:00Z")
+    assert summary.what_matters == ["Do the genuinely recommended thing"]
+
+
+def test_what_matters_falls_back_to_description_when_no_recommendation():
+    item = _item(
+        priority_score=90,
+        reason="importance=90 >= 75 AND confidence=80 >= 70",
+        description="Reuters: some real headline",
+        recommendation=None,
+    )
+    summary = _event_bus_domain_summary("engineering", "Engineering", [item], "2026-09-19T00:00:00Z")
+    assert summary.what_matters == ["Reuters: some real headline"]
+
+
+def test_suppression_gate_reason_never_leaks_into_what_matters_or_watch():
+    """Reproduces the exact production leak: a persistence-gate-downgraded
+    item (attention_engine.py's `_apply_recurrence_gate`) whose `reason` is
+    the suppression narrative, not a finding. The event's own `description`
+    (untouched by that gate) must be what surfaces instead."""
+    item = _item(
+        category=AttentionCategory.CAN_BE_DELAYED,
+        priority_score=70,
+        risk_score=45.0,
+        reason=(
+            "recurrence of already-acknowledged event 11111111-1111-1111-1111-111111111111 "
+            "(health-intelligence/health.readiness.scored) within 24h with importance/confidence "
+            "moved < 15 — not re-interrupting a stable, already-surfaced condition"
+        ),
+        description="Readiness scored 82 (stable)",
+        recommendation=None,
+    )
+    summary = _event_bus_domain_summary("health", "Health", [item], "2026-09-19T00:00:00Z")
+    assert summary.what_matters == ["Readiness scored 82 (stable)"]
+    assert summary.watch_conditions == ["Readiness scored 82 (stable)"]
+    assert not any("recurrence of already-" in m for m in summary.what_matters + summary.watch_conditions)
+    # The raw reason is still available in the drill-down evidence, by design.
+    assert summary.evidence[0].detail == item.reason
+
+
+def test_large_aggregated_failure_count_becomes_a_constraint_not_a_materiality_bullet():
+    """Reproduces the other production leak: a 3+-event aggregate (e.g. 109
+    intelligence.source.failed events) must surface as a per-domain
+    coverage signal, never as a repeated/raw-trace `what_matters` bullet."""
+    items = [
+        _item(
+            event_id=f"evt-{i}",
+            event_type="intelligence.source.failed",
+            aggregation_key="operational-resilience-intelligence:intelligence.source.failed",
+            reason="109 events sharing domain=operational-resilience-intelligence/event_type=intelligence.source.failed in this batch — aggregate as a count/trend",
+            description=f"Source X unreachable: HTTP 401 (attempt {i})",
+            priority_score=50,
+            risk_score=0.0,
+        )
+        for i in range(109)
+    ]
+    summary = _event_bus_domain_summary(
+        "operational_intelligence", "Operational Intelligence", items, "2026-09-19T00:00:00Z"
+    )
+    assert summary.what_matters == []
+    assert summary.watch_conditions == []
+    assert summary.constraints == [
+        (
+            "109 intelligence.source.failed event(s) aggregated as a count/trend this cycle — "
+            "a coverage signal, not an individual finding; see Evidence for the raw events."
+        )
+    ]
+    assert not any("sharing domain=" in c for c in summary.constraints)
+
+
+def test_no_constraints_when_nothing_is_aggregated():
+    item = _item(aggregation_key=None)
+    summary = _event_bus_domain_summary("engineering", "Engineering", [item], "2026-09-19T00:00:00Z")
+    assert summary.constraints == []
 
 
 def test_event_bus_summary_detail_href_links_to_captains_brief_workbench():
