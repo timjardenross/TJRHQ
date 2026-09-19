@@ -24,15 +24,20 @@ const chipOn   = 'border-wb-sage-deep bg-wb-sage-deep/15 text-wb-sage-deep';
 const voiceOff = 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40';
 const voiceOn  = 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep';
 
-export function ConsultView() {
-  const [activeAdvisor, setActiveAdvisor] = useState<CouncilAdvisor>(COUNCIL[0]);
+export function ConsultView({ initialAdvisorId }: { initialAdvisorId?: string } = {}) {
+  // Mission 6B Hub closure gap (Number One had zero discoverability
+  // outside this "Advanced" disclosure) — an initial advisor id lets a
+  // deep link (Hub -> /advisory-workbench?advisor=number_one) land
+  // directly on Number One instead of the default first council member.
+  const initialAdvisor = COUNCIL.find((a) => a.id === initialAdvisorId) ?? COUNCIL[0];
+  const [activeAdvisor, setActiveAdvisor] = useState<CouncilAdvisor>(initialAdvisor);
   const [threads, setThreads] = useState<Record<string, Msg[]>>({});
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [streamBuffer, setStreamBuffer] = useState('');
   const [offlineAdvisors, setOfflineAdvisors] = useState<Set<string>>(new Set());
   const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL_ID);
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [openGroup, setOpenGroup] = useState<string | null>(initialAdvisor.group);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

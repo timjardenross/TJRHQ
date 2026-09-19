@@ -24,6 +24,10 @@ It intercepts 9 canonical Captain intents before any LLM call and routes each to
 
 Unchanged from Mission 6A, validated again in this mission: Chair (executive perspective), Hub (orientation, "where do I go next"), Ready Room (execution — "what am I doing, how do I start"), Human Systems (capacity/regulation/support patterns). Hub now has a real, low-friction path into Ready Room for a specific task (`?task=<id>`) instead of forcing a detour through the mission-review surface.
 
+## LifeOS Hub — does it work as the orientation layer?
+
+Assessed explicitly against ORIENT→SHOW WHAT MATTERS→HELP ME CONTINUE→GET ME TO THE RIGHT CAPABILITY (Captain-requested closure-pass check, not assumed satisfied by the `?task=` deep link alone). 5 of 7 criteria already held (canonical context via shared synthesis functions, no duplication of Chair/Attention-State, no mobile-specific defect). 2 real, bounded gaps found and fixed: Number One was undiscoverable from Hub or global nav (fixed with a direct "Ask Number One" link + `?advisor=` deep link into the existing advisor console); Hub had no "where I left off" signal at all (fixed with one capped, single-item pick-up-task card, explicitly not a second Remember panel — see knowledge record for the reasoning boundary). Both fixes are link/data-source additions to the existing pattern, not a redesign.
+
 ## How does capacity change behaviour?
 
 Green/Amber/Red/Unknown gates Follow-Through's notification delivery (`_apply_capacity_gate`) and Ready Room's daily task cap (`capacityLimitForPosture`). It never changes what's true — only what's shown, when, and how insistently. Critical/safety-relevant signals (Command Centre's mission-staleness/health-decline evaluator) remain interruptive regardless of capacity, by design.
@@ -55,9 +59,10 @@ Not re-litigated in this mission (no new capability register item required it) �
 ## What technical debt remains?
 
 1. Two G-008-readiness signals (`decision_effectiveness.py` live/jsonl, `get_decision_quality_stats()` orphaned/`outcome_records`) compute the same threshold from different sources — needs a real migration decision, not a guess.
-2. `evidenceAwareNote()` can restate what a just-completed decompose call already did (cosmetic).
-3. `too_much` and `cant_start` share one decompose mode (`smaller`) — no dedicated overload mode exists on the Model Router endpoint yet.
-4. Full capacity × posture live scenario matrix and the full cross-surface live walkthrough (Telegram → Number One → Hub → Ready Room → notification → completion → evidence) were reasoned architecturally and unit-tested at the classifier level, but not run as a live manual end-to-end pass in this session.
+2. `remember` has no idempotency key — a retried capture command can create a duplicate `captured_items` row (found by the closure pass's executable dispatch-scenario proof; every other canonical mutation in the dispatcher is naturally idempotent, this one is not).
+3. `evidenceAwareNote()` can restate what a just-completed decompose call already did (cosmetic).
+4. `too_much` and `cant_start` share one decompose mode (`smaller`) — no dedicated overload mode exists on the Model Router endpoint yet.
+5. Multi-candidate disambiguation ("which of two plausible tasks") is not implemented in the deterministic dispatcher — the context-store is single-slot by design; falls through to the LLM layer today.
 
 ## What was deliberately not built?
 

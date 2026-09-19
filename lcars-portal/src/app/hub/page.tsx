@@ -45,8 +45,19 @@
 // re-reading this note — it would duplicate Chair's Remember panel
 // (captains-chair-workbench/_components/Remember.tsx) rather than add
 // new information.
+//
+// Mission 6B addendum (2026-09-19 Hub closure pass): the "pick up where
+// you left off" card below is NOT the Remember panel this note warns
+// against — Remember is IMPORTANT_NOT_IMMEDIATE-tier resurfacing +
+// unresolved captures (a breadth of things worth remembering); this is a
+// single already-in-progress, explicitly-paused task the Captain
+// themselves started (interruption recovery, Mission 4's PickUpBanner
+// concept). Capped at exactly one item, using pickUpItems()'s existing
+// selection logic verbatim — if this ever needs a second item or its own
+// "show more," that would be scope creep back into Remember and should be
+// re-read against this note first.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { WorkbenchShell } from '@/components/ui';
 import {
@@ -66,6 +77,7 @@ import { deriveCommandStatus } from '@/lib/captainsChairSynthesis';
 import { deriveCommandPosture, buildNeedsYouItems, deriveIntelligenceHeadline } from '@/lib/commandState';
 import { playTts, type TtsPlaybackState } from '@/lib/ttsPlayer';
 import { useWakeLock } from '@/lib/useWakeLock';
+import { fetchTasks, pickUpItems, type PersonalTask } from '@/lib/personalTasks';
 
 const POSTURE_TONE_CLASS: Record<string, string> = {
   RESPOND: 'text-state-crit',
@@ -92,6 +104,26 @@ export default function LifeOSHub() {
   const { pendingCount: evolutionPendingCount, highestValueTitle: evolutionHighestValueTitle } = useEvolutionSignal();
   const { alerts: liveAlerts } = useAlerts();
   const { items: numberOneAttentionItems } = useNumberOneAttentionItems();
+
+  // Mission 6B Hub closure gap (Captain review, 2026-09-19): Hub had no
+  // "where I left off" signal at all — only Ready Room's own PickUpBanner/
+  // TodayStream showed a paused, restart-cued task. A Captain landing on
+  // Hub after being away had to already know to open Ready Room. This is
+  // deliberately NOT a second Remember panel (see this file's header note
+  // above on why Remember stays Chair-only) — it's the single highest-
+  // priority resumable task, reusing pickUpItems()'s existing selection
+  // logic verbatim, same one already ported for Number One's "where was
+  // I?" dispatcher intent in this mission.
+  const [pickUpCandidate, setPickUpCandidate] = useState<PersonalTask | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetchTasks({ includeCompleted: false }).then((tasks) => {
+      if (!alive) return;
+      const candidates = pickUpItems(tasks);
+      setPickUpCandidate(candidates[0] ?? null);
+    });
+    return () => { alive = false; };
+  }, []);
 
   const hasCheckinToday = humanSystems?.has_checkin_today ?? false;
   const hqPostureLower = (hqStatus?.posture ?? 'UNKNOWN').toLowerCase() as 'normal' | 'degraded' | 'attention' | 'unknown';
@@ -286,6 +318,24 @@ export default function LifeOSHub() {
               )}
             </div>
 
+            {/* ── 4b. Pick up where you left off — at most one item, distinct
+                from Needs You (this is the Captain's own paused work
+                resuming, not something newly requiring attention) ── */}
+            {pickUpCandidate && (
+              <div className="rounded-lg border border-wb-sage/40 bg-wb-sage/10 p-4">
+                <h2 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-wb-sage-deep">Pick up where you left off</h2>
+                <Link
+                  href={`/ready-room?task=${encodeURIComponent(pickUpCandidate.id)}`}
+                  className="group focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                >
+                  <span className="text-sm font-semibold text-wb-ink group-hover:underline">{pickUpCandidate.title}</span>
+                </Link>
+                {pickUpCandidate.restart_cue && (
+                  <p className="mt-0.5 text-xs text-wb-ink2">{pickUpCandidate.restart_cue}</p>
+                )}
+              </div>
+            )}
+
             {/* ── 5. World / intelligence — one headline or honest unknown ── */}
             {!hideWorldSection && (
               <div className="rounded-lg border border-wb-line bg-wb-surface p-4">
@@ -308,11 +358,22 @@ export default function LifeOSHub() {
                       : 'Status unknown'}
             </p>
 
-            {/* ── 7. Calm end state + Read aloud ── */}
+            {/* ── 7. Calm end state + Read aloud + Ask Number One ── */}
             <div className="flex flex-col items-center gap-2 pt-2">
               {needsYouItems.length === 0 && (
                 <p className="text-sm text-wb-ink2">Nothing else needs you.</p>
               )}
+              {/* Mission 6B Hub closure gap: Number One's new orchestration
+                  capability was previously reachable only by knowing to
+                  open Workbenches -> Advisory -> Think -> Advanced -> Number
+                  One. One direct link from the front door, not a chat
+                  widget embed — deep-links straight past that chain. */}
+              <Link
+                href="/advisory-workbench?advisor=number_one"
+                className="text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+              >
+                Ask Number One
+              </Link>
               <button
                 type="button"
                 onClick={speakCommandPicture}
