@@ -127,6 +127,15 @@ export default function CaptainsChairWorkbench() {
     meaningfulCommitmentsToday: calendarStatus === 'ok' ? calendarEvents.length : 0,
   });
 
+  // ── Capacity-adaptive discretionary work (Mission 2, Capacity &
+  // Attention Engine, §17): reuses the SAME commandPosture the headline
+  // already derives -- no new capacity computation, no independent rule.
+  // PROTECT/RECOVER (Amber/Red-equivalent posture) collapses discretionary
+  // "worth considering" content per the capacity contract's own Amber
+  // ("suppress low-value opportunities") / Red ("avoid optional
+  // opportunities") rules -- never hides it entirely (mission §15).
+  const reduceDiscretionaryWork = commandPosture.posture === 'PROTECT' || commandPosture.posture === 'RECOVER';
+
   // ── Intelligence: one canonical headline ────────────────────────────────
   const intelligenceHeadline = deriveIntelligenceHeadline({
     briefingError: briefingError !== null,
@@ -185,7 +194,7 @@ export default function CaptainsChairWorkbench() {
           remindersLoading={remindersLoading}
         />
 
-        <HqEvolution pendingCount={evolutionPendingCount} highestValueTitle={evolutionHighestValueTitle} />
+        <HqEvolution pendingCount={evolutionPendingCount} highestValueTitle={evolutionHighestValueTitle} reduced={reduceDiscretionaryWork} />
 
         <SystemStatus data={hqStatus} loading={hqStatusLoading} error={hqStatusError} />
 
