@@ -88,6 +88,21 @@ def persist_readiness_snapshot(
 
     # ── Local write ──────────────────────────────────────────────────────────
     local_path = _READINESS_LOG_DIR / f"{today}.json"
+    # Captured before the write below so the event-bus emission further down
+    # can tell "first snapshot of today" apart from "today's file already
+    # existed" — this function has no caller-side cadence guarantee (it's
+    # called from intelligence_reporter.py's run_all_reports(), which can run
+    # more than once a day) and re-reads the same cached outputs/readiness.json
+    # every time, so a repeat call in the same day writes byte-identical
+    # importance/confidence/recommended_action. The Supabase upsert below is
+    # already safe to repeat (on_conflict="assessment_date"); the event-bus
+    # publish further down previously had no equivalent guard, so every repeat
+    # call inserted a fresh core_events row that independently re-crossed the
+    # INTERRUPT_NOW attention floor and fired its own duplicate push/email —
+    # confirmed live: 8 near-identical health.readiness.scored events inserted
+    # within about an hour on 2026-09-19, all flooding out together once the
+    # interrupt dispatcher next ran.
+    already_persisted_today = local_path.exists()
     try:
         local_path.write_text(json.dumps(snapshot, indent=2, default=str), encoding="utf-8")
     except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
@@ -138,22 +153,27 @@ def persist_readiness_snapshot(
     # zero-pulse day (no row in the view) or if the fetch fails — that's the
     # correct "insufficient data" case per this module's existing
     # trend-reporting convention, not a regression from today's null.
-    confidence = _fetch_recovery_confidence_today()
-    try:
-        sys.path.insert(0, str(_REPO_ROOT))
-        from core.platform.event_bus import publish_event
-        publish_event(
-            "health.readiness.scored",
-            domain="health-intelligence",
-            source="readiness_history",
-            importance=snapshot.get("readiness_score"),
-            relevance=snapshot.get("capacity_score"),
-            confidence=confidence,
-            recommended_action=(snapshot.get("recommended_focus") or [None])[0]
-                if isinstance(snapshot.get("recommended_focus"), list) else None,
-        )
-    except Exception:  # noqa: BLE001,S110 - best-effort recommendation-event emission; not required for the snapshot persist to succeed
-        pass
+    # Only the first persist of the day publishes an event — see the
+    # already_persisted_today comment above. A same-day repeat still gets its
+    # local file rewritten and its Supabase row upserted (both idempotent),
+    # it just doesn't re-announce an unchanged score on the event bus.
+    if not already_persisted_today:
+        confidence = _fetch_recovery_confidence_today()
+        try:
+            sys.path.insert(0, str(_REPO_ROOT))
+            from core.platform.event_bus import publish_event
+            publish_event(
+                "health.readiness.scored",
+                domain="health-intelligence",
+                source="readiness_history",
+                importance=snapshot.get("readiness_score"),
+                relevance=snapshot.get("capacity_score"),
+                confidence=confidence,
+                recommended_action=(snapshot.get("recommended_focus") or [None])[0]
+                    if isinstance(snapshot.get("recommended_focus"), list) else None,
+            )
+        except Exception:  # noqa: BLE001,S110 - best-effort recommendation-event emission; not required for the snapshot persist to succeed
+            pass
 
     return True
 
