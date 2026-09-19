@@ -113,7 +113,15 @@ def attention_items_from_brief(brief: CoordinationBrief) -> list[AttentionItem]:
     """Pure, lossless transform of an already-computed CoordinationBrief —
     no new data access, no new derivation logic. Every item traces back to
     something NumberOne already put in the brief; this only reclassifies
-    it into the shared category vocabulary and orders it."""
+    it into the shared category vocabulary and orders it.
+
+    "Lossless" means nothing is dropped, not deduplicated: a mission can
+    legitimately appear more than once across sections (e.g. once via
+    brief.blocked_missions and again via a LONG_BLOCKED follow-up for the
+    same mission_id) since NumberOne's own sections aren't mutually
+    exclusive. Today's only consumer (commandState.ts) filters to
+    NEEDS_NOW/DECISION_REQUIRED and hasn't hit this in practice; a future
+    consumer reading the full category range should dedupe by `ref` first."""
     generated_at = brief.timestamp.isoformat()
     items: list[AttentionItem] = []
 
