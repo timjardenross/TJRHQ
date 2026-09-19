@@ -562,6 +562,59 @@ where the next pass should start:
    first (it's the input every other item downstream depends on), screenshots and the
    accessibility pass last (they're evidence-gathering, not architecture-changing).
 
+## 6.1 Experience inventory (mission deliverable §37)
+
+Every route this session actually opened and read, not a route list copied from the
+directory config. Disposition per the mission's own vocabulary (KEEP / REDESIGN / SIMPLIFY /
+MERGE / RELOCATE / RETIRE). "Mobile quality" reflects what the code shows (`WorkbenchShell`
++ `wb-*` tokens = the current, verified-mobile-safe system; a legacy `(app)`-group page = not
+verified, different system) — no live-environment mobile testing was possible this session.
+
+| Route | Purpose | Canonical data | Mobile | Disposition |
+|---|---|---|---|---|
+| `/hub` | Ambient orientation front door | `commandState.ts`/`captainsChairSynthesis.ts` (shared with Chair) | `WorkbenchShell`, current | KEEP — uplifted Phase 1-3 |
+| `/workbenches` | Full directory, one tap from Hub | `LIVE_WORKBENCHES` | Sidebar/directory grid, current | KEEP — simplified Phase 1 |
+| `/captains-chair-workbench` | Executive perspective: attention, decisions, change | 9 panels, own `_components/` | `WorkbenchShell`, current | KEEP — scope-checked Phase 2, sound |
+| `/ready-room` | Execution: start/continue/unstick/regulate/complete | `personal_tasks`, `getReadyRoomContext` | `WorkbenchShell`, current | KEEP — continuity-fixed Phase 2 |
+| `/capture-workbench` | Inbox triage for everything captured | `captured_items` | `WorkbenchShell`, current | KEEP |
+| `/mission-workbench` (+`[id]`) | Every mission, capacity-aware | `missions` | `WorkbenchShell`, current | KEEP |
+| `/weekly-review` | Interpreted weekly synthesis | `weekly_reviews` + live per-workbench reads | `WorkbenchShell`, current | KEEP — already redesigned around significance, not source |
+| `/intelligence-workbench` (+`brief/escalation [id]`) | Technical OSINT triage (Today/Watching/Library) | `intelligence_events` | `WorkbenchShell`, current | KEEP |
+| `/health-osint` | Health/performance-research intelligence | own tables | `WorkbenchShell`, current | KEEP |
+| `/health-osint-curation` | Sunday review queue for auto-ingested signals | same | `WorkbenchShell`, current | KEEP — deliberate zero-nav, documented |
+| `/emergency-alert-hub-workbench` | Official AU emergency alerts, severity-ranked | own tables + `domain_heartbeats` | `WorkbenchShell`, current | KEEP — explicitly designed against "raw volume = workload" |
+| `/briefs` (+`domains/[key]`) | Canonical brief archive + cross-domain Domains view | `intelligence_briefs`, `captains_daily_briefs` | `WorkbenchShell`, current | KEEP — absorbed `/intelligence`'s Briefs-shaped tabs this mission |
+| `/human-systems-workbench` (+sub-routes) | Personal capacity intelligence | `capacity_checkins` et al. | `WorkbenchShell`, current | KEEP — scope-checked, no clinical-dashboard drift found |
+| `/physical-readiness` (+sub-routes) | Exercise library/history, read-only | own tables | `WorkbenchShell`, current | KEEP — not deeply reviewed this pass |
+| `/shopping-list-workbench` | Prioritised buy list | own tables | `WorkbenchShell`, current | KEEP — not deeply reviewed this pass |
+| `/content-workbench` | Capture→draft→proof→publish pipeline | `comms_content`/`content_signals` | `WorkbenchShell`, current, kanban already demoted off mobile default | KEEP — absorbed `/intelligence`'s Content tab this mission |
+| `/advisory-workbench` | Multi-persona consult incl. Number One's full session | `advisory_sessions` | `WorkbenchShell`, current | KEEP — clarified vs. the new ambient widget, Phase 2 |
+| `/knowledge-workbench` | Command memory, searchable | `architecture_records` et al. | `WorkbenchShell`, current | KEEP — Library branch intentionally paused, not dead |
+| `/agent-status-workbench` | Is HQ itself working properly | `domain_heartbeats` | `WorkbenchShell`, current | KEEP — now the confirmed successor for 3 retired pages |
+| `/self-improvement-findings` (HQ Evolution) | Overnight discovery/improvement | own tables | `WorkbenchShell`, current | KEEP |
+| `/engineering-handoffs` | Approved handoffs, direct PR links | `engineering_handoff_reader.py` | `WorkbenchShell`, current | KEEP — exemplary scope discipline, deliberately read-only |
+| `/search` **(new location)** | Cross-domain search | `missions`/`captains_log_entries`/`captured_items`/`mission_execution_events` | `WorkbenchShell`, current — **relocated this mission** | KEEP — was RETIRE-adjacent risk, correctly RELOCATED Phase 6 |
+| `/timeline` **(new location)** | Cross-domain chronological feed | same 5 sources | `WorkbenchShell`, current — **relocated this mission** | KEEP — relocated alongside `/search`, Phase 6 |
+| `/settings` (+sections) | Preferences, connections, AI/automation | various | current | KEEP — not reviewed this pass |
+| `/model-crew` | Model routing status | `/api/model/*` | `WorkbenchShell`, current | KEEP — already moved off a 3rd bespoke theme, 2026-09-06 |
+| `/investigate` | Runs one Investigation Engine type | `investigationEngine.ts` | zero-nav, deliberate | KEEP — contextual-entry by design, documented |
+| `(app)/medical` | *(retired this mission)* | — | — | **RETIRED Phase 4** — 4-tab stub, weight-history preserved |
+| `(app)/captains-log` | *(retired this mission)* | — | — | **RETIRED Phase 5** — redirects to the already-correct successor |
+| `(app)/automation-centre` | *(retired this mission)* | — | — | **RETIRED Phase 5** — self-evidently stale |
+| `(app)/intelligence` | *(retired this mission)* | — | — | **RETIRED Phase 5** — 3-way stub, all successors verified live |
+| `(app)/engineering` | *(retired this mission)* | — | — | **RETIRED Phase 5** — thorough-but-negative backend trace |
+| `(app)/operations` | Build-request/decisions/events/friction view | `build_request_inbox`, `commander_events`, etc. | legacy, not current | **RETIRE, blocked** — 3 of 4 views traced; Commander Events needs §5 item 13 resolved first |
+| `(app)/operating-model` | Static operating principles/doctrine | none (static content) | legacy, not current | **HOLD — Captain call**, not an engineering decision |
+| `(app)/decisions`, `/captains-brief`, `/captains-chair`, `/home`, `/knowledge`, `/knowledge-library`, `/missions`, `/medical/check-in`, `/medical/log-activity` | Pre-existing redirect stubs | — | — | KEEP as-is — already correctly retired by earlier missions, verified still accurate |
+| `(app)/medical/log-weight` | 30-day weight-trend history, entry retired | `weight_logs` | legacy, not current | **KEEP, flagged** — real capability, no `human-systems-workbench` equivalent yet (§5 item 12) |
+
+Not inventoried: the other ~15 `(app)`-group routes untouched this mission (`stage-progression`,
+`comms`, `delivery`, `operating-model`'s siblings, etc.) — most are already confirmed
+redirect/notice stubs from earlier retirement passes per `lib/nav.ts`'s own history; none
+showed up in the zero-live-inbound-link sweep as full, still-rendering pages the way
+`medical`/`captains-log`/`automation-centre`/`intelligence`/`engineering`/`search`/`timeline`
+did, so they weren't re-verified individually this pass.
+
 ## 7. Mission 7 knowledge record
 
 - The gap between "canonical capability exists" and "Captain can reach it" was real and

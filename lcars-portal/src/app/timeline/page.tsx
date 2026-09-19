@@ -215,13 +215,14 @@ export default function TimelinePage() {
   const visible = filter ? events.filter(e => e.source === filter) : events;
 
   const daySelector = (
-    <div className="flex gap-1">
+    <div role="group" aria-label="Date range" className="flex gap-1">
       {DAY_OPTIONS.map(d => (
         <button
           key={d}
           type="button"
           onClick={() => setDays(d)}
-          className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+          aria-pressed={days === d}
+          className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
             days === d
               ? 'bg-wb-sage-deep text-white'
               : 'text-wb-ink2 hover:text-wb-ink'
@@ -234,11 +235,12 @@ export default function TimelinePage() {
   );
 
   const sourceFilters = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div role="group" aria-label="Filter by source" className="flex flex-wrap items-center gap-2">
       <button
         type="button"
         onClick={() => setFilter('')}
-        className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+        aria-pressed={filter === ''}
+        className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
           filter === ''
             ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep'
             : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'
@@ -251,7 +253,8 @@ export default function TimelinePage() {
           key={s}
           type="button"
           onClick={() => setFilter(s === filter ? '' : s)}
-          className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+          aria-pressed={filter === s}
+          className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
             filter === s
               ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep'
               : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'
