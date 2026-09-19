@@ -71,14 +71,22 @@ export async function POST(req: NextRequest) {
     if (!res.ok) {
       console.error('Model Router returned an error (ready-room/decompose):', data?.error);
     }
+    // Malformed response guard (spec §16/§27) — a non-string `action` (bad
+    // JSON shape from an unexpected provider response) must degrade the
+    // same way an empty one does, not throw into the outer catch, which
+    // would misreport a reached-but-malformed response as "unreachable".
+    const action = typeof data?.action === 'string' ? data.action : null;
     // Mission 4 observability (spec §28) — decision metadata only, never
     // task/action text (that's the Captain's personal task content, not
     // diagnostic data). Server-side log only, no normal-UX exposure.
-    const kind = data?.action?.startsWith('REGULATE:') ? 'regulate'
-      : data?.action?.startsWith('CLARIFY:') ? 'clarify'
-      : data?.action ? 'action' : 'none';
+    const kind = action?.startsWith('REGULATE:') ? 'regulate'
+      : action?.startsWith('CLARIFY:') ? 'clarify'
+      : action ? 'action' : 'none';
+    if (data?.action != null && action === null) {
+      console.error('Model Router returned a malformed action (ready-room/decompose):', typeof data.action);
+    }
     console.info('ready-room/decompose', { mode, posture: posture ?? 'UNKNOWN', result: kind });
-    return NextResponse.json({ action: data?.action ?? null }, { status: 200 });
+    return NextResponse.json({ action }, { status: 200 });
   } catch (err) {
     // Model Router still unreachable after retry — degrade gracefully,
     // don't block the user. Log the real cause server-side but never
