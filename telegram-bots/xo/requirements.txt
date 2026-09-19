@@ -1,4 +1,4 @@
-python-telegram-bot==20.7
+python-telegram-bot==22.8
 apscheduler==3.11.3
 # USS-TJR-MSN-0370: bumped 2.3.4 -> 2.7.4, NOT the full Dependabot PR #157
 # target (2.31.0) — see scoped_supabase.py's module docstring and
