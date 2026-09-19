@@ -23,6 +23,8 @@ HTTP endpoints:
   GET /health           — liveness check + corpus counts
   GET /brief/captain    — Captain Brief JSON (health summary, priorities, blockers, decisions)
   GET /brief/number-one — Number One Brief JSON (top-3, blocker, risk, recommendation)
+  GET /brief/domains    — Merged cross-domain Domains document (event-bus domains +
+                          Briefs' latest OSINT domain_picture, one normalised list)
   GET /queue/health-adjusted — Number One's capacity-aware work queue (per-item
                           capacity_note, recommended_focus, plain-English advisory)
   GET /remember         — Mission 3 Remember capability: resurfacing personal
@@ -426,6 +428,36 @@ def _make_flask_app():
         except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "error": "full_captain_brief_failed",
+                "detail": str(exc),
+                "assembled_at": _http_timestamp(),
+            }), 500
+
+    # 2026-09-19: Briefs/Captain's Brief consolidation Phase 2
+    # (BRIEFS_CAPTAINS_BRIEF_CONSOLIDATION.md §4.1/§6) — the shared
+    # cross-domain assembly step the doc recommends, exposed the same way
+    # /brief/full is: reuses assemble_captain_brief_document() (event-bus
+    # domains) and intelligence_store.load_latest_brief() (Briefs' stored
+    # domain_picture) verbatim, merges them via
+    # intelligence.brief.domains_view.assemble_domains_document() — no
+    # reimplemented synthesis logic, just one normalised document the
+    # Briefs "Domains" tab renders instead of reconciling two shapes itself.
+    @http_app.get("/brief/domains")
+    def http_brief_domains():
+        try:
+            import dataclasses
+
+            from core.platform.event_bus import poll_events
+            from intelligence.brief.domains_view import assemble_domains_document
+            from intelligence.persistence.intelligence_store import load_latest_brief
+
+            limit = int(_request_arg("limit", 200))
+            events = poll_events(limit=limit)
+            latest_brief = load_latest_brief()
+            doc = assemble_domains_document(events, latest_brief)
+            return jsonify(dataclasses.asdict(doc, dict_factory=_str_default_asdict))
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
+            return jsonify({
+                "error": "brief_domains_failed",
                 "detail": str(exc),
                 "assembled_at": _http_timestamp(),
             }), 500
