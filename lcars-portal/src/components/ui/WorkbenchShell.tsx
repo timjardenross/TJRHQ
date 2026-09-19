@@ -32,6 +32,7 @@ import { ReactNode } from 'react';
 import { Settings } from 'lucide-react';
 import { LIVE_WORKBENCHES } from '@/lib/workbenches';
 import { MobileCommandBar } from '@/components/MobileCommandBar';
+import { NumberOne } from './NumberOne';
 import { QuickCapture } from './QuickCapture';
 import { Sidebar } from './Sidebar';
 import { ThemeSelector } from './ThemeSelector';
@@ -167,6 +168,7 @@ export function WorkbenchShell({
         </div>
       </div>
       <QuickCapture />
+      <NumberOne />
       <MobileCommandBar />
     </div>
   );
