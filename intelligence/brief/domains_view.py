@@ -96,6 +96,9 @@ class DomainsDocument:
 
 
 def _risk_label(risk_score: float | None) -> str | None:
+    # None here means priority_engine.py never scored the item (no
+    # importance/confidence signal at all) — genuinely unknown risk, not a
+    # real 0.0. Must stay its own branch, never fall through to GREEN.
     if risk_score is None:
         return None
     if risk_score >= _POSTURE_RED:
@@ -106,6 +109,12 @@ def _risk_label(risk_score: float | None) -> str | None:
 
 
 def _posture_for_items(items: list[CaptainBriefItem]) -> str:
+    # Unscored items (risk_score is None) are excluded from the max(), not
+    # coerced to 0 — an all-unscored domain reports posture "UNKNOWN"
+    # below rather than a fabricated "GREEN". A domain with both scored and
+    # unscored items still ranks by its scored items only; an unscored item
+    # can't push posture to RED/AMBER, matching this module's "never
+    # fabricate" contract (see priority_engine.py's own risk_score docstring).
     risk_scores = [i.risk_score for i in items if i.risk_score is not None]
     if not risk_scores:
         return "UNKNOWN"
@@ -138,6 +147,9 @@ def _event_bus_domain_summary(
 
     watch_conditions: list[str] = []
     for item in items:
+        # Same "None is not 0.0" exclusion as _posture_for_items above — an
+        # unscored item never qualifies as a watch condition, but it also
+        # never gets miscounted as safe; it simply carries no risk verdict.
         if item.risk_score is not None and item.risk_score >= _POSTURE_AMBER and item.reason not in watch_conditions:
             watch_conditions.append(item.reason)
         if len(watch_conditions) >= 3:
