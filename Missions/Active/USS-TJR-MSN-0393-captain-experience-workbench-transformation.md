@@ -277,6 +277,70 @@ hygiene mission; re-litigating a different mission's deliberate triage backlog w
 into this PR's scope. Left as a citation for whoever picks up MSN-0366's backlog next, not
 re-added to Mission 7's own deferred register.
 
+## 3.5 Phase 5 — continuing the legacy-page sweep, and one significant reversal of direction
+
+Started converting the 8 pages §3.4 scoped but deliberately didn't convert yet. Two more
+confirmed-safe retirements, using the same trace-every-view-to-its-successor discipline as
+`medical`:
+
+- **`captains-log`** (243 lines) — a still-fully-functional RAG-status/narrative form that
+  wrote directly to `captains_log_entries`, the exact manual-capture path a platform-wide
+  Captain directive (2026-08-10) retired everywhere else. Confirmed the live successor
+  already exists and already explains the pause correctly
+  (`human-systems-workbench/log/page.tsx`) — this page just hadn't been pointed at it. Traced
+  the domain-heartbeat side-effect too (`/api/captains-log/heartbeat`, `domain_key:
+  'captains_log'`) before touching anything: not referenced anywhere in `agentStatusJobs.ts`'s
+  `SCHEDULER_JOBS`/HQ Status attention arithmetic, and `captains_log_entries` itself stopped
+  receiving real rows back on 2026-06-28 per `lib/interruptCoverageRegistry.ts`'s own comment
+  — so retiring this page doesn't newly break a monitored heartbeat, it just makes permanent
+  what was already true in practice for three months. Redirects to the existing successor.
+- **`automation-centre`** (256 lines) — unlike the others, carried clear internal evidence of
+  already being stale, not just unlinked: its own hardcoded job/channel tables referenced
+  things already retired elsewhere by name ("Slack — bot retired (MSN-0337)", jobs marked
+  "RETIRED (D-3C-04)" sitting next to ones marked "Active"). Its `ALERT_THRESHOLDS` table had
+  no evidence of still matching `lib/alerts.ts`'s real logic after the Mission 1-6 rebuild —
+  not ported, since a stale copy of alerting rules is worse than none. Converted to a stub
+  pointing at HQ Status, the real "is HQ's automation working" surface now.
+
+**Deliberately left alone — a different judgment call, not the same as "needs more tracing
+before converting":**
+
+- **`operating-model`** (249 lines) — mostly static reference content (6 named "operating
+  principles," domain priorities, a daily-schedule template), not a data view with an obvious
+  successor. No sign of staleness the way `automation-centre` showed (no references to
+  already-retired things); no duplicate of this content exists anywhere else in the app. This
+  is doctrine, not UI — whether "Recovery First / Mission Clarity / Intelligent Defaults / ..."
+  is still the Captain's actual current operating philosophy isn't something a code-reading
+  pass can determine, and guessing wrong here means silently deleting real content, not
+  clearing a redundant view. Left untouched; whether it should be relocated (Settings? a
+  Knowledge Workbench doc?) or reaffirmed as current is a Captain call, not an engineering one.
+- **`engineering`** (337 lines) — partially traced, not fully resolved. Its
+  `build_request_inbox` view is confirmed superseded (live today via Captain's Chair's
+  Engineering Queue panel and `lib/decide.ts`'s governance flow). Its `agent_performance` and
+  `batch_jobs` views are NOT — neither table is read anywhere in `agent-status-workbench`
+  (HQ Status), so unlike `captains_log`'s heartbeat this one couldn't be confirmed either
+  live-but-unwatched or genuinely dead within this pass's remaining time. Needs the same
+  backend-write-path trace `commander_events` got before converting.
+
+**A significant finding worth its own heading — two of these pages are NOT legacy at all:**
+
+- **`search`** (287 lines) and **`timeline`** (315 lines) — a real, maintained, cross-domain
+  search (missions/logs/captures/events) and a real, maintained, cross-domain unified
+  timeline. Both show recent, deliberate security/reliability maintenance (a documented
+  2026-08-22 SQL-injection fix in `search`; both carry the same "MSN-0351: report a source
+  read's success/failure explicitly, don't let a failed fetch look like an empty result"
+  discipline other current, actively-maintained surfaces use). Confirmed zero live inbound
+  links, same as every other page in this sweep — but nothing else in the app does either
+  job. This is the opposite finding from `medical`/`captains-log`/`automation-centre`: not
+  "safe to retire, superseded elsewhere," but **"a real, working capability with no way to
+  reach it"** — the closest thing found this mission to Mission 7 §16's own "search" as an
+  explicit intent-driven-navigation tool. **Not retired.** Flagged in §5 as a RELOCATE
+  candidate (bring back into navigation, likely reachable from the Workbench directory's
+  search box added in Phase 1, or its own entry point) rather than a retirement one — the
+  inverse mistake (stubbing out a real, unique capability because it happened to share "zero
+  live links" with genuinely dead pages) would have been exactly the kind of rushed,
+  unverified deletion this whole sweep has been careful to avoid.
+
 ## 4. Core end-to-end test (§40) — status
 
 The backend path this test exercises (remember → what am I forgetting → help me start →
@@ -365,35 +429,44 @@ where the next pass should start:
 10. **Full adversarial UX pass** (§45) — the items in §1.2–1.6 above were found through a
     bounded discovery pass, not an exhaustive adversarial review of every surface; more
     almost certainly exists.
-11. **Legacy `(app)`-group page retirement (§35), 8 pages scoped and ready to start** — see
-    §3.4: `intelligence` (693 lines), `operations` (371), `engineering` (337), `timeline`
-    (315), `search` (287), `automation-centre` (256), `operating-model` (249), `captains-log`
-    (243) all confirmed zero live inbound links. For each: trace every distinct view/tab it
-    renders to its real live successor (if one exists), confirm via the same method used for
-    `medical/log-weight` whether anything it shows has no successor anywhere else in the app,
-    and only then convert to the established honest-stub pattern (`captains-chair/page.tsx`'s
-    comment is the template: port real gaps first, retire second).
-    `operations` fully traced already (all 4 views, not left as an open question): "Recent
-    Decisions" → superseded, `(app)/decisions` already redirects to Captain's Chair's
-    Approvals Pending/Engineering Queue panels; "Captured Items" → superseded by Capture
-    Workbench; "Friction Sources" is a client-derived view over the other three (failed
-    items/high-importance-unreviewed/failed events), not its own data source, so it falls away
-    once those are resolved. "Commander Events" reads a `commander_events` table confirmed
-    still genuinely live — traced through the backend (`tools/supabase/client.py`'s
-    `log_commander_event`, called from exactly one live caller,
-    `platform-runtime/lib/build_learning_loop.py`, itself imported by
-    `research_learning_loop.py`/`comms_learning_loop.py`/`mission_brief.py`) — but with **zero
-    Captain-facing UI anywhere else in the app**. Not safe to drop silently, but also not a
-    reason to leave the whole page live: the natural home for a small learning-loop-completion
-    feed is HQ Evolution (`self-improvement-findings`, already "continuous improvement...
-    overnight discovery, research and investigation") — port a "Recent learning events" view
-    there, then retire `operations` in full using the same stub pattern as `medical`. Both
-    steps are now concretely scoped, not an open question for the next pass to re-derive.
+11. **Legacy `(app)`-group page retirement — 2 of 8 done (`medical`, `captains-log`,
+    `automation-centre` = 3 actually converted across Phases 4-5), 5 remain, all fully or
+    partially scoped, none guessed at.** See §3.4/§3.5 for the full evidence trail per page:
+    - `operations` (371 lines) — fully traced. Recent Decisions/Captured Items/Friction
+      Sources all superseded elsewhere; Commander Events needs a small "recent learning
+      events" port into HQ Evolution first (real live data, `commander_events` via
+      `build_learning_loop.py`, currently zero Captain-facing UI anywhere) — port that, then
+      convert this page with the standard stub pattern.
+    - `engineering` (337 lines) — partially traced. `build_request_inbox` confirmed
+      superseded (Captain's Chair's Engineering Queue). `agent_performance`/`batch_jobs` not
+      yet confirmed live-or-dead — neither is read in `agent-status-workbench`; needs the
+      same backend-write-path trace `commander_events` got.
+    - `intelligence` (693 lines) — not yet traced at all (largest page, lowest priority given
+      `intelligence-workbench` + `briefs` both look like plausible successors by name/tab
+      overlap — Latest Brief/Signals/Themes/Archive/Daily Briefs — but that's a hypothesis,
+      not yet verified the way every other item on this list was).
+    - `operating-model` (249 lines) — **deliberately not converted, different reason than the
+      others.** Static doctrine/principles content with no duplicate anywhere else in the
+      app and no internal sign of staleness — retiring it risks silently deleting real
+      content, not clearing a redundant view. Needs a Captain call (keep as reference,
+      relocate, or reaffirm/rewrite), not an engineering decision.
+    - `search` (287 lines) and `timeline` (315 lines) — **do not retire these.** See §3.5:
+      both are real, currently-maintained, unique capabilities (cross-domain search and a
+      cross-domain unified timeline) with zero navigation path in, not legacy duplicates.
+      RELOCATE, not RETIRE — surface them somewhere reachable (a natural fit: wire `/search`
+      into the ambient ⌘/global search affordance §16 already gestures at with the Workbench
+      directory's new search box; `/timeline` could sit inside Captain's Chair or Weekly
+      Review). Not designed/built this pass.
 12. **`/medical/log-weight`'s weight-trend view has no `human-systems-workbench`
     equivalent** (found in §3.4) — either port a real weight-trend view into
     `human-systems-workbench` (closing the last redirect hop in the `medical` cluster) or
     make a deliberate call that the redirect stays permanently; currently just preserved,
     not resolved either way.
+13. **HQ Evolution "recent learning events" port** (found in §3.5, needed by item 11's
+    `operations` conversion) — a small read-only view over `commander_events` (filtered to
+    the `build_learning_loop.py` event shape) inside `self-improvement-findings`. Scoped, not
+    built — needs the actual `commander_events` payload shape inspected first (not done this
+    pass) before designing the view.
 
 ## 6. Recommended next steps
 
