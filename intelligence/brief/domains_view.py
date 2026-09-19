@@ -27,6 +27,35 @@ pipeline expresses per-domain today.
 Pure function, no I/O — same contract as `assemble_captain_brief_document()`:
 takes already-fetched events and the already-fetched latest brief row as
 arguments, so it's testable without a live DB or event bus.
+
+Signal-leakage fix (post-Phase 3 bug, same class PR #275 fixed elsewhere):
+this module's first pass built `what_matters`/`watch_conditions` straight
+from `CaptainBriefItem.reason` — the Attention Engine's own internal audit
+trail (a scoring formula, an aggregation note, or a persistence-gate
+suppression narrative), not a synthesized finding. In production this
+surfaced raw aggregation logic ("9 events sharing domain=.../event_type=...
+— aggregate as a count/trend") and suppression-gate reasoning ("recurrence
+of already-acknowledged event <uuid> ... — not re-interrupting...") as if
+they were "What Matters" bullets. Fixed by `_readable_text()` (never
+`reason`; recommendation -> description -> nothing, matching PR #275's own
+established fallback order minus its last-resort `reason` step, which that
+push-notification call site needs and this one doesn't) and by
+`_aggregation_constraints()` (aggregated groups become one synthesized
+`constraints` coverage sentence, never a per-event `what_matters` bullet).
+`evidence` is unchanged and still shows `item.reason` verbatim — that is
+its job, an explicit one-click-away audit drill-down, not a headline.
+
+The upstream risk-scoring blind spot this fix's own writeup (§8a)
+documented but deliberately deferred — `priority_engine.py` treating a
+missing importance/confidence as `0` rather than "unknown," so an
+unscored event's `risk_score` collapsed to a real, GREEN-reading `0.0` —
+is now fixed at the source (`PriorityScore.risk_score` is `None` for a
+never-scored event; see `priority_engine.py`'s own module docstring and
+`_risk_from_importance_confidence()`). `_posture_for_items()` below
+already excluded a `None` risk_score from its rollup, so it needed no
+change to pick this up; the `constraints` mitigation above stays regardless
+— it solves a different problem (readability of aggregated groups), not
+this one.
 """
 
 from __future__ import annotations
@@ -78,6 +107,13 @@ class DomainSummary:
     what_changed: str | None
     what_matters: list[str] = field(default_factory=list)
     watch_conditions: list[str] = field(default_factory=list)
+    # Coverage/data-quality caveats — distinct from `what_matters` (individual
+    # findings) and `watch_conditions` (near-threshold risk items). Holds
+    # signals like "N events of this type were aggregated as a count/trend"
+    # that describe the *shape* of the data behind this domain, not a
+    # synthesized finding about it. See `_event_bus_domain_summary()` for why
+    # aggregated groups are routed here instead of into `what_matters`.
+    constraints: list[str] = field(default_factory=list)
     evidence_count: int = 0
     evidence: list[DomainEvidenceItem] = field(default_factory=list)
     as_of: str | None = None
@@ -106,10 +142,45 @@ def _risk_label(risk_score: float | None) -> str | None:
 
 
 def _posture_for_items(items: list[CaptainBriefItem]) -> str:
+    # Formerly a known blind spot (see module docstring): before
+    # priority_engine.py distinguished "never scored" from "scored and
+    # genuinely low," an unscored event's risk_score was a fabricated 0.0
+    # here, indistinguishable from a real low-risk score. Now that
+    # `PriorityScore.risk_score` is `None` for those events, this filter
+    # correctly excludes them from the rollup instead of silently reading
+    # them as GREEN. The `constraints` mitigation in
+    # `_event_bus_domain_summary()` stays regardless — it's a readability
+    # fix for aggregated groups, not a stand-in for this one.
     risk_scores = [i.risk_score for i in items if i.risk_score is not None]
     if not risk_scores:
         return "UNKNOWN"
     return _risk_label(max(risk_scores)) or "UNKNOWN"
+
+
+def _readable_text(item: CaptainBriefItem) -> str | None:
+    """The genuine, human-readable content for a user-facing bullet
+    (`what_matters`/`watch_conditions`) — a real recommendation or the
+    event's own `description`, never `item.reason`.
+
+    `reason` is an internal Attention Engine audit trail: a scoring
+    formula ("importance=X >= Y AND confidence=Z >= W"), an aggregation
+    note ("N events sharing domain=.../event_type=... — aggregate as a
+    count/trend"), or a persistence-gate suppression narrative
+    ("recurrence of already-acknowledged event <uuid> ... — not
+    re-interrupting a stable, already-surfaced condition"). None of that
+    is a synthesized finding, and the PR #275 signal-leakage fix already
+    established `description` as the correct home for readable content —
+    this mirrors that fallback chain (recommendation -> description) but
+    stops there: unlike `interrupt_dispatcher.py`'s push body, a
+    materiality/watch bullet has no "must never be empty" requirement, so
+    an item with nothing genuinely readable is simply left out rather than
+    falling back to `reason`. `evidence` (below) is the one place `reason`
+    is still shown — an explicit, one-click-away drill-down, not a
+    headline.
+    """
+    if item.recommendation is not None:
+        return item.recommendation.description
+    return item.description
 
 
 def _confidence_for_items(items: list[CaptainBriefItem]) -> float | None:
@@ -123,45 +194,66 @@ def _confidence_for_items(items: list[CaptainBriefItem]) -> float | None:
     return round(sum(scores) / len(scores), 1)
 
 
+def _aggregation_constraints(items: list[CaptainBriefItem]) -> list[str]:
+    """Coverage signal for aggregated groups (`evaluate_batch()`'s
+    SHOULD_BE_AGGREGATED branch: 3+ events sharing a (domain, event_type)
+    pair in one batch, `aggregation_key` set on every member). A count/
+    trend across N events — a large source-failure aggregate among
+    them — is real information, but it is not a synthesized finding about
+    any one event, and showing the same (or a diagnostic aggregation-trace)
+    line as a `what_matters` bullet either repeats it 3+ times or leaks the
+    raw trace text. Both are wrong; this builds one fresh, honest sentence
+    per group instead, keyed only by the group's own size and event_type —
+    never by parsing `item.reason`.
+    """
+    groups: dict[str, list[CaptainBriefItem]] = {}
+    for item in items:
+        if item.aggregation_key:
+            groups.setdefault(item.aggregation_key, []).append(item)
+
+    constraints: list[str] = []
+    for agg_key in sorted(groups):
+        group = groups[agg_key]
+        event_type = group[0].event_type or agg_key
+        constraints.append(
+            f"{len(group)} {event_type} event(s) aggregated as a count/trend this cycle — "
+            "a coverage signal, not an individual finding; see Evidence for the raw events."
+        )
+    return constraints
+
+
 def _event_bus_domain_summary(
     key: str, label: str, items: list[CaptainBriefItem], generated_at: str
 ) -> DomainSummary:
     interrupt_count = sum(1 for i in items if i.category == AttentionCategory.INTERRUPT_NOW)
     what_changed = f"{interrupt_count} item(s) need attention now" if interrupt_count else None
 
-    # Signal-leakage fix (same pattern as the `recommended_action` fix this
-    # module's own docstring references — see captain_brief_contract.py's
-    # `CaptainBriefItem.description` docstring: "fall back to this, never
-    # to `reason` [...] a scoring formula"). `item.reason` is the Attention
-    # Engine's internal routing formula — e.g. "importance=80 >= 75 AND
-    # confidence=90 >= 65", or, for a SHOULD_BE_AGGREGATED group, "9 events
-    # sharing domain=X/event_type=Y in this batch — aggregate as a count/
-    # trend" — never fit for a Captain-facing "what matters"/"watch"/
-    # evidence line. `description` (the event's own readable headline, e.g.
-    # a source's `error_message`) is the only field these three should
-    # read; an item with no description simply contributes nothing here,
-    # rather than leaking the formula string.
+    # Aggregated items (3+ sharing an aggregation_key) are excluded from
+    # what_matters/watch_conditions below — they become a `constraints`
+    # coverage signal instead (`_aggregation_constraints()`), not a
+    # per-event materiality bullet.
+    individual_items = [i for i in items if not i.aggregation_key]
+
     what_matters: list[str] = []
-    for item in sorted(items, key=lambda i: i.priority_score or 0, reverse=True):
-        if item.description and item.description not in what_matters:
-            what_matters.append(item.description)
+    for item in sorted(individual_items, key=lambda i: i.priority_score or 0, reverse=True):
+        text = _readable_text(item)
+        if text and text not in what_matters:
+            what_matters.append(text)
         if len(what_matters) >= 3:
             break
 
     watch_conditions: list[str] = []
-    for item in items:
-        if (
-            item.risk_score is not None
-            and item.risk_score >= _POSTURE_AMBER
-            and item.description
-            and item.description not in watch_conditions
-        ):
-            watch_conditions.append(item.description)
+    for item in individual_items:
+        if item.risk_score is None or item.risk_score < _POSTURE_AMBER:
+            continue
+        text = _readable_text(item)
+        if text and text not in watch_conditions:
+            watch_conditions.append(text)
         if len(watch_conditions) >= 3:
             break
 
     evidence = [
-        DomainEvidenceItem(title=item.event_type or item.domain, detail=item.description, risk=_risk_label(item.risk_score))
+        DomainEvidenceItem(title=item.event_type or item.domain, detail=item.reason, risk=_risk_label(item.risk_score))
         for item in items[:5]
     ]
 
@@ -174,6 +266,7 @@ def _event_bus_domain_summary(
         what_changed=what_changed,
         what_matters=what_matters,
         watch_conditions=watch_conditions,
+        constraints=_aggregation_constraints(items),
         evidence_count=len(items),
         evidence=evidence,
         as_of=generated_at,

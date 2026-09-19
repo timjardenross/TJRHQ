@@ -112,52 +112,118 @@ def test_event_bus_summary_flags_interrupt_now_as_what_changed():
 
 def test_event_bus_summary_watch_conditions_exclude_low_risk_items():
     items = [
-        _item(risk_score=5.0, description="Fine"),
-        _item(risk_score=40.0, description="Watch this"),
+        _item(risk_score=5.0, reason="Fine", description="Fine"),
+        _item(risk_score=40.0, reason="Watch this (diagnostic trace)", description="Watch this"),
     ]
     summary = _event_bus_domain_summary("engineering", "Engineering", items, "2026-09-19T00:00:00Z")
     assert summary.watch_conditions == ["Watch this"]
 
 
+# ─── Signal-leakage regression coverage (post-Phase-3 production bug:      ─
+# `AttentionDecision.reason` — internal audit trail, not a finding —      ─
+# surfacing verbatim as "What Matters"/"Watch" bullets) ───────────────────
+
+
+def test_what_matters_never_uses_raw_reason_text():
+    """An item with only a diagnostic `reason` and no description/
+    recommendation contributes nothing — `reason` is never the fallback
+    for a user-facing bullet, unlike interrupt_dispatcher.py's push body."""
+    item = _item(
+        priority_score=90,
+        reason="importance=90 >= 75 AND confidence=80 >= 70",
+        description=None,
+        recommendation=None,
+    )
+    summary = _event_bus_domain_summary("engineering", "Engineering", [item], "2026-09-19T00:00:00Z")
+    assert summary.what_matters == []
+
+
+def test_what_matters_prefers_recommendation_over_description_and_reason():
+    item = _item(
+        priority_score=90,
+        reason="importance=90 >= 75 AND confidence=80 >= 70",
+        description="A readable description",
+        recommendation=Recommendation(description="Do the genuinely recommended thing"),
+    )
+    summary = _event_bus_domain_summary("engineering", "Engineering", [item], "2026-09-19T00:00:00Z")
+    assert summary.what_matters == ["Do the genuinely recommended thing"]
+
+
+def test_what_matters_falls_back_to_description_when_no_recommendation():
+    item = _item(
+        priority_score=90,
+        reason="importance=90 >= 75 AND confidence=80 >= 70",
+        description="Reuters: some real headline",
+        recommendation=None,
+    )
+    summary = _event_bus_domain_summary("engineering", "Engineering", [item], "2026-09-19T00:00:00Z")
+    assert summary.what_matters == ["Reuters: some real headline"]
+
+
+def test_suppression_gate_reason_never_leaks_into_what_matters_or_watch():
+    """Reproduces the exact production leak: a persistence-gate-downgraded
+    item (attention_engine.py's `_apply_recurrence_gate`) whose `reason` is
+    the suppression narrative, not a finding. The event's own `description`
+    (untouched by that gate) must be what surfaces instead."""
+    item = _item(
+        category=AttentionCategory.CAN_BE_DELAYED,
+        priority_score=70,
+        risk_score=45.0,
+        reason=(
+            "recurrence of already-acknowledged event 11111111-1111-1111-1111-111111111111 "
+            "(health-intelligence/health.readiness.scored) within 24h with importance/confidence "
+            "moved < 15 — not re-interrupting a stable, already-surfaced condition"
+        ),
+        description="Readiness scored 82 (stable)",
+        recommendation=None,
+    )
+    summary = _event_bus_domain_summary("health", "Health", [item], "2026-09-19T00:00:00Z")
+    assert summary.what_matters == ["Readiness scored 82 (stable)"]
+    assert summary.watch_conditions == ["Readiness scored 82 (stable)"]
+    assert not any("recurrence of already-" in m for m in summary.what_matters + summary.watch_conditions)
+    # The raw reason is still available in the drill-down evidence, by design.
+    assert summary.evidence[0].detail == item.reason
+
+
+def test_large_aggregated_failure_count_becomes_a_constraint_not_a_materiality_bullet():
+    """Reproduces the other production leak: a 3+-event aggregate (e.g. 109
+    intelligence.source.failed events) must surface as a per-domain
+    coverage signal, never as a repeated/raw-trace `what_matters` bullet."""
+    items = [
+        _item(
+            event_id=f"evt-{i}",
+            event_type="intelligence.source.failed",
+            aggregation_key="operational-resilience-intelligence:intelligence.source.failed",
+            reason="109 events sharing domain=operational-resilience-intelligence/event_type=intelligence.source.failed in this batch — aggregate as a count/trend",
+            description=f"Source X unreachable: HTTP 401 (attempt {i})",
+            priority_score=50,
+            risk_score=0.0,
+        )
+        for i in range(109)
+    ]
+    summary = _event_bus_domain_summary(
+        "operational_intelligence", "Operational Intelligence", items, "2026-09-19T00:00:00Z"
+    )
+    assert summary.what_matters == []
+    assert summary.watch_conditions == []
+    assert summary.constraints == [
+        (
+            "109 intelligence.source.failed event(s) aggregated as a count/trend this cycle — "
+            "a coverage signal, not an individual finding; see Evidence for the raw events."
+        )
+    ]
+    assert not any("sharing domain=" in c for c in summary.constraints)
+
+
+def test_no_constraints_when_nothing_is_aggregated():
+    item = _item(aggregation_key=None)
+    summary = _event_bus_domain_summary("engineering", "Engineering", [item], "2026-09-19T00:00:00Z")
+    assert summary.constraints == []
+
+
 def test_event_bus_summary_detail_href_links_to_captains_brief_workbench():
     summary = _event_bus_domain_summary("learning", "Learning", [], "2026-09-19T00:00:00Z")
     assert summary.detail_href == "/captains-brief-workbench?domain=learning"
-
-
-# ─── signal-leakage regression: `reason` must never reach display text ────
-
-
-def test_what_matters_never_leaks_the_raw_reason_formula():
-    """`reason` is the Attention Engine's internal routing formula (e.g. the
-    SHOULD_BE_AGGREGATED text: "9 events sharing domain=X/event_type=Y in
-    this batch — aggregate as a count/trend") — never fit for a Captain-
-    facing "what matters" line. An item with a formula `reason` but no
-    `description` must contribute nothing to `what_matters`, not the
-    formula text."""
-    items = [
-        _item(
-            reason="9 events sharing domain=operational-resilience-intelligence/"
-            "event_type=intelligence.source.failed in this batch — aggregate as a count/trend",
-            description=None,
-        )
-    ]
-    summary = _event_bus_domain_summary("operational_intelligence", "Operational Intelligence", items, "2026-09-19T00:00:00Z")
-    assert summary.what_matters == []
-    assert all("aggregate as a count/trend" not in m for m in summary.what_matters)
-
-
-def test_what_matters_and_watch_conditions_use_description_not_reason():
-    items = [
-        _item(
-            reason="importance=80 >= 75 but confidence=30 below floor 65",
-            description="Feed timeout calling reuters.com",
-            risk_score=56.0,
-        )
-    ]
-    summary = _event_bus_domain_summary("engineering", "Engineering", items, "2026-09-19T00:00:00Z")
-    assert summary.what_matters == ["Feed timeout calling reuters.com"]
-    assert summary.watch_conditions == ["Feed timeout calling reuters.com"]
-    assert summary.evidence[0].detail == "Feed timeout calling reuters.com"
 
 
 # ─── _osint_domain_summary ────────────────────────────────────────────────
@@ -256,18 +322,24 @@ def test_assemble_posture_unknown_not_green_for_unscored_aggregated_failures():
     assert operational.evidence_count == 3
 
 
-def test_assemble_aggregated_failures_what_matters_shows_description_not_aggregation_formula():
-    """End-to-end version of the `reason`-leak regression above: 3+
-    `intelligence.source.failed` events (each carrying a real
-    `description`, exactly as `intelligence_store.py::save_source_health()`
-    publishes them — `description=health.error_message`) get promoted to
-    SHOULD_BE_AGGREGATED by evaluate_batch(), whose own `reason` becomes
-    the internal "N events sharing domain=X/event_type=Y ... aggregate as
-    a count/trend" formula. `what_matters` must show each event's own
-    `description` (the real collection-failure message), never that
-    formula string — this was the visible leak in the Domains tab
-    (What Matters showing the raw aggregation formula instead of readable
-    content), the blocker for Phase 5."""
+def test_assemble_aggregated_unscored_failures_compose_both_fixes_end_to_end():
+    """End-to-end proof that the reason-leak fix (#280) and the
+    priority_engine risk_score fix (this PR) compose correctly on the same
+    real-world shape: 3+ `intelligence.source.failed` events (each carrying
+    a real `description`, exactly as
+    `intelligence_store.py::save_source_health()` publishes them —
+    `description=health.error_message`, no importance/confidence) get
+    promoted to SHOULD_BE_AGGREGATED by evaluate_batch(). Per the reason-
+    leak fix, aggregated items never contribute a `what_matters`/
+    `watch_conditions` bullet (their `reason` would otherwise be the raw
+    "N events sharing domain=X/event_type=Y ... aggregate as a count/trend"
+    formula) — they roll up into one `constraints` sentence instead. Per
+    the priority_engine fix, their `risk_score` is `None` (never scored),
+    not a fabricated `0.0`, so posture reads UNKNOWN rather than a false
+    GREEN. Neither fix alone was sufficient: the reason-leak fix stops the
+    formula text from leaking but says nothing about posture; the
+    risk_score fix stops the false-GREEN but says nothing about what
+    `constraints`/`what_matters` should contain."""
     unscored_failures = [
         {
             "event_id": f"evt-unscored-{i}",
@@ -282,11 +354,12 @@ def test_assemble_aggregated_failures_what_matters_shows_description_not_aggrega
     ]
     doc = assemble_domains_document(unscored_failures, latest_brief=None)
     operational = next(d for d in doc.domains if d.key == "operational_intelligence")
-    assert operational.what_matters
-    assert all("aggregate as a count/trend" not in m for m in operational.what_matters)
-    assert all("sharing domain=" not in m for m in operational.what_matters)
-    assert set(operational.what_matters) <= {f"Feed timeout calling source-{i}.example.com" for i in range(3)}
-    assert all("aggregate as a count/trend" not in (e.detail or "") for e in operational.evidence)
+    assert operational.posture == "UNKNOWN"
+    assert operational.what_matters == []
+    assert operational.watch_conditions == []
+    assert operational.constraints
+    assert all("sharing domain=" not in c for c in operational.constraints)
+    assert any("aggregated as a count/trend" in c for c in operational.constraints)
 
 
 def test_assemble_warns_when_brief_coverage_is_degraded():
