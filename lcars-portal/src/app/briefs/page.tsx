@@ -10,17 +10,20 @@
 // primary navigation.
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
 import type { ApprovalStatus, BriefListItem } from '@/lib/briefsShared';
 import { buildMorningIntelligenceView, isToday } from '@/lib/briefsShared';
+import type { DomainsDocument } from '@/lib/domainsShared';
+import { DomainsView } from './_components/DomainsView';
 
-type Tab = 'latest' | 'timeline' | 'explore';
+type Tab = 'latest' | 'domains' | 'timeline' | 'explore';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'latest', label: 'Latest' },
+  { key: 'domains', label: 'Domains' },
   { key: 'timeline', label: 'Timeline' },
   { key: 'explore', label: 'Explore' },
 ];
@@ -314,6 +317,11 @@ export default function BriefsPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('latest');
 
+  const [domainsDoc, setDomainsDoc] = useState<DomainsDocument | null>(null);
+  const [domainsLoading, setDomainsLoading] = useState(false);
+  const [domainsError, setDomainsError] = useState<string | null>(null);
+  const domainsFetchedRef = useRef(false);
+
   useAbortEffect((signal, alive) => {
     fetch('/api/briefs', { signal })
       .then(async (r) => {
@@ -324,6 +332,29 @@ export default function BriefsPage() {
       .catch((e) => { if (alive() && !(e instanceof Error && e.name === 'AbortError')) setError(e instanceof Error ? e.message : 'Failed to load'); })
       .finally(() => { if (alive()) setLoading(false); });
   }, []);
+
+  // Lazy-loaded on first visit to the Domains tab — this hits
+  // context_service.py's live assembly (event-bus poll + latest-brief
+  // read) on every call, so it shouldn't fire just for loading Latest/
+  // Timeline/Explore.
+  useAbortEffect((signal, alive) => {
+    if (tab !== 'domains' || domainsFetchedRef.current) return;
+    domainsFetchedRef.current = true;
+    setDomainsLoading(true);
+    fetch('/api/briefs/domains', { signal })
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d?.error || 'Failed to load domains');
+        if (alive()) { setDomainsDoc(d); setDomainsError(null); }
+      })
+      .catch((e) => {
+        if (alive() && !(e instanceof Error && e.name === 'AbortError')) {
+          setDomainsError(e instanceof Error ? e.message : 'Failed to load domains');
+          domainsFetchedRef.current = false;
+        }
+      })
+      .finally(() => { if (alive()) setDomainsLoading(false); });
+  }, [tab]);
 
   const latest = briefs[0] ?? null; // API already orders generated_at desc
 
@@ -340,6 +371,7 @@ export default function BriefsPage() {
       )}
 
       {tab === 'latest' && <LatestView latest={latest} loading={loading} />}
+      {tab === 'domains' && <DomainsView doc={domainsDoc} loading={domainsLoading} error={domainsError} />}
       {tab === 'timeline' && <TimelineView briefs={briefs} loading={loading} />}
       {tab === 'explore' && <ExploreView briefs={briefs} loading={loading} />}
     </WorkbenchShell>
