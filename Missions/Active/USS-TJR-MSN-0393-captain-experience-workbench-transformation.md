@@ -194,6 +194,28 @@ See §5 item 4 for the full finding: investigated and closed, no gap, no fix nee
 - **Notification deep-linking (§25)** — see §5.3 below; reviewed, confirmed sound, moved out
   of the deferred list.
 
+## 3.3 Phase 3 — adversarial self-review of Phase 1/2's own new code (§45)
+
+Turned the adversarial pass on this mission's own additions rather than only on pre-existing
+code, per §45's own instruction not to just report problems elsewhere:
+
+- **Fixed:** `NumberOne.tsx`'s conversation area had no `aria-live` region — a screen-reader
+  user got no announcement when "Thinking…" or a reply appeared; they'd have to manually
+  re-enter the modal to discover new content. Added `role="log"`/`aria-live="polite"`.
+- **Fixed, shared component:** while checking `NumberOne`'s `Modal` usage, found `Modal.tsx`
+  itself (`components/ui/Modal.tsx`, ~15 call sites across the app, including this mission's
+  own `QuickCapture` and the new `NumberOne`) had Escape-to-close but no Tab focus trap — a
+  keyboard/screen-reader user could Tab straight out of any open modal into the page behind
+  it, off-screen and unannounced. Fixed once in the shared primitive rather than per call
+  site, so every existing and future `Modal` user gets it. Full suite (including every
+  existing `a11y.test.tsx` axe-core case across all `Modal` usages) still green after the
+  change.
+- **Reviewed, no change:** floating-button tap target sizing (`NumberOne`/`QuickCapture` are
+  48×48px, above the 44px minimum; the quick-intent chip row is the same
+  `px-2.5 py-1.5`/~12px pattern already used throughout the existing design system, e.g.
+  `QuickCapture`'s own capture-type chips — a pre-existing system-wide convention, not a
+  regression introduced this mission, and out of scope to redesign system-wide in this pass).
+
 ## 4. Core end-to-end test (§40) — status
 
 The backend path this test exercises (remember → what am I forgetting → help me start →
@@ -254,10 +276,11 @@ where the next pass should start:
    `/note`) — exactly the single-pipeline discipline Mission 7 §4 asks for, already done.
    No fix needed; this item is closed, not deferred.
 5. **Voice capture reassessment** (§27) — not investigated this pass.
-6. **Full accessibility audit** (§31) — Phase 1 relied on the existing `a11y.test.tsx`
-   axe-core coverage (which now includes the new floating buttons via `WorkbenchShell`, and
-   passed) plus following established focus/label/contrast patterns; a dedicated
-   contrast/zoom/screen-reader pass across the full surface set was not performed.
+6. **Full accessibility audit** (§31) — Phase 3 fixed a real, high-leverage finding (Modal's
+   missing focus trap, §3.3 — fixed once for all ~15 call sites) plus this mission's own new
+   `aria-live` gap; still relied on the existing `a11y.test.tsx` axe-core coverage rather than
+   a dedicated pass, and a full contrast/zoom/screen-reader walkthrough across every surface
+   was not performed.
 7. **Before/after screenshot evidence** (§39/§56) — not captured; this environment has no
    way to run the app against live data (no Supabase/OLLAMA env configured) to produce
    faithful screenshots. Needs a real environment.

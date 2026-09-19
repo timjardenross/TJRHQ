@@ -140,7 +140,13 @@ export function NumberOne() {
 
       <Modal open={open} onClose={() => setOpen(false)} title="Number One">
         <div className="flex h-[60vh] max-h-[520px] flex-col gap-3 sm:h-[420px]">
-          <div ref={scrollRef} className="min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1">
+          <div
+            ref={scrollRef}
+            role="log"
+            aria-live="polite"
+            aria-label="Conversation with Number One"
+            className="min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1"
+          >
             {turns.length === 0 && (
               <p className="text-[13px] text-wb-ink2">
                 Ask what matters, say what&rsquo;s stuck, or tell it what to remember — Number One routes to the
