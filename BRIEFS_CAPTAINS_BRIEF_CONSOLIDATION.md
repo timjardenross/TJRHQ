@@ -1,10 +1,13 @@
 # Briefs / Captain's Brief Consolidation — Dependency Map & Phased Plan
 
 **Status:** Phase 0 (discovery) complete. Phase 1 (signal-leakage fix,
-backend-only) implemented and tested in this pass. Phases 2-5 (Domains IA,
-attention-semantics rework, Captain's Brief retirement, registry update)
-scoped below, **not implemented in this pass** — see §5 for why, and §6 for
-how they're queued.
+backend-only, PR #275) and Phase 4 (attention-semantics rework,
+backend-only, this pass) implemented and tested. Phases 2, 3 and 5
+(Domains IA, Briefs "Domains" tab UI, Captain's Brief retirement) remain
+scoped below, **not implemented** — see §5 for why, and §6 for how
+they're queued. Phase 4 was pulled forward out of its original
+Phase-1-dependency-only ordering (§6) since it needed no UI/Domains-IA
+prerequisite of its own — see §10.
 
 This document is the dependency map the consolidation mission requires
 before any UI removal or route change, plus the phased plan for the
@@ -209,7 +212,7 @@ eventually surface.
 | **1 — done, this pass** | Signal-leakage root-cause fix (§7) | — | Domains IA would inherit fabricated recommendations |
 | **2** | Merged cross-domain assembly: extend `/brief/full` (or a new shared step) so Briefs can render System A's domain sections (Engineering/Missions/Learning/Opportunities) alongside `domain_picture` | Phase 1 | Domains IA ships incomplete, mission's own domain list (§3.9) unmet |
 | **3** | Briefs "Domains" tab UI — per-domain synthesized picture (posture/changed/what-matters/watch/evidence), replacing/absorbing `/captains-brief-workbench`'s `DomainsView` | Phase 2 | Two competing domain views persist |
-| **4** | Attention-semantics rework — materiality/novelty/persistence/dedup on top of the existing threshold cut, feeding a genuinely scarce "Needs Attention" list | Phase 1 (clean data) | "Needs Attention" stays a raw threshold cut, contra mission §7 |
+| **4 — done** | Attention-semantics rework — materiality/novelty/persistence/dedup on top of the existing threshold cut, feeding a genuinely scarce "Needs Attention" list | Phase 1 (clean data) | "Needs Attention" stays a raw threshold cut, contra mission §7 |
 | **5** | Captain's Brief retirement — redirect `/captains-brief-workbench` → `/briefs`, remove nav/registry entries, update `interrupt_dispatcher.py`'s deep-link, update Platform Registry citations (§4.6) | Phases 2-4 | Premature deletion, information loss (mission §1/§11 explicitly prohibit this) |
 
 Phases 2-5 are independent PRs/sessions by design — each has its own UI
@@ -351,3 +354,109 @@ today (`NeedsYou.tsx`, `Remember.tsx`, `Intelligence.tsx`,
 `ApprovalQueue.tsx` is not wired into the current `-workbench` page). That
 boundary is a design decision worth preserving explicitly through Phases
 2-5, not an accident to fix.
+
+---
+
+## 10. Phase 4 detail: attention-semantics rework (implemented this pass)
+
+**Problem** (mission §7): `attention_engine.py::evaluate_event()` routed
+every event into INTERRUPT_NOW on a pure `importance >= 75 AND confidence
+>= 70` threshold cut, with no materiality, novelty, persistence, or
+already-flagged dedup on top. Two concrete real-pipeline symptoms:
+
+1. `intelligence/scheduler.py::_attention_evaluation_job()` calls
+   `event_bus.poll_events()` with no `since` cursor every
+   `ATTENTION_EVAL_INTERVAL_MINUTES` (default 10) — the same already-
+   dispatched row (now `status="acknowledged"`) keeps reappearing in the
+   poll and kept being re-classified as a fresh INTERRUPT_NOW on every
+   cycle. `interrupt_dispatcher.py`'s own status check already prevented
+   a *duplicate push*, but the classification itself (`doc.interrupt_now`,
+   `doc.metadata.attention_category_counts.interrupt_now`) stayed noisy —
+   the exact gap a future "Needs Attention" list reading that field
+   directly (not just the dispatcher) would have inherited.
+2. A domain that re-publishes a fresh row (new `event_id`, unchanged
+   `importance`/`confidence`) every cycle for a still-true, already-
+   acknowledged condition had no mechanism to be recognised as "the same
+   thing again," since `core_events` rows are insert-only and each
+   occurrence gets its own id.
+
+**Fix**: a persistence/novelty gate added on top of the existing
+threshold cut in `core/platform/attention_engine.py` — the threshold
+logic itself (`_route_by_threshold()`, the pre-existing `evaluate_event()`
+body, unchanged) still decides the base category first. Only a decision
+that already resolved to INTERRUPT_NOW is then checked against an
+optional `recent_surfaced` list of `core_events`-shaped rows:
+
+- **Match key**: `(domain, event_type)` — `core_events` has no title
+  column (unlike `intelligence_briefs.top_events`, which
+  `intelligence/brief/comparison.py` matches by title similarity), so
+  this is the table's own deterministic grouping key, the same pair
+  `evaluate_batch()`'s SHOULD_BE_AGGREGATED branch already groups by. A
+  row is allowed to match itself, which is what makes symptom #1 above
+  self-correcting: the identical re-polled row naturally carries zero
+  delta against itself.
+- **Already-surfaced check**: the matched row's `status` must be
+  `acknowledged`, `dismissed`, or `superseded` (`event_bus.py`'s own
+  status vocabulary) — a still-`"new"` prior row is not "already
+  surfaced" and is not dedup grounds.
+- **Materiality check**: importance or confidence must have moved by
+  `AttentionThresholds.material_change_delta` (default 15) or more since
+  the matched prior row to count as a genuine change; either side missing
+  a score is treated as a change (never silently suppress on incomplete
+  data — the same "absent is not defaulted" convention the base threshold
+  cut already applies).
+- **Recency window**: `AttentionThresholds.recurrence_lookback_hours`
+  (default 24), compared against `occurred_at` when both rows carry a
+  parseable timestamp.
+- **Downgrade target**: a prior `dismissed` row (a Captain explicitly
+  said "not this") downgrades to `SHOULD_SIMPLY_BE_REMEMBERED`;
+  `acknowledged`/`superseded` downgrade to `CAN_BE_DELAYED`. Never
+  discarded outright — always a real category, never a black-box drop,
+  per Blueprint Principle 3. `AttentionDecision.duplicate_of_event_id`
+  is set to the matched prior row's `event_id` so the downgrade traces to
+  a queryable row, same convention `related_event_ids` uses for
+  SHOULD_BE_SUMMARISED.
+
+**Wiring**: `evaluate_event()`/`evaluate_batch()` both take an optional
+`recent_surfaced` kwarg (default `None` — omitting it is byte-for-byte
+the pre-Phase-4 behaviour, so every existing caller and test is
+unaffected). `captain_brief_orchestrator.py::assemble_captain_brief_document()`
+defaults `recent_surfaced` to the `events` batch it was already given
+(self-referential dedup, zero extra I/O) unless a caller passes its own
+list or an explicit `[]` to opt out — this fixes symptom #1 for every
+existing caller of `assemble_captain_brief_document()`
+(`_attention_evaluation_job()`, `commands/brief.py`, `daily_digest.py`,
+`captain_brief_cli.py`, `context_service.py`,
+`captain_brief_evolution.py`) with no per-caller changes required.
+`interrupt_dispatcher.py` is unchanged — it already reads
+`doc.interrupt_now`, which now simply contains fewer stale repeats.
+
+**Explicitly not done in this pass**: no wiring into a "Needs Attention"
+Briefs UI section — Phases 2/3 (merged cross-domain assembly, Briefs
+"Domains" tab) have not landed yet (still queued per §6), and this task
+was scoped backend-only regardless. `recent_surfaced` beyond one poll's
+own batch (a deliberately broader history query) is left to whichever of
+Phase 2/3 or a future "Needs Attention" surface first needs it — the
+parameter exists precisely so that can be added without another
+`attention_engine.py` change.
+
+**Tests**: `tests/test_attention_recurrence_gate.py` (new, 17 tests) —
+covers no-`recent_surfaced`-passed backward compatibility, same-row
+re-poll after acknowledgement, cross-event_id recurrence by
+`(domain, event_type)`, dismissed-vs-acknowledged downgrade targets,
+genuine escalation (importance and confidence, independently) still
+interrupting, sub-threshold drift still suppressing, missing prior scores
+never silently suppressing, no-match/still-"new"-prior not suppressing,
+the gate never touching a non-INTERRUPT_NOW decision, the recency window
+(default and widened), a custom `material_change_delta`, and determinism
+across repeated calls. Plus 2 new tests in
+`tests/test_captain_brief_orchestrator.py` covering the orchestrator's
+default self-referential wiring and its explicit opt-out. All
+pre-existing tests across `test_attention_engine.py`,
+`test_captain_brief_orchestrator.py`, `test_interrupt_dispatcher.py`,
+`test_daily_brief_interrupt_now.py`, `test_signal_leakage_fix.py`,
+`test_attention_evaluation_job.py`, `test_captain_brief_contract.py`,
+`test_cognitive_core_regression.py`, `test_approval_router.py`,
+`test_priority_engine_wiring.py` and `test_downdetector_priority_cadence.py`
+(97 tests total across this file's set, including the 19 new ones above)
+pass unchanged — additive change, no existing behaviour altered.
