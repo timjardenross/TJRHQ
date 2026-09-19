@@ -296,6 +296,72 @@ def test_assemble_merges_osint_domain_picture_when_brief_exists():
     assert doc.osint_as_of == "2026-09-19T06:31:00Z"
 
 
+def test_assemble_posture_unknown_not_green_for_unscored_aggregated_failures():
+    """Regression: a domain whose only surfaced items are unscored (no
+    importance/confidence at all — e.g. repeated `intelligence.source.failed`
+    events, aggregated by evaluate_batch() once there are 3+) must roll up
+    to UNKNOWN posture, not GREEN. Before the priority_engine fix,
+    PriorityScore.risk_score for these was a fabricated 0.0, which
+    _posture_for_items would read as a genuinely low, safe score. The
+    events themselves still surface (evidence/what_matters, via
+    `description`) — only the posture claim is corrected."""
+    unscored_failures = [
+        {
+            "event_id": f"evt-unscored-{i}",
+            "event_type": "intelligence.source.failed",
+            "domain": "operational-resilience-intelligence",
+            "importance": None,
+            "confidence": None,
+            "status": "new",
+        }
+        for i in range(3)
+    ]
+    doc = assemble_domains_document(unscored_failures, latest_brief=None)
+    operational = next(d for d in doc.domains if d.key == "operational_intelligence")
+    assert operational.posture == "UNKNOWN"
+    assert operational.evidence_count == 3
+
+
+def test_assemble_aggregated_unscored_failures_compose_both_fixes_end_to_end():
+    """End-to-end proof that the reason-leak fix (#280) and the
+    priority_engine risk_score fix (#284) compose correctly on the same
+    real-world shape: 3+ `intelligence.source.failed` events (each carrying
+    a real `description`, exactly as
+    `intelligence_store.py::save_source_health()` publishes them —
+    `description=health.error_message`, no importance/confidence) get
+    promoted to SHOULD_BE_AGGREGATED by evaluate_batch(). Per the reason-
+    leak fix, aggregated items never contribute a `what_matters`/
+    `watch_conditions` bullet (their `reason` would otherwise be the raw
+    "N events sharing domain=X/event_type=Y ... aggregate as a count/trend"
+    formula) — they roll up into one `constraints` sentence instead. Per
+    the priority_engine fix, their `risk_score` is `None` (never scored),
+    not a fabricated `0.0`, so posture reads UNKNOWN rather than a false
+    GREEN. Neither fix alone was sufficient: the reason-leak fix stops the
+    formula text from leaking but says nothing about posture; the
+    risk_score fix stops the false-GREEN but says nothing about what
+    `constraints`/`what_matters` should contain."""
+    unscored_failures = [
+        {
+            "event_id": f"evt-unscored-{i}",
+            "event_type": "intelligence.source.failed",
+            "domain": "operational-resilience-intelligence",
+            "importance": None,
+            "confidence": None,
+            "status": "new",
+            "description": f"Feed timeout calling source-{i}.example.com",
+        }
+        for i in range(3)
+    ]
+    doc = assemble_domains_document(unscored_failures, latest_brief=None)
+    operational = next(d for d in doc.domains if d.key == "operational_intelligence")
+    assert operational.posture == "UNKNOWN"
+    assert operational.what_matters == []
+    assert operational.watch_conditions == []
+    assert operational.constraints
+    assert all("sharing domain=" not in c for c in operational.constraints)
+    assert any("aggregated as a count/trend" in c for c in operational.constraints)
+
+
 def test_assemble_warns_when_brief_coverage_is_degraded():
     latest_brief = {
         "brief_id": "brief-123",
