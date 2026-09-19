@@ -775,7 +775,13 @@ def save_source_health(health: SourceHealth) -> None:
         _publish_core_event(
             "intelligence.source.failed",
             linked_entities=[health.source_id],
-            recommended_action=health.error_message,
+            # Signal-leakage fix: a collection failure's raw exception
+            # message is an observation of what happened, not a recommended
+            # action — it goes in `description`, not `recommended_action`
+            # (see migration 0218). Fabricating a "recommendation" out of a
+            # scraper error is exactly the leakage the Briefs/Captain's Brief
+            # consolidation mission calls out.
+            description=health.error_message,
         )
 
 
@@ -1089,13 +1095,17 @@ def save_event(event: RankedEvent, ori: dict | None = None,
             confidence=round(row["confidence"] * 100),
             relevance=round(row["operational_relevance"] * 100),
             linked_entities=[event_id] if event_id else [],
-            # USS-TJR-MSN-0339 WP2: without this, a dispatched INTERRUPT_NOW
-            # push had no readable content — the Attention Engine's own
-            # `reason` field is a scoring formula ("importance=X >= Y AND
-            # confidence=Z >= W"), not what actually happened. This is the
-            # same real title WP1 already validated as genuine content, not
-            # new judgment about the signal's meaning.
-            recommended_action=row["raw_title"],
+            # USS-TJR-MSN-0339 WP2 / Briefs consolidation signal-leakage fix:
+            # without this, a dispatched INTERRUPT_NOW push had no readable
+            # content — the Attention Engine's own `reason` field is a
+            # scoring formula ("importance=X >= Y AND confidence=Z >= W"),
+            # not what actually happened. The real title is genuine content,
+            # not new judgment about the signal's meaning — but it is an
+            # observation (a headline), not a recommended action, so it goes
+            # in `description`; `recommended_action` stays unset here rather
+            # than being fabricated from raw signal text (interrupt_dispatcher.py
+            # falls back to `description` when no real recommendation exists).
+            description=row["raw_title"],
             metrics=metrics or None,
         )
         _maybe_push_outage_alert(event, event_id)

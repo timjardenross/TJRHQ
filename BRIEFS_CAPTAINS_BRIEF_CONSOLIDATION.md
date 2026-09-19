@@ -1,0 +1,353 @@
+# Briefs / Captain's Brief Consolidation — Dependency Map & Phased Plan
+
+**Status:** Phase 0 (discovery) complete. Phase 1 (signal-leakage fix,
+backend-only) implemented and tested in this pass. Phases 2-5 (Domains IA,
+attention-semantics rework, Captain's Brief retirement, registry update)
+scoped below, **not implemented in this pass** — see §5 for why, and §6 for
+how they're queued.
+
+This document is the dependency map the consolidation mission requires
+before any UI removal or route change, plus the phased plan for the
+remaining work. It supersedes nothing in `BRIEFS_CANONICAL_UPLIFT.md`
+(2026-09), which already delivered a large share of the mission's OSINT-side
+goals — read that first; this doc picks up where it stops and covers the
+cross-domain (non-OSINT) half of the mission.
+
+---
+
+## 1. The real system landscape: five "Captain Brief" systems, not two
+
+Discovery (three parallel architectural sweeps, cross-checked against
+`knowledge/SUOC-Platform-Registry.md`) found the mission's "two workbenches"
+framing understates the problem. Five distinct systems share the name:
+
+| # | System | Canonical implementation | Data model | Live UI |
+|---|---|---|---|---|
+| **A** | **Continuous Captain Brief Orchestration** — the canonical, event-bus-based cross-domain pipeline | `core/platform/captain_brief_orchestrator.py` (+`attention_engine.py`, `priority_engine.py`, `captain_brief_contract.py`) | `core_events` (Event Bus) → Attention Engine → Priority Engine → domain-grouped document | **`/captains-brief-workbench`** via `/api/captain-brief` → Python `GET /brief/full` |
+| B | Legacy mission-based assembler | `core/context-assembly/assembler.py::assemble_captain_brief_context()` | missions + `recommendation_engine.py` | None in `lcars-portal` (Slack only, via E) |
+| C | Captain's Daily Brief (Telegram/cron digest) | `intelligence/captains_brief.py` | ORI OSINT brief + health capacity + content, LLM-narrated | `TodaysBriefPanel.tsx` on Captain's Chair, via `/api/captains-daily-brief` → `captains_daily_briefs` table |
+| D | Research-mission brief generator | `platform-runtime/lib/captain_brief.py` | Research mission output → Slack | Unrelated feature; name collision only |
+| E | Slack `/captain-brief` command | `platform-runtime/commands/captain_brief.py` | Wraps B via Command Centre API | Slack only |
+| — | **Briefs (OSINT/geopolitical archive)** | `intelligence/brief/brief_generator.py` | `intelligence_briefs` table | **`/briefs`**, `/briefs/[id]` |
+
+The platform's own registry already tracks this as **"Architectural Debt (3
+unreconciled pipelines)"** (`knowledge/SUOC-Platform-Registry.md:73`) with an
+open, named action — **"Formal Captain Brief Convergence review (MSN-0342/
+0343) vs. `captains_brief.py`/`captain_brief_evolution.py`"** — so this
+consolidation lands on ground the platform already expected to need
+reconciling, not a new problem.
+
+**In scope for "Briefs vs Captain's Brief" consolidation:** System A (the
+live `/captains-brief-workbench` UI and its backend) and the Briefs OSINT
+archive. **System C** already had its own leakage (a second, independent
+LLM re-synthesis) fixed by `BRIEFS_CANONICAL_UPLIFT.md` §2.7 — it now
+renders the canonical OSINT view deterministically and needs no further
+work here. **Systems B, D, E** are out of scope: B/E are a legacy,
+non-event-based pipeline exposed only to Slack with no live `lcars-portal`
+caller (a separate deprecation candidate, not part of this mission); D is
+an unrelated research-mission feature that only shares a name.
+
+---
+
+## 2. Data flow today (as-built)
+
+```
+core_events (Event Bus)                         intelligence_events / intelligence_briefs
+        │  poll_events()                                    │  brief_generator.py pipeline
+        ▼                                                    ▼
+Attention Engine → Priority Engine                  classify → dedup → rank → LLM narrative
+        │  captain_brief_contract.py                         │  render.py (no LLM, pure selection)
+        ▼                                                    ▼
+CaptainBriefDocument (System A)                     intelligence_briefs row (immutable, insert-only)
+   domain sections: health / operational_intelligence /       │
+   engineering / learning / opportunities                     ├─→ /briefs, /briefs/[id] (Latest/Timeline/Explore)
+        │                                                      ├─→ Telegram /brief (build_morning_intelligence_view)
+        ├─→ /captains-brief-workbench (KPIs, Brief tab, Domains tab)
+        ├─→ interrupt_dispatcher.py → Telegram push (System A's own channel)
+        └─→ Captain's Chair "Needs You" (interrupt_now count only, links out)
+
+intelligence/captains_brief.py (System C)
+   reads render.py's canonical OSINT view (no re-synthesis, fixed 2026-09) +
+   platform core_events (health/engineering/learning/opportunities, separately)
+        │
+        └─→ captains_daily_briefs table → TodaysBriefPanel.tsx (Captain's Chair)
+```
+
+Two structurally different pipelines feed two different "Captain's Chair"
+surfaces today: System A's `interrupt_now` count (raw Event Bus) and System
+C's rendered text (OSINT-only + platform `core_events` digest). **Neither
+currently reads the OSINT `intelligence_briefs` Domain Picture or vice
+versa** — System A's domain sections (health/operational_intelligence/
+engineering/learning/opportunities) and Briefs' `domain_picture` (OSINT
+event-type buckets + Health OSINT + Emergency Alert Hub, per
+`BRIEFS_CANONICAL_UPLIFT.md` §2.5/§2.9) are two independent domain
+taxonomies over disjoint data. **This is the real gap the mission's
+"Domains" IA has to close** — see §4.
+
+---
+
+## 3. What `BRIEFS_CANONICAL_UPLIFT.md` already delivered (do not redo)
+
+Confirmed against code, not just the doc's own claims:
+
+- Insert-only, auto-published `intelligence_briefs` (immutable history) —
+  `intelligence/persistence/intelligence_store.py:1257`.
+- Event-driven generation gated on a real collection-completion heartbeat,
+  bounded degraded cutoff — `intelligence/brief/morning_cycle.py`,
+  `intelligence/scheduler.py:181-224`.
+- Content model: `morning_cycle_id`, `coverage`, `comparison`,
+  `domain_picture`, `known_unknowns` — migration `0191`.
+- `/briefs` rebuilt as **Latest / Timeline / Explore**, `/briefs/[id]`
+  canonical detail route.
+- Deterministic current-vs-prior comparison (`comparison.py`, no LLM).
+- Cross-domain fusion of Health OSINT + Emergency Alert Hub into
+  `domain_picture`/`coverage` via decoupled reads (`external_domains.py`) —
+  **not** Engineering/Missions/Learning/Opportunities, which live only in
+  System A's Event Bus, not in any OSINT-adjacent table.
+- System C (Captain's Chair's `TodaysBriefPanel`) fixed to render the
+  canonical view instead of re-synthesizing — no independent "second
+  interpretation of the same morning."
+
+**What it explicitly left as FUTURE** (still open, relevant to later
+phases here): a "Not Material Today" section, deeper day-over-day history,
+an arbitrary-pair Compare UI, a Self-Improvement evidence surface.
+
+---
+
+## 4. What remains: the actual gap to mission parity
+
+1. **Domains IA does not yet exist as a merged cross-domain surface.**
+   Briefs' `domain_picture` covers OSINT + Health OSINT + Emergency Alert
+   Hub. System A's domain sections cover health / operational_intelligence
+   / engineering / learning / opportunities from the platform Event Bus.
+   The mission's "Domains" tab (§3 of the mission) needs **both** — a
+   Captain should not have to visit two workbenches to see Engineering
+   alongside Operational Intelligence. This is real, non-trivial work: it
+   means either (a) Briefs' frontend also queries `/brief/full` (System A)
+   and renders its domain sections alongside `domain_picture`, or (b) a new
+   shared assembly step in Python that produces one merged cross-domain
+   document Briefs renders. Evaluate (b) — it matches the mission's own
+   "retain `/brief/full` as the cross-domain briefing assembly API" framing
+   (§2 of the mission) and avoids two independent frontend synthesis paths.
+
+2. **Signal leakage in System A — root cause fixed in this pass** (§7
+   below); the domain-grouping/attention-routing architecture itself
+   (Attention Engine categories, Priority Engine risk floor,
+   `_WARNING_RISK_THRESHOLD`) is sound and was not touched — only the
+   upstream data contract violation that let raw text impersonate a
+   recommendation.
+
+3. **Attention semantics (mission §7, "Needs Attention" scarcity)** — System
+   A's `interrupt_now` is a pure threshold cut (`importance >= 75 AND
+   confidence >= 70`), with no materiality/novelty/persistence/dedup-against-
+   existing-attention-item logic. Captain's Chair's "Needs You" widget
+   already only shows a *count*, not the raw list (`commandState.ts:173-180`
+   per discovery), which limits the blast radius today — but the underlying
+   list a Captain reaches via that link is still an unfiltered threshold cut.
+   Reworking this (materiality/novelty/persistence scoring) is a real,
+   separate design task, not a rename.
+
+4. **Captain's Brief workbench retirement (mission §11)** — gated
+   explicitly by the mission itself on "once equivalent or superior
+   capability exists in Briefs." That capability (merged Domains IA, #1
+   above) does not exist yet. Retiring `/captains-brief-workbench` or its
+   nav entries now would be pure information loss, not consolidation —
+   explicitly what the mission's own §1 and §11 warn against. **Not done in
+   this pass.**
+
+5. **Naming collision**: Briefs' nav entry (`workbenches.ts:158-163`) is
+   currently described as "The intelligence brief archive - every
+   synthesized OSINT/world-news brief" — narrower than the mission's target
+   "Briefs = KNOW" canonical capability. Once #1 lands, this description
+   (and the Workbench's actual IA) needs to broaden to cover cross-domain
+   content, not just OSINT.
+
+6. **Platform Registry update (mission §14/§9)** — `knowledge/
+   SUOC-Platform-Registry.md` already has two stale citations found during
+   discovery: "Continuous Captain Brief Orchestration" (line 812) cites the
+   pre-rename `/captains-brief` route, and "Captain Experience Component
+   Library" (line 857) cites `ApprovalQueue`/`CaptainApprovalQueue` as wired
+   onto Captain's Chair — that wiring was already removed when
+   `captains-chair-workbench` replaced the retired `(app)/captains-chair`
+   stub (2026-08-11). Both need correcting regardless of this mission's
+   outcome; folding the consolidation's own registry update into the same
+   pass is the efficient sequencing.
+
+---
+
+## 5. Why this pass stops after Phase 1 (signal-leakage fix only)
+
+The mission's own §1 mandate ("do not remove or rewrite working
+functionality until its consumers, data contracts and replacement path are
+understood") and §11 migration gate ("once equivalent or superior capability
+exists in Briefs") both explicitly block retiring `/captains-brief-workbench`
+before the Domains IA reaches parity — and that parity (§4.1 above) does not
+exist yet. Building it is a genuine multi-file frontend+backend product
+effort (new Python assembly step or Next.js dual-fetch, new Domains tab UI,
+Domain Picture component per the mission's example schema in §3, nav/registry
+changes) that deserves its own scoped, independently-reviewable and
+independently-testable change — not a same-pass bolt-on to a backend
+data-contract fix, and not something to rush through without the UI
+validation this repo's own conventions require (start the dev server, use
+the feature in a browser) before calling it done.
+
+What *was* safe to do now, and is done: the signal-leakage root-cause fix
+(§7) is backend-only, additive (new nullable column, new optional kwarg),
+proven backward-compatible (38 existing tests unchanged, 5 new regression
+tests), touches no route, no nav entry, and no UI — it directly serves
+mission success criterion #5 ("raw signals do not leak indiscriminately into
+recommendations, priorities or attention items") independent of the IA
+question, and de-risks the later Domains-IA work by fixing the data it will
+eventually surface.
+
+---
+
+## 6. Phased plan (remaining work)
+
+| Phase | Work | Depends on | Risk if skipped |
+|---|---|---|---|
+| **1 — done, this pass** | Signal-leakage root-cause fix (§7) | — | Domains IA would inherit fabricated recommendations |
+| **2** | Merged cross-domain assembly: extend `/brief/full` (or a new shared step) so Briefs can render System A's domain sections (Engineering/Missions/Learning/Opportunities) alongside `domain_picture` | Phase 1 | Domains IA ships incomplete, mission's own domain list (§3.9) unmet |
+| **3** | Briefs "Domains" tab UI — per-domain synthesized picture (posture/changed/what-matters/watch/evidence), replacing/absorbing `/captains-brief-workbench`'s `DomainsView` | Phase 2 | Two competing domain views persist |
+| **4** | Attention-semantics rework — materiality/novelty/persistence/dedup on top of the existing threshold cut, feeding a genuinely scarce "Needs Attention" list | Phase 1 (clean data) | "Needs Attention" stays a raw threshold cut, contra mission §7 |
+| **5** | Captain's Brief retirement — redirect `/captains-brief-workbench` → `/briefs`, remove nav/registry entries, update `interrupt_dispatcher.py`'s deep-link, update Platform Registry citations (§4.6) | Phases 2-4 | Premature deletion, information loss (mission §1/§11 explicitly prohibit this) |
+
+Phases 2-5 are independent PRs/sessions by design — each has its own UI
+validation surface, its own risk profile, and its own reviewable diff.
+Bundling them would violate the mission's own "do not trade validation for
+speed" instruction (§15).
+
+---
+
+## 7. Phase 1 detail: signal-leakage root-cause fix (implemented this pass)
+
+**Root cause found** (not a downstream mislabeling — an upstream data
+contract violation): `core_events.recommended_action` had exactly one text
+column shared between two incompatible uses — a genuine reasoned action
+proposal (`captain_brief_contract.py::recommendation_from_event()`, already
+documented as a "deliberately minimal" pass-through adapter) and, in three
+emitters, raw signal content substituted in because there was no other field
+to carry readable text into a push notification:
+
+1. `intelligence/persistence/intelligence_store.py:1098` — a scraped news
+   headline (`row["raw_title"]`) written as `recommended_action`.
+2. `intelligence/persistence/intelligence_store.py:778` (pre-fix) — a
+   source-collection failure's raw exception message
+   (`health.error_message`) written as `recommended_action`.
+3. `core/coordination/command_bus.py:425` — a bare systemd state transition
+   (`f"{svc}: {state}"`, e.g. `"nginx: failed"`) written as
+   `recommended_action`.
+
+Each of these then flowed unchanged through
+`recommendation_from_event()` → `CaptainBriefItem.recommendation` →
+`_next_actions()` / the top-priority line in `_generate_summary()` /
+`interrupt_dispatcher.py`'s push body — i.e. a headline or an HTTP 401 error
+literally became a "recommendation," a "next action," or interrupt-now push
+content, exactly as the mission's §5 described.
+
+**Fix**: added `core_events.description` (migration `0218_core_events_
+description.sql`, additive/nullable) as the home for "what happened, in
+readable form," explicitly documented (both in the migration's column
+comments and in `event_bus.py::publish_event()`'s docstring) as distinct
+from `recommended_action`. Plumbed through:
+
+- `core/platform/event_bus.py::publish_event()` — new `description`
+  kwarg, stored alongside (not replacing) `recommended_action`.
+- The three emitters above — now pass `description=`, not
+  `recommended_action=`. `recommended_action` stays unset for these events,
+  so `recommendation_from_event()` correctly returns `None` — no fabricated
+  Recommendation.
+- `core/platform/attention_engine.py::AttentionDecision` — new
+  `description` field, carried through every branch of `evaluate_event()`.
+- `core/platform/captain_brief_contract.py::CaptainBriefItem` — new
+  `description` field, carried through `assemble_captain_brief()`.
+- `core/platform/interrupt_dispatcher.py` — push body now prefers
+  `item.recommendation.description`, then `item.description` (the real
+  readable content), and only falls back to `item.reason` (the bare
+  `"importance=X >= Y AND confidence=Z >= W"` scoring trace) when neither
+  exists — previously it fell back straight from recommendation to `reason`,
+  skipping the one field that actually had readable content once
+  `recommended_action` stopped being misused.
+
+**Explicitly not touched in this pass** (same pattern, lower-confidence
+evidence, flagged for a follow-up rather than bundled in blind): a `grep -n
+"recommended_action="` across the repo found ~20 more call sites; most are
+genuine synthesized recommendations (e.g. `platform-runtime/lib/strategy/
+delivery_constraints.py`'s "Urgently resource and mature threatening
+capabilities"), but `platform-runtime/lib/notebook/notebook_route_executor.py:167`
+and `platform-runtime/lib/comms/portfolio.py:78` both pass a bare `title` as
+`recommended_action` — the same pattern as fix #1 above, not yet verified
+against their actual event semantics. Queued as a follow-up (§8).
+
+**Tests**: `tests/test_signal_leakage_fix.py` (new, 5 tests) — proves both
+emitters now populate `description` and leave `recommended_action` unset,
+proves a description-only event produces no fabricated `Recommendation`
+while remaining a real, visible attention item, and proves the dispatcher's
+three-tier fallback (recommendation → description → reason) in both
+directions. All 33 pre-existing tests across
+`test_attention_engine.py`, `test_captain_brief_contract.py`,
+`test_captain_brief_orchestrator.py`, `test_interrupt_dispatcher.py`,
+`test_daily_brief_interrupt_now.py`, `test_attention_evaluation_job.py`,
+plus `test_downdetector_priority_cadence.py` and
+`test_priority_engine_wiring.py` (25 tests, indirectly touched modules),
+pass unchanged — additive change, no existing behaviour altered.
+
+---
+
+## 8. Follow-up work queued (not attempted in this pass)
+
+Tracked as separate suggested tasks rather than bundled here, since each is
+independently scoped, reviewable, and testable:
+
+- Verify and, if warranted, fix the same raw-text-as-recommended_action
+  pattern in `notebook_route_executor.py:167` and `comms/portfolio.py:78`.
+- Phase 2: extend `/brief/full` (or a new shared assembly step) so Briefs
+  can render System A's Engineering/Missions/Learning/Opportunities domain
+  sections alongside its existing OSINT/Health/Emergency `domain_picture`.
+- Phase 3: Briefs "Domains" tab UI.
+- Phase 4: attention-semantics rework (materiality/novelty/persistence
+  scoring on top of the existing threshold cut).
+- Phase 5: Captain's Brief workbench retirement + nav/registry cleanup +
+  Platform Registry correction (including the two already-stale citations
+  found in this discovery, independent of this mission's outcome).
+
+---
+
+## 9. Final capability map (target state, once Phases 2-5 land)
+
+```
+SOURCE SYSTEMS
+  core_events (Event Bus)  |  intelligence_events (OSINT collection)  |  health_signals  |  alerts (Emergency)
+        │                              │                                    │                  │
+        ▼                              ▼                                    │                  │
+DOMAIN ASSESSMENTS
+  Attention Engine → Priority Engine   |  brief_generator.py (classify/dedup/rank/narrative)
+  (health/operational_intelligence/       │
+   engineering/learning/opportunities)    ▼
+        │                              intelligence_briefs (immutable, per-morning-cycle)
+        │                                    │
+        └──────────────┬─────────────────────┘
+                        ▼
+              BRIEFING SYNTHESIS  (Phase 2: one merged cross-domain assembly,
+                                    evolving /brief/full + render.py)
+                        │
+                        ▼
+              BRIEFS WORKBENCH  (Latest / Domains / Timeline / Explore)
+                        │
+        ┌───────────────┼────────────────────┐
+        ▼               ▼                    ▼
+  Captain's Chair   Telegram /brief    Other consumers (weekly-review,
+  (read-only,       (canonical view)   investigations, daily ops cycle —
+  link-out only —                      all read-only per discovery)
+  no command
+  affordances)
+```
+
+Captain's Chair remains the command surface (approve/reject/intervene/
+execute) for anything Briefs flags as needing attention — discovery
+confirmed it is *already* read-only + link-out for all brief-derived content
+today (`NeedsYou.tsx`, `Remember.tsx`, `Intelligence.tsx`,
+`TodaysBriefPanel.tsx` all link out rather than embedding actions;
+`ApprovalQueue.tsx` is not wired into the current `-workbench` page). That
+boundary is a design decision worth preserving explicitly through Phases
+2-5, not an accident to fix.

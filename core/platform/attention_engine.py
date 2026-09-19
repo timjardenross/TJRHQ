@@ -77,6 +77,13 @@ class AttentionDecision:
     aggregation_key: str | None = None
     related_event_ids: list[str] = field(default_factory=list)
     metrics: dict[str, Any] = field(default_factory=dict)  # MSN-0328 Wave 2 — see core_events.metrics
+    # Briefs/Captain's Brief consolidation signal-leakage fix: the event's
+    # own `description` (readable content, e.g. a headline or a state
+    # transition) — carried through unchanged so a downstream consumer with
+    # no genuine recommendation can fall back to this instead of a bare
+    # scoring formula (`reason`), without ever mistaking it for a
+    # recommendation. Never populated from `recommended_action`.
+    description: str | None = None
 
 
 def evaluate_event(
@@ -106,6 +113,7 @@ def evaluate_event(
     event_type = event.get("event_type", "unknown")
     event_id = event.get("event_id")
     metrics = event.get("metrics") or {}
+    description = event.get("description")
 
     if importance is not None and importance <= t.never_interrupt_importance_ceiling:
         return AttentionDecision(
@@ -118,6 +126,7 @@ def evaluate_event(
             domain=domain,
             event_type=event_type,
             metrics=metrics,
+            description=description,
         )
 
     if (
@@ -139,6 +148,7 @@ def evaluate_event(
             domain=domain,
             event_type=event_type,
             metrics=metrics,
+            description=description,
         )
 
     if importance is not None and importance >= t.interrupt_importance_floor and (
@@ -158,6 +168,7 @@ def evaluate_event(
             domain=domain,
             event_type=event_type,
             metrics=metrics,
+            description=description,
         )
 
     if importance is not None and importance >= t.delayed_importance_floor:
@@ -171,6 +182,7 @@ def evaluate_event(
             domain=domain,
             event_type=event_type,
             metrics=metrics,
+            description=description,
         )
 
     return AttentionDecision(
@@ -183,6 +195,7 @@ def evaluate_event(
         domain=domain,
         event_type=event_type,
         metrics=metrics,
+        description=description,
     )
 
 
