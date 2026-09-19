@@ -5,8 +5,9 @@
 | Title | Split serial `pre-commit` job into parallel gates, fixed detect-secrets' own runtime cause, added fail-closed merge gate |
 | Date | 2026-09-19 |
 | Priority | P1 |
-| Branch/PR | `ci-performance-merge-latency`, PR #264 |
-| Isolation | Mission 3 / Mission 4 branches, worktrees, and PRs were never read or touched. Branch protection was NOT changed — deferred until Mission 3 merges and Captain approves. |
+| Branch/PR | `ci-performance-merge-latency`, PR #264 (merged `5a8d793e2`, 2026-09-19T05:37:25Z) |
+| Status | **Phase A COMPLETE** — see Closure section at the end of this record |
+| Isolation | Mission 3 / Mission 4 branches, worktrees, and PRs were never read or touched throughout Phase A's implementation. |
 
 ## BEFORE
 
@@ -227,3 +228,56 @@ not an estimate. All 4 merge-gate fail-closed scenarios were proven (2 live,
 2 via exact-script local simulation, documented above with the reason the
 other 2 couldn't be reached live within this PR). Security/quality coverage
 was verified command-by-command against the pre-change job, not assumed.
+
+## CLOSURE (2026-09-19, post-merge)
+
+**Sequence completed as specified**: Mission 3 merged (PR #263, `97d3f20a0`) →
+CI optimisation proven on isolated PR #264 → PR #264 rebased onto
+authoritative `main` post-Mission-3, re-verified green, and merged
+(`5a8d793e2`) → verified live on a real direct-to-`main` push (push
+05:37:27Z → `merge-gate` green 05:40:05Z, **T+2m38s**, matching the PR's own
+~2min samples) → Mission 4 confirmed unfrozen and proceeded independently
+(PR #265, merged `98ce01fd6`, untouched by this mission throughout).
+
+**Branch-protection change — Captain-approved, applied 2026-09-19**:
+
+Scoped PATCH to `branches/main/protection/required_status_checks` only (not
+a full protection rewrite, to guarantee no unrelated setting could change):
+
+```
+PATCH /repos/timjardenross/TJRHQ/branches/main/protection/required_status_checks
+  strict: false (unchanged)
+  contexts: ["check", "merge-gate"]  (was: ["check"])
+```
+
+**Verified by reading protection back from GitHub after applying**:
+
+| Setting | Before | After | Changed? |
+|---|---|---|---|
+| `required_status_checks.contexts` | `["check"]` | `["check", "merge-gate"]` | **Yes — the intended change** |
+| `required_status_checks.strict` | `false` | `false` | No |
+| `required_pull_request_reviews.*` (all 4 fields) | unchanged | unchanged | No |
+| `required_signatures.enabled` | `false` | `false` | No |
+| `enforce_admins.enabled` | `false` | `false` | No |
+| `required_linear_history.enabled` | `false` | `false` | No |
+| `allow_force_pushes.enabled` | `false` | `false` | No |
+| `allow_deletions.enabled` | `false` | `false` | No |
+| `block_creations.enabled` | `false` | `false` | No |
+| `required_conversation_resolution.enabled` | `false` | `false` | No |
+| `lock_branch.enabled` | `false` | `false` | No |
+| `allow_fork_syncing.enabled` | `false` | `false` | No |
+
+Only `contexts` changed. No existing required check was removed or weakened
+— `check` (LCARS Portal CI) remains required exactly as before; `merge-gate`
+(Python CI's fail-closed aggregate, proven above) is now required alongside
+it. This closes the governance gap documented earlier in this record under
+"Two different metrics": **GitHub-enforced mergeability** and **TJR HQ
+trustworthy merge readiness** are now the same thing on `main` — a PR can no
+longer merge with a failed/skipped-illegitimately test matrix, bandit, ruff,
+or gitleaks result, regardless of team practice.
+
+**Not done, per Captain's explicit scope**: Mission 3/4 were not touched by
+this action. Phase B (Dependabot stagger/grouping) remains deferred and is
+confirmed explicitly NOT a prerequisite for anything downstream.
+
+**CI Performance & Merge Latency — Phase A: COMPLETE.**
