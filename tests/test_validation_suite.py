@@ -32,12 +32,25 @@ from intelligence.validation_suite import (
 def _real_fortinet_row():
     """Real values captured live 2026-07-08 (event_id a2a930ce...) — pinned
     here so this test needs no live DB call, matching this suite's own
-    non-goal of requiring 100% live access to prove its core mechanism."""
+    non-goal of requiring 100% live access to prove its core mechanism.
+
+    rank_score=79.0959 is the value as originally captured 2026-07-08 —
+    kept as the historical record even though rank_score decays over time
+    (recency_decay/SRS) and re-querying this same event_id later shows a
+    much lower current value; it's irrelevant to classification anyway
+    since the 2026-08-22/23 fix (see _row_importance's docstring).
+    customer_impact/banking_relevance/cps230_relevance were re-queried
+    live to backfill this fixture — they don't decay, and _row_importance
+    now reads these instead of rank_score, so the fixture was silently
+    falling through to the lowest importance tier without them."""
     return {
         "event_id": "a2a930ce-4555-41f0-b42b-9840b1eafc6e",
         "rank_score": 79.0959,
         "confidence": 0.86,
         "operational_relevance": 1.0,
+        "customer_impact": "high",
+        "banking_relevance": "medium",
+        "cps230_relevance": True,
     }
 
 
@@ -64,10 +77,18 @@ def test_deliberately_reintroduced_confidence_regression_is_caught():
 
 
 def test_deliberately_reintroduced_importance_regression_is_caught():
-    """Same idea, on the importance/rank_score side (e.g. a ranking-weight
-    regression) — the other half of the INTERRUPT_NOW gate."""
+    """Same idea, on the importance side (e.g. a severity-tiering
+    regression) — the other half of the INTERRUPT_NOW gate.
+
+    _row_importance() stopped reading rank_score as of the 2026-08-22/23
+    fix (see its own docstring / _real_fortinet_row's) — it now derives
+    importance from customer_impact/banking_relevance/cps230_relevance.
+    Mutating rank_score here no longer simulates anything; downgrading
+    customer_impact is what a real severity-tiering regression would
+    actually look like now."""
     regressed = dict(_real_fortinet_row())
-    regressed["rank_score"] = 30.0  # simulated regression: was 79.10
+    regressed["customer_impact"] = "low"  # simulated regression: was "high"
+    regressed["cps230_relevance"] = False  # simulated regression: was True
 
     decision = _replay_through_attention_engine(regressed)
 
