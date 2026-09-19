@@ -540,6 +540,12 @@ class TestEvolutionOrchestrator(unittest.TestCase):
         import evolution_orchestrator
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
         orch._load_watchlist = list  # never hit the real network in this test
+        # Force the deterministic honest_fallback_investigation() path instead
+        # of a live call to router.investigate_opportunity() — these tests
+        # exercise dedup/eligibility/lifecycle logic, not model output, and a
+        # real model-router happening to be reachable on this host must not
+        # make them depend on it (or its 300s per-call timeout).
+        orch.router.health_check = lambda: False
         return orch
 
     def test_dry_run_never_writes_anything(self):
