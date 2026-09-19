@@ -41,15 +41,23 @@ log = logging.getLogger(__name__)
 
 
 def _deep_link(event_id: str) -> str | None:
-    """Captain's Brief deep-link for a dispatched event, appended to the
-    Telegram push so a bare "importance=X >= Y" scoring trace is never the
-    only thing the Captain has to act on — same LCARS_PORTAL_URL pattern as
+    """Briefs deep-link for a dispatched event, appended to the Telegram
+    push so a bare "importance=X >= Y" scoring trace is never the only
+    thing the Captain has to act on — same LCARS_PORTAL_URL pattern as
     intelligence/workflow/service.py::_deep_link. None (omitted, not a
-    broken link) when LCARS_PORTAL_URL isn't configured."""
+    broken link) when LCARS_PORTAL_URL isn't configured.
+
+    Phase 5 (Captain's Brief retirement): /captains-brief-workbench no
+    longer exists as a standalone page (redirects to /briefs), so this no
+    longer anchors to a specific #brief-item-{event_id} row — /briefs has
+    no equivalent per-event anchor yet. Losing that precision is a known,
+    accepted simplification of this retirement, not an oversight; `event_id`
+    stays a parameter so that anchor can come back if Briefs ever gains one.
+    """
     base = (os.environ.get("LCARS_PORTAL_URL", "") or "").rstrip("/")
     if not base:
         return None
-    return f"{base}/captains-brief-workbench?domain=brief#brief-item-{event_id}"
+    return f"{base}/briefs"
 
 
 def dispatch_interrupt_now(

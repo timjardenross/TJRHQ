@@ -180,7 +180,7 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
       id: 'interrupt', kind: 'time_critical',
       title: `${inputs.interruptNow} item${inputs.interruptNow === 1 ? '' : 's'} flagged to interrupt now`,
       detail: 'The Attention Engine flagged this as needing you right now.',
-      href: '/captains-brief-workbench', actionLabel: 'Review',
+      href: '/briefs', actionLabel: 'Review',
     });
   }
 

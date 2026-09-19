@@ -26,7 +26,7 @@ const VALID_NAV_HREFS = [
   '/search', '/timeline', '/capture', '/capture-workbench',
   '/engineering-queue', '/intelligence', '/comms', '/alerts', '/missions',
   '/medical', '/operations', '/captains-log', '/captains-notebook',
-  '/captains-brief', '/captains-brief-workbench', '/delivery', '/automation-centre', '/model-crew',
+  '/captains-brief', '/captains-brief-workbench', '/briefs', '/delivery', '/automation-centre', '/model-crew',
   '/physical-readiness',
   // MSN-0344: found missing here despite being live in NAV_SECTIONS since
   // MSN-0328 (WP-B) — this list had silently drifted from the real nav.
@@ -64,7 +64,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Platform',
     items: [
       { href: '/workbenches', label: 'Workbenches', glyph: '◊', department: 'command', description: 'All surfaces and tools' },
-      { href: '/captains-brief-workbench', label: "Captain's Brief", glyph: '📋', department: 'command', description: 'Live intelligence document' },
+      { href: '/briefs', label: 'Briefs', glyph: '📋', department: 'command', description: 'Canonical briefing — daily intelligence + cross-domain Domains picture' },
     ],
   },
 ];

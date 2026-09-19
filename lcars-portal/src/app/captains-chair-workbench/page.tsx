@@ -162,7 +162,7 @@ export default function CaptainsChairWorkbench() {
       tone: capacityTone,
       href: '/human-systems-workbench',
     },
-    { label: 'Interrupts', value: briefingLoading ? '…' : briefingError ? 'Unknown' : `${briefingStats?.interruptNow ?? 0}`, tone: briefingError ? 'unknown' as const : (briefingStats?.interruptNow ?? 0) > 0 ? 'crit' as const : 'ok' as const, href: '/captains-brief-workbench' },
+    { label: 'Interrupts', value: briefingLoading ? '…' : briefingError ? 'Unknown' : `${briefingStats?.interruptNow ?? 0}`, tone: briefingError ? 'unknown' as const : (briefingStats?.interruptNow ?? 0) > 0 ? 'crit' as const : 'ok' as const, href: '/briefs' },
     { label: 'Alerts', value: emergencyLoading ? '…' : emergencyError ? 'Unknown' : emergency?.count ? `${emergency.count} Active` : 'Clear', tone: emergencyError ? 'unknown' as const : emergency?.worstTier === 'emergency_warning' ? 'crit' as const : emergency?.worstTier === 'watch_and_act' ? 'warn' as const : 'ok' as const, href: '/emergency-alert-hub-workbench' },
     { label: 'HQ', value: hqStatusLoading ? '…' : hqStatusError ? 'Unknown' : (hqStatus?.posture ?? 'Unknown'), tone: hqStatusError ? 'unknown' as const : hqStatus?.posture === 'ATTENTION' ? 'crit' as const : hqStatus?.posture === 'NORMAL' ? 'ok' as const : hqStatus?.posture === 'DEGRADED' ? 'warn' as const : 'unknown' as const, href: '/agent-status-workbench' },
     { label: 'Risk', value: opRiskLoading ? '…' : opRiskError ? 'Unknown' : (opRisk?.overallRisk ?? 'No data'), tone: opRiskError ? ('unknown' as const) : opRisk?.overallRisk ? (RISK_STATE_TONE[opRisk.overallRisk] ?? 'unknown') : 'unknown', href: '/intelligence-workbench' },

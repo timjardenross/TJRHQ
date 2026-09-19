@@ -221,9 +221,12 @@ def test_no_constraints_when_nothing_is_aggregated():
     assert summary.constraints == []
 
 
-def test_event_bus_summary_detail_href_links_to_captains_brief_workbench():
+def test_event_bus_summary_detail_href_points_to_briefs_post_retirement():
+    """Phase 5: /captains-brief-workbench retired (redirects to /briefs);
+    this card's own detail_href must not point at a route that no longer
+    carries a per-domain view."""
     summary = _event_bus_domain_summary("learning", "Learning", [], "2026-09-19T00:00:00Z")
-    assert summary.detail_href == "/captains-brief-workbench?domain=learning"
+    assert summary.detail_href == "/briefs"
 
 
 # ─── _osint_domain_summary ────────────────────────────────────────────────
