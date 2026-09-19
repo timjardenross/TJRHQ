@@ -28,6 +28,23 @@
 // door. The WorkbenchShell logo click goes to /workbenches (the full
 // directory) — Captain's Chair is one of those workbenches, reachable the
 // same as any other, not the same page as this one.
+//
+// Mission 3 (Capture, Remember & Follow-Through) Remember decision: Hub
+// deliberately gets NO dedicated Remember section. useNumberOneAttentionItems()
+// below reads context_service.py's /brief/number-one `attention_items`
+// field, which now additively includes Personal Task Attention Adapter
+// output (core/coordination/personal_task_attention_adapter.py) alongside
+// Number One's own items — the exact same field Captain's Chair's Needs
+// You reads. That means NEEDS_NOW/DECISION_REQUIRED-tier personal tasks
+// already surface here today, through the one canonical pipe, with zero
+// Hub-specific code. Remember's broader content (IMPORTANT_NOT_IMMEDIATE-
+// tier resurfacing + unresolved captured_items, via GET /remember) is
+// intentionally Chair-only: Hub's own mandate above ("not a mini
+// Captain's Chair", quiets itself under reduced capacity) argues against
+// a second, broader attention section here. Do not add one without first
+// re-reading this note — it would duplicate Chair's Remember panel
+// (captains-chair-workbench/_components/Remember.tsx) rather than add
+// new information.
 
 import { useState } from 'react';
 import Link from 'next/link';

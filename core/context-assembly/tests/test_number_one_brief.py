@@ -226,5 +226,33 @@ class TestHttpNumberOneBrief(unittest.TestCase):
         mock_check.assert_not_called()
 
 
+    def test_personal_task_items_merged_into_attention_items(self):
+        """Mission 3: Personal Task Attention Adapter wiring."""
+        personal_task = {
+            "id": "pt-1", "title": "Buy dog food", "work_state": "captured",
+            "urgency": 5, "importance": 4, "due_date": None,
+            "deferral_count": 0, "follow_through_paused": False,
+        }
+        with patch.object(context_service, "_load_missions", return_value=[]), \
+             patch("engineering_handoff_reader.load_engineering_handoffs", return_value=[]), \
+             patch("supabase_client.supabase_get", return_value=[personal_task]):
+            result = self._run(missions=[])
+        sources = [item["source"] for item in result["attention_items"]]
+        self.assertIn("personal_task", sources)
+        refs = [item["ref"] for item in result["attention_items"] if item["source"] == "personal_task"]
+        self.assertIn("pt-1", refs)
+
+    def test_personal_task_read_failure_degrades_gracefully(self):
+        """A personal_tasks read failure must never break the Number One
+        brief the rest of this endpoint already serves."""
+        with patch.object(context_service, "_load_missions", return_value=_SYNTHETIC_MISSIONS), \
+             patch("engineering_handoff_reader.load_engineering_handoffs", return_value=[]), \
+             patch("supabase_client.supabase_get", side_effect=RuntimeError("boom")):
+            result = self._run()
+        self.assertEqual(result["total_missions"], len(_SYNTHETIC_MISSIONS))
+        import json
+        json.dumps(result)
+
+
 if __name__ == "__main__":
     unittest.main()

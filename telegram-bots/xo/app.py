@@ -1156,33 +1156,68 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         # Adaptive Follow-Through — deterministic NL capture. Only reached
         # when the message was NOT a reply to a tracked reminder (handled
         # above). A hit here short-circuits the rest of cmd_message entirely.
+        #
+        # Mission 3 (capture-ingress normalisation): this used to write
+        # straight into personal_tasks, a second capture path that
+        # silently bypassed captured_items and its enrichment/
+        # classification pipeline entirely — the exact "two competing
+        # intake behaviours" discovery flagged. Now it goes through
+        # captured_items like every other capture channel (voice, portal,
+        # /note): the actionability/routing decision (does this actually
+        # become a personal_task, or something else — see
+        # core/capture/enrichment_worker.py's actionable bridge) is made
+        # once, in one place, not re-decided here by a second, looser
+        # regex classifier.
+        #
+        # UX tradeoff (deliberate, approved): the old path could reply
+        # "Added to Life Admin" immediately because it created the task
+        # synchronously. Routing through captured_items means the real
+        # routing decision happens on enrichment's next 15-minute pass,
+        # so this reply is now an honest instant acknowledgement, not a
+        # claim the task exists yet — enrichment sends its own Telegram
+        # confirmation (via the canonical notification service) once
+        # routing actually happens, matching every other capture channel.
         capture = parse_capture_intent(text)
         if capture and db:
-            row = {
-                "id": str(uuid.uuid4()),
-                "title": capture["title"][:200],
-                "category": "task",
-                "urgency": 3,
-                "importance": 3,
-                "effort_minutes": 30,
-                "work_state": "captured",
-                "follow_through_mode": "normal",
-                "due_date": capture["due_date"],
-            }
+            summary: dict = {}
+            if capture["due_date"]:
+                # Mission 3: preserves the NL parser's temporal-intent
+                # extraction across the bridge — captured_items has no
+                # due_date column of its own (deliberately not adding
+                # one; personal_tasks already owns that field), so the
+                # hint travels in `summary` and enrichment_worker.py's
+                # _route_to_personal_task() reads it back out when it
+                # actually creates the task.
+                summary["parsed_due_date"] = capture["due_date"]
+                summary["parse_source"] = "telegram_nl_capture"
             try:
-                inserted = db.table("personal_tasks").insert(row).execute()
-                task_id = inserted.data[0]["id"] if inserted.data else None
-                if task_id:
-                    _ft_insert_event(db, task_id, "nl_capture")
-                due_line = f"\nDue {_escape(capture['due_date'])}\\." if capture["due_date"] else ""
-                await update.message.reply_text(
-                    f"Added to Life Admin\\.\n\n*{_escape(capture['title'])}*{due_line}\n\n"
-                    f"I'll bring it back when it needs attention\\.",
-                    parse_mode="MarkdownV2",
-                )
+                db.table("captured_items").insert({
+                    "id": str(uuid.uuid4()),
+                    "captured_by": "captain-tjr",
+                    "captured_at": datetime.now(timezone.utc).isoformat(),
+                    # Reuses the same source_type /note already established
+                    # for Telegram-originated text capture (0031b's enum
+                    # has no telegram-plain-text-specific value; "channel_
+                    # message" is the existing generic text-capture tag).
+                    "source_type": "channel_message",
+                    "source_channel_id": "telegram-xo-nl-capture",
+                    "source_message_id": str(update.message.message_id),
+                    "source_message_ts": str(int(time.time() * 1000)),
+                    "item_type": "task",
+                    "title": capture["title"][:200],
+                    "raw_text": text,
+                    "processing_status": "pending",
+                    "summary": summary or None,
+                }).execute()
             except Exception as exc:  # noqa: BLE001 - Supabase insert surface is unpredictable, already logged
                 log.error("[follow-through-nl] capture insert failed: %s", exc)
                 await update.message.reply_text("⚠️ Couldn't save that — try again.")
+                return
+            due_line = f" \\(noted for {_escape(capture['due_date'])}\\)" if capture["due_date"] else ""
+            await update.message.reply_text(
+                f"Got it{due_line}\\. Filing that now — I'll confirm shortly\\.",
+                parse_mode="MarkdownV2",
+            )
             return
 
         if db:

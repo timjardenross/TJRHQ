@@ -25,6 +25,8 @@ HTTP endpoints:
   GET /brief/number-one — Number One Brief JSON (top-3, blocker, risk, recommendation)
   GET /queue/health-adjusted — Number One's capacity-aware work queue (per-item
                           capacity_note, recommended_focus, plain-English advisory)
+  GET /remember         — Mission 3 Remember capability: resurfacing personal
+                          tasks + unresolved captures, both capacity-aware
 
 Design constraints (WP-A):
   - Stateless: corpus re-read on every request
@@ -379,6 +381,17 @@ def _make_flask_app():
         except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
             return jsonify({
                 "error": "health_adjusted_queue_failed",
+                "detail": str(exc),
+                "assembled_at": _http_timestamp(),
+            }), 500
+
+    @http_app.get("/remember")
+    def http_remember():
+        try:
+            return jsonify(_http_remember())
+        except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
+            return jsonify({
+                "error": "remember_failed",
                 "detail": str(exc),
                 "assembled_at": _http_timestamp(),
             }), 500
@@ -785,6 +798,7 @@ def _http_number_one_brief() -> dict:
     from attention_state import attention_items_from_brief
     from engineering_handoff_reader import load_engineering_handoffs
     from number_one import NumberOne
+    from personal_task_attention_adapter import attention_items_from_personal_tasks
 
     missions = _load_live_missions_for_number_one()
     try:
@@ -793,6 +807,8 @@ def _http_number_one_brief() -> dict:
         _err(f"Could not load engineering handoffs: {exc}")
     brief = NumberOne().get_daily_brief(missions)
 
+    capacity_status = _capacity_status_for_today()
+
     # Mission 1 Round 2 (USS-TJR-MSN-1): the canonical Attention-State
     # normalizer (core/coordination/attention_state.py) — a lossless
     # reclassification of this same brief into the small category
@@ -800,7 +816,44 @@ def _http_number_one_brief() -> dict:
     # iPad surface) should read instead of each re-deriving its own
     # "what needs attention" logic. Additive field; existing consumers of
     # this response are unaffected.
-    attention_items = [i.to_dict() for i in attention_items_from_brief(brief)]
+    #
+    # Mission 3: now passes capacity_status (previously omitted here even
+    # though Mission 2 added the parameter — _http_health_adjusted_queue()
+    # below already used it; this endpoint hadn't caught up, so Number
+    # One's own items were never capacity-adjusted in the brief). Fixed as
+    # part of this mission since personal_task items below MUST be
+    # capacity-aware (mission §13) and having Number One's items in the
+    # same list follow a different capacity rule would be inconsistent.
+    attention_items = [i.to_dict() for i in attention_items_from_brief(brief, capacity_status=capacity_status)]
+
+    # Mission 3: Personal Task Attention Adapter. personal_tasks was never
+    # queried by or fed into Number One before this mission (confirmed by
+    # discovery) -- this stays that way: NumberOne() above never sees
+    # personal_tasks, only this endpoint's `attention_items` output gains
+    # entries from it, additive to the Number One items above. A read
+    # failure here must not break the Number One brief the rest of this
+    # endpoint already serves — logged and skipped, same posture as the
+    # engineering-handoffs/PR-health try/excepts above.
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "core" / "health"))
+        from supabase_client import supabase_get
+        personal_tasks = supabase_get(
+            "personal_tasks"
+            "?work_state=neq.completed&work_state=neq.abandoned"
+            "&select=id,title,work_state,urgency,importance,due_date,"
+            "deferral_count,follow_through_paused,blocker_category"
+        )
+        attention_items += [
+            i.to_dict() for i in attention_items_from_personal_tasks(personal_tasks, capacity_status=capacity_status)
+        ]
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; a personal-task read failure must not break the rest of the Number One brief
+        _err(f"Could not load personal_tasks for Attention State: {exc}")
+
+    # Both sources sort themselves internally, but the concatenation above
+    # isn't globally ordered — re-sort so callers can still rely on
+    # attention_items being priority-ordered overall, not just within
+    # each source.
+    attention_items.sort(key=lambda i: i["priority"])
 
     escalations = [_escalation_to_dict(e) for e in brief.escalations]
     try:
@@ -825,6 +878,94 @@ def _http_number_one_brief() -> dict:
         "specialist_workload": brief.specialist_workload,
         "recommended_actions": brief.recommended_actions,
         "attention_items": attention_items,
+    }
+
+
+# Mission 3: caps how many unresolved captured_items Remember surfaces per
+# capacity band -- fewer, higher-value items under reduced capacity (§13),
+# without inventing per-item scoring. Same deterministic-rules-over-opaque-
+# scoring posture as personal_task_attention_adapter.py.
+_REMEMBER_UNRESOLVED_CAP = {"Red": 3, "Amber": 10, "Green": 30, "Unknown": 10}
+
+
+def _http_remember() -> dict:
+    """Mission 3 — the REMEMBER capability (mission §9-10, §13).
+
+    Answers "what have I told you that matters again now?" using existing
+    canonical domain data only -- no new Remember table, no second
+    resurfacing engine. Two derived views, both read-only:
+
+    1. resurfacing_tasks: personal_tasks that have crossed the Personal
+       Task Attention Adapter's deterministic bar (anything above CAN_WAIT
+       -- i.e. NEEDS_NOW/IMPORTANT_NOT_IMMEDIATE/BLOCKED). Reuses
+       attention_items_from_personal_tasks() verbatim (same function
+       _http_number_one_brief() calls) -- Remember is a FILTERED VIEW of
+       the same canonical attention computation, not a second policy.
+       Capacity-aware for free: Red demotes non-critical items to
+       CAN_WAIT inside that shared function, which this filter then
+       naturally excludes -- no separate capacity rule needed here.
+
+    2. unresolved_captures: captured_items still sitting at
+       processing_status='pending' -- nothing routed, nothing decided.
+       This is mission §6's "if confidence is insufficient, preserve the
+       capture rather than making a destructive assumption" made visible:
+       these are exactly the captures failure-safety (§24) is protecting.
+       Capped by capacity band (deterministic, not scored) per §13.
+    """
+    capacity_status = _capacity_status_for_today()
+    stamp = _http_timestamp()
+
+    resurfacing_tasks: list[dict] = []
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
+        sys.path.insert(0, str(REPO_ROOT / "core" / "health"))
+        from personal_task_attention_adapter import attention_items_from_personal_tasks
+        from supabase_client import supabase_get
+
+        personal_tasks = supabase_get(
+            "personal_tasks"
+            "?work_state=neq.completed&work_state=neq.abandoned"
+            "&select=id,title,work_state,urgency,importance,due_date,"
+            "deferral_count,follow_through_paused,blocker_category"
+        )
+        items = attention_items_from_personal_tasks(personal_tasks, capacity_status=capacity_status)
+        resurfacing_tasks = [i.to_dict() for i in items if i.category.value != "can_wait"]
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; a read failure here must not break the rest of this endpoint
+        _err(f"Could not load resurfacing personal tasks for Remember: {exc}")
+
+    unresolved_captures: list[dict] = []
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "core" / "health"))
+        from supabase_client import supabase_get
+
+        cap = _REMEMBER_UNRESOLVED_CAP.get(capacity_status, 10)
+        rows = supabase_get(
+            "captured_items"
+            "?processing_status=eq.pending"
+            "&select=id,title,raw_text,captured_at,classification,actionable,review_status"
+            "&order=captured_at.asc"
+            f"&limit={cap}"
+        )
+        unresolved_captures = [
+            {
+                "id": r["id"],
+                "title": r.get("title") or (r.get("raw_text") or "")[:80],
+                "captured_at": r.get("captured_at"),
+                "classification": r.get("classification"),
+                "actionable": r.get("actionable"),
+                "reason": "Captured, not yet routed — still awaiting classification or Captain review",
+            }
+            for r in rows
+        ]
+    except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; a read failure here must not break the rest of this endpoint
+        _err(f"Could not load unresolved captures for Remember: {exc}")
+
+    return {
+        "assembled_at": stamp,
+        "source": "context_assembly_service",
+        "capacity_status": capacity_status,
+        "resurfacing_tasks": resurfacing_tasks,
+        "unresolved_captures": unresolved_captures,
     }
 
 
@@ -937,7 +1078,7 @@ def main():
     if args.command == "serve":
         port = args.port or config.CONTEXT_SERVICE_PORT
         print(f"[context-service] Starting HTTP server on http://{args.host}:{port}")
-        print("[context-service] Endpoints: GET /health  GET /brief/captain  GET /brief/number-one  GET /queue/health-adjusted  GET /brief/full  GET /recommendations/full  POST /brief/evolved")
+        print("[context-service] Endpoints: GET /health  GET /brief/captain  GET /brief/number-one  GET /queue/health-adjusted  GET /remember  GET /brief/full  GET /recommendations/full  POST /brief/evolved")
         _run_gunicorn(args.host, port)
         return
 
