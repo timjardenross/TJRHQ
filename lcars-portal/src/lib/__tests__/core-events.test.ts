@@ -70,6 +70,31 @@ describe('publishEvent', () => {
     });
     expect(errorSpy).toHaveBeenCalledTimes(1);
   });
+
+  // Briefs/Captain's Brief consolidation signal-leakage sweep: this TS
+  // wrapper never picked up core/platform/event_bus.py's `description` field
+  // (migration 0218), so every TS caller had nowhere to put readable
+  // observational content except (mis)using recommendedAction. Pins that the
+  // column is now writable and defaults to null when omitted, same as
+  // recommended_action.
+  it('writes description when provided, and defaults it to null like recommendedAction', async () => {
+    let inserted: Record<string, unknown> | undefined;
+    const client = {
+      from: () => ({
+        insert: async (row: Record<string, unknown>) => {
+          inserted = row;
+          return { error: null };
+        },
+      }),
+    } as unknown as SupabaseClient;
+
+    await publishEvent(client, { ...ARGS, description: 'nginx: failed' });
+    expect(inserted?.description).toBe('nginx: failed');
+    expect(inserted?.recommended_action).toBeNull();
+
+    await publishEvent(client, ARGS);
+    expect(inserted?.description).toBeNull();
+  });
 });
 
 describe('publishMissionEvent', () => {
@@ -84,6 +109,36 @@ describe('publishMissionEvent', () => {
     expect(result.ok).toBe(false);
     expect(errorSpy).toHaveBeenCalledTimes(1);
     errorSpy.mockRestore();
+  });
+
+  // Briefs/Captain's Brief consolidation signal-leakage sweep: a bare status
+  // transition ("Draft -> Approved") is observational content, not a reasoned
+  // recommendation — core/platform/event_bus.py's own recommended_action vs.
+  // description split (migration 0218) reserves recommended_action for a
+  // genuine proposal. This TS wrapper independently reproduced the leak by
+  // writing the transition into recommendedAction; it must land in
+  // description instead, with recommended_action left null.
+  it('writes the status transition to description, not recommendedAction', async () => {
+    let inserted: Record<string, unknown> | undefined;
+    const client = {
+      from: () => ({
+        insert: async (row: Record<string, unknown>) => {
+          inserted = row;
+          return { error: null };
+        },
+      }),
+    } as unknown as SupabaseClient;
+
+    await publishMissionEvent(client, {
+      eventType: 'mission.status_changed',
+      missionId: 'MSN-TEST-0002',
+      fromStatus: 'Draft',
+      toStatus: 'Approved',
+      source: 'vitest',
+    });
+
+    expect(inserted?.description).toBe('Draft -> Approved');
+    expect(inserted?.recommended_action).toBeNull();
   });
 });
 

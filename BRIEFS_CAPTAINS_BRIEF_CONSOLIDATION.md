@@ -11,7 +11,9 @@ and tested in this pass — see §8 for what shipped. Phase 5 (Captain's
 Brief retirement) is scoped below, **not implemented in this pass** — see
 §5 for why. With Phases 1-4 all landed, Phase 5's own gate ("once
 equivalent or superior capability exists in Briefs") is now within reach,
-though not yet declared met — see §5.
+though not yet declared met — see §5. A broader signal-leakage sweep of the
+rest of the pipeline (frontend + remaining `recommended_action=` call
+sites) shipped in this pass — see §12 for what was fixed vs. flagged.
 
 This document is the dependency map the consolidation mission requires
 before any UI removal or route change, plus the phased plan for the
@@ -556,6 +558,16 @@ independently scoped, reviewable, and testable:
   spun off as a separate background task, in progress as of this pass.
 - ~~Phase 4: attention-semantics rework~~ **Done** — landed concurrently as
   [PR #276](https://github.com/timjardenross/TJRHQ/pull/276) (§11).
+- ~~Broader signal-leakage sweep across the rest of the pipeline (frontend +
+  remaining `recommended_action=` call sites).~~ **Done** — see §12.
+- ~~`domains_view.py`'s `what_matters`/`watch_conditions`/evidence populated
+  from `CaptainBriefItem.reason` (a routing-trace string) for event-bus
+  domains~~ — found via a live walkthrough screenshot, independently
+  reconfirmed (not duplicated) by §12's sweep. **Done** — fixed in
+  [PR #280](https://github.com/timjardenross/TJRHQ/pull/280), landed
+  concurrently with §12; see §8a for detail.
+- Two design-level items §12 flagged rather than fixed — see §12's own
+  "Flagged, not fixed" list for detail and suggested next step on each.
 - `priority_engine.py`'s posture blind spot (§8a, found in passing): an
   event that never sets `importance`/`confidence` (e.g.
   `intelligence.source.failed`) gets a real `risk_score` of `0.0`, not
@@ -728,3 +740,151 @@ pre-existing tests across `test_attention_engine.py`,
 `test_priority_engine_wiring.py` and `test_downdetector_priority_cadence.py`
 (97 tests total across this file's set, including the 19 new ones above)
 pass unchanged — additive change, no existing behaviour altered.
+
+---
+
+## 12. Broader signal-leakage sweep (this pass)
+
+§7's Phase 1 fix closed three confirmed instances of the anti-pattern and
+flagged ~20 more `recommended_action=` call sites as unverified. This pass
+swept the rest of the Briefs/Captain's Brief pipeline — backend
+(orchestrator, evolution/insight layer, OSINT pipeline, remaining
+`recommended_action=` sites) and frontend (both workbenches) — for the same
+shape: an internal/diagnostic string reaching a field the Captain sees as a
+finding, recommendation, or synthesized assessment, instead of a genuine
+`description`/evidence field or real synthesis.
+
+### Confirmed clean (re-verified against current code, not assumed)
+
+- **`core/platform/captain_brief_orchestrator.py`** — `_generate_summary()`
+  and `_next_actions()` exclusively read `.recommendation.description` /
+  `Recommendation.description`, never `.reason` or `.recommended_action`.
+  The `warnings`/`priorities` list-builders pass whole `CaptainBriefItem`
+  objects through (numeric filtering only, no text extraction) — see
+  "Flagged, not fixed" below for the one thing worth watching here.
+- **`core/platform/captain_brief_evolution.py`** (+ `understanding_engine.py`,
+  `insight_engine.py`, `reasoning_engine.py`) — the Understanding → Insight →
+  Recommendation chain never passes a raw `AttentionDecision`/`core_events`
+  field to the Captain without an LLM synthesis step in between.
+  `understanding_engine.py` does build one raw-diagnostic-shaped string (an
+  aggregation-evidence sentence structurally similar to the pattern this
+  mission targets), but it's excluded from LLM synthesis by design and its
+  container (`OperationalContextGraph`) is never attached to
+  `CaptainBriefDocument` — it cannot reach the Captain through this path.
+- **OSINT pipeline** — `intelligence/brief/render.py`, `comparison.py`,
+  `domain_picture.py`, `external_domains.py`. Every Captain-facing string
+  traces to a genuine headline (explicitly "verbatim from source, never
+  paraphrased"), a hand-authored sentence (e.g. the degraded-cycle
+  `coverage_note`), a deliberately-computed classification/posture proxy
+  (`risk_rating`, `worst_risk` — already reviewed and blessed by §4), or
+  real LLM narrative (`so_what`, `executive_snapshot`, `forward_watch`).
+  `external_domains.py`'s `official_severity_label` is a deliberate,
+  documented case of showing a source's own official wording *alongside*
+  (not instead of) a computed classification — the correct pattern, not a
+  leak.
+- **`intelligence/captains_brief.py`** — a separate, older Telegram/OSINT
+  digest generator (System C) with no `core_events`/`recommended_action`
+  involvement at all; its raw-headline evidence bullets and
+  honest-uncertainty sentences are both legitimate.
+- **`core/platform/interrupt_dispatcher.py`** — Phase 1's three-tier
+  fallback (`recommendation.description` → `description` → `reason`) is
+  intact and has no gap (a `Recommendation` is only ever constructed when
+  `recommended_action` was genuinely populated, so `recommendation.description`
+  can't be empty when `recommendation` is not `None`).
+
+### Fixed in this pass
+
+1. **Frontend leak, `lcars-portal/.../captains-brief-workbench/_components/`**
+   (new instance, not previously known) — `ItemRow.tsx` and `BriefView.tsx`
+   computed their headline as `item.recommendation?.description ??
+   item.reason`, skipping `item.description` entirely. For exactly the
+   events Phase 1 fixed (a headline, an error, a state transition — where
+   `recommendation` is now correctly `None`), this fell straight through to
+   the raw Attention Engine scoring trace (`"importance=90 >= 75 AND
+   confidence=80 >= 70"`) as the primary line of a brief item — including in
+   the "Interrupt Now" section, the mission's own highest-stakes bucket.
+   The TypeScript `CaptainBriefItem` type had also silently drifted out of
+   sync with its Python source of truth (missing the `description` field
+   Phase 1 added). Fixed: added `description` to `types.ts`, changed both
+   call sites to the same three-tier fallback
+   (`recommendation.description` → `description` → `reason`) the backend
+   dispatcher already uses, and updated `ItemRow.tsx`'s stale comment.
+   Tests: `__tests__/ItemRow.test.tsx` (5 new tests).
+2. **Five more `recommended_action=` call sites**, same shape as §7's three
+   root-cause fixes (a raw identifier/status/label with no other field to
+   carry it):
+   - `tools/supabase/ingest_knowledge.py:207` — a document's relative path.
+   - `tools/supabase/docling_ingest.py:186` — same, docling extraction path.
+   - `platform-runtime/commands/mission_lifecycle.py:252` — a bare mission
+     status string.
+   - `platform-runtime/human_systems_scheduler.py:158` — a push
+     notification's category label (`message.title`, e.g. "Capacity
+     Degradation Alert"), discarding the actual advice text in
+     `message.body`.
+   - `telegram-bots/recovery_officer/engagement_dispatcher.py:545` — an
+     internal dispatch code (`"escalation_l3"`, `"reminder_morning"`,
+     `"none"`).
+   All five now pass `description=` instead, leaving `recommended_action`
+   unset. Tests: `tests/test_signal_leakage_sweep.py` (5 new tests).
+3. **TypeScript `core-events.ts` never had a `description` field at all** —
+   Phase 1's fix (§7) added `core_events.description` and wired it through
+   every Python emitter, but the TS wrapper (`lcars-portal/src/lib/
+   core-events.ts`) was never updated, leaving every TS caller with nowhere
+   to put readable content except (mis)using `recommendedAction`. This let
+   the same anti-pattern exist independently on the TS side:
+   `publishMissionEvent()`/`publishMissionEventServerSide()` wrote a bare
+   status transition (`"Draft -> Approved"`) into `recommendedAction`, and
+   `lcars-portal/src/lib/knowledgeLibraryDecide.ts:206` wrote a review
+   outcome + filename the same way. Fixed: added `description` to
+   `PublishEventArgs`/`publishEvent()` (mirroring `publish_event()`'s own
+   split, with the same docstring warning), and moved both call sites to
+   use it. Tests: 3 new tests in `core-events.test.ts`.
+
+All fixes validated: `tsc --noEmit` clean, full frontend suite green (19
+tests across the touched files), and the full Python suite green (only
+pre-existing, unrelated failures remain — confirmed identical on the
+unmodified tree — from missing optional packages in this sandbox:
+`mistralai`, `deepeval`/model-router network calls, etc.; none touch a file
+this sweep changed).
+
+**Note on `domains_view.py`**: this sweep independently reconfirmed the
+already-known `CaptainBriefItem.reason` leak in `what_matters`/
+`watch_conditions`/evidence `detail` for event-bus domains (found via a live
+walkthrough screenshot before this sweep started) but deliberately did not
+fix it here, per this task's own scope — it was tracked as a separate
+queued fix. That fix landed concurrently, in
+[PR #280](https://github.com/timjardenross/TJRHQ/pull/280) (merged into
+`main` while this sweep was in flight; see §8a for what it did) — so by the
+time this PR merges, that instance is already closed, not merely flagged.
+
+### Flagged, not fixed (needs a decision, not a guess)
+
+- **`captain_brief_orchestrator.py`'s `warnings`/`priorities` fields**
+  are raw `list[CaptainBriefItem]` (reason-field-and-all) handed to whatever
+  renders them for the Captain. The orchestrator itself never mis-uses
+  `.reason` — but it also doesn't guard the field before handing objects
+  downstream, so any future consumer that naively renders `.reason` instead
+  of `.recommendation.description`/`.description` would silently
+  reintroduce this exact pattern (as the frontend fix above shows already
+  happened once). Two options for a future pass: (a) a light convention/lint
+  note wherever `CaptainBriefItem` is rendered, or (b) rename `.reason` to
+  something more obviously internal (e.g. `_routing_reason`) to make a
+  wrong render harder to write by accident. Not attempted here — a genuine
+  design choice, not a bug fix.
+- **`external_domains.py`'s `DomainFetchResult.error`** (a raw exception
+  string from a failed Supabase fetch) lands in
+  `coverage["domains"][name]["error"]` inside the brief's `coverage` block.
+  Confirmed **currently inert** — neither `render.py`'s `coverage_note` nor
+  any checked frontend path reads `coverage["domains"][*]["error"]` today —
+  but it's the same shape as the leaks §7 fixed (an exception message with
+  no other home) sitting in a generically-named slot a future
+  coverage-detail UI could plausibly surface without anyone noticing it's
+  raw. No fix needed today; worth a check whenever `coverage["domains"]`
+  gains a new consumer.
+- **`_generate_summary()`'s "Top priority" line** (`captain_brief_
+  orchestrator.py`) has a minor fallback-chain gap, not a leak: when
+  `top.recommendation` is `None` but `top.description` is populated, the
+  line silently omits that content instead of falling back to it (unlike
+  `interrupt_dispatcher.py`'s three-tier chain). An omission, never a
+  scoring-trace leak — low priority, worth aligning next time this function
+  is touched.

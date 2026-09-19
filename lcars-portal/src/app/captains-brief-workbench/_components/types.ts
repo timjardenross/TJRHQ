@@ -35,6 +35,12 @@ export interface CaptainBriefItem {
   aggregation_key: string | null;
   // MSN-0328 Wave 2/3: structured per-domain detail attached at emission time.
   metrics?: Record<string, unknown>;
+  // Briefs/Captain's Brief consolidation signal-leakage fix: the event's own
+  // readable description (a headline, a state transition), carried from
+  // AttentionDecision.description via core/platform/captain_brief_contract.py.
+  // Fall back to this when there is no recommendation, never straight to
+  // `reason` (a scoring formula).
+  description: string | null;
 }
 
 // Mirrors core/platform/insight_engine.py's Insight. Typed `Any` on the Python
