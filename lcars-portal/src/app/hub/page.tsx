@@ -384,13 +384,23 @@ export default function LifeOSHub() {
               {/* Mission 6B Hub closure gap: Number One's new orchestration
                   capability was previously reachable only by knowing to
                   open Workbenches -> Advisory -> Think -> Advanced -> Number
-                  One. One direct link from the front door, not a chat
-                  widget embed — deep-links straight past that chain. */}
+                  One.
+                  Mission 7 update: the ambient Number One widget
+                  (components/ui/NumberOne.tsx, mounted globally via
+                  WorkbenchShell — the sparkle button, bottom-left) now
+                  covers the quick "what matters / I'm stuck / not now"
+                  cases this link used to be the only way to reach, in two
+                  taps with no page leave. This link is kept, reworded, for
+                  the genuinely different job it still does: a full,
+                  persisted, multi-turn thread (ConsultView saves the
+                  conversation) rather than the widget's ephemeral
+                  per-session turns — two purposes, not duplicate
+                  navigation for the same one (mission §17). */}
               <Link
                 href="/advisory-workbench?advisor=number_one"
                 className="text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
               >
-                Ask Number One
+                Open a full Number One session
               </Link>
               <button
                 type="button"

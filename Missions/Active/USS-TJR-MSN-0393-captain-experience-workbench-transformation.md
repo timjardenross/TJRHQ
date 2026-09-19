@@ -152,6 +152,36 @@ mission §4's constraint.
 **Validation:** `tsc --noEmit` clean, `next lint` clean, full `vitest` suite green (69 files
 / 725 tests, no regressions), `next build` production build succeeds.
 
+## 3.1 Phase 2 (same PR, same branch) — closing the Hub→Ready Room continuity gap
+
+Found while re-reading §18/§29 against Ready Room's real code: `setNumberOneContext()` was
+previously only ever called from inside `dispatchIntent()` itself — i.e. Number One only
+knew "which task" if the Captain had *already* told it once that session (asked "what
+matters?", said "remember …"). A Captain who instead arrived at a task the ordinary way —
+Hub's Needs You "Do this" link, Ready Room's own task list, Unstick Me's "Start here" — was
+looking straight at a specific task with nothing recorded anywhere Number One's ambient
+widget could resolve "it" against. Asking "I'm stuck" on exactly that screen got "Which
+task? I don't have one in view right now." — technically true, and exactly the kind of
+machinery-narration the mission says the Captain shouldn't have to do.
+
+Fix: new `POST /api/number-one/context` (thin wrapper around the existing, unchanged
+`setNumberOneContext`), called fire-and-forget from `ActiveTaskView.tsx` (the one component
+both Ready Room domains funnel into when a task is actually being worked) whenever the
+active task changes. Same table, same TTL, same best-effort semantics as the dispatcher's
+own writes — no new state model. Also reworded Hub's "Ask Number One" link (now "Open a
+full Number One session") once the ambient widget existed, since a bare "Ask Number One"
+next to a global ambient Number One button was duplicate-sounding navigation (§17) — the
+link's real remaining job (a full, persisted, multi-turn `ConsultView` thread vs. the
+widget's ephemeral per-session turns) is now stated, not left implicit.
+
+**Deliberately not touched:** `/api/xo` (Telegram's XO persona) does not share this
+dispatcher — it runs a separate LLM-freeform + governed `<starfleet-action>`-block proposal
+system that routes mutations through Decide for review, rather than Number One's direct
+canonical-intent execution. Investigated whether this is a gap or a deliberate different
+trust model for a less-controlled surface (Telegram) and could not resolve it with
+confidence in this pass — left as deferred item §5.4 rather than merging two systems with
+different governance postures without being sure that's correct.
+
 ## 4. Core end-to-end test (§40) — status
 
 The backend path this test exercises (remember → what am I forgetting → help me start →
@@ -178,13 +208,15 @@ where the next pass should start:
    panel, and the directory got a structural pass. Ready Room, Human Systems, Content
    Workbench, and the 3 intelligence workbenches have not individually been reviewed
    against PURPOSE/ENTRY/EXIT/NOISE/DUPLICATION/CONTEXT/CONTINUITY/MOBILE.
-2. **Hub → Ready Room contextual "Help me start"** (§18/§40) — the dispatcher's `stuck`/
-   `cant_start` intents already resolve against whatever task is in `number_one_context`,
-   and the ambient widget can trigger them from anywhere including mid-task in Ready Room —
-   but there is no dedicated "Help me start" button on a Needs You/Remember item that
-   pre-loads that context before opening Ready Room; today the Captain still has to say it
-   through the widget once the task is already in view. Worth a dedicated per-item action
-   next pass rather than routing everything through the ambient widget.
+2. **Hub → Ready Room contextual "Help me start" — partially closed in Phase 2** (§18/§40,
+   see §3.1). Once the Captain is looking at a task in Ready Room (via Hub's "Do this" link
+   or any other path), `number_one_context` is now set automatically and the ambient
+   widget's "I'm stuck"/"still can't start"/"too much"/"done" resolve correctly with no
+   re-explanation needed — the core gap this item described. Still open: there is no
+   dedicated "Help me start" *button* on a Hub Needs You/Remember item itself that jumps
+   straight to Unstick Me's decompose flow (vs. Ready Room's plain "Do" task view) — today
+   that still needs either the ambient widget or a manual mode switch inside Ready Room.
+   Worth a per-item action next pass if that distinction turns out to matter in practice.
 3. **Notification deep-linking audit** (§25) — not reviewed this pass; push notification
    payloads/destinations weren't touched.
 4. **Telegram/XO parity review** (§26) — `/api/xo` is a separate, simpler endpoint from
