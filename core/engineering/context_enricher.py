@@ -197,40 +197,44 @@ def _find_relevant_files(title: str) -> list[str]:
         root = _REPO_ROOT / root_rel
         if not root.exists():
             continue
-        for path in root.rglob("*"):
-            if not path.is_file():
-                continue
-            if path.suffix not in _SOURCE_EXTENSIONS:
-                continue
-            if "__pycache__" in str(path) or ".pyc" in path.name:
-                continue
-            if "archive" in path.parts or "quarantine" in path.parts:
-                continue
-            if any(
-                part.startswith(".venv") or "venv" in part.lower() or part == "node_modules"
-                for part in path.parts
-            ):
-                continue
+        # os.walk (not Path.rglob) so excluded dirs are pruned from `dirnames`
+        # in place and never descended into at all — rglob still walks a
+        # pruned subtree's full contents before the per-file filter below
+        # discards them, which is what made this hang on non-canonical venvs
+        # like core/voice/chatterbox-venv (91k+ files) even after that filter
+        # was added.
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [
+                d for d in dirnames
+                if d not in ("__pycache__", "archive", "quarantine", "node_modules")
+                and not d.startswith(".venv") and "venv" not in d.lower()
+            ]
+            for filename in filenames:
+                path = Path(dirpath) / filename
+                if path.suffix not in _SOURCE_EXTENSIONS:
+                    continue
+                if ".pyc" in path.name:
+                    continue
 
-            name_lower = path.stem.lower().replace("_", " ").replace("-", " ")
-            score = sum(4 for kw in keywords if kw in name_lower)
+                name_lower = path.stem.lower().replace("_", " ").replace("-", " ")
+                score = sum(4 for kw in keywords if kw in name_lower)
 
-            # Bounded content grep — distinct keyword hits in the body. Skipped
-            # for large files to keep enrichment fast.
-            try:
-                if path.stat().st_size <= _MAX_GREP_BYTES:
-                    body = path.read_text(encoding="utf-8", errors="replace").lower()
-                    score += sum(1 for kw in keywords if kw in body)
-            except Exception:  # noqa: BLE001,S110 - best-effort keyword-grep enrichment; one unreadable file must not stop scoring the rest
-                pass
+                # Bounded content grep — distinct keyword hits in the body. Skipped
+                # for large files to keep enrichment fast.
+                try:
+                    if path.stat().st_size <= _MAX_GREP_BYTES:
+                        body = path.read_text(encoding="utf-8", errors="replace").lower()
+                        score += sum(1 for kw in keywords if kw in body)
+                except Exception:  # noqa: BLE001,S110 - best-effort keyword-grep enrichment; one unreadable file must not stop scoring the rest
+                    pass
 
-            if score <= 0:
-                continue
-            if path.suffix in {".py", ".js", ".ts"}:
-                score += 1
+                if score <= 0:
+                    continue
+                if path.suffix in {".py", ".js", ".ts"}:
+                    score += 1
 
-            rel = str(path.relative_to(_REPO_ROOT))
-            scored.append((-score, len(rel), rel))
+                rel = str(path.relative_to(_REPO_ROOT))
+                scored.append((-score, len(rel), rel))
 
     scored.sort()
     return [rel for _, _, rel in scored[:_MAX_FILE_RESULTS]]
