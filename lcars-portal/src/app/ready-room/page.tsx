@@ -31,7 +31,13 @@ function Workbench() {
   const params = useSearchParams();
   const { context: humanSystems } = useHumanSystemsContext();
 
-  const initialDomain = params.get('domain');
+  // Mission 6B §8.4: Hub's Needs You deep-links a specific personal-task
+  // Needs You item straight into Ready Room's execution surface via
+  // ?task=<id> — forces 'do' mode (the task list this id lives in)
+  // regardless of any ?domain= also present, since a task deep-link is a
+  // stronger signal of Captain intent than a stale/default domain param.
+  const initialTaskId = params.get('task');
+  const initialDomain = initialTaskId ? 'do' : params.get('domain');
   const hadExplicitDomain = isDomain(initialDomain);
   const [domain, setDomain] = useState<Domain>(hadExplicitDomain ? initialDomain : 'do');
   const [todayBadge, setTodayBadge] = useState<number | undefined>(undefined);
@@ -87,7 +93,7 @@ function Workbench() {
       wide
     >
       {domain === 'do' && (
-        <TodayStream refreshSignal={refreshSignal} onLoaded={handleLoaded} onExecutingChange={setExecuting} />
+        <TodayStream refreshSignal={refreshSignal} onLoaded={handleLoaded} onExecutingChange={setExecuting} initialTaskId={initialTaskId} />
       )}
       {domain === 'unstick' && (
         <DecomposeView onSaved={() => setRefreshSignal((n) => n + 1)} onExecutingChange={setExecuting} />

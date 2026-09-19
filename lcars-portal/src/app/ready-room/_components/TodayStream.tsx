@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Input, Select } from '@/components/ui';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 import {
@@ -192,12 +192,18 @@ export function TodayStream({
   refreshSignal,
   onLoaded,
   onExecutingChange,
+  initialTaskId,
 }: {
   refreshSignal: number;
   onLoaded: (tasks: PersonalTask[]) => void;
   /** Mission 4: reports whether ActiveTaskView is showing, so the page
    * shell can drop into minimal/nav-free mode. */
   onExecutingChange?: (executing: boolean) => void;
+  /** Mission 6B §8.4 (Hub -> Ready Room continuity): a Needs You item's
+   * ?task= deep link. Auto-opens that task's ActiveTaskView on first load
+   * only — a later background refresh must never re-force it open after
+   * the Captain has navigated away from it (e.g. paused it deliberately). */
+  initialTaskId?: string | null;
 }) {
   const [openTasks, setOpenTasks] = useState<PersonalTask[]>([]);
   const [doneTasks, setDoneTasks] = useState<PersonalTask[]>([]);
@@ -215,6 +221,7 @@ export function TodayStream({
   // previously didn't show it. 'ok'/'unknown' render nothing (no wall of
   // green); only a confirmed 'failed' shows a caveat.
   const [syncStatus, setSyncStatus] = useState<'ok' | 'failed' | 'unknown'>('unknown');
+  const consumedInitialTaskId = useRef(false);
 
   useAbortEffect((signal, alive) => {
     fetch('/api/ready-room/sync-status', { signal })
@@ -252,6 +259,18 @@ export function TodayStream({
   }, [openTasks, doneTasks, activeTask]);
 
   useEffect(() => { onExecutingChange?.(!!activeTask); }, [activeTask, onExecutingChange]);
+
+  // Mission 6B §8.4 — one-shot: open the deep-linked task as soon as it
+  // shows up in openTasks, then never again (consumedInitialTaskId), so
+  // Not Today / Pause afterwards doesn't get overridden by a later refresh.
+  useEffect(() => {
+    if (!initialTaskId || consumedInitialTaskId.current) return;
+    const target = openTasks.find((t) => t.id === initialTaskId);
+    if (target) {
+      consumedInitialTaskId.current = true;
+      setActiveTask(target);
+    }
+  }, [initialTaskId, openTasks]);
 
   const refresh = () => setInternalRefresh((n) => n + 1);
 

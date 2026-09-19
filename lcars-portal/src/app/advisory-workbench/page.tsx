@@ -45,7 +45,13 @@ function Workbench() {
   // the current three. A deep-linked investigation lands on Think.
   const investigationType = params.get('investigationType') ?? undefined;
   const investigationReason = params.get('investigationReason') ?? undefined;
-  const initial = params.get('domain') ?? params.get('tab');
+  // Mission 6B: Hub's "Ask Number One" deep link — ?advisor=number_one
+  // lands on Think with the Advanced disclosure already expanded to that
+  // advisor (see ThinkView/ConsultView). Domain always resolves to
+  // 'think' when an advisor is requested, regardless of any ?domain=
+  // also present, since talking to an advisor only exists on that view.
+  const advisorId = params.get('advisor') ?? undefined;
+  const initial = advisorId ? 'think' : (params.get('domain') ?? params.get('tab'));
   const [domain, setDomain] = useState<Domain>(normalizeDomain(initial));
   const [prefill, setPrefill] = useState<{ text: string; nonce: number } | null>(null);
 
@@ -75,7 +81,7 @@ function Workbench() {
         <ProactiveBanner onThinkItThrough={thinkItThrough} />
       </div>
       {domain === 'think' && (
-        <ThinkView investigationType={investigationType} investigationReason={investigationReason} prefill={prefill} />
+        <ThinkView investigationType={investigationType} investigationReason={investigationReason} prefill={prefill} advisorId={advisorId} />
       )}
       {domain === 'perspectives' && <PerspectivesView />}
       {domain === 'outcomes' && <OutcomesView />}
