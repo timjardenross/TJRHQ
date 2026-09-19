@@ -1,26 +1,34 @@
 name: Scorecard analysis workflow
 on:
-  push:
-    # Only the default branch is supported.
-    branches:
-    - main
+  # CI/CD friction mission 2026-09-19 follow-up: `push: branches: [main]`
+  # removed. This repo delivers direct-to-main frequently (confirmed via
+  # `gh run list` — dozens of pushes/hour), and scorecard-action's own
+  # analysis run routinely takes well over an hour (GitHub API
+  # rate-limited fan-out across the repo's history/dependencies). Even
+  # with the concurrency group below cancelling superseded runs, a fresh
+  # ~hour-long run started on nearly every push to main is still a
+  # standing hosted-runner-slot cost this workflow doesn't need to pay —
+  # Scorecard isn't a required check, doesn't gate merges, and a
+  # supply-chain posture score has no reason to be recomputed on every
+  # commit. Weekly cron is the real cadence this analysis needs;
+  # workflow_dispatch keeps an on-demand run available (e.g. right after
+  # a dependency change worth re-scoring) without re-adding a push
+  # trigger. Confirmed via `gh workflow view` that both triggers remain
+  # listed/runnable after this change.
   schedule:
     # Weekly on Saturdays.
     - cron:  '30 1 * * 6'
+  workflow_dispatch: {}
 
 permissions: read-all
 
-# CI/CD friction mission 2026-09-19: this workflow triggers on every direct
-# push to main (frequent in this repo's direct-to-main delivery model, see
-# knowledge/ — not just weekly cron), and scorecard-action's own analysis
-# run routinely takes well over an hour (GitHub API rate-limited fan-out
-# across the repo's history/dependencies). With no concurrency group, `gh
-# run list` showed 15 of these simultaneously in-progress, each still
-# holding a hosted-runner slot for a commit multiple pushes back — direct
-# competition with real PR checks (Python CI, LCARS Portal CI) for the
-# same limited runner concurrency. Scorecard isn't a required check and
-# only the latest main HEAD's score is ever meaningful, so cancelling
-# superseded runs costs nothing and frees that capacity immediately.
+# CI/CD friction mission 2026-09-19: no workflow here declared a
+# concurrency group, so overlapping scheduled/manual runs (or a rerun
+# before a prior run finished) held their own runner slot for the full
+# ~hour+ duration instead of the newer run superseding the older one.
+# Kept even after removing the push trigger — schedule/manual runs can
+# still overlap if one runs long, and only the newest run's score is
+# ever meaningful.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
