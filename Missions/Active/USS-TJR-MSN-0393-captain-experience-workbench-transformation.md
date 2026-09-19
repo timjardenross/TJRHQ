@@ -372,10 +372,23 @@ where the next pass should start:
     renders to its real live successor (if one exists), confirm via the same method used for
     `medical/log-weight` whether anything it shows has no successor anywhere else in the app,
     and only then convert to the established honest-stub pattern (`captains-chair/page.tsx`'s
-    comment is the template: port real gaps first, retire second). `operations` is the
-    highest-complexity case (4 distinct old views in one page) and the best place to start,
-    since its outcome will show whether the others are likely single-view (fast) or
-    multi-view (needs the same care) before committing to all 8 in one pass.
+    comment is the template: port real gaps first, retire second).
+    `operations` fully traced already (all 4 views, not left as an open question): "Recent
+    Decisions" → superseded, `(app)/decisions` already redirects to Captain's Chair's
+    Approvals Pending/Engineering Queue panels; "Captured Items" → superseded by Capture
+    Workbench; "Friction Sources" is a client-derived view over the other three (failed
+    items/high-importance-unreviewed/failed events), not its own data source, so it falls away
+    once those are resolved. "Commander Events" reads a `commander_events` table confirmed
+    still genuinely live — traced through the backend (`tools/supabase/client.py`'s
+    `log_commander_event`, called from exactly one live caller,
+    `platform-runtime/lib/build_learning_loop.py`, itself imported by
+    `research_learning_loop.py`/`comms_learning_loop.py`/`mission_brief.py`) — but with **zero
+    Captain-facing UI anywhere else in the app**. Not safe to drop silently, but also not a
+    reason to leave the whole page live: the natural home for a small learning-loop-completion
+    feed is HQ Evolution (`self-improvement-findings`, already "continuous improvement...
+    overnight discovery, research and investigation") — port a "Recent learning events" view
+    there, then retire `operations` in full using the same stub pattern as `medical`. Both
+    steps are now concretely scoped, not an open question for the next pass to re-derive.
 12. **`/medical/log-weight`'s weight-trend view has no `human-systems-workbench`
     equivalent** (found in §3.4) — either port a real weight-trend view into
     `human-systems-workbench` (closing the last redirect hop in the `medical` cluster) or
