@@ -427,6 +427,120 @@ this repo's conventions ask for — see §5.
 
 ---
 
+## 8a. Post-Phase-3 production bug: same signal-leakage class, new field
+
+A live production screenshot (Domains tab, event-bus "Platform Domains"
+cards) showed `AttentionDecision.reason` — the Attention Engine's internal
+audit trail, never meant to be read by a Captain — surfacing verbatim as
+"What Matters" bullets:
+
+1. A raw aggregation trace: *"9 events sharing domain=health-intelligence/
+   event_type=health.readiness.scored ... — aggregate as a count/trend."*
+2. A persistence-gate suppression narrative (Phase 4, §7 above): *"recurrence
+   of already-acknowledged event [uuid] within 24h ... — not re-interrupting
+   a stable, already-surfaced condition."*
+
+**Root cause**: §8's own summary above already names the field this pass
+used — `reason` — as one of the "real per-item fields" `what_matters`/
+`watch_conditions` are "built only from," alongside `recommendation.
+confidence` and `category`. That was wrong: `reason` is exactly the
+diagnostic trace PR #275 (§7) had already established should never reach a
+Captain-facing surface, and this module's own first pass reintroduced the
+same class of leak in a field #275 didn't touch. Unlike #275's
+`recommended_action` leak, this wasn't a domain emitter misusing a field —
+`domains_view.py` itself picked the wrong field to read.
+
+**Fix** (`intelligence/brief/domains_view.py`):
+
+- `_readable_text(item)` — the only path `what_matters`/`watch_conditions`
+  now use to get bullet text: `recommendation.description`, else
+  `description`, else nothing (the item is simply excluded — no fallback to
+  `reason`, unlike `interrupt_dispatcher.py`'s push body, which has no
+  "may be empty" option and PR #275 deliberately gave a `reason` last
+  resort). Since the persistence gate only ever rewrites `decision.reason`/
+  `category` (never `decision.description` — confirmed by reading
+  `_apply_recurrence_gate()`), this alone fixes leak #2 above: the item's
+  own genuine `description` surfaces instead of the suppression narrative.
+- `_aggregation_constraints()` + a new `DomainSummary.constraints: list[str]`
+  field — a 3+-event aggregate (`evaluate_batch()`'s SHOULD_BE_AGGREGATED
+  branch, `aggregation_key` set) is real information (a count/trend, and a
+  large one — e.g. 109 `intelligence.source.failed` events — is worth a
+  Captain's attention) but is not a synthesized finding about any single
+  event. Aggregated items are now excluded from `what_matters`/
+  `watch_conditions` entirely and instead produce one fresh, synthesized
+  sentence per aggregation group ("N `<event_type>` event(s) aggregated as
+  a count/trend this cycle — a coverage signal, not an individual
+  finding..."), built only from the group's own size and `event_type` —
+  never by reusing or parsing `item.reason`. This fixes leak #1 above and
+  satisfies the "large failure-count aggregates must route to a per-domain
+  coverage signal, not materiality bullets" requirement. `evidence` is
+  unchanged and still shows `item.reason` verbatim — that drill-down is an
+  explicit, one-click-away audit view, not a headline, and was never part
+  of the leak.
+- Frontend: `DomainSummary.constraints` plumbed through
+  `lcars-portal/src/lib/domainsShared.ts` and rendered as a new "Coverage
+  Notes" section in `DomainsView.tsx`, visually distinct (muted, italic)
+  from "What Matters"/"Watch" and only shown when non-empty.
+
+**Investigated, documented rather than fixed — a real blind spot in the
+upstream posture calculation**: does `intelligence.source.failed` (the
+event type behind the 109-event example above) get scored at all? Yes, but
+not usefully. `intelligence_store.py::save_source_health()` publishes it via
+`_publish_core_event(..., description=health.error_message)` with no
+`importance`/`confidence` kwarg — both stay `None`. Every event still gets a
+`PriorityScore` in `captain_brief_orchestrator.py::assemble_captain_brief_document()`
+(no code path skips scoring for an unscored event), and
+`priority_engine.py::_risk_from_importance_confidence()` treats a missing
+importance/confidence as `0`, not "unknown": `risk = (0/100) * (1 -
+0/100) * 100 = 0.0` — a real float, not `None`. `domains_view.py::
+_posture_for_items()` only excludes a `None` risk_score from its rollup, so
+this fabricated-by-omission `0.0` counts as a genuinely low-risk, fully-
+scored event. A domain dominated by unscored source-failure events can
+therefore post **GREEN** despite a large, real failure count — an
+accidental blind spot, not a deliberate design choice by anyone who
+reasoned about it.
+
+**Not fixed in this pass, deliberately**: `_risk_from_importance_confidence()`'s
+"absent -> 0" convention is `priority_engine.py`'s own documented choice
+(module docstring: risk is "computed as the inverse relationship between
+`importance` and `confidence`") and is shared by every consumer of
+`PriorityScore`, not just this module — changing it is a scoring-semantics
+change with a blast radius well beyond the Domains tab bug this pass set
+out to fix (this pass's own scope explicitly excludes touching
+`attention_engine.py`/`captain_brief_orchestrator.py`, and
+`priority_engine.py` is the same category of shared, multi-consumer
+engine). Mitigated at the display layer instead, honestly rather than
+silently: the `constraints` coverage signal above surfaces a large
+aggregated failure count regardless of what the (unreliable, for this event
+shape) posture rollup says, and `_posture_for_items()` now carries an
+explicit code comment naming this exact limitation so it isn't rediscovered
+as a surprise later. A real fix — e.g. `PriorityInputs` distinguishing "no
+signal supplied" from "supplied and low" — is queued as a follow-up (§9)
+rather than bundled in blind here.
+
+**Tests**: `tests/test_domains_view.py` — 7 new regression tests proving
+`what_matters`/`watch_conditions` never contain raw `reason` text (a bare
+scoring trace, the exact suppression-gate narrative from the screenshot, or
+an aggregation trace), that the recommendation -> description fallback
+order holds, and that a 109-event aggregate produces exactly one
+`constraints` entry and zero `what_matters`/`watch_conditions` bullets.
+`DomainsView.test.tsx` — 2 new tests proving "Coverage Notes" renders
+separately from "What Matters" and is omitted entirely when empty. All
+pre-existing `test_domains_view.py`/`DomainsView.test.tsx` cases pass
+unchanged or were updated to set `description` (the field a real UI bullet
+now requires) alongside the `reason` they already set for evidence-drilldown
+coverage. `ruff check`, `tsc --noEmit`, and `eslint` all clean on every
+touched file.
+
+**Verification caveat, same as §8's**: no live-browser re-check against a
+real authenticated session was performed for this fix, for the same reason
+§8 already gives (no test account or auth bypass available in this
+environment) — the component/pure-function test coverage above exercises
+the same code paths, but a live look at the rendered Domains tab is still
+worth doing before treating this as fully closed.
+
+---
+
 ## 9. Follow-up work queued (not attempted in this pass)
 
 Tracked as separate suggested tasks rather than bundled here, since each is
@@ -442,6 +556,18 @@ independently scoped, reviewable, and testable:
   spun off as a separate background task, in progress as of this pass.
 - ~~Phase 4: attention-semantics rework~~ **Done** — landed concurrently as
   [PR #276](https://github.com/timjardenross/TJRHQ/pull/276) (§11).
+- `priority_engine.py`'s posture blind spot (§8a, found in passing): an
+  event that never sets `importance`/`confidence` (e.g.
+  `intelligence.source.failed`) gets a real `risk_score` of `0.0`, not
+  `None`, because `_risk_from_importance_confidence()` treats absent inputs
+  as `0`. `PriorityInputs`/`PriorityScore` would need a way to distinguish
+  "no signal supplied" from "supplied and genuinely low" (e.g. an
+  `unscored: bool` flag, or `risk_score: float | None`) before any consumer
+  (this module's posture rollup included) can tell the two apart. Deferred
+  because it's a shared-engine semantics change touching every
+  `PriorityScore` consumer, not scoped to the Domains tab bug this pass
+  fixed — see §8a for the full analysis and the display-layer mitigation
+  already shipped.
 - Phase 5: Captain's Brief workbench retirement + nav/registry cleanup +
   Platform Registry correction (including the two already-stale citations
   found in this discovery, independent of this mission's outcome). Now the

@@ -100,6 +100,15 @@ function DomainCard({ domain }: { domain: DomainSummary }) {
         </div>
       )}
 
+      {domain.constraints.length > 0 && (
+        <div>
+          <h4 className="mb-1 text-[11px] uppercase tracking-wider text-wb-ink2">Coverage Notes</h4>
+          <ul className="list-disc space-y-0.5 pl-5 text-[12.5px] italic text-wb-ink2">
+            {domain.constraints.map((c, i) => <li key={i}>{c}</li>)}
+          </ul>
+        </div>
+      )}
+
       {domain.evidence_count === 0 ? (
         <p className="text-[12.5px] text-wb-ink2">No signals in this domain right now.</p>
       ) : (
