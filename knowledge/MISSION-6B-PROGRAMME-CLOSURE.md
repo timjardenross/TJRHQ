@@ -73,19 +73,35 @@ Not re-litigated in this mission (no new capability register item required it) �
 
 ## What evidence proves the programme works?
 
-- 688/688 existing tests pass after all Mission 6B changes (65 files), plus 10 new tests covering the full canonical intent classification contract including negative cases.
-- `npx tsc --noEmit` clean.
-- Adversarial review of the full diff against base `807671fdd` found no critical/high-severity defects.
-- Convergence register: all 10 items from Missions 6A/5 carry an explicit disposition (2 IMPLEMENTED-and-fixed items corrected mid-mission from an initial discovery fork's mistaken "defect" call, after reading the actual documented rationale in the code — an example of the mission's own "verify before trusting a prior claim" discipline working as intended).
+- 706/706 tests pass (66 files) at final merge, including 10 intent-classification tests, 14 dispatch-scenario tests (executable cross-surface proof), and 5 idempotency tests (same-request retry, concurrent race, legitimate repetition, failure/retry, no-key-supplied). `npx tsc --noEmit` clean.
+- Existing, already-passing suites constitute the capacity/posture representative matrix: `personalTasks.readyRoomContext.test.ts` (6-state posture vocab, canonical-truth stability, Captain override) and 27/27 live-run Python capacity-gate tests (Green/Amber/Red, canonical-truth stability, P0-protection override).
+- Adversarial review of the full diff found no critical/high-severity defects; the one genuine gap it enabled discovery of (remember's missing idempotency key) was classified as a blocking defect and fixed before merge, not filed as debt.
+- Convergence register: all 10 items from Missions 6A/5 carry an explicit disposition (2 corrected mid-mission from an initial discovery fork's mistaken "defect" call, after reading the actual documented rationale in the code).
+- LifeOS Hub: explicitly assessed against ORIENT→SHOW WHAT MATTERS→HELP ME CONTINUE→GET ME TO THE RIGHT CAPABILITY; 2 real gaps found and fixed (Number One discoverability, interruption-recovery signal).
+- All 19 CI checks green on final head, including merge-gate.
 
-## Production verification — migrations 0219 + 0220 (applied, Captain-approved)
+## Production verification — migrations 0219 + 0220 (applied, Captain-approved, verified)
 
-Both applied to live Supabase (project `cjvrpjwewsrumnbdydgg`) after Captain authorisation. Verified post-apply:
-- `number_one_context`: exists, `relrowsecurity = true`, policy `number_one_context_authenticated_all` present (`authenticated`, `ALL`, `using(true)`/`with_check(true)`), 0 rows (clean — no unexpected/pre-existing data).
+Both applied to live Supabase (project `cjvrpjwewsrumnbdydgg`) after Captain authorisation, verified post-apply via Supabase MCP tools:
+- `number_one_context`: exists, `relrowsecurity = true`, policy `number_one_context_authenticated_all` present (`authenticated`, `ALL`, `using(true)`/`with_check(true)`), 0 rows (clean).
 - `captured_items.idempotency_key`: column exists, nullable text.
 - `captured_items_idempotency_key_uidx`: unique partial index confirmed exactly as written (`WHERE idempotency_key IS NOT NULL`).
-- `get_advisors(security)`: no new finding attributable to either migration. The pre-existing `user_settings` RLS-enabled-zero-policies finding (36 tables total in that state) is confirmed still present and unrelated — recorded as separate debt, not expanded into this mission.
+- `get_advisors(security)`: no new finding attributable to either migration. Pre-existing `user_settings` RLS-enabled-zero-policies finding (36 tables total) confirmed present and unrelated — separate, pre-existing debt, not expanded into this mission.
 
-## Final PR / merge status
+## Final PR / merge status — PROGRAMME COMPLETE
 
-PR #281, branch `mission6b-final-cos-convergence`. Idempotency fix applied, migrations 0219+0220 live, final CI run pending at time of writing — see chat transcript for final head/merge SHAs once complete.
+- PR #281, branch `mission6b-final-cos-convergence`.
+- Merge SHA: `e93523951b30eff923b4b731727164dd6324639d` (merge commit "Merge pull request #281 from timjardenross/mission6b-final-cos-convergence").
+- Authoritative post-merge `main` SHA (fast-forwarded, `/opt/starship-endeavour`): `e93523951b30eff923b4b731727164dd6324639d`.
+- All 19 required CI checks (LCARS Portal CI, Python CI, Vercel, merge-gate) green at merge time; no bypass.
+- Working tree clean post-fast-forward; all Mission 6B artifacts (Number One dispatcher, migrations 0219/0220, Hub uplift, PickUpBanner repair, Command Centre notification retirement, knowledge/convergence/closure records) verified present on `main`.
+
+## Final residual technical debt register (post-idempotency-fix)
+
+1. Two G-008-readiness signals (`decision_effectiveness.py` jsonl-backed live; `get_decision_quality_stats()` `outcome_records`-backed orphaned) — different evidence sources computing the same threshold. Unreconciled by design; needs a real migration decision.
+2. `evidenceAwareNote()` can restate what a just-completed decompose call already did — cosmetic phrasing overlap, not incorrect.
+3. `too_much`/`cant_start` share one decompose mode (`smaller`) — correct given the Model Router endpoint's real contract.
+4. Multi-candidate disambiguation ("which of two plausible tasks") is not implemented in the deterministic dispatcher — the context-store is single-slot by design; falls through to the LLM layer today.
+5. Pre-existing, separately-owned: `user_settings` has RLS enabled with zero policies live (found incidentally during the 0219 live-schema check) — fail-closed, likely broken, unrelated to Mission 6B's own security posture.
+
+No fixes were manufactured merely to produce a zero-item register.
