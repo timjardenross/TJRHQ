@@ -207,8 +207,10 @@ def test_large_aggregated_failure_count_becomes_a_constraint_not_a_materiality_b
     assert summary.what_matters == []
     assert summary.watch_conditions == []
     assert summary.constraints == [
-        "109 intelligence.source.failed event(s) aggregated as a count/trend this cycle — "
-        "a coverage signal, not an individual finding; see Evidence for the raw events."
+        (
+            "109 intelligence.source.failed event(s) aggregated as a count/trend this cycle — "
+            "a coverage signal, not an individual finding; see Evidence for the raw events."
+        )
     ]
     assert not any("sharing domain=" in c for c in summary.constraints)
 
