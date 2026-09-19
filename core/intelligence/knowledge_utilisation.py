@@ -27,20 +27,18 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Docling is the preferred extraction path; graceful fallback to read_text if unavailable.
-try:
-    if str(_REPO_ROOT) not in sys.path:
-        sys.path.insert(0, str(_REPO_ROOT))
-    from core.knowledge.docling_processor import extract_document as _docling_extract
-except Exception:  # noqa: BLE001 - availability guard: docling is optional, None sentinel signals fallback to read_text below
-    _docling_extract = None  # type: ignore[assignment]
+# Docling (core/knowledge/docling_processor.py) exists for PDF-grade
+# structured extraction and is deliberately NOT used here — the knowledge/
+# tree scanned below is already plain-text Markdown, so docling adds no
+# extraction value while pulling in transformers/torch (whose CUDA-lib
+# dlopen probe can hang indefinitely on a GPU-less host, previously hanging
+# every test that imported this module).
 
 # Source directories
 _DECISIONS_DIR   = _REPO_ROOT / "logs" / "decisions"
@@ -183,12 +181,7 @@ def _scan_knowledge_documents() -> dict[str, Any]:
 
     for f in _KNOWLEDGE_DIR.rglob("*.md"):
         try:
-            # Prefer Docling for structured extraction; fall back to raw read.
-            _extracted = _docling_extract(f) if _docling_extract is not None else None
-            if _extracted is not None:
-                text = _extracted["text"]
-            else:
-                text = f.read_text(encoding="utf-8", errors="replace")
+            text = f.read_text(encoding="utf-8", errors="replace")
         except Exception:  # noqa: BLE001,S112 - best-effort per-file scan; one corrupt/malformed file must not lose the rest
             continue
         for m in _LL_PATTERN.findall(text):
