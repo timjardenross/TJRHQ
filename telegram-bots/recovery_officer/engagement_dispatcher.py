@@ -542,7 +542,7 @@ def _emit_and_return(result: dict) -> dict:
             source="engagement_dispatcher",
             importance=(100 - pulse_completion) if pulse_completion is not None else None,
             linked_entities=[f"recovery_pulse_completion:{pulse_completion}"] if pulse_completion is not None else [],
-            recommended_action=result.get("action"),
+            description=result.get("action"),
         )
     except Exception as exc:  # noqa: BLE001 - best-effort telemetry publish, must never fail the primary escalation flow
         log.debug("wellness.escalation.dispatched publish_event failed: %s", exc)

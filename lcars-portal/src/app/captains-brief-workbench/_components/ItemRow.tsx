@@ -7,11 +7,15 @@
 //
 // `reason` is the Attention Engine's routing formula ("importance=90 >= 75
 // AND confidence=80 >= 70") — a scoring trace, not what actually happened
-// (see attention_engine.evaluate_event). The real content lives in
-// `recommendation.description` (core_events.recommended_action, wired via
-// captain_brief_contract.recommendation_from_event) — render that as the
-// primary line when present, and demote `reason` to a caption so an
-// Interrupt Now item is legible instead of showing only the routing formula.
+// (see attention_engine.evaluate_event). The real content is, in order:
+// `recommendation.description` (a genuine reasoned action proposal) when a
+// Recommendation exists, else `description` (the event's own readable text —
+// a headline, a state transition — carried from AttentionDecision.description
+// per the Briefs/Captain's Brief consolidation signal-leakage fix), and only
+// `reason` as a last resort. Mirrors interrupt_dispatcher.py's own three-tier
+// fallback so this frontend doesn't reintroduce the leak that fix closed on
+// the backend. Render the resolved headline as the primary line, and demote
+// `reason` to a caption only when it wasn't already used as the headline.
 
 import type { CaptainBriefItem } from './types';
 import { METRIC_LABELS } from './types';
@@ -79,7 +83,7 @@ function PriorityLine({ item }: { item: CaptainBriefItem }) {
 }
 
 export function ItemRow({ item }: { item: CaptainBriefItem }) {
-  const headline = item.recommendation?.description ?? item.reason;
+  const headline = item.recommendation?.description ?? item.description ?? item.reason;
   const showReasonCaption = headline !== item.reason;
 
   return (

@@ -249,7 +249,8 @@ def _supabase_update_mission_status(mission_id: str, new_status: str, due_date: 
                         "mission.status_changed", domain="mission-lifecycle",
                         source="slack-bot:mission_lifecycle",
                         time_sensitivity=_time_sensitivity_from_due_date(due_date),
-                        linked_missions=[mid_try], recommended_action=new_status,
+                        linked_missions=[mid_try],
+                        description=f"Mission {mid_try} status changed to {new_status}",
                     )
                 except Exception as _exc:  # noqa: BLE001 - best-effort event publish, already logged
                     log.debug("[commands.mission_lifecycle] best-effort step failed, continuing: %s", _exc)

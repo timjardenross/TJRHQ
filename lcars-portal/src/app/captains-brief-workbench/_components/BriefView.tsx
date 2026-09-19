@@ -32,7 +32,10 @@ function ItemGrid({ items }: { items: CaptainBriefItem[] }) {
 
 function priorityToRec(item: CaptainBriefItem) {
   return {
-    action: item.recommendation?.description ?? item.reason,
+    // Same three-tier fallback as ItemRow: recommendation, then the item's
+    // own readable description, and `reason` (a scoring trace) only as a
+    // last resort — see ItemRow.tsx's comment for why.
+    action: item.recommendation?.description ?? item.description ?? item.reason,
     why: item.priority_explanation ?? undefined,
     source: item.domain,
     confidence: item.recommendation?.confidence != null ? `${item.recommendation.confidence}%` : 'Unscored',

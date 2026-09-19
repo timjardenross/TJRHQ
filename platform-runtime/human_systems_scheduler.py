@@ -155,7 +155,7 @@ def _publish_core_event(job: str, message, report: dict) -> None:
             domain=domain,
             source="platform-runtime:human_systems_scheduler",
             importance=_SEVERITY_IMPORTANCE.get(message.severity, 20),
-            recommended_action=message.title,
+            description=message.title,
             metrics={"job": job, "delivered": report.get("delivered"), "dry_run": report.get("dry_run")},
         )
     except Exception as _exc:  # noqa: BLE001 - best-effort step, already logged (best-effort step failed, continuing)
