@@ -397,87 +397,18 @@ async def cmd_mood_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
 
-# ── MY CAPACITY TODAY (2026-08-21, replaces Recovery Pulse) ──────────────────
-
-async def cmd_capacity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Quick capacity check-in. See capacity_today.py for the full flow."""
-    from telegram_bots.xo import capacity_today
-    await update.message.reply_text(
-        "MY CAPACITY TODAY\n\nHow is your capacity right now?",
-        reply_markup=capacity_today.kb_capacity(),
-    )
-
-
-async def cmd_deepcheck(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Deeper reflection, standalone (not following a quick check-in)."""
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    saved, row, err = await capacity_today.write_quick_checkin(db, {})
-    if not saved or not row:
-        await update.message.reply_text(f"⚠️ Could not start deep check-in: {err}")
-        return
-    await update.message.reply_text(
-        "Going deeper.\n\nWhat was the main load — physical, cognitive, sensory, emotional, social, or environmental?",
-        reply_markup=capacity_today.kb_deep_load_category(str(row["id"])),
-    )
-
-
-async def cmd_evening(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    await update.message.reply_text(
-        "Evening reflection\n\nDid your capacity improve, stay the same, or decline today?",
-        reply_markup=capacity_today.kb_evening_trajectory(),
-    )
-
-
-async def cmd_capacity_today(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/today — show today's check-ins."""
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=0)
-    today = datetime.now(_TZ).date().isoformat()
-    rows = [r for r in rows if r.get("log_date") == today]
-    if not rows:
-        await update.message.reply_text("No check-ins logged today yet. /capacity to start one.")
-        return
-    parts = [capacity_today.render_summary(r) for r in rows if r.get("checkin_type") == "capacity"]
-    await update.message.reply_text("\n\n---\n\n".join(parts) if parts else "No capacity check-ins today yet.")
-
-
-async def cmd_capacity_week(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=7)
-    await update.message.reply_text(capacity_today.render_trend_summary(rows, "WEEKLY CAPACITY REVIEW"))
-
-
-async def cmd_capacity_month(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=30)
-    await update.message.reply_text(capacity_today.render_trend_summary(rows, "MONTHLY CAPACITY REVIEW"))
-
-
-async def cmd_capacity_patterns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=30)
-    await update.message.reply_text(capacity_today.render_trend_summary(rows, "CAPACITY PATTERNS — LAST 30 DAYS"))
-
-
-async def cmd_capacity_actions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=30)
-    await update.message.reply_text(capacity_today.render_actions_summary(rows))
-
-
-async def cmd_therapy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    await update.message.reply_text(
-        "Therapy summary — how far back?",
-        reply_markup=capacity_today.kb_therapy_window(),
-    )
+# Mission 2 (USS-TJR-MSN-2, 2026-09-19): removed a full block of dead
+# capacity-capture commands (cmd_capacity, cmd_deepcheck, cmd_evening,
+# cmd_capacity_today, cmd_capacity_week, cmd_capacity_month,
+# cmd_capacity_patterns, cmd_capacity_actions, cmd_therapy) that were never
+# registered as CommandHandlers (confirmed: no add_handler call for any of
+# them) and would have raised ImportError if somehow invoked anyway — they
+# imported `from telegram_bots.xo import capacity_today`, a module that
+# does not exist in this package (only telegram-bots/capacitybot/
+# capacity_today.py exists). This bot's own /help text already correctly
+# says capacity tracking "Moved to @tjrmindbody_capacitybot" — these were
+# leftover unreachable function bodies from before that migration,
+# confirming capacitybot as the sole live capacity-capture surface.
 
 
 async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
