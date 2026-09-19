@@ -45,10 +45,37 @@ _API_KEY = os.environ.get("RESEND_API_KEY", "")
 _DEFAULT_FROM = os.environ.get("RESEND_FROM", "Emergency Alert Hub <onboarding@resend.dev>")
 
 
+def _running_under_tests() -> bool:
+    """True while pytest is actually executing a test (PYTEST_CURRENT_TEST
+    is pytest's own documented signal, set only for the duration of each
+    test) or when unittest has been imported at all (python -m unittest,
+    the other way this repo's tests are run — confirmed via `grep -rl
+    "^import unittest\|^from unittest"` that no production module in this
+    repo imports unittest itself, so this has no real false-positive risk
+    here, unlike a generic "are we in CI" heuristic would).
+
+    2026-09-19: added after intelligence/workflow/service.py's publish_brief()
+    unconditionally called notify_published() -> send_email(), and
+    tests/test_intelligence_workflow.py / tests/test_telstra_poc.py — which
+    exercise that exact path against fixture briefs ({"period_end": "b"},
+    {"period_end": "2026-07-11"}) — sent three real emails to the Captain's
+    inbox from a plain local test run. That call site is now separately
+    gated (only fires for the real SupabaseRepository), but this module is
+    the actual network boundary every notification path funnels through —
+    gating here protects every current and future caller at once, not just
+    the one call site that happened to get caught this time."""
+    return bool(os.environ.get("PYTEST_CURRENT_TEST")) or "unittest" in sys.modules
+
+
 def send_email(to: str, subject: str, html: str, from_addr: str | None = None, timeout: int = 15) -> bool:
     """Send one email via Resend. Returns True on success, False on any
-    failure (missing key, transport error, non-2xx response) — never
-    raises."""
+    failure (missing key, transport error, non-2xx response, or running
+    under a test runner — see _running_under_tests) — never raises."""
+    if _running_under_tests() and os.environ.get("RESEND_EMAIL_ALLOW_IN_TESTS", "").strip().lower() not in ("1", "true", "yes"):
+        log.warning("[resend-email] running under a test runner — refusing to send a real email "
+                    "(set RESEND_EMAIL_ALLOW_IN_TESTS=1 to override for a deliberate live-send test)")
+        return False
+
     if not _API_KEY:
         log.warning("[resend-email] RESEND_API_KEY not configured — email not sent")
         return False
