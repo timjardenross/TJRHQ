@@ -281,3 +281,32 @@ this action. Phase B (Dependabot stagger/grouping) remains deferred and is
 confirmed explicitly NOT a prerequisite for anything downstream.
 
 **CI Performance & Merge Latency — Phase A: COMPLETE.**
+
+## PHASE B (2026-09-19) — Dependabot stagger + grouping: COMPLETE
+
+Merged PR #266 (`ci-dependabot-stagger`, merge commit `0f85abe3a`), fixing
+root cause #4 above.
+
+**Change**: all 12 `.github/dependabot.yml` entries previously defaulted to
+the same weekly instant (no explicit `day`/`time`) — the direct cause of the
+~12-simultaneous-PR fan-out observed during Phase A's discovery, each
+spawning a Python CI run that took 45-65min from runner-queue congestion.
+
+- Staggered across 3 weekday slots: Monday 03:00 UTC (4 pip entries),
+  Wednesday 03:00 UTC (4 pip entries), Friday 03:00/04:00/05:00 UTC (2 pip +
+  1 npm + 1 github-actions, offset to avoid piling on each other too). At
+  most ~4 entries can now fire simultaneously instead of all 12.
+- Added `groups: { <name>-dependencies: { patterns: ["*"] } }` to every
+  entry, consolidating that entry's own updates into one PR instead of one
+  per package when multiple dependencies update in the same window.
+- Same ecosystems, same directories, same `open-pull-requests-limit` on
+  every entry — verified: all 12 entries present before and after, only
+  `schedule.day`/`time`/`timezone` and `groups` added. No dependency-scan
+  coverage change.
+
+**Verified live**: PR #266's own CI run (35432804834) went fully green
+including the newly-required `merge-gate` context — first real proof the
+Phase A branch-protection change works end-to-end on an ordinary PR, not
+just the PR that introduced it.
+
+**CI Performance & Merge Latency — Phase B: COMPLETE. Mission closed.**
