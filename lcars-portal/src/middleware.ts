@@ -1,7 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { PUBLIC_ROUTE_ALLOWLIST } from '@/lib/public-site';
-import { timingSafeEqual } from 'crypto';
 
 // Routes intended for server-to-server calls carrying X-Bot-Secret, not
 // interactive browsing. 2026-09-15 adversarial review: previously any
@@ -13,11 +12,23 @@ const BOT_SECRET_ROUTE_ALLOWLIST = new Set<string>([
   '/api/google-tasks/sync',
 ]);
 
+// Plain-JS constant-time compare, not Node's crypto.timingSafeEqual: this
+// file runs in the Edge Runtime (Next.js middleware), which doesn't support
+// Node built-ins — importing 'crypto' here type-checks fine but throws
+// "The edge runtime does not support Node.js 'crypto' module" the moment
+// timingSafeEqual is actually called, which only happened for the one
+// bot-secret route below. That broke every scheduler call to
+// /api/google-tasks/sync (this Set's only member) with a bare 500 while
+// every other request — which never reaches this call — kept working,
+// masking the failure. XOR-accumulate over char codes without an early
+// return keeps compare time independent of where a mismatch falls.
 function timingSafeSecretEqual(provided: string, expected: string): boolean {
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+  if (provided.length !== expected.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < expected.length; i++) {
+    mismatch |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  return mismatch === 0;
 }
 
 export async function middleware(request: NextRequest) {

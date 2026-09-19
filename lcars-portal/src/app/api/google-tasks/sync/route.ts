@@ -60,7 +60,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authenticated.' }, { status: 401 });
   }
 
-  const supabase = createSupabaseServiceRoleClient();
   const now = new Date().toISOString();
   let pushed = 0;
   let pulled = 0;
@@ -68,6 +67,17 @@ export async function POST(request: Request) {
   const errors: string[] = [];
 
   try {
+    // Inside the try (not hoisted above it): a missing SUPABASE_SERVICE_
+    // ROLE_KEY/NEXT_PUBLIC_SUPABASE_URL in this deployment's env used to
+    // throw before the try block, escaping this route's own error handling
+    // entirely and surfacing as a bare, undecorated platform 500 — the
+    // scheduler's heartbeat then just logs "500 Server Error: Internal
+    // Server Error" with none of this route's own diagnostic detail (see
+    // the 502 branch below). Catching it here turns that into the same
+    // logged, informative error response every other failure in this route
+    // already gets.
+    const supabase = createSupabaseServiceRoleClient();
+
     // ── Push: local -> Google ──────────────────────────────────────────
     const { data: toPush, error: pushSelectError } = await supabase
       .from('personal_tasks')
