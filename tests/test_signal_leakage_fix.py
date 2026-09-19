@@ -75,6 +75,55 @@ def test_service_state_transition_uses_description_not_recommended_action(monkey
     assert calls[0].get("recommended_action") is None
 
 
+def test_notebook_strategic_initiative_uses_description_not_recommended_action(monkeypatch):
+    from unittest.mock import MagicMock
+
+    from platform_runtime.lib.notebook import notebook_route_executor as executor
+
+    calls = []
+    monkeypatch.setattr(
+        "core.platform.event_bus.publish_event",
+        lambda *a, **k: calls.append(k) or "evt-fake",
+    )
+
+    note = {
+        "id": "note-001",
+        "title": "Notebook note title",
+        "raw_content": "Some raw content",
+        "value_score": 0.7,
+        "triage_summary": "Summary text",
+    }
+    sb = MagicMock()
+    obj_id, table = executor._create_strategic_initiative(note, sb)
+
+    assert table == "strategic_objectives"
+    assert obj_id is not None
+    assert len(calls) == 1
+    assert calls[0].get("description") == "Notebook note title"
+    assert calls[0].get("recommended_action") is None
+
+
+def test_comms_portfolio_content_recorded_uses_description_not_recommended_action(monkeypatch):
+    from platform_runtime.lib.comms import portfolio
+
+    calls = []
+    monkeypatch.setattr(
+        "core.platform.event_bus.publish_event",
+        lambda *a, **k: calls.append(k) or "evt-fake",
+    )
+    monkeypatch.setattr(
+        portfolio, "_client",
+        lambda: type("FakeClient", (), {"insert": lambda self, table, payload: type("R", (), {"ok": True})()})(),
+    )
+
+    ok = portfolio.record_content(content_id="c-1", title="Content item title")
+
+    assert ok is True
+    assert len(calls) == 1
+    assert calls[0].get("description") == "Content item title"
+    assert calls[0].get("recommended_action") is None
+
+
 # ─── Pipeline: a description-only event never becomes a fabricated Recommendation ───
 
 
