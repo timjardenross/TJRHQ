@@ -66,6 +66,7 @@ export function WorkbenchShell({
   tabs,
   back,
   wide = false,
+  minimal = false,
   children,
 }: {
   title: string;
