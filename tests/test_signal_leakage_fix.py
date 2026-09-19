@@ -60,7 +60,7 @@ def test_source_health_failure_uses_description_not_recommended_action(monkeypat
 
 
 def test_service_state_transition_uses_description_not_recommended_action(monkeypatch):
-    import core.coordination.command_bus as command_bus
+    from core.coordination import command_bus
 
     calls = []
     monkeypatch.setattr(
