@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 from typing import Any
 
@@ -272,7 +272,16 @@ class NumberOne:
     def __init__(self, config: CoordinationConfig | None = None):
         """Initialize Number One."""
         self.config = config or CoordinationConfig()
-        self.current_time = datetime.now(timezone.utc)
+        # Naive UTC, matching Mission.created_at/last_updated's default
+        # (datetime.utcnow()) and _parse_iso_datetime()'s documented "naive
+        # UTC" contract below -- must stay naive or every `self.current_time
+        # - mission.last_updated` age computation raises TypeError the
+        # instant a real mission has a parseable last_updated (Mission 1
+        # fix, USS-TJR-MSN-1: this was silently crashing
+        # NumberOneExporter.export_brief() in production, see
+        # number-one-exporter.service journal, "can't subtract
+        # offset-naive and offset-aware datetimes").
+        self.current_time = datetime.utcnow()  # noqa: DTZ003 - must be naive to match Mission's naive created_at/last_updated, see above
         self.memory_adapter = NumberOneMemoryAdapter() if NumberOneMemoryAdapter else None
 
     def request_advisory_support(self, mission: dict[str, Any]) -> dict[str, Any]:
@@ -958,9 +967,17 @@ def _to_priority(value: str | None) -> Priority:
 
 
 def _parse_iso_datetime(datetime_str: str | None) -> datetime:
-    """Parse ISO 8601 datetime string to naive UTC datetime."""
+    """Parse ISO 8601 datetime string to naive UTC datetime.
+
+    Both fallback paths must also return naive UTC (Mission 1 fix,
+    USS-TJR-MSN-1) -- they previously returned tz-aware `datetime.now(
+    timezone.utc)`, so a mission with a missing/unparseable last_updated
+    got an aware datetime while one with a valid string got naive, and
+    NumberOne.current_time (also naive) blew up subtracting whichever
+    combination didn't match ("can't subtract offset-naive and
+    offset-aware datetimes")."""
     if not datetime_str:
-        return datetime.now(timezone.utc)
+        return datetime.utcnow()  # noqa: DTZ003 - must be naive, see docstring above
     try:
         # Parse with timezone info, then convert to naive UTC
         dt = datetime.fromisoformat(datetime_str.replace("Z", "+00:00"))
@@ -969,7 +986,7 @@ def _parse_iso_datetime(datetime_str: str | None) -> datetime:
             return dt.replace(tzinfo=None)
         return dt
     except (ValueError, AttributeError):
-        return datetime.now(timezone.utc)
+        return datetime.utcnow()  # noqa: DTZ003 - must be naive, see docstring above
 
 
 # ============================================================================

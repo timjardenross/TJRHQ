@@ -161,11 +161,16 @@ class CycleContext:
 
 # ── Step 1: Human Systems ─────────────────────────────────────────────────────
 
-def _step_human_systems(entry: dict | None, ctx: CycleContext) -> None:
+def _step_human_systems(entry: dict | None, missions: list[dict[str, Any]], ctx: CycleContext) -> None:
     """`entry` is now expected to be today's most recent `capacity_checkins`
     row (MY CAPACITY TODAY, 2026-08-21) — the old captains_log_entries/
     Recovery Pulse input this replaced. See capacity_zone_from_checkin()'s
-    docstring for why this is a direct zone mapping, not a weighted score."""
+    docstring for why this is a direct zone mapping, not a weighted score.
+
+    `missions` is the same active-mission list passed to run_daily_cycle()
+    (USS-TJR-MSN-1 Mission 1 fix, 2026-09-19): it must reach the gate so
+    RED/AMBER deferral can target real mission ids instead of always
+    evaluating against an empty queue."""
     try:
         from core.health.capacity_gate import CapacityGate
         from core.health.capacity_score import capacity_zone_from_checkin
@@ -175,7 +180,7 @@ def _step_human_systems(entry: dict | None, ctx: CycleContext) -> None:
         ctx.capacity_status = status or "Unknown"
 
         gate = CapacityGate()
-        actions = gate.evaluate(score, status, [])
+        actions = gate.evaluate(score, status, missions)
         ctx.capacity_actions = [{"type": a.action_type, "reason": a.reason} for a in actions]
 
         for a in actions:
@@ -1574,7 +1579,7 @@ def run_daily_cycle(
     """
     ctx = CycleContext()
 
-    _step_human_systems(capacity_entry, ctx)
+    _step_human_systems(capacity_entry, missions, ctx)
     _step_strategic_planning(ctx)
     _step_ori(ctx)
     _step_engineering(missions, ctx)
