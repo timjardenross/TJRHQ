@@ -2,13 +2,15 @@
 
 **Type:** UI + UX + navigation + interaction design. Not a backend architecture programme —
 Missions 1–6 own the canonical machinery; this mission consumes and exposes it.
-**Status:** Active — Phases 1-6 shipped 2026-09-19 (same session, one PR). This is a large,
+**Status:** Active — Phases 1-9 shipped 2026-09-19 (same session, one PR). This is a large,
 multi-phase mission; this record is honest about what's actually closed versus what remains
 open (see §5/§6/§6.1). Phase-by-phase build record: §3 (Phase 1: ambient Number One,
 navigation fixes, directory grouping, Hub/Chair actionability), §3.1 (Phase 2: Hub→Ready Room
 continuity), §3.3 (Phase 3: accessibility — Modal focus trap, aria-live), §3.4-3.6 (Phases
 4-5: dead-code sweep, 5 legacy pages retired), §3.7 (Phase 6: Search/Timeline relocated from
-dead-page risk into live workbenches).
+dead-page risk into live workbenches), §3.8 (Phase 7: `operations` converted), §3.9 (Phase 8:
+contrast/label audit), §3.10 (Phase 9: 2 of the 4 remaining deferred items closed —
+weight-trend view ported, `state-*`/midnight text paired with outline/ring).
 **Branch:** `claude/tjr-hq-mission-7-az63cy`.
 
 ## 0. Mission question
@@ -499,6 +501,56 @@ already requires a `label` prop) was checked, but a component that builds its ow
 input wrapper elsewhere in the tree, not matched by a plain `<input`/`<textarea` grep, could
 still have the same gap unfound.
 
+## 3.10 Phase 9 — closing 2 of the 4 remaining deferred items (Captain-directed: pair
+   fill with outline/ring for item 14, port the weight-trend view for item 12; the other 2,
+   items 1 and 7, stay deferred — no live-environment access, confirmed with the Captain)
+
+**Item 12 closed — `/medical/log-weight`'s weight-trend view ported into
+`human-systems-workbench`.** New route `human-systems-workbench/weight/page.tsx`: same query
+(`weight_logs`, 30-day, `log_date`/`weight_kg`), same stats (avg/range/30-day change) and
+history chart as the retired page, reshelled onto `WorkbenchShell`/`Card`/`wb-*` tokens
+instead of `LCARSPanel`. Manual entry stays retired (Captain directive 2026-08-10 — Recovery
+Pulse is the sole manual capture path); this is history-only, same as its predecessor. Wired
+in as a "WEIGHT →" nav button on the main Human Systems page, same "real navigation, not a
+tab" treatment `TRENDS`/`REPORT` already use. `(app)/medical/log-weight/page.tsx` is deleted
+(confirmed zero other references in source — `graphify-out/` and `reports/semgrep/` hits are
+generated analysis artifacts, not live references); the medical stub's own weight-history link
+now points at the new location. This closes the last redirect hop in the `medical` cluster —
+item 12 in §5 is fully resolved, not just narrowed.
+
+**Item 14 closed (Path 1 of the 2 the original Phase 1A doc prescribed) — every bare
+`text-state-*-on` instance now paired with the already-passing `border-state-*` token.**
+Captain chose "pair fill with outline/ring" over a shade revision (deferred to a future
+Visual Design Officer call) when asked directly. Found every literal `text-state-{tone}-on`
+usage across the app (`grep`, not composed-at-runtime — those already read `stateToneClasses()`
+correctly): `(auth)/login/page.tsx` (2 bare error alerts), `emergency-alert-hub-workbench/
+page.tsx` (6 of 8 instances — 2 were already inside a `border-state-crit/40` container from
+existing code, left alone), `agent-status-workbench/_components/StatusView.tsx` (headline +
+conditional action-note, via a new `POSTURE_BORDER_CLASS` map alongside the existing
+`POSTURE_TEXT_CLASS`), and `agent-status-workbench/_components/JobsView.tsx` (inline "N
+failed" span, plus the Healthy/Unknown stat tiles — which had a neutral `border-wb-line`
+even though their number was already state-coloured; brought in line with the Failed tile's
+own pre-existing conditional `border-state-crit/40 bg-state-crit/10` pattern, extended to
+match, not invented). `TONE_DOT_CLASS`'s `bg-state-X text-state-X-on` pairing (StatusView.tsx)
+was left alone — that's `-on` rendered on the dot's own solid `DEFAULT` fill, a different
+contrast pair than `-on` vs. the page background, and not the pairing item 14 found failing.
+
+Honest about what this is and isn't: this is exactly the "Colour+Shape+Label, not colour
+alone" mitigation the Phase 1A doc itself prescribed for its dot component, extended here to
+bare status text — a genuine, mechanically-verifiable non-text-contrast channel (the border
+computes ≥3:1, per the same §3.9 numbers), not a claim that the `-on` text itself now passes
+SC 1.4.3 body-text contrast against `midnight`. The text colour is unchanged; a Visual Design
+Officer-approved shade revision is still the only path to a full text-contrast fix, and stays
+open as a follow-up, not silently closed by this pass. No live-browser render was available
+to confirm the visual result — `npx tsc --noEmit` and `npx eslint` both pass clean on every
+touched file, and the existing `human-systems-workbench` test suite (17 tests) still passes;
+that's the limit of what's verifiable without live-environment access (same wall as items 1/7
+below).
+
+Items 1 (full per-workbench template write-up) and 7 (before/after screenshots) remain open,
+confirmed with the Captain this pass — both still need eyes on a rendered app this environment
+can't provide.
+
 ## 4. Core end-to-end test (§40) — status
 
 The backend path this test exercises (remember → what am I forgetting → help me start →
@@ -666,11 +718,9 @@ where the next pass should start:
       finding from the rest of this sweep. Now live at `app/search/page.tsx` /
       `app/timeline/page.tsx`, `WorkbenchShell`-shelled, reachable from the Workbench
       directory. See §3.7 for the full build record.
-12. **`/medical/log-weight`'s weight-trend view has no `human-systems-workbench`
-    equivalent** (found in §3.4) — either port a real weight-trend view into
-    `human-systems-workbench` (closing the last redirect hop in the `medical` cluster) or
-    make a deliberate call that the redirect stays permanently; currently just preserved,
-    not resolved either way.
+12. **CLOSED (Phase 9, §3.10).** `/medical/log-weight`'s weight-trend view is now ported into
+    `human-systems-workbench/weight` — Captain directed "port it in" when asked directly. The
+    old page is deleted; the last redirect hop in the `medical` cluster is closed.
 13. **`operations`'s "Commander Events" panel — correction to the §3.5 finding, now scoped
     differently.** Inspected the actual `commander_events` payload `build_learning_loop.py`
     writes: it's build/handoff-lifecycle data (`decision_id`, `outcome_id`, `mission_title`,
@@ -691,16 +741,20 @@ where the next pass should start:
     Events data has no view yet rather than pretending the page conversion depended on
     building one. This item is now purely about the future view itself, not about unblocking
     a retirement.
-14. **`state-*` status colour system needs re-validation against the 5 adaptive themes,
-    especially `midnight`** (found in §3.9, full numbers there) — `state-ok`/`state-info`
-    `DEFAULT` values sit under 4.5:1 against every theme (likely acceptable, designed to a
-    ≥3:1 graphical-fill bar per the original Phase 1A doc) but every state colour's `-on`
-    text variant — previously verified fine, before the theme system existed — now fails
-    badly (1.4-2.3:1) specifically against `midnight`, a real, live, selectable dark theme.
-    Two fix paths already prescribed by the original Phase 1A doc's own governance (pair the
-    fill with an already-passing outline/ring, or a Visual Design Officer-approved shade
-    revision) — needs whoever picks this up to actually see the rendered result in a browser
-    before choosing one, not another blind numeric fix.
+14. **PARTIALLY CLOSED (Phase 9, §3.10) — Path 1 of the 2 prescribed paths applied; a full
+    text-contrast fix is still open.** `state-ok`/`state-info` `DEFAULT` values still sit
+    under 4.5:1 against every theme (likely acceptable, designed to a ≥3:1 graphical-fill bar
+    per the original Phase 1A doc — unchanged, not this item's finding). The `-on` text
+    variant's failure against `midnight` (1.4-2.3:1) is now mitigated: every bare
+    `text-state-*-on` instance found across the app is paired with the already-passing
+    `border-state-*` token (Captain's chosen path, over a shade revision, when asked
+    directly) — see §3.10 for the full file list and what was deliberately left alone. This
+    is the same "Colour+Shape+Label, not colour alone" mitigation the Phase 1A doc itself
+    prescribed for its dot component; it does not make the `-on` text itself pass SC 1.4.3.
+    **Still open:** a Visual Design Officer-approved shade revision remains the only path to
+    a genuine text-contrast fix, and no live-browser render was available this pass to
+    confirm the border/chip treatment reads well — both need a future pass with
+    live-environment access.
 
 ## 6. Recommended next steps
 

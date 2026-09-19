@@ -14,15 +14,11 @@ import Link from 'next/link';
 // forwarding, so a bookmark or stray link would have shown genuinely stale
 // UI rather than an honest notice.
 //
-// /medical/log-weight is NOT retired with this page — it still shows real
-// 30-day weight-trend history (manual entry itself was retired earlier,
-// 2026-08-10, per Recovery Pulse being the platform's sole manual-capture
-// path), and human-systems-workbench has no equivalent view today. Rather
-// than silently orphan a real, still-useful capability the way deleting
-// this page outright would, its link is kept below. Porting a real
-// weight-trend view into human-systems-workbench (so this last redirect
-// hop can retire too) is a legitimate follow-up, not done in this pass —
-// see Mission 7's knowledge record.
+// /medical/log-weight is retired too (Mission 7 deferred-register item 12,
+// closed): its real 30-day weight-trend history is now ported into
+// human-systems-workbench/weight, same data (`weight_logs`, manual entry
+// still retired per the 2026-08-10 Recovery Pulse directive), just
+// reshelled onto WorkbenchShell/wb-* tokens. No more redirect hop needed.
 export default function MedicalPage() {
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
@@ -56,8 +52,8 @@ export default function MedicalPage() {
         </li>
         <li>
           Weight history (30-day trend, manual entry retired):{' '}
-          <Link href="/medical/log-weight" className="text-wb-sage-deep underline hover:no-underline">
-            Weight History →
+          <Link href="/human-systems-workbench/weight" className="text-wb-sage-deep underline hover:no-underline">
+            Human Systems → Weight
           </Link>
         </li>
       </ul>

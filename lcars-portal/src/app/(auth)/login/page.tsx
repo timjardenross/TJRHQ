@@ -161,7 +161,7 @@ export default function LoginPage() {
                   {loading ? 'Authenticating…' : 'Access Bridge'}
                 </button>
                 {error && (
-                  <p role="alert" className="text-xs text-state-crit-on">{error}</p>
+                  <p role="alert" className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-xs text-state-crit-on">{error}</p>
                 )}
               </div>
             </form>
@@ -206,7 +206,7 @@ export default function LoginPage() {
                   {loading ? 'Sending…' : 'Send Access Link'}
                 </button>
                 {error && (
-                  <p id="login-error" role="alert" className="text-xs text-state-crit-on">{error}</p>
+                  <p id="login-error" role="alert" className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-xs text-state-crit-on">{error}</p>
                 )}
               </div>
             </form>

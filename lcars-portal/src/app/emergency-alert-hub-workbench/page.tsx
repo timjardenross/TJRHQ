@@ -301,12 +301,12 @@ function CoveragePanel({ sources, latestCheckedAt }: { sources: EmergencyAlertSo
             <p className="text-[12px] text-wb-ink2">Official-source coverage is currently good.</p>
           )}
           {state === 'degraded' && (
-            <p className="text-[12px] text-state-warn-on">
+            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-[12px] text-state-warn-on">
               {failedSources.length} official source{failedSources.length === 1 ? '' : 's'} currently unavailable. Alert coverage may be incomplete.
             </p>
           )}
           {state === 'stale' && (
-            <p className="text-[12px] text-state-warn-on">Alerts have not been refreshed recently. Coverage may be stale.</p>
+            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-[12px] text-state-warn-on">Alerts have not been refreshed recently. Coverage may be stale.</p>
           )}
           {state === 'unknown' && (
             <p className="text-[12px] text-wb-ink2">Source health could not be determined.</p>
@@ -452,7 +452,7 @@ function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
             </select>
           </label>
         </div>
-        {submitError && <p className="text-[12px] text-state-crit-on">{submitError}</p>}
+        {submitError && <p className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-[12px] text-state-crit-on">{submitError}</p>}
         <div>
           <button
             type="submit"
@@ -707,8 +707,8 @@ export default function EmergencyAlertsWorkbench() {
               <>
                 {emergencyAlerts.length === 0 && watchAlerts.length === 0 && (
                   <Card>
-                    <p className="text-[15px] font-semibold text-state-ok-on">✓ No Emergency Warnings detected</p>
-                    <p className="text-[15px] font-semibold text-state-ok-on">✓ No Watch and Act alerts detected</p>
+                    <p className="rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-[15px] font-semibold text-state-ok-on">✓ No Emergency Warnings detected</p>
+                    <p className="mt-1.5 rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-[15px] font-semibold text-state-ok-on">✓ No Watch and Act alerts detected</p>
                     {(adviceCount + unknownCount) > 0 ? (
                       <p className="mt-2 text-[12px] text-wb-ink2">
                         {adviceCount + unknownCount} lower-severity or unclassified official alert{adviceCount + unknownCount === 1 ? '' : 's'} {adviceCount + unknownCount === 1 ? 'is' : 'are'} active nationally.
@@ -721,7 +721,7 @@ export default function EmergencyAlertsWorkbench() {
 
                 {emergencyAlerts.length > 0 && (
                   <Card>
-                    <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wide text-state-crit-on">
+                    <h2 className="mb-3 inline-block rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-state-crit-on">
                       {emergencyAlerts.length} Emergency Warning{emergencyAlerts.length === 1 ? '' : 's'}
                     </h2>
                     <div className="flex flex-col gap-3">
@@ -734,7 +734,7 @@ export default function EmergencyAlertsWorkbench() {
 
                 {watchAlerts.length > 0 && (
                   <Card>
-                    <h2 className="mb-3 text-[13px] font-bold uppercase tracking-wide text-state-warn-on">
+                    <h2 className="mb-3 inline-block rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-state-warn-on">
                       Watch and Act — {watchAlerts.length} active
                     </h2>
                     <div className="flex flex-col gap-3">
