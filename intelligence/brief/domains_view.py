@@ -32,7 +32,7 @@ arguments, so it's testable without a live DB or event bus.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from core.platform.attention_engine import AttentionCategory
 from core.platform.captain_brief_contract import CaptainBriefItem
@@ -64,8 +64,8 @@ class DomainEvidenceItem:
     enough to decide whether to follow `DomainSummary.detail_href`."""
 
     title: str
-    detail: Optional[str] = None
-    risk: Optional[str] = None  # RED/AMBER/GREEN/UNKNOWN, when known
+    detail: str | None = None
+    risk: str | None = None  # RED/AMBER/GREEN/UNKNOWN, when known
 
 
 @dataclass
@@ -74,28 +74,28 @@ class DomainSummary:
     label: str
     source: str  # "osint" | "event_bus"
     posture: str  # RED/AMBER/GREEN/UNKNOWN
-    confidence: Optional[float]  # 0-100 mean, None if not computable — never fabricated
-    what_changed: Optional[str]
+    confidence: float | None  # 0-100 mean, None if not computable — never fabricated
+    what_changed: str | None
     what_matters: list[str] = field(default_factory=list)
     watch_conditions: list[str] = field(default_factory=list)
     evidence_count: int = 0
     evidence: list[DomainEvidenceItem] = field(default_factory=list)
-    as_of: Optional[str] = None
+    as_of: str | None = None
     availability: str = "ok"  # "ok" | "no_data" | "degraded" | "unavailable"
-    detail_href: Optional[str] = None
+    detail_href: str | None = None
 
 
 @dataclass
 class DomainsDocument:
     generated_at: str
     domains: list[DomainSummary] = field(default_factory=list)
-    event_bus_as_of: Optional[str] = None
-    osint_as_of: Optional[str] = None
+    event_bus_as_of: str | None = None
+    osint_as_of: str | None = None
     osint_available: bool = True
     warnings: list[str] = field(default_factory=list)
 
 
-def _risk_label(risk_score: Optional[float]) -> Optional[str]:
+def _risk_label(risk_score: float | None) -> str | None:
     if risk_score is None:
         return None
     if risk_score >= _POSTURE_RED:
@@ -112,7 +112,7 @@ def _posture_for_items(items: list[CaptainBriefItem]) -> str:
     return _risk_label(max(risk_scores)) or "UNKNOWN"
 
 
-def _confidence_for_items(items: list[CaptainBriefItem]) -> Optional[float]:
+def _confidence_for_items(items: list[CaptainBriefItem]) -> float | None:
     scores = [
         i.recommendation.confidence
         for i in items
@@ -165,7 +165,7 @@ def _event_bus_domain_summary(
     )
 
 
-def _osint_domain_summary(bucket_key: str, bucket: dict[str, Any], as_of: Optional[str], degraded: bool) -> DomainSummary:
+def _osint_domain_summary(bucket_key: str, bucket: dict[str, Any], as_of: str | None, degraded: bool) -> DomainSummary:
     events = bucket.get("events") or []
     evidence = [
         DomainEvidenceItem(title=e.get("title") or "Untitled", risk=(e.get("risk_rating") or None))
@@ -196,7 +196,7 @@ def _osint_domain_summary(bucket_key: str, bucket: dict[str, Any], as_of: Option
     )
 
 
-def assemble_domains_document(events: list[dict[str, Any]], latest_brief: Optional[dict[str, Any]]) -> DomainsDocument:
+def assemble_domains_document(events: list[dict[str, Any]], latest_brief: dict[str, Any] | None) -> DomainsDocument:
     """Merge Captain's Brief's live event-bus domains with Briefs' latest
     stored OSINT `domain_picture` into one cross-domain document.
 
@@ -217,7 +217,7 @@ def assemble_domains_document(events: list[dict[str, Any]], latest_brief: Option
     ]
 
     warnings: list[str] = []
-    osint_as_of: Optional[str] = None
+    osint_as_of: str | None = None
     osint_available = latest_brief is not None
 
     if latest_brief is None:

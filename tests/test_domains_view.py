@@ -31,17 +31,20 @@ from intelligence.brief.domains_view import (
     _posture_for_items,
     assemble_domains_document,
 )
-from tests.fixtures.synthetic_core_events import INTERRUPT_NOW_EVENT, NEVER_INTERRUPT_EVENT
+from tests.fixtures.synthetic_core_events import (
+    INTERRUPT_NOW_EVENT,
+    NEVER_INTERRUPT_EVENT,
+)
 
 
 def _item(**overrides) -> CaptainBriefItem:
-    defaults = dict(
-        event_id="evt-x",
-        domain="engineering",
-        event_type="engineering.deploy.failed",
-        category=AttentionCategory.CAN_BE_DELAYED,
-        reason="Deploy failed on staging",
-    )
+    defaults = {
+        "event_id": "evt-x",
+        "domain": "engineering",
+        "event_type": "engineering.deploy.failed",
+        "category": AttentionCategory.CAN_BE_DELAYED,
+        "reason": "Deploy failed on staging",
+    }
     defaults.update(overrides)
     return CaptainBriefItem(**defaults)
 
