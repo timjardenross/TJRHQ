@@ -13,6 +13,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import type { StateTone } from '@/lib/types';
 import type { SystemPostureBand } from '@/app/human-systems-workbench/_components/types';
 import type { AssessedContext } from '@/app/api/human-systems/assessed-context';
+import type { NumberOneAttentionItem } from '@/lib/commandState';
 
 // ── Situation strip tone/label maps ──────────────────────────────────────────
 
@@ -562,4 +563,32 @@ export function useNotebookReadyCount(): { readyCount: number | null; error: str
   }, []);
 
   return { readyCount, error };
+}
+
+/** Number One's canonical attention_items (Mission 1 Round 2,
+ * USS-TJR-MSN-1) — feeds commandState.ts's buildNeedsYouItems() so Chair
+ * and Hub both surface NumberOne-derived NEEDS_NOW/DECISION_REQUIRED items
+ * instead of Needs You having no connection to mission/coordination data
+ * at all. Same route Number One's mission-workbench card already uses
+ * (api/number-one-brief -> context_service.py's /brief/number-one) — no
+ * second fetch path, no second computation. Degrades to null (not an
+ * error surfaced to the Captain) on any failure, same discipline as this
+ * file's other hooks — Needs You must never block on this being reachable. */
+export function useNumberOneAttentionItems(): { items: NumberOneAttentionItem[] | null; error: string | null } {
+  const [items, setItems] = useState<NumberOneAttentionItem[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/number-one-brief')
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((body) => {
+        if (cancelled) return;
+        setItems(Array.isArray(body?.attention_items) ? body.attention_items : []);
+      })
+      .catch((e) => { if (!cancelled) { console.error('[captainsChairData] Number One attention items failed:', e); setError('Number One'); } });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { items, error };
 }

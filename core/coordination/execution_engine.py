@@ -1,5 +1,26 @@
 """Number One Execution Engine (EXEC-001 WP2 — ADR-0003 Implementation).
 
+*** LEGACY / UNREACHABLE (Mission 1 Round 2, USS-TJR-MSN-1, 2026-09-19) ***
+Its only caller anywhere in the repo is platform-runtime/lib/
+daily_ops_cycle.py's _step_number_one(), and that orchestrator's own
+public entrypoint, run_daily_cycle(), has zero callers of its own anywhere
+in the repo (confirmed twice, Round 1 and Round 2). This module is
+therefore not a live competitor to core/coordination/number_one.py — it is
+dead code reachable only through an unreachable entrypoint.
+
+core/coordination/number_one.py is the canonical, live-authoritative
+engine: reached through context_service.py's _http_number_one_brief()
+(GET /brief/number-one), already shared identically by lcars-portal's
+api/number-one-brief route, core/coordination/command_bus.py's alert
+watchdog, and telegram-bots/xo/app.py's /priorities and /brief commands.
+Do not build new integrations against this module — extend number_one.py
+and its attention_state.py normalizer instead. Retiring this file outright
+was out of scope for Round 2 (daily_ops_cycle.py is a 20-step orchestrator;
+gutting one step of an otherwise-dormant module carries more risk than
+leaving it clearly marked dead until a real decision is made about
+daily_ops_cycle.py's own future — see Round 2's Retirement/Adapter
+Decisions register).
+
 Transforms Number One's deterministic analysis into executed actions.
 Number One DECIDES; this engine ACTS.
 

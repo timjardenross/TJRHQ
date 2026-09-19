@@ -1,4 +1,23 @@
 /**
+ * *** OBSOLETE — no confirmed live consumer (Mission 1 Round 1 + Round 2,
+ * USS-TJR-MSN-1, 2026-09-19) ***
+ * Two independent investigation passes searched lcars-portal, telegram-bots
+ * and every other live surface for a reference to command-centre's ports or
+ * /api/v1/coordination/* (or its aliases /api/recommendations, /api/readiness,
+ * /api/blockers, /api/lessons) and found none — this route is live and
+ * reachable (command-centre runs under pm2), but nothing reads it. The real
+ * canonical Number One path today is core/coordination/number_one.py via
+ * context_service.py's _http_number_one_brief() (GET /brief/number-one),
+ * already consumed by lcars-portal's api/number-one-brief route, XO's
+ * Telegram bot, and command_bus.py — see core/coordination/attention_state.py
+ * for the shared attention-state contract built on top of that path.
+ *
+ * Disposition: OBSOLETE. Not retired in this pass — stopping command-
+ * centre's number-one-exporter.service cron and this route is a live-infra
+ * change requiring an explicit go-ahead, not something to do silently from
+ * a code-reconciliation pass. See Round 2's Retirement/Adapter Decisions
+ * register for the full migration-safety checklist before that stop.
+ *
  * Number One Coordination Engine API — /api/v1/coordination/*
  *
  * Endpoints:

@@ -210,29 +210,33 @@ def _bar(pct: int) -> str:
 # ── XO system prompt ──────────────────────────────────────────────────────────
 
 def _get_open_missions(db) -> str:
-    """Fetch open missions from Supabase, formatted compactly for the system prompt."""
-    if not db:
+    """Open missions, formatted compactly for the XO system prompt.
+
+    Mission 1 Round 2 (USS-TJR-MSN-1): this used to run its own raw
+    `db.table("missions")...order("priority")` query — a second, silently
+    divergent priority ordering next to /priorities' and /brief's canonical
+    core/coordination/number_one.py-derived one (both already reuse
+    _get_number_one_brief() below). Reconciled to the same source: top
+    priorities + blocked missions from Number One's brief, same output
+    text shape as before so the LLM prompt format is unchanged. `db` is
+    accepted but unused now — kept so call sites don't need updating; if
+    Number One's brief is unreachable this degrades to "" exactly as the
+    old query's except-branch did.
+    """
+    brief = _get_number_one_brief()
+    if not brief:
         return ""
-    try:
-        res = db.table("missions").select(
-            "mission_id,title,status,priority"
-        ).not_.in_(
-            "status", ["Closed", "completed", "cancelled", "deferred", "Archived"]
-        ).order("priority").limit(20).execute()
-        rows = res.data or []
-        if not rows:
-            return ""
-        lines = []
-        for r in rows:
-            pri  = f"[{r['priority']}] " if r.get("priority") else ""
-            mid  = r.get("mission_id", "?")
-            st   = r.get("status", "?")
-            title = (r.get("title") or "")[:70]
-            lines.append(f"{pri}{mid} ({st}): {title}")
-        return "\n".join(lines)
-    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
-        log.warning("[missions] fetch failed: %s", exc)
+    rows = (brief.get("top_priorities") or []) + (brief.get("blocked_missions") or [])
+    if not rows:
         return ""
+    lines = []
+    for r in rows[:20]:
+        pri = f"[{r['priority']}] " if r.get("priority") else ""
+        mid = r.get("mission_id", "?")
+        st = r.get("status", "?")
+        title = (r.get("title") or "")[:70]
+        lines.append(f"{pri}{mid} ({st}): {title}")
+    return "\n".join(lines)
 
 
 # ── Conversation turn memory (USS-TJR-MSN-0378 Stream 2) ────────────────────

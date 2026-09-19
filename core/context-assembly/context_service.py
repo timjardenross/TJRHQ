@@ -782,6 +782,7 @@ def _http_number_one_brief() -> dict:
     consumer that should see `[ENG-HANDOFF]`-prefixed synthetic missions.
     """
     sys.path.insert(0, str(REPO_ROOT / "core" / "coordination"))
+    from attention_state import attention_items_from_brief
     from engineering_handoff_reader import load_engineering_handoffs
     from number_one import NumberOne
 
@@ -791,6 +792,15 @@ def _http_number_one_brief() -> dict:
     except Exception as exc:  # noqa: BLE001 - already logged via _err(); engineering handoffs are additive/optional to the mission list
         _err(f"Could not load engineering handoffs: {exc}")
     brief = NumberOne().get_daily_brief(missions)
+
+    # Mission 1 Round 2 (USS-TJR-MSN-1): the canonical Attention-State
+    # normalizer (core/coordination/attention_state.py) — a lossless
+    # reclassification of this same brief into the small category
+    # vocabulary every consuming surface (Chair/Hub's Needs You, a future
+    # iPad surface) should read instead of each re-deriving its own
+    # "what needs attention" logic. Additive field; existing consumers of
+    # this response are unaffected.
+    attention_items = [i.to_dict() for i in attention_items_from_brief(brief)]
 
     escalations = [_escalation_to_dict(e) for e in brief.escalations]
     try:
@@ -814,6 +824,7 @@ def _http_number_one_brief() -> dict:
         "escalations": escalations,
         "specialist_workload": brief.specialist_workload,
         "recommended_actions": brief.recommended_actions,
+        "attention_items": attention_items,
     }
 
 

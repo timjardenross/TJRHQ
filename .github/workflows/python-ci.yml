@@ -241,7 +241,21 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest
+          # pytest.ini's addopts (root, applies to every matrix job since
+          # pytest resolves it from repo root regardless of matrix.dir)
+          # requires the pytest-timeout plugin (2026-09-15, arize-phoenix
+          # collection-hang fix). platform-runtime/requirements.txt happens
+          # to already declare it as an app dependency, which is why those
+          # matrix jobs never surfaced this gap; jobs whose requirements.txt
+          # doesn't (e.g. telegram-bots/xo) silently passed only because
+          # they had zero real tests to run pytest.ini's addopts against —
+          # confirmed broken (`unrecognized arguments: --timeout=30`) the
+          # moment Mission 1 (USS-TJR-MSN-1) added telegram-bots/xo's first
+          # real test file. Installing it here, once, for every job, is the
+          # actual fix — not adding it to telegram-bots/xo/requirements.txt,
+          # which would leak a test-only dependency into that bot's
+          # production venv.
+          pip install pytest pytest-timeout
           if [ -n "${{ matrix.req }}" ]; then
             pip install -r "${{ matrix.req }}"
           fi
@@ -522,7 +536,27 @@ jobs:
       # one flattened value, which made the inline version trip its own
       # Secret Keyword plugin as it grew -- a false positive on the
       # checking script itself, confirmed while adding this on PR #190.)
-      - name: detect-secrets (secrets scan — blocking)
+      # TEMPORARILY NON-BLOCKING (2026-09-19, Captain's call): this step has
+      # been intermittently failing PRs unrelated to any real new secret --
+      # the long-standing detect-secrets/CI-environment flakiness this
+      # file's own comments above already describe (tracked in #189: a
+      # plain `detect-secrets scan` on this tree occasionally fails to
+      # re-find already-tracked, already-reviewed fixture findings under a
+      # fresh CI checkout, reproducible in CI but never locally with an
+      # identical command) plus continued growth of
+      # data/self-improvement/runs/*/evidence.json making the single-
+      # threaded, require_serial scan itself slow (documented in
+      # .pre-commit-config.yaml's detect-secrets hook comment, up to 45+
+      # minutes historically). `continue-on-error: true` here stops this
+      # from blocking merges while the Captain fixes the underlying
+      # flakiness/perf issue separately -- it does NOT disable the scan
+      # (findings still run and are visible in this step's log), and does
+      # NOT touch the LOCAL pre-commit hook (.pre-commit-config.yaml still
+      # hard-blocks a commit on this machine, per that file's explicit
+      # "never skip gitleaks or detect-secrets this way" instruction).
+      # Revert this once the root cause is fixed.
+      - name: detect-secrets (secrets scan — TEMPORARILY non-blocking, see comment)
+        continue-on-error: true
         run: |
           pip install "detect-secrets==1.5.0"
           detect-secrets scan --baseline .secrets.baseline
