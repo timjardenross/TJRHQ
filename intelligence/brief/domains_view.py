@@ -43,9 +43,19 @@ push-notification call site needs and this one doesn't) and by
 `_aggregation_constraints()` (aggregated groups become one synthesized
 `constraints` coverage sentence, never a per-event `what_matters` bullet).
 `evidence` is unchanged and still shows `item.reason` verbatim — that is
-its job, an explicit one-click-away audit drill-down, not a headline. See
-`_posture_for_items()` for a related, deliberately *not* fixed here, known
-limitation in the upstream risk-scoring input this module consumes.
+its job, an explicit one-click-away audit drill-down, not a headline.
+
+Unscored-risk fix (priority_engine.py): `_posture_for_items()` used to
+carry a known blind spot here — `priority_engine.py::_risk_from_importance_
+confidence()` defaulted a missing importance/confidence to 0, so an event
+that never sets either (e.g. `intelligence.source.failed`, published with
+no importance/confidence at all) got a real-looking `risk_score` of 0.0
+instead of `None`, indistinguishable here from a genuinely low-risk,
+fully-scored event. That upstream engine now returns `None` for this case
+instead of fabricating 0.0; every risk-consuming function below
+(`_risk_label`, `_posture_for_items`, the `watch_conditions` filter) was
+already written to exclude `None` on `is not None` grounds, so the fix
+took effect automatically here with no logic change needed.
 """
 
 from __future__ import annotations
@@ -122,6 +132,9 @@ class DomainsDocument:
 
 
 def _risk_label(risk_score: float | None) -> str | None:
+    # None here means priority_engine.py never scored the item (no
+    # importance/confidence signal at all) — genuinely unknown risk, not a
+    # real 0.0. Must stay its own branch, never fall through to GREEN.
     if risk_score is None:
         return None
     if risk_score >= _POSTURE_RED:
@@ -132,20 +145,14 @@ def _risk_label(risk_score: float | None) -> str | None:
 
 
 def _posture_for_items(items: list[CaptainBriefItem]) -> str:
-    # Known blind spot (not fixed here — see module docstring "Known
-    # limitation" note below): `priority_engine.py::_risk_from_importance_
-    # confidence()` treats a missing importance/confidence as 0, not
-    # "unknown," so an event that never sets either (e.g. `intelligence.
-    # source.failed`, published with no importance/confidence at all) gets
-    # a real `risk_score` of 0.0 rather than `None`. That 0.0 is
-    # indistinguishable here from a genuinely low-risk, fully-scored event,
-    # so a domain dominated by such events can post GREEN despite a real
-    # and possibly large failure count. `_event_bus_domain_summary()`
-    # mitigates this at the display layer — an aggregated failure count
-    # always surfaces as a `constraints` entry regardless of what this
-    # posture rollup says — but does not (and, being downstream of a
-    # shared, multi-consumer scoring engine, should not) alter the
-    # underlying risk_score itself.
+    # Unscored items (risk_score is None) are excluded from the max(), not
+    # coerced to 0 — an all-unscored domain reports posture "UNKNOWN"
+    # below rather than a fabricated "GREEN". A domain with both scored and
+    # unscored items still ranks by its scored items only; an unscored item
+    # can't push posture to RED/AMBER, matching this module's "never
+    # fabricate" contract (see priority_engine.py's own risk_score docstring
+    # and the module docstring's "Unscored-risk fix" paragraph above — this
+    # used to be a known blind spot before that upstream fix landed).
     risk_scores = [i.risk_score for i in items if i.risk_score is not None]
     if not risk_scores:
         return "UNKNOWN"
@@ -239,6 +246,9 @@ def _event_bus_domain_summary(
 
     watch_conditions: list[str] = []
     for item in individual_items:
+        # Same "None is not 0.0" exclusion as _posture_for_items above — an
+        # unscored item never qualifies as a watch condition, but it also
+        # never gets miscounted as safe; it simply carries no risk verdict.
         if item.risk_score is None or item.risk_score < _POSTURE_AMBER:
             continue
         text = _readable_text(item)

@@ -286,11 +286,16 @@ def assemble_captain_brief_document(
 
     # Warnings (Workstream E-adjacent): high-risk items, per the Priority
     # Engine's own risk_score (importance/confidence inverse) — a distinct
-    # cut across the same data, not a new score.
+    # cut across the same data, not a new score. risk_score is None for an
+    # event with no importance/confidence signal at all (priority_engine.py's
+    # own "unscored, not fabricated-0.0" contract) — explicitly excluded
+    # here rather than compared against the threshold (None >= float would
+    # raise) or coerced to 0, which would silently treat "never scored" the
+    # same as "scored and safe."
     warnings: list[CaptainBriefItem] = []
     for item in all_surfaced_items:
         score = score_map.get(item.event_id or "")
-        if score and score.risk_score >= _WARNING_RISK_THRESHOLD:
+        if score and score.risk_score is not None and score.risk_score >= _WARNING_RISK_THRESHOLD:
             warnings.append(item)
 
     domains_represented = {e.get("domain", "unknown") for e in events}

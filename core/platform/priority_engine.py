@@ -96,17 +96,30 @@ class PriorityScore:
     importance_score: float
     time_sensitivity_score: float
     value_score: float
-    risk_score: float
+    risk_score: float | None  # None = unscored (no importance/confidence signal at all) — never fabricate a 0.0 "safe" score for this case
     opportunity_score: float
     dominant_value_dimension: str | None
     explanation: str
 
 
-def _risk_from_importance_confidence(importance: int | None, confidence: int | None) -> float:
+def _risk_from_importance_confidence(importance: int | None, confidence: int | None) -> float | None:
     """Risk = high importance paired with low confidence (an unverified but
-    high-stakes signal). Absent confidence is treated as maximally
-    uncertain (worst case), not as neutral — per MSN-0301 Workstream C's
-    "inverse relationship" design, not a new independent score."""
+    high-stakes signal). Absent confidence (with importance present) is
+    treated as maximally uncertain (worst case), not as neutral — per
+    MSN-0301 Workstream C's "inverse relationship" design, not a new
+    independent score.
+
+    When BOTH importance and confidence are absent, there is no signal at
+    all to invert — returns None rather than defaulting both to 0, which
+    would silently compute a fabricated 0.0 ("genuinely low risk") for an
+    event nobody ever scored. This matters concretely: events published
+    with neither field set (e.g. `intelligence_store.py::save_source_health()`'s
+    `intelligence.source.failed`, emitted via `_publish_core_event(...,
+    description=...)` with no importance/confidence kwarg) must read as
+    "not scored," never as "scored and safe." Every consumer of
+    `PriorityScore.risk_score` must treat None as its own state, not as 0.0."""
+    if importance is None and confidence is None:
+        return None
     imp = importance if importance is not None else 0
     conf = confidence if confidence is not None else 0
     return round((imp / 100.0) * (1.0 - conf / 100.0) * 100.0, 2)
@@ -136,20 +149,29 @@ def score_event(inputs: PriorityInputs, *, weights: PriorityWeights | None = Non
         dominant_value_dimension = max(inputs.value_dimensions, key=inputs.value_dimensions.get)
         value_score = float(inputs.value_dimensions[dominant_value_dimension])
 
+    # risk_score is None only when neither importance nor confidence was
+    # supplied at all (see _risk_from_importance_confidence) — total_score
+    # stays a plain float (comparative ranking is this dataclass's other,
+    # separate job), so an unscored risk contributes 0 to it here. The
+    # honest "unscored" signal itself lives on `risk_score` below, which
+    # every consumer must check for None rather than treating as 0.0/safe.
+    risk_component = risk_score if risk_score is not None else 0.0
+
     total = (
         w.urgency * urgency_score
         + w.importance * importance_score
         + w.time_sensitivity * time_sensitivity_score
         + w.value * value_score
-        + w.risk * risk_score
+        + w.risk * risk_component
         + w.opportunity * opportunity_score
     )
 
+    risk_repr = "unscored" if risk_score is None else f"{risk_score:.0f}"
     explanation_parts = [
         f"importance={importance_score:.0f}(w={w.importance})",
         f"urgency={urgency_score:.0f}(w={w.urgency})",
         f"time_sensitivity={time_sensitivity_score:.0f}(w={w.time_sensitivity})",
-        f"risk={risk_score:.0f}(w={w.risk}, from importance/confidence inverse)",
+        f"risk={risk_repr}(w={w.risk}, from importance/confidence inverse)",
         f"opportunity={opportunity_score:.0f}(w={w.opportunity})",
     ]
     if dominant_value_dimension:
