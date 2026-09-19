@@ -137,12 +137,19 @@ async function evidenceAwareNote(sb: any): Promise<string> {
 export async function dispatchIntent(
   classified: ClassifiedIntent,
   sb: any,
+  /** Mission 6B closure-pass fix: the calling message's own id, propagated
+   * from the client (see route.ts's ChatMessage.id, threaded from
+   * ConsultView.tsx) — used as captureNote()'s idempotency key so a
+   * retried "remember" never creates a duplicate captured_items row. Only
+   * 'remember' needs this; every other intent mutates an existing row via
+   * UPDATE, which is naturally idempotent without one. */
+  requestId?: string | null,
 ): Promise<DispatchResult> {
   const ctx = await getNumberOneContext(sb);
 
   switch (classified.intent) {
     case 'remember': {
-      const result = await captureNote(sb, classified.argument ?? '');
+      const result = await captureNote(sb, classified.argument ?? '', requestId);
       if (!result.ok || !result.id) {
         return { handled: true, reply: "Couldn't capture that — try again in a moment." };
       }

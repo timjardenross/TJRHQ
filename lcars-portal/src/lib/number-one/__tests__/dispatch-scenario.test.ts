@@ -60,6 +60,13 @@ function makeFakeSupabase() {
       },
       maybeSingle: async () => {
         if (pendingInsert) {
+          // Simulate migration 0220's partial unique index on
+          // idempotency_key — the actual retry-safety mechanism under
+          // test, not application-level check-then-insert.
+          const key = pendingInsert.idempotency_key;
+          if (key != null && rows.some((r) => r.idempotency_key === key)) {
+            return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint "captured_items_idempotency_key_uidx"' } };
+          }
           const row = { id: `generated-${rows.length + 1}`, ...pendingInsert };
           rows.push(row);
           return { data: { id: row.id }, error: null };
@@ -195,16 +202,59 @@ describe('Mission 6B — primary natural-language programme scenario (executable
     expect(sb.__tables.personal_tasks[0].work_state).toBe('completed'); // stable end state, not toggled/duplicated
   });
 
-  it('GENUINE GAP (documented, not silently assumed fixed): "remember" has no idempotency key, unlike defer/complete which are naturally idempotent updates', async () => {
-    // A retried "remember that X" (e.g. a network-retried POST) calls
-    // captureNote() twice, and captureNote() always INSERTs — there is no
-    // idempotency key the way recordSupportEvent() has one. This is the
-    // one canonical-mutation path in the dispatcher that is NOT proven
-    // retry-safe. Recorded honestly here rather than asserted as safe.
+  // Mission 6B closure-pass fix (migration 0220, captured_items.
+  // idempotency_key): a retried "remember" must not create a duplicate
+  // captured_items row. dispatchIntent's third arg (requestId) is the
+  // idempotency key, threaded from the calling chat message's own id
+  // (route.ts -> ConsultView.tsx). The 4 scenarios below are the exact
+  // ones required before this could be merged.
+
+  it('SAME REQUEST RETRY: remember(request_id=X) twice -> one canonical capture', async () => {
     const remember = classifyIntent('Remember that I need to call the vet.')!;
-    await dispatchIntent(remember, sb);
-    await dispatchIntent(remember, sb); // simulated retry of the identical command
-    expect(sb.__tables.captured_items).toHaveLength(2); // duplicate — this is the real gap, not a false pass
+    const r1 = await dispatchIntent(remember, sb, 'req-X');
+    const r2 = await dispatchIntent(remember, sb, 'req-X'); // retry, identical id
+    expect(sb.__tables.captured_items).toHaveLength(1);
+    expect(r1.reply).toBe(r2.reply); // both resolve to the same canonical row
+  });
+
+  it('CONCURRENT DUPLICATE: two racing requests with the same idempotency identity -> one canonical capture', async () => {
+    const remember = classifyIntent('Remember that I need to call the vet.')!;
+    // Both "requests" race against the same underlying store — since our
+    // fake client's insert is synchronous-per-call (no real async
+    // interleaving), this proves the unique-constraint-then-fallback-read
+    // logic itself is correct for a race, which is exactly what the real
+    // Postgres unique index enforces atomically regardless of interleaving.
+    const [r1, r2] = await Promise.all([
+      dispatchIntent(remember, sb, 'req-race'),
+      dispatchIntent(remember, sb, 'req-race'),
+    ]);
+    expect(sb.__tables.captured_items).toHaveLength(1);
+    expect(r1.reply).toBe(r2.reply);
+  });
+
+  it('LEGITIMATE REPETITION: remember(text, request_id=X) then remember(same text, request_id=Y) -> two legitimate captures', async () => {
+    const remember = classifyIntent('Remember to call the specialist.')!;
+    await dispatchIntent(remember, sb, 'req-X');
+    await dispatchIntent(remember, sb, 'req-Y'); // different request, same content -- a deliberate second capture
+    expect(sb.__tables.captured_items).toHaveLength(2);
+  });
+
+  it('FAILURE/RETRY: mutation succeeds server-side but the caller believes the response was lost and retries with the same identity -> one canonical capture', async () => {
+    const remember = classifyIntent('Remember that I need to call the vet.')!;
+    const serverSideResult = await dispatchIntent(remember, sb, 'req-lost-response');
+    expect(serverSideResult.handled).toBe(true); // the row WAS created
+    // Caller behaves as though it never got a reply and resends the
+    // identical request.
+    const retryResult = await dispatchIntent(remember, sb, 'req-lost-response');
+    expect(sb.__tables.captured_items).toHaveLength(1);
+    expect(retryResult.reply).toBe(serverSideResult.reply);
+  });
+
+  it('a "remember" with no idempotency key (older/other caller) still captures, unaffected — pre-existing behaviour preserved', async () => {
+    const remember = classifyIntent('Remember that I need to call the vet.')!;
+    await dispatchIntent(remember, sb); // no requestId — key omitted entirely
+    expect(sb.__tables.captured_items).toHaveLength(1);
+    expect(sb.__tables.captured_items[0].idempotency_key).toBeNull();
   });
 
   it('DO_NOT_SUGGEST remains authoritative: an excluded intervention never appears in the evidence-aware note', async () => {

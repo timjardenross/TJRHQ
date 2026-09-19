@@ -18,6 +18,13 @@ const TIMEOUT_MS = 60_000;
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  /** Mission 6B closure-pass fix: optional client-assigned message id.
+   * When present on the latest user message and role is 'number_one',
+   * used as the idempotency key for a dispatched "remember" capture so a
+   * retried request can't create a duplicate captured_items row. Ignored
+   * (and stripped before the upstream LLM call, same as any other role
+   * for the LLM's own request shape). */
+  id?: string;
 }
 
 export interface ChatRequest {
@@ -204,7 +211,7 @@ export async function POST(request: NextRequest) {
     const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
     const classified = lastUserMessage ? classifyIntent(lastUserMessage.content) : null;
     if (classified) {
-      const dispatchResult = await dispatchIntent(classified, supabase).catch(() => ({ handled: false } as const));
+      const dispatchResult = await dispatchIntent(classified, supabase, lastUserMessage?.id ?? null).catch(() => ({ handled: false } as const));
       if (dispatchResult.handled && dispatchResult.reply) {
         return stream
           ? sseFromText(dispatchResult.reply)

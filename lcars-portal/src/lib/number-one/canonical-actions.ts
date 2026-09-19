@@ -16,10 +16,28 @@ export interface CanonicalActionResult {
   error?: string;
 }
 
+const POSTGRES_UNIQUE_VIOLATION = '23505';
+
 /** Mirrors lib/capture.ts's captureItem() for the 'note' type — Number One
  * only ever files a plain note via "remember this"; anything requiring
- * mission/decision review-gating stays the Capture Workbench's job. */
-export async function captureNote(sb: any, text: string): Promise<CanonicalActionResult> {
+ * mission/decision review-gating stays the Capture Workbench's job.
+ *
+ * `idempotencyKey` (migration 0220, captured_items.idempotency_key) —
+ * Mission 6B closure-pass fix: retrying the same logical Captain action
+ * (a network-retried POST, a client that resends after a lost response)
+ * must not create a second captured_items row. This is deliberately an
+ * EXACT identity match (a caller-supplied request/message id), never
+ * fuzzy content dedup — two captures with identical text but different
+ * keys are two legitimate captures (the Captain choosing to record the
+ * same thing again later), not a retry. Safety comes from the database's
+ * partial unique index, not an application-level check-then-insert (which
+ * would race under concurrent duplicate requests): the insert either
+ * succeeds once, or fails with a unique violation, in which case the
+ * caller reads back whichever row actually won and treats that as success
+ * — so every retry/race path converges on exactly one canonical row.
+ * Omitting the key preserves the exact pre-existing (non-idempotent)
+ * behaviour for callers that don't supply one. */
+export async function captureNote(sb: any, text: string, idempotencyKey?: string | null): Promise<CanonicalActionResult> {
   const body = text.trim();
   if (!body) return { ok: false, error: 'Nothing to capture.' };
 
@@ -44,11 +62,25 @@ export async function captureNote(sb: any, text: string): Promise<CanonicalActio
     review_status: 'unreviewed',
     requires_review: false,
     ai_enrichment_status: 'not_enriched',
+    idempotency_key: idempotencyKey ?? null,
   };
 
   try {
     const { data, error } = await sb.from('captured_items').insert(payload).select('id').maybeSingle();
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      if (idempotencyKey && error.code === POSTGRES_UNIQUE_VIOLATION) {
+        // Lost the race (or this IS the retry) — the row for this exact
+        // request already exists. Read it back rather than treat this as
+        // a failure or insert a second row.
+        const existing = await sb
+          .from('captured_items')
+          .select('id,title')
+          .eq('idempotency_key', idempotencyKey)
+          .maybeSingle();
+        if (existing.data?.id) return { ok: true, id: existing.data.id, title: existing.data.title ?? title };
+      }
+      return { ok: false, error: error.message };
+    }
     return { ok: true, id: data?.id, title };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Capture failed.' };

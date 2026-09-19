@@ -82,7 +82,7 @@ New test: `lcars-portal/src/lib/number-one/__tests__/dispatch-scenario.test.ts` 
 
 **Boundary identified, not glossed over**: `context_service.py`'s own `/remember` logic and Model Router's real decompose model call are proven live elsewhere (`core/context-assembly/tests/test_remember.py`; Model Router's own test suite) — this test proves the JS dispatcher's continuity/idempotency contract against those interfaces, not the full multi-repo live call chain in one process.
 
-**One genuine gap surfaced by this proof, not hidden**: `remember` has no idempotency key — a retried "remember that X" (e.g. a network-retried POST) creates a second `captured_items` row. `defer`/`complete`/`where_was_i`/`stuck`/`cant_start`/`too_much` are naturally idempotent (UPDATE-on-existing-row or pure reads); `remember`'s INSERT is not. Added to residual debt below — not fixed in this pass (would need an idempotency-key mechanism like `recordSupportEvent`'s, which is a real design decision, not a one-line fix, and the Captain's instruction was not to manufacture new work beyond what testing reveals as a genuine gap — this one is genuine and is reported, not silently patched).
+**Idempotency gap found by this proof — FIXED (Captain-mandated blocking defect, not residual debt)**: `remember` had no idempotency key, so a retried "remember that X" created a duplicate `captured_items` row. Fixed via migration `0220_captured_items_idempotency_key.sql` — a nullable `idempotency_key` column on `captured_items` (Mission 3's canonical table, not a Number-One-specific mechanism) with a partial unique index. `captureNote()` now accepts an optional idempotency key, threaded from the calling chat message's own `id` (`route.ts`'s `ChatMessage.id` → `ConsultView.tsx`). Safety comes from the database's unique constraint, not application-level check-then-insert: a second insert with the same key fails atomically under a real concurrent race, and the caller reads back whichever row won. Exact-identity match only, never fuzzy content dedup (a Captain repeating the same words later with a different request id is two legitimate captures). 5 new tests prove: same-request retry → one row; concurrent race → one row; legitimate repetition (different ids) → two rows; failure/retry-after-lost-response → one row; no key supplied → pre-existing behaviour unaffected.
 
 ### Capacity × posture representative matrix
 No new test needed — two already-passing suites already constitute this proof:
@@ -99,14 +99,16 @@ Covered in `dispatch-scenario.test.ts`'s second describe block: all 7 adversaria
 ### Migration 0219 — live-schema assessment (read-only, not applied)
 Investigated via Supabase MCP tools against the live project: no numbering or table-name collision (confirmed `number_one_context` does not exist live, and 0219 is not already applied), migration SQL is syntactically valid and matches this project's own RLS conventions, rollback is a trivial `drop table` (new, isolated, zero FKs). **One incidental finding, unrelated to 0219 itself**: `user_settings` — the table cited as precedent for the single-row `authenticated ... using(true)` RLS pattern — actually has RLS enabled with **zero policies** live (fail-closed, likely broken), so the precedent comparison was to a misconfigured table; 0219 itself is written correctly (it includes an explicit policy) and doesn't inherit this problem, but `user_settings`'s state is a separate pre-existing bug worth flagging. **0219 has NOT been applied to live Supabase** — application requires the Captain's explicit approval per this session's production/shared-state boundary; this is a recommendation (GO), not an action taken.
 
-## Residual technical debt (explicit, not hidden, not manufactured)
+## Final residual technical debt register (explicit, not hidden, not manufactured)
 
 1. **Two G-008-readiness signals** (`decision_effectiveness.py` jsonl-backed live; `get_decision_quality_stats()` `outcome_records`-backed orphaned) — different evidence sources computing the same threshold. Unreconciled by design (8.10 disposition); needs a real migration decision, not attempted here.
-2. **`remember` has no idempotency key** (found by the executable proof above) — a retried capture command can create a duplicate `captured_items` row. Every other canonical mutation in the dispatcher is naturally idempotent; this one genuinely is not.
-3. `evidenceAwareNote()` can restate what a just-completed decompose call already did — cosmetic phrasing overlap, not incorrect.
-4. `too_much`/`cant_start` share one decompose mode (`smaller`) — correct given the Model Router endpoint's real contract; no dedicated overload mode exists to differentiate with.
-5. Multi-candidate disambiguation ("which of these two tasks") is not implemented in the deterministic dispatcher — structurally out of scope for a single-slot context store; falls through to the LLM layer today.
+2. `evidenceAwareNote()` can restate what a just-completed decompose call already did — cosmetic phrasing overlap, not incorrect.
+3. `too_much`/`cant_start` share one decompose mode (`smaller`) — correct given the Model Router endpoint's real contract; no dedicated overload mode exists to differentiate with.
+4. Multi-candidate disambiguation ("which of these two tasks") is not implemented in the deterministic dispatcher — structurally out of scope for a single-slot context store; falls through to the LLM layer today.
+5. Pre-existing, separately-owned: `user_settings` has RLS enabled with zero policies live (found incidentally during the 0219 live-schema check) — fail-closed, likely broken, unrelated to Mission 6B's own security posture. Not expanded into this mission's scope.
+
+(The `remember` idempotency gap previously listed here was fixed, not left as debt — see above.)
 
 ## PR / merge
 
-Pushed as PR #281. Awaiting Captain review of this closure pass before merge decision. See `MISSION-6B-PR-281-FINAL-CLOSURE-REPORT.md` for the formal go/no-go report.
+Pushed as PR #281. Idempotency fix, migration 0219 + 0220 applied to live Supabase, final CI, and merge status recorded in the programme closure record.

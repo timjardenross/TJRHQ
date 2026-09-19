@@ -68,7 +68,10 @@ export function ConsultView({ initialAdvisorId }: { initialAdvisorId?: string } 
     const endpoint = activeAdvisor.useXoEndpoint ? '/api/xo' : '/api/ai/chat';
     const body = activeAdvisor.useXoEndpoint
       ? JSON.stringify({ messages: history.map((m) => ({ role: m.role, content: m.content })) })
-      : JSON.stringify({ messages: history.map((m) => ({ role: m.role, content: m.content })), role: activeAdvisor.id, model: selectedModel, stream: true });
+      // id: threaded through so a dispatched Number One "remember" can use
+      // it as an idempotency key (Mission 6B closure-pass fix) — harmless
+      // for every other role, which ignores it.
+      : JSON.stringify({ messages: history.map((m) => ({ role: m.role, content: m.content, id: m.id })), role: activeAdvisor.id, model: selectedModel, stream: true });
 
     try {
       const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
