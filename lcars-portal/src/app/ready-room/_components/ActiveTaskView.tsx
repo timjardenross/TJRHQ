@@ -2,7 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { Button, Textarea } from '@/components/ui';
-import { updateTaskState, type PersonalTask } from '@/lib/personalTasks';
+import { updateTaskState, type PersonalTask, type ReadyRoomPosture } from '@/lib/personalTasks';
+import { recordSupportCompletion } from './SupportFeedback';
+
+/** Mission 5 — set only by a caller that knows a Ready Room support
+ *  intervention actually led to this task (e.g. DecomposeView after a
+ *  real UNSTICK ME suggestion). Reaching Done from here IS the outcome
+ *  signal (spec: "task completion after a support action IS the outcome
+ *  signal") — no extra UI, the completion write below fires the evidence
+ *  event alongside it. Deliberately never fired from "I'm stopping
+ *  here"/saveAndStop: pausing to resume later (Pick Up Banner) is a
+ *  legitimate pattern, not a failure, and must never write a negative
+ *  outcome. */
+export interface SupportContext {
+  interventionId: string;
+  posture?: ReadyRoomPosture;
+}
 
 /** The "YOU'RE DOING" experience (spec §12) — starting a task should feel
  * like an immediate action, not another admin screen. No timers, streaks,
@@ -12,15 +27,24 @@ export function ActiveTaskView({
   onDone,
   onPaused,
   onBack,
+  supportContext,
 }: {
   task: PersonalTask;
   onDone: () => void;
   onPaused: () => void;
   onBack: () => void;
+  /** Mission 5 (optional, default none) — see SupportContext above. */
+  supportContext?: SupportContext | null;
 }) {
   const [stopping, setStopping] = useState(false);
   const [note, setNote] = useState(task.restart_cue ?? '');
   const [busy, setBusy] = useState(false);
+  // One idempotency key per (task, support intervention) pairing — stable
+  // across a double-click on Done, regenerated only if the underlying task
+  // changes (a fresh ActiveTaskView instance).
+  const [completionKey] = useState(() =>
+    (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${task.id}-${Date.now()}`),
+  );
 
   const startHere = task.micro_action?.trim() || task.title;
 
@@ -32,6 +56,17 @@ export function ActiveTaskView({
   async function complete() {
     setBusy(true);
     await updateTaskState(task.id, 'completed');
+    if (supportContext) {
+      // Fire-and-forget alongside the completion write — never blocks
+      // Done, never surfaces a separate error state (see
+      // recordSupportEvent's own fire-and-forget contract).
+      void recordSupportCompletion({
+        interventionId: supportContext.interventionId,
+        taskRef: task.id,
+        posture: supportContext.posture,
+        idempotencyKey: completionKey,
+      });
+    }
     setBusy(false);
     onDone();
   }

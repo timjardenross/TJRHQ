@@ -126,4 +126,41 @@ def fetch_outcome_history(limit: int = 100) -> list[dict[str, Any]]:
         return []
 
 
-__all__ = ["fetch_outcome_history", "record_insight", "record_outcome"]
+def fetch_similar_outcomes(
+    source_kind: str,
+    source_domains: list[str],
+    *,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """Mission 5 (Evidence & Adaptive Support): the read this table has
+    lacked since MSN-0329 Phase 4 — every other caller of
+    `fetch_outcome_history()` is zero until this one. A thin filter over
+    it, not a second query shape or a second evidence engine: rows with
+    a real recorded `outcome` ('useful'/'not_useful'/'incorrect' —
+    'pending' rows carry no evidence yet and are excluded) whose
+    `source_kind` matches and whose `source_domains` overlaps this
+    insight's own. This is deliberately a correlational, "associated
+    with"/"was previously useful in similar contexts" match on kind +
+    domain, the same causality-guarded framing
+    `capacitybot/intervention_engine.py`'s own evidence surfacing uses
+    ("was followed by improvement in N of M") — never a claim that a
+    past outcome *caused* anything about this new insight.
+
+    Degrades exactly like `fetch_outcome_history()`: [] on any error,
+    Supabase disabled, or no domains given — an empty result is an
+    honest "no evidence yet", not an error.
+    """
+    domains = set(source_domains)
+    if not domains:
+        return []
+    history = fetch_outcome_history(limit=limit)
+    return [
+        row
+        for row in history
+        if row.get("source_kind") == source_kind
+        and row.get("outcome") in ("useful", "not_useful", "incorrect")
+        and domains & set(row.get("source_domains") or [])
+    ]
+
+
+__all__ = ["fetch_outcome_history", "fetch_similar_outcomes", "record_insight", "record_outcome"]

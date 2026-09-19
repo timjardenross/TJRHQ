@@ -9,6 +9,7 @@ import {
 import { FOLLOW_THROUGH_MODES, autoSwitchModeOnDueDate } from './followThroughMode';
 import { ActiveTaskView } from './ActiveTaskView';
 import { PickUpBanner } from './PickUpBanner';
+import { SupportFeedbackPrompt } from './SupportFeedback';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 type Stage = 'input' | 'thinking' | 'result' | 'started';
@@ -57,6 +58,14 @@ export function DecomposeView({
   const [clarifyQuestion, setClarifyQuestion] = useState<string | null>(null);
   const [regulateSuggestion, setRegulateSuggestion] = useState<string | null>(null);
   const [pickUp, setPickUp] = useState<PersonalTask[]>([]);
+  // Mission 5 — bumped every time decomposeTask() actually returns a real,
+  // usable micro-action (not a REGULATE/CLARIFY branch, not an error) —
+  // remounts SupportFeedbackPrompt (keyed on this) so feedback is scoped
+  // to the specific suggestion currently on screen, not left over from an
+  // earlier "Try another"/"Make it smaller" pass. Also doubles as "was
+  // UNSTICK ME actually used" for ActiveTaskView's completion signal.
+  const [feedbackNonce, setFeedbackNonce] = useState(0);
+  const [supportUsed, setSupportUsed] = useState(false);
   // Kept separate from `goal` — `goal` becomes the saved task/mission title
   // verbatim (startHere/turnIntoMission below), so a clarifying Q&A must
   // never be folded into it. Only used to build the text sent to the
@@ -100,6 +109,8 @@ export function DecomposeView({
     if (action) {
       setMicroAction(action);
       setDecomposeError(null);
+      setSupportUsed(true);
+      setFeedbackNonce((n) => n + 1);
     } else {
       setDecomposeError(error ?? "Couldn't generate a step automatically — write your own below.");
     }
@@ -218,6 +229,8 @@ export function DecomposeView({
     setClarifyQuestion(null);
     setRegulateSuggestion(null);
     setClarification(null);
+    setSupportUsed(false);
+    setFeedbackNonce(0);
   }
 
   if (stage === 'started' && startedTask) {
@@ -227,6 +240,12 @@ export function DecomposeView({
         onDone={() => { reset(); onSaved(); }}
         onPaused={() => { reset(); onSaved(); }}
         onBack={reset}
+        // Mission 5: only attribute this task's completion to UNSTICK ME
+        // when a real decompose suggestion actually led here — a task
+        // started after the model failed/errored and the Captain wrote
+        // their own micro-action never used the support, so it must not
+        // count as evidence for it.
+        supportContext={supportUsed ? { interventionId: 'rr_unstick_me', posture: context.posture } : null}
       />
     );
   }
@@ -299,6 +318,21 @@ export function DecomposeView({
             <Button variant="secondary" disabled={busy} onClick={() => tryVariant('smaller')}>Make it smaller</Button>
             <Button variant="secondary" disabled={busy} onClick={() => tryVariant('another')}>Try another</Button>
           </div>
+
+          {/* Mission 5 — Evidence & Adaptive Support (spec §12/§30). Only
+              shown when decomposeTask() actually returned a suggestion
+              (see feedbackNonce/supportUsed above), never on a manually
+              typed step. Keyed on feedbackNonce so it resets per
+              suggestion instead of carrying a stale dismissal across
+              "Try another"/"Make it smaller". */}
+          {supportUsed && (
+            <SupportFeedbackPrompt
+              key={feedbackNonce}
+              interventionId="rr_unstick_me"
+              posture={context.posture}
+              label="Was that suggestion helpful?"
+            />
+          )}
 
           <Textarea
             label="What would be good enough?"

@@ -2,13 +2,16 @@
 
 **Status:** Phase 0 (discovery) complete. Phase 1 (signal-leakage fix,
 backend-only) shipped in [PR #275](https://github.com/timjardenross/TJRHQ/pull/275).
-Phases 2-3 (merged cross-domain assembly + the Briefs "Domains" tab UI)
-implemented and tested in this pass — see §8 for what shipped. Phases 4-5
-(attention-semantics rework, Captain's Brief retirement) scoped below,
-**not implemented in this pass** — see §5 for why, and §6 for how they're
-queued. Phase 3 landing means Phase 5's own gate ("once equivalent or
-superior capability exists in Briefs") is now within reach, though not yet
-declared met — see §5.
+Phase 4 (attention-semantics rework, backend-only) shipped concurrently in
+[PR #276](https://github.com/timjardenross/TJRHQ/pull/276) — pulled forward
+out of its original Phase-1-dependency-only ordering (§6) since it needed
+no UI/Domains-IA prerequisite of its own; see §11 for detail. Phases 2-3
+(merged cross-domain assembly + the Briefs "Domains" tab UI) implemented
+and tested in this pass — see §8 for what shipped. Phase 5 (Captain's
+Brief retirement) is scoped below, **not implemented in this pass** — see
+§5 for why. With Phases 1-4 all landed, Phase 5's own gate ("once
+equivalent or superior capability exists in Briefs") is now within reach,
+though not yet declared met — see §5.
 
 This document is the dependency map the consolidation mission requires
 before any UI removal or route change, plus the phased plan for the
@@ -206,17 +209,19 @@ of unvalidated claim the mission's §1/§11/§15 warn against — so retirement
 stays out of scope for this pass, pending either a live walkthrough or the
 Captain's own sign-off that the Domains tab is a real replacement.
 
-Attention-semantics rework (Phase 4, mission §7) is unrelated to the IA
-question and was never blocking Phase 2-3 — it's a separate, real design
-task (materiality/novelty/persistence/dedup scoring) deferred only because
-bundling it here would violate the mission's own "do not trade validation
-for speed" instruction (§15) by mixing two independently-reviewable
-changes into one diff.
+Attention-semantics rework (Phase 4, mission §7) was unrelated to the IA
+question and never blocked Phase 2-3 — it landed concurrently, in a
+separate session, as [PR #276](https://github.com/timjardenross/TJRHQ/pull/276)
+(§11). Landing separately rather than bundled into this pass matches the
+mission's own "do not trade validation for speed" instruction (§15): two
+independently-reviewable changes, two diffs, not one.
 
-What *was* done, across this pass and the two before it: Phase 1's
+What *was* done, across this pass and the three before it: Phase 1's
 signal-leakage root-cause fix (§7, PR #275) — backend-only, additive,
-backward-compatible. Phase 2's shared cross-domain assembly step and Phase
-3's Domains tab UI (§8) — both new, additive surfaces (a new Python module
+backward-compatible. Phase 4's persistence/novelty gate (§11, PR #276) —
+also backend-only, additive, opt-in via a defaulted kwarg. Phase 2's shared
+cross-domain assembly step and Phase 3's Domains tab UI (§8) — both new,
+additive surfaces (a new Python module
 + HTTP route, a new Next.js route + tab) that touch no existing route,
 nav entry, or UI behaviour outside the new tab itself.
 
@@ -229,8 +234,8 @@ nav entry, or UI behaviour outside the new tab itself.
 | **1 — done** (PR #275) | Signal-leakage root-cause fix (§7) | — | Domains IA would inherit fabricated recommendations |
 | **2 — done, this pass** | Merged cross-domain assembly: new `intelligence/brief/domains_view.py` + `GET /brief/domains`, merging System A's domain sections (Engineering/Missions/Learning/Opportunities/Health/Operational Intelligence) with `domain_picture` (§8) | Phase 1 | Domains IA ships incomplete, mission's own domain list (§3.9) unmet |
 | **3 — done, this pass** | Briefs "Domains" tab UI — per-domain synthesized picture (posture/changed/what-matters/watch/evidence), read-only with link-out drill-down (§8) | Phase 2 | Two competing domain views persist |
-| **4** | Attention-semantics rework — materiality/novelty/persistence/dedup on top of the existing threshold cut, feeding a genuinely scarce "Needs Attention" list | Phase 1 (clean data) | "Needs Attention" stays a raw threshold cut, contra mission §7 |
-| **5** | Captain's Brief retirement — redirect `/captains-brief-workbench` → `/briefs`, remove nav/registry entries, update `interrupt_dispatcher.py`'s deep-link, update Platform Registry citations (§4.6) | Phase 3 validated live (§5, §8) + Phase 4 | Premature deletion, information loss (mission §1/§11 explicitly prohibit this) |
+| **4 — done** (PR #276) | Attention-semantics rework — materiality/novelty/persistence/dedup on top of the existing threshold cut, feeding a genuinely scarce "Needs Attention" list (§11) | Phase 1 (clean data) | "Needs Attention" stays a raw threshold cut, contra mission §7 |
+| **5** | Captain's Brief retirement — redirect `/captains-brief-workbench` → `/briefs`, remove nav/registry entries, update `interrupt_dispatcher.py`'s deep-link, update Platform Registry citations (§4.6) | Phase 3 validated live (§5, §8) | Premature deletion, information loss (mission §1/§11 explicitly prohibit this) |
 
 Phases 2-5 are independent PRs/sessions by design — each has its own UI
 validation surface, its own risk profile, and its own reviewable diff.
@@ -427,21 +432,24 @@ this repo's conventions ask for — see §5.
 Tracked as separate suggested tasks rather than bundled here, since each is
 independently scoped, reviewable, and testable:
 
-- Verify and, if warranted, fix the same raw-text-as-recommended_action
-  pattern in `notebook_route_executor.py:167` and `comms/portfolio.py:78`.
+- ~~Verify and, if warranted, fix the same raw-text-as-recommended_action
+  pattern in `notebook_route_executor.py:167` and `comms/portfolio.py:78`.~~
+  **Done** — fixed in [PR #277](https://github.com/timjardenross/TJRHQ/pull/277).
 - Live-browser validation of the Domains tab (§8's caveat) — a real
   authenticated walkthrough across the three scenarios, to actually clear
   Phase 5's "equivalent or superior capability" gate rather than assume it.
-- Stale domain_picture caption on `/briefs/[id]` (§8, found in passing).
-- Phase 4: attention-semantics rework (materiality/novelty/persistence
-  scoring on top of the existing threshold cut).
+- Stale domain_picture caption on `/briefs/[id]` (§8, found in passing) —
+  spun off as a separate background task, in progress as of this pass.
+- ~~Phase 4: attention-semantics rework~~ **Done** — landed concurrently as
+  [PR #276](https://github.com/timjardenross/TJRHQ/pull/276) (§11).
 - Phase 5: Captain's Brief workbench retirement + nav/registry cleanup +
   Platform Registry correction (including the two already-stale citations
-  found in this discovery, independent of this mission's outcome).
+  found in this discovery, independent of this mission's outcome). Now the
+  only phase left — blocked on the live-browser validation item above.
 
 ---
 
-## 10. Final capability map (target state, once Phases 4-5 land)
+## 10. Final capability map (target state, once Phase 5 lands)
 
 ```
 SOURCE SYSTEMS
@@ -480,5 +488,117 @@ today (`NeedsYou.tsx`, `Remember.tsx`, `Intelligence.tsx`,
 `ApprovalQueue.tsx` is not wired into the current `-workbench` page). The
 new Domains tab (§8) preserves this boundary explicitly — no
 approve/reject/execute affordances, link-out only. That boundary is a
-design decision worth preserving through Phases 4-5 too, not an accident
-to fix.
+design decision worth preserving through Phase 5 too, not an accident to
+fix.
+
+---
+
+## 11. Phase 4 detail: attention-semantics rework (PR #276, landed concurrently)
+
+Implemented in a separate, concurrent session as
+[PR #276](https://github.com/timjardenross/TJRHQ/pull/276) — included here
+so this doc stays the single source of truth for the whole mission's
+phased plan, not because it was built as part of this pass.
+
+**Problem** (mission §7): `attention_engine.py::evaluate_event()` routed
+every event into INTERRUPT_NOW on a pure `importance >= 75 AND confidence
+>= 70` threshold cut, with no materiality, novelty, persistence, or
+already-flagged dedup on top. Two concrete real-pipeline symptoms:
+
+1. `intelligence/scheduler.py::_attention_evaluation_job()` calls
+   `event_bus.poll_events()` with no `since` cursor every
+   `ATTENTION_EVAL_INTERVAL_MINUTES` (default 10) — the same already-
+   dispatched row (now `status="acknowledged"`) keeps reappearing in the
+   poll and kept being re-classified as a fresh INTERRUPT_NOW on every
+   cycle. `interrupt_dispatcher.py`'s own status check already prevented
+   a *duplicate push*, but the classification itself (`doc.interrupt_now`,
+   `doc.metadata.attention_category_counts.interrupt_now`) stayed noisy —
+   the exact gap a future "Needs Attention" list reading that field
+   directly (not just the dispatcher) would have inherited.
+2. A domain that re-publishes a fresh row (new `event_id`, unchanged
+   `importance`/`confidence`) every cycle for a still-true, already-
+   acknowledged condition had no mechanism to be recognised as "the same
+   thing again," since `core_events` rows are insert-only and each
+   occurrence gets its own id.
+
+**Fix**: a persistence/novelty gate added on top of the existing
+threshold cut in `core/platform/attention_engine.py` — the threshold
+logic itself (`_route_by_threshold()`, the pre-existing `evaluate_event()`
+body, unchanged) still decides the base category first. Only a decision
+that already resolved to INTERRUPT_NOW is then checked against an
+optional `recent_surfaced` list of `core_events`-shaped rows:
+
+- **Match key**: `(domain, event_type)` — `core_events` has no title
+  column (unlike `intelligence_briefs.top_events`, which
+  `intelligence/brief/comparison.py` matches by title similarity), so
+  this is the table's own deterministic grouping key, the same pair
+  `evaluate_batch()`'s SHOULD_BE_AGGREGATED branch already groups by. A
+  row is allowed to match itself, which is what makes symptom #1 above
+  self-correcting: the identical re-polled row naturally carries zero
+  delta against itself.
+- **Already-surfaced check**: the matched row's `status` must be
+  `acknowledged`, `dismissed`, or `superseded` (`event_bus.py`'s own
+  status vocabulary) — a still-`"new"` prior row is not "already
+  surfaced" and is not dedup grounds.
+- **Materiality check**: importance or confidence must have moved by
+  `AttentionThresholds.material_change_delta` (default 15) or more since
+  the matched prior row to count as a genuine change; either side missing
+  a score is treated as a change (never silently suppress on incomplete
+  data — the same "absent is not defaulted" convention the base threshold
+  cut already applies).
+- **Recency window**: `AttentionThresholds.recurrence_lookback_hours`
+  (default 24), compared against `occurred_at` when both rows carry a
+  parseable timestamp.
+- **Downgrade target**: a prior `dismissed` row (a Captain explicitly
+  said "not this") downgrades to `SHOULD_SIMPLY_BE_REMEMBERED`;
+  `acknowledged`/`superseded` downgrade to `CAN_BE_DELAYED`. Never
+  discarded outright — always a real category, never a black-box drop,
+  per Blueprint Principle 3. `AttentionDecision.duplicate_of_event_id`
+  is set to the matched prior row's `event_id` so the downgrade traces to
+  a queryable row, same convention `related_event_ids` uses for
+  SHOULD_BE_SUMMARISED.
+
+**Wiring**: `evaluate_event()`/`evaluate_batch()` both take an optional
+`recent_surfaced` kwarg (default `None` — omitting it is byte-for-byte
+the pre-Phase-4 behaviour, so every existing caller and test is
+unaffected). `captain_brief_orchestrator.py::assemble_captain_brief_document()`
+defaults `recent_surfaced` to the `events` batch it was already given
+(self-referential dedup, zero extra I/O) unless a caller passes its own
+list or an explicit `[]` to opt out — this fixes symptom #1 for every
+existing caller of `assemble_captain_brief_document()`
+(`_attention_evaluation_job()`, `commands/brief.py`, `daily_digest.py`,
+`captain_brief_cli.py`, `context_service.py`,
+`captain_brief_evolution.py`) with no per-caller changes required.
+`interrupt_dispatcher.py` is unchanged — it already reads
+`doc.interrupt_now`, which now simply contains fewer stale repeats.
+
+**Explicitly not done in this pass**: no wiring into a "Needs Attention"
+Briefs UI section — Phases 2/3 (merged cross-domain assembly, Briefs
+"Domains" tab) had not landed yet as of this PR (they landed shortly
+after, concurrently, per §8), and this task was scoped backend-only
+regardless. `recent_surfaced` beyond one poll's
+own batch (a deliberately broader history query) is left to whichever of
+Phase 2/3 or a future "Needs Attention" surface first needs it — the
+parameter exists precisely so that can be added without another
+`attention_engine.py` change.
+
+**Tests**: `tests/test_attention_recurrence_gate.py` (new, 17 tests) —
+covers no-`recent_surfaced`-passed backward compatibility, same-row
+re-poll after acknowledgement, cross-event_id recurrence by
+`(domain, event_type)`, dismissed-vs-acknowledged downgrade targets,
+genuine escalation (importance and confidence, independently) still
+interrupting, sub-threshold drift still suppressing, missing prior scores
+never silently suppressing, no-match/still-"new"-prior not suppressing,
+the gate never touching a non-INTERRUPT_NOW decision, the recency window
+(default and widened), a custom `material_change_delta`, and determinism
+across repeated calls. Plus 2 new tests in
+`tests/test_captain_brief_orchestrator.py` covering the orchestrator's
+default self-referential wiring and its explicit opt-out. All
+pre-existing tests across `test_attention_engine.py`,
+`test_captain_brief_orchestrator.py`, `test_interrupt_dispatcher.py`,
+`test_daily_brief_interrupt_now.py`, `test_signal_leakage_fix.py`,
+`test_attention_evaluation_job.py`, `test_captain_brief_contract.py`,
+`test_cognitive_core_regression.py`, `test_approval_router.py`,
+`test_priority_engine_wiring.py` and `test_downdetector_priority_cadence.py`
+(97 tests total across this file's set, including the 19 new ones above)
+pass unchanged — additive change, no existing behaviour altered.
