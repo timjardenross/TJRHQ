@@ -182,6 +182,20 @@ trust model for a less-controlled surface (Telegram) and could not resolve it wi
 confidence in this pass — left as deferred item §5.4 rather than merging two systems with
 different governance postures without being sure that's correct.
 
+## 3.2 Phase 2 spot-checks (reviewed, no defect — recorded so the next pass doesn't re-derive
+   this from scratch)
+
+- **Captain's Chair scope boundary (§12)** — reviewed all 9 panels (`CommandStatus`,
+  `NeedsYou`, `Remember`, `Intelligence`, `Capacity`, `SystemStatus`, `HqEvolution`, `Ahead`,
+  `CaptainsLog`). None duplicate Hub or a dedicated workbench's own dashboard:
+  `SystemStatus.tsx` is the clearest example — headline + one-line summary + a single
+  "Review →" link into `/agent-status-workbench`, explicitly commented "tiny by design"
+  against this exact mission boundary from the Command-Experience vNext pass that built it.
+  `HqEvolution`/`Ahead`/`CaptainsLog` are the same size class (37–112 lines each). This
+  surface was already close to the mission's target shape before Phase 1/2 touched it.
+- **Notification deep-linking (§25)** — see §5.3 below; reviewed, confirmed sound, moved out
+  of the deferred list.
+
 ## 4. Core end-to-end test (§40) — status
 
 The backend path this test exercises (remember → what am I forgetting → help me start →
@@ -217,8 +231,14 @@ where the next pass should start:
    straight to Unstick Me's decompose flow (vs. Ready Room's plain "Do" task view) — today
    that still needs either the ambient widget or a manual mode switch inside Ready Room.
    Worth a per-item action next pass if that distinction turns out to matter in practice.
-3. **Notification deep-linking audit** (§25) — not reviewed this pass; push notification
-   payloads/destinations weren't touched.
+3. **Notification deep-linking audit** (§25) — reviewed in Phase 2, no defect found:
+   `lib/notifications.ts`'s `fireNotification` already carries a real per-alert `data.url`
+   (`lib/useAlerts.ts` passes `a.href`, not a generic destination), and `public/sw.js`'s
+   `notificationclick` handler already calls `client.navigate(target)` before focusing an
+   existing window — not just focus-without-navigate, the specific variant of this
+   anti-pattern that silently strands the Captain on whatever page was already open. Genuine
+   server-initiated push for a closed app is out of MVP scope by the code's own design doc
+   (`docs/MOBILE-MVP.md`), not a Mission 7 gap.
 4. **Telegram/XO parity review** (§26) — `/api/xo` is a separate, simpler endpoint from
    `/api/ai/chat` and does not currently run through the same canonical intent dispatcher;
    worth checking whether Telegram should get the same 9 intents Number One now surfaces on
