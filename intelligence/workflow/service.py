@@ -226,11 +226,28 @@ def publish_brief(repo, actor_role: str, brief_id: str,
     # point every publish path goes through and the state machine above
     # already guarantees it fires exactly once per brief — no separate
     # dedupe needed. Never let a notification failure break a real publish.
-    try:
-        from intelligence.brief_published_notifier import notify_published
-        notify_published(brief)
-    except Exception as exc:  # noqa: BLE001 - notification failure must never break a real publish (see comment above)
-        log.warning("[workflow/service] Publish notification failed for brief %r: %s", getattr(brief, "id", "?"), exc)
+    #
+    # 2026-09-19: gated on repo being the real SupabaseRepository. This
+    # function is also exercised by tests/test_intelligence_workflow.py and
+    # tests/test_telstra_poc.py against InMemoryRepository (fixture briefs
+    # like {"period_end": "b"} / {"period_end": "2026-07-11"}) -- ungated,
+    # every one of those test runs sent a real email via Resend (whenever
+    # RESEND_API_KEY was set in the environment, which resend_email.py loads
+    # from .env unconditionally on import, independent of which repo is in
+    # use). Confirmed live: three garbage "Captain's Brief ... has been
+    # published" emails ("for b" x2, "for 2026-07-11" x1) landed in the
+    # Captain's real inbox, matching these exact test fixtures. The workflow
+    # itself is correctly hermetic (InMemoryRepository, no network) -- only
+    # this side-effecting notification call wasn't. A production publish
+    # always goes through SupabaseRepository, so scoping the notification to
+    # it closes this without changing real publish behaviour at all.
+    from intelligence.workflow.repository import SupabaseRepository
+    if isinstance(repo, SupabaseRepository):
+        try:
+            from intelligence.brief_published_notifier import notify_published
+            notify_published(brief)
+        except Exception as exc:  # noqa: BLE001 - notification failure must never break a real publish (see comment above)
+            log.warning("[workflow/service] Publish notification failed for brief %r: %s", getattr(brief, "id", "?"), exc)
 
     return updated
 
