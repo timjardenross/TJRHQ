@@ -221,6 +221,62 @@ code, per §45's own instruction not to just report problems elsewhere:
   `QuickCapture`'s own capture-type chips — a pre-existing system-wide convention, not a
   regression introduced this mission, and out of scope to redesign system-wide in this pass).
 
+## 3.4 Phase 4 — dead-code sweep (§35), scoped deliberately
+
+Ran `npx knip` (the repo's own advisory dead-code tool, USS-TJR-MSN-0366) to find orphaned
+components mechanically rather than by guessing. It flagged 32 unused files. Cross-checked
+against `knowledge/missions/VULTURE-KNIP-DEAD-CODE-20260912-knowledge-record.md` (that
+mission's own baseline from 2026-09-12, which found 31): one new file pair appeared since —
+`app/captains-brief-workbench/_components/{DomainsView,KpiDashboard}.tsx`. Verified by
+reading the current `captains-brief-workbench/page.tsx` itself: it was rewritten into a pure
+retirement stub on 2026-09-19 (Briefs/Captain's Brief consolidation Phase 5) and no longer
+imports either file, nor does anything else in the repo. **Deleted both** — a real,
+confirmed-safe orphan directly caused by a route this mission's own scope touches (§1.2's
+navigation work), not a guess.
+
+**Also found and fixed, same sweep:** `app/(app)/medical/page.tsx` — the pre-redesign,
+776-line LCARS-styled Medical dashboard (Overview/Pulse/Check-In/Trends tabs), confirmed zero
+live inbound links anywhere in the app (only reachable by typing the URL; `lib/nav.ts`'s
+`VALID_NAV_HREFS` listed it only for a build-time type check, not because anything linked
+here) and fully superseded by `human-systems-workbench`'s 2026-09-06 redesign. Unlike the
+`captains-brief-workbench` pair, knip couldn't see this one — a `page.tsx` is always a valid
+Next.js route to knip regardless of whether anything navigates to it, so an orphaned-by-
+*navigation* (not by import) page is a real blind spot that needed manual link-tracing, not
+just a tool run. Converted to the same honest "this page moved" stub pattern already
+established at `/home`, `/captains-brief`, `/captains-chair` (precedent: **port real
+capability gaps before retiring**, per `captains-chair/page.tsx`'s own comment) — traced
+each of its 4 tabs to a live successor, and specifically preserved the one genuine gap found:
+`/medical/log-weight` (30-day weight-trend history; manual entry itself was separately
+retired 2026-08-10) has no equivalent anywhere in `human-systems-workbench` today, so it was
+kept live and linked from the new stub rather than silently orphaned. Porting a real
+weight-trend view into `human-systems-workbench` so this one remaining redirect hop can
+retire too is flagged in §5 below, not done in this pass.
+
+**Found, NOT converted — flagged for a dedicated follow-up pass, not rushed:** the same
+link-tracing check run against every substantial (>20 line, non-stub) page still under the
+legacy `(app)` route group found **8 more fully-orphaned pages, zero live inbound links each,
+2,691 lines total**: `intelligence` (693 lines), `operations` (371), `engineering` (337),
+`timeline` (315), `search` (287), `automation-centre` (256), `operating-model` (249),
+`captains-log` (243). Each is reachable only by typing its URL directly. Not converted in
+this pass — `medical` was a clean single-page, four-tab, one-real-gap case that fit this
+session's remaining time; several of these (`operations` alone spans Recent Decisions,
+Friction Sources, Commander Events, and Captured Items — four distinct old views, not one)
+need the same careful "trace every tab to its real successor, verify nothing genuinely unique
+gets silently dropped" treatment `medical` got, and rushing 2,691 lines of that without
+verifying each one risks exactly the kind of silent capability loss the `captains-chair` /
+`medical` precedent was designed to avoid. Left as a fully-scoped, evidence-backed item in §5
+rather than either an unverified bulk deletion or an unexamined "someday" note.
+
+**Deliberately left alone (pre-existing MSN-0366 backlog):** the other ~30 findings (the paused `knowledge-workbench`
+"Library" six-file cluster, `HomeScreen.tsx` and the rest of the pre-workbench-redesign
+`/home` dashboard components, several unused exports) are the *existing*, already-documented
+MSN-0366 advisory backlog — that mission's own record explicitly treats the Library cluster
+as intentionally paused, not abandoned, and set "advisory only, triaged deliberately, not
+auto-deleted" as the working policy for the rest. Mission 7 is a UX mission, not a codebase-
+hygiene mission; re-litigating a different mission's deliberate triage backlog wasn't pulled
+into this PR's scope. Left as a citation for whoever picks up MSN-0366's backlog next, not
+re-added to Mission 7's own deferred register.
+
 ## 4. Core end-to-end test (§40) — status
 
 The backend path this test exercises (remember → what am I forgetting → help me start →
@@ -280,7 +336,17 @@ where the next pass should start:
    corrected to route through `captured_items` like every other channel (voice, portal,
    `/note`) — exactly the single-pipeline discipline Mission 7 §4 asks for, already done.
    No fix needed; this item is closed, not deferred.
-5. **Voice capture reassessment** (§27) — not investigated this pass.
+5. **Voice capture reassessment (§27) — investigated, standing decision confirmed, not
+   reopened.** Mission 6B already ran exactly this reassessment (§8.5 of its Convergence
+   Register/Knowledge Record/Programme Closure, all three citing the same reasoning):
+   Telegram voice capture is live (`voice-capture-pipeline` — Telegram → faster-whisper →
+   `captured_items`, the same canonical ingress every other channel uses) and already
+   satisfies "voice → capture → same routing" (§27's own target). Browser/PWA voice would
+   duplicate that ingress for marginal reach against real added complexity (permissions,
+   transcript confirmation UI, accessibility, failure recovery), with no captain-facing
+   evidence of demand beyond the existing channel — deferred with justification, not
+   silently dropped. Re-read against real usage data before reopening, not against this
+   mission's brief alone.
 6. **Full accessibility audit** (§31) — Phase 3 fixed a real, high-leverage finding (Modal's
    missing focus trap, §3.3 — fixed once for all ~15 call sites) plus this mission's own new
    `aria-live` gap; still relied on the existing `a11y.test.tsx` axe-core coverage rather than
@@ -299,6 +365,22 @@ where the next pass should start:
 10. **Full adversarial UX pass** (§45) — the items in §1.2–1.6 above were found through a
     bounded discovery pass, not an exhaustive adversarial review of every surface; more
     almost certainly exists.
+11. **Legacy `(app)`-group page retirement (§35), 8 pages scoped and ready to start** — see
+    §3.4: `intelligence` (693 lines), `operations` (371), `engineering` (337), `timeline`
+    (315), `search` (287), `automation-centre` (256), `operating-model` (249), `captains-log`
+    (243) all confirmed zero live inbound links. For each: trace every distinct view/tab it
+    renders to its real live successor (if one exists), confirm via the same method used for
+    `medical/log-weight` whether anything it shows has no successor anywhere else in the app,
+    and only then convert to the established honest-stub pattern (`captains-chair/page.tsx`'s
+    comment is the template: port real gaps first, retire second). `operations` is the
+    highest-complexity case (4 distinct old views in one page) and the best place to start,
+    since its outcome will show whether the others are likely single-view (fast) or
+    multi-view (needs the same care) before committing to all 8 in one pass.
+12. **`/medical/log-weight`'s weight-trend view has no `human-systems-workbench`
+    equivalent** (found in §3.4) — either port a real weight-trend view into
+    `human-systems-workbench` (closing the last redirect hop in the `medical` cluster) or
+    make a deliberate call that the redirect stays permanently; currently just preserved,
+    not resolved either way.
 
 ## 6. Recommended next steps
 
