@@ -111,7 +111,10 @@ def test_event_bus_summary_flags_interrupt_now_as_what_changed():
 
 
 def test_event_bus_summary_watch_conditions_exclude_low_risk_items():
-    items = [_item(risk_score=5.0, reason="Fine"), _item(risk_score=40.0, reason="Watch this")]
+    items = [
+        _item(risk_score=5.0, description="Fine"),
+        _item(risk_score=40.0, description="Watch this"),
+    ]
     summary = _event_bus_domain_summary("engineering", "Engineering", items, "2026-09-19T00:00:00Z")
     assert summary.watch_conditions == ["Watch this"]
 
@@ -119,6 +122,42 @@ def test_event_bus_summary_watch_conditions_exclude_low_risk_items():
 def test_event_bus_summary_detail_href_links_to_captains_brief_workbench():
     summary = _event_bus_domain_summary("learning", "Learning", [], "2026-09-19T00:00:00Z")
     assert summary.detail_href == "/captains-brief-workbench?domain=learning"
+
+
+# ─── signal-leakage regression: `reason` must never reach display text ────
+
+
+def test_what_matters_never_leaks_the_raw_reason_formula():
+    """`reason` is the Attention Engine's internal routing formula (e.g. the
+    SHOULD_BE_AGGREGATED text: "9 events sharing domain=X/event_type=Y in
+    this batch — aggregate as a count/trend") — never fit for a Captain-
+    facing "what matters" line. An item with a formula `reason` but no
+    `description` must contribute nothing to `what_matters`, not the
+    formula text."""
+    items = [
+        _item(
+            reason="9 events sharing domain=operational-resilience-intelligence/"
+            "event_type=intelligence.source.failed in this batch — aggregate as a count/trend",
+            description=None,
+        )
+    ]
+    summary = _event_bus_domain_summary("operational_intelligence", "Operational Intelligence", items, "2026-09-19T00:00:00Z")
+    assert summary.what_matters == []
+    assert all("aggregate as a count/trend" not in m for m in summary.what_matters)
+
+
+def test_what_matters_and_watch_conditions_use_description_not_reason():
+    items = [
+        _item(
+            reason="importance=80 >= 75 but confidence=30 below floor 65",
+            description="Feed timeout calling reuters.com",
+            risk_score=56.0,
+        )
+    ]
+    summary = _event_bus_domain_summary("engineering", "Engineering", items, "2026-09-19T00:00:00Z")
+    assert summary.what_matters == ["Feed timeout calling reuters.com"]
+    assert summary.watch_conditions == ["Feed timeout calling reuters.com"]
+    assert summary.evidence[0].detail == "Feed timeout calling reuters.com"
 
 
 # ─── _osint_domain_summary ────────────────────────────────────────────────
@@ -189,6 +228,65 @@ def test_assemble_merges_osint_domain_picture_when_brief_exists():
     assert osint_domains["technical"].detail_href == "/briefs/brief-123"
     assert doc.osint_available is True
     assert doc.osint_as_of == "2026-09-19T06:31:00Z"
+
+
+def test_assemble_posture_unknown_not_green_for_unscored_aggregated_failures():
+    """Regression: a domain whose only surfaced items are unscored (no
+    importance/confidence at all — e.g. repeated `intelligence.source.failed`
+    events, aggregated by evaluate_batch() once there are 3+) must roll up
+    to UNKNOWN posture, not GREEN. Before the priority_engine fix,
+    PriorityScore.risk_score for these was a fabricated 0.0, which
+    _posture_for_items would read as a genuinely low, safe score. The
+    events themselves still surface (evidence/what_matters, via
+    `description`) — only the posture claim is corrected."""
+    unscored_failures = [
+        {
+            "event_id": f"evt-unscored-{i}",
+            "event_type": "intelligence.source.failed",
+            "domain": "operational-resilience-intelligence",
+            "importance": None,
+            "confidence": None,
+            "status": "new",
+        }
+        for i in range(3)
+    ]
+    doc = assemble_domains_document(unscored_failures, latest_brief=None)
+    operational = next(d for d in doc.domains if d.key == "operational_intelligence")
+    assert operational.posture == "UNKNOWN"
+    assert operational.evidence_count == 3
+
+
+def test_assemble_aggregated_failures_what_matters_shows_description_not_aggregation_formula():
+    """End-to-end version of the `reason`-leak regression above: 3+
+    `intelligence.source.failed` events (each carrying a real
+    `description`, exactly as `intelligence_store.py::save_source_health()`
+    publishes them — `description=health.error_message`) get promoted to
+    SHOULD_BE_AGGREGATED by evaluate_batch(), whose own `reason` becomes
+    the internal "N events sharing domain=X/event_type=Y ... aggregate as
+    a count/trend" formula. `what_matters` must show each event's own
+    `description` (the real collection-failure message), never that
+    formula string — this was the visible leak in the Domains tab
+    (What Matters showing the raw aggregation formula instead of readable
+    content), the blocker for Phase 5."""
+    unscored_failures = [
+        {
+            "event_id": f"evt-unscored-{i}",
+            "event_type": "intelligence.source.failed",
+            "domain": "operational-resilience-intelligence",
+            "importance": None,
+            "confidence": None,
+            "status": "new",
+            "description": f"Feed timeout calling source-{i}.example.com",
+        }
+        for i in range(3)
+    ]
+    doc = assemble_domains_document(unscored_failures, latest_brief=None)
+    operational = next(d for d in doc.domains if d.key == "operational_intelligence")
+    assert operational.what_matters
+    assert all("aggregate as a count/trend" not in m for m in operational.what_matters)
+    assert all("sharing domain=" not in m for m in operational.what_matters)
+    assert set(operational.what_matters) <= {f"Feed timeout calling source-{i}.example.com" for i in range(3)}
+    assert all("aggregate as a count/trend" not in (e.detail or "") for e in operational.evidence)
 
 
 def test_assemble_warns_when_brief_coverage_is_degraded():

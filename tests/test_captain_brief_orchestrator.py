@@ -55,3 +55,32 @@ def test_recent_surfaced_can_be_opted_out_of_explicitly():
     already_seen = dict(INTERRUPT_NOW_EVENT, status="acknowledged")
     doc = assemble_captain_brief_document([already_seen], recent_surfaced=[])
     assert len(doc.interrupt_now) == 1
+
+
+def test_unscored_aggregated_events_do_not_crash_or_become_warnings():
+    """Regression: an event with neither importance nor confidence (e.g.
+    `intelligence.source.failed`) is SHOULD_SIMPLY_BE_REMEMBERED on its
+    own, but 3+ sharing the same (domain, event_type) get promoted to
+    SHOULD_BE_AGGREGATED by evaluate_batch() and so do reach
+    `all_surfaced_items` / the warnings cut. Before the priority_engine
+    fix, PriorityScore.risk_score for these was a fabricated 0.0, which
+    happened to compare cleanly (and falsely-safely) against
+    _WARNING_RISK_THRESHOLD. Now it's None, and the warnings loop must
+    handle that explicitly rather than raising or silently treating it as
+    below-threshold-and-safe."""
+    unscored_failures = [
+        {
+            "event_id": f"evt-unscored-{i}",
+            "event_type": "intelligence.source.failed",
+            "domain": "operational-resilience-intelligence",
+            "importance": None,
+            "confidence": None,
+            "status": "new",
+        }
+        for i in range(3)
+    ]
+    doc = assemble_captain_brief_document(unscored_failures)
+    aggregated = [i for i in doc.operational_intelligence if i.event_id and i.event_id.startswith("evt-unscored")]
+    assert len(aggregated) == 3
+    assert all(i.risk_score is None for i in aggregated)
+    assert doc.warnings == []

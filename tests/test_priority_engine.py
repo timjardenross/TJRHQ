@@ -80,6 +80,28 @@ def test_missing_confidence_treated_as_maximally_uncertain():
     assert score.risk_score == pytest.approx(80.0, abs=0.01)
 
 
+def test_no_importance_or_confidence_scores_as_unscored_not_low_risk():
+    """Regression: an event published with neither importance nor confidence
+    (e.g. `intelligence.source.failed`, emitted via `_publish_core_event`
+    with no importance/confidence kwarg) must read as "never scored," not
+    as a real 0.0 (confirmed-low) risk — the two are not the same claim."""
+    inputs = PriorityInputs(event_id="evt-unscored", domain="d", event_type="t", importance=None, confidence=None)
+    score = score_event(inputs)
+    assert score.risk_score is None
+    # total_score must still compute (risk contributes 0, not an error)
+    assert score.total_score == 0.0
+    assert "risk=unscored" in score.explanation
+
+
+def test_missing_importance_alone_is_still_scored_not_unscored():
+    """Only *both* signals absent means unscored — a single missing input
+    keeps the existing inverse-relationship scoring (importance defaults
+    to 0), symmetric with the confidence-missing case above."""
+    inputs = PriorityInputs(event_id="evt-y", domain="d", event_type="t", importance=None, confidence=90)
+    score = score_event(inputs)
+    assert score.risk_score == pytest.approx(0.0, abs=0.01)
+
+
 def test_dominant_value_dimension_is_the_highest_scored_one():
     inputs = _inputs_from_event(
         SUMMARISATION_PAIR[1],  # evt-sum-2

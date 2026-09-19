@@ -129,22 +129,39 @@ def _event_bus_domain_summary(
     interrupt_count = sum(1 for i in items if i.category == AttentionCategory.INTERRUPT_NOW)
     what_changed = f"{interrupt_count} item(s) need attention now" if interrupt_count else None
 
+    # Signal-leakage fix (same pattern as the `recommended_action` fix this
+    # module's own docstring references — see captain_brief_contract.py's
+    # `CaptainBriefItem.description` docstring: "fall back to this, never
+    # to `reason` [...] a scoring formula"). `item.reason` is the Attention
+    # Engine's internal routing formula — e.g. "importance=80 >= 75 AND
+    # confidence=90 >= 65", or, for a SHOULD_BE_AGGREGATED group, "9 events
+    # sharing domain=X/event_type=Y in this batch — aggregate as a count/
+    # trend" — never fit for a Captain-facing "what matters"/"watch"/
+    # evidence line. `description` (the event's own readable headline, e.g.
+    # a source's `error_message`) is the only field these three should
+    # read; an item with no description simply contributes nothing here,
+    # rather than leaking the formula string.
     what_matters: list[str] = []
     for item in sorted(items, key=lambda i: i.priority_score or 0, reverse=True):
-        if item.reason and item.reason not in what_matters:
-            what_matters.append(item.reason)
+        if item.description and item.description not in what_matters:
+            what_matters.append(item.description)
         if len(what_matters) >= 3:
             break
 
     watch_conditions: list[str] = []
     for item in items:
-        if item.risk_score is not None and item.risk_score >= _POSTURE_AMBER and item.reason not in watch_conditions:
-            watch_conditions.append(item.reason)
+        if (
+            item.risk_score is not None
+            and item.risk_score >= _POSTURE_AMBER
+            and item.description
+            and item.description not in watch_conditions
+        ):
+            watch_conditions.append(item.description)
         if len(watch_conditions) >= 3:
             break
 
     evidence = [
-        DomainEvidenceItem(title=item.event_type or item.domain, detail=item.reason, risk=_risk_label(item.risk_score))
+        DomainEvidenceItem(title=item.event_type or item.domain, detail=item.description, risk=_risk_label(item.risk_score))
         for item in items[:5]
     ]
 

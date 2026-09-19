@@ -19,6 +19,11 @@ signal, not invented fresh:
   fixtures now.
 - risk  -> computed as the inverse relationship between `importance` and
   `confidence` (low confidence + high stakes = high risk), not a new score.
+  `PriorityScore.risk_score` is `None`, not `0.0`, when an event carries
+  neither signal at all — "never scored" must stay distinguishable from
+  "scored and found safe" for every consumer (see
+  `_risk_from_importance_confidence`'s own docstring for the incident that
+  found this).
 - opportunity_value  -> Content Intelligence's existing opportunity-scoring
   logic (`comms/opportunities.py`), generalised as one more scored input
   under the Domain Intelligence Framework — this module does not
@@ -96,17 +101,31 @@ class PriorityScore:
     importance_score: float
     time_sensitivity_score: float
     value_score: float
-    risk_score: float
+    # None when neither `importance` nor `confidence` was supplied — "never
+    # scored" (e.g. `intelligence.source.failed`, published with no
+    # importance/confidence kwarg). Distinct from a real, low float: a
+    # consumer must not compare this against a threshold without checking
+    # for None first, or an unscored event silently reads as confirmed-safe.
+    # See `_risk_from_importance_confidence` below.
+    risk_score: float | None
     opportunity_score: float
     dominant_value_dimension: str | None
     explanation: str
 
 
-def _risk_from_importance_confidence(importance: int | None, confidence: int | None) -> float:
+def _risk_from_importance_confidence(importance: int | None, confidence: int | None) -> float | None:
     """Risk = high importance paired with low confidence (an unverified but
-    high-stakes signal). Absent confidence is treated as maximally
-    uncertain (worst case), not as neutral — per MSN-0301 Workstream C's
-    "inverse relationship" design, not a new independent score."""
+    high-stakes signal). A single missing input is still scored: absent
+    confidence is treated as maximally uncertain (worst case), not as
+    neutral, per MSN-0301 Workstream C's "inverse relationship" design —
+    and symmetrically, absent importance defaults to 0 when confidence is
+    present. But when *both* are absent there is no signal to invert at
+    all — the event was never scored, not scored-and-found-safe — so this
+    returns None rather than fabricating a 0.0 "low risk" out of nothing.
+    (Found via `intelligence.source.failed`, published with neither
+    importance nor confidence, previously reading as a real 0.0 risk.)"""
+    if importance is None and confidence is None:
+        return None
     imp = importance if importance is not None else 0
     conf = confidence if confidence is not None else 0
     return round((imp / 100.0) * (1.0 - conf / 100.0) * 100.0, 2)
@@ -136,20 +155,29 @@ def score_event(inputs: PriorityInputs, *, weights: PriorityWeights | None = Non
         dominant_value_dimension = max(inputs.value_dimensions, key=inputs.value_dimensions.get)
         value_score = float(inputs.value_dimensions[dominant_value_dimension])
 
+    # An unscored risk dimension contributes 0 to the total — not a claim
+    # that it's genuinely risk-free, just that there is no signal to weigh
+    # in here. Consumers wanting to distinguish "scored low" from
+    # "unscored" must read `risk_score` itself, not `total_score`.
     total = (
         w.urgency * urgency_score
         + w.importance * importance_score
         + w.time_sensitivity * time_sensitivity_score
         + w.value * value_score
-        + w.risk * risk_score
+        + w.risk * (risk_score if risk_score is not None else 0.0)
         + w.opportunity * opportunity_score
     )
 
+    risk_explanation = (
+        f"risk={risk_score:.0f}(w={w.risk}, from importance/confidence inverse)"
+        if risk_score is not None
+        else f"risk=unscored(w={w.risk}, no importance/confidence signal)"
+    )
     explanation_parts = [
         f"importance={importance_score:.0f}(w={w.importance})",
         f"urgency={urgency_score:.0f}(w={w.urgency})",
         f"time_sensitivity={time_sensitivity_score:.0f}(w={w.time_sensitivity})",
-        f"risk={risk_score:.0f}(w={w.risk}, from importance/confidence inverse)",
+        risk_explanation,
         f"opportunity={opportunity_score:.0f}(w={w.opportunity})",
     ]
     if dominant_value_dimension:
