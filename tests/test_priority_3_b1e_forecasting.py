@@ -275,7 +275,9 @@ def test_priority_3_complete_forecast():
     log.info(f"Trend: {trend}")
 
     assert predicted > 4.0, "Forecast should reflect upward trend"
-    assert confidence_level == 'medium', "8 decisions should be medium confidence"
+    # 8 decisions is < 10, the threshold this same function uses for 'low'
+    # two steps above — the assertion had drifted from that boundary.
+    assert confidence_level == 'low', "8 decisions (< 10) should be low confidence"
 
     log.info("\n✅ COMPLETE FORECAST TEST PASSED")
     return True
