@@ -106,6 +106,28 @@ export function deriveCommandPosture(inputs: CommandPostureInputs): CommandPostu
 // LifeOS." Every source here is something genuinely awaiting a TJR
 // decision, never a raw backlog/queue count (mission §7).
 
+/** Mirrors core/coordination/attention_state.py's AttentionItem.to_dict()
+ * shape verbatim (Mission 1 Round 2, USS-TJR-MSN-1) — the field this
+ * module reads from /api/number-one-brief's additive `attention_items`.
+ * Only NEEDS_NOW and DECISION_REQUIRED reach Needs You; BLOCKED/
+ * IMPORTANT_NOT_IMMEDIATE/CAN_WAIT stay in Number One's own advisory
+ * surface (mission-workbench's NumberOneCoordination.tsx) — Needs You is
+ * for things genuinely requiring the Captain now, not Number One's full
+ * work queue (mission §7's "no raw backlog counts" rule). */
+export type NumberOneAttentionCategory =
+  | 'needs_now' | 'important_not_immediate' | 'can_wait' | 'blocked' | 'decision_required';
+
+export interface NumberOneAttentionItem {
+  id: string;
+  category: NumberOneAttentionCategory;
+  priority: number;
+  title: string;
+  reason: string;
+  source: string;
+  ref: string | null;
+  generated_at: string;
+}
+
 export interface NeedsYouBuildInputs {
   emergency: { worstTier: 'emergency_warning' | 'watch_and_act' | null; count: number; worstHeadline: string | null } | null;
   briefingError: boolean;
@@ -123,6 +145,11 @@ export interface NeedsYouBuildInputs {
   hqPosture: 'NORMAL' | 'DEGRADED' | 'ATTENTION' | 'UNKNOWN' | null;
   hqAttentionItems: Array<{ title: string; detail: string }>;
   criticalAlerts: Array<{ id: string; title: string; detail: string; href: string }>;
+  /** Number One's canonical attention_items (Mission 1 Round 2) — optional/
+   *  null/[] when the brief hasn't loaded yet, errored, or a caller
+   *  predates this field; never blocks the rest of Needs You (same
+   *  degrade-gracefully discipline as every other field here). */
+  numberOneAttentionItems?: NumberOneAttentionItem[] | null;
 }
 
 export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] {
@@ -205,6 +232,23 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
     items.push({
       id: `alert-${alert.id}`, kind: 'time_critical',
       title: alert.title, detail: alert.detail, href: alert.href, actionLabel: 'Review',
+    });
+  }
+
+  // Number One's canonical attention_items (Mission 1 Round 2): only the
+  // two categories that mean "the Captain needs to act now" reach Needs
+  // You. Everything else Number One tracks (blocked/important-not-
+  // immediate/can-wait) stays visible in its own advisory surface
+  // (mission-workbench) rather than flooding this curated list.
+  for (const item of (inputs.numberOneAttentionItems ?? [])) {
+    if (item.category !== 'needs_now' && item.category !== 'decision_required') continue;
+    items.push({
+      id: `number-one-${item.id}`,
+      kind: item.category === 'decision_required' ? 'blocker' : 'time_critical',
+      title: item.title,
+      detail: item.reason || 'Number One flagged this for your attention.',
+      href: item.ref ? `/mission-workbench?mission=${encodeURIComponent(item.ref)}` : '/mission-workbench',
+      actionLabel: 'Review',
     });
   }
 

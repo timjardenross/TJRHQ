@@ -17,6 +17,7 @@ import {
   useAttentionCounts,
   useEvolutionSignal,
   useNotebookReadyCount,
+  useNumberOneAttentionItems,
 } from '@/lib/captainsChairData';
 import { deriveCommandStatus, sortNeedsYou } from '@/lib/captainsChairSynthesis';
 import { deriveCommandPosture, buildNeedsYouItems, deriveIntelligenceHeadline } from '@/lib/commandState';
@@ -71,6 +72,7 @@ export default function CaptainsChairWorkbench() {
   const { tasks: reminders, loading: remindersLoading } = useReminders();
   const { readyCount: notebookReadyCount } = useNotebookReadyCount();
   const { pendingCount: evolutionPendingCount, highestValueTitle: evolutionHighestValueTitle } = useEvolutionSignal();
+  const { items: numberOneAttentionItems } = useNumberOneAttentionItems();
 
   const commandStatusLoading = humanSystemsLoading || opRiskLoading || briefingLoading || emergencyLoading || hqStatusLoading;
   const hasCheckinToday = humanSystems?.has_checkin_today ?? false;
@@ -110,6 +112,7 @@ export default function CaptainsChairWorkbench() {
     hqPosture: hqStatus?.posture ?? null,
     hqAttentionItems: hqStatus?.attentionItems ?? [],
     criticalAlerts: liveAlerts.filter((a) => a.severity === 'critical').map((a) => ({ id: a.id, title: a.title, detail: a.detail, href: a.href })),
+    numberOneAttentionItems,
   });
   const sortedNeedsYou = sortNeedsYou(needsYouItems);
   const needsYouErrors = [...attentionErrors, ...(emergencyError ? ['Emergency alerts'] : []), ...(hqStatusError ? ['System status'] : [])];

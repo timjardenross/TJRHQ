@@ -42,6 +42,7 @@ import {
   useAttentionCounts,
   useEvolutionSignal,
   useNotebookReadyCount,
+  useNumberOneAttentionItems,
 } from '@/lib/captainsChairData';
 import { useAlerts } from '@/lib/useAlerts';
 import { deriveCommandStatus } from '@/lib/captainsChairSynthesis';
@@ -73,6 +74,7 @@ export default function LifeOSHub() {
   const { readyCount: notebookReadyCount } = useNotebookReadyCount();
   const { pendingCount: evolutionPendingCount, highestValueTitle: evolutionHighestValueTitle } = useEvolutionSignal();
   const { alerts: liveAlerts } = useAlerts();
+  const { items: numberOneAttentionItems } = useNumberOneAttentionItems();
 
   const hasCheckinToday = humanSystems?.has_checkin_today ?? false;
   const hqPostureLower = (hqStatus?.posture ?? 'UNKNOWN').toLowerCase() as 'normal' | 'degraded' | 'attention' | 'unknown';
@@ -112,6 +114,7 @@ export default function LifeOSHub() {
     hqPosture: hqStatus?.posture ?? null,
     hqAttentionItems: hqStatus?.attentionItems ?? [],
     criticalAlerts: liveAlerts.filter((a) => a.severity === 'critical').map((a) => ({ id: a.id, title: a.title, detail: a.detail, href: a.href })),
+    numberOneAttentionItems,
   });
 
   const commandPosture = deriveCommandPosture({

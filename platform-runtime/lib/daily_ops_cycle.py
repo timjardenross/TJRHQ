@@ -305,6 +305,13 @@ def _step_communications(ctx: CycleContext) -> None:
 
 
 # ── Step 6: Number One Consolidation ─────────────────────────────────────────
+# LEGACY/UNREACHABLE (Mission 1 Round 2, USS-TJR-MSN-1): this step's engine
+# (execution_engine.py::NumberOneExecutionEngine) is only reachable through
+# run_daily_cycle(), which has zero callers anywhere in the repo. The live,
+# canonical Number One path is core/coordination/number_one.py via
+# context_service.py's _http_number_one_brief() — see execution_engine.py's
+# module docstring for the full writeup. Left in place, not deleted: no
+# decision has been made about daily_ops_cycle.py's own future as a whole.
 
 def _step_number_one(missions: list[dict], ctx: CycleContext) -> None:
     try:
