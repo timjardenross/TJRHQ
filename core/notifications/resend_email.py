@@ -46,7 +46,7 @@ _DEFAULT_FROM = os.environ.get("RESEND_FROM", "Emergency Alert Hub <onboarding@r
 
 
 def _running_under_tests() -> bool:
-    """True while pytest is actually executing a test (PYTEST_CURRENT_TEST
+    r"""True while pytest is actually executing a test (PYTEST_CURRENT_TEST
     is pytest's own documented signal, set only for the duration of each
     test) or when unittest has been imported at all (python -m unittest,
     the other way this repo's tests are run — confirmed via `grep -rl
