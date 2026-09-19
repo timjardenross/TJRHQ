@@ -276,7 +276,13 @@ def _event_bus_domain_summary(
         evidence=evidence,
         as_of=generated_at,
         availability="ok" if items else "no_data",
-        detail_href=f"/captains-brief-workbench?domain={key}",
+        # Phase 5 (Captain's Brief retirement): /captains-brief-workbench no
+        # longer exists as a standalone page (redirects to /briefs). This
+        # card's own Coverage Notes/Evidence already surface everything that
+        # page's per-domain filter view showed — there is no more-detailed
+        # destination left to link to, so this points at Briefs itself
+        # rather than a dead or redirect-then-disorienting link.
+        detail_href="/briefs",
     )
 
 

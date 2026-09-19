@@ -1,19 +1,17 @@
 # Briefs / Captain's Brief Consolidation — Dependency Map & Phased Plan
 
-**Status:** Phase 0 (discovery) complete. Phase 1 (signal-leakage fix,
-backend-only) shipped in [PR #275](https://github.com/timjardenross/TJRHQ/pull/275).
-Phase 4 (attention-semantics rework, backend-only) shipped concurrently in
-[PR #276](https://github.com/timjardenross/TJRHQ/pull/276) — pulled forward
-out of its original Phase-1-dependency-only ordering (§6) since it needed
-no UI/Domains-IA prerequisite of its own; see §11 for detail. Phases 2-3
-(merged cross-domain assembly + the Briefs "Domains" tab UI) implemented
-and tested in this pass — see §8 for what shipped. Phase 5 (Captain's
-Brief retirement) is scoped below, **not implemented in this pass** — see
-§5 for why. With Phases 1-4 all landed, Phase 5's own gate ("once
-equivalent or superior capability exists in Briefs") is now within reach,
-though not yet declared met — see §5. A broader signal-leakage sweep of the
-rest of the pipeline (frontend + remaining `recommended_action=` call
-sites) shipped in this pass — see §12 for what was fixed vs. flagged.
+**Status:** All five phases complete. Phase 1 (signal-leakage fix,
+backend-only) shipped in [PR #275](https://github.com/timjardenross/TJRHQ/pull/275),
+Phase 4 (attention-semantics rework) in [PR #276](https://github.com/timjardenross/TJRHQ/pull/276),
+Phases 2-3 (merged cross-domain assembly + the Briefs "Domains" tab UI) in
+[PR #278](https://github.com/timjardenross/TJRHQ/pull/278) — see §8. A
+production bug found via a live browser walkthrough of the Domains tab
+(§8a) and a broader pipeline-wide signal-leakage sweep (§12) both landed as
+follow-up fixes. **Phase 5 (Captain's Brief retirement) is now done**:
+`/captains-brief-workbench` retired (redirects to `/briefs`), every live
+nav/registry surface repointed at Briefs, confirmed via a real browser
+walkthrough of the fixed Domains tab before retiring the page it was
+gated on replacing — see §13.
 
 This document is the dependency map the consolidation mission requires
 before any UI removal or route change, plus the phased plan for the
@@ -192,24 +190,28 @@ an arbitrary-pair Compare UI, a Self-Improvement evidence surface.
 
 ---
 
-## 5. Why this pass stops after Phase 3 (Domains IA merged; retirement not attempted)
+## 5. Why Phase 5 waited, and what cleared it
 
 The mission's own §1 mandate ("do not remove or rewrite working
 functionality until its consumers, data contracts and replacement path are
 understood") and §11 migration gate ("once equivalent or superior capability
-exists in Briefs") both explicitly block retiring `/captains-brief-workbench`
-before the Domains IA reaches parity. Phase 3 (§8) gives Briefs a genuine
-merged cross-domain view for the first time, but "equivalent or superior
-capability" is a claim about real-world Captain usage, not something this
-pass can self-certify by shipping code — the new tab has automated test
-coverage (Python assembly logic + React component rendering, §8) across
-normal/no-data/degraded states, but **could not be exercised end-to-end in a
-live authenticated browser session** (see §8's own caveat) the way this
-repo's own conventions ask for before calling a UI change fully done.
-Declaring Phase 5's gate met on that basis alone would be exactly the kind
-of unvalidated claim the mission's §1/§11/§15 warn against — so retirement
-stays out of scope for this pass, pending either a live walkthrough or the
-Captain's own sign-off that the Domains tab is a real replacement.
+exists in Briefs") both explicitly blocked retiring `/captains-brief-workbench`
+before the Domains IA reached parity. Phase 3 (§8) gave Briefs a genuine
+merged cross-domain view, but "equivalent or superior capability" is a
+claim about real-world Captain usage, not something code shipping alone
+can self-certify — the tab had automated test coverage (Python assembly
+logic + React component rendering, §8) across normal/no-data/degraded
+states, but had not been exercised end-to-end in a live authenticated
+browser session the way this repo's own conventions ask for.
+
+**That gate is now cleared.** A live walkthrough (§8a) found a real
+production bug — a raw `AttentionDecision.reason` string leaking into
+"What Matters" — which was fixed and re-verified via a second live
+walkthrough (screenshot evidence, §13) showing genuinely synthesized
+content, correct Coverage Notes routing, and correct `UNKNOWN` posture for
+no-data domains. On that basis Phase 5 (§13) retired
+`/captains-brief-workbench` and repointed every live nav/registry surface
+at Briefs.
 
 Attention-semantics rework (Phase 4, mission §7) was unrelated to the IA
 question and never blocked Phase 2-3 — it landed concurrently, in a
@@ -237,7 +239,7 @@ nav entry, or UI behaviour outside the new tab itself.
 | **2 — done, this pass** | Merged cross-domain assembly: new `intelligence/brief/domains_view.py` + `GET /brief/domains`, merging System A's domain sections (Engineering/Missions/Learning/Opportunities/Health/Operational Intelligence) with `domain_picture` (§8) | Phase 1 | Domains IA ships incomplete, mission's own domain list (§3.9) unmet |
 | **3 — done, this pass** | Briefs "Domains" tab UI — per-domain synthesized picture (posture/changed/what-matters/watch/evidence), read-only with link-out drill-down (§8) | Phase 2 | Two competing domain views persist |
 | **4 — done** (PR #276) | Attention-semantics rework — materiality/novelty/persistence/dedup on top of the existing threshold cut, feeding a genuinely scarce "Needs Attention" list (§11) | Phase 1 (clean data) | "Needs Attention" stays a raw threshold cut, contra mission §7 |
-| **5** | Captain's Brief retirement — redirect `/captains-brief-workbench` → `/briefs`, remove nav/registry entries, update `interrupt_dispatcher.py`'s deep-link, update Platform Registry citations (§4.6) | Phase 3 validated live (§5, §8) | Premature deletion, information loss (mission §1/§11 explicitly prohibit this) |
+| **5 — done** | Captain's Brief retirement — redirect `/captains-brief-workbench` → `/briefs`, remove nav/registry entries, update `interrupt_dispatcher.py`'s deep-link, update Platform Registry citations (§13) | Phase 3 validated live (§5, §8, §8a) | Premature deletion, information loss (mission §1/§11 explicitly prohibit this) |
 
 Phases 2-5 are independent PRs/sessions by design — each has its own UI
 validation surface, its own risk profile, and its own reviewable diff.
@@ -551,9 +553,12 @@ independently scoped, reviewable, and testable:
 - ~~Verify and, if warranted, fix the same raw-text-as-recommended_action
   pattern in `notebook_route_executor.py:167` and `comms/portfolio.py:78`.~~
   **Done** — fixed in [PR #277](https://github.com/timjardenross/TJRHQ/pull/277).
-- Live-browser validation of the Domains tab (§8's caveat) — a real
+- ~~Live-browser validation of the Domains tab (§8's caveat) — a real
   authenticated walkthrough across the three scenarios, to actually clear
-  Phase 5's "equivalent or superior capability" gate rather than assume it.
+  Phase 5's "equivalent or superior capability" gate rather than assume
+  it.~~ **Done** — two real walkthroughs (§8a found the reason-leak bug;
+  a follow-up walkthrough after the fix confirmed synthesized content,
+  correct Coverage Notes routing, and correct UNKNOWN posture). See §13.
 - Stale domain_picture caption on `/briefs/[id]` (§8, found in passing) —
   spun off as a separate background task, in progress as of this pass.
 - ~~Phase 4: attention-semantics rework~~ **Done** — landed concurrently as
@@ -568,26 +573,21 @@ independently scoped, reviewable, and testable:
   concurrently with §12; see §8a for detail.
 - Two design-level items §12 flagged rather than fixed — see §12's own
   "Flagged, not fixed" list for detail and suggested next step on each.
-- `priority_engine.py`'s posture blind spot (§8a, found in passing): an
+- ~~`priority_engine.py`'s posture blind spot (§8a, found in passing): an
   event that never sets `importance`/`confidence` (e.g.
   `intelligence.source.failed`) gets a real `risk_score` of `0.0`, not
-  `None`, because `_risk_from_importance_confidence()` treats absent inputs
-  as `0`. `PriorityInputs`/`PriorityScore` would need a way to distinguish
-  "no signal supplied" from "supplied and genuinely low" (e.g. an
-  `unscored: bool` flag, or `risk_score: float | None`) before any consumer
-  (this module's posture rollup included) can tell the two apart. Deferred
-  because it's a shared-engine semantics change touching every
-  `PriorityScore` consumer, not scoped to the Domains tab bug this pass
-  fixed — see §8a for the full analysis and the display-layer mitigation
-  already shipped.
-- Phase 5: Captain's Brief workbench retirement + nav/registry cleanup +
-  Platform Registry correction (including the two already-stale citations
-  found in this discovery, independent of this mission's outcome). Now the
-  only phase left — blocked on the live-browser validation item above.
+  `None`~~ **Done** — fixed in [PR #284](https://github.com/timjardenross/TJRHQ/pull/284):
+  `PriorityScore.risk_score` is now `float | None`, `None` only when both
+  `importance`/`confidence` are absent; `captain_brief_orchestrator.py`'s
+  warnings cut explicitly guards `is not None` before the threshold
+  comparison (previously would have raised `TypeError` or silently read
+  unscored as safe). Confirmed live via the walkthrough in §13.
+- ~~Phase 5: Captain's Brief workbench retirement + nav/registry cleanup +
+  Platform Registry correction~~ **Done** — see §13.
 
 ---
 
-## 10. Final capability map (target state, once Phase 5 lands)
+## 10. Final capability map (current state — Phase 5 landed)
 
 ```
 SOURCE SYSTEMS
@@ -624,10 +624,12 @@ confirmed it is *already* read-only + link-out for all brief-derived content
 today (`NeedsYou.tsx`, `Remember.tsx`, `Intelligence.tsx`,
 `TodaysBriefPanel.tsx` all link out rather than embedding actions;
 `ApprovalQueue.tsx` is not wired into the current `-workbench` page). The
-new Domains tab (§8) preserves this boundary explicitly — no
-approve/reject/execute affordances, link-out only. That boundary is a
-design decision worth preserving through Phase 5 too, not an accident to
-fix.
+Domains tab (§8) preserves this boundary explicitly — no
+approve/reject/execute affordances, link-out only. That boundary was
+deliberately preserved through Phase 5's retirement too (§13) — every
+repointed link (Captain's Chair, HomeScreen, `interrupt_dispatcher.py`'s
+Telegram deep-link) still only ever links out to Briefs, never embeds an
+action.
 
 ---
 
@@ -888,3 +890,104 @@ time this PR merges, that instance is already closed, not merely flagged.
   `interrupt_dispatcher.py`'s three-tier chain). An omission, never a
   scoring-trace leak — low priority, worth aligning next time this function
   is touched.
+
+---
+
+## 13. Phase 5 detail: Captain's Brief retirement (this pass)
+
+**Gate confirmed cleared first, retirement done second — not the other way
+round.** Two real browser walkthroughs of `usstjros.vercel.app/briefs`
+(production, not a preview branch) happened before this phase started:
+
+1. The first found the exact bug §8a documents — raw
+   `AttentionDecision.reason` strings ("9 events sharing domain=X/
+   event_type=Y ... aggregate as a count/trend") surfacing as "What
+   Matters" bullets. Fixed in [PR #280](https://github.com/timjardenross/TJRHQ/pull/280).
+2. A second walkthrough, after that fix (and after [PR #284](https://github.com/timjardenross/TJRHQ/pull/284)'s
+   `priority_engine.py` risk-score fix also landed), confirmed: genuinely
+   synthesized "What Matters" content (e.g. "Protect capacity today: pick
+   one anchor, defer the rest, and schedule one genuine recovery block
+   now."), aggregated failure counts correctly routed to "Coverage Notes"
+   rather than leaked as individual findings, and Engineering/Learning/
+   Opportunities correctly showing `UNKNOWN` posture rather than a
+   fabricated `GREEN` for no-data domains. That second walkthrough is what
+   actually cleared the "equivalent or superior capability, confirmed live"
+   gate — not the tab merely existing, and not automated test coverage
+   alone (both real, both necessary, neither sufficient on their own per
+   this repo's own UI-testing convention).
+
+**What retired:**
+
+- `lcars-portal/src/app/captains-brief-workbench/page.tsx` — replaced with
+  an honest "this page moved" notice linking to `/briefs`, matching the
+  `(app)/captains-brief` retirement precedent (2026-08-11). The older
+  `(app)/captains-brief` stub was also repointed to link directly to
+  `/briefs` instead of chaining through the now-retired workbench.
+- Every live nav/registry surface found in this mission's own discovery
+  pass, repointed at `/briefs`: `workbenches.ts` (Captain's Brief entry
+  removed outright — Briefs already has its own entry, now with a
+  broadened description reflecting its cross-domain scope; the now-unused
+  `ScrollText` icon import removed), `nav.ts` (sidebar `NAV_SECTIONS`
+  entry replaced; `/briefs` added to `VALID_NAV_HREFS`, closing a gap
+  discovery found — it was missing even before this pass), `commandState.ts`
+  ("Needs You" interrupt-now card), `HomeScreen.tsx` (explore-links entry
+  and the inline "See the full picture" link), and Captain's Chair's
+  `Intelligence.tsx` / `page.tsx` (Interrupts stat link).
+- `core/platform/interrupt_dispatcher.py`'s Telegram deep-link and
+  `intelligence/brief/domains_view.py`'s own `detail_href` for event-bus
+  domains — both repointed from `/captains-brief-workbench?domain=...` to
+  `/briefs`. This is a disclosed, accepted simplification, not an
+  oversight: neither the per-event `#brief-item-{id}` anchor nor the
+  per-domain `?domain=` filter has an equivalent destination on `/briefs`
+  today (there is no more-detailed view beyond the Domains tab's own card
+  to link to) — losing that precision was judged acceptable rather than
+  building a new detail view as part of a retirement pass. A future
+  Domains detail page, if built, is the natural place to restore it.
+
+**What did NOT retire, on purpose:** `core/platform/captain_brief_
+orchestrator.py`, `attention_engine.py`, `priority_engine.py`,
+`captain_brief_contract.py` — this is shared platform infrastructure
+Briefs' Domains tab depends on directly, not a single-UI backend. The
+mission's own §11 ("do not delete backend assembly capability merely
+because the UI is retired") is explicit about this, and discovery
+confirmed nothing here is orphaned by the retirement — the Domains tab is
+a second, still-live consumer.
+
+**Deliberately not built in this pass:** a dedicated per-domain or
+per-event detail page to replace what the old `?domain=`/`#brief-item-`
+links pointed at. The Domains tab's own card already surfaces posture,
+confidence, what-changed, what-matters, watch, coverage notes, and an
+evidence drill-down — genuinely more than the old per-domain filter view
+showed in most cases — so this wasn't judged a real regression, but it's
+worth naming as a known simplification rather than silently absorbing it.
+
+**Validation:** `npx tsc --noEmit` clean (full frontend, after installing
+dependencies fresh in this environment); `npx eslint` clean on every
+touched file; 3 new/updated frontend test suites (`DomainsView.test.tsx`,
+`ItemRow.test.tsx`, `core-events.test.ts`) — 21 passed; full backend
+regression suite (`test_domains_view.py`, `test_interrupt_dispatcher.py`,
+`test_captain_brief_orchestrator.py`, `test_captain_brief_contract.py`,
+`test_attention_engine.py`, `test_signal_leakage_fix.py`,
+`test_signal_leakage_sweep.py`, `test_daily_brief_interrupt_now.py`,
+`test_attention_evaluation_job.py`) — 71 passed. `knowledge/SUOC-Platform-
+Registry.md` updated: "Continuous Captain Brief Orchestration"'s Consumers/
+Technical Debt/Next Planned Evolution/Last Updated all reflect the
+retirement; the dashboard row's Category moved from "Architectural Debt"
+to "Healthy" for the UI-consolidation half of the Convergence Review
+(the joint-documentation half — formally documenting this module /
+`captain_brief_evolution.py` / `intelligence/captains_brief.py` as one
+architecture — stays open, unrelated to this UI work).
+
+**Separately discovered and fixed in this pass, not part of the mission's
+original scope:** the production incident that made this retirement
+initially look broken — `usstjros.vercel.app`'s production alias had been
+reassigned to a stray redeploy of an unrelated feature branch
+(`mission6b-final-cos-convergence`), predating all of this mission's work.
+Diagnosed via the Vercel API (`get_deployment`/`list_deployments` showing
+the alias's actual `githubCommitRef`), fixed by promoting the correct
+`main` deployment back, then triggering a fresh build once that other
+branch's own PR merged into `main` for real — so production ended up
+serving the genuine, current `main` tip with nothing lost from either
+branch. Worth a platform-level fix outside this mission's scope: something
+in this deploy pipeline let a feature-branch redeploy silently steal the
+production alias with no apparent guard rail.
