@@ -422,7 +422,12 @@ def _emit_service_state_event(event_type: str, svc: str, state: str, crit: str) 
         from core.platform.event_bus import publish_event
         publish_event(
             event_type, domain="platform-operations", source="command_bus",
-            recommended_action=f"{svc}: {state}",
+            # Signal-leakage fix: a bare service-state transition
+            # ("nginx: failed") is an observation, not a recommended
+            # action — it goes in `description`, not `recommended_action`
+            # (see migration 0218), so it doesn't get surfaced downstream
+            # as if the platform were proposing something.
+            description=f"{svc}: {state}",
             metrics={"service": svc, "state": state, "criticality": crit},
         )
     except Exception:  # noqa: BLE001,S110 - best-effort event emission; must not break the health-monitoring loop it's reporting from

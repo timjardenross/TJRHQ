@@ -82,6 +82,13 @@ class CaptainBriefItem:
     related_event_ids: list[str] = field(default_factory=list)
     aggregation_key: str | None = None
     metrics: dict[str, Any] = field(default_factory=dict)  # MSN-0328 Wave 2 — structured per-domain detail, see core_events.metrics
+    # Briefs/Captain's Brief consolidation signal-leakage fix: the event's
+    # own readable `description` (a headline, a state transition), carried
+    # from `AttentionDecision.description`. A consumer needing readable
+    # content when there is no `recommendation` should fall back to this,
+    # never to `reason` (a scoring formula) and never by fabricating a
+    # Recommendation out of it.
+    description: str | None = None
 
 
 @dataclass
@@ -167,6 +174,7 @@ def assemble_captain_brief(
             related_event_ids=decision.related_event_ids,
             aggregation_key=decision.aggregation_key,
             metrics=decision.metrics,
+            description=decision.description,
         )
 
         if decision.category == AttentionCategory.INTERRUPT_NOW:

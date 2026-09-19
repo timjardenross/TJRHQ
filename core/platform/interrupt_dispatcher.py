@@ -78,7 +78,17 @@ def dispatch_interrupt_now(
         if status != "new":
             continue
 
-        body = item.recommendation.description if item.recommendation else item.reason
+        # Briefs/Captain's Brief consolidation signal-leakage fix: prefer a
+        # genuine recommendation, then the event's own readable description
+        # (a headline, a state transition) — `item.reason` (a bare scoring
+        # formula, "importance=X >= Y AND confidence=Z >= W") is the last
+        # resort, not the first fallback, so a push body is never just an
+        # unreadable threshold trace when real content exists.
+        body = (
+            item.recommendation.description
+            if item.recommendation
+            else (item.description or item.reason)
+        )
         link = _deep_link(item.event_id) if item.event_id else None
         if link:
             body = f"{body}\n\n{link}"
