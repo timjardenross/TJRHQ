@@ -1,10 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { LCARSPanel } from '@/components/LCARSPanel';
+// Unified Timeline — Mission 7 relocation (2026-09-19), companion to
+// app/search/page.tsx's relocation (see that file's header comment for
+// why both moved together: 2 of Search's 4 result types link here). All
+// fetch logic below is untouched, byte-for-byte the same queries as the
+// old app/(app)/timeline/page.tsx; only the outer shell and visual tokens
+// changed. The old route now redirects here.
+//
+// The 5-colour per-department dot system the old page used (bg-command/
+// bg-medical/bg-operations/bg-engineering) has no equivalent in the wb-*
+// design system and was simplified to one consistent dot colour — each
+// row's glyph + label already identify its source; the colour coding was
+// decorative on top of that, not the only way to tell sources apart.
+
+import { useEffect, useState } from 'react';
+import { WorkbenchShell } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { collectSourceOutcomes } from '@/lib/sourceResults';
-import type { DepartmentKey } from '@/lib/types';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -147,20 +159,12 @@ const TIMELINE_FETCHERS: { source: EventSource; run: (days: number) => Promise<S
 
 // ── Display helpers ───────────────────────────────────────────────────────────
 
-const SOURCE_META: Record<EventSource, { label: string; glyph: string; dept: DepartmentKey }> = {
-  missions: { label: 'Missions',  glyph: '🚀', dept: 'command'     },
-  health:   { label: 'Health',    glyph: '🩺', dept: 'medical'     },
-  log:      { label: 'Log',       glyph: '📓', dept: 'command'     },
-  events:   { label: 'Events',    glyph: '⚡', dept: 'operations'  },
-  captures: { label: 'Captures',  glyph: '📥', dept: 'engineering' },
-};
-
-const DOT_COLOUR: Record<EventSource, string> = {
-  missions: 'bg-command',
-  health:   'bg-medical',
-  log:      'bg-command/60',
-  events:   'bg-operations',
-  captures: 'bg-engineering',
+const SOURCE_META: Record<EventSource, { label: string; glyph: string }> = {
+  missions: { label: 'Missions',  glyph: '🚀' },
+  health:   { label: 'Health',    glyph: '🩺' },
+  log:      { label: 'Log',       glyph: '📓' },
+  events:   { label: 'Events',    glyph: '⚡' },
+  captures: { label: 'Captures',  glyph: '📥' },
 };
 
 function relTs(iso: string): string {
@@ -210,106 +214,109 @@ export default function TimelinePage() {
 
   const visible = filter ? events.filter(e => e.source === filter) : events;
 
-  return (
-    <div className="flex flex-col gap-4">
-      <LCARSPanel
-        title="Unified Timeline"
-        accent="science"
-        eyebrow="MSN-3A-002"
-        actions={
-          <div className="flex gap-1">
-            {DAY_OPTIONS.map(d => (
-              <button
-                key={d}
-                onClick={() => setDays(d)}
-                className={`rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                  days === d
-                    ? 'bg-science text-white'
-                    : 'text-lcars-muted hover:text-science-on'
-                }`}
-              >
-                {d}d
-              </button>
-            ))}
-          </div>
-        }
-      >
-        {/* Source filters */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          <button
-            onClick={() => setFilter('')}
-            className={`rounded-lcars border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
-              filter === ''
-                ? 'border-science/60 bg-science/10 text-science-on'
-                : 'border-edge text-lcars-muted hover:text-science-on hover:border-science/40'
-            }`}
-          >
-            All
-          </button>
-          {ALL_SOURCES.map(s => (
-            <button
-              key={s}
-              onClick={() => setFilter(s === filter ? '' : s)}
-              className={`rounded-lcars border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                filter === s
-                  ? 'border-science/60 bg-science/10 text-science-on'
-                  : 'border-edge text-lcars-muted hover:text-science-on hover:border-science/40'
-              }`}
-            >
-              {SOURCE_META[s].glyph} {SOURCE_META[s].label}
-            </button>
-          ))}
-          <span className="ml-auto text-[10px] text-lcars-muted self-center">
-            {visible.length} event{visible.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-
-        {/* MSN-0351: honest, quiet note when one or more sources failed to
-            load — an outage no longer masquerades as "no events". */}
-        {!loading && failedSources.length > 0 && (
-          <p className="mb-3 text-xs text-lcars-muted/80">
-            Couldn&rsquo;t check: {failedSources.map(s => SOURCE_META[s].label).join(', ')}. Results may be incomplete.
-          </p>
-        )}
-
-        {/* Event list */}
-        {loading ? (
-          <p className="text-sm text-lcars-muted animate-pulse">Loading timeline…</p>
-        ) : visible.length === 0 ? (
-          // Only claim a genuine empty result when every source actually
-          // succeeded; if some failed, the note above already explains it.
-          failedSources.length > 0 ? null : (
-            <p className="text-sm text-lcars-muted">No events in the last {days} days.</p>
-          )
-        ) : (
-          <div className="flex flex-col">
-            {visible.map((e, i) => (
-              <div key={e.id} className="flex gap-3 group">
-                {/* Timeline spine */}
-                <div className="flex flex-col items-center shrink-0 w-4">
-                  <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${DOT_COLOUR[e.source]}`} />
-                  {i < visible.length - 1 && (
-                    <span className="w-px flex-1 bg-edge mt-1" />
-                  )}
-                </div>
-                {/* Content */}
-                <div className="flex-1 min-w-0 pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm text-foreground leading-snug">{e.title}</p>
-                    <span className="text-[10px] text-lcars-muted shrink-0 mt-0.5">{relTs(e.timestamp)}</span>
-                  </div>
-                  {e.detail && (
-                    <p className="text-xs text-lcars-muted mt-0.5 truncate">{e.detail}</p>
-                  )}
-                  <span className="text-[9px] uppercase tracking-[0.15em] text-lcars-muted/60 mt-1 block">
-                    {SOURCE_META[e.source]?.label ?? e.source}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </LCARSPanel>
+  const daySelector = (
+    <div className="flex gap-1">
+      {DAY_OPTIONS.map(d => (
+        <button
+          key={d}
+          type="button"
+          onClick={() => setDays(d)}
+          className={`rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+            days === d
+              ? 'bg-wb-sage-deep text-white'
+              : 'text-wb-ink2 hover:text-wb-ink'
+          }`}
+        >
+          {d}d
+        </button>
+      ))}
     </div>
+  );
+
+  const sourceFilters = (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={() => setFilter('')}
+        className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+          filter === ''
+            ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep'
+            : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'
+        }`}
+      >
+        All
+      </button>
+      {ALL_SOURCES.map(s => (
+        <button
+          key={s}
+          type="button"
+          onClick={() => setFilter(s === filter ? '' : s)}
+          className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+            filter === s
+              ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep'
+              : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'
+          }`}
+        >
+          {SOURCE_META[s].glyph} {SOURCE_META[s].label}
+        </button>
+      ))}
+      <span className="ml-auto text-[10px] text-wb-ink2">
+        {visible.length} event{visible.length !== 1 ? 's' : ''}
+      </span>
+    </div>
+  );
+
+  return (
+    <WorkbenchShell
+      title="Timeline"
+      eyebrow="Cross-domain"
+      tagline="USS TJR · Timeline · Missions, health, log, events, captures"
+      back={{ href: '/workbenches', label: 'Workbenches' }}
+      right={daySelector}
+      tabs={sourceFilters}
+    >
+      {/* MSN-0351: honest, quiet note when one or more sources failed to
+          load — an outage no longer masquerades as "no events". */}
+      {!loading && failedSources.length > 0 && (
+        <p className="mb-3 text-xs text-wb-ink2">
+          Couldn&rsquo;t check: {failedSources.map(s => SOURCE_META[s].label).join(', ')}. Results may be incomplete.
+        </p>
+      )}
+
+      {loading ? (
+        <p className="text-sm text-wb-ink2 animate-pulse">Loading timeline…</p>
+      ) : visible.length === 0 ? (
+        // Only claim a genuine empty result when every source actually
+        // succeeded; if some failed, the note above already explains it.
+        failedSources.length > 0 ? null : (
+          <p className="text-sm text-wb-ink2">No events in the last {days} days.</p>
+        )
+      ) : (
+        <div className="flex flex-col">
+          {visible.map((e, i) => (
+            <div key={e.id} className="group flex gap-3">
+              <div className="flex w-4 shrink-0 flex-col items-center">
+                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-wb-sage-deep" aria-hidden />
+                {i < visible.length - 1 && (
+                  <span className="mt-1 w-px flex-1 bg-wb-line" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1 pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm leading-snug text-wb-ink">{e.title}</p>
+                  <span className="mt-0.5 shrink-0 text-[10px] text-wb-ink2">{relTs(e.timestamp)}</span>
+                </div>
+                {e.detail && (
+                  <p className="mt-0.5 truncate text-xs text-wb-ink2">{e.detail}</p>
+                )}
+                <span className="mt-1 block text-[9px] uppercase tracking-[0.15em] text-wb-ink2/70">
+                  {SOURCE_META[e.source]?.label ?? e.source}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </WorkbenchShell>
   );
 }

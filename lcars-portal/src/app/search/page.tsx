@@ -1,8 +1,24 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+// Universal Search — Mission 7 relocation (2026-09-19). Previously lived at
+// app/(app)/search/page.tsx, inside the legacy (app) route group (its own
+// LCARSHeader/LCARSNav chrome, a different design system entirely) with
+// zero live inbound links anywhere in the app — a real, maintained,
+// working cross-domain search with no way to reach it. All fetch/search
+// logic below is untouched, byte-for-byte the same queries as the old
+// page; only the outer shell and visual tokens changed (WorkbenchShell +
+// wb-* design tokens, matching every other live workbench, instead of
+// LCARSPanel + the old lcars-* tokens). The old route now redirects here.
+//
+// Two of its 4 result types ("Captain's Log", "Events") link to /timeline
+// — relocated in the same pass (app/timeline/page.tsx) for exactly that
+// reason: shipping this alone would just move the Captain from one
+// orphaned page to another for those two categories.
+
+import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LCARSPanel } from '@/components/LCARSPanel';
+import { Search as SearchIcon } from 'lucide-react';
+import { WorkbenchShell } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { collectSourceOutcomes } from '@/lib/sourceResults';
 
@@ -71,10 +87,10 @@ async function searchLog(q: string): Promise<SearchOutcome> {
     title:     `Captain's Log — ${r.log_date}`,
     detail:    (r.tomorrows_priority ?? r.overall_note ?? '').slice(0, 100),
     timestamp: r.log_date,
-    // MSN-0328 (WP-C): /captains-log is a today-only entry form with no
-    // history view at all — routing a past-date search hit there landed
-    // on a blank form. /timeline already renders past log entries
-    // chronologically (fetchLogEntries) — the real existing destination.
+    // /timeline renders past log entries chronologically — the real
+    // destination for a past-date hit (captains_log_entries itself has
+    // had no new rows since 2026-06-28, so this source is rarely the one
+    // that actually matches — kept for completeness/history search).
     href:      '/timeline',
   }));
   return { ok: !error, results };
@@ -95,10 +111,6 @@ async function searchCaptures(q: string): Promise<SearchOutcome> {
     title:     r.title ?? r.raw_text?.slice(0, 80) ?? '(captured item)',
     detail:    `${r.item_type} · ${r.processing_status}`,
     timestamp: r.captured_at,
-    // MSN-0328 (WP-C): /captains-notebook reads intelligence_notes, never
-    // captured_items — this search queries captured_items, so a hit here
-    // never appeared on the page it linked to. The Capture Workbench Inbox is
-    // the real captured_items consumer.
     href:      '/capture-workbench?domain=inbox',
   }));
   return { ok: !error, results };
@@ -119,10 +131,9 @@ async function searchEvents(q: string): Promise<SearchOutcome> {
     title:     `${r.mission_id ?? 'System'}: ${r.status}`,
     detail:    undefined,
     timestamp: r.created_at,
-    // MSN-0328 (WP-C): no dedicated event-detail view exists anywhere in
-    // this app (bare /missions showed the registry list, not the event).
-    // /timeline already renders mission_execution_events chronologically
-    // (fetchCommanderEvents) — the real existing destination.
+    // No dedicated event-detail view exists anywhere in the app —
+    // /timeline renders mission_execution_events chronologically, the
+    // real existing destination.
     href:      '/timeline',
   }));
   return { ok: !error, results };
@@ -217,71 +228,73 @@ export default function SearchPage() {
   }, {});
 
   return (
-    <div className="flex flex-col gap-4">
-      <LCARSPanel title="Universal Search" accent="science" eyebrow="MSN-3A-001">
-        <div className="flex flex-col gap-4">
-
-          {/* Search input */}
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lcars-muted text-sm select-none">🔍</span>
-            <input
-              type="text"
-              value={query}
-              onChange={e => handleInput(e.target.value)}
-              placeholder="Search missions, log entries, captures, events…"
-              autoFocus
-              className="w-full rounded-lcars border border-edge bg-space pl-9 pr-4 py-3 text-sm text-foreground placeholder:text-lcars-muted focus:border-science/60 focus:outline-none focus:ring-1 focus:ring-science/30"
-            />
-            {loading && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-lcars-muted animate-pulse">
-                Searching…
-              </span>
-            )}
-          </div>
-
-          {/* Results */}
-          {!searched && (
-            <p className="text-sm text-lcars-muted">
-              Type 2 or more characters to search across all operational domains.
-            </p>
+    <WorkbenchShell
+      title="Search"
+      eyebrow="Cross-domain"
+      tagline="USS TJR · Search · Missions, Captain's Log, Captures, Events"
+      back={{ href: '/workbenches', label: 'Workbenches' }}
+    >
+      <div className="flex flex-col gap-4">
+        <div className="relative">
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-wb-ink2" aria-hidden />
+          <input
+            type="text"
+            value={query}
+            onChange={e => handleInput(e.target.value)}
+            placeholder="Search missions, log entries, captures, events…"
+            autoFocus
+            aria-label="Search"
+            className="w-full rounded-md border border-wb-line bg-wb-surface py-3 pl-9 pr-4 text-sm text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          />
+          {loading && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-wb-ink2 animate-pulse">
+              Searching…
+            </span>
           )}
-
-          {/* MSN-0351: honest, quiet note when one or more sources failed —
-              a source outage no longer looks identical to "no matches". */}
-          {searched && !loading && failedSources.length > 0 && (
-            <p className="text-xs text-lcars-muted/80">
-              Couldn&rsquo;t check: {failedSources.join(', ')}. Results may be incomplete.
-            </p>
-          )}
-
-          {/* Only claim a genuine empty result when every source succeeded. */}
-          {searched && !loading && results.length === 0 && failedSources.length === 0 && (
-            <p className="text-sm text-lcars-muted">No results for <span className="text-foreground">&ldquo;{query}&rdquo;</span></p>
-          )}
-
-          {Object.entries(grouped).map(([type, items]) => (
-            <div key={type} className="flex flex-col gap-1">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-lcars-muted pb-1 border-b border-edge">
-                {TYPE_LABEL[type] ?? type}
-              </p>
-              {items.map(r => (
-                <button
-                  key={r.id}
-                  onClick={() => r.href && router.push(r.href)}
-                  className="flex items-start gap-3 rounded-lcars px-3 py-2.5 text-left hover:bg-science/10 transition-colors w-full group"
-                >
-                  <span className="text-base shrink-0 mt-0.5">{TYPE_GLYPH[r.type] ?? '•'}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground group-hover:text-science-on truncate">{r.title}</p>
-                    {r.detail && <p className="text-xs text-lcars-muted truncate mt-0.5">{r.detail}</p>}
-                  </div>
-                  <span className="text-[10px] text-lcars-muted shrink-0 mt-1">{relTs(r.timestamp)}</span>
-                </button>
-              ))}
-            </div>
-          ))}
         </div>
-      </LCARSPanel>
-    </div>
+
+        {!searched && (
+          <p className="text-sm text-wb-ink2">
+            Type 2 or more characters to search across all operational domains.
+          </p>
+        )}
+
+        {/* MSN-0351: honest, quiet note when one or more sources failed —
+            a source outage no longer looks identical to "no matches". */}
+        {searched && !loading && failedSources.length > 0 && (
+          <p className="text-xs text-wb-ink2">
+            Couldn&rsquo;t check: {failedSources.join(', ')}. Results may be incomplete.
+          </p>
+        )}
+
+        {/* Only claim a genuine empty result when every source succeeded. */}
+        {searched && !loading && results.length === 0 && failedSources.length === 0 && (
+          <p className="text-sm text-wb-ink2">No results for <span className="text-wb-ink">&ldquo;{query}&rdquo;</span></p>
+        )}
+
+        {Object.entries(grouped).map(([type, items]) => (
+          <div key={type} className="flex flex-col gap-1">
+            <p className="border-b border-wb-line pb-1 text-[10px] uppercase tracking-[0.2em] text-wb-ink2">
+              {TYPE_LABEL[type] ?? type}
+            </p>
+            {items.map(r => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => r.href && router.push(r.href)}
+                className="group flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-wb-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+              >
+                <span className="mt-0.5 shrink-0 text-base" aria-hidden>{TYPE_GLYPH[r.type] ?? '•'}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-wb-ink group-hover:text-wb-sage-deep">{r.title}</p>
+                  {r.detail && <p className="mt-0.5 truncate text-xs text-wb-ink2">{r.detail}</p>}
+                </div>
+                <span className="mt-1 shrink-0 text-[10px] text-wb-ink2">{relTs(r.timestamp)}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    </WorkbenchShell>
   );
 }

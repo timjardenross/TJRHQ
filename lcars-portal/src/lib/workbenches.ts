@@ -50,6 +50,8 @@ import {
   Lightbulb,
   GitPullRequest,
   ShoppingCart,
+  Search as SearchIcon,
+  History,
 } from 'lucide-react';
 
 // Mission 7 §16 — the directory grid this drives (workbenches/page.tsx)
@@ -195,6 +197,27 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     title: 'Knowledge Workbench',
     description: 'Command memory — organisational decisions and the reasoning behind them, searchable in one place.',
     icon: BookOpen,
+    group: 'work_decisions',
+  },
+  {
+    // Mission 7 §35/§16: relocated 2026-09-19 from app/(app)/search — a
+    // real, maintained, cross-domain search with zero navigation path in
+    // for months (confirmed zero live inbound links before this). See
+    // app/search/page.tsx's own header comment for the full trace.
+    href: '/search',
+    title: 'Search',
+    description: 'Cross-domain search — missions, Captain\'s Log, captures, and events, all from one search box.',
+    icon: SearchIcon,
+    group: 'work_decisions',
+  },
+  {
+    // Mission 7 §35/§16: relocated 2026-09-19 from app/(app)/timeline,
+    // same pass and same reasoning as Search above (2 of Search's result
+    // types link here).
+    href: '/timeline',
+    title: 'Timeline',
+    description: 'One chronological feed across missions, health, log, events, and captures — filterable by source.',
+    icon: History,
     group: 'work_decisions',
   },
   {

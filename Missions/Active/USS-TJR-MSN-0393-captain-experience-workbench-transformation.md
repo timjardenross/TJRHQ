@@ -361,6 +361,41 @@ landed after that section was written, not because they're a new phase in spirit
   exist. Not resolved either way within this pass; see §5 item 13 for the corrected, honest
   state of this question rather than a wrong plan left standing.
 
+## 3.7 Phase 6 — `search` and `timeline` relocated (the RELOCATE recommendation from §3.5,
+   actually built)
+
+§3.5 found `search` and `timeline` were real, maintained, unique capabilities wrongly at risk
+of being lumped in with the genuinely dead legacy pages — flagged as "RELOCATE, not RETIRE,
+not designed/built this pass." Re-read both files in full (not just the header) to assess
+whether that port was actually tractable in the time remaining, found it was, and built it:
+
+- **`app/search/page.tsx`** and **`app/timeline/page.tsx`** (new, outside the legacy `(app)`
+  route group) replace `app/(app)/search/page.tsx` and `app/(app)/timeline/page.tsx`
+  (deleted, not stubbed — same URL, so both couldn't coexist; this is a genuine move, not a
+  retirement). Every fetch/search function carried over byte-for-byte unchanged — zero risk
+  to the actual query logic, which was already correct and well-maintained (recent SQL-
+  injection fix, honest partial-failure handling). Only the outer shell and visual tokens
+  changed: `LCARSPanel` → `WorkbenchShell`, `lcars-*`/department-colour tokens → the `wb-*`
+  tokens every other live workbench uses. `Timeline`'s 5-colour department-dot system had no
+  `wb-*` equivalent and was deliberately simplified to one consistent colour (glyph + label
+  already identify each source — the colour was decorative on top of that, not the only
+  differentiator, so dropping it isn't a capability loss).
+- Both added to `lib/workbenches.ts`'s `LIVE_WORKBENCHES` (`work_decisions` group, alongside
+  Knowledge Workbench) — reachable from the Workbench directory (including its Phase 1 search
+  box) for the first time since whenever they lost their original nav entry.
+- Confirmed the one real dependency §3.5 flagged before building anything: `search`'s
+  "Captain's Log" and "Events" result types link to `/timeline` — both moved in the same
+  commit, so neither stranded the Captain on the other's now-orphaned old location.
+- Left `timeline`'s "Log" source as-is (reads `captains_log_entries`, which stopped receiving
+  rows 2026-06-28, so it will render consistently empty) — not a bug this port should silently
+  paper over, just documented in the new file's own header comment so it doesn't read as one
+  later.
+
+**Validation:** `rm -rf .next` + fresh `tsc --noEmit` (the route move left stale generated
+`.next/types` referencing the deleted path — cache artifact, not a real error, confirmed clean
+after a rebuild), lint clean, full 725-test suite green, production build succeeds with both
+routes now building as plain static pages outside the `(app)` group.
+
 ## 4. Core end-to-end test (§40) — status
 
 The backend path this test exercises (remember → what am I forgetting → help me start →
@@ -449,10 +484,12 @@ where the next pass should start:
 10. **Full adversarial UX pass** (§45) — the items in §1.2–1.6 above were found through a
     bounded discovery pass, not an exhaustive adversarial review of every surface; more
     almost certainly exists.
-11. **Legacy `(app)`-group page retirement — 5 of 8 converted (`medical`, `captains-log`,
-    `automation-centre`, `intelligence`, `engineering`), 3 remain (`operations`,
-    `operating-model`, and the deliberate `search`/`timeline` relocate-not-retire pair), all
-    fully or partially scoped, none guessed at.** See §3.4/§3.5/§3.6 for the full evidence
+11. **Legacy `(app)`-group page retirement — 7 of 8 resolved.** 5 converted to honest stubs
+    (`medical`, `captains-log`, `automation-centre`, `intelligence`, `engineering`); `search`
+    and `timeline` relocated rather than retired (§3.7, real capabilities, now live at their
+    own top-level routes). Only `operations` (needs item 13's investigation resolved first)
+    and `operating-model` (a Captain call, not an engineering one) remain open. See
+    §3.4/§3.5/§3.6/§3.7 for the full evidence
     trail per page:
     - `intelligence` (693 lines, the largest page in the sweep) — **converted in Phase 5**.
       All 6 tabs traced through `/api/intelligence`'s actual table queries (not tab names
@@ -485,13 +522,12 @@ where the next pass should start:
       app and no internal sign of staleness — retiring it risks silently deleting real
       content, not clearing a redundant view. Needs a Captain call (keep as reference,
       relocate, or reaffirm/rewrite), not an engineering decision.
-    - `search` (287 lines) and `timeline` (315 lines) — **do not retire these.** See §3.5:
-      both are real, currently-maintained, unique capabilities (cross-domain search and a
-      cross-domain unified timeline) with zero navigation path in, not legacy duplicates.
-      RELOCATE, not RETIRE — surface them somewhere reachable (a natural fit: wire `/search`
-      into the ambient ⌘/global search affordance §16 already gestures at with the Workbench
-      directory's new search box; `/timeline` could sit inside Captain's Chair or Weekly
-      Review). Not designed/built this pass.
+    - `search` (287 lines) and `timeline` (315 lines) — **RELOCATED in Phase 6 (§3.7), not
+      retired.** Both were real, currently-maintained, unique capabilities (cross-domain
+      search and a cross-domain unified timeline) with zero navigation path in — the opposite
+      finding from the rest of this sweep. Now live at `app/search/page.tsx` /
+      `app/timeline/page.tsx`, `WorkbenchShell`-shelled, reachable from the Workbench
+      directory. See §3.7 for the full build record.
 12. **`/medical/log-weight`'s weight-trend view has no `human-systems-workbench`
     equivalent** (found in §3.4) — either port a real weight-trend view into
     `human-systems-workbench` (closing the last redirect hop in the `medical` cluster) or
