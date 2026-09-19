@@ -174,13 +174,11 @@ next to a global ambient Number One button was duplicate-sounding navigation (§
 link's real remaining job (a full, persisted, multi-turn `ConsultView` thread vs. the
 widget's ephemeral per-session turns) is now stated, not left implicit.
 
-**Deliberately not touched:** `/api/xo` (Telegram's XO persona) does not share this
-dispatcher — it runs a separate LLM-freeform + governed `<starfleet-action>`-block proposal
-system that routes mutations through Decide for review, rather than Number One's direct
-canonical-intent execution. Investigated whether this is a gap or a deliberate different
-trust model for a less-controlled surface (Telegram) and could not resolve it with
-confidence in this pass — left as deferred item §5.4 rather than merging two systems with
-different governance postures without being sure that's correct.
+**Deliberately not touched:** `/api/xo` (the web route XO's persona uses for general
+freeform chat, gated behind reviewed `<starfleet-action>` proposals in Decide) does not
+share this dispatcher, and was left alone — Telegram's actual XO *bot* (a separate Python
+process, not this route) turns out to already have its own equivalent, independently built.
+See §5 item 4 for the full finding: investigated and closed, no gap, no fix needed.
 
 ## 3.2 Phase 2 spot-checks (reviewed, no defect — recorded so the next pass doesn't re-derive
    this from scratch)
@@ -239,10 +237,22 @@ where the next pass should start:
    anti-pattern that silently strands the Captain on whatever page was already open. Genuine
    server-initiated push for a closed app is out of MVP scope by the code's own design doc
    (`docs/MOBILE-MVP.md`), not a Mission 7 gap.
-4. **Telegram/XO parity review** (§26) — `/api/xo` is a separate, simpler endpoint from
-   `/api/ai/chat` and does not currently run through the same canonical intent dispatcher;
-   worth checking whether Telegram should get the same 9 intents Number One now surfaces on
-   web, or whether it already has an equivalent path this review didn't find.
+4. **Telegram/XO parity review (§26) — investigated, no gap found.** `/api/xo` (the web
+   route) indeed doesn't share `lib/number-one/intent-router.ts` — but Telegram's XO bot
+   (`telegram-bots/xo/`, a separate Python process; sharing TS code across runtimes isn't
+   meaningful) has its own deterministic equivalent: `follow_through_nl.py`'s
+   `parse_capture_intent`/`parse_update_intent` (no LLM, regex-based, same "deterministic
+   over LLM-freeform for a state mutation" discipline as the web dispatcher) recognise
+   "remind me/don't forget/remember to" for capture and, as a reply to a tracked reminder,
+   `done` / `defer`/"not now" / `drop` / `decompose`("help me start") / weekday snooze —
+   materially the same canonical-intent set Number One's web widget now surfaces, arrived at
+   independently because it's a different runtime. Both write through the same canonical
+   tables: `app.py`'s own header comment (Mission 3) documents that Telegram capture used to
+   write straight into `personal_tasks` as "a second capture path that silently bypassed
+   `captured_items` and its enrichment/classification pipeline" and was deliberately
+   corrected to route through `captured_items` like every other channel (voice, portal,
+   `/note`) — exactly the single-pipeline discipline Mission 7 §4 asks for, already done.
+   No fix needed; this item is closed, not deferred.
 5. **Voice capture reassessment** (§27) — not investigated this pass.
 6. **Full accessibility audit** (§31) — Phase 1 relied on the existing `a11y.test.tsx`
    axe-core coverage (which now includes the new floating buttons via `WorkbenchShell`, and
