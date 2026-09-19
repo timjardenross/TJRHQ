@@ -471,6 +471,34 @@ able to see the actual rendered result in a browser. Full numbers and both presc
 paths are in §5 item 14 for whoever has live-environment access to verify a fix visually
 before shipping one.
 
+**Also fixed, same pass:** a real, repeated pattern of visually-labelled-but-not-
+programmatically-labelled form fields — a `<p>` styled to look like a field label
+immediately above an `<input>`/`<textarea>`, with no `<label>`, `htmlFor`/`id` pairing, or
+`aria-label` connecting them, so a screen reader announces the field with no name at all.
+Found by reading actual JSX around every raw `<input>`/`<textarea>` in the app (a first grep
+for "missing aria-label" was mostly false positives — many inputs are correctly wrapped
+inside a `<label>` or paired with a `<fieldset>`/`<legend>`, which a single-line grep can't
+see; had to actually read the surrounding markup, not just pattern-match it), not by
+guessing where it might occur. Real instances, all fixed with `aria-label` matching the
+visible text (least invasive: doesn't touch the existing `<p>`/visual styling):
+- **`(auth)/login/page.tsx`'s Password-mode form** — the highest-stakes instance: every
+  Captain who has ever used HQ has seen this page, and its email/password inputs had *no*
+  label of any kind, relying on placeholder text alone (which disappears once typing starts
+  and isn't reliably announced as a label). The Magic Link form 40 lines below already uses
+  the correct `sr-only <label>` + `id` pattern for the same email field — mirrored here
+  rather than left inconsistent within the same file.
+- `captains-chair-workbench/notebook/page.tsx` — all 4 capture-form fields (quick-mode
+  textarea, Title, Thought or intelligence, Tags).
+- `content-workbench/_components/ContentStudio.tsx`'s Schedule datetime input,
+  `stageBodies.tsx`'s Framing angle / AI-revision-instructions / QA-notes inputs.
+- `briefs/page.tsx`'s Search briefs input, `advisory-workbench/_components/OutcomesView.tsx`'s
+  "What did HQ miss?" input.
+
+Not exhaustive — every raw `<input>`/`<textarea>` outside `components/ui/Input.tsx` (which
+already requires a `label` prop) was checked, but a component that builds its own custom
+input wrapper elsewhere in the tree, not matched by a plain `<input`/`<textarea` grep, could
+still have the same gap unfound.
+
 ## 4. Core end-to-end test (§40) — status
 
 The backend path this test exercises (remember → what am I forgetting → help me start →
@@ -547,10 +575,13 @@ where the next pass should start:
 6. **Full accessibility audit** (§31) — Phase 3 fixed Modal's missing focus trap (§3.3, all
    ~15 call sites) plus this mission's own new `aria-live` gap; Phase 8 (§3.9) computed real
    WCAG contrast ratios for every colour token actually shipping (not sampled by eye), fixed
-   2 of 5 themes' secondary-text contrast, and found (but correctly didn't blind-fix) the
-   bigger `state-*`/`midnight` finding in item 14 above. Still not done: zoom behaviour, a
-   real screen-reader walkthrough, and keyboard-navigation testing beyond the Modal fix —
-   none of those are computable without a live browser the way contrast is.
+   2 of 5 themes' secondary-text contrast, found (but correctly didn't blind-fix) the bigger
+   `state-*`/`midnight` finding in item 14 above, and fixed every found instance of a
+   visually-labelled-but-not-programmatically-labelled form field across the app (read the
+   actual JSX around every raw `<input>`/`<textarea>`, not grepped for — see §3.9's full list,
+   `(auth)/login`'s Password form was the highest-stakes one). Still not done: zoom behaviour,
+   a real screen-reader walkthrough, and keyboard-navigation testing beyond the Modal fix —
+   none of those are computable without a live browser the way contrast/markup structure are.
 7. **Before/after screenshot evidence** (§39/§56) — not captured; this environment has no
    way to run the app against live data (no Supabase/OLLAMA env configured) to produce
    faithful screenshots. Needs a real environment.

@@ -223,6 +223,7 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
         <div className="flex flex-wrap gap-2.5">
           <input
             type="search"
+            aria-label="Search briefs"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search briefs…"

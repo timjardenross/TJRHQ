@@ -217,6 +217,7 @@ export function OutcomesView() {
                   <p className="mb-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">What did HQ miss? (optional)</p>
                   <input
                     type="text"
+                    aria-label="What did HQ miss? (optional)"
                     value={notes[loop.advisory_id] ?? ''}
                     onChange={(e) => setNotes((prev) => ({ ...prev, [loop.advisory_id]: e.target.value }))}
                     placeholder="What actually happened?"
