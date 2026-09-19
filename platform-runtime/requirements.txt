@@ -49,7 +49,7 @@ asyncpg>=0.29.0
 # ~15 scrape sources incl. APRA/ASIC/ACSC) — never declared here, so every
 # RSS/scrape source in intelligence_source_registry failed collection with
 # "not installed" (confirmed via intelligence_source_health) until this line was added.
-feedparser>=6.0.0
+feedparser>=6.0.14
 beautifulsoup4>=4.12.0
 # USS-TJR-MSN-0368 Stream 9: was only a transitive dep (pulled in by
 # something else) -- pinned explicitly now that emergency-alert-adapters/
