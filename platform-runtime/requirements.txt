@@ -72,7 +72,7 @@ graphiti-core[falkordblite,google-genai]>=0.30.2
 # 2026-09-06: core/platform/unified_memory.py's mem0 backend for SEMANTIC/
 # FACTUAL recall (_Mem0Backend) — already installed and merged, just never
 # declared here.
-mem0ai>=2.0.18
+mem0ai>=2.0.20
 arize-phoenix>=20.10.0
 opentelemetry-sdk
 opentelemetry-exporter-otlp-proto-http
