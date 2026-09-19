@@ -36,3 +36,22 @@ def test_interrupt_now_field_empty_for_non_interrupt_event():
 def test_interrupt_now_field_matches_metadata_count_on_full_corpus():
     doc = assemble_captain_brief_document(FULL_MULTI_DOMAIN_CORPUS)
     assert len(doc.interrupt_now) == doc.metadata["attention_category_counts"]["interrupt_now"]
+
+
+def test_already_acknowledged_event_defaults_out_of_interrupt_now():
+    """Phase 4 (attention-semantics rework, consolidation mission §7):
+    `assemble_captain_brief_document()` defaults `recent_surfaced` to the
+    polled batch itself, so an event whose own `core_events.status` is
+    already acknowledged/dismissed/superseded stops showing up as a fresh
+    INTERRUPT_NOW on the very next call — the "recurring event
+    re-interrupts every cycle" gap `poll_events()`'s lack of a `since`
+    cursor otherwise causes."""
+    already_seen = dict(INTERRUPT_NOW_EVENT, status="acknowledged")
+    doc = assemble_captain_brief_document([already_seen])
+    assert doc.interrupt_now == []
+
+
+def test_recent_surfaced_can_be_opted_out_of_explicitly():
+    already_seen = dict(INTERRUPT_NOW_EVENT, status="acknowledged")
+    doc = assemble_captain_brief_document([already_seen], recent_surfaced=[])
+    assert len(doc.interrupt_now) == 1
