@@ -449,9 +449,11 @@ where the next pass should start:
 10. **Full adversarial UX pass** (§45) — the items in §1.2–1.6 above were found through a
     bounded discovery pass, not an exhaustive adversarial review of every surface; more
     almost certainly exists.
-11. **Legacy `(app)`-group page retirement — 4 of 8 converted (`medical`, `captains-log`,
-    `automation-centre`, `intelligence`), 4 remain, all fully or partially scoped, none
-    guessed at.** See §3.4/§3.5/§3.6 for the full evidence trail per page:
+11. **Legacy `(app)`-group page retirement — 5 of 8 converted (`medical`, `captains-log`,
+    `automation-centre`, `intelligence`, `engineering`), 3 remain (`operations`,
+    `operating-model`, and the deliberate `search`/`timeline` relocate-not-retire pair), all
+    fully or partially scoped, none guessed at.** See §3.4/§3.5/§3.6 for the full evidence
+    trail per page:
     - `intelligence` (693 lines, the largest page in the sweep) — **converted in Phase 5**.
       All 6 tabs traced through `/api/intelligence`'s actual table queries (not tab names
       alone): Latest Brief/Daily Briefs/ORI Archive → `intelligence_briefs`/
@@ -466,14 +468,18 @@ where the next pass should start:
       **see item 13 below for a correction**: the original "port a view into HQ Evolution"
       plan turned out to be based on an incomplete read of what `commander_events` actually
       holds; needs the investigation in item 13 resolved first, not that port.
-    - `engineering` (337 lines) — partially traced. `build_request_inbox` confirmed
-      superseded (Captain's Chair's Engineering Queue). `agent_performance`/`batch_jobs` not
-      yet confirmed live-or-dead — neither is read in `agent-status-workbench`, and a
-      migration 0183 comment ("research_input_archived_2026 -> batch_jobs (live, untouched)")
-      is a real signal `batch_jobs` is still live via *some* writer not found by a plain
-      Python grep, contradicting the naive "zero string-literal matches = dead" read — needs
-      the same careful backend-write-path trace `commander_events` got, done properly this
-      time, not a quick grep.
+    - `engineering` (337 lines) — **converted.** `build_request_inbox` confirmed superseded
+      (Captain's Chair's Engineering Queue). `agent_performance`/`batch_jobs` got the full
+      backend-write-path trace `commander_events` got (not the quick grep that missed
+      `commander_events`'s real caller) — repo-wide, Python and TypeScript both: zero live
+      readers or writers of either table found anywhere outside this page and
+      `lib/engineeringMetrics.ts` itself (which only exists to compute rates from them).
+      Weaker confidence than `medical`/`captains-log` (a thorough-but-negative search, not a
+      confirmed-dead write path) — said so explicitly in the stub's own comment rather than
+      overclaiming certainty. `lib/engineeringMetrics.ts` itself is worth noting as unusually
+      well-cared-for code to be retiring: its own header comment documents MSN-0351 removing
+      a fabricated "Cognitive Load Reduction" composite score it used to compute, in favour of
+      honest separate rates — good work, just for data with no evidence of still flowing.
     - `operating-model` (249 lines) — **deliberately not converted, different reason than the
       others.** Static doctrine/principles content with no duplicate anywhere else in the
       app and no internal sign of staleness — retiring it risks silently deleting real
