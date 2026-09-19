@@ -241,7 +241,21 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest
+          # pytest.ini's addopts (root, applies to every matrix job since
+          # pytest resolves it from repo root regardless of matrix.dir)
+          # requires the pytest-timeout plugin (2026-09-15, arize-phoenix
+          # collection-hang fix). platform-runtime/requirements.txt happens
+          # to already declare it as an app dependency, which is why those
+          # matrix jobs never surfaced this gap; jobs whose requirements.txt
+          # doesn't (e.g. telegram-bots/xo) silently passed only because
+          # they had zero real tests to run pytest.ini's addopts against —
+          # confirmed broken (`unrecognized arguments: --timeout=30`) the
+          # moment Mission 1 (USS-TJR-MSN-1) added telegram-bots/xo's first
+          # real test file. Installing it here, once, for every job, is the
+          # actual fix — not adding it to telegram-bots/xo/requirements.txt,
+          # which would leak a test-only dependency into that bot's
+          # production venv.
+          pip install pytest pytest-timeout
           if [ -n "${{ matrix.req }}" ]; then
             pip install -r "${{ matrix.req }}"
           fi
