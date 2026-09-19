@@ -206,6 +206,16 @@ export function DecomposeView({
     setBusy(false);
   }
 
+  // Mission 6B §8.6: PickUpBanner's "Continue" — resumes directly into
+  // ActiveTaskView the same way startHere() does, instead of the old
+  // "switch to Do" dead end. No task creation, no support/evidence write
+  // (see PickUpBanner.tsx's header comment for why not) — this is exactly
+  // TodayStream's own "Continue" behaviour, now also reachable from here.
+  function resumePickUp(task: PersonalTask) {
+    setStartedTask(task);
+    setStage('started');
+  }
+
   async function turnIntoMission() {
     setBusy(true);
     await promoteToMission({ title: goal, context: null });
@@ -253,7 +263,7 @@ export function DecomposeView({
   return (
     <div className="flex flex-col gap-4">
       {stage === 'input' && pickUp.length > 0 && (
-        <PickUpBanner tasks={pickUp} />
+        <PickUpBanner tasks={pickUp} onResume={resumePickUp} />
       )}
       <div>
         <Textarea

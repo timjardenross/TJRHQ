@@ -4,6 +4,7 @@ import { buildShipContext } from '@/lib/ai-context';
 import { parseAndProposeActions } from '@/lib/ai-actions';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { errorDetail } from '@/lib/errorDetail';
+import { classifyIntent, dispatchIntent } from '@/lib/number-one/intent-router';
 
 // Ollama Cloud base URL — configurable without code changes
 const OLLAMA_BASE_URL =
@@ -143,6 +144,28 @@ function streamOllamaResponse(upstream: Response): Response {
   });
 }
 
+// ── Number One canonical intent dispatch (Mission 6B §4-9) ─────────────────────
+//
+// Wraps a deterministic dispatcher reply in the same SSE contract
+// streamOllamaResponse() produces (`data: {token}` chunks, then
+// `data: [DONE]`) — the console client (ConsultView.tsx) always sends
+// stream:true and parses SSE regardless of role, so a dispatched reply must
+// speak the same wire format as an LLM-streamed one, even though nothing
+// was actually streamed token-by-token.
+function sseFromText(text: string): Response {
+  const encoder = new TextEncoder();
+  const readable = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ token: text })}\n\n`));
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+      controller.close();
+    },
+  });
+  return new Response(readable, {
+    headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
+  });
+}
+
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -170,6 +193,24 @@ export async function POST(request: NextRequest) {
 
   if (!messages.length) {
     return NextResponse.json({ error: 'messages array is required' }, { status: 400 });
+  }
+
+  // Mission 6B §4-9: Number One intercepts the 9 canonical Captain intents
+  // deterministically before any LLM call — see intent-router.ts's header
+  // comment for why this must not depend on LLM freeform side effects.
+  // Every other role (Chief Engineer, XO, advisory board, ...) is
+  // unaffected — this only fires for the number_one persona specifically.
+  if (role === 'number_one') {
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
+    const classified = lastUserMessage ? classifyIntent(lastUserMessage.content) : null;
+    if (classified) {
+      const dispatchResult = await dispatchIntent(classified, supabase).catch(() => ({ handled: false } as const));
+      if (dispatchResult.handled && dispatchResult.reply) {
+        return stream
+          ? sseFromText(dispatchResult.reply)
+          : NextResponse.json({ content: dispatchResult.reply, model: 'number-one-dispatcher', role: 'number_one' });
+      }
+    }
   }
 
   // Use client-provided system prompt if supplied (user edited), else role preset

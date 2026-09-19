@@ -123,6 +123,11 @@ export interface NumberOneAttentionItem {
   priority: number;
   title: string;
   reason: string;
+  /** "number_one" (mission_id ref) or "personal_task" (personal_tasks.id
+   * ref) — see attention_state.py's AttentionItem.source and
+   * personal_task_attention_adapter.py:148. Mission 6B §8.4: used to route
+   * a personal-task item to Ready Room's execution surface instead of the
+   * mission-review surface a mission_id ref belongs on. */
   source: string;
   ref: string | null;
   generated_at: string;
@@ -248,13 +253,25 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
   // (mission-workbench) rather than flooding this curated list.
   for (const item of (inputs.numberOneAttentionItems ?? [])) {
     if (item.category !== 'needs_now' && item.category !== 'decision_required') continue;
+    // Mission 6B §8.4 (Hub -> Ready Room continuity): a needs_now item
+    // whose source is a personal_task is an execution act, not a mission
+    // decision — route it straight to Ready Room's task view instead of
+    // the mission-review surface. decision_required always stays on
+    // mission-workbench regardless of source: that's a decision, not
+    // something to "do" (brief's own §8.4 carve-out).
+    const isPersonalTaskExecution = item.source === 'personal_task' && item.category === 'needs_now';
+    const href = !item.ref
+      ? '/mission-workbench'
+      : isPersonalTaskExecution
+        ? `/ready-room?task=${encodeURIComponent(item.ref)}`
+        : `/mission-workbench?mission=${encodeURIComponent(item.ref)}`;
     items.push({
       id: `number-one-${item.id}`,
       kind: item.category === 'decision_required' ? 'blocker' : 'time_critical',
       title: item.title,
       detail: item.capacity_adjusted_reason || item.reason || 'Number One flagged this for your attention.',
-      href: item.ref ? `/mission-workbench?mission=${encodeURIComponent(item.ref)}` : '/mission-workbench',
-      actionLabel: 'Review',
+      href,
+      actionLabel: isPersonalTaskExecution ? 'Do this' : 'Review',
     });
   }
 
