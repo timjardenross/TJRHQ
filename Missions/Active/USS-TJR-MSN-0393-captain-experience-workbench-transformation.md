@@ -401,6 +401,28 @@ whether that port was actually tractable in the time remaining, found it was, an
 after a rebuild), lint clean, full 725-test suite green, production build succeeds with both
 routes now building as plain static pages outside the `(app)` group.
 
+## 3.8 Phase 7 — `operations` converted; 7 of 8 original legacy pages now fully resolved
+
+Closed the one item §3.5/§3.6 had left properly blocked (not guessed at): `operations`'s
+Commander Events panel. With `commander_events` confirmed genuinely live but Captain-facing-UI-
+free (§3.6), and no confident case for silently dropping real data, converted the page with an
+honest, visible flag instead of either extreme: the 3 superseded views (Recent Decisions,
+Captured Items, Friction Sources) route to their real successors exactly like every other
+conversion this sweep; Commander Events gets a plain-language note that the underlying data
+has no dedicated view anywhere in HQ yet, rather than a link that goes nowhere or silence that
+loses the finding. Building the actual "recent build/handoff activity" view belongs in
+Engineering Handoffs (the payload shape is build/handoff lifecycle data, not HQ Evolution
+content — see §3.6's correction) as real feature work, not something to improvise inside a
+retirement pass; left in §5 for whoever picks it up.
+
+**Of the original 8 legacy pages this sweep scoped, 7 are now resolved**: 6 converted to
+honest stubs (`medical`, `captains-log`, `automation-centre`, `intelligence`, `engineering`,
+`operations`), `search`/`timeline` relocated into the live app. Only `operating-model`
+remains untouched — deliberately, because it needs a Captain's decision about real doctrine
+content, not an engineering trace.
+
+Typecheck/lint/full 725-test suite/production build all clean.
+
 ## 4. Core end-to-end test (§40) — status
 
 The backend path this test exercises (remember → what am I forgetting → help me start →
@@ -492,13 +514,12 @@ where the next pass should start:
 10. **Full adversarial UX pass** (§45) — the items in §1.2–1.6 above were found through a
     bounded discovery pass, not an exhaustive adversarial review of every surface; more
     almost certainly exists.
-11. **Legacy `(app)`-group page retirement — 7 of 8 resolved.** 5 converted to honest stubs
-    (`medical`, `captains-log`, `automation-centre`, `intelligence`, `engineering`); `search`
-    and `timeline` relocated rather than retired (§3.7, real capabilities, now live at their
-    own top-level routes). Only `operations` (needs item 13's investigation resolved first)
-    and `operating-model` (a Captain call, not an engineering one) remain open. See
-    §3.4/§3.5/§3.6/§3.7 for the full evidence
-    trail per page:
+11. **Legacy `(app)`-group page retirement — 7 of 8 resolved (§3.8 closes the last tractable
+    one).** 6 converted to honest stubs (`medical`, `captains-log`, `automation-centre`,
+    `intelligence`, `engineering`, `operations`); `search` and `timeline` relocated rather
+    than retired (§3.7, real capabilities, now live at their own top-level routes). Only
+    `operating-model` remains open, deliberately — a Captain call, not an engineering one; see
+    below. See §3.4/§3.5/§3.6/§3.7/§3.8 for the full evidence trail per page:
     - `intelligence` (693 lines, the largest page in the sweep) — **converted in Phase 5**.
       All 6 tabs traced through `/api/intelligence`'s actual table queries (not tab names
       alone): Latest Brief/Daily Briefs/ORI Archive → `intelligence_briefs`/
@@ -508,11 +529,12 @@ where the next pass should start:
       `content_signals`/`comms_content` → Content Workbench (owns the same two tables per its
       own header comment). All 3 successors confirmed live; multi-link stub, same pattern as
       `medical`.
-    - `operations` (371 lines) — 3 of 4 views traced and superseded (Recent
-      Decisions/Captured Items/Friction Sources). Commander Events is the one still open —
-      **see item 13 below for a correction**: the original "port a view into HQ Evolution"
-      plan turned out to be based on an incomplete read of what `commander_events` actually
-      holds; needs the investigation in item 13 resolved first, not that port.
+    - `operations` (371 lines) — **converted in Phase 7 (§3.8).** 3 of 4 views traced and
+      superseded (Recent Decisions/Captured Items/Friction Sources); Commander Events was the
+      open one — confirmed genuinely live (§3.6) but with no Captain-facing UI anywhere,
+      neither dropped silently nor blocked on building new UI to resolve the page: the stub
+      says plainly that data has no dedicated view yet (see item 13 for where that view
+      should eventually live).
     - `engineering` (337 lines) — **converted.** `build_request_inbox` confirmed superseded
       (Captain's Chair's Engineering Queue). `agent_performance`/`batch_jobs` got the full
       backend-write-path trace `commander_events` got (not the quick grep that missed
@@ -611,7 +633,7 @@ verified, different system) — no live-environment mobile testing was possible 
 | `(app)/automation-centre` | *(retired this mission)* | — | — | **RETIRED Phase 5** — self-evidently stale |
 | `(app)/intelligence` | *(retired this mission)* | — | — | **RETIRED Phase 5** — 3-way stub, all successors verified live |
 | `(app)/engineering` | *(retired this mission)* | — | — | **RETIRED Phase 5** — thorough-but-negative backend trace |
-| `(app)/operations` | Build-request/decisions/events/friction view | `build_request_inbox`, `commander_events`, etc. | legacy, not current | **RETIRE, blocked** — 3 of 4 views traced; Commander Events needs §5 item 13 resolved first |
+| `(app)/operations` | *(retired this mission)* | — | — | **RETIRED Phase 7** — 3-link stub; Commander Events flagged honestly, not dropped or blocked on |
 | `(app)/operating-model` | Static operating principles/doctrine | none (static content) | legacy, not current | **HOLD — Captain call**, not an engineering decision |
 | `(app)/decisions`, `/captains-brief`, `/captains-chair`, `/home`, `/knowledge`, `/knowledge-library`, `/missions`, `/medical/check-in`, `/medical/log-activity` | Pre-existing redirect stubs | — | — | KEEP as-is — already correctly retired by earlier missions, verified still accurate |
 | `(app)/medical/log-weight` | 30-day weight-trend history, entry retired | `weight_logs` | legacy, not current | **KEEP, flagged** — real capability, no `human-systems-workbench` equivalent yet (§5 item 12) |
