@@ -46,7 +46,7 @@ function relativeTime(iso: string | null): string {
   return `${days}d ago`;
 }
 
-function DomainCard({ domain }: { domain: DomainSummary }) {
+export function DomainCard({ domain }: { domain: DomainSummary }) {
   const availabilityTone = stateToneClasses(AVAILABILITY_TONE[domain.availability]);
 
   return (
