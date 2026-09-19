@@ -423,6 +423,54 @@ content, not an engineering trace.
 
 Typecheck/lint/full 725-test suite/production build all clean.
 
+## 3.9 Phase 8 — cleanup/audit pass: computed contrast ratios for real, rather than trusting
+   header-comment claims (§31)
+
+With the legacy-page sweep closed, ran a mechanical check (WCAG 2.2 relative-luminance
+contrast, computed directly — same method the codebase's own prior contrast work uses, not
+eyeballed) against every colour token actually shipping, rather than sampling more pages by
+eye. Two findings, different severity and different fix:
+
+**Fixed:** `globals.css`'s own header comment claims every theme's `--wb-ink2` (secondary
+body text) is "contrast-validated... >=4.5:1 (AA body text)" against both `--wb-bg` and
+`--wb-surface`. Computed all 5 themes directly: **2 of 5 failed the claim** —
+`archive` (the *default* theme, `:root` with no `[data-theme]` needed — what every new
+Captain sees) at 4.46:1 against `--wb-bg`, and `sanctuary` at 4.31:1. Both fixed with a ~1-2%
+darkening of the same hue (`archive` → 4.59:1/5.00:1, `sanctuary` → 4.51:1/4.83:1) — small
+enough to be visually unnoticeable, verified by the same formula that found the gap, not by
+eye. `command`, `midnight`, `horizon` already genuinely passed (4.65-8.24:1).
+
+**Found, NOT fixed — a bigger, pre-existing, already-governed issue, correctly not
+touched:** the `state-ok/warn/crit/unknown/info` token group (`tailwind.config.ts`, the
+colour system `stateToneClasses()` actually renders through Hub, Captain's Chair's Needs You,
+`SystemStatus.tsx`, and every other status indicator in the app) is **not theme-aware** — 5
+fixed hex values, not CSS custom properties, unlike `wb-*`. Traced why: this token group was
+built and contrast-validated by an earlier mission (`docs/design-tokens/
+PHASE-1A-CONTRAST-MATRIX.md`, MSN-0315 Phase 1A) — but validated **only against the
+pre-adaptive-themes LCARS backgrounds** (`space #dce8f4` / `panel #eaf1f8` / `panel-2
+#ccd8ec`), which predate the 5-theme `wb-*` system entirely. That work was never re-run
+against the newer theme backgrounds it now has to coexist with. Computed it now, against all
+5: `state-ok`/`state-info` `DEFAULT` fail 4.5:1 against every theme's background (3.57-4.41:1
+— these were designed to ≥3:1 as small graphical fills, per that doc's own stated threshold
+for `DEFAULT` values, so this specific failure may be expected/acceptable by that doc's own
+rule, not a new regression). **The real finding**: the `-on` variants — described in that
+doc as "unaffected, already comfortably pass everywhere they're used as text" — genuinely did
+pass against the old light-only backgrounds (5.28-7.17:1, confirmed in that doc) but **fail
+badly against `midnight`** (the dark theme, `--wb-bg: #111820`): 1.43-2.31:1 across all five
+state colours' `-on` variants, when rendered as body text the same way they render everywhere
+else. `Midnight` is a fully live, named, selectable theme (`lib/theme.ts`: "Midnight — A
+calmer mind. A clearer tomorrow.") — a Captain who picks it for its own reduced-stimulation
+premise gets close-to-illegible status text throughout the app.
+
+**Not fixed, deliberately, same governance principle this whole mission has followed for
+brand/doctrine content:** that Phase 1A doc's own conclusion — "changing ratified brand hex
+values is a Visual Design Officer call, not an engineering one" — applies exactly here too,
+and its own prescribed component-level mitigation path (pair the fill with an already-
+passing outline/ring rather than recolour the fill) wasn't attempted blind, without being
+able to see the actual rendered result in a browser. Full numbers and both prescribed fix
+paths are in §5 item 14 for whoever has live-environment access to verify a fix visually
+before shipping one.
+
 ## 4. Core end-to-end test (§40) — status
 
 The backend path this test exercises (remember → what am I forgetting → help me start →
@@ -496,11 +544,13 @@ where the next pass should start:
    evidence of demand beyond the existing channel — deferred with justification, not
    silently dropped. Re-read against real usage data before reopening, not against this
    mission's brief alone.
-6. **Full accessibility audit** (§31) — Phase 3 fixed a real, high-leverage finding (Modal's
-   missing focus trap, §3.3 — fixed once for all ~15 call sites) plus this mission's own new
-   `aria-live` gap; still relied on the existing `a11y.test.tsx` axe-core coverage rather than
-   a dedicated pass, and a full contrast/zoom/screen-reader walkthrough across every surface
-   was not performed.
+6. **Full accessibility audit** (§31) — Phase 3 fixed Modal's missing focus trap (§3.3, all
+   ~15 call sites) plus this mission's own new `aria-live` gap; Phase 8 (§3.9) computed real
+   WCAG contrast ratios for every colour token actually shipping (not sampled by eye), fixed
+   2 of 5 themes' secondary-text contrast, and found (but correctly didn't blind-fix) the
+   bigger `state-*`/`midnight` finding in item 14 above. Still not done: zoom behaviour, a
+   real screen-reader walkthrough, and keyboard-navigation testing beyond the Modal fix —
+   none of those are computable without a live browser the way contrast is.
 7. **Before/after screenshot evidence** (§39/§56) — not captured; this environment has no
    way to run the app against live data (no Supabase/OLLAMA env configured) to produce
    faithful screenshots. Needs a real environment.
@@ -578,8 +628,21 @@ where the next pass should start:
     whether anything still reads what `engineering_handoff_reader.py` itself consumes, and
     whether that trace connects back to `build_learning_loop.py`'s writes) — flagged as
     "investigate before building anything," reversing the earlier "port a view" conclusion
-    rather than carrying a wrong plan forward. `operations`'s Commander Events panel stays
-    unconverted until this is actually resolved.
+    rather than carrying a wrong plan forward. **Update (Phase 7, §3.8): `operations` itself
+    was converted** rather than left blocked on this — the stub is honest that Commander
+    Events data has no view yet rather than pretending the page conversion depended on
+    building one. This item is now purely about the future view itself, not about unblocking
+    a retirement.
+14. **`state-*` status colour system needs re-validation against the 5 adaptive themes,
+    especially `midnight`** (found in §3.9, full numbers there) — `state-ok`/`state-info`
+    `DEFAULT` values sit under 4.5:1 against every theme (likely acceptable, designed to a
+    ≥3:1 graphical-fill bar per the original Phase 1A doc) but every state colour's `-on`
+    text variant — previously verified fine, before the theme system existed — now fails
+    badly (1.4-2.3:1) specifically against `midnight`, a real, live, selectable dark theme.
+    Two fix paths already prescribed by the original Phase 1A doc's own governance (pair the
+    fill with an already-passing outline/ring, or a Visual Design Officer-approved shade
+    revision) — needs whoever picks this up to actually see the rendered result in a browser
+    before choosing one, not another blind numeric fix.
 
 ## 6. Recommended next steps
 
