@@ -44,7 +44,6 @@ import {
   Dumbbell,
   FileText,
   MessageSquare,
-  ScrollText,
   Archive as ArchiveIcon,
   BookOpen,
   Activity,
@@ -150,15 +149,9 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     icon: MessageSquare,
   },
   {
-    href: '/captains-brief-workbench',
-    title: "Captain's Brief",
-    description: 'The day\'s assembled briefing — KPIs, narrative brief, and domain breakdowns, refreshed on demand.',
-    icon: ScrollText,
-  },
-  {
     href: '/briefs',
     title: 'Briefs',
-    description: 'The intelligence brief archive - every synthesized OSINT/world-news brief, filterable by review/publish status.',
+    description: 'The canonical briefing Workbench — the daily OSINT/world-news brief archive plus a merged cross-domain Domains picture, filterable and searchable.',
     icon: ArchiveIcon,
   },
   {

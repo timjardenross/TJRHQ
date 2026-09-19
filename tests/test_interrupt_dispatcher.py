@@ -149,9 +149,7 @@ def test_appends_portal_deep_link_when_configured(monkeypatch):
 
     assert len(calls) == 1
     assert calls[0].startswith(INTERRUPT_NOW_EVENT["recommended_action"])
-    assert calls[0].endswith(
-        f"https://usstjros.vercel.app/captains-brief-workbench?domain=brief#brief-item-{INTERRUPT_NOW_EVENT['event_id']}"
-    )
+    assert calls[0].endswith("https://usstjros.vercel.app/briefs")
 
 
 def test_omits_portal_deep_link_when_not_configured(monkeypatch):

@@ -93,13 +93,20 @@ def send_approval_notification(
         True if the notification was delivered, False otherwise (non-blocking
         — callers must not propagate failures into the mission lifecycle).
     """
+    # Signal-leakage fix (consolidation mission follow-up, same class of bug
+    # PR #275 fixed in interrupt_dispatcher.py): this used to append
+    # `decision.reason` (a bare "importance=X >= Y AND confidence=Z >= W"
+    # scoring formula) as an "Attention: ..." line — never genuine content,
+    # and evaluate_and_route_mission_status_change() doesn't build an
+    # AttentionDecision.description for this event type either. The
+    # transition line above already carries the real information the
+    # Captain needs; the urgency tier is already visible via the title and
+    # severity styling, so the correct fix is to not add a fabricated-
+    # looking third line at all rather than invent a description just to
+    # have a fallback for it.
     urgency_label = "INTERRUPT" if decision.category == AttentionCategory.INTERRUPT_NOW else "REVIEW"
     title = f"Mission Status Changed [{urgency_label}]"
-    body = (
-        f"{mission_name} ({mission_id})\n"
-        f"{old_status} → {new_status}\n"
-        f"Attention: {decision.reason}"
-    )
+    body = f"{mission_name} ({mission_id})\n{old_status} → {new_status}"
     severity = (
         Severity.ALERT if decision.category == AttentionCategory.INTERRUPT_NOW
         else Severity.WARNING

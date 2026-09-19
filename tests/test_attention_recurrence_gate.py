@@ -64,7 +64,7 @@ def test_same_event_reevaluated_after_acknowledgement_stops_interrupting():
     assert decision.category != AttentionCategory.INTERRUPT_NOW
     assert decision.category == AttentionCategory.CAN_BE_DELAYED
     assert decision.duplicate_of_event_id == "evt-recur-1"
-    assert "recurrence" in decision.reason
+    assert "recurrence" in decision._routing_reason
 
 
 def test_new_row_for_a_persisting_condition_matches_by_domain_and_event_type():
@@ -180,7 +180,7 @@ def test_only_applies_to_interrupt_now_not_other_categories():
     decision = evaluate_event(current, recent_surfaced=[prior])
     assert decision.category == AttentionCategory.CAN_BE_DELAYED
     assert decision.duplicate_of_event_id is None
-    assert "recurrence" not in decision.reason
+    assert "recurrence" not in decision._routing_reason
 
 
 # ─── Recency window ──────────────────────────────────────────────────────

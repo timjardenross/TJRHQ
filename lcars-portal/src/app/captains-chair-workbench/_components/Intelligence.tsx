@@ -29,7 +29,7 @@ export function Intelligence({ headline, loading }: { headline: IntelligenceHead
     <WorkbenchPanel title="Intelligence" eyebrow="Already interpreted, not raw feeds">
       <p className={`text-sm font-semibold ${c.text}`}>{headline.headline}</p>
       <p className="mt-1 text-sm text-wb-ink/80">{headline.detail}</p>
-      <Link href="/captains-brief-workbench" className="mt-2 inline-block text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+      <Link href="/briefs" className="mt-2 inline-block text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
         Open briefing →
       </Link>
     </WorkbenchPanel>

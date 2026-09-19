@@ -36,14 +36,17 @@ suppression narrative), not a synthesized finding. In production this
 surfaced raw aggregation logic ("9 events sharing domain=.../event_type=...
 — aggregate as a count/trend") and suppression-gate reasoning ("recurrence
 of already-acknowledged event <uuid> ... — not re-interrupting...") as if
-they were "What Matters" bullets. Fixed by `_readable_text()` (never
-`reason`; recommendation -> description -> nothing, matching PR #275's own
-established fallback order minus its last-resort `reason` step, which that
-push-notification call site needs and this one doesn't) and by
+they were "What Matters" bullets. Fixed by `_readable_text()` (never the
+routing trace; recommendation -> description -> nothing, matching PR #275's
+own established fallback order minus its last-resort routing-trace step,
+which that push-notification call site needs and this one doesn't) and by
 `_aggregation_constraints()` (aggregated groups become one synthesized
 `constraints` coverage sentence, never a per-event `what_matters` bullet).
-`evidence` is unchanged and still shows `item.reason` verbatim — that is
-its job, an explicit one-click-away audit drill-down, not a headline.
+`evidence` is unchanged and still shows `item._routing_reason` verbatim —
+that is its job, an explicit one-click-away audit drill-down, not a
+headline. That field was later renamed from `reason` to `_routing_reason`
+(consolidation mission follow-up) specifically because this exact leak
+happened twice with a name ambiguous enough to look safe to render.
 
 Unscored-risk fix (priority_engine.py): `_posture_for_items()` used to
 carry a known blind spot here — `priority_engine.py::_risk_from_importance_
@@ -162,13 +165,13 @@ def _posture_for_items(items: list[CaptainBriefItem]) -> str:
 def _readable_text(item: CaptainBriefItem) -> str | None:
     """The genuine, human-readable content for a user-facing bullet
     (`what_matters`/`watch_conditions`) — a real recommendation or the
-    event's own `description`, never `item.reason`.
+    event's own `description`, never `item._routing_reason`.
 
-    `reason` is an internal Attention Engine audit trail: a scoring
-    formula ("importance=X >= Y AND confidence=Z >= W"), an aggregation
-    note ("N events sharing domain=.../event_type=... — aggregate as a
-    count/trend"), or a persistence-gate suppression narrative
-    ("recurrence of already-acknowledged event <uuid> ... — not
+    `_routing_reason` is an internal Attention Engine audit trail: a
+    scoring formula ("importance=X >= Y AND confidence=Z >= W"), an
+    aggregation note ("N events sharing domain=.../event_type=... —
+    aggregate as a count/trend"), or a persistence-gate suppression
+    narrative ("recurrence of already-acknowledged event <uuid> ... — not
     re-interrupting a stable, already-surfaced condition"). None of that
     is a synthesized finding, and the PR #275 signal-leakage fix already
     established `description` as the correct home for readable content —
@@ -176,8 +179,8 @@ def _readable_text(item: CaptainBriefItem) -> str | None:
     stops there: unlike `interrupt_dispatcher.py`'s push body, a
     materiality/watch bullet has no "must never be empty" requirement, so
     an item with nothing genuinely readable is simply left out rather than
-    falling back to `reason`. `evidence` (below) is the one place `reason`
-    is still shown — an explicit, one-click-away drill-down, not a
+    falling back to the routing trace. `evidence` (below) is the one place
+    it is still shown — an explicit, one-click-away drill-down, not a
     headline.
     """
     if item.recommendation is not None:
@@ -206,7 +209,7 @@ def _aggregation_constraints(items: list[CaptainBriefItem]) -> list[str]:
     line as a `what_matters` bullet either repeats it 3+ times or leaks the
     raw trace text. Both are wrong; this builds one fresh, honest sentence
     per group instead, keyed only by the group's own size and event_type —
-    never by parsing `item.reason`.
+    never by parsing `item._routing_reason`.
     """
     groups: dict[str, list[CaptainBriefItem]] = {}
     for item in items:
@@ -258,7 +261,7 @@ def _event_bus_domain_summary(
             break
 
     evidence = [
-        DomainEvidenceItem(title=item.event_type or item.domain, detail=item.reason, risk=_risk_label(item.risk_score))
+        DomainEvidenceItem(title=item.event_type or item.domain, detail=item._routing_reason, risk=_risk_label(item.risk_score))
         for item in items[:5]
     ]
 
@@ -276,7 +279,14 @@ def _event_bus_domain_summary(
         evidence=evidence,
         as_of=generated_at,
         availability="ok" if items else "no_data",
-        detail_href=f"/captains-brief-workbench?domain={key}",
+        # Consolidation follow-up (post-Phase-5): Phase 5 pointed this at
+        # bare /briefs since no per-domain destination existed yet
+        # (deliberately not built in that pass — see
+        # BRIEFS_CAPTAINS_BRIEF_CONSOLIDATION.md §13). A dedicated detail
+        # route now exists (lcars-portal/src/app/briefs/domains/[key]),
+        # reusing this same DomainSummary via /api/briefs/domains — so this
+        # restores a stable, bookmarkable per-domain link.
+        detail_href=f"/briefs/domains/{key}",
     )
 
 

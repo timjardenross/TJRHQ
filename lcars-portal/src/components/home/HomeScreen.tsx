@@ -51,7 +51,7 @@ function changeEyebrow(session: SessionBoundary): string {
  * would just be a dead end, not a genuine entry point. */
 const EXPLORE_LINKS: { href: string; label: string; description: string }[] = [  { href: '/advisory-workbench', label: 'Advisory', description: 'Think through a decision, challenge your assumptions, and get another perspective' },  { href: '/human-systems-workbench', label: 'Human Systems', description: 'Capacity, recovery, and today’s highest-leverage action' },
   { href: '/missions', label: 'Missions', description: 'The full mission registry' },
-  { href: '/captains-brief-workbench', label: "Captain's Brief", description: 'The composed intelligence document' },
+  { href: '/briefs', label: 'Briefs', description: 'The canonical briefing — daily intelligence and the cross-domain Domains picture' },
   { href: '/content-workbench', label: 'Communications Pipeline', description: 'Review, edit, and publish drafted communications' },
   { href: '/captains-chair-workbench', label: "Captain's Chair", description: 'The full operational dashboard' },
 ];
@@ -170,7 +170,7 @@ export function HomeScreen({
           {primaryInterrupt && (
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 pl-1">
               <Link
-                href="/captains-brief-workbench"
+                href="/briefs"
                 className="text-[12.5px] text-[#61718c] hover:text-[#243b7a] underline underline-offset-2"
               >
                 See the full picture
