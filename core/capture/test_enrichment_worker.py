@@ -424,6 +424,25 @@ class TestActionableRouting:
 
         assert insert_calls[0]["due_date"] == "2026-09-26"
 
+    def test_notification_failure_does_not_roll_back_or_raise(self):
+        """Mission 3 failure-path requirement: an async notification
+        failure must never roll back the routing already written, and
+        must never surface as an exception from a routing function that
+        already completed successfully."""
+        item = self._item()
+        suggestion = {"actionable": "yes", "actionable_confidence": 0.9, "importance": "medium"}
+        patch_calls = []
+
+        with patch.object(ew, "_sb_insert", return_value={"id": "new-task-id"}), \
+             patch.object(ew, "_sb_patch", side_effect=lambda t, m, u: patch_calls.append(u)), \
+             patch("core.platform.notification_service.notify", side_effect=RuntimeError("network down")), \
+             patch.dict(ew.__dict__, {"TELEGRAM_BOT_TOKEN": "tok", "TELEGRAM_CHAT_ID": "123"}):
+            result = ew._route_to_personal_task(item, suggestion)
+
+        assert result is True  # routing succeeded despite notification blowing up
+        assert patch_calls[-1]["routed_to_table"] == "personal_tasks"
+        assert patch_calls[-1]["routed_to_id"] == "new-task-id"
+
     def test_no_due_date_hint_creates_task_with_none_due_date(self):
         item = self._item()  # summary=None
         suggestion = {"actionable": "yes", "actionable_confidence": 0.9, "importance": "medium"}

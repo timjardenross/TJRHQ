@@ -18,11 +18,13 @@ import {
   useEvolutionSignal,
   useNotebookReadyCount,
   useNumberOneAttentionItems,
+  useRemember,
 } from '@/lib/captainsChairData';
 import { deriveCommandStatus, sortNeedsYou } from '@/lib/captainsChairSynthesis';
 import { deriveCommandPosture, buildNeedsYouItems, deriveIntelligenceHeadline } from '@/lib/commandState';
 import { CommandStatus } from './_components/CommandStatus';
 import { NeedsYou } from './_components/NeedsYou';
+import { Remember } from './_components/Remember';
 import { Intelligence } from './_components/Intelligence';
 import { Capacity } from './_components/Capacity';
 import { SystemStatus } from './_components/SystemStatus';
@@ -73,6 +75,7 @@ export default function CaptainsChairWorkbench() {
   const { readyCount: notebookReadyCount } = useNotebookReadyCount();
   const { pendingCount: evolutionPendingCount, highestValueTitle: evolutionHighestValueTitle } = useEvolutionSignal();
   const { items: numberOneAttentionItems } = useNumberOneAttentionItems();
+  const { data: rememberData, error: rememberError } = useRemember();
 
   const commandStatusLoading = humanSystemsLoading || opRiskLoading || briefingLoading || emergencyLoading || hqStatusLoading;
   const hasCheckinToday = humanSystems?.has_checkin_today ?? false;
@@ -177,6 +180,8 @@ export default function CaptainsChairWorkbench() {
         <CommandStatus posture={commandPosture} status={commandStatus} loading={commandStatusLoading} signals={signalChips} />
 
         <NeedsYou items={sortedNeedsYou} loading={attentionLoading} errors={needsYouErrors} />
+
+        <Remember data={rememberData} error={rememberError} />
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Intelligence headline={intelligenceHeadline} loading={opRiskLoading || briefingLoading || emergencyLoading} />

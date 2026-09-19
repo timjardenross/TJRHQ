@@ -592,3 +592,49 @@ export function useNumberOneAttentionItems(): { items: NumberOneAttentionItem[] 
 
   return { items, error };
 }
+
+// ── Remember (Mission 3, Capture/Remember/Follow-Through) ──────────────────
+// Thin fetch wrapper over context_service.py's GET /remember, same shape/
+// pattern as useNumberOneAttentionItems() above. This hook does NOT decide
+// what belongs in Remember — that determination (Personal Task Attention
+// Adapter + unresolved-capture query, both capacity-aware) is entirely
+// backend-owned. A consuming surface (Chair, and later Hub) renders this
+// verbatim rather than re-deriving it.
+
+export interface RememberUnresolvedCapture {
+  id: string;
+  title: string;
+  captured_at: string | null;
+  classification: string | null;
+  actionable: string | null;
+  reason: string;
+}
+
+export interface RememberData {
+  capacity_status: string | null;
+  resurfacing_tasks: NumberOneAttentionItem[];
+  unresolved_captures: RememberUnresolvedCapture[];
+}
+
+export function useRemember(): { data: RememberData | null; error: string | null } {
+  const [data, setData] = useState<RememberData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/remember')
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((body) => {
+        if (cancelled) return;
+        setData({
+          capacity_status: body?.capacity_status ?? null,
+          resurfacing_tasks: Array.isArray(body?.resurfacing_tasks) ? body.resurfacing_tasks : [],
+          unresolved_captures: Array.isArray(body?.unresolved_captures) ? body.unresolved_captures : [],
+        });
+      })
+      .catch((e) => { if (!cancelled) { console.error('[captainsChairData] Remember fetch failed:', e); setError('Remember'); } });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { data, error };
+}

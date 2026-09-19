@@ -281,16 +281,33 @@ def _call_llm(text: str) -> dict:
 
 def _send_telegram_confirmation(text: str) -> None:
     """Fire-and-forget Telegram message via the canonical notification
-    service (core/platform/notification_service.py) — never raises."""
+    service (core/platform/notification_service.py) — never raises.
+
+    Mission 3: the docstring's "never raises" promise used to rely
+    entirely on notify()'s own internal contract (it returns a
+    NotificationResult rather than raising) with no defensive guard here.
+    All three of this file's routing functions (_auto_route_personal,
+    _promote_to_intelligence_note, _route_to_personal_task) already
+    perform their captured_items/personal_tasks writes BEFORE calling
+    this — so even an unhandled exception here couldn't roll back that
+    data, but it would incorrectly surface as an item-processing error
+    (run_batch's per-item try/except would count a fully-successful
+    route as a failure). Explicit try/except makes the promise actually
+    true: a notification failure is always just a logged warning, never
+    an exception escaping a routing function that already completed its
+    real work."""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         log.info("[auto-route] Telegram not configured — skipping confirmation")
         return
-    from core.platform.notification_service import Transport, notify
-    result = notify(text, template="raw", transport=Transport.TELEGRAM)
-    if result.ok:
-        log.info("[auto-route] Telegram confirmation sent")
-    else:
-        log.warning("[auto-route] Telegram confirmation failed: %s", result.error)
+    try:
+        from core.platform.notification_service import Transport, notify
+        result = notify(text, template="raw", transport=Transport.TELEGRAM)
+        if result.ok:
+            log.info("[auto-route] Telegram confirmation sent")
+        else:
+            log.warning("[auto-route] Telegram confirmation failed: %s", result.error)
+    except Exception as exc:  # noqa: BLE001 - deliberately the widest possible catch: this function's entire contract is "never raises", and the routing work it confirms has already been durably written before this call
+        log.warning("[auto-route] Telegram confirmation raised unexpectedly (routing already completed, not affected): %s", exc)
 
 
 def _sb_get_one(path: str) -> dict | None:
