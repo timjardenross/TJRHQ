@@ -2,8 +2,13 @@
 
 **Type:** UI + UX + navigation + interaction design. Not a backend architecture programme —
 Missions 1–6 own the canonical machinery; this mission consumes and exposes it.
-**Status:** Active — Phase 1 shipped 2026-09-19. This is a large, multi-phase mission; this
-record is honest about what Phase 1 actually closed versus what remains open (see §5/§6).
+**Status:** Active — Phases 1-6 shipped 2026-09-19 (same session, one PR). This is a large,
+multi-phase mission; this record is honest about what's actually closed versus what remains
+open (see §5/§6/§6.1). Phase-by-phase build record: §3 (Phase 1: ambient Number One,
+navigation fixes, directory grouping, Hub/Chair actionability), §3.1 (Phase 2: Hub→Ready Room
+continuity), §3.3 (Phase 3: accessibility — Modal focus trap, aria-live), §3.4-3.6 (Phases
+4-5: dead-code sweep, 5 legacy pages retired), §3.7 (Phase 6: Search/Timeline relocated from
+dead-page risk into live workbenches).
 **Branch:** `claude/tjr-hq-mission-7-az63cy`.
 
 ## 0. Mission question
@@ -108,11 +113,11 @@ was already resolved by Mission 6B sharing one builder (`commandState.ts`'s
 `buildNeedsYouItems`) between them, which this mission preserved and extended rather than
 duplicating.
 
-## 3. What shipped (Phase 1 — this branch)
+## 3. What shipped (Phase 1 — this branch; Phases 2-6 follow in §3.1-§3.7 below)
 
 All changes are additive/corrective to the existing canonical architecture; no new
 attention/task/evidence/capacity/notification/recommendation engine was created, per
-mission §4's constraint.
+mission §4's constraint — true across every phase, not just Phase 1.
 
 1. **Ambient Number One** (`components/ui/NumberOne.tsx`, new) — a floating entry point
    mounted globally (`WorkbenchShell`, plus `/workbenches` directly) consuming the existing
@@ -406,14 +411,17 @@ ambient Number One widget) and fixes the one backend gate that could silently br
 Supabase, and the Model Router all live** — this environment has none of those configured
 (confirmed: no `OLLAMA_CLOUD_ENABLED` in `env.local`, Supabase calls fail closed in tests
 with a clear "not set" warning rather than a silent wrong answer). Flagged in §6 as the
-first thing to run in a real environment before calling Phase 1 done end-to-end.
+first thing to run in a real environment before calling this mission done end-to-end —
+still true after Phases 2-6 (§3.1's continuity fix strengthens the same untested path, it
+doesn't change what's blocking verification).
 
-## 5. Deferred UX debt register (not closed in Phase 1 — explicitly out of scope for this
-   pass, not silently dropped)
+## 5. Deferred UX debt register (not closed across Phases 1-6 — explicitly out of scope for
+   this pass, not silently dropped)
 
 This mission's Definition of Done (§55) is large — full per-workbench PURPOSE/ENTRY/EXIT/
-PRIMARY ACTION/NOISE review across all 19 live workbenches, a full accessibility pass,
-before/after screenshot evidence, a full adversarial UX pass, Telegram/XO review, voice
+PRIMARY ACTION/NOISE review across all live workbenches (now 21, after Phase 6 added Search
+and Timeline), a full accessibility pass, before/after screenshot evidence, a full
+adversarial UX pass, Telegram/XO review (closed with evidence, item 4 below), voice
 capture reassessment, capacity-aware presentation tuning beyond what already existed, and
 notification-entry review. None of that fits one implementation pass honestly. Ordered by
 where the next pass should start:
@@ -633,3 +641,27 @@ did, so they weren't re-verified individually this pass.
   richer chat UI was deliberately resisted in favour of exposing what Missions 1–6 already
   built correctly. Mission §4/§53's warning against backend-only or invented-logic
   "completion" was treated as load-bearing, not decorative.
+- "Zero live inbound links" is necessary but not sufficient evidence a page is safe to
+  retire — §3.5's `search`/`timeline` finding is the clearest proof. Both shared every
+  surface signal of the genuinely dead pages (orphaned by navigation, old design system,
+  no recent visible activity) and were in fact the opposite: real, maintained, unique
+  capabilities. What actually distinguished them was reading what each page *did*, not how
+  it was reached — the discipline this whole sweep tried to hold to (trace every view to its
+  real successor, or its absence, before touching anything) is what caught this one before
+  it became a real capability loss instead of a documented finding.
+- Table names lie by association. §3.5 first read `commander_events`'s name and reasoned
+  "learning loop → HQ Evolution is the natural home" — wrong, discovered only by reading the
+  actual payload (`build_learning_loop.py`'s build/handoff-lifecycle data) and tracing where
+  Engineering Handoffs' real data pipeline lives. The fix wasn't to delete the wrong
+  conclusion quietly; it was corrected in place (§3.6) with the reasoning that changed it
+  left visible, on the theory that a record someone else has to re-derive from scratch is
+  worse than one that shows its own mistake and the evidence that fixed it.
+- Codebase health here was consistently higher than the mission brief's framing assumed.
+  Nearly every workbench opened this session (Human Systems, Captain's Chair, Weekly Review,
+  Engineering Handoffs, Emergency Alerts, Settings, Content Workbench) had already been
+  through a dedicated, well-reasoned redesign pass with language and priorities matching
+  this mission's own — not evidence Mission 7 was unnecessary, but evidence the genuine gaps
+  were concentrated in specific, findable places (connective tissue between surfaces,
+  navigation drift, orphaned pages from superseded redesigns) rather than spread evenly
+  across the whole product. Chasing that concentration, rather than re-reviewing everything
+  from zero, is what made 6 phases in one session possible without shipping guesses.
