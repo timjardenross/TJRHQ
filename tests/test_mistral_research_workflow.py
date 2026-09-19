@@ -128,7 +128,11 @@ class TestCheckStartupHealth:
         assert report["api_key_configured"] is True
         assert report["missing"] == []
         assert report["duplicated"] == []
-        assert len(report["agents"]) == 2
+        # 5 agent roles now exist in _ENV_MAP (research/briefing plus the
+        # decomposition/summary/challenge aliases added later), all
+        # resolvable from just these 2 env vars — not stuck at the
+        # original 2 roles this assertion predates.
+        assert len(report["agents"]) == len(self.mac._ENV_MAP) == 5
 
     def test_missing_research_agent_id_appears_in_report(self):
         env = {
@@ -389,7 +393,13 @@ class TestBriefingOfficerUsesSharedClient:
         fake_mac.call_agent.return_value = "Captain's brief text"
         fake_mac.AGENT_BRIEFING = "briefing"
 
-        with patch.dict(sys.modules, {"lib.mistral_agent_client": fake_mac}):
+        # briefing_officer.py's generate_captains_brief() does a lazy
+        # `from mistral_agent_client import ...` (bare name, this repo's
+        # sibling-import convention — see mistral_agent_client's own sys.path
+        # setup), not `lib.mistral_agent_client` — patching the wrong
+        # sys.modules key never intercepted the real (broken-on-this-host)
+        # module, so the call always fell through to a real AttributeError.
+        with patch.dict(sys.modules, {"mistral_agent_client": fake_mac}):
             from importlib import reload
 
             from lib import briefing_officer
