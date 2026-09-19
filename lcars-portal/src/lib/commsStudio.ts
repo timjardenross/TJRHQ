@@ -31,8 +31,33 @@ interface CaptainBriefRecommendation {
 }
 
 interface CaptainBriefItem {
-  reason: string;
+  // Internal Attention Engine routing/scoring trace (e.g. "importance=X >=
+  // Y AND confidence=Z >= W", or a suppression/aggregation narrative) —
+  // never genuine content. Renamed from `reason` (consolidation mission
+  // follow-up) to match core/platform/attention_engine.py's own rename,
+  // after this exact field was found rendered verbatim into this
+  // document's "Priorities"/"Warnings" sections — the same class of leak
+  // PR #275 fixed elsewhere, still live here because this module's
+  // CaptainBriefItem type predates that fix and was never updated.
+  _routing_reason: string;
+  // The event's own readable content (a headline, a state transition) —
+  // added by the same signal-leakage fix. readableText() below prefers
+  // `recommendation.description`, falls back to this, and never falls
+  // back to `_routing_reason`.
+  description: string | null;
   recommendation: CaptainBriefRecommendation | null;
+}
+
+/** The genuine, human-readable content for a Priorities/Warnings bullet —
+ * mirrors intelligence/brief/domains_view.py's own `_readable_text()`:
+ * a real recommendation, else the item's own description, else omitted
+ * entirely. Never falls back to `_routing_reason` — an internal scoring
+ * trace is not a "no fabrication" document's content, and this module's
+ * own no-LLM/no-invention contract (see file header) is stricter than
+ * interrupt_dispatcher.py's push body, which has a "must never be empty"
+ * requirement this document does not share. */
+function readableText(item: CaptainBriefItem): string | null {
+  return item.recommendation?.description ?? item.description ?? null;
 }
 
 interface CaptainBriefDocument {
@@ -76,13 +101,15 @@ async function assembleExecutiveBrief(): Promise<StudioAssembly | null> {
     // malformed value still surfaces rather than silently disappearing.
     const lines: string[] = [`# Executive Brief`, `_Generated ${formatGeneratedAt(doc.generated_at)}_`, '', doc.summary];
 
-    if (doc.priorities?.length) {
+    const priorityLines = (doc.priorities ?? []).map(readableText).filter((t): t is string => Boolean(t));
+    if (priorityLines.length) {
       lines.push('', '## Priorities');
-      doc.priorities.forEach((p) => lines.push(`- ${p.reason}`));
+      priorityLines.forEach((t) => lines.push(`- ${t}`));
     }
-    if (doc.warnings?.length) {
+    const warningLines = (doc.warnings ?? []).map(readableText).filter((t): t is string => Boolean(t));
+    if (warningLines.length) {
       lines.push('', '## Warnings');
-      doc.warnings.forEach((w) => lines.push(`- ${w.reason}`));
+      warningLines.forEach((t) => lines.push(`- ${t}`));
     }
     if (doc.recommendations?.length) {
       lines.push('', '## Recommendations');

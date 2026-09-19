@@ -43,7 +43,7 @@ def _item(**overrides) -> CaptainBriefItem:
         "domain": "engineering",
         "event_type": "engineering.deploy.failed",
         "category": AttentionCategory.CAN_BE_DELAYED,
-        "reason": "Deploy failed on staging",
+        "_routing_reason": "Deploy failed on staging",
     }
     defaults.update(overrides)
     return CaptainBriefItem(**defaults)
@@ -101,7 +101,7 @@ def test_event_bus_summary_no_data_for_empty_section():
 
 
 def test_event_bus_summary_flags_interrupt_now_as_what_changed():
-    items = [_item(category=AttentionCategory.INTERRUPT_NOW, risk_score=90.0, reason="Prod outage")]
+    items = [_item(category=AttentionCategory.INTERRUPT_NOW, risk_score=90.0, _routing_reason="Prod outage")]
     summary = _event_bus_domain_summary("engineering", "Engineering", items, "2026-09-19T00:00:00Z")
     assert summary.what_changed == "1 item(s) need attention now"
     assert summary.posture == "RED"
@@ -112,25 +112,26 @@ def test_event_bus_summary_flags_interrupt_now_as_what_changed():
 
 def test_event_bus_summary_watch_conditions_exclude_low_risk_items():
     items = [
-        _item(risk_score=5.0, reason="Fine", description="Fine"),
-        _item(risk_score=40.0, reason="Watch this (diagnostic trace)", description="Watch this"),
+        _item(risk_score=5.0, _routing_reason="Fine", description="Fine"),
+        _item(risk_score=40.0, _routing_reason="Watch this (diagnostic trace)", description="Watch this"),
     ]
     summary = _event_bus_domain_summary("engineering", "Engineering", items, "2026-09-19T00:00:00Z")
     assert summary.watch_conditions == ["Watch this"]
 
 
 # ─── Signal-leakage regression coverage (post-Phase-3 production bug:      ─
-# `AttentionDecision.reason` — internal audit trail, not a finding —      ─
-# surfacing verbatim as "What Matters"/"Watch" bullets) ───────────────────
+# `AttentionDecision._routing_reason` — internal audit trail, not a         ─
+# finding — surfacing verbatim as "What Matters"/"Watch" bullets) ─────────
 
 
 def test_what_matters_never_uses_raw_reason_text():
-    """An item with only a diagnostic `reason` and no description/
-    recommendation contributes nothing — `reason` is never the fallback
-    for a user-facing bullet, unlike interrupt_dispatcher.py's push body."""
+    """An item with only a diagnostic `_routing_reason` and no description/
+    recommendation contributes nothing — the routing trace is never the
+    fallback for a user-facing bullet, unlike interrupt_dispatcher.py's
+    push body."""
     item = _item(
         priority_score=90,
-        reason="importance=90 >= 75 AND confidence=80 >= 70",
+        _routing_reason="importance=90 >= 75 AND confidence=80 >= 70",
         description=None,
         recommendation=None,
     )
@@ -141,7 +142,7 @@ def test_what_matters_never_uses_raw_reason_text():
 def test_what_matters_prefers_recommendation_over_description_and_reason():
     item = _item(
         priority_score=90,
-        reason="importance=90 >= 75 AND confidence=80 >= 70",
+        _routing_reason="importance=90 >= 75 AND confidence=80 >= 70",
         description="A readable description",
         recommendation=Recommendation(description="Do the genuinely recommended thing"),
     )
@@ -152,7 +153,7 @@ def test_what_matters_prefers_recommendation_over_description_and_reason():
 def test_what_matters_falls_back_to_description_when_no_recommendation():
     item = _item(
         priority_score=90,
-        reason="importance=90 >= 75 AND confidence=80 >= 70",
+        _routing_reason="importance=90 >= 75 AND confidence=80 >= 70",
         description="Reuters: some real headline",
         recommendation=None,
     )
@@ -169,7 +170,7 @@ def test_suppression_gate_reason_never_leaks_into_what_matters_or_watch():
         category=AttentionCategory.CAN_BE_DELAYED,
         priority_score=70,
         risk_score=45.0,
-        reason=(
+        _routing_reason=(
             "recurrence of already-acknowledged event 11111111-1111-1111-1111-111111111111 "
             "(health-intelligence/health.readiness.scored) within 24h with importance/confidence "
             "moved < 15 — not re-interrupting a stable, already-surfaced condition"
@@ -181,8 +182,8 @@ def test_suppression_gate_reason_never_leaks_into_what_matters_or_watch():
     assert summary.what_matters == ["Readiness scored 82 (stable)"]
     assert summary.watch_conditions == ["Readiness scored 82 (stable)"]
     assert not any("recurrence of already-" in m for m in summary.what_matters + summary.watch_conditions)
-    # The raw reason is still available in the drill-down evidence, by design.
-    assert summary.evidence[0].detail == item.reason
+    # The raw routing reason is still available in the drill-down evidence, by design.
+    assert summary.evidence[0].detail == item._routing_reason
 
 
 def test_large_aggregated_failure_count_becomes_a_constraint_not_a_materiality_bullet():
@@ -194,7 +195,7 @@ def test_large_aggregated_failure_count_becomes_a_constraint_not_a_materiality_b
             event_id=f"evt-{i}",
             event_type="intelligence.source.failed",
             aggregation_key="operational-resilience-intelligence:intelligence.source.failed",
-            reason="109 events sharing domain=operational-resilience-intelligence/event_type=intelligence.source.failed in this batch — aggregate as a count/trend",
+            _routing_reason="109 events sharing domain=operational-resilience-intelligence/event_type=intelligence.source.failed in this batch — aggregate as a count/trend",
             description=f"Source X unreachable: HTTP 401 (attempt {i})",
             priority_score=50,
             risk_score=0.0,
@@ -221,12 +222,13 @@ def test_no_constraints_when_nothing_is_aggregated():
     assert summary.constraints == []
 
 
-def test_event_bus_summary_detail_href_points_to_briefs_post_retirement():
-    """Phase 5: /captains-brief-workbench retired (redirects to /briefs);
-    this card's own detail_href must not point at a route that no longer
-    carries a per-domain view."""
+def test_event_bus_summary_detail_href_points_to_domain_detail_page():
+    """Post-Phase-5 follow-up: a dedicated per-domain detail route now
+    exists (lcars-portal/src/app/briefs/domains/[key]), so this must point
+    there by key rather than the flat /briefs link Phase 5 used as an
+    interim simplification."""
     summary = _event_bus_domain_summary("learning", "Learning", [], "2026-09-19T00:00:00Z")
-    assert summary.detail_href == "/briefs"
+    assert summary.detail_href == "/briefs/domains/learning"
 
 
 # ─── _osint_domain_summary ────────────────────────────────────────────────

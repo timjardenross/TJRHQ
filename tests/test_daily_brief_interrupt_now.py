@@ -49,7 +49,7 @@ def test_interrupt_now_items_are_rendered_into_brief_text():
         domain="operational-resilience-intelligence",
         event_type="intelligence.signal.ranked",
         category=AttentionCategory.INTERRUPT_NOW,
-        reason="importance=90 >= 75 AND confidence=85 >= 70",
+        _routing_reason="importance=90 >= 75 AND confidence=85 >= 70",
         recommendation=Recommendation(description="Telstra Service Alert: national outage confirmed."),
     )
     brief_doc = SimpleNamespace(interrupt_now=[item])

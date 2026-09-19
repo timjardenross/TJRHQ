@@ -70,7 +70,7 @@ describe('DomainsView — normal domain', () => {
           watch_conditions: ['CI queue backing up'],
           evidence_count: 2,
           evidence: [{ title: 'engineering.deploy.failed', detail: 'Deploy failed on staging', risk: 'AMBER' }],
-          detail_href: '/briefs',
+          detail_href: '/briefs/domains/engineering',
         }),
       ],
     };
@@ -84,7 +84,7 @@ describe('DomainsView — normal domain', () => {
     expect(screen.getByText('Deploy failed on staging')).toBeInTheDocument();
     expect(screen.getByText('CI queue backing up')).toBeInTheDocument();
     expect(screen.getByText('Evidence (2)')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /View full detail/ })).toHaveAttribute('href', '/briefs');
+    expect(screen.getByRole('link', { name: /View full detail/ })).toHaveAttribute('href', '/briefs/domains/engineering');
   });
 });
 

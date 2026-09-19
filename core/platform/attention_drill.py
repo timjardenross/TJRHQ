@@ -159,13 +159,13 @@ def run_drill(*, dispatch: bool = True) -> dict[str, Any]:
     decision = decisions[0]
     log.info(
         "evaluate_batch() classified drill event as: %s — %s",
-        decision.category.value, decision.reason,
+        decision.category.value, decision._routing_reason,
     )
 
     result: dict[str, Any] = {
         "event": event,
         "category": decision.category.value,
-        "reason": decision.reason,
+        "reason": decision._routing_reason,
         "dispatch_results": [],
     }
 

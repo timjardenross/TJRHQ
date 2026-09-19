@@ -85,7 +85,17 @@ class AttentionDecision:
 
     event_id: str | None
     category: AttentionCategory
-    reason: str
+    # Internal routing/scoring audit trail (Blueprint Principle 3) — leading
+    # underscore is deliberate: this is never genuine Captain-facing content
+    # (a bare "importance=X >= Y AND confidence=Z >= W" formula or an
+    # internal suppression narrative), only a queryable trace. A consumer
+    # needing readable content must use `description`/`recommendation.
+    # description` instead — see CaptainBriefItem.description's own comment
+    # for the fallback convention. Renamed from `reason` (consolidation
+    # mission follow-up) after this exact field leaked into a Captain-facing
+    # surface twice (interrupt_dispatcher.py pre-#275, domains_view.py
+    # pre-#280) despite being named ambiguously enough to look safe to render.
+    _routing_reason: str
     importance: int | None
     confidence: int | None
     relevance: int | None
@@ -214,7 +224,7 @@ def _apply_recurrence_gate(
         else AttentionCategory.CAN_BE_DELAYED
     )
     decision.duplicate_of_event_id = prior.get("event_id")
-    decision.reason = (
+    decision._routing_reason = (
         f"recurrence of already-{prior_status} event {prior.get('event_id')} "
         f"({decision.domain}/{decision.event_type}) within {t.recurrence_lookback_hours}h "
         f"with importance/confidence moved < {t.material_change_delta} — not re-interrupting "
@@ -277,7 +287,7 @@ def _route_by_threshold(event: dict[str, Any], t: AttentionThresholds) -> Attent
         return AttentionDecision(
             event_id=event_id,
             category=AttentionCategory.NEVER_INTERRUPT,
-            reason=f"importance={importance} <= floor {t.never_interrupt_importance_ceiling}",
+            _routing_reason=f"importance={importance} <= floor {t.never_interrupt_importance_ceiling}",
             importance=importance,
             confidence=confidence,
             relevance=event.get("relevance"),
@@ -296,7 +306,7 @@ def _route_by_threshold(event: dict[str, Any], t: AttentionThresholds) -> Attent
         return AttentionDecision(
             event_id=event_id,
             category=AttentionCategory.INTERRUPT_NOW,
-            reason=(
+            _routing_reason=(
                 f"importance={importance} >= {t.interrupt_importance_floor} AND "
                 f"confidence={confidence} >= {t.interrupt_confidence_floor}"
             ),
@@ -315,7 +325,7 @@ def _route_by_threshold(event: dict[str, Any], t: AttentionThresholds) -> Attent
         return AttentionDecision(
             event_id=event_id,
             category=AttentionCategory.CAN_BE_DELAYED,
-            reason=(
+            _routing_reason=(
                 f"importance={importance} >= {t.interrupt_importance_floor} but "
                 f"confidence={confidence} below floor {t.interrupt_confidence_floor} "
                 "(high-importance-but-unverified never interrupts, per MSN-0301 Workstream A)"
@@ -333,7 +343,7 @@ def _route_by_threshold(event: dict[str, Any], t: AttentionThresholds) -> Attent
         return AttentionDecision(
             event_id=event_id,
             category=AttentionCategory.CAN_BE_DELAYED,
-            reason=f"importance={importance} in mid-range [{t.delayed_importance_floor}, {t.interrupt_importance_floor})",
+            _routing_reason=f"importance={importance} in mid-range [{t.delayed_importance_floor}, {t.interrupt_importance_floor})",
             importance=importance,
             confidence=confidence,
             relevance=event.get("relevance"),
@@ -346,7 +356,7 @@ def _route_by_threshold(event: dict[str, Any], t: AttentionThresholds) -> Attent
     return AttentionDecision(
         event_id=event_id,
         category=AttentionCategory.SHOULD_SIMPLY_BE_REMEMBERED,
-        reason="importance below the delayed floor (or absent) — low-salience, retained not surfaced",
+        _routing_reason="importance below the delayed floor (or absent) — low-salience, retained not surfaced",
         importance=importance,
         confidence=confidence,
         relevance=event.get("relevance"),
@@ -407,7 +417,7 @@ def evaluate_batch(
             if len(related) >= 1:
                 decision.category = AttentionCategory.SHOULD_BE_SUMMARISED
                 decision.related_event_ids = related
-                decision.reason = f"{len(related)} related event(s) via Relationship Model edge — summarise, don't repeat"
+                decision._routing_reason = f"{len(related)} related event(s) via Relationship Model edge — summarise, don't repeat"
 
     group_counts: dict[tuple[str, str], list[AttentionDecision]] = {}
     for decision in decisions:
@@ -421,7 +431,7 @@ def evaluate_batch(
             for decision in group:
                 decision.category = AttentionCategory.SHOULD_BE_AGGREGATED
                 decision.aggregation_key = f"{domain}:{event_type}"
-                decision.reason = f"{len(group)} events sharing domain={domain}/event_type={event_type} in this batch — aggregate as a count/trend"
+                decision._routing_reason = f"{len(group)} events sharing domain={domain}/event_type={event_type} in this batch — aggregate as a count/trend"
 
     return decisions
 

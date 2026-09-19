@@ -36,7 +36,7 @@ def test_high_importance_high_confidence_interrupts_now():
     decision = evaluate_event(INTERRUPT_NOW_EVENT)
     assert decision.category == AttentionCategory.INTERRUPT_NOW
     assert decision.event_id == "evt-001"
-    assert "importance" in decision.reason and "confidence" in decision.reason
+    assert "importance" in decision._routing_reason and "confidence" in decision._routing_reason
 
 
 def test_low_importance_never_interrupts():

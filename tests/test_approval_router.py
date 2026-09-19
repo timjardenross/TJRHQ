@@ -32,7 +32,7 @@ def _decision(category: AttentionCategory) -> AttentionDecision:
     return AttentionDecision(
         event_id="evt-001",
         category=category,
-        reason=f"test: {category.value}",
+        _routing_reason=f"test: {category.value}",
         importance=80 if category == AttentionCategory.INTERRUPT_NOW else 50,
         confidence=80 if category == AttentionCategory.INTERRUPT_NOW else 40,
         relevance=None,
