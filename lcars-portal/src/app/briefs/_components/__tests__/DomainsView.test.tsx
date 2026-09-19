@@ -29,6 +29,7 @@ function domain(overrides: Partial<DomainSummary>): DomainSummary {
     what_changed: null,
     what_matters: [],
     watch_conditions: [],
+    constraints: [],
     evidence_count: 0,
     evidence: [],
     as_of: '2026-09-19T06:00:00Z',
@@ -155,6 +156,51 @@ describe('DomainsView — degraded / stale coverage', () => {
 
     render(<DomainsView doc={doc} loading={false} error={null} />);
     expect(screen.getByText(/No OSINT brief has been generated yet/)).toBeInTheDocument();
+  });
+});
+
+describe('DomainsView — coverage notes (signal-leakage fix)', () => {
+  it('renders constraints under their own "Coverage Notes" heading, separate from What Matters', () => {
+    const doc: DomainsDocument = {
+      generated_at: '2026-09-19T06:00:00Z',
+      event_bus_as_of: '2026-09-19T06:00:00Z',
+      osint_as_of: null,
+      osint_available: false,
+      warnings: [],
+      domains: [
+        domain({
+          key: 'operational_intelligence',
+          label: 'Operational Intelligence',
+          what_matters: ['A genuine synthesized finding'],
+          constraints: [
+            '109 intelligence.source.failed event(s) aggregated as a count/trend this cycle — ' +
+              'a coverage signal, not an individual finding; see Evidence for the raw events.',
+          ],
+        }),
+      ],
+    };
+
+    render(<DomainsView doc={doc} loading={false} error={null} />);
+
+    expect(screen.getByText('Coverage Notes')).toBeInTheDocument();
+    expect(screen.getByText(/109 intelligence\.source\.failed event\(s\) aggregated/)).toBeInTheDocument();
+    expect(screen.getByText('A genuine synthesized finding')).toBeInTheDocument();
+    // Not present when there is nothing to caveat.
+    expect(screen.queryAllByText('Coverage Notes')).toHaveLength(1);
+  });
+
+  it('omits the Coverage Notes section entirely when there are no constraints', () => {
+    const doc: DomainsDocument = {
+      generated_at: '2026-09-19T06:00:00Z',
+      event_bus_as_of: '2026-09-19T06:00:00Z',
+      osint_as_of: null,
+      osint_available: false,
+      warnings: [],
+      domains: [domain({ key: 'engineering', label: 'Engineering' })],
+    };
+
+    render(<DomainsView doc={doc} loading={false} error={null} />);
+    expect(screen.queryByText('Coverage Notes')).not.toBeInTheDocument();
   });
 });
 

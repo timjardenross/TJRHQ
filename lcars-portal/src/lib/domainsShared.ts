@@ -25,6 +25,11 @@ export interface DomainSummary {
   what_changed: string | null;
   what_matters: string[];
   watch_conditions: string[];
+  // Coverage/data-quality caveats — e.g. "N event(s) aggregated as a
+  // count/trend" — distinct from what_matters (findings) and
+  // watch_conditions (near-threshold risk items). See domains_view.py's
+  // `_aggregation_constraints()`.
+  constraints: string[];
   evidence_count: number;
   evidence: DomainEvidenceItem[];
   as_of: string | null;
