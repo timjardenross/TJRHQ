@@ -11,13 +11,16 @@
 // for: a normal domain, a domain with no data, and a domain with degraded/
 // stale coverage — without needing a live backend or session.
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { DomainsView } from '../DomainsView';
 import type { DomainsDocument, DomainSummary } from '@/lib/domainsShared';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 function domain(overrides: Partial<DomainSummary>): DomainSummary {
   return {
@@ -113,6 +116,14 @@ describe('DomainsView — a domain with no data', () => {
 
 describe('DomainsView — degraded / stale coverage', () => {
   it('surfaces the degraded badge on the card and the top-level warning banner', () => {
+    // relativeTime() (DomainsView.tsx) computes against the real wall clock
+    // (Date.now()), not against `generated_at` — this test's "2d ago"
+    // assertion only ever held on whatever real-world day happened to put
+    // it exactly 2 days after the fixture's osint_as_of. Pin the clock so
+    // the test is deterministic regardless of when it actually runs.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-19T06:00:00Z'));
+
     const doc: DomainsDocument = {
       generated_at: '2026-09-19T06:00:00Z',
       event_bus_as_of: '2026-09-19T06:00:00Z',
