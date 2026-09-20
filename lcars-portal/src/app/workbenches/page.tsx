@@ -34,7 +34,7 @@
 // per-visit tagline needed.
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { NumberOne, QuickCapture, Sidebar, WorkbenchCard } from '@/components/ui';
@@ -43,7 +43,7 @@ import { LIVE_WORKBENCHES, WORKBENCH_GROUP_META, type WorkbenchGroup } from '@/l
 
 const GROUP_ORDER = Object.keys(WORKBENCH_GROUP_META) as WorkbenchGroup[];
 
-export default function Workbenches() {
+function WorkbenchesContent() {
   const searchParams = useSearchParams();
   const [query, setQuery] = useState('');
   const requestedGroup = searchParams.get('group') as WorkbenchGroup | null;
@@ -147,5 +147,13 @@ export default function Workbenches() {
       <NumberOne />
       <MobileCommandBar />
     </div>
+  );
+}
+
+export default function Workbenches() {
+  return (
+    <Suspense fallback={<div className="min-h-[100dvh] bg-wb-bg" aria-label="Loading workbench families" />}>
+      <WorkbenchesContent />
+    </Suspense>
   );
 }
