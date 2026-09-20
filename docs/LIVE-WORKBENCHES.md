@@ -21,6 +21,7 @@ intelligence, then work pipelines, then the archive, then platform-ops last.
 | Route | Title | Description |
 |---|---|---|
 | `/hub` | LifeOS Hub | Always-on glance view — situation strip, live alerts, calendar, reminders, and today's briefing. The front door. |
+| `/focus-workbench` | Focus Workbench | ADHD-friendly execution — one next step, a clear time-box, and a calm way back when you get stuck. |
 | `/captains-chair-workbench` | Captain's Chair | Operational dashboard — recovery posture, mission overview, alerts, and intelligence at a glance. |
 | `/weekly-review` | Weekly Review | One calm weekly pass across every workbench — what happened, what slipped, what needs attention, what is safe to ignore. |
 | `/ready-room` | Ready Room | Life admin and task decomposition in one place — what needs attention now, what is waiting on someone else, and a tiny first step for anything overwhelming. |

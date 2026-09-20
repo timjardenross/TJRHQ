@@ -52,6 +52,7 @@ import {
   ShoppingCart,
   Search as SearchIcon,
   History,
+  Timer,
 } from 'lucide-react';
 
 // Mission 7 §16 — the directory grid this drives (workbenches/page.tsx)
@@ -87,6 +88,13 @@ export interface WorkbenchEntry {
 // pipelines, then the archive, then platform-ops/meta last (2026-08-31 —
 // switcher/hub order previously had no discernible grouping).
 export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
+  {
+    href: '/focus-workbench',
+    title: 'Focus Workbench',
+    description: 'ADHD-friendly execution — one next step, a clear time-box, and a calm way back when you get stuck.',
+    icon: Timer,
+    group: 'start_here',
+  },
   {
     href: '/hub',
     title: 'LifeOS Hub',
