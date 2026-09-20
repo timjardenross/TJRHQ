@@ -38,3 +38,86 @@ These endpoints returned upstream failures during the authenticated local sweep.
 ## Safety boundary
 
 Do not add service-role keys to client bundles, replace existing adapters with mock data, or convert an upstream failure into a reassuring “clear” state. The portal is designed to remain useful and honest while the VM activates the real services.
+
+## VM execution runbook
+
+Run this after the GitHub commit has been deployed to the target environment. Work from the repository root and keep a timestamped activation log. Never paste secret values into the log or terminal transcript.
+
+### 1. Preflight
+
+```bash
+git fetch origin
+git checkout main
+git pull --ff-only origin main
+cd lcars-portal
+node --version
+npm --version
+```
+
+Confirm the checked-out revision is `f4f75b6` or a later `main` revision. Confirm the expected production environment variables are present by checking names only; do not print values. The VM must use the existing `.env`/Vercel environment configuration and existing adapters.
+
+### 2. Validate the deployed application
+
+Check the deployment URL first:
+
+```bash
+curl -fsS "$PORTAL_URL/login" >/dev/null
+```
+
+Then authenticate through the browser test flow and check these routes:
+
+```text
+/hub
+/captains-chair-workbench
+/mission-workbench
+/weekly-review
+/advisory-workbench
+/engineering-handoffs
+/agent-status-workbench
+```
+
+For each route verify: the page loads, the heading is present, no horizontal overflow is introduced, unavailable upstream data is labelled honestly, and actions do not silently succeed when their API is unavailable.
+
+### 3. Activate and verify integrations
+
+Use the existing API routes in this order so failures are isolated:
+
+1. Calendar: `/api/calendar/today`, then `/api/calendar/upcoming`.
+2. Captain’s Brief: `/api/captain-brief`.
+3. Weekly Review dependencies: `/api/health-adjusted-queue`, then `/api/number-one-brief`.
+4. Advisory recommendations: `/api/recommendations`.
+5. HQ Evolution: `/api/self-improvement/findings`, then `/api/self-improvement/opportunities`.
+
+For every endpoint record only: HTTP status, latency, response shape, and whether the result is populated, explicitly empty, degraded, or unavailable. Do not record tokens, cookies, personal data, or full payloads.
+
+An endpoint is considered healthy only when it returns its expected typed shape using real upstream data or an explicit governed empty result. HTTP success with fabricated, stale, or missing required fields is not healthy.
+
+### 4. Repair rules
+
+- If credentials or permissions are missing, repair the VM/Vercel environment configuration and retry; do not alter the frontend connection method.
+- If Supabase access fails, inspect URL, anon-key configuration, authentication session, RLS, and migrations in that order.
+- If an upstream provider times out, preserve the existing timeout and fail-closed behavior; do not substitute fixture data.
+- If an API shape differs from the portal contract, fix the adapter or upstream response at the existing boundary and add a regression test.
+- If a migration or RLS change is required, review it separately before applying it to production.
+
+### 5. Final gates
+
+From `lcars-portal`, run:
+
+```bash
+npm run typecheck
+npm test
+npm run build
+```
+
+The handoff is complete only when all three commands pass, the seven routes above have been smoke-tested with the authenticated account, and each activation target has a recorded status. If any target remains unavailable, leave it unavailable and report the exact endpoint and dependency; do not mark it healthy.
+
+### 6. Completion report
+
+Return a short report containing:
+
+- deployed commit and deployment URL;
+- each activation target with status: healthy, explicitly empty, degraded, or unavailable;
+- any environment, permission, migration, or provider changes made;
+- typecheck/test/build results;
+- remaining blockers and the exact next action.
