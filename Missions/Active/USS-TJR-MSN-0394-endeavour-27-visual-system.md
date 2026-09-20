@@ -1331,3 +1331,28 @@ mission's explicit scope fence):**
   glyphs) — the real `ItemRow.tsx` shows a photo thumbnail (or a blank placeholder) instead,
   which is what the real `image_url` field actually supports; not changed, since inventing a
   category-icon system with no backing field would be new scope, not a restyle.
+
+### Phase 11 — Captain confirms all open decisions, Streams E/F/G authorised (2026-09-20)
+
+- **Phase 8's 5 workbench classifications — confirmed, locked in.** Physical Readiness,
+  Search, Timeline, Engineering Handoffs → Focus; Content Workbench → split (Today/Pipeline/
+  Library Focus, Studio Read). No change to what's already implemented — §1.8's reasoning
+  stands as final, not just a recommendation pending review.
+- **Human Systems' deeper mockup alignment — back in scope**, picked up this phase rather
+  than left to Stream G's residual-debt register (4-tile grid restyle, Capacity Trend chart).
+- **Stream E (and Stream B2's still-pending live verification) — unblocked without live
+  Playwright/Supabase access in this container.** Captain is verifying directly against the
+  live Vercel preview and confirms it looks good; the real verification pass is full user
+  testing once everything's deployed to production, not this sandboxed container. Streams
+  E/F proceed on `tsc`/`eslint`/`build`/test-suite verification only, with live-rendered
+  verification explicitly noted as deferred to production, not silently dropped.
+- **Two flagged technical fixes — authorised, no design call needed:**
+  1. `StatusBadge`/`StatusTone` conflating department-identity with risk/WIP state in
+     `delivery` (found Phase 9) — extend to accept `StateTone` properly.
+  2. `captains-chair-workbench/notebook/page.tsx`'s `bg-wb-bg/80`-on-hex-var opacity bug
+     (found Phase 10, same pattern already fixed 5 times elsewhere this mission) — fix the
+     same way.
+
+Streams E, F, and G authorised to proceed under this discipline: verify `tsc`/`eslint`/
+`build`/test suite after every merge, flag anything else genuinely ambiguous rather than
+guessing, live-rendered verification deferred to production per the Captain's own call above.
