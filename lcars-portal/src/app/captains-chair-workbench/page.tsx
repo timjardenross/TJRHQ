@@ -1,6 +1,7 @@
 'use client';
 
 import { WorkbenchShell } from '@/components/ui';
+import Link from 'next/link';
 import { TodaysBriefPanel } from '@/components/TodaysBriefPanel';
 import { useAlerts } from '@/lib/useAlerts';
 import {
@@ -181,6 +182,12 @@ export default function CaptainsChairWorkbench() {
       <div className="space-y-4">
         <DataAvailabilityNotice sources={needsYouErrors} />
         <CommandStatus posture={commandPosture} status={commandStatus} loading={commandStatusLoading} signals={signalChips} />
+
+        <section aria-labelledby="captains-chair-what-needs-me" className="rounded-lg border-2 border-wb-sage-deep/50 bg-wb-sage/10 p-4">
+          <h2 id="captains-chair-what-needs-me" className="text-[11px] font-bold uppercase tracking-[0.18em] text-wb-sage-deep">What needs me now</h2>
+          <p className="mt-1 text-sm font-semibold text-wb-ink">{sortedNeedsYou.length ? `${sortedNeedsYou.length} item${sortedNeedsYou.length === 1 ? '' : 's'} need a decision or next action.` : 'Nothing needs action now.'}</p>
+          {sortedNeedsYou[0] && <Link href={sortedNeedsYou[0].href} className="mt-3 inline-flex rounded-md bg-wb-sage-deep px-3 py-2 text-xs font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">{sortedNeedsYou[0].actionLabel} · {sortedNeedsYou[0].title} →</Link>}
+        </section>
 
         <NeedsYou items={sortedNeedsYou} loading={attentionLoading} errors={needsYouErrors} />
 

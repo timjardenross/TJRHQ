@@ -200,6 +200,7 @@ export default function SearchPage() {
   const [failedSources, setFailedSources] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [attentionView, setAttentionView] = useState<'all' | 'needs-action' | 'important'>('all');
   const [timer, setTimer]     = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const runSearch = useCallback(async (q: string) => {
@@ -253,6 +254,10 @@ export default function SearchPage() {
     acc[r.type].push(r);
     return acc;
   }, {});
+  const isNeedsAction = (r: SearchResult) => /blocked|failed|error|needs|review|pending|action|ready/i.test(`${r.title} ${r.detail ?? ''}`);
+  const isImportant = (r: SearchResult) => r.type === 'mission' || r.type === 'event' || /critical|urgent|important|red/i.test(`${r.title} ${r.detail ?? ''}`);
+  const filteredResults = attentionView === 'needs-action' ? results.filter(isNeedsAction) : attentionView === 'important' ? results.filter(isImportant) : results;
+  const filteredGrouped = filteredResults.reduce<Record<string, SearchResult[]>>((acc, r) => { (acc[r.type] ??= []).push(r); return acc; }, {});
 
   return (
     <WorkbenchShell
@@ -280,6 +285,12 @@ export default function SearchPage() {
             </span>
           )}
         </div>
+        <div role="group" aria-label="Attention view" className="flex flex-wrap gap-2">
+          {([['all', 'All'], ['needs-action', 'Needs action'], ['important', 'Important only']] as const).map(([value, label]) => (
+            <button key={value} type="button" onClick={() => setAttentionView(value)} aria-pressed={attentionView === value} className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${attentionView === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+          ))}
+          <span className="self-center text-[10px] text-wb-ink2">{filteredResults.length} shown</span>
+        </div>
 
         {!searched && (
           <p className="text-sm text-wb-ink2">
@@ -300,7 +311,10 @@ export default function SearchPage() {
           <p className="text-sm text-wb-ink2">No results for <span className="text-wb-ink">&ldquo;{query}&rdquo;</span></p>
         )}
 
-        {Object.entries(grouped).map(([type, items]) => (
+        {searched && !loading && filteredResults.length === 0 && results.length > 0 && (
+          <p className="text-sm text-wb-ink2">No {attentionView === 'needs-action' ? 'needs-action' : 'important'} results in the current search.</p>
+        )}
+        {Object.entries(filteredGrouped).map(([type, items]) => (
           <div key={type} className="flex flex-col gap-1">
             <p className="border-b border-wb-line pb-1 text-[10px] uppercase tracking-[0.2em] text-wb-ink2">
               {TYPE_LABEL[type] ?? type}

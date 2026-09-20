@@ -11,6 +11,7 @@
  */
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Card } from '@/components/ui';
 import { OperationalStateBadge, type OperationalState } from '@/components/OperationalState';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
@@ -103,7 +104,19 @@ const TONE_DOT_CLASS: Record<CapabilityTone, string> = {
   unknown: 'bg-wb-line text-wb-ink2',
 };
 
+const CAPABILITY_RECOVERY: Record<string, { workbench: string; href: string; action: string }> = {
+  morning_intelligence: { workbench: 'Briefs', href: '/briefs', action: 'Read latest brief' },
+  emergency_monitoring: { workbench: 'Emergency Alerts', href: '/emergency-alert-hub-workbench', action: 'Check active alerts' },
+  technical_intelligence: { workbench: 'Technical OSINT', href: '/intelligence-workbench', action: 'Review intelligence' },
+  health_intelligence: { workbench: 'Health OSINT', href: '/health-osint', action: 'Review health evidence' },
+  hq_evolution: { workbench: 'HQ Evolution', href: '/self-improvement-findings', action: 'Review HQ evolution' },
+  weekly_review: { workbench: 'Weekly Review', href: '/weekly-review', action: 'Start weekly review' },
+  ready_room: { workbench: 'Ready Room', href: '/ready-room', action: 'Choose what to do next' },
+  human_systems: { workbench: 'Human Systems', href: '/human-systems-workbench', action: 'Check current capacity' },
+};
+
 function CapabilityRow({ cap }: { cap: CapabilityResult }) {
+  const recovery = CAPABILITY_RECOVERY[cap.key];
   return (
     <li className="flex items-start gap-2.5 py-2" title={cap.reason}>
       <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${TONE_DOT_CLASS[cap.tone]}`} aria-hidden>
@@ -115,6 +128,7 @@ function CapabilityRow({ cap }: { cap: CapabilityResult }) {
           <span className="sr-only"> — {cap.tone}</span>
         </p>
         {cap.tone !== 'healthy' && <p className="mt-0.5 text-[12px] text-wb-ink2">{cap.reason}</p>}
+        {recovery && cap.tone !== 'healthy' && <p className="mt-1 text-[11px] text-wb-ink2">Affected workbench: <Link href={recovery.href} className="font-semibold text-wb-sage-deep hover:underline">{recovery.workbench}</Link> · <Link href={recovery.href} className="text-wb-sage-deep hover:underline">{recovery.action} →</Link></p>}
       </div>
     </li>
   );

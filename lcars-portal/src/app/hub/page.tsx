@@ -389,6 +389,12 @@ export default function LifeOSHub() {
               </div>
             )}
 
+            <section aria-labelledby="hub-what-needs-me" className="rounded-lg border-2 border-wb-sage-deep/50 bg-wb-sage/10 p-4">
+              <h2 id="hub-what-needs-me" className="text-[11px] font-bold uppercase tracking-[0.18em] text-wb-sage-deep">What needs me now</h2>
+              <p className="mt-1 text-sm font-semibold text-wb-ink">{needsYouItems.length ? `${needsYouItems.length} item${needsYouItems.length === 1 ? '' : 's'} need a decision or next action.` : 'Nothing needs action now.'}</p>
+              {needsYouItems[0] && <Link href={needsYouItems[0].href} className="mt-3 inline-flex rounded-md bg-wb-sage-deep px-3 py-2 text-xs font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">{needsYouItems[0].actionLabel} · {needsYouItems[0].title} →</Link>}
+            </section>
+
             {/* ── 4. Needs You — prefer 0–3 genuinely actionable items ──
                 Mission 7 §7/§8/§22: each item's actionLabel (deriveCommandStatus
                 already assigns one per source — "Review", "Publish / Schedule",

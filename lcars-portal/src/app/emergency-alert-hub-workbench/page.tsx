@@ -627,6 +627,7 @@ export default function EmergencyAlertsWorkbench() {
   const activeAlerts = useMemo(() => allAlerts.filter((a) => a.isActive), [allAlerts]);
   const emergencyAlerts = useMemo(() => activeAlerts.filter((a) => a.severity === 'emergency_warning'), [activeAlerts]);
   const watchAlerts = useMemo(() => activeAlerts.filter((a) => a.severity === 'watch_and_act'), [activeAlerts]);
+  const informationalAlerts = useMemo(() => activeAlerts.filter((a) => a.severity !== 'emergency_warning' && a.severity !== 'watch_and_act'), [activeAlerts]);
   const adviceCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'advice').length, [activeAlerts]);
   const unknownCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'unknown').length, [activeAlerts]);
 
@@ -748,6 +749,15 @@ export default function EmergencyAlertsWorkbench() {
                       {watchAlerts.map((alert) => (
                         <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                       ))}
+                    </div>
+                  </Card>
+                )}
+
+                {informationalAlerts.length > 0 && (
+                  <Card>
+                    <h2 className="mb-3 inline-block rounded border border-wb-line bg-wb-surface-raised px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-wb-ink2">Informational — {informationalAlerts.length} active · no immediate action</h2>
+                    <div className="flex flex-col gap-3">
+                      {informationalAlerts.map((alert) => <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
                     </div>
                   </Card>
                 )}
