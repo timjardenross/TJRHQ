@@ -440,15 +440,17 @@ session.** Confirm the ambiguous ones (flagged below) before Stream A locks the 
   described in §6.1/Phase 16 as a read-first synthesis page with no unique action chrome
 - Technical OSINT Workbench, Health OSINT Workbench — intelligence triage surfaces whose
   actual content is reading briefs/articles, not entering data or taking action.
-  **Reconfirmed (Captain decision, 2026-09-20, Stream A Phase 1):** Image 3's own mockup
-  panels for both actually render dark Command chrome, not light — a real discrepancy
-  against this classification, flagged rather than silently picked either way. Captain
-  ruled this doc's PURPOSE-based reasoning wins; treat the mockup panels as the
-  inconsistency, not this classification. Both stay Read (light). **Note the direction:**
-  this is the opposite outcome from §1.6's two prior discrepancies (Chair mode, Briefs
-  tabs), where the mockup won over the text/doc reasoning both times. Don't treat "the
-  mockup always wins" as a standing rule for future discrepancies — each one was decided
-  on its own merits, and this one went the other way.
+  **Reconfirmed (Captain decision, 2026-09-20, Stream A Phase 1 — independently recorded by
+  two concurrent sessions working this branch, converged on the same text):** Image 3's own
+  mockup panels for both actually render dark Command chrome, not light — a real
+  discrepancy against this classification, flagged rather than silently picked either way.
+  Captain ruled this doc's PURPOSE-based reasoning wins; treat the mockup panels as the
+  inconsistency, not this classification. Both stay Read (light). Build them light — the
+  mockup panels are non-authoritative on this specific point. **Note the direction:** this
+  is the opposite outcome from §1.6's two prior discrepancies (Chair mode, Briefs tabs),
+  where the mockup won over the text/doc reasoning both times. Don't treat "the mockup
+  always wins" as a standing rule for future discrepancies — each one was decided on its
+  own merits, and this one went the other way.
 - Advisory — "Think it through" is a long-form conversational consult, not a quick action
 - Knowledge Workbench — decisions/lessons/ADR search and reading, the most text-dense page
   in the app by PURPOSE
@@ -675,6 +677,13 @@ before Stream C migrates these two pages, same as §1.6's two prior discrepancie
 noted: Image 3's own sidebar shows the *old* 5/7-item set, not Image 1/2's 9-item one or
 the Captain's now-decided full-list version — a real cross-image inconsistency, but moot
 now that the sidebar decision was made directly rather than picked from either mockup.
+
+**Resolved (Captain decision, same day):** the reasoned §1.8 classification wins over the
+mockup's literal rendering — Technical OSINT and Health OSINT both stay **Read (light)**,
+not dark. Unlike §1.6's two prior discrepancies (where the more-recently-reviewed mockup won
+both times), this one went the other way — worth remembering that "the mockup is probably
+right" isn't a fixed rule; each conflict gets checked and decided on its own, not inferred
+from the last one's outcome. §1.8 updated in place to record this.
 
 **Token architecture — implemented, WCAG-computed (not eyeballed), not the 5-theme
 system:**
