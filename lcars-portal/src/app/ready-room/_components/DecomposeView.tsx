@@ -213,6 +213,7 @@ export function DecomposeView({
     // only for a genuinely fresh goal typed into this view.
     const targetId = existingTask
       ? (await updateTaskFields(existingTask.id, {
+          title: goal.trim() || existingTask.title,
           due_date: dueDate || null,
           micro_action: microAction.trim() || null,
           mvp_note: goodEnough.trim() || null,
