@@ -958,3 +958,64 @@ condensed into this doc's §1-§2 — re-request from the Captain/session histor
 specific §-numbered passage needs checking verbatim, e.g. the full CANVAS/SURFACES/BLUE/WARM/
 TEXT/BORDERS token-family list from the original §4, deliberately not reproduced here to
 avoid two copies drifting apart).
+
+### Phase 6 — Stream B3: Mobile nav rewrite (2026-09-20)
+
+`components/MobileCommandBar.tsx` rewritten per §1.2, in parallel with the other concurrent
+streams landing on this branch — not gated on Stream B's per-page migration, per §4's own
+note that this is one component, not a per-page migration:
+
+- **Tab set replaced:** Home/Capture/Readiness → Hub/Ready/Ask/More, matching Image 2's
+  4-item mockup. "Capture" dropped outright (not relabeled) — confirmed duplicate of the
+  always-mounted `QuickCapture` floating button (`components/ui/QuickCapture.tsx`, "Mounted
+  once inside WorkbenchShell... and once on the hub, so a capture is always at most one click
+  away"), both driving the same `captureItem()` pipeline. "Readiness" kept as a tab (renamed
+  "Ready") pointing at the same `/physical-readiness` route.
+- **"Ask" destination resolved, not left undefined:** cross-checked `NumberOne.tsx` (the
+  ambient floating widget, bottom-left, unconditionally mounted) against `/advisory-workbench`
+  before deciding — found the destination already exists and is already load-bearing: Hub's
+  own "Open a full Number One session" link (`app/hub/page.tsx`) uses
+  `/advisory-workbench?advisor=number_one`, a real Mission 6B deep-link contract
+  (`ConsultView.tsx`/`ThinkView.tsx` both reference it) that auto-expands straight to Number
+  One's persisted, multi-turn thread — the "different job" NumberOne's own widget comment
+  says it deliberately doesn't duplicate. "Ask" now uses that exact same href. No new
+  destination invented.
+- **"More" destination — a real, undictated design decision, flagged for Captain
+  confirmation:** §1.2 explicitly left this open (the source mockups never assign "More" a
+  destination). Considered and rejected: linking "More" straight to `/workbenches` — that
+  route already exists and is already one tap away via `WorkbenchShell`'s header logo below
+  `xl`, so it adds nothing, and per §1.2's own reasoning ("'More' should still surface
+  [Physical Readiness] directly, one tap not two, since it was a deliberately-kept
+  primary-nav item before this redesign") burying it in a ~20-item directory doesn't satisfy
+  that bar. **Decision implemented:** "More" opens a small local sheet using the existing
+  `Modal` primitive (same one `QuickCapture`/`NumberOne` already use — no new modal pattern
+  invented), listing Physical Readiness first (curated, one tap once the sheet is open) and a
+  link to the full Workbenches directory underneath for everything else. This is
+  presentation-only — no new route, no new page, reuses `/physical-readiness` and
+  `/workbenches` verbatim — but the *shape* of "More" (sheet vs. direct link vs. something
+  else) was a real judgment call this session made, not one the mission doc dictated.
+  **Flagging for Captain confirmation**, not blocking on it.
+- **Colours converted to `wb-*` tokens:** `bg-white/95` → `bg-wb-surface/95`,
+  `border-[#d9e1f0]` → `border-wb-line`, `text-[#243b7a]`/`text-[#61718c]` (active/inactive)
+  → `text-wb-sage-deep`/`text-wb-ink2` — same tokens `app/hub/page.tsx` and every other
+  migrated workbench already use, no new colour vocabulary added.
+- **Kept unchanged, per the mission's own instruction:** the `useAlertCount()` call (fires
+  real push notifications, documented as this component's "single global owner" — not just a
+  badge), the `xl:hidden` breakpoint gating, the `NavHref` type-check discipline for the
+  plain-route tabs (Hub/Ready). "Ask"'s href carries a query string (`?advisor=number_one`),
+  so it's typed and rendered outside the `NavHref`-checked `TABS` array rather than loosening
+  that type for one entry — documented inline in the component.
+- **Verified:** `tsc --noEmit` clean, `eslint` clean on the touched file, full test suite
+  green (725/725; no pre-existing `MobileCommandBar` test file was found — none added, per
+  the "don't invent scope" boundary; a targeted test would be new scope beyond a
+  rewrite-in-place). One `src/app/ready-room/__tests__/postureDefault.test.tsx` failure seen
+  in two full-suite runs with this change present was confirmed pre-existing and unrelated —
+  it also failed in a clean-HEAD full-suite run with this change stashed out, and passes
+  reliably in isolation; a timing-sensitive flake in that test's `waitFor`, not caused by this
+  component (no import relationship between the two).
+
+**Open item carried forward, not silently settled:** the "More" sheet vs. a direct link (or
+some other affordance) is this session's best-reasoned call, not a Captain-confirmed
+decision — same treatment as Phase 1's sidebar footer motto. Revisit if the Captain's own
+mockup review (once seen live, not just from Image 2's tab-bar glyphs, which don't show what
+"More" expands to) says otherwise.
