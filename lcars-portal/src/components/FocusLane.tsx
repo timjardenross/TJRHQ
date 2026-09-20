@@ -21,3 +21,10 @@ export function FocusLane({ item, compact = false }: { item: FocusLaneItem; comp
     <div className="mt-4 flex flex-wrap items-center gap-2 text-[12px] text-wb-ink2"><span>What fits your energy?</span>{(['low', 'medium', 'high'] as const).map((level) => <button key={level} type="button" aria-pressed={energy === level} onClick={() => { setEnergy(level); save({ parked, energy: level }); }} className={`rounded-md border px-2.5 py-1.5 capitalize ${energy === level ? 'border-wb-sage-deep bg-wb-sage-deep/20 text-wb-ink' : 'border-wb-line'}`}>{level}</button>)}</div>
   </section>;
 }
+
+export function ActionHistoryPanel() {
+  const [history, setHistory] = useState<Array<{ action: string; at: string }>>([]);
+  useEffect(() => { try { setHistory(JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]')); } catch { /* optional continuity */ } }, []);
+  if (!history.length) return null;
+  return <section className="rounded-xl border border-wb-line bg-wb-surface p-4" aria-label="Recent actions"><h2 className="font-semibold">Recent actions</h2><ul className="mt-2 space-y-1 text-[12px] text-wb-ink2">{history.slice(0, 5).map((entry, index) => <li key={`${entry.at}-${index}`} className="flex flex-wrap justify-between gap-2"><span>{entry.action}</span><time dateTime={entry.at}>{new Date(entry.at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}</time></li>)}</ul></section>;
+}
