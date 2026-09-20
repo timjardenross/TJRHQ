@@ -27,7 +27,6 @@ export type { KpiStatProps, KpiStatTone, KpiCardProps } from './KpiStat';
 export { WorkbenchShell } from './WorkbenchShell';
 
 export { Sidebar } from './Sidebar';
-export { ThemeSelector } from './ThemeSelector';
 export { WorkbenchCard } from './WorkbenchCard';
 
 export { DomainToggle } from './DomainToggle';

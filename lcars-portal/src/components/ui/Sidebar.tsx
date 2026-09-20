@@ -1,44 +1,31 @@
 'use client';
 
 // Adaptive Themes + Home/Workbench Redesign mission (2026-09-05), §4/§14.
-// Captain's call, asked directly given the size difference vs. a Home-only
-// sidebar: this is GLOBAL chrome, rendered by WorkbenchShell around every
-// *-workbench page — "the same operating system in five different
-// environments." Visible xl: and up, same breakpoint MobileCommandBar
-// disappears at (that component remains the below-xl fallback nav,
-// unchanged) — no gap reopened between them.
+// GLOBAL chrome, rendered by WorkbenchShell around every *-workbench page.
+// Visible xl: and up, same breakpoint MobileCommandBar disappears at (that
+// component remains the below-xl fallback nav) — no gap reopened between
+// them.
+//
+// Endeavour 27 (USS-TJR-MSN-0394), Stream A: this used to be a hand-picked
+// 5-item list (Home/Workbenches/Library/Missions/Alerts) — real IA debt
+// the mission doc flagged, since the mockups showed a 9-item curated set
+// instead. Captain's decision on being asked directly: neither curated
+// list — the sidebar should include every live workbench, not a hand-
+// picked subset of either size. Renders the same LIVE_WORKBENCHES/
+// WORKBENCH_GROUP_META source of truth `/workbenches` already uses (see
+// that page's own header comment on why two independently-maintained
+// lists drift), grouped the same way, so this can never show a different
+// set of workbenches than the full directory does.
 //
 // Help has no dedicated standalone page in this app today — rather than
 // link to a 404 or invent a page outside this mission's scope, it renders
 // disabled with an inline "soon" tag.
-//
-// Calendar entry removed (Sidebar review, 2026-09-08): it only ever
-// resolved to /hub, duplicating Home — a confusing double-highlight, not a
-// second destination. Calendar still lives as a card on /hub.
-//
-// Missions/Alerts/Library now link straight at their real pages
-// (/mission-workbench, /captains-chair-workbench/alerts,
-// /knowledge-workbench) instead of the /missions, /alerts,
-// /knowledge-library redirect stubs — those stubs live under the legacy
-// (app) LCARS layout, so following them briefly rendered the old
-// LCARS-branded chrome before bouncing to the real destination. Missions
-// and Alerts are also lower priority than Workbenches/Library now — they're
-// narrower, single-purpose surfaces, not places captains land often.
-//
-// Settings Page Redesign mission (2026-09-06): Settings now has a real
-// route (/settings) — see app/settings/ — so its entry is enabled.
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  Home,
-  LayoutGrid,
-  Rocket,
-  TriangleAlert,
-  BookMarked,
-  Settings,
-  HelpCircle,
-  type LucideIcon,
-} from 'lucide-react';
+import { Settings, HelpCircle, type LucideIcon } from 'lucide-react';
+import { LIVE_WORKBENCHES, WORKBENCH_GROUP_META, type WorkbenchGroup } from '@/lib/workbenches';
+
+const GROUP_ORDER = Object.keys(WORKBENCH_GROUP_META) as WorkbenchGroup[];
 
 interface SidebarLink {
   href: string;
@@ -46,14 +33,6 @@ interface SidebarLink {
   icon: LucideIcon;
   disabled?: boolean;
 }
-
-const PRIMARY: SidebarLink[] = [
-  { href: '/hub', label: 'Home', icon: Home },
-  { href: '/workbenches', label: 'Workbenches', icon: LayoutGrid },
-  { href: '/knowledge-workbench', label: 'Library', icon: BookMarked },
-  { href: '/mission-workbench', label: 'Missions', icon: Rocket },
-  { href: '/captains-chair-workbench/alerts', label: 'Alerts', icon: TriangleAlert },
-];
 
 const SECONDARY: SidebarLink[] = [
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -67,7 +46,7 @@ function SidebarRow({ link, active }: { link: SidebarLink; active: boolean }) {
     link.disabled
       ? 'cursor-not-allowed text-wb-ink2/50'
       : active
-        ? 'bg-wb-sage-deep/10 font-medium text-wb-sage-deep'
+        ? 'bg-wb-sage-deep/15 font-medium text-wb-sage'
         : 'text-wb-ink2 hover:bg-wb-surface-raised hover:text-wb-ink',
   ].join(' ');
 
@@ -95,29 +74,55 @@ function SidebarRow({ link, active }: { link: SidebarLink; active: boolean }) {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
 
   return (
     <aside
       aria-label="Primary"
-      className="sticky top-0 hidden h-[100dvh] w-56 shrink-0 flex-col justify-between border-r border-wb-line bg-wb-surface px-3 py-6 xl:flex"
+      className="sticky top-0 hidden h-[100dvh] w-64 shrink-0 flex-col justify-between overflow-y-auto border-r border-wb-line bg-wb-surface px-3 py-6 xl:flex"
     >
-      <nav className="flex flex-col gap-1" aria-label="Sections">
-        {PRIMARY.map((link) => (
-          <SidebarRow
-            key={link.label}
-            link={link}
-            active={pathname === link.href || pathname?.startsWith(link.href + '/')}
-          />
-        ))}
-      </nav>
-      <nav className="flex flex-col gap-1" aria-label="Secondary">
+      <div className="flex flex-col gap-5">
+        <Link href="/hub" className="flex items-center gap-2 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep" aria-label="TJR HQ home">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-wb-sage-deep text-[13px] font-semibold text-white">TJR</span>
+          <span className="leading-tight">
+            <span className="block text-[13px] font-semibold text-wb-ink">TJR HQ</span>
+            <span className="block text-[10px] uppercase tracking-[0.14em] text-wb-ink2">Endeavour 27</span>
+          </span>
+        </Link>
+        {GROUP_ORDER.map((group) => {
+          const entries = LIVE_WORKBENCHES.filter((e) => e.group === group);
+          if (entries.length === 0) return null;
+          const meta = WORKBENCH_GROUP_META[group];
+          return (
+            <nav key={group} className="flex flex-col gap-1" aria-label={meta.label}>
+              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-wb-ink2/70">
+                {meta.label}
+              </p>
+              {entries.map((entry) => (
+                <SidebarRow
+                  key={entry.href}
+                  link={{ href: entry.href, label: entry.title, icon: entry.icon }}
+                  active={isActive(entry.href)}
+                />
+              ))}
+            </nav>
+          );
+        })}
+      </div>
+      <nav className="flex flex-col gap-1 border-t border-wb-line pt-3" aria-label="Secondary">
         {SECONDARY.map((link) => (
           <SidebarRow
             key={link.label}
             link={link}
-            active={!link.disabled && (pathname === link.href || pathname?.startsWith(link.href + '/'))}
+            active={!link.disabled && isActive(link.href)}
           />
         ))}
+        {/* Mission §1.1: mockups show this motto in every sidebar footer —
+            real copy from the source brief, not fabricated here, but not
+            yet Captain-confirmed as final (see mission doc §1.1). */}
+        <p className="mt-4 px-3 text-[9px] uppercase leading-relaxed tracking-[0.18em] text-wb-ink2/50">
+          Discipline<br />Clarity<br />Progress<br />Freedom
+        </p>
       </nav>
     </aside>
   );

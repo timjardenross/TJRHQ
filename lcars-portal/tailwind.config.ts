@@ -76,6 +76,11 @@ const config: Config = {
           'sage-deep': 'var(--wb-sage-deep)',
           navy:     'var(--wb-navy)',
           gold:     'var(--wb-gold)',
+          // Endeavour 27 (USS-TJR-MSN-0394) — Sand Warm Accent, fills/
+          // borders/decorative only (same rule as gold above); '-deep' is
+          // the text-safe variant on the read-mode light surface.
+          sand:     'var(--wb-sand)',
+          'sand-deep': 'var(--wb-sand-deep)',
           ok:       'var(--wb-ok)',
           warn:     'var(--wb-warn)',
           crit:     'var(--wb-crit)',

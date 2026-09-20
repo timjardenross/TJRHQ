@@ -35,7 +35,6 @@ import { MobileCommandBar } from '@/components/MobileCommandBar';
 import { NumberOne } from './NumberOne';
 import { QuickCapture } from './QuickCapture';
 import { Sidebar } from './Sidebar';
-import { ThemeSelector } from './ThemeSelector';
 
 const GLOBAL_HOME = '/workbenches';
 
@@ -68,6 +67,7 @@ export function WorkbenchShell({
   back,
   wide = false,
   minimal = false,
+  mode = 'focus',
   children,
 }: {
   title: string;
@@ -88,15 +88,23 @@ export function WorkbenchShell({
    * workbench switcher, back-link and tagline while the Captain is inside
    * a single active-execution moment (Ready Room's ActiveTaskView) — one
    * fewer decision surface competing for attention mid-task. Opt-in, off
-   * by default, so every other workbench is unaffected. Settings/theme
-   * stay reachable (never trap the Captain), QuickCapture/MobileCommandBar
+   * by default, so every other workbench is unaffected. Settings stay
+   * reachable (never trap the Captain), QuickCapture/MobileCommandBar
    * stay mounted. */
   minimal?: boolean;
+  /** Endeavour 27 (USS-TJR-MSN-0394): 'command' and 'focus' share the dark
+   * Command/Focus surface (differ by density/layout, not colour — mission
+   * §1.1), 'read' switches to the light reading surface via
+   * [data-wb-mode='read'] in globals.css. Defaults to 'focus' — the
+   * majority of existing action/execution workbenches — so unclassified
+   * pages don't silently go light. Set explicitly per mission §1.8's
+   * classification when migrating a page. */
+  mode?: 'command' | 'focus' | 'read';
   children: ReactNode;
 }) {
   const shellWidth = wide ? 'max-w-7xl' : 'max-w-4xl';
   return (
-    <div className="min-h-[100dvh] bg-wb-bg font-sans text-wb-ink antialiased">
+    <div data-wb-mode={mode} className="min-h-[100dvh] bg-wb-bg font-sans text-wb-ink antialiased">
       <a
         href="#wb-main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-wb-ink focus:px-3 focus:py-2 focus:text-[13px] focus:text-white"
@@ -139,7 +147,6 @@ export function WorkbenchShell({
                 >
                   <Settings className="h-4 w-4" aria-hidden />
                 </Link>
-                <ThemeSelector />
                 {!minimal && <WorkbenchSwitcher />}
               </span>
             </div>

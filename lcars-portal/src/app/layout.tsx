@@ -68,28 +68,28 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#F7F4EE',
+  // Endeavour 27: was #F7F4EE (the old Archive theme's bg) — the app's
+  // default surface is now the dark Command/Focus navy.
+  themeColor: '#0B1E2E',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
 };
 
-// Adaptive Themes mission (2026-09-05): reads the saved theme choice and
-// sets it on <html> synchronously, BEFORE hydration/first paint — the
-// standard flash-of-wrong-theme fix for localStorage-based (not cookie/
-// SSR-based) theming. Deliberately a tiny inline script, not a dependency
-// (next-themes etc.) — the actual requirement is one localStorage read and
-// one attribute set. Falls back silently to the default (archive, via
-// globals.css's bare :root block) if localStorage is unavailable or holds
-// an unrecognised value.
-const THEME_INIT_SCRIPT = `
+// Reads the saved motion preference and sets it on <html> synchronously,
+// BEFORE hydration/first paint, so a Captain with Motion: Reduced never
+// sees one frame of animation. Deliberately a tiny inline script, not a
+// dependency — the actual requirement is one localStorage read and one
+// attribute set.
+//
+// Endeavour 27 (USS-TJR-MSN-0394): the 5-theme half of this script
+// (data-theme, tjr-hq-theme) is retired along with lib/theme.ts and
+// ThemeSelector.tsx — the dark Command/Focus vs. light Read surface is now
+// a static per-route classification (WorkbenchShell's `mode` prop ->
+// [data-wb-mode] in globals.css), known at render time, so it needs no
+// anti-flash script of its own the way a client-toggled preference did.
+const MOTION_INIT_SCRIPT = `
 (function () {
-  try {
-    var t = localStorage.getItem('tjr-hq-theme');
-    if (t && ['archive','command','midnight','horizon','sanctuary'].indexOf(t) !== -1) {
-      document.documentElement.setAttribute('data-theme', t);
-    }
-  } catch (e) {}
   try {
     var m = localStorage.getItem('tjr-hq-motion');
     if (m === 'reduced') {
@@ -103,7 +103,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={sourceSerif.variable}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: MOTION_INIT_SCRIPT }} />
       </head>
       <body>
         {children}

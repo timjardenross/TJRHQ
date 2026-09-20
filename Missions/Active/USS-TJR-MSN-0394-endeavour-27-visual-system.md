@@ -643,6 +643,103 @@ corruption incident from exactly that.
 
 ## 6. Reporting
 
+### Phase 1 — Stream A: Foundation (2026-09-20)
+
+**Captain decisions obtained before touching shared chrome** (both explicitly gated in
+this doc, not assumed):
+- **Sidebar IA:** neither the mockups' curated 9-item set nor the current 5-item list —
+  **every live workbench**, not a hand-picked subset of either size.
+- **Mockup images:** not attached at mission start; the repo turned out to be a shallow
+  clone — `Missions/Active/USS-TJR-MSN-0394-mockups/` existed on the branch but hadn't
+  been fetched. `git pull` retrieved it; all 3 images reviewed directly this phase (not
+  worked from the doc's text description alone).
+
+**New finding from reviewing Image 3 directly** (not caught by the original text-only
+analysis in §1.8): that image's own mockup panels for **Technical OSINT** and **Health
+OSINT** render with dark Command-style chrome, not light — directly contradicting §1.8's
+classification of both as Read (light). §1.8 said its own reasoning was "not from
+re-reading every page live," and this is exactly the kind of gap that check was meant to
+catch. **Flagging, not silently overriding either source:** the mockup (the more
+recently-Captain-reviewed artifact, and the one §1.6 already established as authoritative
+over the text brief twice) should probably win, but this needs an explicit Captain call
+before Stream C migrates these two pages, same as §1.6's two prior discrepancies. Also
+noted: Image 3's own sidebar shows the *old* 5/7-item set, not Image 1/2's 9-item one or
+the Captain's now-decided full-list version — a real cross-image inconsistency, but moot
+now that the sidebar decision was made directly rather than picked from either mockup.
+
+**Token architecture — implemented, WCAG-computed (not eyeballed), not the 5-theme
+system:**
+- `globals.css`: replaced the 5 `:root[data-theme='X']` blocks with one fixed dark
+  Command/Focus palette on bare `:root` (Image 3's named hex: bg `#0B1E2E`, surface
+  `#142B3D`) plus a `[data-wb-mode='read']`-scoped light override (reused `sanctuary`'s
+  former warm-cream values, re-contrast-checked rather than assumed still valid). No
+  pre-hydration anti-flash script needed for mode (unlike the old theme system) — mode is
+  a static per-route classification, known at render time, not a client-toggled
+  preference.
+- Contrast computed with the standard WCAG relative-luminance formula (script, not
+  eyeballed): dark bg vs ink 14.90:1, vs ink2 8.43:1, vs accent blue 4.61:1, vs sand
+  8.95:1, vs gold 7.41:1; read bg vs ink 13.32:1, vs ink2 5.49:1, vs accent-deep 6.88:1,
+  vs sand-deep 5.18:1 (had to darken from an initial `#8A6A3E` candidate, which failed at
+  4.39:1). Plain accent/gold both fail AA text on the read surface specifically (3.24:1 /
+  2.01:1 respectively) — same two-tier fills-vs-text-safe pattern
+  `wb-sage`/`wb-sage-deep` already used pre-Endeavour-27, just now mode-driven. `wb-ok/
+  warn/crit` and `state-*` (tailwind.config.ts) are untouched — already theme-invariant,
+  already governed by `stateToneClasses()`'s mandatory bg/border-pairing rule, not
+  re-derived.
+- `WorkbenchShell` gained a `mode?: 'command' | 'focus' | 'read'` prop (defaults `'focus'`)
+  setting `data-wb-mode` on its own wrapper div — the mechanism Stream C will use to
+  migrate each of the 20 workbenches per §1.8's classification. Not yet applied to any
+  page this phase (that's Stream B/C's job) beyond the plumbing existing.
+- `tailwind.config.ts`: added `wb-sand`/`wb-sand-deep` tokens (Sand Warm Accent, mission
+  §1.1) alongside the existing `wb-gold`, kept both rather than assuming one replaces the
+  other, per the doc's own "confirm... before implementation" note.
+
+**5-theme selector fully retired**, not left dead in place: deleted `lib/theme.ts`,
+`ThemeSelector.tsx`; removed the header dropdown from `WorkbenchShell`; removed the
+Settings → Appearance "Theme" control (kept Motion); removed the `data-theme` half of
+`layout.tsx`'s inline anti-flash script (kept the Motion half — still needed, still a real
+client-toggled preference); removed `workbenches/page.tsx`'s per-theme tagline. Confirmed
+by grep: zero remaining code references anywhere in `src/`, only historical comments in
+files that were never coupled to it.
+
+**Sidebar rebuilt** to the full-workbench-list decision: renders `LIVE_WORKBENCHES`/
+`WORKBENCH_GROUP_META` directly (the same source `/workbenches` already uses, so the two
+can never drift the way the old 5-item hand-picked list already had from that page), one
+`<nav>` per group with the same grouping/labels. Kept Settings/Help as a separate secondary
+section. Added the sidebar-footer motto from mission §1.1 ("DISCIPLINE / CLARITY /
+PROGRESS / FREEDOM") — real copy from the source brief, **not yet Captain-confirmed as
+final**, flagged inline in the component itself, not silently treated as settled.
+
+**Regression found and fixed in the same pass, not left for Stream E:** live-rendered
+check (Playwright, real Supabase, dedicated test account, same workaround as MSN-0395 —
+Playwright MCP's Chromium is root-sandbox-blocked in this container) surfaced
+`NumberOne.tsx`'s floating button sitting inside the Sidebar's own horizontal span at
+desktop widths (`left-5`, no `xl:left-*` override at all) — a latent bug that predates
+this mission (the old 5-item Sidebar was short enough that a nav row rarely sat exactly
+there) but became a reliable, visible collision once the new full-workbench-list Sidebar
+has many more rows. Fixed: `xl:left-[calc(16rem_+_1.25rem)]`, verified with a second
+screenshot pass.
+
+**Verified, not just built:** `tsc --noEmit` clean, `eslint` clean on every touched file,
+full test suite (725 tests, 69 files) green, `npm run build` succeeds. Live-rendered
+Hub/Workbenches/Settings→Appearance screenshots confirm the dark Command surface, sidebar,
+and accent-blue links render correctly end-to-end, and that the Theme control is gone from
+Settings.
+
+**Open items carried to the next phase, not silently dropped:**
+1. Technical OSINT / Health OSINT Command-vs-Read discrepancy (above) — needs a Captain
+   decision before Stream C touches either page, same discipline as §1.6's two prior
+   discrepancies.
+2. Sidebar footer motto — real brief copy, not yet Captain-confirmed as final.
+3. Typography scale (H1/H2/Body/Status Label) and spacing/radius tokens from Image 2's
+   "Key Design Elements" panel — not formalised into Tailwind tokens this phase; Stream A's
+   colour/mode/sidebar work took priority. Next foundation pass or folded into Stream B's
+   first reference surface.
+4. `mode` prop exists but is applied to zero pages yet — Stream B (Hub → Ready Room →
+   Human Systems → Briefs, in order) is where it actually gets used per-page.
+
+Next: Stream B, starting with LifeOS Hub (Command), per the Captain's own sequencing.
+
 Phase-by-phase build record inside this same doc, same discipline as Mission 7's own
 (§3.x-numbered sections per phase, updated in place as work lands — not a separate status
 doc). Knowledge record on completion at `knowledge/missions/` following this mission's own
