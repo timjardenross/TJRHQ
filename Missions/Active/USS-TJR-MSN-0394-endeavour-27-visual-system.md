@@ -1357,7 +1357,137 @@ Streams E, F, and G authorised to proceed under this discipline: verify `tsc`/`e
 `build`/test suite after every merge, flag anything else genuinely ambiguous rather than
 guessing, live-rendered verification deferred to production per the Captain's own call above.
 
-### Phase 12 — Stream F: Accessibility + adversarial review, plus the two Phase-11-authorised
+### Phase 12 — Stream E: Responsive hardening, code-review pass (2026-09-20)
+
+Reviewed every page this mission has restyled so far for responsive correctness at the 5
+target viewport classes (§1.4: desktop/laptop/iPad landscape/iPad portrait/iPhone), by reading
+the actual Tailwind classes against the codebase's own established breakpoint conventions —
+no live rendering, per Phase 11's authorisation (no Playwright/Supabase access in this
+container; real verification deferred to the live Vercel preview/production, not silently
+skipped).
+
+**Files reviewed, no defect found (already sound):** `hub/page.tsx` (4-tile stat grid and
+Quick Access grid already `grid-cols-2 sm:grid-cols-4`), `ready-room/page.tsx` +
+`ActiveTaskView.tsx` + `TodayStream.tsx` (button rows already `flex-wrap`, no fixed widths),
+`shopping-list-workbench/page.tsx` + `ItemFormModal.tsx` + `ItemRow.tsx` (3-stat row already
+`grid-cols-1 sm:grid-cols-3`, filter row and action-button row already `flex-wrap`),
+`intelligence-workbench/page.tsx` + `_components/TodayView.tsx`, `health-osint/page.tsx`,
+`captains-chair-workbench/page.tsx` (all three already use `DomainToggle` — which itself
+already carries the established `flex-nowrap` + `overflow-x-auto` + snap-scroll overflow
+fallback, from a 2026-08-09 P0 fix documented in `DomainToggle.tsx` — or already-responsive
+`grid-cols-1`/`sm:`/`lg:` grids), `components/ui/Sidebar.tsx` (the new full-workbench-list
+sidebar: `h-[100dvh]` + `overflow-y-auto` on the `<aside>` itself already scrolls the whole
+nav — group headers, all 20 `LIVE_WORKBENCHES` entries, and the Settings/Help/motto footer —
+independently of page content height; `justify-between` only affects layout when content is
+*shorter* than the viewport, so it doesn't fight the scroll case; no defect, despite being the
+component most likely to have one per the task brief), `components/MobileCommandBar.tsx`
+(Hub/Ready/Ask/More tabs are `flex-1` with no fixed widths, `min-h-[56px]` touch targets, More
+sheet reuses the already-hardened `Modal` primitive), `components/ui/WorkbenchShell.tsx`
+(header already `flex-wrap` on both the outer row and the `right` slot cluster, per Mission 7
+Phase 15's own fix).
+
+**Real defects found and fixed (2 files) — both the same class: a tab-like button row built
+by hand instead of via the shared `DomainToggle` primitive, missing the overflow protection
+`DomainToggle` already has:**
+- `briefs/page.tsx`'s `TabBar` (Latest/Domains/Timeline/Explore, 4 tabs) — `flex gap-2` with
+  no wrap or scroll fallback. Width-summed at the actual `text-[13px]`/`px-4 py-1.5` sizing,
+  the 4 tabs plus 3 gaps exceed a 375px iPhone's available width after `WorkbenchShell`'s
+  `px-6` header padding, which would have either wrapped ugly (no `flex-wrap`) or forced the
+  whole header row into horizontal scroll. Fixed to match `DomainToggle.tsx`'s own established
+  `flex-nowrap` + `overflow-x-auto` + `snap-x snap-mandatory` + `shrink-0 snap-start` pattern
+  (a deliberate horizontal scroll, not an accidental clip — same reasoning as that file's own
+  2026-08-09 P0 fix) rather than inventing a new one.
+- `emergency-alert-hub-workbench/page.tsx`'s Current/Browse all alerts/Silences view switcher
+  — same defect (`flex gap-2`, no wrap/scroll), same fix. "Browse all alerts" is the longest
+  label of the three and the most likely to be the one that pushes the row over on a phone.
+
+Both are hand-rolled `role`-less/`role="tablist"` button rows predating this mission's
+`DomainToggle` consolidation (WORKBENCH-REVIEW.md H9/H12) — not migrated to `DomainToggle`
+itself in this pass (that would be a component-identity change beyond this stream's
+responsive-hardening scope), just given the same overflow behaviour.
+
+**Flagged, not fixed (ambiguous — ships to a future pass):** none found this phase. Every
+`grid-cols-N` in the reviewed files already carries a `sm:`/`lg:`/`xl:` variant; no fixed
+pixel widths on interactive elements below `sm:`; no touch target under 44px was found beyond
+what Mission 7 Phase 15 already hardened; `WorkbenchSwitcher`'s `<select>` width-cap (Mission 7
+Phase 15) and `Modal`'s bottom-sheet-below-`sm:` behaviour (2026-08-09 P3) were both already
+correct and out of this phase's file list regardless.
+
+**Verified:** `npx tsc --noEmit` clean, `npx eslint` clean on both touched files
+(`briefs/page.tsx`, `emergency-alert-hub-workbench/page.tsx`), full `npm run test` suite
+(725/725 passing — same count as Phase 10's baseline, no regression), `npm run build` (exit
+0, all routes including `/briefs` and `/emergency-alert-hub-workbench` present in the route
+manifest at expected bundle sizes).
+
+**Live-rendered verification: deferred to production**, per Phase 11's explicit Captain
+authorisation (no Playwright/Supabase access in this container) — not attempted, not silently
+skipped.
+
+### Phase 13 — Human Systems deep mockup alignment (2026-09-20)
+
+Picked back up per Phase 11's explicit re-authorisation — Phase 5's own entry had flagged
+this as deferred (light touch only: `mode="focus"`, tab set/data plumbing left alone) rather
+than rushed. Scope: the Overview (NOW) tab's 4-tile grid and "Capacity Trend — Last 14 days"
+bar chart from mockup panel 3 ("HUMAN SYSTEMS — FOCUS VIEW"), against
+`human-systems-workbench/page.tsx` and `_components/NowView.tsx`. Presentation-only, as
+directed — no canonical logic touched (`capacity_checkins` queries, posture/trajectory
+derivation all unchanged).
+
+**4-tile grid (`KpiDashboard.tsx`, now takes `recovery: RecoveryPayload` instead of just
+`kpis: Kpis`) — 3 of 4 tiles map cleanly to real, already-computed fields; the 4th does not,
+flagged rather than fabricated:**
+- **Current Capacity** → `kpis.latest_capacity_state` (unchanged field, relabelled from the
+  prior "Capacity Today").
+- **Execution Posture** → `kpis.system_posture` (unchanged field, relabelled from "System
+  Posture").
+- **Energy** → `recovery.energy` (top-level `RecoveryPayload` field, High/Moderate/Low —
+  `route.ts`'s `energyFromCapacityState()`/`analytics_health_daily` comparisons). Real and
+  already computed, just not previously surfaced in this strip.
+- **Focus — NOT built as the mockup shows it.** Checked `api/human-systems/route.ts` and
+  `_components/types.ts` directly: there is no focus/distraction field anywhere in
+  `RecoveryPayload`/`MedicalPayload`/`Kpis` — unlike Energy, which is a real field under a
+  different display name, "Focus — Moderate / Some distraction" has nothing backing it at
+  all. Built the 4th tile as **Executive Function** (`recovery.executive_function` —
+  good/strained/difficult/very_difficult) instead: the closest real, already-computed
+  cognitive-load signal on this page (already shown lower down in
+  `RecoveryView.tsx`'s `CapacityTodayCard`), shown under its own real name rather than
+  relabelled "Focus" so nothing implies a stat that isn't actually tracked. A real Focus/
+  distraction signal would need new capture — out of scope for a presentation-only pass, and
+  a Captain call if wanted (new field, not a redesign of an existing one).
+- The former 3rd tile, **Check-ins Today**, isn't dropped — folded into Current Capacity's
+  `sub` line (same count/midday text it always showed), since the mockup's grid has exactly 4
+  slots and the information itself is still real and worth keeping visible.
+
+**Capacity Trend — Last 14 days (new `CapacityTrendCard.tsx`, new `CapacityTrendBars` in
+`Sparkline.tsx`, new shared `_components/trendScoring.ts`):** restyled the real chart the
+Trends page already computes, not rebuilt. `TREND_CAPACITY` (the `capacity_state` → 0-100
+score map) was pulled out of `trends/page.tsx` into a new `_components/trendScoring.ts` so
+this card and the Trends page share one copy rather than a second, possibly-drifting
+computation of the same numbers — Next.js's page-export validation refused a direct export
+from `trends/page.tsx` (a `page.tsx` may only export recognised page fields; hit this at
+build time, same constraint `api/human-systems/trends/route.ts`'s own doc comment already
+notes for route handlers). The card fetches `/api/human-systems/trends` itself (same endpoint
+the Trends page uses), takes the last 14 rows, and renders each day as a bar coloured by its
+real `capacity_state` (green/orange/red → `wb-ok`/`wb-warn`/`wb-crit`, the theme-invariant
+tokens, not new hex) with height from the shared score map — a day with no recorded check-in
+renders as a thin neutral tick, not a fabricated zero or a silent gap. Legend and "Last 14
+days" caption match the mockup; an accessible row-count summary line sits under the chart
+(same discipline `Sparkline`'s own header comment describes for its line variant).
+
+**Verified:** `npx tsc --noEmit` clean; `npx eslint` clean on every touched/new file
+(`KpiDashboard.tsx`, `NowView.tsx`, `Sparkline.tsx`, `trends/page.tsx`, new
+`CapacityTrendCard.tsx`, new `trendScoring.ts`); full `npm run test` suite 725/725 passing
+(one `ready-room/__tests__/postureDefault.test.tsx` failure on the first full-suite run
+reproduced as a flake — passed standalone and on a clean re-run of the full suite immediately
+after, unrelated to any file this phase touched); `npm run build` succeeds (exit 0,
+`/human-systems-workbench` and `/human-systems-workbench/trends` both present in the route
+manifest). `node_modules` didn't exist in this worktree at phase start — `npm install` run
+first (783 packages, no blocking errors) before any of the above.
+
+**Live-rendered verification: deferred to production**, per Phase 11's explicit Captain
+authorisation — not attempted, not silently skipped.
+
+### Phase 14 — Stream F: Accessibility + adversarial review, plus the two Phase-11-authorised
     technical fixes (2026-09-20)
 
 **Part 1 — the two Phase 11-authorised fixes:**

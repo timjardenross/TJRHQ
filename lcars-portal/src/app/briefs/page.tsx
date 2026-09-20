@@ -45,7 +45,16 @@ function monthLabel(dateStr: string): string {
 
 function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
   return (
-    <div className="flex gap-2" role="tablist" aria-label="Briefs views">
+    // Endeavour 27 Stream E: 4 tabs at 375px overflowed with no wrap/scroll
+    // fallback -- same class of defect DomainToggle.tsx's own 2026-08-09 P0
+    // fix addressed (see that file's comment). Matches its established
+    // flex-nowrap + overflow-x-auto + snap pattern rather than inventing a
+    // new one -- a deliberate horizontal scroll, not an accidental clip.
+    <div
+      className="flex flex-nowrap gap-2 overflow-x-auto [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory"
+      role="tablist"
+      aria-label="Briefs views"
+    >
       {TABS.map((t) => (
         <button
           key={t.key}
@@ -53,7 +62,7 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
           role="tab"
           aria-selected={active === t.key}
           onClick={() => onChange(t.key)}
-          className={`rounded-full border px-4 py-1.5 text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+          className={`shrink-0 snap-start rounded-full border px-4 py-1.5 text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
             active === t.key
               ? 'border-wb-sage-deep bg-wb-sage-deep text-white'
               : 'border-wb-line text-wb-ink2 hover:bg-wb-bg'
