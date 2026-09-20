@@ -2,25 +2,26 @@
 
 **Type:** UI + UX + navigation + interaction design. Not a backend architecture programme —
 Missions 1–6 own the canonical machinery; this mission consumes and exposes it.
-**Status:** Active — Phases 1-13 shipped 2026-09-19/20 (same session, one PR). This is a
-large, multi-phase mission; this record is honest about what's actually closed versus what
-remains open (see §5/§6/§6.1). Phase-by-phase build record: §3 (Phase 1: ambient Number One,
-navigation fixes, directory grouping, Hub/Chair actionability), §3.1 (Phase 2: Hub→Ready Room
-continuity), §3.3 (Phase 3: accessibility — Modal focus trap, aria-live), §3.4-3.6 (Phases
-4-5: dead-code sweep, 5 legacy pages retired), §3.7 (Phase 6: Search/Timeline relocated from
-dead-page risk into live workbenches), §3.8 (Phase 7: `operations` converted), §3.9 (Phase 8:
-contrast/label audit), §3.10 (Phase 9: weight-trend view ported, `state-*`/midnight text
-paired with outline/ring), §3.11 (Phase 10: `operating-model` relocated into Knowledge
-Workbench), §3.12 (Phase 11: `state-*`/`midnight` pairing rule formalized as the permanent
-fix, item 14 fully closed), §3.13 (Phase 12: "Help me start" button on Needs You items, item
-2 fully closed), §3.14 (Phase 13: Operating Model doctrine content reviewed via Chief of
-Staff, item 11 fully closed — both placement and content), §3.15 (Phase 14:
-live-environment verification — §40 deterministic core confirmed live-working end to end,
-item 7 screenshot evidence captured and CLOSED, item 1 narrowed with a real systemic MOBILE
-finding, new item 15 logged for a Captain-flagged theme-palette complaint). Item 7 is now
-CLOSED-WITH-EVIDENCE. Only item 1 remains genuinely open of the original register — no longer
-blocked on live-environment access (that access now exists, documented in §3.15.1), just on
-the remaining per-workbench template write-up itself.
+**Status:** Active — Phases 1-15 shipped 2026-09-19/20 (across two sessions/PRs — #288
+merged, #289 in flight). This is a large, multi-phase mission; this record is honest about
+what's actually closed versus what remains open (see §5/§6/§6.1). Phase-by-phase build
+record: §3 (Phase 1: ambient Number One, navigation fixes, directory grouping, Hub/Chair
+actionability), §3.1 (Phase 2: Hub→Ready Room continuity), §3.3 (Phase 3: accessibility —
+Modal focus trap, aria-live), §3.4-3.6 (Phases 4-5: dead-code sweep, 5 legacy pages retired),
+§3.7 (Phase 6: Search/Timeline relocated from dead-page risk into live workbenches), §3.8
+(Phase 7: `operations` converted), §3.9 (Phase 8: contrast/label audit), §3.10 (Phase 9:
+weight-trend view ported, `state-*`/midnight text paired with outline/ring), §3.11 (Phase
+10: `operating-model` relocated into Knowledge Workbench), §3.12 (Phase 11: `state-*`/
+`midnight` pairing rule formalized as the permanent fix, item 14 fully closed), §3.13 (Phase
+12: "Help me start" button on Needs You items, item 2 fully closed), §3.14 (Phase 13:
+Operating Model doctrine content reviewed via Chief of Staff, item 11 fully closed), §3.15
+(Phase 14: live-environment verification — §40 confirmed live-working, item 7 closed with
+evidence, item 1 narrowed with a real systemic MOBILE finding, new item 15 logged; Phase 15,
+same section: that MOBILE finding fixed same-session). Only item 1 (the full per-workbench
+template write-up) remains genuinely open of the original register — no longer blocked on
+live-environment access (that access now exists, documented in §3.15.1), just on the
+remaining write-up itself. Item 15 (theme-palette complaint) is open and new, awaiting a
+Captain conversation to scope specifics before any change.
 **Branch:** `claude/tjr-hq-mission-7-az63cy`.
 
 ## 0. Mission question
@@ -797,7 +798,7 @@ that specific continuity claim. Recommend a fast follow-up: create a task via th
 (anything actually needing `OLLAMA_CLOUD_ENABLED`/`MODEL_ROUTER_URL`) is unverified — blocked
 on Infisical access (§3.15.1), not on anything this pass could fix.
 
-### 3.15.3 New finding — systemic MOBILE defect in `WorkbenchShell`'s header
+### 3.15.3 New finding — systemic MOBILE defect in `WorkbenchShell`'s header — FIXED Phase 15
 
 Live rendering at 375px caught something no code-reading pass could: **`WorkbenchShell`'s
 header selector row overflows the viewport on 20 of the 21 live workbenches** (every one
@@ -810,12 +811,25 @@ overflows. Confirmed visually on `mobile-hub.png` and `mobile-human-systems-work
 document.documentElement.clientWidth` — across the full 21-route sweep,
 `sweep-results.json`). This is exactly the class of bug Phase 1 already fixed once for
 `QuickCapture`'s floating button (§1.5) — a real, previously unverified, systemic defect,
-not a one-off. **Not fixed in this pass** (kept to verification, per the mission's
-established discipline of not rushing a fix without confirming scope first) — flagged as a
-new, high-priority MOBILE item for the next implementation pass. Likely fix shape: cap each
-`<select>`'s width with `max-w-[Npx] truncate` or replace the native selects with a
-`Popover`/`Listbox` pattern that can actually collapse on narrow viewports, but that's a
-design call worth a quick look before implementing, not assumed here.
+not a one-off.
+
+**Fixed in Phase 15** (Captain-directed, same session, immediately after this finding was
+reported): took the simpler of the two fix shapes this section originally floated (width-cap
++ truncate, not a `Popover`/`Listbox` rewrite — no reason to replace a working native
+`<select>` just to solve a sizing problem). `WorkbenchSwitcher`
+(`components/ui/WorkbenchShell.tsx`) and `ThemeSelector`'s own `<select>`
+(`components/ui/ThemeSelector.tsx`, sharing the same header row) both capped
+(`w-[92px] max-w-[92px] truncate` / `w-[84px] max-w-[84px] truncate` respectively, both
+relaxing back to their natural width at `sm:`) — truncation only affects the closed-state
+face; the dropdown's own open list still shows full untruncated titles, native `<select>`
+behaviour. The header cluster's wrapping span also gained `flex-wrap` as a second layer
+(cluster wraps to its own line rather than horizontal-scrolling if a narrower viewport than
+375px ever turns up), and its class order was reviewed for internal consistency while
+touched (`gap-3` → `gap-2`, `justify-end` added) — a minor, in-scope tightening, not a
+separate change. `npx tsc --noEmit`, `npx eslint`, the full test suite (725/725), and
+`npm run build` all pass clean. Not re-verified against a live rendered browser at 375px in
+this pass (no live-environment access here, same wall as always) — the next live-environment
+session should confirm visually rather than take the CSS math on faith.
 
 Secondary, lower-confidence finding: `mission-workbench` logged 4 console 404s on load in
 this pass's sweep (`sweep-results.json`) — not traced to a specific resource in the time
@@ -900,16 +914,18 @@ where the next pass should start:
    opened in a rendered browser, authenticated against real Supabase, at both desktop
    (1280px) and phone (375px) width — the thing no prior phase could do. This surfaced one
    real, previously-unverified, systemic MOBILE defect (§3.15.3): `WorkbenchShell`'s header
-   selector row overflows the viewport at 375px on **20 of 21** live workbenches (every one
-   except `/workbenches` itself, which doesn't render the switcher). That is new, confirmed,
-   code-traced evidence — not a guess — and is the single most important output of this item
-   this pass. **Still not done, and deliberately not attempted under this pass's time
-   pressure:** the full formal PURPOSE/ENTRY/EXIT/PRIMARY ACTION/NOISE/DUPLICATION/CONTEXT/
+   selector row overflowed the viewport at 375px on **20 of 21** live workbenches (every one
+   except `/workbenches` itself, which doesn't render the switcher). **Fixed in Phase 15**
+   (§3.15.3) — width-capped both header `<select>`s with truncation, plus a `flex-wrap`
+   fallback on the cluster; not yet re-verified against a live rendered browser (no
+   live-environment access in the fixing session), so the next live pass should confirm
+   visually rather than take the CSS math on faith. **Still not done, and deliberately not
+   attempted:** the full formal PURPOSE/ENTRY/EXIT/PRIMARY ACTION/NOISE/DUPLICATION/CONTEXT/
    CONTINUITY write-up per workbench (mission §11's exact template) — CONTEXT/CONTINUITY in
    particular needs deliberate per-workbench interaction testing (leave mid-task, come back)
-   that wasn't run this pass beyond the one Hub→Ready Room chip-driven check in §3.15.2.
-   Recommend the next pass spend its time on that template work directly, using this pass's
-   screenshot evidence (§3.15.4) as a starting point rather than re-capturing it.
+   that wasn't run beyond the one Hub→Ready Room chip-driven check in §3.15.2. Recommend the
+   next pass spend its time on that template work directly, using Phase 14's screenshot
+   evidence (§3.15.4) as a starting point rather than re-capturing it.
 2. **CLOSED (Phase 12, §3.13).** Phase 2 closed the core continuity gap (`number_one_context`
    auto-set). The remaining piece — a dedicated "Help me start" button on a Hub/Captain's
    Chair Needs You item, straight into Unstick Me for that same task — is now built: every
