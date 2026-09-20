@@ -32,7 +32,7 @@ import dataclasses
 import json
 
 from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
-from core.platform.event_bus import poll_events
+from core.platform.event_bus import CAPTAIN_BRIEF_COLUMNS, poll_events
 
 
 def main() -> None:
@@ -42,11 +42,15 @@ def main() -> None:
                         help="Run the full Understanding/Insight/Reasoning pipeline (slow — real LLM calls).")
     args = parser.parse_args()
 
-    events = poll_events(limit=args.limit)
     if args.evolved:
+        # build_understanding() reads the linked_entities/linked_missions/
+        # linked_documents jsonb columns CAPTAIN_BRIEF_COLUMNS omits — must
+        # stay columns="*" (default) for this branch.
+        events = poll_events(limit=args.limit)
         from core.platform.captain_brief_evolution import assemble_evolved_captain_brief
         doc = assemble_evolved_captain_brief(events)
     else:
+        events = poll_events(limit=args.limit, columns=CAPTAIN_BRIEF_COLUMNS)
         doc = assemble_captain_brief_document(events)
     print(json.dumps(dataclasses.asdict(doc), default=str))
 

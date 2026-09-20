@@ -419,10 +419,15 @@ def _make_flask_app():
             from core.platform.captain_brief_orchestrator import (
                 assemble_captain_brief_document,
             )
-            from core.platform.event_bus import poll_events
+            from core.platform.event_bus import CAPTAIN_BRIEF_COLUMNS, poll_events
 
             limit = int(_request_arg("limit", 200))
-            events = poll_events(limit=limit)
+            # assemble_captain_brief_document() never reads the jsonb
+            # linked_* columns select("*") would otherwise re-transfer on
+            # every hit of this route (Supabase egress investigation,
+            # 2026-09-20) — narrow columns here, same list already proven
+            # safe for the identical function in scheduler.py's attention job.
+            events = poll_events(limit=limit, columns=CAPTAIN_BRIEF_COLUMNS)
             doc = assemble_captain_brief_document(events)
             return jsonify(dataclasses.asdict(doc, dict_factory=_str_default_asdict))
         except Exception as exc:  # noqa: BLE001 - HTTP handler boundary must never 500 on unexpected backend/data errors; error surfaced in the jsonify response
@@ -446,12 +451,15 @@ def _make_flask_app():
         try:
             import dataclasses
 
-            from core.platform.event_bus import poll_events
+            from core.platform.event_bus import CAPTAIN_BRIEF_COLUMNS, poll_events
             from intelligence.brief.domains_view import assemble_domains_document
             from intelligence.persistence.intelligence_store import load_latest_brief
 
             limit = int(_request_arg("limit", 200))
-            events = poll_events(limit=limit)
+            # assemble_domains_document() passes events straight through to
+            # assemble_captain_brief_document() unchanged (its own docstring)
+            # — same narrow-column safety as /brief/full above.
+            events = poll_events(limit=limit, columns=CAPTAIN_BRIEF_COLUMNS)
             latest_brief = load_latest_brief()
             doc = assemble_domains_document(events, latest_brief)
             return jsonify(dataclasses.asdict(doc, dict_factory=_str_default_asdict))
