@@ -10,6 +10,7 @@
 // supporting detail under WHAT'S CONTRIBUTING, not top-line content.
 
 import { KpiDashboard } from './KpiDashboard';
+import { CapacityTrendCard } from './CapacityTrendCard';
 import {
   BurnoutRecoveryCard,
   CapacityTodayCard,
@@ -33,9 +34,14 @@ export function NowView({ recovery, medical }: { recovery: RecoveryPayload; medi
   return (
     <div className="flex flex-col gap-4">
       {/* ── TODAY ── */}
-      <KpiDashboard kpis={recovery.kpis} />
+      <KpiDashboard recovery={recovery} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* Capacity Trend — mockup panel 3's "Capacity Trend — Last 14
+            days" bar chart, placed directly under the 4-tile grid it sits
+            beside in the mockup, ahead of "What's Contributing". */}
+        <CapacityTrendCard />
+
         <CapacityTodayCard data={recovery} />
 
         {/* ── WHAT'S CONTRIBUTING ── */}

@@ -1422,3 +1422,67 @@ manifest at expected bundle sizes).
 **Live-rendered verification: deferred to production**, per Phase 11's explicit Captain
 authorisation (no Playwright/Supabase access in this container) — not attempted, not silently
 skipped.
+
+### Phase 13 — Human Systems deep mockup alignment (2026-09-20)
+
+Picked back up per Phase 11's explicit re-authorisation — Phase 5's own entry had flagged
+this as deferred (light touch only: `mode="focus"`, tab set/data plumbing left alone) rather
+than rushed. Scope: the Overview (NOW) tab's 4-tile grid and "Capacity Trend — Last 14 days"
+bar chart from mockup panel 3 ("HUMAN SYSTEMS — FOCUS VIEW"), against
+`human-systems-workbench/page.tsx` and `_components/NowView.tsx`. Presentation-only, as
+directed — no canonical logic touched (`capacity_checkins` queries, posture/trajectory
+derivation all unchanged).
+
+**4-tile grid (`KpiDashboard.tsx`, now takes `recovery: RecoveryPayload` instead of just
+`kpis: Kpis`) — 3 of 4 tiles map cleanly to real, already-computed fields; the 4th does not,
+flagged rather than fabricated:**
+- **Current Capacity** → `kpis.latest_capacity_state` (unchanged field, relabelled from the
+  prior "Capacity Today").
+- **Execution Posture** → `kpis.system_posture` (unchanged field, relabelled from "System
+  Posture").
+- **Energy** → `recovery.energy` (top-level `RecoveryPayload` field, High/Moderate/Low —
+  `route.ts`'s `energyFromCapacityState()`/`analytics_health_daily` comparisons). Real and
+  already computed, just not previously surfaced in this strip.
+- **Focus — NOT built as the mockup shows it.** Checked `api/human-systems/route.ts` and
+  `_components/types.ts` directly: there is no focus/distraction field anywhere in
+  `RecoveryPayload`/`MedicalPayload`/`Kpis` — unlike Energy, which is a real field under a
+  different display name, "Focus — Moderate / Some distraction" has nothing backing it at
+  all. Built the 4th tile as **Executive Function** (`recovery.executive_function` —
+  good/strained/difficult/very_difficult) instead: the closest real, already-computed
+  cognitive-load signal on this page (already shown lower down in
+  `RecoveryView.tsx`'s `CapacityTodayCard`), shown under its own real name rather than
+  relabelled "Focus" so nothing implies a stat that isn't actually tracked. A real Focus/
+  distraction signal would need new capture — out of scope for a presentation-only pass, and
+  a Captain call if wanted (new field, not a redesign of an existing one).
+- The former 3rd tile, **Check-ins Today**, isn't dropped — folded into Current Capacity's
+  `sub` line (same count/midday text it always showed), since the mockup's grid has exactly 4
+  slots and the information itself is still real and worth keeping visible.
+
+**Capacity Trend — Last 14 days (new `CapacityTrendCard.tsx`, new `CapacityTrendBars` in
+`Sparkline.tsx`, new shared `_components/trendScoring.ts`):** restyled the real chart the
+Trends page already computes, not rebuilt. `TREND_CAPACITY` (the `capacity_state` → 0-100
+score map) was pulled out of `trends/page.tsx` into a new `_components/trendScoring.ts` so
+this card and the Trends page share one copy rather than a second, possibly-drifting
+computation of the same numbers — Next.js's page-export validation refused a direct export
+from `trends/page.tsx` (a `page.tsx` may only export recognised page fields; hit this at
+build time, same constraint `api/human-systems/trends/route.ts`'s own doc comment already
+notes for route handlers). The card fetches `/api/human-systems/trends` itself (same endpoint
+the Trends page uses), takes the last 14 rows, and renders each day as a bar coloured by its
+real `capacity_state` (green/orange/red → `wb-ok`/`wb-warn`/`wb-crit`, the theme-invariant
+tokens, not new hex) with height from the shared score map — a day with no recorded check-in
+renders as a thin neutral tick, not a fabricated zero or a silent gap. Legend and "Last 14
+days" caption match the mockup; an accessible row-count summary line sits under the chart
+(same discipline `Sparkline`'s own header comment describes for its line variant).
+
+**Verified:** `npx tsc --noEmit` clean; `npx eslint` clean on every touched/new file
+(`KpiDashboard.tsx`, `NowView.tsx`, `Sparkline.tsx`, `trends/page.tsx`, new
+`CapacityTrendCard.tsx`, new `trendScoring.ts`); full `npm run test` suite 725/725 passing
+(one `ready-room/__tests__/postureDefault.test.tsx` failure on the first full-suite run
+reproduced as a flake — passed standalone and on a clean re-run of the full suite immediately
+after, unrelated to any file this phase touched); `npm run build` succeeds (exit 0,
+`/human-systems-workbench` and `/human-systems-workbench/trends` both present in the route
+manifest). `node_modules` didn't exist in this worktree at phase start — `npm install` run
+first (783 packages, no blocking errors) before any of the above.
+
+**Live-rendered verification: deferred to production**, per Phase 11's explicit Captain
+authorisation — not attempted, not silently skipped.
