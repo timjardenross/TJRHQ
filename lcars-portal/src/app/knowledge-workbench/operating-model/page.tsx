@@ -19,9 +19,14 @@
 // per-domain/per-schedule-row colour was decorative in the original, not
 // informative, so dropping it loses nothing real.
 //
-// Content itself (Domains, Principles, Schedule) is authored doctrine, not
-// engineering output — whether it still reflects current priorities is a
-// separate Captain call, not resolved by this relocation.
+// Content reviewed and reaffirmed/revised 2026-09-20 (Mission 7 Phase 13,
+// Chief of Staff pass, §5 item 11 fully closed): checked against
+// knowledge/memory/captain_profile.txt (the platform's other canonical
+// Captain-context document) rather than guessed — found a real gap (no
+// Domain for TJR Mind & Body, though it's a named current_priorities item
+// there) and a genuinely different Principles list (8 decision_principles
+// vs. this page's prior 6). Captain confirmed the specific changes below;
+// this is not an engineering author's edit.
 
 import { useState, useEffect } from 'react';
 import { WorkbenchShell, Card } from '@/components/ui';
@@ -35,26 +40,29 @@ interface LiveData {
 
 const DOMAINS = [
   { icon: '🏥', name: 'Health', description: 'Recovery-led operations. Pain management, CPAP adherence, fatigue mapping.', priority: 'P0' },
-  { icon: '💼', name: 'Career', description: 'Strategic positioning and professional development.', priority: 'P1' },
   { icon: '🚀', name: 'USS TJR', description: 'Command Centre build, intelligence systems, operational excellence.', priority: 'P1' },
+  { icon: '💼', name: 'Career', description: 'Strategic positioning and professional development.', priority: 'P2' },
   { icon: '📚', name: 'Learning', description: 'AI/ML, systems thinking, leadership frameworks.', priority: 'P2' },
   { icon: '🤝', name: 'Relationships', description: 'Family, crew, professional network maintenance.', priority: 'P2' },
   { icon: '🎯', name: 'Personal', description: 'Identity, values, long-term vision.', priority: 'P3' },
+  { icon: '🌱', name: 'TJR Mind & Body', description: 'Building TJR Mind & Body — human resilience and capacity coaching practice. Early-stage; not yet active day-to-day.', priority: 'P3' },
 ];
 
 const PRINCIPLES = [
-  { num: 1, title: 'Recovery First', body: 'No decision or commitment that compromises recovery posture.' },
+  { num: 1, title: 'Recovery First', body: 'No decision or commitment compromises recovery posture; capacity is protected before it’s spent.' },
   { num: 2, title: 'Mission Clarity', body: 'Every piece of work has a mission ID and a clear outcome.' },
-  { num: 3, title: 'Intelligent Defaults', body: 'The system handles routine; the Captain handles judgement.' },
-  { num: 4, title: 'Evidence-Based Decisions', body: 'Decisions are logged, rated, and reviewed.' },
-  { num: 5, title: 'Sustainable Pace', body: 'Capacity is protected. Overcommitment is flagged and resolved.' },
-  { num: 6, title: 'Continuous Learning', body: 'Lessons are captured and fed back into the system.' },
+  { num: 3, title: 'Intelligent Defaults', body: 'The system handles routine, automating what genuinely improves outcomes; the Captain handles judgement.' },
+  { num: 4, title: 'Evidence-Based, Root-Cause Decisions', body: 'Decisions are logged, rated, and reviewed; seek root causes rather than repeatedly treating symptoms.' },
+  { num: 5, title: 'Human Judgement on Consequential Calls', body: 'AI augments judgement rather than replacing it; the Captain holds final authority on anything consequential.' },
+  { num: 6, title: 'Simple, Durable Systems', body: 'Favour simple, durable systems over unnecessary complexity; design around real behaviour, not idealised behaviour.' },
+  { num: 7, title: 'Preserve Optionality', body: 'Where uncertainty is high, keep paths open rather than committing early.' },
+  { num: 8, title: 'Continuous Learning', body: 'Lessons are captured and fed back into the system.' },
 ];
 
 const SCHEDULE = [
-  { label: 'Peak performance', time: 'Morning (0800–1200)' },
-  { label: 'Managed capacity', time: 'Afternoon (1200–1600)' },
-  { label: 'Wind-down', time: 'Evening (1600–2000)' },
+  { label: 'Peak performance', time: 'Morning (0800–1000)' },
+  { label: 'Managed capacity', time: 'Midday–Afternoon (1000–1500)' },
+  { label: 'Wind-down', time: 'Afternoon–Evening (1500–2000)' },
   { label: 'Recovery priority', time: 'Deep sleep, CPAP compliance, pain management' },
 ];
 

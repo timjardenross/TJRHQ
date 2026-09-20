@@ -2,7 +2,7 @@
 
 **Type:** UI + UX + navigation + interaction design. Not a backend architecture programme —
 Missions 1–6 own the canonical machinery; this mission consumes and exposes it.
-**Status:** Active — Phases 1-12 shipped 2026-09-19/20 (same session, one PR). This is a
+**Status:** Active — Phases 1-13 shipped 2026-09-19/20 (same session, one PR). This is a
 large, multi-phase mission; this record is honest about what's actually closed versus what
 remains open (see §5/§6/§6.1). Phase-by-phase build record: §3 (Phase 1: ambient Number One,
 navigation fixes, directory grouping, Hub/Chair actionability), §3.1 (Phase 2: Hub→Ready Room
@@ -11,11 +11,12 @@ continuity), §3.3 (Phase 3: accessibility — Modal focus trap, aria-live), §3
 dead-page risk into live workbenches), §3.8 (Phase 7: `operations` converted), §3.9 (Phase 8:
 contrast/label audit), §3.10 (Phase 9: weight-trend view ported, `state-*`/midnight text
 paired with outline/ring), §3.11 (Phase 10: `operating-model` relocated into Knowledge
-Workbench, closing legacy-page retirement 8/8), §3.12 (Phase 11: `state-*`/`midnight` pairing
-rule formalized as the permanent fix, item 14 fully closed), §3.13 (Phase 12: "Help me start"
-button on Needs You items, item 2 fully closed). Only 2 of the 14-item deferred register
-remain open now (items 1 and 7 — both genuinely blocked on live-environment access, see the
-VM mission brief prepared for them).
+Workbench), §3.12 (Phase 11: `state-*`/`midnight` pairing rule formalized as the permanent
+fix, item 14 fully closed), §3.13 (Phase 12: "Help me start" button on Needs You items, item
+2 fully closed), §3.14 (Phase 13: Operating Model doctrine content reviewed via Chief of
+Staff, item 11 fully closed — both placement and content). Only 2 of the 14-item deferred
+register remain open now (items 1 and 7 — both genuinely blocked on live-environment access,
+see the VM mission brief prepared for them).
 **Branch:** `claude/tjr-hq-mission-7-az63cy`.
 
 ## 0. Mission question
@@ -593,11 +594,11 @@ rewrite nav demotion). Removed rather than left to drift further.
 `lib/interruptCoverageRegistry.ts`'s `operating-model` capability entry updated with a note
 of the route change — same queries, same behaviour, new route only, not a new finding.
 
-**Not resolved by this relocation, and not claimed to be:** the doctrine content itself (do
-the 6 Domains/Principles/Schedule still reflect current priorities?) is untouched — that was
-always the separate "reaffirm/rewrite" option, which the Captain didn't choose this pass.
-`npx tsc --noEmit` and `npx eslint` both pass clean; no existing test suite covers Knowledge
-Workbench to re-run.
+**Not resolved by this relocation, and not claimed to be at the time:** the doctrine content
+itself (do the 6 Domains/Principles/Schedule still reflect current priorities?) was left
+untouched — the separate "reaffirm/rewrite" option, not chosen in Phase 10. Closed
+separately in Phase 13 (§3.14) below, via the Chief of Staff persona rather than an
+engineering pass.
 
 ## 3.12 Phase 11 — item 14 (`state-*`/`midnight`) actually closed, not just mitigated
 
@@ -655,6 +656,59 @@ stuck" classification (no such signal exists upstream, and mission §4 rules tha
 `ready-room/__tests__/postureDefault.test.tsx`'s existing `?domain=unstick` coverage) all
 pass clean. No live-environment access needed for this one — it's a pure code/routing fix,
 unlike items 1 and 7.
+
+**Adversarial re-check found a real regression, fixed same pass:** `startHere()`'s
+`existingTask` branch updated `micro_action`/`mvp_note`/`due_date`/`follow_through_mode` on
+save but never `title` — since the pre-filled goal textarea stays editable, any wording
+change the Captain made while starting the task was silently discarded, while the
+`createTask()` (fresh-goal) path correctly wrote `title: goal` from day one. Both paths now
+persist consistently. Caught by treating this mission's own new code with the same suspicion
+as everything else (§3.3's discipline, still holding at Phase 12).
+
+## 3.14 Phase 13 — item 11's content question closed: Operating Model doctrine reviewed via
+   Chief of Staff, not an engineering guess
+
+The relocation (Phase 10, §3.11) deliberately left the doctrine content itself untouched —
+whether the 6 Domains/Principles/Schedule still reflected current priorities was flagged as
+a separate, unresolved "reaffirm/rewrite" question. Closed properly this pass: invoked the
+Chief of Staff persona rather than guessing at content that isn't an engineering call, and
+grounded the review in `knowledge/memory/captain_profile.txt` (the platform's other real
+Captain-context document, "Captain & XO Use" classification) instead of asking the Captain
+to re-derive everything from memory unaided.
+
+**Real, evidence-based finding, not invented:** cross-checking the two documents surfaced a
+genuine gap — Operating Model's 6 Domains had no entry for TJR Mind & Body, despite it being
+a named `personal_venture` and an active `current_priorities` item in `captain_profile.txt`
+(and the subject of its own public site, `tjrmindbody.com`, found earlier this session). The
+two documents' Principles/`decision_principles` lists were also genuinely different (6 vs. 8
+items, several with no equivalent on either side), not just different wording of the same
+thing. Git history couldn't establish which document was more recently authored (both files'
+only substantive commit is the same one, `dcb57e7` — almost certainly a bulk import, not
+organic edits) — disclosed that limit rather than asserting recency either document didn't
+earn.
+
+**Captain reviewed and confirmed, through several rounds of structured questions rather than
+one open-ended ask** (matching `captain_profile.txt`'s own stated interaction preference,
+"prefer structured choices over open-ended questions"):
+- **TJR Mind & Body added as a 7th Domain**, P3 (confirmed early-stage/dormant relative to
+  the other 6) — description drafted for review, confirmed as-is.
+- **Career moved P1 → P2** — USS TJR stays the sole P1 domain.
+- **Principles merged, not replaced or left alone** — 8 principles, consolidating the old
+  6 and the profile's 8 rather than concatenating both (would have been 14, mostly
+  redundant): kept Mission Clarity/Intelligent Defaults/Evidence-Based Decisions/Continuous
+  Learning (sharpened, not just carried over verbatim), folded old Sustainable Pace into
+  Recovery First, added 3 genuinely new ones from the profile (Human Judgement on
+  Consequential Calls, Simple Durable Systems, Preserve Optionality) that had no equivalent
+  in the old 6 at all.
+- **Schedule re-timed** — Peak performance shortened and shifted (0800–1000, was
+  0800–1200), Managed capacity and Wind-down adjusted to match (1000–1500, 1500–2000).
+  Recovery priority block unchanged (no times attached, same as before).
+
+Written into `knowledge-workbench/operating-model/page.tsx`'s `DOMAINS`/`PRINCIPLES`/
+`SCHEDULE` arrays; the page's own header comment updated to record this was a reviewed,
+Captain-confirmed pass, not an engineering edit. `npx tsc --noEmit` and `npx eslint` both
+pass clean. §5 item 11 is now fully closed — both the placement question (Phase 10) and the
+content question (this phase).
 
 ## 4. Core end-to-end test (§40) — status
 
@@ -779,12 +833,15 @@ where the next pass should start:
     adversarial pass (the items §45 itself lists: duplicate navigation, stale UI state,
     misleading state, back-button problems, giant text walls, notification loops, ...) was
     not run as its own exercise across the whole product.
-11. **Legacy `(app)`-group page retirement — CLOSED, 8 of 8 resolved (§3.11 closes the
-    last one, Phase 10).** 6 converted to honest stubs (`medical`, `captains-log`,
+11. **CLOSED — both halves.** Legacy `(app)`-group page retirement: 8 of 8 resolved (§3.11
+    closes the last one, Phase 10). 6 converted to honest stubs (`medical`, `captains-log`,
     `automation-centre`, `intelligence`, `engineering`, `operations`); `search` and `timeline`
     relocated rather than retired (§3.7, real capabilities, now live at their own top-level
     routes); `operating-model` relocated into Knowledge Workbench (§3.11, Captain-directed).
-    See §3.4/§3.5/§3.6/§3.7/§3.8/§3.11 for the full evidence trail per page:
+    Its doctrine content — the part Phase 10 explicitly left open — is now also reviewed and
+    reaffirmed/revised (§3.14, Phase 13, via Chief of Staff): TJR Mind & Body added as a 7th
+    Domain, Career moved P1→P2, Principles merged from 6+8 down to a non-redundant 8, Schedule
+    re-timed. See §3.4/§3.5/§3.6/§3.7/§3.8/§3.11/§3.14 for the full evidence trail per page:
     - `intelligence` (693 lines, the largest page in the sweep) — **converted in Phase 5**.
       All 6 tabs traced through `/api/intelligence`'s actual table queries (not tab names
       alone): Latest Brief/Daily Briefs/ORI Archive → `intelligence_briefs`/
