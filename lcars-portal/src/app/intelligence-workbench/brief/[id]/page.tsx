@@ -3,6 +3,7 @@
 // Phase B — Screens 2 & 3: Brief Review + Approval Gate (standalone brand).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Modal, RiskPill, WorkbenchShell } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import { runAction } from '../../_components/actions';
 
 // 2026-07-18: consolidated from the original 7-stage ladder (In Review / Data
@@ -106,6 +107,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
       ) : (
         <>
           <Card title={title}>
+            <EvidenceMeta source="Technical intelligence brief" observedAt={brief.period_end ?? brief.period_start} confidence={brief.sources_checked != null && brief.sources_available != null ? `${brief.sources_checked}/${brief.sources_available} sources checked` : undefined} />
             {/* 2026-07-18: was brief.signal_ids.length, which can be empty/stale
                 while the grid below legitimately finds linked events via the
                 brief_id fallback query in route.ts — a real Captain saw "0

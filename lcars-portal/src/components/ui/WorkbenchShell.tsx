@@ -109,6 +109,12 @@ export function WorkbenchShell({
   children: ReactNode;
 }) {
   const shellWidth = wide ? 'max-w-7xl' : 'max-w-4xl';
+  const pathname = usePathname();
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const from = searchParams.get('from');
+  const item = searchParams.get('item');
+  const originLabel = from === 'captains-chair' ? 'Captain’s Chair' : from === 'hub' ? 'LifeOS Hub' : from;
+  const originHref = from === 'captains-chair' ? '/captains-chair-workbench' : from === 'hub' ? '/hub' : null;
   return (
     <div className="min-h-[100dvh] bg-wb-bg font-sans text-wb-ink antialiased">
       <a
@@ -139,7 +145,7 @@ export function WorkbenchShell({
             silently inherited the outer wrapper's dark-mode ink, invisible
             against this div's light Read-mode background. Same class of
             bug as the bg-wb-bg/80 fix above, caught the same way. */}
-        <div data-wb-mode={mode} className="min-w-0 flex-1 bg-wb-bg text-wb-ink">
+        <div data-wb-mode={mode} className={`min-w-0 flex-1 bg-wb-bg text-wb-ink wb-mode-${mode}`}>
           {/* Endeavour 27 Stream B, found via live verification: `bg-wb-bg/80`
               never actually rendered a translucent fill -- Tailwind's
               opacity modifier needs an RGB-channel CSS var (e.g.
@@ -155,13 +161,13 @@ export function WorkbenchShell({
             <div className={`mx-auto flex ${shellWidth} flex-wrap items-center gap-3 px-6 py-4`}>
               <Link
                 href={GLOBAL_HOME}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-wb-sage-deep text-[14px] font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink xl:hidden"
+                className="endeavour-brand-mark h-9 w-9 shrink-0 text-[13px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink xl:hidden"
                 aria-label="Workbenches home"
               >
-                TJR
+                △
               </Link>
               <div className="leading-tight">
-                <div className="font-serif text-[17px]">{title}</div>
+                <h1 className="font-serif text-[17px]">{title}</h1>
                 <div className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">{eyebrow}</div>
               </div>
               {/* Mission 7 item 1 (Phase 15): flex-wrap here is the second
@@ -194,7 +200,13 @@ export function WorkbenchShell({
               </div>
             )}
           </header>
-          <main id="wb-main" className={`mx-auto ${shellWidth} px-6 py-8`}>
+          <main id="wb-main" className={`mx-auto ${shellWidth} px-4 py-6 pb-28 sm:px-6 sm:py-8 sm:pb-28 xl:pb-8`}>
+            {originLabel && pathname !== originHref && (
+              <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-wb-line bg-wb-surface px-3 py-2 text-[11px] text-wb-ink2" role="status">
+                <span>Opened from {originLabel}{item ? ` · item ${item}` : ''}</span>
+                {originHref && <Link href={originHref} className="font-semibold text-wb-sage underline underline-offset-2">Return to source →</Link>}
+              </div>
+            )}
             {back && !minimal && (
               <Link
                 href={back.href}

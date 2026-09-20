@@ -27,6 +27,7 @@
 import { useState } from 'react';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { Badge, Card, WorkbenchShell } from '@/components/ui';
+import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
 import type { BadgeStatus } from '@/components/ui';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 
@@ -248,12 +249,7 @@ export default function EngineeringHandoffsPage() {
           {isLoading ? (
             <p className="text-[13px] italic text-wb-ink2">Loading engineering handoffs…</p>
           ) : loadError ? (
-            <div className="rounded-md border border-wb-crit/40 bg-wb-crit/10 px-4 py-3">
-              <p className="text-[13px] font-semibold text-wb-crit-on">{loadError}</p>
-              <p className="mt-1 text-[12px] text-wb-ink2">
-                This is a load failure, not an empty queue. Retry shortly.
-              </p>
-            </div>
+            <DataAvailabilityNotice sources={[`Engineering Handoffs: ${loadError}`]} />
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               {ALL_STAGES.map(s => (

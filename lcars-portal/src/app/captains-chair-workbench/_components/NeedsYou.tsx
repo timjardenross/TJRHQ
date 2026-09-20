@@ -31,6 +31,10 @@ const KIND_LABEL: Record<NeedsYouItem['kind'], string> = {
 
 function NeedsYouRow({ item }: { item: NeedsYouItem }) {
   const c = stateToneClasses(KIND_TONE[item.kind]);
+  const contextualHref = `${item.href}${item.href.includes('?') ? '&' : '?'}from=captains-chair&item=${encodeURIComponent(item.id)}`;
+  const contextualHelpHref = item.helpMeStartHref
+    ? `${item.helpMeStartHref}${item.helpMeStartHref.includes('?') ? '&' : '?'}from=captains-chair&item=${encodeURIComponent(item.id)}`
+    : null;
   return (
     <li className={`rounded-lg border ${c.border} ${c.bg} p-3`}>
       <p className={`text-[10px] font-semibold uppercase tracking-wider ${c.text}`}>{KIND_LABEL[item.kind]}</p>
@@ -42,7 +46,7 @@ function NeedsYouRow({ item }: { item: NeedsYouItem }) {
           not an easy-to-miss trailing text link. */}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <Link
-          href={item.href}
+          href={contextualHref}
           className="inline-block rounded-md bg-wb-sage-deep px-2.5 py-1 text-[11px] font-semibold text-white hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         >
           {item.actionLabel}
@@ -50,9 +54,9 @@ function NeedsYouRow({ item }: { item: NeedsYouItem }) {
         {/* Mission 7 item 2: straight into Unstick Me for this same task —
             Captain's choice alongside the plain Do view, not a second
             engine deciding which tasks need it. */}
-        {item.helpMeStartHref && (
+        {contextualHelpHref && (
           <Link
-            href={item.helpMeStartHref}
+            href={contextualHelpHref}
             className="inline-block rounded-md border border-wb-line px-2.5 py-1 text-[11px] font-semibold text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           >
             Help me start

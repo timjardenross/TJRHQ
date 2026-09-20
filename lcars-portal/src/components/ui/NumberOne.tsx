@@ -138,7 +138,7 @@ export function NumberOne() {
         onClick={() => setOpen(true)}
         aria-label="Number One"
         title="Number One"
-        className="fixed z-40 grid h-12 w-12 place-items-center rounded-full bg-wb-ink text-white shadow-lg transition hover:shadow-xl active:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep
+        className="fixed z-40 endeavour-mobile-action bg-wb-ink text-white
           bottom-[max(5.25rem,calc(env(safe-area-inset-bottom)_+_4.75rem))] left-[max(1.25rem,env(safe-area-inset-left))]
           xl:bottom-[max(1.25rem,env(safe-area-inset-bottom))] xl:left-[calc(16rem_+_1.25rem)]"
       >

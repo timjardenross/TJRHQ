@@ -14,6 +14,8 @@ import { useMemo, useRef, useState } from 'react';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
+import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import type { ApprovalStatus, BriefListItem } from '@/lib/briefsShared';
 import { buildMorningIntelligenceView, isToday } from '@/lib/briefsShared';
 import type { DomainsDocument } from '@/lib/domainsShared';
@@ -100,6 +102,7 @@ function LatestView({ latest, loading }: { latest: BriefListItem | null; loading
         <span className="text-[13px] text-wb-ink2">{new Date(label).toLocaleString()}</span>
         <RiskPill value={latest.overall_risk} />
       </div>
+      <EvidenceMeta source="HQ brief pipeline" observedAt={latest.coverage?.latest_included_at ?? label} />
 
       {view.coverageDegraded && view.coverageNote && (
         <p className="mb-4 rounded-md border border-wb-crit/30 bg-wb-crit/10 p-2.5 text-[12.5px] text-wb-crit-on">
@@ -375,16 +378,18 @@ export default function BriefsPage() {
       tagline="USS TJR · HQ's canonical daily synthesis of the intelligence picture — one assessment, multiple delivery formats"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       tabs={<TabBar active={tab} onChange={setTab} />}
-      mode="read"
+      mode="command"
     >
-      {error && (
-        <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>
-      )}
+      <div className="read-reference-surface">
+        <div className="read-reference-kicker">Read mode · canonical intelligence record</div>
+        {error && <DataAvailabilityNotice sources={[`Briefs: ${error}`]} className="mb-4" />}
+        {domainsError && <DataAvailabilityNotice sources={[`Brief domains: ${domainsError}`]} className="mb-4" />}
 
-      {tab === 'latest' && <LatestView latest={latest} loading={loading} />}
-      {tab === 'domains' && <DomainsView doc={domainsDoc} loading={domainsLoading} error={domainsError} />}
-      {tab === 'timeline' && <TimelineView briefs={briefs} loading={loading} />}
-      {tab === 'explore' && <ExploreView briefs={briefs} loading={loading} />}
+        {tab === 'latest' && <LatestView latest={latest} loading={loading} />}
+        {tab === 'domains' && <DomainsView doc={domainsDoc} loading={domainsLoading} error={domainsError} />}
+        {tab === 'timeline' && <TimelineView briefs={briefs} loading={loading} />}
+        {tab === 'explore' && <ExploreView briefs={briefs} loading={loading} />}
+      </div>
     </WorkbenchShell>
   );
 }

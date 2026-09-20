@@ -127,8 +127,7 @@ export function MobileCommandBar() {
     <>
       <nav
         aria-label="Command MVP"
-        className="fixed inset-x-0 bottom-0 z-50 border-t border-wb-line bg-wb-surface/95 backdrop-blur xl:hidden"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-wb-line bg-wb-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur xl:hidden"
       >
         <ul className="mx-auto flex max-w-[640px]">
           {TABS.map((tab) => {

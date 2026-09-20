@@ -29,7 +29,7 @@ function escalationLevel(confidence: number, pulses: number): 0 | 1 | 2 | 3 {
 function escalationBorder(level: 0 | 1 | 2 | 3): string {
   if (level === 3) return stateToneClasses('crit').border;
   if (level === 2) return stateToneClasses('warn').border;
-  return 'border-edge';
+  return 'border-wb-line';
 }
 
 // ── Pulse dot ─────────────────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ function PulseDot({ done, label }: { done: boolean; label: string }) {
   return (
     <div className="flex flex-col items-center gap-1">
       <div className={`h-2.5 w-2.5 rounded-full ${done ? 'bg-medical' : 'bg-edge/40'}`} />
-      <span className="text-[9px] uppercase tracking-wide text-lcars-muted">{label}</span>
+      <span className="text-[9px] uppercase tracking-wide text-wb-ink2">{label}</span>
     </div>
   );
 }
@@ -55,9 +55,9 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
 
   if (compact) {
     return (
-      <div className={`rounded-lcars border ${border} bg-panel/40 px-4 py-3 flex items-center gap-4`}>
+      <div className={`rounded-xl border ${border} bg-wb-surface px-4 py-3 flex items-center gap-4`}>
         <div className="flex-1">
-          <p className="text-[10px] uppercase tracking-wider text-lcars-muted mb-1">Recovery confidence</p>
+          <p className="text-[10px] uppercase tracking-wider text-wb-ink2 mb-1">Recovery confidence</p>
           <ConfidenceIndicator score={confidence.recovery_confidence} compact />
         </div>
         <div className="flex gap-3 shrink-0">
@@ -68,7 +68,7 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
         </div>
         <Link
           href="/medical/pulse"
-          className="shrink-0 rounded-lcars bg-medical px-3 py-1.5 font-sans text-[11px] font-bold uppercase tracking-[0.15em] text-space hover:opacity-80 transition-opacity"
+          className="shrink-0 rounded-md bg-wb-sage-deep px-3 py-1.5 font-sans text-[11px] font-bold uppercase tracking-[0.15em] text-white hover:opacity-80 transition-opacity"
         >
           + Pulse
         </Link>
@@ -77,10 +77,10 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
   }
 
   return (
-    <div className={`rounded-lcars border ${border} bg-panel/40 p-4 flex flex-col gap-4`}>
+    <div className={`rounded-xl border ${border} bg-wb-surface p-4 flex flex-col gap-4`}>
       <div>
-        <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted mb-0.5">Recovery Confidence</p>
-        <p className="text-xs text-lcars-muted/80">{confidence.confidence_label}</p>
+        <p className="text-[10px] uppercase tracking-[0.25em] text-wb-ink2 mb-0.5">Recovery Confidence</p>
+        <p className="text-xs text-wb-ink2">{confidence.confidence_label}</p>
       </div>
 
       {/* Escalation alert — L2/L3 only */}
@@ -112,27 +112,27 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
       {confidence.pulses_completed > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {confidence.latest_energy && (
-            <div className="rounded-md border border-edge bg-space/40 p-2 text-center">
-              <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Energy</p>
-              <p className="text-xs text-lcars-text/90 mt-0.5 capitalize">{confidence.latest_energy}</p>
+            <div className="rounded-md border border-wb-line bg-wb-bg p-2 text-center">
+              <p className="text-[9px] uppercase tracking-wider text-wb-ink2">Energy</p>
+              <p className="text-xs text-wb-ink mt-0.5 capitalize">{confidence.latest_energy}</p>
             </div>
           )}
           {confidence.latest_nervous_system && (
-            <div className="rounded-md border border-edge bg-space/40 p-2 text-center">
-              <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Nervous system</p>
-              <p className="text-xs text-lcars-text/90 mt-0.5 capitalize">{confidence.latest_nervous_system}</p>
+            <div className="rounded-md border border-wb-line bg-wb-bg p-2 text-center">
+              <p className="text-[9px] uppercase tracking-wider text-wb-ink2">Nervous system</p>
+              <p className="text-xs text-wb-ink mt-0.5 capitalize">{confidence.latest_nervous_system}</p>
             </div>
           )}
           {confidence.latest_body_signals && (
-            <div className="rounded-md border border-edge bg-space/40 p-2 text-center">
-              <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Body signals</p>
-              <p className="text-xs text-lcars-text/90 mt-0.5 capitalize">{confidence.latest_body_signals}</p>
+            <div className="rounded-md border border-wb-line bg-wb-bg p-2 text-center">
+              <p className="text-[9px] uppercase tracking-wider text-wb-ink2">Body signals</p>
+              <p className="text-xs text-wb-ink mt-0.5 capitalize">{confidence.latest_body_signals}</p>
             </div>
           )}
           {confidence.latest_readiness && (
-            <div className="rounded-md border border-edge bg-space/40 p-2 text-center">
-              <p className="text-[9px] uppercase tracking-wider text-lcars-muted">Readiness</p>
-              <p className="text-xs text-lcars-text/90 mt-0.5 capitalize">{confidence.latest_readiness}</p>
+            <div className="rounded-md border border-wb-line bg-wb-bg p-2 text-center">
+              <p className="text-[9px] uppercase tracking-wider text-wb-ink2">Readiness</p>
+              <p className="text-xs text-wb-ink mt-0.5 capitalize">{confidence.latest_readiness}</p>
             </div>
           )}
         </div>
@@ -140,7 +140,7 @@ export function RecoveryConfidencePanel({ compact = false }: { compact?: boolean
 
       <Link
         href="/medical/pulse"
-        className="text-center rounded-lcars bg-medical px-4 py-2 font-sans text-xs font-bold uppercase tracking-[0.2em] text-space hover:opacity-80 transition-opacity"
+        className="text-center rounded-md bg-wb-sage-deep px-4 py-2 font-sans text-xs font-bold uppercase tracking-[0.2em] text-white hover:opacity-80 transition-opacity"
       >
         {confidence.pulses_completed === 0 ? 'Log First Pulse →' : `Log Next Pulse (${confidence.pulses_missing} remaining) →`}
       </Link>

@@ -28,7 +28,7 @@ export function MissionCard({ mission }: MissionCardProps) {
   return (
     <Link href={`/missions/${mission.mission_id}`} className="block">
     <article
-      className="flex flex-col gap-2 rounded-lcars border border-edge border-l-4 bg-panel-2/60 p-3 hover:border-wb-sage-deep/60 transition-colors cursor-pointer"
+      className="flex flex-col gap-2 rounded-xl border border-wb-line border-l-4 bg-wb-surface p-3 hover:border-wb-sage-deep transition-colors cursor-pointer"
       style={{ borderLeftColor: dept.hex }}
     >
       <div className="flex items-start justify-between gap-2">

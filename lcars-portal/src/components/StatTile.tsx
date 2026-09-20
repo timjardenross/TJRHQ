@@ -15,7 +15,7 @@ export interface StatTileProps {
 export function StatTile({ label, value, accent = 'command', hint }: StatTileProps) {
   const dept = DEPARTMENTS[accent];
   return (
-    <div className="rounded-lcars border border-edge bg-panel/60 p-4">
+    <div className="rounded-xl border border-wb-line bg-wb-surface p-4">
       <p className="text-[10px] uppercase tracking-[0.25em] text-wb-ink2">{label}</p>
       <p className={`mt-1 text-3xl font-bold ${dept.text}`}>{value}</p>
       {hint && <p className="mt-1 text-[11px] text-wb-ink2">{hint}</p>}

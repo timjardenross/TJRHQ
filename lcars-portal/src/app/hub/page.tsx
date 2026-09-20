@@ -60,6 +60,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { WorkbenchShell } from '@/components/ui';
+import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { OperationalStateBadge, type OperationalState } from '@/components/OperationalState';
 import {
   useHumanSystemsContext,
   useHqStatusSummary,
@@ -282,7 +284,17 @@ export default function LifeOSHub() {
       mode="command"
       wide
     >
-      <div className="mx-auto max-w-3xl space-y-6 py-2">
+      <div className="mx-auto max-w-4xl space-y-5 py-2">
+        <DataAvailabilityNotice
+          sources={[
+            humanSystemsError ? 'Human Systems' : '',
+            opRiskError ? 'Operational risk' : '',
+            briefingError ? "Today's brief" : '',
+            emergencyError ? 'Emergency alerts' : '',
+            hqStatusError ? 'HQ status' : '',
+            calendarStatus === 'error' ? 'Calendar' : '',
+          ]}
+        />
         {/* ── 0. Greeting — Endeavour 27 Stream B: reuses HomeScreen.tsx's
             daypart pattern, previously dead code since /home's retirement
             (mission §1.1) ── */}
@@ -293,11 +305,17 @@ export default function LifeOSHub() {
         </p>
 
         {/* ── 2. Command posture — one headline, one explanation ── */}
-        <div className="text-center">
+        <div className="endeavour-command-hero text-center">
           {stillLoading ? (
             <p className="text-sm text-wb-ink2 animate-pulse">Assessing…</p>
           ) : (
             <>
+              <div className="mb-3 flex justify-center"><OperationalStateBadge state={
+                commandPosture.posture === 'UNKNOWN' ? 'unavailable' as OperationalState
+                  : commandPosture.posture === 'RESPOND' ? 'attention' as OperationalState
+                    : commandPosture.posture === 'RECOVER' || commandPosture.posture === 'PROTECT' ? 'degraded' as OperationalState
+                      : 'nominal' as OperationalState
+              } /></div>
               <p className={`text-4xl font-bold tracking-tight ${POSTURE_TONE_CLASS[commandPosture.posture]}`}>
                 {commandPosture.headline} TODAY
               </p>
@@ -319,23 +337,23 @@ export default function LifeOSHub() {
             already computed above, not a second data source. ── */}
         {!stillLoading && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-lg border border-wb-line bg-wb-surface p-3">
+            <div className="endeavour-status-tile">
               <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Capacity</p>
               <p className={`mt-0.5 text-sm font-semibold ${postureTone.text}`}>{capacityLabel}</p>
             </div>
-            <div className="rounded-lg border border-wb-line bg-wb-surface p-3">
+            <div className="endeavour-status-tile">
               <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Focus</p>
               <p className="mt-0.5 text-sm font-semibold text-wb-ink">
                 {needsYouItems.length} {needsYouItems.length === 1 ? 'priority' : 'priorities'}
               </p>
             </div>
-            <div className="rounded-lg border border-wb-line bg-wb-surface p-3">
+            <div className="endeavour-status-tile">
               <p className="text-[10px] uppercase tracking-wider text-wb-ink2">In Progress</p>
               <p className="mt-0.5 text-sm font-semibold text-wb-ink">
                 {inProgressCount === null ? '—' : `${inProgressCount} ${inProgressCount === 1 ? 'task' : 'tasks'}`}
               </p>
             </div>
-            <div className="rounded-lg border border-wb-line bg-wb-surface p-3">
+            <div className="endeavour-status-tile">
               <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Wellbeing</p>
               <p className={`mt-0.5 text-sm font-semibold ${postureTone.text}`}>{wellbeingLabel}</p>
             </div>

@@ -180,21 +180,24 @@ function Workbench() {
           recovery-brief itself is kept as a route (other callers still
           link to it), just not promoted from this page any more. */}
 
-      {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Human Systems…</div>}
+      <div className="focus-reference-surface">
+        <div className="focus-reference-kicker">Focus / insight · interpret before measuring</div>
+        {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Human Systems…</div>}
 
-      {data?.recovery && (
-        <>
-          {tab === 'now' && <NowView recovery={data.recovery} medical={data.medical} />}
-          {tab === 'what-helps' && <WhatHelpsView recovery={data.recovery} medical={data.medical} />}
-          {tab === 'patterns' && <PatternsView recovery={data.recovery} medical={data.medical} />}
-        </>
-      )}
+        {data?.recovery && (
+          <>
+            {tab === 'now' && <NowView recovery={data.recovery} medical={data.medical} />}
+            {tab === 'what-helps' && <WhatHelpsView recovery={data.recovery} medical={data.medical} />}
+            {tab === 'patterns' && <PatternsView recovery={data.recovery} medical={data.medical} />}
+          </>
+        )}
 
-      {loadError && !data?.recovery && (
-        <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4 text-[13px] text-wb-crit-on">
-          {loadError} The workbench stays read-only and safe; try again shortly.
-        </div>
-      )}
+        {loadError && !data?.recovery && (
+          <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4 text-[13px] text-wb-crit-on">
+            {loadError} The workbench stays read-only and safe; try again shortly.
+          </div>
+        )}
+      </div>
     </WorkbenchShell>
   );
 }

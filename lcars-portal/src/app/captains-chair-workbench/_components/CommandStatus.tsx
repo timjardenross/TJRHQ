@@ -50,7 +50,7 @@ export function CommandStatus({
   const toneClasses = stateToneClasses(POSTURE_TONE[posture.posture]);
 
   return (
-    <WorkbenchPanel title="Today" eyebrow="What kind of day is this?">
+    <WorkbenchPanel title="Today" eyebrow="What kind of day is this?" className="endeavour-command-hero">
       {loading ? (
         <p className="text-sm text-wb-ink2 animate-pulse">Assessing…</p>
       ) : (

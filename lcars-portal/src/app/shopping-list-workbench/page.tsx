@@ -127,7 +127,8 @@ export default function ShoppingListWorkbench() {
       right={<Button size="sm" variant="primary" onClick={() => { setEditing(null); setModalOpen(true); }}>Add item</Button>}
       mode="command"
     >
-      <div className="flex flex-col gap-4">
+      <div className="risk-reference-surface risk-reference-focus flex flex-col gap-4">
+        <div className="risk-reference-kicker">Focus / utility · scan, decide, act</div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Card className="flex items-center gap-3 p-4">
             <ShoppingCart className="h-5 w-5 shrink-0 text-wb-sage-deep" aria-hidden />

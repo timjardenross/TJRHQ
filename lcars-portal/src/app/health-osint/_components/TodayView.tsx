@@ -9,6 +9,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Card, Badge, Button, Select } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
+import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { EVIDENCE_CONTRIBUTION_LABEL, IGNORE_REASONS, type EvidenceItem } from './shared';
 
@@ -45,6 +47,7 @@ function ChangeCard({ item }: { item: EvidenceItem }) {
         <span className="font-medium text-wb-sage-deep">{whatChanged}.</span>{' '}
         {item.summary || 'No summary available yet.'}
       </p>
+      <EvidenceMeta source={item.source_name} observedAt={item.collected_at} />
       <p className="text-[11.5px] italic text-wb-ink2">
         You need to: {item.actionable_recommendation || 'Nothing — this is informational.'}
       </p>
@@ -98,9 +101,7 @@ export function TodayView() {
 
   if (loading && !data) return <p className="text-sm text-wb-ink2">Loading…</p>;
   if (error && !data) return (
-    <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
-      {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Check pipeline health →</Link>
-    </p>
+    <DataAvailabilityNotice sources={[`Health OSINT: ${error}`]} />
   );
   if (!data) return null;
 
@@ -109,9 +110,7 @@ export function TodayView() {
   return (
     <div className="space-y-6">
       {error && (
-        <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
-          {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Check pipeline health →</Link>
-        </p>
+        <DataAvailabilityNotice sources={[`Health OSINT: ${error}`]} />
       )}
 
       <div>

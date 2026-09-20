@@ -83,7 +83,7 @@ export function QuickCapture() {
         onClick={() => setOpen(true)}
         aria-label="Quick capture"
         title="Quick capture"
-        className="fixed z-40 grid h-12 w-12 place-items-center rounded-full bg-wb-sage-deep text-[22px] font-semibold text-white shadow-lg transition hover:shadow-xl active:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink
+        className="fixed z-40 endeavour-mobile-action bg-wb-sage-deep text-[22px] font-semibold text-white
           bottom-[max(5.25rem,calc(env(safe-area-inset-bottom)_+_4.75rem))] right-[max(1.25rem,env(safe-area-inset-right))]
           xl:bottom-[max(1.25rem,env(safe-area-inset-bottom))]"
       >

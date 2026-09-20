@@ -668,7 +668,8 @@ export default function EmergencyAlertsWorkbench() {
       wide
       mode="command"
     >
-      <div className="flex flex-col gap-4">
+      <div className="risk-reference-surface risk-reference-command flex flex-col gap-4">
+        <div className="risk-reference-kicker">Command / intelligence · immediate state first</div>
         {isLoading ? (
           <Card><p className="text-[13px] italic text-wb-ink2">Loading Emergency Alerts…</p></Card>
         ) : loadError ? (

@@ -104,6 +104,18 @@
   --wb-warn-on: #8A5A1B;
   --wb-crit-on: #A23A34;
   --wb-crit-deep: #8a2f2a;
+
+  /* Compatibility aliases for the remaining pre-Endeavour primitives.
+     Consumers can migrate incrementally without reintroducing a second
+     visual language. These aliases intentionally resolve to Endeavour
+     surfaces/statuses rather than the former rainbow LCARS palette. */
+  --legacy-space: var(--wb-bg);
+  --legacy-panel: var(--wb-surface);
+  --legacy-panel-2: var(--wb-surface-raised);
+  --legacy-edge: var(--wb-line);
+  --legacy-text: var(--wb-ink);
+  --legacy-muted: var(--wb-ink2);
+  --legacy-accent: var(--wb-sage);
 }
 
 @layer base {
@@ -122,12 +134,140 @@
     @apply bg-wb-bg text-wb-ink font-sans antialiased;
     min-height: 100dvh; /* dvh tracks mobile browser chrome correctly */
     transition: background-color 180ms ease, color 180ms ease;
+    overflow-x: hidden;
+  }
+
+  html {
+    scroll-padding-top: 1rem;
+    scroll-padding-bottom: calc(env(safe-area-inset-bottom) + 5rem);
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--wb-sage) 35%, transparent);
+    color: var(--wb-ink);
   }
 
   h1,
   h2,
   h3 {
     @apply font-sans font-semibold uppercase tracking-[0.12em];
+  }
+}
+
+@layer components {
+  .endeavour-brand-mark {
+    @apply grid place-items-center rounded-xl border border-wb-sand bg-wb-bg text-wb-sand shadow-[0_0_0_1px_rgba(214,184,140,0.12),0_8px_24px_rgba(0,0,0,0.22)];
+  }
+
+  .endeavour-command-hero {
+    @apply relative overflow-hidden rounded-2xl border border-wb-line bg-wb-surface px-5 py-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] sm:px-7 sm:py-8;
+    background-image:
+      radial-gradient(ellipse at 88% 0%, color-mix(in srgb, var(--wb-sage) 24%, transparent), transparent 42%),
+      linear-gradient(135deg, color-mix(in srgb, var(--wb-surface) 88%, var(--wb-bg)), var(--wb-bg));
+  }
+
+  .endeavour-command-hero::after {
+    content: '';
+    @apply pointer-events-none absolute -right-24 -top-20 h-56 w-2/3 rounded-full border-b border-wb-sand opacity-70;
+    transform: rotate(-12deg);
+  }
+
+  .endeavour-status-tile {
+    @apply rounded-xl border border-wb-line bg-wb-surface p-3 transition-colors hover:border-wb-sage-deep sm:p-4;
+  }
+
+  .endeavour-mobile-action {
+    @apply grid h-12 w-12 place-items-center rounded-2xl border border-wb-line bg-wb-surface text-wb-ink shadow-lg transition hover:border-wb-sand hover:bg-wb-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep;
+  }
+
+  /* Reference-mode composition. Focus pages get a clearer action runway;
+     Read pages use editorial rhythm instead of making every paragraph feel
+     like another dashboard object. These are intentionally shell-level
+     defaults so Ready Room/Human Systems and Briefs/Technical OSINT converge
+     without duplicating page-local layout rules. */
+  .wb-mode-focus #wb-main > :first-child {
+    @apply rounded-2xl border border-wb-line bg-wb-bg p-3 sm:p-5;
+  }
+
+  .wb-mode-read #wb-main {
+    @apply leading-relaxed;
+  }
+
+  .wb-mode-read #wb-main h2 {
+    @apply tracking-[0.08em];
+  }
+
+  .wb-mode-read #wb-main article p,
+  .wb-mode-read #wb-main section p {
+    @apply max-w-prose;
+  }
+
+  .focus-reference-surface {
+    @apply rounded-2xl border border-wb-line bg-wb-surface p-4 shadow-[0_16px_40px_rgba(0,0,0,0.12)] sm:p-6;
+  }
+
+  .focus-reference-kicker,
+  .read-reference-kicker {
+    @apply mb-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-wb-ink2;
+  }
+
+  .focus-reference-surface > .focus-reference-kicker {
+    @apply text-wb-sage;
+  }
+
+  .read-reference-surface {
+    @apply rounded-2xl border border-wb-line bg-wb-surface-raised px-4 py-5 shadow-[0_16px_40px_rgba(28,39,51,0.08)] sm:px-7 sm:py-7;
+  }
+
+  .read-reference-kicker {
+    @apply border-b border-wb-line pb-3 text-wb-sand-deep;
+  }
+
+  .risk-reference-surface {
+    @apply rounded-2xl border border-wb-line p-4 shadow-[0_16px_40px_rgba(0,0,0,0.1)] sm:p-6;
+  }
+
+  .risk-reference-command,
+  .risk-reference-focus {
+    @apply bg-wb-surface;
+  }
+
+  .risk-reference-read {
+    @apply bg-wb-surface-raised;
+  }
+
+  .risk-reference-kicker {
+    @apply mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-wb-ink2;
+  }
+
+  .risk-reference-command > .risk-reference-kicker {
+    @apply text-wb-crit-on;
+  }
+
+  .risk-reference-focus > .risk-reference-kicker {
+    @apply text-wb-sage-deep;
+  }
+
+  .risk-reference-read > .risk-reference-kicker {
+    @apply mb-5 border-b border-wb-line pb-3 text-wb-sand-deep;
+  }
+
+  /* Responsive/accessibility contract for the below-XL command bar. */
+  @media (max-width: 1279px) {
+    #wb-main {
+      padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+    }
+
+    [role='tablist'] {
+      scrollbar-width: thin;
+      scroll-padding-inline: 1rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto !important;
+    }
   }
 }
 

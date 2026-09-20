@@ -77,23 +77,26 @@ function Workbench() {
           {showDetails ? '← Back' : 'Details'}
         </Button>
       }
-      mode="read"
+      mode="command"
     >
-      {showDetails ? (
-        <LegacyDetails />
-      ) : (
-        <>
-          {tab === 'today' && <TodayView />}
-          {tab === 'my-evidence' && (
-            selectedTopic ? (
-              <TopicDetail topicKey={selectedTopic} onBack={() => setSelectedTopic(null)} />
-            ) : (
-              <MyEvidenceView onOpenTopic={setSelectedTopic} />
-            )
-          )}
-          {tab === 'library' && <LibraryView />}
-        </>
-      )}
+      <div className="risk-reference-surface risk-reference-read">
+        <div className="risk-reference-kicker">Read / evidence · evidence desk, not database grid</div>
+        {showDetails ? (
+          <LegacyDetails />
+        ) : (
+          <>
+            {tab === 'today' && <TodayView />}
+            {tab === 'my-evidence' && (
+              selectedTopic ? (
+                <TopicDetail topicKey={selectedTopic} onBack={() => setSelectedTopic(null)} />
+              ) : (
+                <MyEvidenceView onOpenTopic={setSelectedTopic} />
+              )
+            )}
+            {tab === 'library' && <LibraryView />}
+          </>
+        )}
+      </div>
     </WorkbenchShell>
   );
 }

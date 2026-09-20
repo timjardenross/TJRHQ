@@ -31,6 +31,7 @@ import { SystemStatus } from './_components/SystemStatus';
 import { HqEvolution } from './_components/HqEvolution';
 import { Ahead } from './_components/Ahead';
 import { CaptainsLog } from './_components/CaptainsLog';
+import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
 
 // Command-Experience vNext (Phase 2, 2026-09-06) — re-anchors this page
 // around the mission's target information architecture: TODAY -> NEEDS YOU
@@ -175,9 +176,10 @@ export default function CaptainsChairWorkbench() {
       tagline="USS TJR · Captain's Chair · Today, Needs You, intelligence, ahead, capacity, evolution, status"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       wide
-      mode="read"
+      mode="command"
     >
       <div className="space-y-4">
+        <DataAvailabilityNotice sources={needsYouErrors} />
         <CommandStatus posture={commandPosture} status={commandStatus} loading={commandStatusLoading} signals={signalChips} />
 
         <NeedsYou items={sortedNeedsYou} loading={attentionLoading} errors={needsYouErrors} />

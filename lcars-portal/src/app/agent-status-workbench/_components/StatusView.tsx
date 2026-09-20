@@ -12,6 +12,7 @@
 
 import { useState } from 'react';
 import { Card } from '@/components/ui';
+import { OperationalStateBadge, type OperationalState } from '@/components/OperationalState';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 // HQ V1 Integration QA §22 (recovery propagation) fix: this tab previously
@@ -176,6 +177,13 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
   }
 
   const { posture, headline, narrative, capabilities } = data;
+  const operationalState: OperationalState = posture === 'normal'
+    ? 'nominal'
+    : posture === 'degraded'
+      ? 'degraded'
+      : posture === 'attention'
+        ? 'attention'
+        : 'unavailable';
   const materialCaps = capabilities.filter((c) => c.criticality === 'critical' || c.criticality === 'important');
   const supportingCaps = capabilities.filter((c) => c.criticality !== 'critical' && c.criticality !== 'important' && c.tone !== 'healthy');
 
@@ -183,9 +191,12 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
     <div className="flex flex-col gap-4">
       {/* Headline verdict */}
       <Card>
-        <p className={`inline-block rounded border px-2 py-1 text-[16px] font-semibold ${POSTURE_TEXT_CLASS[posture]} ${POSTURE_BORDER_CLASS[posture]}`}>
-          {POSTURE_GLYPH[posture]} {headline}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <OperationalStateBadge state={operationalState} />
+          <p className={`inline-block rounded border px-2 py-1 text-[16px] font-semibold ${POSTURE_TEXT_CLASS[posture]} ${POSTURE_BORDER_CLASS[posture]}`}>
+            {POSTURE_GLYPH[posture]} {headline}
+          </p>
+        </div>
 
         {narrative.impact && (
           <p className="mt-2 text-[13px] text-wb-ink">

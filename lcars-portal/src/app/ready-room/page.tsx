@@ -99,16 +99,19 @@ function Workbench() {
       mode="focus"
       wide
     >
-      {domain === 'do' && (
-        <TodayStream refreshSignal={refreshSignal} onLoaded={handleLoaded} onExecutingChange={setExecuting} initialTaskId={initialTaskId} />
-      )}
-      {domain === 'unstick' && (
-        <DecomposeView
-          initialTaskId={initialTaskId}
-          onSaved={() => setRefreshSignal((n) => n + 1)}
-          onExecutingChange={setExecuting}
-        />
-      )}
+      <div className="focus-reference-surface">
+        <div className="focus-reference-kicker">Focus mode · one next action</div>
+        {domain === 'do' && (
+          <TodayStream refreshSignal={refreshSignal} onLoaded={handleLoaded} onExecutingChange={setExecuting} initialTaskId={initialTaskId} />
+        )}
+        {domain === 'unstick' && (
+          <DecomposeView
+            initialTaskId={initialTaskId}
+            onSaved={() => setRefreshSignal((n) => n + 1)}
+            onExecutingChange={setExecuting}
+          />
+        )}
+      </div>
     </WorkbenchShell>
   );
 }

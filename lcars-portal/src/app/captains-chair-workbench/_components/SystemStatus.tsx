@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { WorkbenchPanel } from '@/components/WorkbenchPanel';
 import { stateToneClasses } from '@/lib/departments';
 import type { HqStatusSummary } from '@/lib/captainsChairData';
+import { OperationalStateBadge } from '@/components/OperationalState';
 
 export function SystemStatus({ data, loading, error }: { data: HqStatusSummary | null; loading: boolean; error: string | null }) {
   if (loading) {
@@ -24,7 +25,7 @@ export function SystemStatus({ data, loading, error }: { data: HqStatusSummary |
   if (error || !data) {
     return (
       <WorkbenchPanel title="System Status">
-        <p className={`text-sm font-semibold ${stateToneClasses('unknown').text}`}>Status unknown — HQ Status is unavailable.</p>
+        <div className="flex flex-wrap items-center gap-2"><OperationalStateBadge state="unavailable" /><p className={`text-sm font-semibold ${stateToneClasses('unknown').text}`}>HQ Status is unavailable.</p></div>
       </WorkbenchPanel>
     );
   }
@@ -32,7 +33,7 @@ export function SystemStatus({ data, loading, error }: { data: HqStatusSummary |
   if (data.posture === 'NORMAL') {
     return (
       <WorkbenchPanel title="System Status">
-        <p className={`text-sm font-medium ${stateToneClasses('ok').text}`}>✓ HQ operating normally</p>
+        <div className="flex flex-wrap items-center gap-2"><OperationalStateBadge state="nominal" /><p className={`text-sm font-medium ${stateToneClasses('ok').text}`}>HQ operating normally</p></div>
       </WorkbenchPanel>
     );
   }
@@ -40,7 +41,7 @@ export function SystemStatus({ data, loading, error }: { data: HqStatusSummary |
   if (data.posture === 'ATTENTION') {
     return (
       <WorkbenchPanel title="System Status">
-        <p className={`text-sm font-semibold ${stateToneClasses('crit').text}`}>HQ NEEDS YOU</p>
+        <div className="flex flex-wrap items-center gap-2"><OperationalStateBadge state="attention" /><p className={`text-sm font-semibold ${stateToneClasses('crit').text}`}>HQ NEEDS YOU</p></div>
         <p className="mt-1 text-sm text-wb-ink2">{data.summary}</p>
         <Link href="/agent-status-workbench" className="mt-2 inline-block text-[11px] text-wb-sage-deep hover:underline">Review →</Link>
       </WorkbenchPanel>
@@ -50,7 +51,7 @@ export function SystemStatus({ data, loading, error }: { data: HqStatusSummary |
   // DEGRADED or UNKNOWN — worth a glance, no action required yet.
   return (
     <WorkbenchPanel title="System Status">
-      <p className={`text-sm font-medium ${stateToneClasses('warn').text}`}>⚠ {data.summary}</p>
+      <div className="flex flex-wrap items-center gap-2"><OperationalStateBadge state="degraded" /><p className={`text-sm font-medium ${stateToneClasses('warn').text}`}>{data.summary}</p></div>
       <p className="mt-1 text-[12.5px] text-wb-ink2">No action required yet.</p>
     </WorkbenchPanel>
   );

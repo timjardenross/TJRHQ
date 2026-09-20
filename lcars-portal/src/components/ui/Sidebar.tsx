@@ -83,7 +83,7 @@ export function Sidebar() {
     >
       <div className="flex flex-col gap-5">
         <Link href="/hub" className="flex items-center gap-2 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep" aria-label="TJR HQ home">
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-wb-sage-deep text-[13px] font-semibold text-white">TJR</span>
+          <span className="endeavour-brand-mark h-9 w-9 shrink-0 text-[15px] font-semibold">△</span>
           <span className="leading-tight">
             <span className="block text-[13px] font-semibold text-wb-ink">TJR HQ</span>
             <span className="block text-[10px] uppercase tracking-[0.14em] text-wb-ink2">Endeavour 27</span>

@@ -18,6 +18,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
+import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
 import { fetchWeeklyReview, type WeeklyReviewData } from '@/lib/weeklyReview';
 import { PriorWeekNote } from './_components/PriorWeekNote';
 import { WeekInReview } from './_components/WeekInReview';
@@ -46,8 +47,9 @@ function Workbench() {
       eyebrow="Scan · Synthesise · Learn · Adapt"
       tagline="USS TJR · Weekly Review · What happened, what mattered, what HQ learned — one calm pass."
       back={{ href: '/workbenches', label: 'Workbenches' }}
-      mode="read"
+      mode="command"
     >
+      {!loading && !data && <DataAvailabilityNotice sources={['Weekly Review synthesis', 'Health-adjusted queue', 'Number One brief']} />}
       {loading && <div className="h-40 animate-pulse rounded-md bg-wb-line/40" />}
 
       {!loading && !data && (

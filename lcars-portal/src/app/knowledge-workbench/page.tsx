@@ -42,8 +42,11 @@ function Workbench() {
       tagline="USS TJR · Knowledge · Memory · Organisational decisions"
       tabs={tabsRow}
       back={{ href: '/workbenches', label: 'Workbenches' }}
-      mode="read">
-      <MemoryView />
+      mode="command">
+      <div className="risk-reference-surface risk-reference-read">
+        <div className="risk-reference-kicker">Read / discovery · memory with provenance</div>
+        <MemoryView />
+      </div>
     </WorkbenchShell>
   );
 }

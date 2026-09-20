@@ -349,30 +349,33 @@ function Workbench() {
       tabs={!showAnalyst ? <DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Technical OSINT sections" /> : undefined}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       wide
-      mode="read"
+      mode="command"
     >
-      {showAnalyst ? (
-        <AnalystConsole onClose={closeAnalyst} />
-      ) : (
-        <>
-          {tab === 'today' && (
-            <TodayView onOpenWatching={() => setTab('watching')} onOpenTechnical={openAnalyst} />
-          )}
-          {tab === 'watching' && <WatchingView />}
-          {tab === 'library' && (
-            <div className="space-y-3">
-              <LibraryView />
-              <button
-                type="button"
-                onClick={openAnalyst}
-                className="text-[12px] text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
-              >
-                Technical view (analyst console) →
-              </button>
-            </div>
-          )}
-        </>
-      )}
+      <div className="read-reference-surface">
+        <div className="read-reference-kicker">Read mode · scan, understand, follow the signal</div>
+        {showAnalyst ? (
+          <AnalystConsole onClose={closeAnalyst} />
+        ) : (
+          <>
+            {tab === 'today' && (
+              <TodayView onOpenWatching={() => setTab('watching')} onOpenTechnical={openAnalyst} />
+            )}
+            {tab === 'watching' && <WatchingView />}
+            {tab === 'library' && (
+              <div className="space-y-3">
+                <LibraryView />
+                <button
+                  type="button"
+                  onClick={openAnalyst}
+                  className="text-[12px] text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                >
+                  Technical view (analyst console) →
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </WorkbenchShell>
   );
 }
