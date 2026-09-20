@@ -1,0 +1,81 @@
+{
+  "findings": [
+    {
+      "category": "router_bypass",
+      "title": "Direct provider API calls in emergency alert bypass model router",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct invocation of call_gemini and call_mistral bypassing the centralized model router",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert_<URL>"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "high",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Route emergency alert LLM requests through the model router endpoints to preserve centralized policy, fallbacks, and telemetry."
+      },
+      "expected_benefit": "Ensures consistent rate-limiting, error handling, and latency observability across emergency alerting."
+    },
+    {
+      "category": "observability_gap",
+      "title": "Model router call log file does not exist",
+      "evidence": [
+        {
+          "type": "service_status",
+          "observation": "call_log_exists is false and recent_avg_ms is null despite router being reachable",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Verify model router logging path and ensure call_log.jsonl is created with appropriate write permissions."
+      },
+      "expected_benefit": "Restores model routing telemetry, request metrics, and latency analysis."
+    },
+    {
+      "category": "operational_failure",
+      "title": "Recent invocation failures recorded by model router",
+      "evidence": [
+        {
+          "type": "service_status",
+          "observation": "router_status reports 5 recent failed calls with 0 active loaded models in Ollama",
+          "location": "http://localhost:11434"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "high",
+      "proposed_action": {
+        "type": "monitor",
+        "description": "Inspect recent failure exceptions in model router and ensure required local models are loaded or cloud fallbacks are active."
+      },
+      "expected_benefit": "Prevents upstream request failures and degradation of LLM dependent platform features."
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 placeholders in platform runtime research commands",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Unimplemented Phase 5 TODOs for Supabase authorization and decision_to_memory integration",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/commands/research_<URL>"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Empty list placeholder for quality_anomalies query in quality_forecasting",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/lib/quality_forecasting_<URL>"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement the missing Phase 5 authorization, memory integration hooks, and quality_anomalies table queries."
+      },
+      "expected_benefit": "Completes research command workflows and enables accurate forecasting based on historical anomalies."
+    }
+  ]
+}
