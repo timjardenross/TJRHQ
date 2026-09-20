@@ -349,6 +349,7 @@ function Workbench() {
       tabs={!showAnalyst ? <DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Technical OSINT sections" /> : undefined}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       wide
+      mode="read"
     >
       {showAnalyst ? (
         <AnalystConsole onClose={closeAnalyst} />

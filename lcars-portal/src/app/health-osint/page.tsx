@@ -77,6 +77,7 @@ function Workbench() {
           {showDetails ? '← Back' : 'Details'}
         </Button>
       }
+      mode="read"
     >
       {showDetails ? (
         <LegacyDetails />

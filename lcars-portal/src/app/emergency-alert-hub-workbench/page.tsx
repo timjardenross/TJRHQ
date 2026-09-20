@@ -666,6 +666,7 @@ export default function EmergencyAlertsWorkbench() {
       eyebrow="Public Safety"
       tagline="Official Australian emergency information, prioritised by what may require attention now."
       wide
+      mode="command"
     >
       <div className="flex flex-col gap-4">
         {isLoading ? (
@@ -745,41 +746,43 @@ export default function EmergencyAlertsWorkbench() {
                   </Card>
                 )}
 
-                <Card>
-                  <h2 className="font-serif text-base text-wb-ink">Relevant to you</h2>
-                  <p className="mt-1 text-[12px] text-wb-ink2">Personal relevance unavailable — showing national alerts.</p>
-                  <button
-                    onClick={() => setShowRelevanceInfo((v) => !v)}
-                    className="mt-2 text-[11px] font-semibold text-wb-sage-deep underline"
-                  >
-                    {showRelevanceInfo ? 'Hide' : 'How relevance works'}
-                  </button>
-                  {showRelevanceInfo && (
-                    <p className="mt-2 text-[11px] italic text-wb-ink2">
-                      HQ does not yet have a configured location or area of interest to match against alert
-                      locations. Without a reliable match, alerts are shown nationally rather than guessing
-                      at relevance.
-                    </p>
-                  )}
-                </Card>
-
-                {(adviceCount > 0 || unknownCount > 0) && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   <Card>
-                    <h2 className="font-serif text-base text-wb-ink">Other active alerts</h2>
-                    <div className="mt-2 flex flex-col gap-1 text-[12px] text-wb-ink2">
-                      {adviceCount > 0 && <p>Advice — {adviceCount}</p>}
-                      {unknownCount > 0 && <p>Severity not supplied — {unknownCount}</p>}
-                    </div>
+                    <h2 className="font-serif text-base text-wb-ink">Relevant to you</h2>
+                    <p className="mt-1 text-[12px] text-wb-ink2">Personal relevance unavailable — showing national alerts.</p>
                     <button
-                      onClick={() => setView('browse')}
-                      className="mt-3 rounded-md border border-wb-line px-3 py-1.5 text-[12px] text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                      onClick={() => setShowRelevanceInfo((v) => !v)}
+                      className="mt-2 text-[11px] font-semibold text-wb-sage-deep underline"
                     >
-                      Browse all alerts →
+                      {showRelevanceInfo ? 'Hide' : 'How relevance works'}
                     </button>
+                    {showRelevanceInfo && (
+                      <p className="mt-2 text-[11px] italic text-wb-ink2">
+                        HQ does not yet have a configured location or area of interest to match against alert
+                        locations. Without a reliable match, alerts are shown nationally rather than guessing
+                        at relevance.
+                      </p>
+                    )}
                   </Card>
-                )}
 
-                <CoveragePanel sources={sources} latestCheckedAt={latestCheckedAt} />
+                  {(adviceCount > 0 || unknownCount > 0) && (
+                    <Card>
+                      <h2 className="font-serif text-base text-wb-ink">Other active alerts</h2>
+                      <div className="mt-2 flex flex-col gap-1 text-[12px] text-wb-ink2">
+                        {adviceCount > 0 && <p>Advice — {adviceCount}</p>}
+                        {unknownCount > 0 && <p>Severity not supplied — {unknownCount}</p>}
+                      </div>
+                      <button
+                        onClick={() => setView('browse')}
+                        className="mt-3 rounded-md border border-wb-line px-3 py-1.5 text-[12px] text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                      >
+                        Browse all alerts →
+                      </button>
+                    </Card>
+                  )}
+
+                  <CoveragePanel sources={sources} latestCheckedAt={latestCheckedAt} />
+                </div>
               </>
             )}
 

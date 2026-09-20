@@ -175,6 +175,7 @@ export default function CaptainsChairWorkbench() {
       tagline="USS TJR · Captain's Chair · Today, Needs You, intelligence, ahead, capacity, evolution, status"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       wide
+      mode="read"
     >
       <div className="space-y-4">
         <CommandStatus posture={commandPosture} status={commandStatus} loading={commandStatusLoading} signals={signalChips} />

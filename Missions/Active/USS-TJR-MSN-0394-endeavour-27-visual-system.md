@@ -958,3 +958,104 @@ condensed into this doc's §1-§2 — re-request from the Captain/session histor
 specific §-numbered passage needs checking verbatim, e.g. the full CANVAS/SURFACES/BLUE/WARM/
 TEXT/BORDERS token-family list from the original §4, deliberately not reproduced here to
 avoid two copies drifting apart).
+
+### Phase 9 — Stream B2: Emergency Alerts, Shopping List, Technical OSINT, Health OSINT,
+    Captain's Chair (2026-09-20)
+
+Extended the Command/Focus/Read treatment to Image 3's 5 named like-for-like redesign targets
+(§1.5). All 5 routes re-verified directly against `lib/workbenches.ts` before touching them —
+matched §1.5's mapping exactly, no route drift since that section was written.
+
+**Mode set explicitly on `WorkbenchShell` for all 5** (all 5 pages were already fully
+`wb-*`-token-based and `Card`/`Badge`/`RiskPill`-built before this phase — no legacy
+department/hardcoded colour to migrate on any of them):
+- `emergency-alert-hub-workbench/page.tsx` → `mode="command"`
+- `shopping-list-workbench/page.tsx` → `mode="command"`
+- `intelligence-workbench/page.tsx` → `mode="read"` (per §1.8's Captain-confirmed
+  classification — the mockup panel itself renders dark, a documented, already-flagged
+  inconsistency this doc's own §1.8 says to build through, not follow)
+- `health-osint/page.tsx` → `mode="read"` (same §1.8 reasoning as Technical OSINT)
+- `captains-chair-workbench/page.tsx` → `mode="read"` (§1.6 item 1, Captain-confirmed)
+
+**Presentation-only changes beyond the mode prop, each mapped to real data already fetched by
+the page — nothing fabricated:**
+- Emergency Alerts: grouped the existing "Relevant to you" / "Other active alerts" /
+  "Coverage" cards into a 3-column grid (`sm:grid-cols-2 xl:grid-cols-3`) to match Image 3
+  panel 1's row-of-3 layout — all 3 cards and their underlying data were already built and
+  correct, this only changed their arrangement.
+- Shopping List: added a 3-stat summary row (item count + cost subtotal, purchased count +
+  subtotal, wishlisted count) above the existing filter/list `Card`, using icons
+  (`ShoppingCart`/`Receipt`/`Heart` from `lucide-react`, already a dependency) to mirror Image
+  3 panel 2's cart/receipt/heart stat row. Every number is derived from `items` this page
+  already fetches via `fetchShoppingList()` — `purchasedSubtotals`/`wishlistedCount` are new
+  local `useMemo`s over existing data, no new fetch, no new field. Wrapped the filter row +
+  item list in a `Card` for the same card-treatment consistency the stat row uses.
+  `Select`/`Card` added to the existing `@/components/ui` import.
+- Technical OSINT (`TodayView.tsx`): added a confidence-level `Badge` (via the existing
+  `riskToStatus()` adapter, HIGH/MEDIUM/LOW → success/warning/neutral) and a formatted
+  `published_at` date to each development card, both already present on the `Development`
+  type/payload (`confidence_level`, `published_at`) and simply not rendered before — matches
+  Image 3 panel 3's "GLOBAL · High confidence" / dated-headline treatment without adding any
+  new field.
+- Health OSINT: no structural change — `TodayView.tsx`'s existing 2-column "N things worth
+  knowing" card grid, Safety panel, and Needs-Your-Review card already match Image 3 panel 4's
+  layout closely; `mode="read"` was the only change needed.
+- Captain's Chair: restyling only, per this mission's own established "prefer restyling over
+  restructuring" judgment call for a big, real, live dashboard page (same reasoning the Hub/
+  Ready Room phases already used) — no section reordered, no data source changed.
+
+**Real pre-existing bug found and fixed, same class as Phase 5's `bg-wb-bg/80` finding —
+Tailwind opacity modifiers on this repo's plain-hex `wb-*` CSS vars silently resolve to fully
+transparent.** Grepped every Captain's Chair `_components/*.tsx` file for
+`text-wb-*/NN`/`bg-wb-*/NN`/`border-wb-*/NN` before assuming the page was clean (per this
+mission's own "verify, don't assume" discipline and the task's explicit warning about this bug
+class) and found 6 occurrences across 5 files, invisible under the old always-dark system for
+the same reason Phase 5's finding was invisible — a transparent secondary-text/border colour
+sitting on the same-family dark background reads the same as an opaque one, until Read mode's
+light background makes silently-transparent text render as unstyled/misaligned instead of the
+intended muted tone:
+- `Capacity.tsx` (2), `HqEvolution.tsx` (2), `Intelligence.tsx` (1), `SystemStatus.tsx` (1):
+  `text-wb-ink/80` → `text-wb-ink2` (the existing solid secondary-ink token — same visual
+  intent, no opacity modifier).
+- `CommandStatus.tsx` (1): the "Why?" `<details>` expansion's `border-wb-line/60 bg-wb-bg/50`
+  → solid `border-wb-line bg-wb-surface-raised` (distinguishes it from the surrounding
+  `WorkbenchPanel`'s own `bg-wb-surface` without relying on a non-functional opacity fade).
+- **Not fixed, flagged instead:** `captains-chair-workbench/notebook/page.tsx` has the same
+  `text-wb-ink/80` pattern (2 occurrences) — that route is a sub-page of Captain's Chair but
+  outside this phase's 5-page scope (not one of Image 3's named targets); left alone rather
+  than scope-creeping the fix, noted here for whoever picks it up next.
+
+**Verified:** `npx tsc --noEmit` clean, `npx eslint` clean on all 11 touched files, full
+`npm run test` suite (725/725 passing, same count as before this phase — no regression), and
+`npm run build` (exit 0, all 5 target routes present in the route manifest at expected
+bundle sizes) — build run in full per this mission's own convention for a phase touching
+multiple real routes plus shared-adjacent component files.
+
+**Live verification: attempted, not achieved — documented reason, not silently skipped.**
+Followed this mission's own Phase 5 pattern (`npx next dev`, project's own `playwright`
+package per the container's documented Playwright-MCP-sandbox workaround) on port 3105 (3100/
+3101 were already in use by other concurrent sessions). Login failed with a real browser error
+— `Failed to execute 'fetch' on 'Window': ... String contains non ISO-8859-1 code point` —
+traced to `lcars-portal/env.local`'s `NEXT_PUBLIC_SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`
+containing literal `•` (U+2022) placeholder bytes, confirmed with
+`LC_ALL=C grep -P '[^\x00-\x7F]' env.local` — not a redaction artifact of this session's own
+tooling, the checked-in file itself has them. This container has no real Supabase anon/
+service-role keys available without the Captain supplying them fresh (matches this mission's
+own instructions: note the gap rather than fabricate a verification claim). `.env.local`
+(copied from `env.local` to test this), the verification script, and all screenshots were
+removed before finishing; the dev server on port 3105 was killed. No secrets or scratch files
+left in the repo — confirmed via `git status --short` showing only the 11 intended source
+edits.
+
+**Open findings for a future pass (not fixed here — presentation-only boundary, per this
+mission's explicit scope fence):**
+- Technical OSINT and Health OSINT's own mockup panels (Image 3) render dark Command chrome
+  despite both being classified Read — this was already flagged and Captain-resolved in §1.8
+  before this phase started (mockup is the inconsistency, not the classification); repeating
+  here only so the visual delta between the build and the mockup image is understood as
+  intentional, not a miss.
+- The `captains-chair-workbench/notebook/page.tsx` opacity-modifier bug noted above.
+- Shopping List's mockup panel shows category icons per item (electronics/health/pet/clothing
+  glyphs) — the real `ItemRow.tsx` shows a photo thumbnail (or a blank placeholder) instead,
+  which is what the real `image_url` field actually supports; not changed, since inventing a
+  category-icon system with no backing field would be new scope, not a restyle.

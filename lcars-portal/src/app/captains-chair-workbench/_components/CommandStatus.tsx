@@ -69,7 +69,7 @@ export function CommandStatus({
             <summary className="cursor-pointer text-[12.5px] font-medium text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
               Why?
             </summary>
-            <div className="mt-2 grid grid-cols-1 gap-1.5 rounded-lg border border-wb-line/60 bg-wb-bg/50 p-3 text-[12.5px] sm:grid-cols-2">
+            <div className="mt-2 grid grid-cols-1 gap-1.5 rounded-lg border border-wb-line bg-wb-surface-raised p-3 text-[12.5px] sm:grid-cols-2">
               <p className="text-wb-ink2"><span className="font-semibold text-wb-ink">Human Systems:</span> {status.personalLine}</p>
               <p className="text-wb-ink2"><span className="font-semibold text-wb-ink">Environment:</span> {status.environmentLine}</p>
             </div>
