@@ -1612,7 +1612,7 @@ def _attention_evaluation_job() -> None:
         from core.platform.captain_brief_orchestrator import (
             assemble_captain_brief_document,
         )
-        from core.platform.event_bus import poll_events
+        from core.platform.event_bus import CAPTAIN_BRIEF_COLUMNS, poll_events
         from core.platform.interrupt_dispatcher import dispatch_interrupt_now
 
         # Runs every ATTENTION_EVAL_INTERVAL_MINUTES (default 10 = 144x/day).
@@ -1635,10 +1635,7 @@ def _attention_evaluation_job() -> None:
         # produces every ATTENTION_EVAL_INTERVAL_MINUTES, since commands/
         # brief.py's manual '/brief' path polls with columns="*" and never
         # hit this gap.
-        events = poll_events(
-            limit=200,
-            columns="event_id,domain,event_type,importance,confidence,relevance,time_sensitivity,metrics,status,recommended_action",
-        )
+        events = poll_events(limit=200, columns=CAPTAIN_BRIEF_COLUMNS)
         doc = assemble_captain_brief_document(events)
         if not doc.interrupt_now:
             log.info("Attention evaluation: %d event(s) evaluated, 0 interrupt_now", len(events))
