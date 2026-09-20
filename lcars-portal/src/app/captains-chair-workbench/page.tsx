@@ -33,6 +33,7 @@ import { HqEvolution } from './_components/HqEvolution';
 import { Ahead } from './_components/Ahead';
 import { CaptainsLog } from './_components/CaptainsLog';
 import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { WhatNeedsMeNow } from '@/components/WhatNeedsMeNow';
 
 // Command-Experience vNext (Phase 2, 2026-09-06) — re-anchors this page
 // around the mission's target information architecture: TODAY -> NEEDS YOU
@@ -183,11 +184,7 @@ export default function CaptainsChairWorkbench() {
         <DataAvailabilityNotice sources={needsYouErrors} />
         <CommandStatus posture={commandPosture} status={commandStatus} loading={commandStatusLoading} signals={signalChips} />
 
-        <section aria-labelledby="captains-chair-what-needs-me" className="rounded-lg border-2 border-wb-sage-deep/50 bg-wb-sage/10 p-4">
-          <h2 id="captains-chair-what-needs-me" className="text-[11px] font-bold uppercase tracking-[0.18em] text-wb-sage-deep">What needs me now</h2>
-          <p className="mt-1 text-sm font-semibold text-wb-ink">{sortedNeedsYou.length ? `${sortedNeedsYou.length} item${sortedNeedsYou.length === 1 ? '' : 's'} need a decision or next action.` : 'Nothing needs action now.'}</p>
-          {sortedNeedsYou[0] && <Link href={sortedNeedsYou[0].href} className="mt-3 inline-flex rounded-md bg-wb-sage-deep px-3 py-2 text-xs font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">{sortedNeedsYou[0].actionLabel} · {sortedNeedsYou[0].title} →</Link>}
-        </section>
+        <WhatNeedsMeNow items={sortedNeedsYou} loading={attentionLoading} errors={needsYouErrors} />
 
         <NeedsYou items={sortedNeedsYou} loading={attentionLoading} errors={needsYouErrors} />
 

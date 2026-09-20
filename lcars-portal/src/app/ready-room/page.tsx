@@ -10,6 +10,7 @@ import { useSearchParams } from 'next/navigation';
 import { WorkbenchShell, DomainToggle } from '@/components/ui';
 import { useUrlSync } from '@/lib/useUrlSync';
 import { TodayStream } from './_components/TodayStream';
+import { WhatNeedsMeNow } from '@/components/WhatNeedsMeNow';
 import { DecomposeView } from './_components/DecomposeView';
 import { EYEBROW, isDomain, type Domain } from './_components/types';
 import { rankToday, taskAnalytics, type PersonalTask, type TaskAnalytics } from '@/lib/personalTasks';
@@ -112,6 +113,13 @@ function Workbench() {
             ))}
           </div>
         )}
+        {domain === 'do' && <WhatNeedsMeNow
+          items={[
+            ...(taskStates.blocked ? [{ id: 'blocked', title: `${taskStates.blocked} blocked task${taskStates.blocked === 1 ? '' : 's'}`, detail: 'Choose an unblock step.', href: '/ready-room?domain=unstick', actionLabel: 'Unstick Me' }] : []),
+            ...(taskStates.in_progress ? [{ id: 'in-progress', title: `${taskStates.in_progress} task${taskStates.in_progress === 1 ? '' : 's'} in progress`, detail: 'Continue the next step.', href: '/ready-room?domain=do', actionLabel: 'Continue' }] : []),
+          ]}
+          emptyLabel="Nothing needs action now. Choose one small task when you are ready."
+        />}
         {domain === 'do' && analytics && (
           <section aria-labelledby="ready-room-analytics" className="mb-4 rounded-lg border border-wb-line bg-wb-surface p-3">
             <h2 id="ready-room-analytics" className="text-[11px] font-bold uppercase tracking-[0.16em] text-wb-ink2">Task flow signals</h2>
