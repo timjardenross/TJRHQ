@@ -65,6 +65,21 @@ const STATUS_ORDER = ['Awaiting Review', 'In Progress', 'Assigned', 'Pending Tri
 // progression visible, not just outstanding work), for the stat-tile row.
 const ALL_STAGES = [...STATUS_ORDER, 'Completed'];
 
+type Queue = 'review' | 'delivery' | 'blocked';
+const QUEUE_META: Record<Queue, { title: string; description: string; empty: string }> = {
+  review: { title: 'Review queue', description: 'Approved handoffs waiting for a Captain or engineering review.', empty: 'No handoffs are waiting for review.' },
+  delivery: { title: 'Delivery queue', description: 'Handoffs assigned, in progress, or completed with a PR or artifact.', empty: 'No handoffs are currently in delivery.' },
+  blocked: { title: 'Blocked queue', description: 'Handoffs that cannot progress until a missing decision, artifact, or upstream dependency is resolved.', empty: 'No blocked handoffs.' },
+};
+
+function queueFor(handoff: Handoff): Queue {
+  const status = handoff.metadata.engineering_status;
+  const signal = `${handoff.metadata.batch_status} ${handoff.next_action}`.toLowerCase();
+  if (/blocked|failed|waiting|dependency|cannot progress|missing/.test(signal) || status === 'Pending Triage') return 'blocked';
+  if (status === 'Awaiting Review') return 'review';
+  return 'delivery';
+}
+
 function displayTitle(title: string): string {
   return title.replace(/^\[ENG-HANDOFF\]\s*/, '');
 }
@@ -236,6 +251,11 @@ export default function EngineeringHandoffsPage() {
   const sortedCompleted = [...completed].sort(
     (a, b) => (b.metadata.approved_at || '').localeCompare(a.metadata.approved_at || '')
   );
+  const queues: Record<Queue, Handoff[]> = {
+    review: sorted.filter(h => queueFor(h) === 'review'),
+    delivery: [...sortedCompleted, ...sorted.filter(h => queueFor(h) === 'delivery')],
+    blocked: sorted.filter(h => queueFor(h) === 'blocked'),
+  };
 
   return (
     <WorkbenchShell
@@ -262,45 +282,30 @@ export default function EngineeringHandoffsPage() {
           )}
         </Card>
 
-        <Card>
-          <div className="mb-3">
-            <h2 className="font-serif text-lg text-wb-ink">Outstanding Handoffs</h2>
-            <p className="text-[11px] uppercase tracking-wide text-wb-ink2">
-              Most-needs-attention first
-            </p>
-          </div>
+        <div className="grid gap-4 xl:grid-cols-3">
+          {(['review', 'delivery', 'blocked'] as Queue[]).map((queue) => (
+            <Card key={queue}>
+              <div className="mb-3">
+                <h2 className="font-serif text-lg text-wb-ink">{QUEUE_META[queue].title}</h2>
+                <p className="mt-1 text-[11px] text-wb-ink2">{QUEUE_META[queue].description}</p>
+                <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-wb-sage-deep">{queues[queue].length} handoff{queues[queue].length === 1 ? '' : 's'}</p>
+              </div>
           {isLoading ? (
             <p className="text-[13px] italic text-wb-ink2">Loading engineering handoffs…</p>
           ) : loadError ? (
             <p className="text-[13px] text-wb-crit-on">{loadError} No list to show.</p>
-          ) : sorted.length === 0 ? (
-            <p className="text-[13px] italic text-wb-ink2">
-              Nothing needs your attention — no outstanding engineering handoffs.
-            </p>
+          ) : queues[queue].length === 0 ? (
+            <p className="text-[13px] italic text-wb-ink2">{QUEUE_META[queue].empty}</p>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {sorted.map(h => (
+            <div className="flex flex-col gap-3">
+              {queues[queue].map(h => (
                 <HandoffCard key={h.mission_id} handoff={h} />
               ))}
             </div>
           )}
-        </Card>
-
-        {!isLoading && !loadError && sortedCompleted.length > 0 && (
-          <Card>
-            <div className="mb-3">
-              <h2 className="font-serif text-lg text-wb-ink">Completed</h2>
-              <p className="text-[11px] uppercase tracking-wide text-wb-ink2">
-                Merged and done — most recent first
-              </p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 opacity-80">
-              {sortedCompleted.map(h => (
-                <HandoffCard key={h.mission_id} handoff={h} />
-              ))}
-            </div>
-          </Card>
-        )}
+            </Card>
+          ))}
+        </div>
       </div>
     </WorkbenchShell>
   );
