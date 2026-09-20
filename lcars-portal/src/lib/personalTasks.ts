@@ -98,6 +98,29 @@ export interface PersonalTask {
   pinned_today: boolean;
 }
 
+export interface TaskAnalytics {
+  total: number;
+  frictionPoints: number;
+  abandoned: number;
+  retries: number;
+  completed: number;
+  averageCompletionMinutes: number | null;
+}
+
+/** Descriptive task-flow measures. These are signals for review, not causal diagnoses. */
+export function taskAnalytics(tasks: PersonalTask[]): TaskAnalytics {
+  const completed = tasks.filter((t) => t.work_state === 'completed' || t.completed_at);
+  const durations = completed.map((t) => t.started_at && t.completed_at ? (new Date(t.completed_at).getTime() - new Date(t.started_at).getTime()) / 60000 : null).filter((v): v is number => v != null && Number.isFinite(v) && v >= 0);
+  return {
+    total: tasks.length,
+    frictionPoints: tasks.filter((t) => t.work_state === 'blocked' || t.follow_through_paused || (t.deferral_count ?? 0) > 0).length,
+    abandoned: tasks.filter((t) => t.work_state === 'abandoned').length,
+    retries: tasks.reduce((sum, t) => sum + (t.nudge_count ?? 0) + (t.deferral_count ?? 0), 0),
+    completed: completed.length,
+    averageCompletionMinutes: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null,
+  };
+}
+
 const TASK_SELECT = [
   'id', 'title', 'context', 'category', 'urgency', 'importance', 'effort_minutes',
   'work_state', 'due_date', 'waiting_on', 'micro_action', 'mvp_note', 'stop_point',

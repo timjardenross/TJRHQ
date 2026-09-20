@@ -12,7 +12,7 @@ import { useUrlSync } from '@/lib/useUrlSync';
 import { TodayStream } from './_components/TodayStream';
 import { DecomposeView } from './_components/DecomposeView';
 import { EYEBROW, isDomain, type Domain } from './_components/types';
-import { rankToday, type PersonalTask } from '@/lib/personalTasks';
+import { rankToday, taskAnalytics, type PersonalTask, type TaskAnalytics } from '@/lib/personalTasks';
 import { useHumanSystemsContext } from '@/lib/captainsChairData';
 import type { SystemPostureBand } from '@/app/human-systems-workbench/_components/types';
 
@@ -50,6 +50,7 @@ function Workbench() {
   const [domain, setDomain] = useState<Domain>(hadExplicitDomain ? initialDomain : 'do');
   const [todayBadge, setTodayBadge] = useState<number | undefined>(undefined);
   const [taskStates, setTaskStates] = useState<Record<string, number>>({});
+  const [analytics, setAnalytics] = useState<TaskAnalytics | null>(null);
   const [refreshSignal, setRefreshSignal] = useState(0);
   // Mission 4: true while either sub-view is showing ActiveTaskView (a
   // single task actually underway) — drives WorkbenchShell's `minimal`
@@ -70,6 +71,7 @@ function Workbench() {
   const handleLoaded = useCallback((tasks: PersonalTask[]) => {
     setTodayBadge(rankToday(tasks).length);
     setTaskStates(tasks.reduce<Record<string, number>>((acc, task) => { acc[task.work_state] = (acc[task.work_state] ?? 0) + 1; return acc; }, {}));
+    setAnalytics(taskAnalytics(tasks));
   }, []);
 
   const changeDomain = (d: Domain) => {
@@ -109,6 +111,19 @@ function Workbench() {
               <span key={state} className="rounded-full border border-wb-line bg-wb-surface px-2.5 py-1 text-wb-ink2"><strong className="text-wb-ink">{taskStates[state]}</strong> {state.replace('_', ' ')}</span>
             ))}
           </div>
+        )}
+        {domain === 'do' && analytics && (
+          <section aria-labelledby="ready-room-analytics" className="mb-4 rounded-lg border border-wb-line bg-wb-surface p-3">
+            <h2 id="ready-room-analytics" className="text-[11px] font-bold uppercase tracking-[0.16em] text-wb-ink2">Task flow signals</h2>
+            <p className="mt-1 text-[11px] text-wb-ink2">Observed from task records; these indicate friction, not why it happened.</p>
+            <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
+              <span><strong>{analytics.frictionPoints}</strong> friction points</span>
+              <span><strong>{analytics.abandoned}</strong> abandoned</span>
+              <span><strong>{analytics.retries}</strong> retries / deferrals</span>
+              <span><strong>{analytics.completed}</strong> completed</span>
+              <span><strong>{analytics.averageCompletionMinutes ?? '—'}</strong>{analytics.averageCompletionMinutes == null ? '' : ' min avg'}</span>
+            </div>
+          </section>
         )}
         {domain === 'do' && (
           <TodayStream refreshSignal={refreshSignal} onLoaded={handleLoaded} onExecutingChange={setExecuting} initialTaskId={initialTaskId} />
