@@ -10,7 +10,7 @@ import { SHIP } from '@/lib/mockData';
 export const metadata: Metadata = {
   title: 'USS TJR Command Centre',
   description:
-    "Private LCARS command centre for USS TJR — Captain's Chair, missions, intelligence, and recovery operations.",
+    "Private TJR HQ command centre for Endeavour 27 — missions, intelligence, and recovery operations.",
   robots: {
     index: false,
     follow: false,
@@ -61,7 +61,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </span>
           <div className="flex items-center gap-4">
             <span className="uppercase tracking-[0.2em]">
-              LCARS Portal · ROS-001 v1.1
+              TJR HQ · Endeavour 27
             </span>
             <SignOutButton />
           </div>

@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
 
-export const alt = 'TJR Mind & Body social sharing image';
+export const alt = 'TJR HQ Endeavour 27 social sharing image';
 export const size = {
   width: 1200,
   height: 630,
@@ -38,7 +38,7 @@ export default function OpenGraphImage() {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             <div style={{ fontSize: 22, letterSpacing: 4, textTransform: 'uppercase', color: '#4b5c78' }}>
-              TJR Mind & Body
+              TJR HQ · Endeavour 27
             </div>
             <div style={{ fontSize: 66, lineHeight: 1.05, fontWeight: 700 }}>
               Practical resilience for real-life pressure

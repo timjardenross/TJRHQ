@@ -45,7 +45,7 @@ const DOMAINS = [
   { icon: '📚', name: 'Learning', description: 'AI/ML, systems thinking, leadership frameworks.', priority: 'P2' },
   { icon: '🤝', name: 'Relationships', description: 'Family, crew, professional network maintenance.', priority: 'P2' },
   { icon: '🎯', name: 'Personal', description: 'Identity, values, long-term vision.', priority: 'P3' },
-  { icon: '🌱', name: 'TJR Mind & Body', description: 'Building TJR Mind & Body — human resilience and capacity coaching practice. Early-stage; not yet active day-to-day.', priority: 'P3' },
+  { icon: '🌱', name: 'Human capacity practice', description: 'Building a human resilience and capacity practice. Early-stage; not yet active day-to-day.', priority: 'P3' },
 ];
 
 const PRINCIPLES = [
