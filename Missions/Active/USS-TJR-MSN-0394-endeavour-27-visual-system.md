@@ -842,6 +842,47 @@ same branch at the same time (already merged one real doc conflict from it earli
 mission) — kept this session's own direct edits to Hub's own file only, to avoid compounding
 that risk.
 
+### Phase 4 — Stream B: Ready Room reference surface (2026-09-20)
+
+**Real scope tension found and resolved without a silent guess:** the mockup's Ready Room
+panel shows exactly one state — a single dominant task card with a "Feeling stuck?" panel —
+which is not TodayStream's default list view (Today/Pick Up/On the Radar/Waiting/Done,
+QuickAdd), it's this app's own already-built `ActiveTaskView.tsx` (rendered once a task is
+selected). The mockup is a worked example of one real state, not the whole page's IA — the
+list view is a necessary, separately-real state (choosing what to work on) the mockups don't
+depict at all. Per Captain direction (move toward mockups where possible, keep real
+capability), restyled/extended the state the mockup actually shows rather than collapsing the
+real list view to match a screen that was never meant to replace it.
+
+**What changed:**
+- `ActiveTaskView.tsx` gained the mockup's "Feeling stuck?" panel — reusing real existing
+  capabilities exactly as mission §1.1 directs ("maps near 1:1... relabeling/reshelling, not
+  new logic"): Break it down/Help me start both route to `DecomposeView` via
+  `?domain=unstick&task=<id>` (Mission 7 Phase 12's contract, preserved), "This feels too
+  much" reuses `TodayStream`'s existing `OverloadView` (new optional `onOverload` prop, wired
+  from `TodayStream`, not a new intervention), "Take a breath" reuses the same
+  `/human-systems-workbench?domain=recovery` link `OverloadView` already used.
+- **Real finding, not silently smoothed over:** the mockup shows "Break it down" and "Help me
+  start" as two separate options, but this app has exactly one real capability behind both
+  (the same DecomposeView entry point) — no second distinct engine. Merged into one honest
+  link ("Break it down / Help me start") rather than rendering two buttons that do the
+  identical thing, which would have been a fabricated-affordance regression, not a redesign.
+- Explicit `mode="focus"` on `WorkbenchShell` (Stream A's mechanism, second real page to use
+  it after Hub's `mode="command"`).
+
+**Not changed, deliberately:** `TodayStream`'s list-based IA (Today/Pick Up/Radar/Waiting/
+Done/QuickAdd) — real, load-bearing, serves a state the mockup doesn't show. The pre-existing
+`changeDomain` URL-sync implementation in `page.tsx` (the same async-`useSearchParams()` race
+USS-TJR-MSN-0395 root-caused and fixed on a separate branch) was left untouched — that fix is
+a different mission's scope and hasn't merged to this branch's `main` lineage yet; pulling it
+in here would conflate two missions' changes in one commit.
+
+**Verified:** `tsc --noEmit` and `eslint` clean on every touched file. Full test suite: 725
+tests / 69 files, all green (no existing Ready Room test covers `ActiveTaskView` render output
+directly, so nothing needed updating, but the full suite's `postureDefault.test.tsx` — which
+does exercise `page.tsx` — stayed green). Live screenshot verification blocked by the same
+container/backend limitation noted in Phase 3 (not attempted again for the same reason).
+
 Phase-by-phase build record inside this same doc, same discipline as Mission 7's own
 (§3.x-numbered sections per phase, updated in place as work lands — not a separate status
 doc). Knowledge record on completion at `knowledge/missions/` following this mission's own
