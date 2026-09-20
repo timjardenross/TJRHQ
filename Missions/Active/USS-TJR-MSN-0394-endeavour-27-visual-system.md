@@ -1100,3 +1100,37 @@ until the Captain rules on each, per the task's explicit instruction not to gues
 Next: the 5 ambiguous workbenches above remain open Stream C work, gated on a Captain
 decision per page, not a guess. Remaining Stream D scope (`delivery` LCARS migration, §3.3/
 §3.4 colour-class cleanup, `LCARSPanel.tsx` retirement) also still open.
+
+### Phase 8 — Stream C: the 5 ambiguous workbenches resolved (Captain decision, 2026-09-20)
+
+All 5 resolved by direct Captain decision, not guessed — applied via `WorkbenchShell`'s
+`mode` prop, same mechanism every other page uses:
+
+- **Physical Readiness → `focus`.** Exercise history is scannable quantitative log data
+  (dates, sets/reps), not prose — closer to Timeline's shape than Knowledge Workbench's.
+- **Search → `focus`.** Results are pointers to other content (mission titles, log entries),
+  not the content itself — action-oriented (type → jump), unlike Knowledge Workbench which
+  surfaces the actual decision/lesson text.
+- **Timeline → `focus`.** Same reasoning as Physical Readiness — short scannable entries,
+  already simplified for scannability per Phase 16's own NOISE finding.
+- **Engineering Handoffs → `focus`.** "Read-only" describes the interaction model (no
+  editing), not content density — the page itself is mostly links/metadata; the actual
+  reading happens off-page on GitHub.
+- **Content Workbench → split, not one answer.** Today/Pipeline/Library (kanban) is `focus`;
+  the Studio (actual drafting) is `read`. This is exactly the case the mode prop's per-page
+  design exists for — implemented by switching on the same `selectedContentId` state that
+  already decides which view renders (`mode={selectedContentId ? 'read' : 'focus'}`), not a
+  second piece of state invented for this.
+
+**Net effect (Captain's own framing, worth keeping as the standing rule):** Read stays
+reserved for pages whose core content is genuinely dense original prose (Chair, Briefs,
+Weekly Review, OSINT briefs, Advisory, Knowledge Workbench, HQ Evolution, Content Workbench's
+Studio) — everything else, including these 5, is Focus. Keeps the classification consistent
+rather than drifting into "anything you read is Read."
+
+**Capture/Mission Workbench/HQ Status as `command`** (Phase 7's own non-Captain-confirmed
+extrapolation) — reviewed and accepted as-is, no objection to the reasoning.
+
+All 20 `LIVE_WORKBENCHES` entries now have an explicit, either Captain-confirmed or
+reviewed-and-accepted, Command/Focus/Read classification. Verification (`tsc`/`eslint`/full
+test suite/`build`) to follow in the same commit as these 5 changes.

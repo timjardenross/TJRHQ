@@ -233,6 +233,7 @@ export default function SearchPage() {
       eyebrow="Cross-domain"
       tagline="USS TJR · Search · Missions, Captain's Log, Captures, Events"
       back={{ href: '/workbenches', label: 'Workbenches' }}
+      mode="focus"
     >
       <div className="flex flex-col gap-4">
         <div className="relative">
