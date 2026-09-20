@@ -40,6 +40,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Badge, Card, WorkbenchShell, toneToStatus } from '@/components/ui';
+import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
 import { emergencyAlertTierToTone } from '@/lib/departments';
 import type { EmergencyAlertEntry } from '@/app/api/emergency-alerts/route';
 import type { EmergencyAlertSourceEntry } from '@/app/api/emergency-alerts/sources/route';
@@ -675,6 +676,7 @@ export default function EmergencyAlertsWorkbench() {
           <Card><p className="text-[13px] italic text-wb-ink2">Loading Emergency Alerts…</p></Card>
         ) : loadError ? (
           <Card>
+            <DataAvailabilityNotice state="unavailable" sources={[`Emergency Alerts: ${loadError}`]} />
             <div className="rounded-md border border-state-crit/40 bg-state-crit/10 px-4 py-3">
               <p className="text-[13px] font-semibold text-state-crit-on">Emergency alert data could not be loaded</p>
               <p className="mt-1 text-[12px] text-wb-ink2">{loadError}</p>

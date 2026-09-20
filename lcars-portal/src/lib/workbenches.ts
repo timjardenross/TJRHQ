@@ -85,6 +85,8 @@ export const PRIMARY_ACTIONS: Record<string, { label: string; href: string }> = 
   '/hub': { label: 'Open Captain’s Chair', href: '/captains-chair-workbench' },
   '/focus-workbench': { label: 'Start a focus session', href: '/focus-workbench' },
   '/captains-chair-workbench': { label: 'Review what needs you', href: '/captains-chair-workbench' },
+  '/capture-workbench': { label: 'Capture an item', href: '/capture-workbench' },
+  '/mission-workbench': { label: 'Review missions', href: '/mission-workbench' },
   '/weekly-review': { label: 'Start weekly review', href: '/weekly-review' },
   '/ready-room': { label: 'Choose what to do next', href: '/ready-room' },
   '/intelligence-workbench': { label: 'Review today’s intelligence', href: '/intelligence-workbench' },

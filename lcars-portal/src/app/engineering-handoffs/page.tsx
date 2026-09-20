@@ -46,6 +46,8 @@ interface Handoff {
   priority: string;
   next_action: string;
   metadata: HandoffMetadata;
+  /** Canonical queue supplied by the handoff service. */
+  handoff_queue?: Queue;
 }
 
 const STATUS_BADGE: Record<string, BadgeStatus> = {
@@ -73,9 +75,11 @@ const QUEUE_META: Record<Queue, { title: string; description: string; empty: str
 };
 
 function queueFor(handoff: Handoff): Queue {
+  if (handoff.handoff_queue) return handoff.handoff_queue;
+  // Compatibility fallback for older upstream payloads. This is deliberately
+  // status-only: queue membership must never be inferred from free text.
   const status = handoff.metadata.engineering_status;
-  const signal = `${handoff.metadata.batch_status} ${handoff.next_action}`.toLowerCase();
-  if (/blocked|failed|waiting|dependency|cannot progress|missing/.test(signal) || status === 'Pending Triage') return 'blocked';
+  if (status === 'Pending Triage') return 'blocked';
   if (status === 'Awaiting Review') return 'review';
   return 'delivery';
 }

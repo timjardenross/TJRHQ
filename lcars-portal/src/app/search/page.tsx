@@ -21,6 +21,7 @@ import { Search as SearchIcon } from 'lucide-react';
 import { WorkbenchShell } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { collectSourceOutcomes } from '@/lib/sourceResults';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,8 @@ interface SearchResult {
   detail?: string;
   timestamp?: string;
   href?: string;
+  attentionState?: 'needs-action' | 'normal';
+  importance?: 'important' | 'normal';
 }
 
 // MSN-0351: each searcher reports whether its Supabase read succeeded so a
@@ -223,7 +226,14 @@ export default function SearchPage() {
         if (!b.timestamp) return -1;
         return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
       });
-      setResults(items);
+      setResults(items.map((item) => {
+        const status = (item.detail ?? '').split(' · ').at(-1)?.toLowerCase();
+        return {
+          ...item,
+          attentionState: ['blocked', 'failed', 'error', 'pending', 'review', 'queued', 'needs_review'].includes(status ?? '') ? 'needs-action' : 'normal',
+          importance: item.type === 'mission' || item.type === 'event' ? 'important' : 'normal',
+        };
+      }));
       setFailedSources(failed);
     } finally {
       setLoading(false);
@@ -254,8 +264,11 @@ export default function SearchPage() {
     acc[r.type].push(r);
     return acc;
   }, {});
-  const isNeedsAction = (r: SearchResult) => /blocked|failed|error|needs|review|pending|action|ready/i.test(`${r.title} ${r.detail ?? ''}`);
-  const isImportant = (r: SearchResult) => r.type === 'mission' || r.type === 'event' || /critical|urgent|important|red/i.test(`${r.title} ${r.detail ?? ''}`);
+  // These views consume the result contract rather than scanning prose. Until
+  // every upstream query supplies explicit fields, the adapters below assign
+  // conservative defaults; unknown results never become falsely urgent.
+  const isNeedsAction = (r: SearchResult) => r.attentionState === 'needs-action';
+  const isImportant = (r: SearchResult) => r.importance === 'important';
   const filteredResults = attentionView === 'needs-action' ? results.filter(isNeedsAction) : attentionView === 'important' ? results.filter(isImportant) : results;
   const filteredGrouped = filteredResults.reduce<Record<string, SearchResult[]>>((acc, r) => { (acc[r.type] ??= []).push(r); return acc; }, {});
 
@@ -330,6 +343,7 @@ export default function SearchPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-wb-ink group-hover:text-wb-sage-deep">{r.title}</p>
                   {r.detail && <p className="mt-0.5 truncate text-xs text-wb-ink2">{r.detail}</p>}
+                  <EvidenceMeta source={TYPE_LABEL[r.type] ?? r.type} observedAt={r.timestamp} />
                 </div>
                 <span className="mt-1 shrink-0 text-[10px] text-wb-ink2">{relTs(r.timestamp)}</span>
               </button>

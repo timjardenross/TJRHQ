@@ -113,10 +113,16 @@ const CAPABILITY_RECOVERY: Record<string, { workbench: string; href: string; act
   weekly_review: { workbench: 'Weekly Review', href: '/weekly-review', action: 'Start weekly review' },
   ready_room: { workbench: 'Ready Room', href: '/ready-room', action: 'Choose what to do next' },
   human_systems: { workbench: 'Human Systems', href: '/human-systems-workbench', action: 'Check current capacity' },
+  platform_core: { workbench: 'HQ Status', href: '/agent-status-workbench', action: 'Review platform status' },
+  content_workbench: { workbench: 'Content Workbench', href: '/content-workbench', action: 'Review content queue' },
 };
 
 function CapabilityRow({ cap }: { cap: CapabilityResult }) {
-  const recovery = CAPABILITY_RECOVERY[cap.key];
+  const recovery = CAPABILITY_RECOVERY[cap.key] ?? {
+    workbench: 'HQ Status',
+    href: '/agent-status-workbench',
+    action: 'Review capability status',
+  };
   return (
     <li className="flex items-start gap-2.5 py-2" title={cap.reason}>
       <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${TONE_DOT_CLASS[cap.tone]}`} aria-hidden>
@@ -128,7 +134,7 @@ function CapabilityRow({ cap }: { cap: CapabilityResult }) {
           <span className="sr-only"> — {cap.tone}</span>
         </p>
         {cap.tone !== 'healthy' && <p className="mt-0.5 text-[12px] text-wb-ink2">{cap.reason}</p>}
-        {recovery && cap.tone !== 'healthy' && <p className="mt-1 text-[11px] text-wb-ink2">Affected workbench: <Link href={recovery.href} className="font-semibold text-wb-sage-deep hover:underline">{recovery.workbench}</Link> · <Link href={recovery.href} className="text-wb-sage-deep hover:underline">{recovery.action} →</Link></p>}
+        {cap.tone !== 'healthy' && <p className="mt-1 text-[11px] text-wb-ink2">Affected workbench: <Link href={recovery.href} className="font-semibold text-wb-sage-deep hover:underline">{recovery.workbench}</Link> · <Link href={recovery.href} className="text-wb-sage-deep hover:underline">{recovery.action} →</Link></p>}
       </div>
     </li>
   );

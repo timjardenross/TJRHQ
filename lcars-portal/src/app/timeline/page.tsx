@@ -17,6 +17,7 @@ import { useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { collectSourceOutcomes } from '@/lib/sourceResults';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,8 @@ interface TimelineEvent {
   detail?: string;
   timestamp: string;
   metadata?: Record<string, unknown>;
+  attentionState?: 'needs-action' | 'normal';
+  importance?: 'important' | 'normal';
 }
 
 // MSN-0351: each fetcher reports whether its Supabase read succeeded, so a
@@ -234,7 +237,14 @@ export default function TimelinePage() {
       if (cancelled) return;
       const { items, failed } = collectSourceOutcomes(outcomes);
       items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      setEvents(items);
+      setEvents(items.map((item) => {
+        const status = String(item.metadata?.to ?? item.metadata?.status ?? item.detail ?? '').toLowerCase();
+        return {
+          ...item,
+          attentionState: ['blocked', 'failed', 'error', 'pending', 'review', 'queued'].includes(status) ? 'needs-action' : 'normal',
+          importance: item.source === 'missions' || item.source === 'events' ? 'important' : 'normal',
+        };
+      }));
       setFailedSources(failed as EventSource[]);
       setLoading(false);
     });
@@ -242,8 +252,8 @@ export default function TimelinePage() {
   }, [days]);
 
   const visible = filter ? events.filter(e => e.source === filter) : events;
-  const isNeedsAction = (e: TimelineEvent) => /blocked|failed|error|needs|review|pending|action/i.test(`${e.title} ${e.detail ?? ''}`);
-  const isImportant = (e: TimelineEvent) => e.source === 'missions' || e.source === 'events' || /critical|urgent|important|red/i.test(`${e.title} ${e.detail ?? ''}`);
+  const isNeedsAction = (e: TimelineEvent) => e.attentionState === 'needs-action';
+  const isImportant = (e: TimelineEvent) => e.importance === 'important';
   const attentionVisible = attentionView === 'needs-action' ? visible.filter(isNeedsAction) : attentionView === 'important' ? visible.filter(isImportant) : visible;
 
   const daySelector = (
@@ -356,6 +366,7 @@ export default function TimelinePage() {
                 <span className="mt-1 block text-[9px] uppercase tracking-[0.15em] text-wb-ink2/70">
                   {SOURCE_META[e.source]?.label ?? e.source}
                 </span>
+                <EvidenceMeta source={SOURCE_META[e.source]?.label ?? e.source} observedAt={e.timestamp} />
               </div>
             </div>
           ))}

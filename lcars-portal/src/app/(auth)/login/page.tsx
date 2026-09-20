@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
@@ -15,16 +15,38 @@ export default function LoginPage() {
   const [error, setError]     = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    // Never retain credentials accidentally placed in the address bar. This
+    // also prevents browser history, screenshots, analytics, or referrers
+    // from preserving them.
+    if (typeof window !== 'undefined' && (window.location.search.includes('email=') || window.location.search.includes('password='))) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   async function handlePassword(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim() || !password) return;
+    // Browser password managers can populate controlled inputs without
+    // dispatching React's change event. Read the submitted form as the source
+    // of truth so a visibly completed form cannot remain inert.
+    const form = e.currentTarget as HTMLFormElement;
+    const formData = new FormData(form);
+    const submittedEmail = String(formData.get('email') ?? email).trim();
+    const submittedPassword = String(formData.get('password') ?? password);
+    if (!submittedEmail || !submittedPassword) return;
     setLoading(true);
     setError(null);
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    let error: { message: string } | null = null;
+    try {
+      const result = await Promise.race([
+        supabase.auth.signInWithPassword({ email: submittedEmail, password: submittedPassword }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 12_000)),
+      ]);
+      ({ error } = result);
+    } catch {
+      error = { message: 'Authentication service did not respond. Check HQ Status or try again.' };
+    }
     setLoading(false);
     if (error) {
       setError(error.message);
@@ -132,6 +154,7 @@ export default function LoginPage() {
                 <label htmlFor="password-form-email" className="sr-only">Email address</label>
                 <input
                   id="password-form-email"
+                  name="email"
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
@@ -144,6 +167,7 @@ export default function LoginPage() {
                 <label htmlFor="password-form-password" className="sr-only">Password</label>
                 <input
                   id="password-form-password"
+                  name="password"
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
@@ -155,7 +179,7 @@ export default function LoginPage() {
                 />
                 <button
                   type="submit"
-                  disabled={loading || !email.trim() || !password}
+                  disabled={loading}
                   className="w-full rounded-md bg-wb-sage-deep px-4 py-2 text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   aria-busy={loading}
                 >
