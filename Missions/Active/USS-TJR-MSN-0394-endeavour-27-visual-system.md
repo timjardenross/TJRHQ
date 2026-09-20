@@ -1134,7 +1134,104 @@ extrapolation) — reviewed and accepted as-is, no objection to the reasoning.
 All 20 `LIVE_WORKBENCHES` entries now have an explicit, either Captain-confirmed or
 reviewed-and-accepted, Command/Focus/Read classification. Verification (`tsc`/`eslint`/full
 test suite/`build`) to follow in the same commit as these 5 changes.
-### Phase 9 — Stream B2: Emergency Alerts, Shopping List, Technical OSINT, Health OSINT,
+
+### Phase 9 — Stream D (remainder): colour-token cleanup + LCARSPanel retirement attempt (2026-09-20)
+
+Scope: the rest of Stream D left open after Phase 2 — §3.3's department/`lcars-*` colour
+cleanup and §3.2's `delivery`/`LCARSPanel.tsx` migration. Re-ran both §3.3 greps fresh rather
+than trusting the Discovery-time counts (both had moved, mostly downward, since concurrent
+Stream B/B3/C phases had already migrated several of the originally-listed files):
+`text|bg|border|ring-(command|engineering|operations|medical|science|status)` was down to 8
+files (from 12), `bg|text|border-lcars-*` was down to 18 (from 28).
+
+**Part 1 — colour-token conversions**, presentation-only, no colour's meaning changed:
+- `src/components/MissionCard.tsx` — `PRIORITY_TONE`'s P0–P3 map was repurposing department
+  colours (`text-operations`, `text-command`, `text-medical`) to mean mission *priority*, the
+  exact anti-pattern `stateToneClasses()`'s own doc comment warns against ("never repurpose a
+  department colour to mean state"). Remapped onto `state-crit`/`state-warn`/`state-info`/
+  `state-unknown` (P0→crit, P1→warn, P2→info, P3/'—'→unknown), same visual severity order.
+  `text-lcars-muted`→`text-wb-ink2`, `text-lcars-text`→`text-wb-ink`,
+  `hover:border-command/60`→`hover:border-wb-sage-deep/60` (existing hover-accent convention,
+  see `Button.tsx`/`WorkbenchCard.tsx`). `dept.hex` (inline style, real department-identity
+  border-left stripe) left untouched — genuine identity use, not decorative.
+- `src/components/StatTile.tsx` — `text-lcars-muted` (label/hint text) →`text-wb-ink2`.
+  `dept.text` (accent prop, caller-chosen department colour for the big number) left
+  untouched — real per-caller department-identity use, same carve-out.
+- `src/components/DataSourceIndicator.tsx` — `text-lcars-muted` (loading/inline label text,
+  both variants) →`text-wb-ink2`. The actual live/mock signal already runs through
+  `stateToneClasses()`, untouched.
+- Seven identical retired-notice stub pages under `(app)/` (`automation-centre`,
+  `captains-brief`, `captains-chair`, `comms`, `engineering`, `intelligence`, `medical`,
+  `operations`) plus `captains-brief-workbench/page.tsx` — each had one `text-lcars-text`
+  heading class. `text-lcars-text` resolves to `#0d1f33` (dark navy), same family as this
+  app's dark `--wb-bg` (`#0B1E2E`) — a real, if low-traffic, contrast bug (near-invisible
+  heading), not just a decorative token swap. Fixed to `text-wb-ink`.
+- `src/app/(app)/delivery/page.tsx` / `src/components/DeliveryPanel.tsx` — see Part 2 below;
+  `text-lcars-muted`/`text-lcars-text` converted to `wb-ink`/`wb-ink2` throughout, `text-status`
+  (the pre-state-tone legacy "Status Green," per `tailwind.config.ts`'s own comment marking it
+  "legacy — see `state` below") converted to `text-state-ok` for the "delivery is flowing"
+  message — same meaning, canonical token. `rounded-lcars border-edge bg-panel` metrics tiles
+  converted to `rounded-md border-wb-line bg-wb-surface-raised` to match the panel they now sit
+  inside. **Left untouched, with inline comments explaining why:** `text-engineering-on`
+  (page H1 — this literally is Engineering's own delivery surface, real department identity)
+  and the Control Tower box's `border-engineering bg-engineering/10 text-engineering` (same
+  reasoning — it's Engineering's control tower, not a decorative reuse). Also left untouched:
+  `StatusBadge`'s `tone="operations"/"command"/"medical"/"status"/"neutral"` props in the same
+  file — real finding, flagged not fixed: `lib/types.ts`'s own doc comment says `StatusTone`
+  is "department identity only," but these call sites are using it to signal *risk/WIP state*
+  (high-risk→operations-red, low-WIP→medical-blue), and `toneClasses()` in `departments.ts`
+  doesn't even functionally distinguish between non-`neutral` department tones today — so this
+  is a real but pre-existing type-system-level conflation, not a raw class string. Fixing it
+  properly means extending `StatusBadge`/`StatusTone` to accept `StateTone`, which is bigger
+  than a token-cleanup pass; left as an open item for a future phase rather than forced here.
+- **Left alone, dead code (zero real importers, confirmed by fresh grep — only self-references
+  and doc comments in other files, same check discipline as Phase 2):** `ApprovalQueue.tsx`,
+  `DepartmentCard.tsx`, `MobileAlertDrawer.tsx`, `ROSPanels.tsx`, `RecoveryConfidencePanel.tsx`,
+  `ConfidenceIndicator.tsx` (only importer is the dead `RecoveryConfidencePanel.tsx`),
+  `EscalationBanner.tsx` (same). Converting a dead file's colour tokens serves nothing;
+  deleting them was not in this phase's scope (Phase 2 already covered the confirmed set at
+  Discovery time — these 7 are a fresh finding, not re-litigating Phase 2, and are flagged here
+  for a future dead-code sweep rather than deleted unasked).
+- **Left alone, in scope for another stream:** `src/app/timeline/page.tsx` — matched the
+  department-colour grep, but is explicitly Stream C's file per this session's brief; not
+  touched.
+
+**Part 2 — LCARSPanel retirement:**
+`delivery/page.tsx` and `DeliveryPanel.tsx` were both straightforward swaps, not a structural
+rewrite — `LCARSPanel`'s props (`title`/`eyebrow`/`actions`/`children`) map 1:1 onto the wb-*
+system's own pre-existing sibling, `WorkbenchPanel.tsx` (already used by `ROSPanels`,
+`CaptainIntelligencePanel`, `TodaysBriefPanel` — its own doc comment literally calls itself
+"Sibling of LCARSPanel, not a themed variant of it"), so no new component was invented. Swapped
+both the "Reading delivery state…" loading panel and the full loaded panel (metrics strip,
+open-by-state badges, bottlenecks, Control Tower) plus the page's own "Operating model" panel.
+No data/behaviour changed — confirmed by the unchanged `npm run test` count and a full
+`npm run build` pass on `/delivery` afterward.
+
+**`LCARSPanel.tsx` itself: NOT deleted — re-grepped importers fresh rather than trusting §3.2's
+"delivery is the last real consumer" claim, and it wasn't true anymore.** `grep -rl "LCARSPanel" src`
+turned up `src/app/(app)/stage-progression/page.tsx` as a live import (`import { LCARSPanel }
+from '@/components/LCARSPanel'`, and it's actually rendered), not just a comment — every other
+hit across the tree was a doc-comment reference (`WorkbenchPanel.tsx`'s own "sibling of
+LCARSPanel" note, migration-history comments in `physical-readiness`, `search`,
+`human-systems-workbench/weight`, `knowledge-workbench/operating-model`, `(app)/medical`,
+`ApprovalQueue.tsx`). This session's brief explicitly says `stage-progression/page.tsx` is a
+deliberate retired-notice stub to leave alone entirely — so deleting `LCARSPanel.tsx` would
+mean either touching that excluded file or breaking the build. Left `LCARSPanel.tsx` in place;
+`delivery`'s migration still has real value (one real page off the legacy component, `wb-*`
+parity with the rest of the app) even though it didn't fully retire the shared file this phase.
+Open item for a future phase: retiring `stage-progression/page.tsx`'s stub notice onto
+`WorkbenchPanel` (a trivial swap, same shape as `delivery`'s) would let `LCARSPanel.tsx` itself
+be deleted — but that page was explicitly out of scope for this session.
+
+**Verified:** `npx tsc --noEmit` clean. `npx eslint` clean on every touched file. Full test
+suite: 725 tests / 69 files, all green (`npm run test`, same count as Phase 2's baseline — no
+regressions, and no growth from concurrent streams as of this phase). `npm run build` clean,
+including `/delivery` and `/stage-progression` routes rendering.
+
+Remaining open Stream D items for a future phase: the 7 dead-code lcars-*/department-colour
+files (delete-or-ignore decision), `DeliveryPanel.tsx`'s `StatusBadge` tone/state conflation,
+and `stage-progression`'s stub swap as the unlock for `LCARSPanel.tsx`'s actual deletion.
+### Phase 10 — Stream B2: Emergency Alerts, Shopping List, Technical OSINT, Health OSINT,
     Captain's Chair (2026-09-20)
 
 Extended the Command/Focus/Read treatment to Image 3's 5 named like-for-like redesign targets
