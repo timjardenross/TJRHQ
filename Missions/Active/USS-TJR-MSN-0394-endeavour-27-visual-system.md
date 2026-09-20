@@ -650,8 +650,20 @@ naming convention once one exists. SUOC Platform Registry: check whether this co
 new capability build (likely yes, given the scale — a new design-system layer) before
 deciding whether it needs an entry; don't skip that check by assuming "just a redesign."
 
-Original source material (the full 45-section Captain-authored brief and the 4 reference
-mockup images) should travel with whatever session starts this — request them from the
-Captain/session history if not already attached; this document condenses and grounds them
-against the real repo but does not reproduce every detail (e.g. the full CANVAS/SURFACES
-token-family list from the original §4) to avoid two copies drifting apart.
+**Reference mockup images — committed to this branch, 2026-09-20:**
+`Missions/Active/USS-TJR-MSN-0394-mockups/` holds the 3 source mockup images this doc's §1
+analysis was built from (see that directory's own README for which panel is which):
+- `image1-desktop-hub-readyroom-humansystems-briefs.png` — the original 4-panel desktop
+  mockup (Hub/Ready Room/Human Systems/Briefs), referred to as "Image 1" throughout §1.
+- `image2-responsive-grid-and-style-guide.webp` — the 10-panel responsive grid (desktop +
+  iPad landscape/portrait + iPhone) plus the "Key Design Elements" style guide panel,
+  referred to as "Image 2" (§1.2–§1.4).
+- `image3-like-for-like-redesigns.webp` — the 7-panel "Interface Concepts (Like-for-like
+  redesigns)" grid (Emergency Alerts/Shopping List/Technical OSINT/Health OSINT/a second
+  Briefs treatment/Captain's Chair/iPhone Hub), referred to as "Image 3" (§1.5–§1.6).
+
+The full 45-section Captain-authored text brief was not committed (text-only, already fully
+condensed into this doc's §1-§2 — re-request from the Captain/session history only if a
+specific §-numbered passage needs checking verbatim, e.g. the full CANVAS/SURFACES/BLUE/WARM/
+TEXT/BORDERS token-family list from the original §4, deliberately not reproduced here to
+avoid two copies drifting apart).
