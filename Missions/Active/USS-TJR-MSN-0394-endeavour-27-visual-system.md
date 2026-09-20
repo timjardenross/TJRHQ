@@ -1652,3 +1652,55 @@ to production).
 2. `intelligence-workbench`'s untouched sub-pages' missing `focus-visible` — pre-existing, out
    of this mission's file scope.
 3. Stream G (cleanup + reporting, residual-debt register) — not started this phase.
+
+### Phase 15 — Stream G: cleanup, knowledge record, residual-debt register (2026-09-20)
+
+**Residue sweep — clean, confirmed not assumed:** grepped `src/` for the nonexistent
+`wb-border` token (found as a real bug in Phase 14, confirmed no other occurrence), any
+remaining `data-theme=` reference (zero — Stream A's retirement was complete), and re-verified
+`lib/theme.ts`/`ThemeSelector.tsx` have zero references anywhere outside historical code
+comments (already confirmed in Phase 1, re-confirmed here since 14 more phases have landed
+since). Nothing left to remove.
+
+**Knowledge record written**: `knowledge/missions/USS-TJR-MSN-0394-knowledge-record.md`,
+following this repo's established convention (dated frontmatter, compressed durable summary,
+not a duplicate of this doc's own phase-by-phase record). Contains the full honest
+residual-debt register, compiled from every phase's own flagged-not-fixed items across this
+doc rather than re-derived from memory — see that file directly for the complete list. Summary
+of what's still open, most to least significant:
+
+1. **The `-on` text contrast trade-off (Phase 14's finding) is now far more exposed** since
+   dark became the permanent default surface rather than one of 5 optional themes — a real,
+   pre-existing, Captain-accepted-at-the-time trade-off that needs a fresh look at this new
+   exposure level. Not re-decided by this mission.
+2. The same opacity-modifier bug found and fixed 6 times inside this mission's own touched
+   files likely exists elsewhere in the app (named candidates in Phase 14) — a repo-wide sweep
+   is real follow-up work, not attempted here (out of this mission's file scope).
+3. `LCARSPanel.tsx` survives — its last real consumer (`delivery`) was migrated off it, but
+   `stage-progression`'s deliberate stub (explicitly out of scope) still imports it.
+4. 4 mockup elements flagged in §1.1 as needing verification before building were never
+   verified or built (What Helps's exact ratio stat, Watch For's real-data mapping, background
+   photography's licensing/sourcing call, Ready Room Context panel's real counts) — correctly
+   left unbuilt rather than fabricated, per this mission's own §31 discipline throughout.
+5. Sidebar footer motto and MobileCommandBar's "More" sheet shape — both shipped, neither
+   explicitly Captain-confirmed as final.
+6. Typography scale / spacing / radius tokens from Image 2's style guide were never formalised
+   — every page reused ad hoc sizing already present in its own file.
+7. `intelligence-workbench`'s untouched sub-pages have the same focus-visible gaps this
+   mission fixed elsewhere — not swept, out of file scope.
+8. Live-rendered verification was only completed for Hub/Ready Room/Briefs — everything from
+   Stream B2 onward relied on code-review + `tsc`/`eslint`/`build`/test-suite verification per
+   the Captain's own Phase 11 authorisation, confirming separately against the live Vercel
+   preview. **Production user testing is the real verification pass for the rest, not this
+   container.**
+
+**SUOC Platform Registry:** not yet checked whether this mission's scale (a new design-system
+layer, 5-theme system retirement, 20-workbench migration) warrants a registry entry — flagged,
+not decided by this session; needs whoever owns that registry to make the call.
+
+**No production merge performed.** Everything in this mission lives on
+`claude/endeavour-27-mission-brief` only. Promoting to `main` — and therefore to the production
+Vercel build — is a separate, explicit step the Captain asked to be done last, once a knowledge
+record existed to hand off against. Verified: full `tsc`/`eslint`/`npm run test`
+(725/69)/`npm run build` clean immediately before this entry, confirming the branch is in a
+mergeable, working state at the point Stream G closes out.
