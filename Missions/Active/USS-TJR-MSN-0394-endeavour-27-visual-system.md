@@ -439,7 +439,13 @@ session.** Confirm the ambiguous ones (flagged below) before Stream A locks the 
 - Weekly Review — its own PURPOSE is "one calm weekly pass... organised around significance,"
   described in §6.1/Phase 16 as a read-first synthesis page with no unique action chrome
 - Technical OSINT Workbench, Health OSINT Workbench — intelligence triage surfaces whose
-  actual content is reading briefs/articles, not entering data or taking action
+  actual content is reading briefs/articles, not entering data or taking action.
+  **Confirmed despite a real conflict, not silently (Captain decision, Stream A, 2026-09-20):**
+  Image 3's actual mockup panels for both render dark Command chrome, not light — this §1.8
+  entry was originally reasoned from PURPOSE alone, without re-checking the image pixel
+  content. Stream A caught the discrepancy and asked; **the Captain's ruling is that the
+  reasoned classification wins over the mockup's literal rendering** — both stay Read
+  (light). Build them light; the mockup panels are non-authoritative on this specific point.
 - Advisory — "Think it through" is a long-form conversational consult, not a quick action
 - Knowledge Workbench — decisions/lessons/ADR search and reading, the most text-dense page
   in the app by PURPOSE
@@ -666,6 +672,13 @@ before Stream C migrates these two pages, same as §1.6's two prior discrepancie
 noted: Image 3's own sidebar shows the *old* 5/7-item set, not Image 1/2's 9-item one or
 the Captain's now-decided full-list version — a real cross-image inconsistency, but moot
 now that the sidebar decision was made directly rather than picked from either mockup.
+
+**Resolved (Captain decision, same day):** the reasoned §1.8 classification wins over the
+mockup's literal rendering — Technical OSINT and Health OSINT both stay **Read (light)**,
+not dark. Unlike §1.6's two prior discrepancies (where the more-recently-reviewed mockup won
+both times), this one went the other way — worth remembering that "the mockup is probably
+right" isn't a fixed rule; each conflict gets checked and decided on its own, not inferred
+from the last one's outcome. §1.8 updated in place to record this.
 
 **Token architecture — implemented, WCAG-computed (not eyeballed), not the 5-theme
 system:**
