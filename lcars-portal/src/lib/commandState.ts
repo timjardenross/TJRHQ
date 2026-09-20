@@ -272,6 +272,11 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
       detail: item.capacity_adjusted_reason || item.reason || 'Number One flagged this for your attention.',
       href,
       actionLabel: isPersonalTaskExecution ? 'Do this' : 'Review',
+      // Mission 7 item 2: same task, straight into Unstick Me instead of
+      // the plain Do view — Captain's choice, not an auto-classification.
+      helpMeStartHref: isPersonalTaskExecution && item.ref
+        ? `/ready-room?domain=unstick&task=${encodeURIComponent(item.ref)}`
+        : undefined,
     });
   }
 

@@ -33,11 +33,18 @@ function Workbench() {
 
   // Mission 6B §8.4: Hub's Needs You deep-links a specific personal-task
   // Needs You item straight into Ready Room's execution surface via
-  // ?task=<id> — forces 'do' mode (the task list this id lives in)
-  // regardless of any ?domain= also present, since a task deep-link is a
-  // stronger signal of Captain intent than a stale/default domain param.
+  // ?task=<id> — defaults to 'do' mode (the task list this id lives in)
+  // when no ?domain= is also present, since a task deep-link is a stronger
+  // signal of Captain intent than Ready Room's own default.
+  //
+  // Mission 7 item 2: an explicit ?domain=unstick alongside ?task=<id> is
+  // now respected rather than overridden — this is the "Help me start"
+  // path from a Needs You item straight into Unstick Me for that same
+  // task (see DecomposeView's initialTaskId handling), not a task-list
+  // deep link. Only ?task=<id> with no ?domain= still defaults to 'do'.
   const initialTaskId = params.get('task');
-  const initialDomain = initialTaskId ? 'do' : params.get('domain');
+  const explicitDomainParam = params.get('domain');
+  const initialDomain = explicitDomainParam ?? (initialTaskId ? 'do' : null);
   const hadExplicitDomain = isDomain(initialDomain);
   const [domain, setDomain] = useState<Domain>(hadExplicitDomain ? initialDomain : 'do');
   const [todayBadge, setTodayBadge] = useState<number | undefined>(undefined);
@@ -96,7 +103,11 @@ function Workbench() {
         <TodayStream refreshSignal={refreshSignal} onLoaded={handleLoaded} onExecutingChange={setExecuting} initialTaskId={initialTaskId} />
       )}
       {domain === 'unstick' && (
-        <DecomposeView onSaved={() => setRefreshSignal((n) => n + 1)} onExecutingChange={setExecuting} />
+        <DecomposeView
+          initialTaskId={initialTaskId}
+          onSaved={() => setRefreshSignal((n) => n + 1)}
+          onExecutingChange={setExecuting}
+        />
       )}
     </WorkbenchShell>
   );

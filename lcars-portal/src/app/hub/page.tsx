@@ -230,7 +230,13 @@ export default function LifeOSHub() {
     <WorkbenchShell
       title="LifeOS Hub"
       eyebrow="Glance View"
-      tagline="USS TJR · LifeOS Hub · Workbenches →"
+      // Mission 7 §35 adversarial pass: this previously read "Workbenches
+      // →" — a trailing arrow with no link behind it (WorkbenchShell
+      // renders `tagline` as plain text), which reads as a promised
+      // affordance that goes nowhere on tap. The real path to the
+      // directory is the header logo (and desktop Sidebar's own
+      // Workbenches entry) — this is now honestly just a footer label.
+      tagline="USS TJR · LifeOS Hub"
       wide
     >
       <div className="mx-auto max-w-xl space-y-6 py-2">
@@ -290,22 +296,45 @@ export default function LifeOSHub() {
               </div>
             )}
 
-            {/* ── 4. Needs You — prefer 0–3 genuinely actionable items ── */}
+            {/* ── 4. Needs You — prefer 0–3 genuinely actionable items ──
+                Mission 7 §7/§8/§22: each item's actionLabel (deriveCommandStatus
+                already assigns one per source — "Review", "Publish / Schedule",
+                "Do this") existed but rendered as trailing 11px text easy to miss
+                entirely, which is what let this section read as an announcement
+                with nowhere to go rather than something to act on. Now a real
+                button-styled affordance, still the item's one canonical href —
+                no second engine, no invented action, just made visible. */}
             <div className="rounded-lg border border-wb-line bg-wb-surface p-4">
               <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-wb-ink2">Needs You</h2>
               {needsYouItems.length === 0 ? (
                 <p className="text-sm font-medium text-wb-ink2">✓ Nothing needs your attention.</p>
               ) : (
-                <ul className="space-y-1.5">
+                <ul className="space-y-2">
                   {needsYouItems.slice(0, 3).map((item) => (
-                    <li key={item.id} className="text-sm">
+                    <li key={item.id}>
                       <Link
                         href={item.href}
-                        className="group focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                        className="group flex items-center gap-3 rounded-md p-1.5 -m-1.5 transition-colors hover:bg-wb-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
                       >
-                        <span className="font-semibold text-wb-ink group-hover:underline">{item.title}</span>
-                        <span className="text-wb-ink2"> — {item.detail}</span>
+                        <span className="min-w-0 flex-1 text-sm">
+                          <span className="font-semibold text-wb-ink group-hover:underline">{item.title}</span>
+                          <span className="text-wb-ink2"> — {item.detail}</span>
+                        </span>
+                        <span className="shrink-0 rounded-md bg-wb-sage-deep px-2.5 py-1 text-[11px] font-semibold text-white">
+                          {item.actionLabel}
+                        </span>
                       </Link>
+                      {/* Mission 7 item 2: same task, straight into Unstick
+                          Me — Captain's choice alongside "Do this", not a
+                          second engine deciding which tasks need it. */}
+                      {item.helpMeStartHref && (
+                        <Link
+                          href={item.helpMeStartHref}
+                          className="mt-1 inline-block rounded-md border border-wb-line px-2.5 py-1 text-[11px] font-semibold text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                        >
+                          Help me start
+                        </Link>
+                      )}
                     </li>
                   ))}
                   {needsYouItems.length > 3 && (
@@ -366,13 +395,23 @@ export default function LifeOSHub() {
               {/* Mission 6B Hub closure gap: Number One's new orchestration
                   capability was previously reachable only by knowing to
                   open Workbenches -> Advisory -> Think -> Advanced -> Number
-                  One. One direct link from the front door, not a chat
-                  widget embed — deep-links straight past that chain. */}
+                  One.
+                  Mission 7 update: the ambient Number One widget
+                  (components/ui/NumberOne.tsx, mounted globally via
+                  WorkbenchShell — the sparkle button, bottom-left) now
+                  covers the quick "what matters / I'm stuck / not now"
+                  cases this link used to be the only way to reach, in two
+                  taps with no page leave. This link is kept, reworded, for
+                  the genuinely different job it still does: a full,
+                  persisted, multi-turn thread (ConsultView saves the
+                  conversation) rather than the widget's ephemeral
+                  per-session turns — two purposes, not duplicate
+                  navigation for the same one (mission §17). */}
               <Link
                 href="/advisory-workbench?advisor=number_one"
                 className="text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
               >
-                Ask Number One
+                Open a full Number One session
               </Link>
               <button
                 type="button"

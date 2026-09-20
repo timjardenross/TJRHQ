@@ -121,7 +121,16 @@ export default function LoginPage() {
                 Captain Access
               </h2>
               <div className="flex flex-col gap-3">
+                {/* Mission 7 §31 accessibility pass: neither input had a
+                    label of any kind — relying on placeholder text alone,
+                    which disappears once typing starts and isn't reliably
+                    announced as a label by screen readers. The Magic Link
+                    form just below already uses the correct sr-only
+                    <label>+id pattern for the same email field; mirrored
+                    here rather than left inconsistent within one file. */}
+                <label htmlFor="password-form-email" className="sr-only">Email address</label>
                 <input
+                  id="password-form-email"
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
@@ -131,7 +140,9 @@ export default function LoginPage() {
                   required
                   disabled={loading}
                 />
+                <label htmlFor="password-form-password" className="sr-only">Password</label>
                 <input
+                  id="password-form-password"
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
@@ -150,7 +161,7 @@ export default function LoginPage() {
                   {loading ? 'Authenticating…' : 'Access Bridge'}
                 </button>
                 {error && (
-                  <p role="alert" className="text-xs text-state-crit-on">{error}</p>
+                  <p role="alert" className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-xs text-state-crit-on">{error}</p>
                 )}
               </div>
             </form>
@@ -195,7 +206,7 @@ export default function LoginPage() {
                   {loading ? 'Sending…' : 'Send Access Link'}
                 </button>
                 {error && (
-                  <p id="login-error" role="alert" className="text-xs text-state-crit-on">{error}</p>
+                  <p id="login-error" role="alert" className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-xs text-state-crit-on">{error}</p>
                 )}
               </div>
             </form>
@@ -207,7 +218,7 @@ export default function LoginPage() {
               <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full border border-state-ok bg-state-ok/10" aria-hidden="true">
                 <span className="text-xl text-state-ok-on">✓</span>
               </div>
-              <h2 className="mb-2 font-serif text-lg text-state-ok-on">Link sent</h2>
+              <h2 className="mb-2 inline-block rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 font-serif text-lg text-state-ok-on">Link sent</h2>
               <p className="text-sm text-wb-ink2">
                 Check <span className="text-wb-sage-deep">{email}</span> for your access link. It expires in 1 hour.
               </p>

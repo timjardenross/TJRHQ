@@ -94,6 +94,7 @@ export function CaptureStageBody({ item, onChanged }: { item: ContentItem; onCha
       <div>
         <p className="mb-1 text-[10px] uppercase tracking-wide text-wb-ink2">Framing angle</p>
         <input
+          aria-label="Framing angle"
           value={angle}
           onChange={(e) => setAngle(e.target.value)}
           placeholder="Suggested angle — confirm or rewrite"
@@ -527,6 +528,7 @@ export function ProofingStageBody({ item, onChanged }: { item: ContentItem; onCh
             </Button>
           </div>
           <input value={polishInstructions} onChange={(e) => setPolishInstructions(e.target.value)}
+            aria-label="Instructions for the AI-revised draft"
             placeholder="Optional: steer it — e.g. ‘tighten the close’, ‘cut the stat in paragraph 2’"
             className="w-full rounded-md border border-wb-line bg-wb-surface px-3 py-1.5 text-[12.5px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
         </div>
@@ -569,7 +571,7 @@ export function ProofingStageBody({ item, onChanged }: { item: ContentItem; onCh
             </div>
           );
         })}
-        <input value={qaNotes} onChange={(e) => setQaNotes(e.target.value)} placeholder="QA notes (optional)"
+        <input value={qaNotes} onChange={(e) => setQaNotes(e.target.value)} aria-label="QA notes" placeholder="QA notes (optional)"
           className="w-full rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-[13px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
       </div>
       <div className="flex flex-wrap items-center gap-2">

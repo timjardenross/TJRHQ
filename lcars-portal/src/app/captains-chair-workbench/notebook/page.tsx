@@ -463,6 +463,7 @@ export default function CaptainsNotebookWorkbenchPage() {
             <div className="flex flex-col gap-3">
               <textarea
                 ref={quickRef}
+                aria-label="Notebook capture"
                 value={captureContent}
                 onChange={(e) => setCaptureContent(e.target.value)}
                 rows={5}
@@ -493,6 +494,7 @@ export default function CaptainsNotebookWorkbenchPage() {
                 <p className="text-[10px] uppercase tracking-[0.25em] text-wb-ink2">Title (optional)</p>
                 <input
                   type="text"
+                  aria-label="Title (optional)"
                   value={captureTitle}
                   onChange={(e) => setCaptureTitle(e.target.value)}
                   placeholder="Leave blank to auto-title from content"
@@ -502,6 +504,7 @@ export default function CaptainsNotebookWorkbenchPage() {
               <div className="flex flex-col gap-1">
                 <p className="text-[10px] uppercase tracking-[0.25em] text-wb-ink2">Thought or intelligence</p>
                 <textarea
+                  aria-label="Thought or intelligence"
                   value={captureContent}
                   onChange={(e) => setCaptureContent(e.target.value)}
                   rows={4}
@@ -513,6 +516,7 @@ export default function CaptainsNotebookWorkbenchPage() {
                 <p className="text-[10px] uppercase tracking-[0.25em] text-wb-ink2">Tags (comma-separated, optional)</p>
                 <input
                   type="text"
+                  aria-label="Tags (comma-separated, optional)"
                   value={captureTags}
                   onChange={(e) => setCaptureTags(e.target.value)}
                   placeholder="strategy, delivery, health…"

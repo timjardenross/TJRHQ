@@ -16,10 +16,45 @@ export interface ModalProps {
 export function Modal({ open, onClose, title, variant = 'dialog', children }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Mission 7 §31 accessibility pass: Escape-to-close already existed, but
+  // nothing kept Tab/Shift+Tab inside the dialog — every one of this
+  // component's ~15 call sites let a keyboard/screen-reader user tab
+  // straight out into the page behind the open modal, off-screen and
+  // unannounced. Fixed once here rather than per call site.
   useEffect(() => {
     if (!open) return;
+    function focusableEls(): HTMLElement[] {
+      if (!panelRef.current) return [];
+      return Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => el.offsetParent !== null);
+    }
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const els = focusableEls();
+      if (els.length === 0) return;
+      const first = els[0];
+      const last = els[els.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (!panelRef.current?.contains(active)) {
+        // Focus somehow escaped the panel (e.g. programmatic focus() from
+        // outside) — pull it back in rather than let Tab continue into
+        // the page behind the modal.
+        e.preventDefault();
+        first.focus();
+      }
     }
     document.addEventListener('keydown', onKeyDown);
     panelRef.current?.focus();

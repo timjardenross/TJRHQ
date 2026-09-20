@@ -53,6 +53,21 @@ export function ActiveTaskView({
     await updateTaskState(task.id, 'in_progress');
   }
 
+  // Mission 7 §18/§29 continuity fix: whatever task the Captain is actually
+  // looking at here becomes the one Number One's ambient "I'm stuck" /
+  // "still can't start" / "too much" / "done" resolve "it" against —
+  // without this, only asking Number One "what matters?" first (a separate
+  // step the Captain shouldn't have to remember) set that. Fire-and-forget,
+  // same as this file's other best-effort writes — never blocks the
+  // execution UI, never surfaces an error of its own.
+  useEffect(() => {
+    fetch('/api/number-one/context', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ object_type: 'personal_task', object_id: task.id, object_title: task.title }),
+    }).catch(() => { /* best-effort — see comment above */ });
+  }, [task.id, task.title]);
+
   async function complete() {
     setBusy(true);
     await updateTaskState(task.id, 'completed');

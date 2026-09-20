@@ -92,7 +92,7 @@ function DomainSection({ domain, jobs }: { domain: string; jobs: AgentStatusEntr
           <h2 className="font-serif text-lg text-wb-ink">{label}</h2>
           <p className="text-[11px] uppercase tracking-wide text-wb-ink2">
             {jobs.length} job{jobs.length !== 1 ? 's' : ''}
-            {failedCount > 0 && <span className="ml-2 text-state-crit-on">{failedCount} failed</span>}
+            {failedCount > 0 && <span className="ml-2 rounded border border-state-crit/50 bg-state-crit/10 px-1.5 py-0.5 text-state-crit-on">{failedCount} failed</span>}
           </p>
         </div>
         {failedCount > 0 && <Badge status="error">{failedCount} Failed</Badge>}
@@ -175,7 +175,7 @@ export function JobsView() {
               <p className="text-2xl font-bold text-wb-ink">{jobs.length}</p>
               <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Total Jobs</p>
             </div>
-            <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
+            <div className="rounded-md border border-state-ok/40 bg-state-ok/10 p-3 text-center">
               <p className="text-2xl font-bold text-state-ok-on">{jobs.filter((j) => j.status === 'ok').length}</p>
               <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Healthy</p>
             </div>
@@ -183,7 +183,7 @@ export function JobsView() {
               <p className={`text-2xl font-bold ${totalFailed > 0 ? 'text-state-crit-on' : 'text-wb-ink'}`}>{totalFailed}</p>
               <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Failed</p>
             </div>
-            <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
+            <div className="rounded-md border border-state-unknown/40 bg-state-unknown/10 p-3 text-center">
               <p className="text-2xl font-bold text-state-unknown-on">{totalUnknown}</p>
               <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Unknown</p>
             </div>

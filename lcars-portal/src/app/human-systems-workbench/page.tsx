@@ -65,6 +65,7 @@ const TABS: { key: TabKey; label: string }[] = [
 
 const TRENDS_HREF = '/human-systems-workbench/trends';
 const REPORT_HREF = '/human-systems-workbench/report';
+const WEIGHT_HREF = '/human-systems-workbench/weight';
 
 function Workbench() {
   const router = useRouter();
@@ -149,6 +150,16 @@ function Workbench() {
         className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13px] font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
       >
         REPORT →
+      </button>
+      {/* WEIGHT — same "real navigation, not a tab" treatment (Mission 7
+       *  deferred-register item 12, closed): the 30-day weight-trend view
+       *  ported here from the retired (app)/medical/log-weight page. */}
+      <button
+        type="button"
+        onClick={() => router.push(WEIGHT_HREF)}
+        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13px] font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
+      >
+        WEIGHT →
       </button>
     </div>
   );

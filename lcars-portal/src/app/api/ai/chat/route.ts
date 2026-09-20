@@ -182,13 +182,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!process.env.OLLAMA_CLOUD_ENABLED || process.env.OLLAMA_CLOUD_ENABLED !== 'true') {
-    return NextResponse.json(
-      { error: 'AI Console is not enabled. Set OLLAMA_CLOUD_ENABLED=true in environment.' },
-      { status: 503 }
-    );
-  }
-
   let body: ChatRequest;
   try {
     body = await request.json();
@@ -202,11 +195,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'messages array is required' }, { status: 400 });
   }
 
-  // Mission 6B §4-9: Number One intercepts the 9 canonical Captain intents
-  // deterministically before any LLM call — see intent-router.ts's header
-  // comment for why this must not depend on LLM freeform side effects.
-  // Every other role (Chief Engineer, XO, advisory board, ...) is
-  // unaffected — this only fires for the number_one persona specifically.
+  // Mission 6B §4-9 / Mission 7 §9: Number One intercepts the 9 canonical
+  // Captain intents deterministically before any LLM call — see
+  // intent-router.ts's header comment for why this must not depend on LLM
+  // freeform side effects. Every other role (Chief Engineer, XO, advisory
+  // board, ...) is unaffected — this only fires for the number_one persona.
+  //
+  // Mission 7 fix: this must run BEFORE the OLLAMA_CLOUD_ENABLED gate below.
+  // These 9 intents are deterministic (regex classification + direct DB
+  // reads/writes) and never touch the LLM — gating them on an unrelated
+  // "is the chat model switched on" flag meant Number One's ambient
+  // ("Remember this", "Not now", "Done", ...) went dark in any environment
+  // where the optional LLM persona chat was simply never turned on, even
+  // though nothing about those intents needs it. Only the true LLM
+  // fallback below (an unrecognised message) needs the flag.
   if (role === 'number_one') {
     const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
     const classified = lastUserMessage ? classifyIntent(lastUserMessage.content) : null;
@@ -218,6 +220,13 @@ export async function POST(request: NextRequest) {
           : NextResponse.json({ content: dispatchResult.reply, model: 'number-one-dispatcher', role: 'number_one' });
       }
     }
+  }
+
+  if (!process.env.OLLAMA_CLOUD_ENABLED || process.env.OLLAMA_CLOUD_ENABLED !== 'true') {
+    return NextResponse.json(
+      { error: 'AI Console is not enabled. Set OLLAMA_CLOUD_ENABLED=true in environment.' },
+      { status: 503 }
+    );
   }
 
   // Use client-provided system prompt if supplied (user edited), else role preset

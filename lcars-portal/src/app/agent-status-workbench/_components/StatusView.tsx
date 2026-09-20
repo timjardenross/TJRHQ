@@ -69,6 +69,19 @@ const POSTURE_TEXT_CLASS: Record<Posture, string> = {
   unknown: 'text-wb-ink2',
 };
 
+// Mission 7 deferred-register item 14 (closed): state-*-on fails contrast
+// against the midnight theme — pair each -on text instance with the
+// already-passing border-state-* token (Phase 1A's own prescribed
+// mitigation for exactly this "colour alone" gap) rather than leaving it
+// as bare colour. A full contrast fix (shade revision) is still a Visual
+// Design Officer call, not decided here.
+const POSTURE_BORDER_CLASS: Record<Posture, string> = {
+  normal: 'border-state-ok/50 bg-state-ok/10',
+  degraded: 'border-state-warn/50 bg-state-warn/10',
+  attention: 'border-state-crit/50 bg-state-crit/10',
+  unknown: 'border-wb-line bg-transparent',
+};
+
 const TONE_GLYPH: Record<CapabilityTone, string> = {
   healthy: '✓',
   degraded: '⚠',
@@ -158,7 +171,7 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
     <div className="flex flex-col gap-4">
       {/* Headline verdict */}
       <Card>
-        <p className={`text-[16px] font-semibold ${POSTURE_TEXT_CLASS[posture]}`}>
+        <p className={`inline-block rounded border px-2 py-1 text-[16px] font-semibold ${POSTURE_TEXT_CLASS[posture]} ${POSTURE_BORDER_CLASS[posture]}`}>
           {POSTURE_GLYPH[posture]} {headline}
         </p>
 
@@ -181,7 +194,7 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
           </p>
         )}
 
-        <p className={`mt-3 text-[13px] font-medium ${narrative.actionRequired ? 'text-state-crit-on' : 'text-wb-ink2'}`}>
+        <p className={`mt-3 text-[13px] font-medium ${narrative.actionRequired ? 'inline-block rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-state-crit-on' : 'text-wb-ink2'}`}>
           {narrative.actionRequired ? '⚠ ' : ''}{narrative.actionNote}
         </p>
 

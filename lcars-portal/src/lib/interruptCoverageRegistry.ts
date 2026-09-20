@@ -312,7 +312,7 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     evidenceSource: 'missions (count), captains_log_entries, capacity_checkins',
     evaluationMethod: 'none',
     falsePositiveGuard: 'N/A - any real alerting should come from the owning capability, not this page.',
-    degradationBehaviour: 'MSN-0351: fetchAll() now has real try/catch/finally (was previously unguarded, could leave tiles at "—" forever on a rejection); reference sections are now explicitly labelled "authored doctrine, not live data" vs. "live" sections.',
+    degradationBehaviour: 'MSN-0351: fetchAll() now has real try/catch/finally (was previously unguarded, could leave tiles at "—" forever on a rejection); reference sections are now explicitly labelled "authored doctrine, not live data" vs. "live" sections. Mission 7 Phase 10: relocated from the orphaned (app)/operating-model page to knowledge-workbench/operating-model (Captain-directed) — same queries, same behaviour, new route only.',
     degradationIsHonest: true,
     knownGap: null,
   },
