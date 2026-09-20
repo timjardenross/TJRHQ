@@ -31,8 +31,6 @@ const VALID_NAV_HREFS = [
   // MSN-0344: found missing here despite being live in NAV_SECTIONS since
   // MSN-0328 (WP-B) — this list had silently drifted from the real nav.
   '/human-systems', '/recovery-brief', '/stage-progression', '/engineering',
-  // MSN-0344: relocated from orphan into the Platform section (see below).
-  '/operating-model',
   // MSN-0345: the Decisions area now has a real page.
   '/decisions',
   // Workbenches are now the primary navigation model.

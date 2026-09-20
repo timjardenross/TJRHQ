@@ -2,15 +2,17 @@
 
 **Type:** UI + UX + navigation + interaction design. Not a backend architecture programme —
 Missions 1–6 own the canonical machinery; this mission consumes and exposes it.
-**Status:** Active — Phases 1-9 shipped 2026-09-19 (same session, one PR). This is a large,
-multi-phase mission; this record is honest about what's actually closed versus what remains
-open (see §5/§6/§6.1). Phase-by-phase build record: §3 (Phase 1: ambient Number One,
+**Status:** Active — Phases 1-10 shipped 2026-09-19/20 (same session, one PR). This is a
+large, multi-phase mission; this record is honest about what's actually closed versus what
+remains open (see §5/§6/§6.1). Phase-by-phase build record: §3 (Phase 1: ambient Number One,
 navigation fixes, directory grouping, Hub/Chair actionability), §3.1 (Phase 2: Hub→Ready Room
 continuity), §3.3 (Phase 3: accessibility — Modal focus trap, aria-live), §3.4-3.6 (Phases
 4-5: dead-code sweep, 5 legacy pages retired), §3.7 (Phase 6: Search/Timeline relocated from
 dead-page risk into live workbenches), §3.8 (Phase 7: `operations` converted), §3.9 (Phase 8:
-contrast/label audit), §3.10 (Phase 9: 2 of the 4 remaining deferred items closed —
-weight-trend view ported, `state-*`/midnight text paired with outline/ring).
+contrast/label audit), §3.10 (Phase 9: weight-trend view ported, `state-*`/midnight text
+paired with outline/ring), §3.11 (Phase 10: `operating-model` relocated into Knowledge
+Workbench, closing legacy-page retirement 8/8). 2 of the 4 items from the Phase 8 deferred
+register remain open (items 1 and 7 — both genuinely blocked on live-environment access).
 **Branch:** `claude/tjr-hq-mission-7-az63cy`.
 
 ## 0. Mission question
@@ -551,6 +553,49 @@ Items 1 (full per-workbench template write-up) and 7 (before/after screenshots) 
 confirmed with the Captain this pass — both still need eyes on a rendered app this environment
 can't provide.
 
+## 3.11 Phase 10 — `operating-model` relocated (closing the last open bullet of item 11,
+   Captain-directed: relocate, not keep-as-reference or reaffirm/rewrite)
+
+Asked directly which of the 3 options from item 11 (keep as reference / relocate / reaffirm-
+rewrite) to take, Captain chose relocate. `knowledge-workbench` was the identified target —
+it already owns "command memory, searchable" (`architecture_records` et al.), and this static
+doctrine/principles content (6 Domains, 6 Principles, a Schedule block, plus 3 live Supabase
+queries) is exactly that kind of durable reference material, just never filed there.
+
+**What moved:** `(app)/operating-model/page.tsx` (249 lines, `LCARSPanel`) is deleted; its
+full content and all 3 live queries (`missions` count, latest `captains_log_entries`, latest
+`capacity_checkins`) are ported verbatim into
+`knowledge-workbench/operating-model/page.tsx`, reshelled onto `WorkbenchShell`/`Card`/`wb-*`
+tokens. Reachable via a real "OPERATING MODEL →" nav button on `knowledge-workbench/page.tsx`
+— same "real navigation, not a tab" treatment Human Systems' TRENDS/REPORT/WEIGHT buttons
+already use (Phase 9, §3.10), not a new pattern invented for this page.
+
+**One real correction made mid-build, not shipped blind:** the original page colour-coded
+each Domain and Schedule row by department (`text-medical-on`, `text-command-on`,
+`text-science-on`, `text-operations-on`). `npx eslint` caught this immediately once the file
+sat inside a `*-workbench` route — department tokens are explicitly disallowed there
+(`WORKBENCH-REVIEW.md` H9, `no-restricted-syntax`); workbenches are `wb-*`/`state-*` only.
+Fixed by dropping the per-domain/per-schedule-row colour entirely (it was decorative in the
+original, not informative — losing it loses nothing real) and remapping the P0-P3 priority
+badges onto the sanctioned `state-*` severity vocabulary (P0→`state-crit`, P1→`state-warn`,
+P2→`state-info`, P3→`state-ok`) instead of inventing a new colour scheme, consistent with the
+"one severity vocabulary, not a 7th" discipline this codebase already enforces elsewhere
+(`OutcomesView.tsx`'s own header comment cites the same precedent).
+
+**Small registry hygiene alongside the move:** `lib/nav.ts`'s `VALID_NAV_HREFS` had a stale
+`/operating-model` entry with a comment claiming it lived in `NAV_SECTIONS`'s "Platform"
+section — checked, and that section only actually contains `/workbenches` and `/briefs`
+(the comment was already inaccurate before this pass, a leftover from before the Starship-
+rewrite nav demotion). Removed rather than left to drift further.
+`lib/interruptCoverageRegistry.ts`'s `operating-model` capability entry updated with a note
+of the route change — same queries, same behaviour, new route only, not a new finding.
+
+**Not resolved by this relocation, and not claimed to be:** the doctrine content itself (do
+the 6 Domains/Principles/Schedule still reflect current priorities?) is untouched — that was
+always the separate "reaffirm/rewrite" option, which the Captain didn't choose this pass.
+`npx tsc --noEmit` and `npx eslint` both pass clean; no existing test suite covers Knowledge
+Workbench to re-run.
+
 ## 4. Core end-to-end test (§40) — status
 
 The backend path this test exercises (remember → what am I forgetting → help me start →
@@ -674,12 +719,12 @@ where the next pass should start:
     adversarial pass (the items §45 itself lists: duplicate navigation, stale UI state,
     misleading state, back-button problems, giant text walls, notification loops, ...) was
     not run as its own exercise across the whole product.
-11. **Legacy `(app)`-group page retirement — 7 of 8 resolved (§3.8 closes the last tractable
-    one).** 6 converted to honest stubs (`medical`, `captains-log`, `automation-centre`,
-    `intelligence`, `engineering`, `operations`); `search` and `timeline` relocated rather
-    than retired (§3.7, real capabilities, now live at their own top-level routes). Only
-    `operating-model` remains open, deliberately — a Captain call, not an engineering one; see
-    below. See §3.4/§3.5/§3.6/§3.7/§3.8 for the full evidence trail per page:
+11. **Legacy `(app)`-group page retirement — CLOSED, 8 of 8 resolved (§3.11 closes the
+    last one, Phase 10).** 6 converted to honest stubs (`medical`, `captains-log`,
+    `automation-centre`, `intelligence`, `engineering`, `operations`); `search` and `timeline`
+    relocated rather than retired (§3.7, real capabilities, now live at their own top-level
+    routes); `operating-model` relocated into Knowledge Workbench (§3.11, Captain-directed).
+    See §3.4/§3.5/§3.6/§3.7/§3.8/§3.11 for the full evidence trail per page:
     - `intelligence` (693 lines, the largest page in the sweep) — **converted in Phase 5**.
       All 6 tabs traced through `/api/intelligence`'s actual table queries (not tab names
       alone): Latest Brief/Daily Briefs/ORI Archive → `intelligence_briefs`/
@@ -707,11 +752,20 @@ where the next pass should start:
       well-cared-for code to be retiring: its own header comment documents MSN-0351 removing
       a fabricated "Cognitive Load Reduction" composite score it used to compute, in favour of
       honest separate rates — good work, just for data with no evidence of still flowing.
-    - `operating-model` (249 lines) — **deliberately not converted, different reason than the
-      others.** Static doctrine/principles content with no duplicate anywhere else in the
-      app and no internal sign of staleness — retiring it risks silently deleting real
-      content, not clearing a redundant view. Needs a Captain call (keep as reference,
-      relocate, or reaffirm/rewrite), not an engineering decision.
+    - `operating-model` (249 lines) — **RELOCATED in Phase 10 (§3.11), closed.** Given 3
+      options (keep as reference, relocate, reaffirm/rewrite — none an engineering call),
+      Captain chose relocate. Now live at `knowledge-workbench/operating-model/page.tsx`,
+      reshelled onto `WorkbenchShell`/`Card`/`wb-*` tokens, reachable via a real "OPERATING
+      MODEL →" nav button on the main Knowledge Workbench page (same "real navigation, not a
+      tab" treatment Human Systems' TRENDS/REPORT/WEIGHT already use). Same content, same 3
+      live Supabase queries (`missions` count, latest `captains_log_entries`, latest
+      `capacity_checkins`) — nothing about the doctrine content itself or its live-data
+      behaviour changed, only where it lives. The old `(app)/operating-model/page.tsx` is
+      deleted; `lib/nav.ts`'s `VALID_NAV_HREFS` and `lib/interruptCoverageRegistry.ts`'s
+      `operating-model` capability entry both updated to match. One thing this relocation
+      *didn't* resolve: the content itself (6 Domains, 6 Principles, a Schedule block) is
+      unreviewed authored doctrine — whether it still reflects current priorities stays a
+      separate, still-open Captain call, not something a relocation can answer.
     - `search` (287 lines) and `timeline` (315 lines) — **RELOCATED in Phase 6 (§3.7), not
       retired.** Both were real, currently-maintained, unique capabilities (cross-domain
       search and a cross-domain unified timeline) with zero navigation path in — the opposite
@@ -794,7 +848,7 @@ verified, different system) — no live-environment mobile testing was possible 
 | `/shopping-list-workbench` | Prioritised buy list | own tables | `WorkbenchShell`, current | KEEP — not deeply reviewed this pass |
 | `/content-workbench` | Capture→draft→proof→publish pipeline | `comms_content`/`content_signals` | `WorkbenchShell`, current, kanban already demoted off mobile default | KEEP — absorbed `/intelligence`'s Content tab this mission |
 | `/advisory-workbench` | Multi-persona consult incl. Number One's full session | `advisory_sessions` | `WorkbenchShell`, current | KEEP — clarified vs. the new ambient widget, Phase 2 |
-| `/knowledge-workbench` | Command memory, searchable | `architecture_records` et al. | `WorkbenchShell`, current | KEEP — Library branch intentionally paused, not dead |
+| `/knowledge-workbench` (+`operating-model`) | Command memory, searchable; now also the relocated Operating Model doctrine page | `architecture_records` et al.; `missions`/`captains_log_entries`/`capacity_checkins` | `WorkbenchShell`, current | KEEP — Library branch intentionally paused, not dead; `operating-model` relocated in Phase 10 |
 | `/agent-status-workbench` | Is HQ itself working properly | `domain_heartbeats` | `WorkbenchShell`, current | KEEP — now the confirmed successor for 3 retired pages |
 | `/self-improvement-findings` (HQ Evolution) | Overnight discovery/improvement | own tables | `WorkbenchShell`, current | KEEP |
 | `/engineering-handoffs` | Approved handoffs, direct PR links | `engineering_handoff_reader.py` | `WorkbenchShell`, current | KEEP — exemplary scope discipline, deliberately read-only |
@@ -809,9 +863,9 @@ verified, different system) — no live-environment mobile testing was possible 
 | `(app)/intelligence` | *(retired this mission)* | — | — | **RETIRED Phase 5** — 3-way stub, all successors verified live |
 | `(app)/engineering` | *(retired this mission)* | — | — | **RETIRED Phase 5** — thorough-but-negative backend trace |
 | `(app)/operations` | *(retired this mission)* | — | — | **RETIRED Phase 7** — 3-link stub; Commander Events flagged honestly, not dropped or blocked on |
-| `(app)/operating-model` | Static operating principles/doctrine | none (static content) | legacy, not current | **HOLD — Captain call**, not an engineering decision |
+| `(app)/operating-model` | *(relocated this mission)* | — | — | **RELOCATED Phase 10** — Captain-directed; now `knowledge-workbench/operating-model` |
 | `(app)/decisions`, `/captains-brief`, `/captains-chair`, `/home`, `/knowledge`, `/knowledge-library`, `/missions`, `/medical/check-in`, `/medical/log-activity` | Pre-existing redirect stubs | — | — | KEEP as-is — already correctly retired by earlier missions, verified still accurate |
-| `(app)/medical/log-weight` | 30-day weight-trend history, entry retired | `weight_logs` | legacy, not current | **KEEP, flagged** — real capability, no `human-systems-workbench` equivalent yet (§5 item 12) |
+| `(app)/medical/log-weight` | *(relocated this mission)* | — | — | **RELOCATED Phase 9** — now `human-systems-workbench/weight` (§5 item 12, closed) |
 
 Not inventoried: the other ~15 `(app)`-group routes untouched this mission (`stage-progression`,
 `comms`, `delivery`, `operating-model`'s siblings, etc.) — most are already confirmed
