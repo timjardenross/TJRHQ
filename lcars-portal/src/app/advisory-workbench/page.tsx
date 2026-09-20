@@ -76,6 +76,7 @@ function Workbench() {
       tagline="USS TJR · Advisory · Think through a decision, challenge your assumptions, and get another perspective · Advisory only. You decide what happens next."
       tabs={<DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Advisory mode" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
+      mode="read"
     >
       <div className="mb-4">
         <ProactiveBanner onThinkItThrough={thinkItThrough} />

@@ -1019,3 +1019,84 @@ some other affordance) is this session's best-reasoned call, not a Captain-confi
 decision — same treatment as Phase 1's sidebar footer motto. Revisit if the Captain's own
 mockup review (once seen live, not just from Image 2's tab-bar glyphs, which don't show what
 "More" expands to) says otherwise.
+
+### Phase 7 — Stream C: mode prop applied to the 7 unambiguous unmocked workbenches
+    (2026-09-20)
+
+Scope: of the 11 workbenches with no mockup (§1.7), the 7 whose §1.8 classification is
+already unambiguous — Capture Workbench, Mission Workbench, HQ Status (Command/Focus, dark)
+and Weekly Review, Advisory, Knowledge Workbench, HQ Evolution (Read, light). This is Stream
+C's "migrate remaining workbenches by classification" via the `mode` prop Stream A already
+built (§4) — a lighter touch than Stream B/B2's mockup-driven reference-surface rebuilds, not
+a redesign of any of these 7 pages.
+
+**Mode applied, all via `WorkbenchShell`'s existing `mode` prop, no new Surface components
+forked:**
+- **Capture Workbench** (`app/capture-workbench/page.tsx`) → `mode="command"`. §1.8 places it
+  in the combined "Command/Focus (dark)" bucket without a command/focus split; reasoned as
+  `command` here specifically because its content (`KpiDashboard` + `InboxView`) is a
+  scannable multi-item triage surface — closer to §1.1's "scannable, multi-item,
+  orientation-first" Command definition than Focus's "one dominant task."
+- **Mission Workbench** (`app/mission-workbench/page.tsx`) → `mode="command"`. Same reasoning:
+  a mission list with a dominant filter row is multi-item/orientation-first, not single-task
+  execution depth.
+- **HQ Status** (`app/agent-status-workbench/page.tsx`) → `mode="command"`. §1.8 itself
+  describes it as "a multi-tab status dashboard" — the clearest Command-shaped case of the
+  three.
+- **Weekly Review** (`app/weekly-review/page.tsx`) → `mode="read"`.
+- **Advisory** (`app/advisory-workbench/page.tsx`) → `mode="read"`.
+- **Knowledge Workbench** (`app/knowledge-workbench/page.tsx`) → `mode="read"`.
+- **HQ Evolution** (`app/self-improvement-findings/page.tsx`) → `mode="read"` on both
+  `WorkbenchShell` call sites in the file (the loading-state shell and the main one) — the
+  page renders one or the other depending on load state, never both, so both needed the
+  explicit prop for the mode to be correct regardless of which one is showing at a given
+  moment.
+
+**Note on Command vs. Focus for the 3 dark pages:** §1.8's own text groups Capture, Mission
+Workbench and HQ Status together as "Command/Focus (dark)" without assigning each an
+individual sub-mode the way it explicitly did for Hub (Command) vs. Ready Room/Human Systems
+(Focus). This phase's `command` choice for all three is a reasoned extrapolation of §1.1's
+density distinction (multi-item/scannable → Command, single dominant task → Focus), not a
+Captain-confirmed sub-classification — flagged here in case the Captain's own read differs
+once these render live. It doesn't affect the acceptance bar either way, since both `command`
+and `focus` share one dark Surface variant (§1.1) — this only matters if a future phase gives
+the two sub-modes genuinely different treatment.
+
+**Hardcoded-colour check (§3.3 cross-reference):** grepped all 7 touched files for
+`(bg|text|border)-lcars-*` classes, department-colour classes (`text-command`,
+`bg-engineering`, etc.) and raw hex codes — zero hits in any of the 7. None of these files
+appear on Stream D's §3.3 discovery lists either. No bonus cleanup was needed or done; the
+change in every file is the one added `mode` prop line.
+
+**Explicitly not touched this phase, per the task's own instruction — the 5 workbenches
+§1.8 itself flags as ambiguous, still needing a Captain decision, not a guess:**
+1. **Physical Readiness** (`app/physical-readiness/page.tsx`) — §1.8: "exercise
+   library/history, read-only record" could read either way — structured log data (Focus) vs.
+   a page whose job is reading records (Read).
+2. **Content Workbench** (`app/content-workbench/page.tsx`) — §1.8: mixed — the
+   Today/Pipeline/Library tabs are action/kanban-shaped (Focus), but the Studio
+   (drafting/editing a piece of content) is genuinely writing-heavy; may need a per-view mode
+   rather than one classification for the whole page.
+3. **Search** (`app/search/page.tsx`) — §1.8: browsing text results could lean Read, but the
+   page's own PRIMARY ACTION is the search box itself (an input/action), not passive reading.
+4. **Timeline** (`app/timeline/page.tsx`) — §1.8: a chronological feed; entries are
+   short/scannable per Phase 16's own NOISE finding (leans Focus), but "reading a feed" leans
+   Read — genuinely unclear from the existing record.
+5. **Engineering Handoffs** (`app/engineering-handoffs/page.tsx`) — §1.8: "deliberately
+   read-only" per its own name, but its actual content is mostly PR links/metadata, not
+   long-form text — the external PR itself carries the heavy wording, not this page.
+
+No `mode` prop was set on any of these 5; they keep `WorkbenchShell`'s default (`'focus'`)
+until the Captain rules on each, per the task's explicit instruction not to guess here.
+
+**Verified:**
+- `npx tsc --noEmit` — clean, whole project.
+- `npx eslint` on all 7 touched files individually — clean, zero warnings/errors.
+- Full test suite: 725 tests / 69 files, all green (`npm run test`) — same count as Phase
+  1/2/6's stated baseline, confirmed current at the start of this phase before starting work.
+- `npm run build` — production build, run in full per this mission's own convention of a full
+  build check after touching many pages (result recorded at commit time below).
+
+Next: the 5 ambiguous workbenches above remain open Stream C work, gated on a Captain
+decision per page, not a guess. Remaining Stream D scope (`delivery` LCARS migration, §3.3/
+§3.4 colour-class cleanup, `LCARSPanel.tsx` retirement) also still open.

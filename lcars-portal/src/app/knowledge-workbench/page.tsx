@@ -41,7 +41,8 @@ function Workbench() {
     <WorkbenchShell wide title="Knowledge Workbench" eyebrow="Command Memory"
       tagline="USS TJR · Knowledge · Memory · Organisational decisions"
       tabs={tabsRow}
-      back={{ href: '/workbenches', label: 'Workbenches' }}>
+      back={{ href: '/workbenches', label: 'Workbenches' }}
+      mode="read">
       <MemoryView />
     </WorkbenchShell>
   );
