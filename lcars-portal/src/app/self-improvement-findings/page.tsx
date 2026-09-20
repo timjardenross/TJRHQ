@@ -30,6 +30,19 @@ import {
 
 type TabKey = 'discover' | 'investigate' | 'improve' | 'learned' | 'rejected';
 
+const LIFECYCLE_STAGES: Array<{ key: Opportunity['lifecycle_state']; label: string }> = [
+  { key: 'discovered', label: 'Discovered' },
+  { key: 'investigating', label: 'Investigating' },
+  { key: 'proposed', label: 'Proposed' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'implementing', label: 'Implementing' },
+  { key: 'verifying', label: 'Verifying' },
+  { key: 'learned', label: 'Learned' },
+  { key: 'watching', label: 'Watching' },
+  { key: 'rejected', label: 'Rejected' },
+  { key: 'resolved_before_research', label: 'Resolved before research' },
+];
+
 const REFRESH_MS = 60_000;
 
 function usePolling(load: () => void) {
@@ -227,6 +240,11 @@ export default function HqEvolutionPage() {
     }
     return counts;
   }, [opportunities]);
+  const lifecycleCounts = useMemo(() => {
+    const counts = Object.fromEntries(LIFECYCLE_STAGES.map(({ key }) => [key, 0])) as Record<Opportunity['lifecycle_state'], number>;
+    opportunities.forEach((o) => { counts[o.lifecycle_state] = (counts[o.lifecycle_state] ?? 0) + 1; });
+    return counts;
+  }, [opportunities]);
 
   const selected = opportunities.find((o) => o.opportunity_id === selectedId) || null;
   const selectedLegacyFinding = legacyFindings.find((f) => f.finding_id === selectedFindingId) || null;
@@ -285,6 +303,24 @@ export default function HqEvolutionPage() {
           ✓ {notice}
         </p>
       )}
+
+      <Card>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h2 className="font-serif text-lg text-wb-ink">Evolution lifecycle</h2>
+            <p className="text-xs text-wb-ink2">Every opportunity has one explicit state from discovery through learning or rejection.</p>
+          </div>
+          <span className="text-[11px] text-wb-ink2">{opportunities.length} total</span>
+        </div>
+        <ol aria-label="HQ Evolution lifecycle states" className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:grid-cols-10">
+          {LIFECYCLE_STAGES.map(({ key, label }) => (
+            <li key={key} className="rounded-md border border-wb-line bg-wb-bg p-2">
+              <p className="text-lg font-bold text-wb-ink">{lifecycleCounts[key]}</p>
+              <Badge status={toneToStatus(lifecycleStateToTone(key))}>{label}</Badge>
+            </li>
+          ))}
+        </ol>
+      </Card>
 
       {tab === 'discover' && (
         <DiscoverTab
