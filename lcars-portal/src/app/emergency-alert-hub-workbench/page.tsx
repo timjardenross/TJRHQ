@@ -680,24 +680,29 @@ export default function EmergencyAlertsWorkbench() {
           </Card>
         ) : (
           <>
-            <div className="flex gap-2">
+            {/* Endeavour 27 Stream E: 3 buttons ("Browse all alerts" is the
+                long one) with no wrap fallback overflowed at 375px -- same
+                class of defect as Briefs' TabBar, fixed the same way
+                (DomainToggle.tsx's established flex-nowrap + overflow-x-auto
+                scroll pattern rather than a new one). */}
+            <div className="flex flex-nowrap gap-2 overflow-x-auto [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory">
               <button
                 onClick={() => setView('overview')}
-                className={`rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'overview'}
               >
                 Current
               </button>
               <button
                 onClick={() => setView('browse')}
-                className={`rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'browse' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'browse' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'browse'}
               >
                 Browse all alerts
               </button>
               <button
                 onClick={() => setView('silences')}
-                className={`rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'silences' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'silences' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'silences'}
               >
                 Silences{activeSilences.length > 0 ? ` (${activeSilences.length})` : ''}

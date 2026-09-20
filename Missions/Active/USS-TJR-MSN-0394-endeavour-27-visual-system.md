@@ -1356,3 +1356,69 @@ mission's explicit scope fence):**
 Streams E, F, and G authorised to proceed under this discipline: verify `tsc`/`eslint`/
 `build`/test suite after every merge, flag anything else genuinely ambiguous rather than
 guessing, live-rendered verification deferred to production per the Captain's own call above.
+
+### Phase 12 — Stream E: Responsive hardening, code-review pass (2026-09-20)
+
+Reviewed every page this mission has restyled so far for responsive correctness at the 5
+target viewport classes (§1.4: desktop/laptop/iPad landscape/iPad portrait/iPhone), by reading
+the actual Tailwind classes against the codebase's own established breakpoint conventions —
+no live rendering, per Phase 11's authorisation (no Playwright/Supabase access in this
+container; real verification deferred to the live Vercel preview/production, not silently
+skipped).
+
+**Files reviewed, no defect found (already sound):** `hub/page.tsx` (4-tile stat grid and
+Quick Access grid already `grid-cols-2 sm:grid-cols-4`), `ready-room/page.tsx` +
+`ActiveTaskView.tsx` + `TodayStream.tsx` (button rows already `flex-wrap`, no fixed widths),
+`shopping-list-workbench/page.tsx` + `ItemFormModal.tsx` + `ItemRow.tsx` (3-stat row already
+`grid-cols-1 sm:grid-cols-3`, filter row and action-button row already `flex-wrap`),
+`intelligence-workbench/page.tsx` + `_components/TodayView.tsx`, `health-osint/page.tsx`,
+`captains-chair-workbench/page.tsx` (all three already use `DomainToggle` — which itself
+already carries the established `flex-nowrap` + `overflow-x-auto` + snap-scroll overflow
+fallback, from a 2026-08-09 P0 fix documented in `DomainToggle.tsx` — or already-responsive
+`grid-cols-1`/`sm:`/`lg:` grids), `components/ui/Sidebar.tsx` (the new full-workbench-list
+sidebar: `h-[100dvh]` + `overflow-y-auto` on the `<aside>` itself already scrolls the whole
+nav — group headers, all 20 `LIVE_WORKBENCHES` entries, and the Settings/Help/motto footer —
+independently of page content height; `justify-between` only affects layout when content is
+*shorter* than the viewport, so it doesn't fight the scroll case; no defect, despite being the
+component most likely to have one per the task brief), `components/MobileCommandBar.tsx`
+(Hub/Ready/Ask/More tabs are `flex-1` with no fixed widths, `min-h-[56px]` touch targets, More
+sheet reuses the already-hardened `Modal` primitive), `components/ui/WorkbenchShell.tsx`
+(header already `flex-wrap` on both the outer row and the `right` slot cluster, per Mission 7
+Phase 15's own fix).
+
+**Real defects found and fixed (2 files) — both the same class: a tab-like button row built
+by hand instead of via the shared `DomainToggle` primitive, missing the overflow protection
+`DomainToggle` already has:**
+- `briefs/page.tsx`'s `TabBar` (Latest/Domains/Timeline/Explore, 4 tabs) — `flex gap-2` with
+  no wrap or scroll fallback. Width-summed at the actual `text-[13px]`/`px-4 py-1.5` sizing,
+  the 4 tabs plus 3 gaps exceed a 375px iPhone's available width after `WorkbenchShell`'s
+  `px-6` header padding, which would have either wrapped ugly (no `flex-wrap`) or forced the
+  whole header row into horizontal scroll. Fixed to match `DomainToggle.tsx`'s own established
+  `flex-nowrap` + `overflow-x-auto` + `snap-x snap-mandatory` + `shrink-0 snap-start` pattern
+  (a deliberate horizontal scroll, not an accidental clip — same reasoning as that file's own
+  2026-08-09 P0 fix) rather than inventing a new one.
+- `emergency-alert-hub-workbench/page.tsx`'s Current/Browse all alerts/Silences view switcher
+  — same defect (`flex gap-2`, no wrap/scroll), same fix. "Browse all alerts" is the longest
+  label of the three and the most likely to be the one that pushes the row over on a phone.
+
+Both are hand-rolled `role`-less/`role="tablist"` button rows predating this mission's
+`DomainToggle` consolidation (WORKBENCH-REVIEW.md H9/H12) — not migrated to `DomainToggle`
+itself in this pass (that would be a component-identity change beyond this stream's
+responsive-hardening scope), just given the same overflow behaviour.
+
+**Flagged, not fixed (ambiguous — ships to a future pass):** none found this phase. Every
+`grid-cols-N` in the reviewed files already carries a `sm:`/`lg:`/`xl:` variant; no fixed
+pixel widths on interactive elements below `sm:`; no touch target under 44px was found beyond
+what Mission 7 Phase 15 already hardened; `WorkbenchSwitcher`'s `<select>` width-cap (Mission 7
+Phase 15) and `Modal`'s bottom-sheet-below-`sm:` behaviour (2026-08-09 P3) were both already
+correct and out of this phase's file list regardless.
+
+**Verified:** `npx tsc --noEmit` clean, `npx eslint` clean on both touched files
+(`briefs/page.tsx`, `emergency-alert-hub-workbench/page.tsx`), full `npm run test` suite
+(725/725 passing — same count as Phase 10's baseline, no regression), `npm run build` (exit
+0, all routes including `/briefs` and `/emergency-alert-hub-workbench` present in the route
+manifest at expected bundle sizes).
+
+**Live-rendered verification: deferred to production**, per Phase 11's explicit Captain
+authorisation (no Playwright/Supabase access in this container) — not attempted, not silently
+skipped.
