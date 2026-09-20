@@ -30,7 +30,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode } from 'react';
 import { Settings } from 'lucide-react';
-import { LIVE_WORKBENCHES, PRIMARY_ACTIONS } from '@/lib/workbenches';
+import { LIVE_WORKBENCHES, PRIMARY_ACTIONS, WORKBENCH_GROUP_META, type WorkbenchGroup } from '@/lib/workbenches';
 import { MobileCommandBar } from '@/components/MobileCommandBar';
 import { NumberOne } from './NumberOne';
 import { QuickCapture } from './QuickCapture';
@@ -43,7 +43,7 @@ const GLOBAL_HOME = '/workbenches';
 function WorkbenchSwitcher() {
   const router = useRouter();
   const pathname = usePathname();
-  const current = LIVE_WORKBENCHES.find((w) => pathname?.startsWith(w.href))?.href ?? '';
+  const currentGroup = LIVE_WORKBENCHES.find((w) => pathname?.startsWith(w.href))?.group ?? '';
 
   return (
     // Mission 7 item 1 (Phase 14 finding, Phase 15 fix): this <select> had
@@ -54,13 +54,13 @@ function WorkbenchSwitcher() {
     // list still shows full titles untruncated (native <select> behaviour).
     <select
       aria-label="Switch workbench"
-      value={current}
+      value={currentGroup ? `/workbenches?group=${currentGroup}` : ''}
       onChange={(e) => { if (e.target.value) router.push(e.target.value); }}
       className="w-[92px] max-w-[92px] truncate rounded-md border border-wb-line bg-wb-surface px-2 py-1 text-[12px] text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep sm:w-auto sm:max-w-[180px]"
     >
-      {!current && <option value="" disabled>Switch workbench…</option>}
-      {LIVE_WORKBENCHES.map((w) => (
-        <option key={w.href} value={w.href}>{w.title}</option>
+      {!currentGroup && <option value="" disabled>Choose a family…</option>}
+      {(Object.keys(WORKBENCH_GROUP_META) as WorkbenchGroup[]).map((group) => (
+        <option key={group} value={`/workbenches?group=${group}`}>{WORKBENCH_GROUP_META[group].label}</option>
       ))}
     </select>
   );
