@@ -41,7 +41,6 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Badge, Card, WorkbenchShell, toneToStatus } from '@/components/ui';
 import { emergencyAlertTierToTone } from '@/lib/departments';
-import { AttentionControls } from '@/components/AttentionControls';
 import type { EmergencyAlertEntry } from '@/app/api/emergency-alerts/route';
 import type { EmergencyAlertSourceEntry } from '@/app/api/emergency-alerts/sources/route';
 import type { AlertSilenceEntry } from '@/app/api/emergency-alerts/silences/route';
@@ -669,7 +668,6 @@ export default function EmergencyAlertsWorkbench() {
       wide
       mode="command"
     >
-      <AttentionControls label="Alert attention" />
       <div className="risk-reference-surface risk-reference-command flex flex-col gap-4">
         <div className="risk-reference-kicker">Command / intelligence · immediate state first</div>
         {isLoading ? (

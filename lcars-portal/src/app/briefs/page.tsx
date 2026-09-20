@@ -16,7 +16,6 @@ import * as Collapsible from '@radix-ui/react-collapsible';
 import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
 import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
 import { EvidenceMeta } from '@/components/EvidenceMeta';
-import { AttentionControls } from '@/components/AttentionControls';
 import type { ApprovalStatus, BriefListItem } from '@/lib/briefsShared';
 import { buildMorningIntelligenceView, isToday } from '@/lib/briefsShared';
 import type { DomainsDocument } from '@/lib/domainsShared';
@@ -381,7 +380,6 @@ export default function BriefsPage() {
       tabs={<TabBar active={tab} onChange={setTab} />}
       mode="command"
     >
-      <AttentionControls label="Brief attention" />
       <div className="read-reference-surface">
         <div className="read-reference-kicker">Read mode · canonical intelligence record</div>
         {error && <DataAvailabilityNotice sources={[`Briefs: ${error}`]} className="mb-4" />}
