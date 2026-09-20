@@ -23,6 +23,7 @@ import { STATUS_OPTIONS, statusToBadge, fmtDate } from '../_components/shared';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 import type { Mission } from '@/lib/types';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 
 function Field({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
   if (!value) return null;
@@ -153,6 +154,7 @@ export default function MissionWorkbenchDetailPage() {
         </Card>
 
         <Card title="Mission Details">
+          <EvidenceMeta source="Mission registry" observedAt={mission.updated_at} confidence={mission.status ? `Status: ${mission.status}` : undefined} />
           <div className="grid grid-cols-2 gap-x-6 gap-y-4">
             <Field label="Mission ID" value={mission.mission_id} />
             <Field label="Status" value={mission.status} />

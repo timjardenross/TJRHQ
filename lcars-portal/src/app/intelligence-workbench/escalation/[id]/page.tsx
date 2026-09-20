@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
 import { EvidenceMeta } from '@/components/EvidenceMeta';
+import { ActionOutcome } from '@/components/ActionOutcome';
 import { runAction } from '../../_components/actions';
 
 const DIM_LABEL: Record<string, string> = {
@@ -137,7 +138,7 @@ export default function Escalation({ params }: { params: { id: string } }) {
               </button>
             </div>
             {busy && <p className="mt-3 text-[12px] text-wb-ink2" aria-live="polite">Working: {busy}…</p>}
-            {msg && <p className="mt-3 text-[12px]" aria-live="polite">{msg}</p>}
+            <ActionOutcome message={msg} tone={msg?.startsWith('✓') ? 'success' : 'error'} />
           </Card>
 
           {/* Screen 5 — stand-down */}
