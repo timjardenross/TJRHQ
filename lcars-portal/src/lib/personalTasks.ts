@@ -438,6 +438,7 @@ export async function updateTaskState(
     const supabase = createSupabaseBrowserClient();
     const { error } = await supabase.from('personal_tasks').update(patch).eq('id', id);
     if (error) return { ok: false, error: error.message };
+    void fetch('/api/action-history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'personal_task_state_changed', outcome: 'recorded', details: { task_id: id, work_state } }) }).catch(() => {});
     return { ok: true, id };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Failed to update task.' };

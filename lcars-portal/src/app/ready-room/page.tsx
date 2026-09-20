@@ -49,6 +49,7 @@ function Workbench() {
   const hadExplicitDomain = isDomain(initialDomain);
   const [domain, setDomain] = useState<Domain>(hadExplicitDomain ? initialDomain : 'do');
   const [todayBadge, setTodayBadge] = useState<number | undefined>(undefined);
+  const [taskStates, setTaskStates] = useState<Record<string, number>>({});
   const [refreshSignal, setRefreshSignal] = useState(0);
   // Mission 4: true while either sub-view is showing ActiveTaskView (a
   // single task actually underway) — drives WorkbenchShell's `minimal`
@@ -68,6 +69,7 @@ function Workbench() {
 
   const handleLoaded = useCallback((tasks: PersonalTask[]) => {
     setTodayBadge(rankToday(tasks).length);
+    setTaskStates(tasks.reduce<Record<string, number>>((acc, task) => { acc[task.work_state] = (acc[task.work_state] ?? 0) + 1; return acc; }, {}));
   }, []);
 
   const changeDomain = (d: Domain) => {
@@ -101,6 +103,13 @@ function Workbench() {
     >
       <div className="focus-reference-surface">
         <div className="focus-reference-kicker">Focus mode · one next action</div>
+        {domain === 'do' && Object.keys(taskStates).length > 0 && (
+          <div aria-label="Task state summary" className="mb-4 flex flex-wrap gap-2 text-[11px]">
+            {(['captured', 'in_progress', 'blocked', 'paused', 'completed'] as const).filter((state) => taskStates[state]).map((state) => (
+              <span key={state} className="rounded-full border border-wb-line bg-wb-surface px-2.5 py-1 text-wb-ink2"><strong className="text-wb-ink">{taskStates[state]}</strong> {state.replace('_', ' ')}</span>
+            ))}
+          </div>
+        )}
         {domain === 'do' && (
           <TodayStream refreshSignal={refreshSignal} onLoaded={handleLoaded} onExecutingChange={setExecuting} initialTaskId={initialTaskId} />
         )}
