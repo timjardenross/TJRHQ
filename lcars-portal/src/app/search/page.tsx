@@ -15,7 +15,7 @@
 // reason: shipping this alone would just move the Captain from one
 // orphaned page to another for those two categories.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search as SearchIcon } from 'lucide-react';
 import { WorkbenchShell } from '@/components/ui';
@@ -175,6 +175,22 @@ function relTs(iso?: string) {
   return iso.slice(0, 10);
 }
 
+// Stream E (USS-TJR-MSN-0395): Phase 16 flagged Search/Timeline as untested
+// for CONTINUITY. Verified this session -- `query` was plain useState, no
+// URL/storage sync, so it vanished on navigate-away-and-back exactly like
+// Knowledge Workbench's search box did (Stream B). Same fix, same reasoning
+// (per-visit, not worth a URL param): sessionStorage with the repo's
+// established try/catch guard.
+const SS_QUERY = 'search-query';
+
+function readSession(key: string): string | null {
+  try { return sessionStorage.getItem(key); } catch { return null; }
+}
+
+function writeSession(key: string, value: string) {
+  try { sessionStorage.setItem(key, value); } catch { /* ignore */ }
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SearchPage() {
@@ -215,10 +231,21 @@ export default function SearchPage() {
 
   function handleInput(val: string) {
     setQuery(val);
+    writeSession(SS_QUERY, val);
     if (timer) clearTimeout(timer);
     const t = setTimeout(() => runSearch(val), 300);
     setTimer(t);
   }
+
+  // Restored from sessionStorage on mount, not a useState lazy initializer --
+  // that ran server-side too (no sessionStorage there), producing a
+  // server/client hydration mismatch that silently lost the restored value.
+  // Re-runs the same search the input would have triggered live.
+  useEffect(() => {
+    const saved = readSession(SS_QUERY);
+    if (saved && saved.trim().length >= 2) { setQuery(saved); runSearch(saved); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Group results by type
   const grouped = results.reduce<Record<string, SearchResult[]>>((acc, r) => {

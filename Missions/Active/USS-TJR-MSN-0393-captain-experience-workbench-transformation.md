@@ -1550,6 +1550,33 @@ where the next pass should start:
     **Next step:** a short follow-up conversation with the Captain to scope which theme(s) and
     what's wrong (too dark? wrong accent hue? something else?) before any palette work starts.
 
+### 5.x Cross-reference — USS-TJR-MSN-0395 (2026-09-20)
+
+**Note on lineage first:** the branch this mission doc lives on
+(`claude/msn-0395-continuity-fixes`, and the `main`-derived lineage it
+branched from) does not contain this file's own Phase 15/16 commits
+(`86ef767bd`/`ad882e122`) — they exist only on the still-unmerged
+`claude/tjr-hq-mission-7-az63cy` branch, so this file's own §3.15 (Phase 14)
+is the newest phase visible here even though Phase 16's CONTINUITY findings
+are real and already fixed (below). Flagging this rather than silently
+writing a "§3.16" reference that doesn't resolve to anything on this
+lineage — worth resolving whenever `claude/tjr-hq-mission-7-az63cy` merges.
+
+Phase 16's per-workbench CONTINUITY findings (Ready Room/Capture/Content
+Workbench's URL-sync race, Knowledge Workbench's Memory search losing its
+query, plus one follow-on finding of the same shape in Content Workbench's
+Studio-item state) were root-caused, fixed, and live-verified by
+USS-TJR-MSN-0395. Two further gaps of the identical shape were found and
+fixed on Search and Timeline (Phase 16 itself flagged both as
+worth-checking, not yet tested). See that mission's own doc for the full
+root-cause writeups, including one genuine hydration/SSR bug found and
+fixed along the way (reading `sessionStorage` in a `useState` lazy
+initializer, not a mount `useEffect`) and Stream D's traced (not just
+noted) explanation for why this pass found 0 of the 4 console 404s Phase
+14/16 both independently reported on `/mission-workbench` (commit
+`b7e8e5c87`, landed after both phases, appears to have fixed it as a side
+effect).
+
 ## 6. Recommended next steps
 
 1. Run the §40/§43/§44 end-to-end/interruption/cross-surface tests against a real

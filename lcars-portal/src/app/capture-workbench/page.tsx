@@ -13,8 +13,9 @@
 // See CAPTURE-WORKBENCH-MIGRATION-PLAN.md.
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { WorkbenchShell, DomainToggle } from '@/components/ui';
+import { useUrlSync } from '@/lib/useUrlSync';
 import { KpiDashboard } from './_components/KpiDashboard';
 import { CaptureView } from './_components/CaptureView';
 import { InboxView } from './_components/InboxView';
@@ -23,8 +24,8 @@ import { fetchCaptureAnalytics, type CaptureAnalytics } from '@/lib/capture';
 import { useRealtimeRefresh } from '@/lib/realtime/useRealtimeRefresh';
 
 function Workbench() {
-  const router = useRouter();
   const params = useSearchParams();
+  const { writeParams } = useUrlSync('/capture-workbench');
 
   const initialDomain = params.get('domain');
   const initialFilter = params.get('filter');
@@ -76,11 +77,11 @@ function Workbench() {
   });
 
   const syncUrl = useCallback((next: { domain?: Domain; filter?: InboxFilter }) => {
-    const sp = new URLSearchParams(Array.from(params.entries()));
-    if (next.domain) sp.set('domain', next.domain);
-    if (next.filter) sp.set('filter', next.filter);
-    router.replace(`/capture-workbench?${sp.toString()}`, { scroll: false });
-  }, [params, router]);
+    writeParams((sp) => {
+      if (next.domain) sp.set('domain', next.domain);
+      if (next.filter) sp.set('filter', next.filter);
+    });
+  }, [writeParams]);
 
   const changeDomain = (d: Domain) => { setDomain(d); syncUrl({ domain: d }); };
   const changeFilter = (f: InboxFilter) => { setInboxFilter(f); syncUrl({ filter: f }); };

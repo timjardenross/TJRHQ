@@ -26,6 +26,19 @@ type LessonRecord = {
 
 type TabId = 'decisions' | 'lessons' | 'architecture' | 'all';
 
+// Stream B (USS-TJR-MSN-0395): sessionStorage, not URL sync -- a search
+// query and which tab was open here is per-visit, not worth bookmarking or
+// sharing (unlike e.g. content-workbench's `tab`), and sidesteps Stream A's
+// router.replace() race entirely since it never touches the URL. Same
+// try/catch guard the advisory-workbench views already use for browser
+// storage access.
+const SS_QUERY = 'kw-memory-search-query';
+const SS_TAB = 'kw-memory-active-tab';
+
+function isTabId(v: string | null): v is TabId {
+  return v === 'decisions' || v === 'lessons' || v === 'architecture' || v === 'all';
+}
+
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const mins = Math.floor(diff / 60000);
@@ -53,14 +66,37 @@ type AllRecord =
   | ({ _source: 'decision' } & DecisionRecord)
   | ({ _source: 'lesson' } & LessonRecord);
 
+function readSession(key: string): string | null {
+  try { return sessionStorage.getItem(key); } catch { return null; }
+}
+
+function writeSession(key: string, value: string) {
+  try { sessionStorage.setItem(key, value); } catch { /* ignore */ }
+}
+
 export function MemoryView() {
-  const [activeTab, setActiveTab] = useState<TabId>('all');
+  const [activeTab, setActiveTabState] = useState<TabId>('all');
   const [decisions, setDecisions] = useState<DecisionRecord[]>([]);
   const [lessons, setLessons] = useState<LessonRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQueryState] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  const setActiveTab = (t: TabId) => { setActiveTabState(t); writeSession(SS_TAB, t); };
+  const setSearchQuery = (q: string) => { setSearchQueryState(q); writeSession(SS_QUERY, q); };
+
+  // Restored from sessionStorage on mount, not a useState lazy initializer --
+  // that ran on the server too (no sessionStorage there), producing a
+  // server/client hydration mismatch that silently lost the restored value
+  // (repo precedent: advisory-workbench's localStorage reads follow the same
+  // mount-effect shape, not a lazy initializer).
+  useEffect(() => {
+    const savedTab = readSession(SS_TAB);
+    if (isTabId(savedTab)) setActiveTabState(savedTab);
+    const savedQuery = readSession(SS_QUERY);
+    if (savedQuery) { setSearchQueryState(savedQuery); setDebouncedQuery(savedQuery); }
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(searchQuery), 200);
