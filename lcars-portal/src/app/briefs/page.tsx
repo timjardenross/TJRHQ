@@ -366,6 +366,7 @@ export default function BriefsPage() {
       tagline="USS TJR · HQ's canonical daily synthesis of the intelligence picture — one assessment, multiple delivery formats"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       tabs={<TabBar active={tab} onChange={setTab} />}
+      mode="read"
     >
       {error && (
         <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>

@@ -110,7 +110,7 @@ export function WorkbenchShell({
 }) {
   const shellWidth = wide ? 'max-w-7xl' : 'max-w-4xl';
   return (
-    <div data-wb-mode={mode} className="min-h-[100dvh] bg-wb-bg font-sans text-wb-ink antialiased">
+    <div className="min-h-[100dvh] bg-wb-bg font-sans text-wb-ink antialiased">
       <a
         href="#wb-main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-wb-ink focus:px-3 focus:py-2 focus:text-[13px] focus:text-white"
@@ -120,11 +120,38 @@ export function WorkbenchShell({
       {/* Adaptive Themes mission (2026-09-05): Sidebar is global chrome on
           every *-workbench page, not just Home — Captain's explicit call.
           xl:flex on Sidebar itself, no extra breakpoint class needed here.
-          Mission 4: hidden in `minimal` mode (see prop doc above). */}
+          Mission 4: hidden in `minimal` mode (see prop doc above).
+          Endeavour 27 (USS-TJR-MSN-0394) Stream A/B: `data-wb-mode` scopes
+          to this inner column only, not the outer wrapper -- mission §1.1
+          is explicit that Read mode swaps the reading pane's surface
+          lightness while "the header/sidebar chrome stays dark navy" (also
+          confirmed directly against Image 1's own Briefs panel). Scoping it
+          on the whole shell made Sidebar go light too on first
+          implementation -- a real bug, caught via live verification, not
+          left in. */}
       <div className="flex">
         {!minimal && <Sidebar />}
-        <div className="min-w-0 flex-1">
-          <header className="border-b border-wb-line bg-wb-bg/80 backdrop-blur">
+        {/* text-wb-ink re-declared here (not just relying on inheriting
+            the outer wrapper's already-computed colour): `color` inherits
+            the parent's COMPUTED value, not a live re-evaluation of
+            var(--wb-ink) -- without a fresh declaration inside this scope,
+            title text (and anything else with no colour class of its own)
+            silently inherited the outer wrapper's dark-mode ink, invisible
+            against this div's light Read-mode background. Same class of
+            bug as the bg-wb-bg/80 fix above, caught the same way. */}
+        <div data-wb-mode={mode} className="min-w-0 flex-1 bg-wb-bg text-wb-ink">
+          {/* Endeavour 27 Stream B, found via live verification: `bg-wb-bg/80`
+              never actually rendered a translucent fill -- Tailwind's
+              opacity modifier needs an RGB-channel CSS var (e.g.
+              `--wb-bg-rgb: 11 30 46`), not a plain hex var like `--wb-bg`,
+              so it silently resolved to fully transparent. Invisible before
+              this mission (this header sits on the same solid colour as
+              everything behind it in the old single-surface system), but a
+              real bug once Read mode wants this header genuinely lighter
+              than the dark chrome around it. `backdrop-blur` was already a
+              no-op too -- header isn't `sticky`/`fixed`, nothing scrolls
+              underneath it. Solid bg-wb-bg is the correct, simpler fix. */}
+          <header className="border-b border-wb-line bg-wb-bg">
             <div className={`mx-auto flex ${shellWidth} flex-wrap items-center gap-3 px-6 py-4`}>
               <Link
                 href={GLOBAL_HOME}

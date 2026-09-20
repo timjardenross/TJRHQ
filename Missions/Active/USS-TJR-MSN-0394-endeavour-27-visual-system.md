@@ -883,6 +883,57 @@ directly, so nothing needed updating, but the full suite's `postureDefault.test.
 does exercise `page.tsx` — stayed green). Live screenshot verification blocked by the same
 container/backend limitation noted in Phase 3 (not attempted again for the same reason).
 
+### Phase 5 — Stream B: Human Systems (light touch) + Briefs, and a real bug found by live
+    verification (2026-09-20)
+
+**Human Systems:** light touch this phase — `mode="focus"` set explicitly on
+`WorkbenchShell`; the tab set (NOW/WHAT HELPS/PATTERNS + TRENDS/REPORT/WEIGHT real
+navigations) and its underlying data plumbing already matches the doc's own §1.1 canonical-
+data mappings, so no structural change made. Deeper mockup-alignment (the 4-tile Current
+Capacity/Execution Posture/Energy/Focus grid, restyled Capacity Trend chart) left for a
+follow-up pass — flagging rather than rushing it at lower quality this phase, given the size
+of what's already landed today.
+
+**Briefs:** `mode="read"` set — the actual test of Stream A's second surface variant, since
+every other page built so far has been Command/Focus (dark). This is where it mattered.
+
+**Real bug found and fixed by live verification, not by inspection alone** — this is exactly
+why Stream F's "no unverified responsive/visual claims" bar exists:
+1. `data-wb-mode` was originally scoped on `WorkbenchShell`'s *outermost* wrapper (Phase 1),
+   so Sidebar inherited the Read-mode light tokens too — first live screenshot showed the
+   entire app going light in Briefs, contradicting mission §1.1's own explicit "header/sidebar
+   chrome stays dark navy" and the actual Image 1 Briefs panel. Fixed: `data-wb-mode` moved to
+   the inner content column only (header + main), Sidebar now correctly stays outside the
+   scope and reads the default dark tokens.
+2. **Pre-existing bug, invisible until now:** `WorkbenchShell`'s `<header>` used
+   `bg-wb-bg/80 backdrop-blur`. Tailwind's opacity modifier (`/80`) needs an RGB-channel CSS
+   variable to work (e.g. `--wb-bg-rgb: 11 30 46`), not a plain hex var like this repo's
+   `--wb-bg` — so it silently resolved to fully transparent, and `backdrop-blur` was already a
+   no-op (the header isn't `sticky`/`fixed`, nothing scrolls under it). This was invisible
+   under the old single-surface system (a transparent header sitting on an identically-
+   coloured wrapper looks the same as an opaque one) and only became a visible, real defect
+   once Read mode wanted the header genuinely lighter than the dark chrome around it — title
+   text was unreadable (inheriting dark-mode ink colour through the transparent header onto a
+   light background). Fixed to a solid `bg-wb-bg`.
+3. Same root cause, second symptom: the content column's own wrapper div had no `bg-wb-bg`/
+   `text-wb-ink` of its own, so page titles and other unstyled text inherited the *outer*
+   wrapper's already-computed dark-mode `color` value (CSS inheritance uses the parent's
+   computed value, not a live re-evaluation of `var(--wb-ink)`) — invisible against the light
+   background underneath. Fixed by re-declaring `bg-wb-bg text-wb-ink` on the mode-scoped div
+   itself, not just relying on inheritance from outside that scope.
+
+All three only surfaced because live screenshots were actually taken and read carefully,
+including a first screenshot that looked plausible at a glance and was wrong (stale
+mid-compile paint) — re-shot and cross-checked against `getComputedStyle` before trusting it,
+per this mission's own repeated "verify, don't assume" discipline.
+
+**Verified:** `tsc --noEmit`, `eslint`, full 725-test suite, and `npm run build` all clean —
+`build` specifically run this phase since `WorkbenchShell` is shared app-wide chrome, not a
+single page. Live-verified via Playwright (project's own `playwright` package) against real
+Supabase for both Briefs (Read mode, the fix) and Ready Room (Focus/dark mode, regression
+check) — unlike Hub's earlier attempt, both loaded past their loading states fine this time
+(no backend-service dependency issue for these two pages).
+
 Phase-by-phase build record inside this same doc, same discipline as Mission 7's own
 (§3.x-numbered sections per phase, updated in place as work lands — not a separate status
 doc). Knowledge record on completion at `knowledge/missions/` following this mission's own
