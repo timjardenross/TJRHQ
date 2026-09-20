@@ -10,12 +10,23 @@
   explicitly Captain-authorised (this mission doc, plus the source mockups, constitute the
   Visual Design Officer sign-off that Mission 7 (USS-TJR-MSN-0393) repeatedly deferred to —
   see its §5 item 14/§3.12 and item 15)
-- **Source:** Captain-authored mission brief ("TJR HQ — Endeavour 27") plus 4 reference
-  mockups (LifeOS Hub/Ready Room/Human Systems/Briefs), reviewed and converted into this
-  document by the Mission 7 session, per Captain's explicit direction to fully scope it
-  before handoff, sequenced to start only after Mission 7 item 1 closes (both missions touch
-  overlapping shared chrome — `WorkbenchShell.tsx`, `globals.css` — and this repo has a
-  documented concurrent-session corruption incident; see AGENTS.md)
+- **Source:** Captain-authored mission brief ("TJR HQ — Endeavour 27") plus 3 reference
+  mockup images, reviewed and converted into this document by the Mission 7 session, per
+  Captain's explicit direction to fully scope it before handoff, sequenced to start only
+  after Mission 7 item 1 closes (both missions touch overlapping shared chrome —
+  `WorkbenchShell.tsx`, `globals.css` — and this repo has a documented concurrent-session
+  corruption incident; see AGENTS.md). The 3 mockup images, in the order they were supplied:
+  1. **Image 1 (4-panel, desktop):** LifeOS Hub / Ready Room / Human Systems / Briefs —
+     the primary reference set §1.1 below was originally built from.
+  2. **Image 2 (10-panel, responsive grid + style guide):** the same 4 surfaces at desktop,
+     iPad landscape, iPad portrait, and iPhone widths, plus a "Key Design Elements" panel
+     giving concrete typography and component specs. See §1.3/§1.4 below.
+  3. **Image 3 (7-panel, "Interface Concepts — Like-for-like redesigns"):** direct visual
+     redesign concepts for specific existing real workbenches — Emergency Alerts, Shopping
+     List, Technical OSINT, Health OSINT, a second Briefs treatment, Captain's Chair, plus an
+     iPhone Hub view — with a footer legend giving named hex values. See §1.5 below. Two
+     genuine discrepancies against Image 1/the text brief surfaced here and are flagged, not
+     silently resolved, in §1.6.
 
 ## Pre-flight
 
@@ -142,20 +153,36 @@ fully independent visual systems. Verify this reading against the mockups again 
 locking the token architecture; it's my read of 4 static images, not confirmed with the
 Captain sentence-by-sentence.
 
-**Palette observed in the mockups** (colour-picked from the images, treat as a starting
-point for real token values, not final hex — no tool here can extract exact hex from a
-flattened image reliably):
-- Deep navy/midnight background, close to the existing `midnight` theme's `--wb-bg:
-  #111820` — worth checking whether the existing `midnight` theme is already close enough
-  to reuse as the Command/Focus base rather than inventing a new dark from scratch.
-- Gold/champagne accent (buttons, active nav pill, header rule) — matches the source brief's
-  §4 "WARM IDENTITY" family and is close in spirit to the existing `--wb-gold: #C9A84C`
-  token (already defined, already theme-invariant, currently underused).
-- Status colours in the tiles: green (capacity/healthy), amber-gold (focus/attention), blue
-  (in-progress/interactive), neutral grey (wellbeing/steady) — broadly consistent with
-  existing `state-ok/warn/info` semantics, not a new vocabulary.
+**Palette — superseded by Image 3's named footer legend.** Image 1 was colour-picked from a
+flattened image (approximate, never reliable); Image 3's footer gives 4 explicitly named
+hex values, which are authoritative over any colour-picked estimate and now replace it as
+the starting point for token values (still not final — re-verify against contrast math
+per §2 before locking anything):
+- **Primary Navy / Command — `#0B1E2E`.** The dark Command/Focus base. Close to, but not
+  identical to, the existing `midnight` theme's `--wb-bg: #111820` — near enough that reusing/
+  adjusting `midnight` as the Command/Focus base is still the right starting hypothesis, but
+  confirm the delta is deliberate (a genuinely darker navy) rather than colour-picking noise
+  before treating `#0B1E2E` as gospel.
+- **Surface Slate — `#142B3D`.** A second, slightly lighter dark tone — most likely the card/
+  panel surface sitting on top of the Primary Navy background (standard bg/surface pairing),
+  not a competing background. Confirm against the mockups' actual layering before assuming.
+- **Accent TJR Blue — `#3B82F6`.** A blue accent distinct from the gold/champagne accent
+  Image 1 showed — Image 1's mockups read as gold-accented (buttons, active nav pill), so
+  this blue is either a second accent (interactive/link colour, distinct from the
+  celebratory/brand gold) or specific to the surfaces shown in Images 2/3. Don't assume it
+  replaces gold — verify which elements use which accent before implementation.
+- **Sand Warm Accent — `#D6B88C`.** Matches the "warm navy+sand heritage" language in §1's
+  Design North Star and is close in spirit to the existing `--wb-gold: #C9A84C` token
+  (already defined, theme-invariant, currently underused) — likely the same accent family,
+  not a new one; confirm whether this literally replaces `--wb-gold` or sits alongside it.
+- Status colours in the Hub tiles: green (capacity/healthy), amber-gold (focus/attention),
+  blue (in-progress/interactive), neutral grey (wellbeing/steady) — broadly consistent with
+  existing `state-ok/warn/info` semantics, not a new vocabulary. No named hex given for these
+  in Image 3's legend — still colour-picked estimates, still needs real values chosen via the
+  contrast-math process in §2, not lifted from the image.
 - Read surface: warm cream, close to the existing `sanctuary` theme's `--wb-bg: #F4F0E8` or
-  `archive`'s `#F5F1EA` — again, worth checking reuse before inventing new hex.
+  `archive`'s `#F5F1EA` — no named hex given for this either; still an estimate, worth
+  checking reuse before inventing new hex.
 
 **Persistent chrome elements visible in every panel** (cross-reference these against real
 code before building anything new):
@@ -208,6 +235,177 @@ data) risk if skipped:**
   personal_tasks or captured_items has real per-task note/relation counts before showing
   numbers; if not, this is new surface for existing-but-unsurfaced data, or genuinely new
   scope — verify which before implementing.
+
+### 1.2 Mobile navigation — replace the current 3-tab bar with Image 2's 4-item nav, and
+    remove a real duplication found while verifying it
+
+The original text brief and Image 1 didn't specify phone navigation; Image 2's iPhone panels
+show a **fixed 4-item bottom nav: Hub / Ready / Ask / More**. Verifying this against the
+actual current mobile nav (`components/MobileCommandBar.tsx`, read in full this session)
+confirms the current bar is stale and should be replaced outright, not preserved —
+**Captain's explicit direction: update it to the new world and remove the duplication it
+currently has**, per the following concrete findings:
+
+- **Current state:** `MobileCommandBar` is a **3-tab bar: Home (⌂ /hub), Capture (＋
+  /capture-workbench), Readiness (✚ /physical-readiness)**. Its own doc comment states
+  plainly: *"This is the ONLY nav rendered on mobile/tablet... a page not listed here is
+  unreachable below 1280px, full stop."* — confirmed by its `xl:hidden` gating (same
+  threshold `Sidebar.tsx` uses to appear), and it's unconditionally mounted inside
+  `WorkbenchShell` (~20 workbenches) as well as `(app)` pages, so it really is the single
+  mobile nav surface today.
+- **The duplication, confirmed by reading `QuickCapture.tsx`:** a global floating capture
+  button is **already mounted on every single page** that mounts `MobileCommandBar` (both are
+  siblings inside `WorkbenchShell`, and both are also on `/hub` directly) — "Mounted once
+  inside WorkbenchShell (every workbench) and once on the hub, so a capture is always at most
+  one click away" per its own doc comment. So today's mobile Captain has **two separate paths
+  to the same capture action**: the bottom bar's "Capture" tab (→ `/capture-workbench`) and
+  the always-present floating QuickCapture button (→ an inline modal, same underlying
+  `captureItem()` pipeline). This is exactly the kind of stale duplication to remove: drop the
+  dedicated "Capture" tab from the bottom bar (QuickCapture already covers it, unconditionally,
+  on every screen) rather than carrying two capture entry points into the new nav.
+- **Net redesign:** replace the 3-tab bar's item set with the mockup's **Hub / Ready / Ask /
+  More**, dropping "Capture" as a duplicate (per above) and folding **Physical Readiness**
+  into "More" rather than losing it — `WorkbenchShell`'s own header logo already links every
+  workbench page to `/workbenches` (the full directory) below `xl`, so Physical Readiness
+  doesn't strand even before "More" is built, but "More" should still surface it directly
+  (one tap, not two) since it was a deliberately-kept primary-nav item before this redesign,
+  per the current bar's own doc comment.
+- Resolve what "Ask" links to (likely Number One / the advisory surface — cross-check against
+  `NumberOne.tsx`, also unconditionally mounted in `WorkbenchShell` today, before assuming it
+  needs a brand-new destination) as part of Stream B2, not left undefined.
+- Also fix in the same pass: the current bar's colours (`bg-white/95`,
+  `text-[#243b7a]`/`text-[#61718c]`) are **hardcoded, not theme-aware** (`wb-*` tokens) —
+  pre-existing debt, unrelated to the tab-set change but worth fixing in the same touch since
+  the component is being rewritten anyway.
+- **The Sidebar IA question (§3.5, 5 vs. 9 items)** and this mobile nav redesign are two
+  different information architectures for two breakpoints, both drawn from the same mockup
+  set — confirm they're meant to coexist (desktop sidebar expands to 9, phone collapses to
+  Hub/Ready/Ask/More) at the same Stream A decision point, rather than drafted independently.
+
+### 1.3 Typography & component specs from Image 2's "Key Design Elements" panel
+
+Image 2 includes a style-guide panel giving concrete type and component rules, more specific
+than the text brief's general "distinctive, calm, premium" language:
+- **Type scale (named, not measured in px from the image):** H1 Page Title, H2 Section Title,
+  Body/Secondary text, Status Label — a 4-level hierarchy. Exact sizes/weights/line-heights
+  need measuring against the actual mockup asset (or a fresh Captain-supplied spec) at
+  implementation time; this doc records the *names* of the levels, not fabricated px values.
+- **Component styles named:** Primary Button, Secondary Button, and 3 capacity-badge variants
+  (Green/Amber/Red) — i.e. the same 3-state semantic pattern already in the codebase as
+  `state-ok/warn/crit` (§2, Pre-flight), not a new vocabulary. Badge *styling* (pill shape,
+  border treatment, icon-or-not) should be taken from the mockup image directly at build time,
+  not guessed from this text description.
+- Treat this panel as a starting style guide, not a finished spec — Stream A (Foundation)
+  should formalise it into real Tailwind tokens/component variants, cross-checked against the
+  existing `Badge`/`Button` components in `components/ui/` (§3.4) rather than built fresh.
+
+### 1.4 Responsive layout notes from Image 2's tablet/phone panels
+
+Image 2 shows each of the 4 primary surfaces (Hub/Ready Room/Human Systems/Briefs) at 4
+widths: desktop, iPad landscape, iPad portrait, iPhone. This directly informs Stream E
+(Responsive hardening) target viewports — already listed there as "desktop/laptop/iPad
+landscape/iPad portrait/iPhone," now confirmed to match the mockup set exactly rather than
+being an assumed list. No new viewport classes needed; existing Stream E scope stands
+verified, not expanded.
+
+### 1.5 Additional reference surfaces from Image 3 ("Interface Concepts — Like-for-like
+    redesigns")
+
+Image 3's own footer explicitly labels its 7 panels "Interface Concepts (Like-for-like
+redesigns)" — confirming these are meant as direct visual redesigns of *specific existing
+real workbenches*, not new concept surfaces. All 5 named workbenches (of the 7 panels — the
+other 2 are the Briefs re-treatment and the iPhone Hub view, covered separately below) were
+re-verified directly against `lib/workbenches.ts`'s `LIVE_WORKBENCHES` list this session,
+not assumed from the panel titles alone:
+```
+$ grep -iE "title:|href:" lcars-portal/src/lib/workbenches.ts
+```
+- **Emergency Alerts → `/emergency-alert-hub-workbench`.** Real, live entry in
+  `LIVE_WORKBENCHES`. Note this is a *different* surface from `AlertPanel.tsx` (flagged
+  dead/zero-importers in §3.2) — don't conflate the two; confirm which component actually
+  renders `/emergency-alert-hub-workbench` at implementation time.
+- **Shopping List → `/shopping-list-workbench`.** Real, live entry.
+- **Technical OSINT → `/intelligence-workbench`** (listed in `LIVE_WORKBENCHES` as "Technical
+  OSINT Workbench" — same page, current title already matches the mockup's shorthand).
+  Real, live entry.
+- **Health OSINT → `/health-osint`.** Real, live entry.
+- **Captain's Chair → `/captains-chair-workbench`.** Real, live entry, referenced elsewhere in
+  this repo including Mission 7's `NeedsYou.tsx` work and `captainsChairSynthesis.ts`. See
+  the discrepancy flagged in §1.6 below before classifying its mode.
+- **A second Briefs treatment** — see §1.6 below; does not match the first Briefs mockup
+  (Image 1) already analysed in §1.1/§3.
+- **An iPhone Hub view** — a second angle on the same Hub surface already covered by Image 2's
+  iPhone panel; treat as reinforcing, not contradicting, §1.4's responsive notes unless a
+  build-time comparison finds a real conflict.
+
+These 6 additional named surfaces (Emergency Alerts, Shopping List, Technical OSINT, Health
+OSINT, Captain's Chair, the second Briefs treatment) should be added to Stream B/C's
+per-workbench build list as concrete reference targets beyond the original 4
+(Hub/Ready Room/Human Systems/Briefs) — see Stream B note below.
+
+**Important scope clarification (Captain, 2026-09-20): the mockups are illustrative samples,
+not the full page list.** All 10 mocked-up surfaces across the 3 images (Hub, Ready Room,
+Human Systems, Briefs x2, Emergency Alerts, Shopping List, Technical OSINT, Health OSINT,
+Captain's Chair) are worked *examples* of the Command/Focus/Read treatment — the Captain
+explicitly confirmed the look and feel is meant to apply **across every live workbench**, not
+only the ones mocked up. This was already this doc's Stream C intent ("migrate remaining
+workbenches by classification") but is now stated explicitly rather than left implicit. See
+§1.7 for the full confirmed page list this mission covers.
+
+### 1.6 Discrepancies found in Image 3 — flagged, not silently resolved
+
+Two real conflicts surfaced comparing Image 3 against Image 1 and the text brief. Both need a
+Captain decision before implementation locks either interpretation in:
+
+1. **Captain's Chair — mode conflict.** Image 3 shows Captain's Chair with a **light/cream
+   background**, matching the Read-mode surface treatment. But both the original text brief
+   and this doc's own §1.1 classify Chair under **Command mode (dark)**, grouped with Hub.
+   These are genuinely incompatible for one page — either the text brief/§1.1 classification
+   is wrong and Chair is actually Read-mode (it does involve reading synthesis/summaries, per
+   `captainsChairSynthesis.ts`, so a Read classification isn't implausible), or Image 3's
+   mockup is an inconsistent draft. **Do not silently pick one** — surface this explicitly to
+   the Captain at Stream A/B kickoff before building Chair's surface.
+2. **Briefs — two different tab structures shown.** Image 1's Briefs mockup shows
+   **Latest / Areas / Saved / Archive** tabs (already cross-referenced in §1.1 against the
+   real `intelligence_briefs`/`captains_daily_briefs`-backed Briefs workbench). Image 3's
+   second Briefs treatment shows a **different tab set: Domains / Timeline / Explore**. These
+   don't obviously map onto each other 1:1 (Domains/Timeline/Explore reads like a different
+   information architecture, not just a restyle of the same 4 tabs). **Do not assume Image 3
+   supersedes Image 1** — both are Captain-supplied, so which is authoritative (or whether
+   they're two options to choose between) needs an explicit Captain call before Stream B
+   builds the Briefs reference surface, not a session-level guess either way.
+
+### 1.7 Full scope confirmation — every live workbench, not just the mocked-up subset
+
+Re-read directly from `lib/workbenches.ts`'s `LIVE_WORKBENCHES` this session (the same
+canonical list §3.1's Discovery already inventoried) to state the full in-scope surface
+explicitly, since the mockups only sampled roughly half of it:
+```
+$ grep -iE "title:|href:" lcars-portal/src/lib/workbenches.ts
+```
+20 entries, confirmed real and current as of 2026-09-20: LifeOS Hub (`/hub`), Capture
+Workbench (`/capture-workbench`), Captain's Chair (`/captains-chair-workbench`), Mission
+Workbench (`/mission-workbench`), Weekly Review (`/weekly-review`), Ready Room
+(`/ready-room`), Technical OSINT Workbench (`/intelligence-workbench`), Health OSINT
+Workbench (`/health-osint`), Emergency Alerts (`/emergency-alert-hub-workbench`), Human
+Systems (`/human-systems-workbench`), Physical Readiness (`/physical-readiness`), Shopping
+List (`/shopping-list-workbench`), Content Workbench (`/content-workbench`), Advisory
+(`/advisory-workbench`), Briefs (`/briefs`), Knowledge Workbench (`/knowledge-workbench`),
+Search (`/search`), Timeline (`/timeline`), HQ Status (`/agent-status-workbench`), HQ
+Evolution (`/self-improvement-findings`), Engineering Handoffs (`/engineering-handoffs`).
+
+**Of these, 9 are directly covered by a mockup** (Hub, Ready Room, Human Systems, Briefs,
+Emergency Alerts, Shopping List, Technical OSINT Workbench, Health OSINT Workbench,
+Captain's Chair) **and 11 have no mockup at all**: Capture Workbench, Mission Workbench,
+Weekly Review, Physical Readiness, Content Workbench, Advisory, Knowledge Workbench, Search,
+Timeline, HQ Status, HQ Evolution, Engineering Handoffs. Per the Captain's explicit
+instruction, the unmocked 11 are **not out of scope** — they get the same Command/Focus/Read
+treatment (per Stream A's shared tokens/`WorkbenchShell` mode prop), classified by the same
+Command/Focus/Read/Utility rubric Stream C already defines, extrapolated from the mocked-up
+examples rather than redesigned from scratch. Stream C's existing wording ("migrate remaining
+workbenches by classification") already meant this; this section makes the full list and the
+9-mocked/11-unmocked split explicit and checkable rather than leaving "remaining workbenches"
+vague.
 
 ## 2. Colour Philosophy & Token Architecture
 
@@ -298,9 +496,25 @@ shared-surface-variant question (§1.1). Resolve the 9-item vs. 5-item sidebar I
 **Stream B — Reference surfaces**, one per mockup, in this order, each validated across all
 5 target viewports before moving to the next: LifeOS Hub (Command) → Ready Room (Focus,
 preserve the `?domain=unstick&task=` contract from Mission 7 Phase 12) → Human Systems
-(Focus/Insight) → Briefs (Read). Reuse the real canonical-data mappings in §1.1 rather than
-inventing new surface for existing data; flag (don't silently build) the items marked
-"needs verification" in §1.1.
+(Focus/Insight) → Briefs (Read — resolve the §1.6.2 tab-structure discrepancy with the
+Captain before building, don't guess which tab set is authoritative). Reuse the real
+canonical-data mappings in §1.1 rather than inventing new surface for existing data; flag
+(don't silently build) the items marked "needs verification" in §1.1.
+
+**Stream B2 — Additional like-for-like redesign surfaces (§1.5, Image 3).** Once Stream B's
+4 primary surfaces are validated, extend the same reference-surface pattern to: Emergency
+Alerts, Shopping List, Technical OSINT, Health OSINT, Captain's Chair (resolve the §1.6.1
+Command-vs-Read mode discrepancy with the Captain first). Same discipline as Stream B:
+identify the real route/component per surface before redesigning it, don't build against an
+assumed file.
+
+**Stream B3 — Mobile nav rewrite (§1.2, Captain-directed).** Replace `MobileCommandBar.tsx`'s
+current 3-tab set (Home/Capture/Readiness) with Hub/Ready/Ask/More per the mockup: drop the
+Capture tab (duplicates the always-mounted `QuickCapture` floating button — see §1.2), fold
+Physical Readiness into "More" (don't strand it), confirm "Ask" routes to the advisory/Number
+One surface, and switch the component's hardcoded colours to `wb-*` tokens in the same pass.
+Not gated on Stream B's 4 primary surfaces — can land alongside Stream A once the token
+architecture exists, since it's one component, not a per-page migration.
 
 **Stream C — System convergence.** Migrate remaining workbenches by classification
 (Command/Focus/Read/Utility). Extend `WorkbenchShell` with a density/mode prop rather than
@@ -338,6 +552,18 @@ corruption incident from exactly that.
   swap for Read) — not a literal 3-colour-scheme reskin.
 - Sidebar IA question (5 vs. 9 items) resolved as an explicit decision, documented, not
   silently inherited from the mockups.
+- Both §1.6 discrepancies (Captain's Chair Command-vs-Read mode; Briefs' two conflicting tab
+  structures) resolved by explicit Captain decision before the affected surface is built —
+  not silently picked by the implementing session.
+- Stream B2's additional reference surfaces (Emergency Alerts, Shopping List, Technical
+  OSINT, Health OSINT, Captain's Chair) redesigned against their real existing
+  routes/components, not assumed ones.
+- `MobileCommandBar` rewritten to Hub/Ready/Ask/More (Stream B3) with the Capture-tab/
+  QuickCapture duplication removed, Physical Readiness reachable via "More", and hardcoded
+  colours converted to `wb-*` tokens.
+- Every one of the 20 `LIVE_WORKBENCHES` entries (§1.7) carries the Command/Focus/Read
+  treatment, not only the 9 directly mocked up — the mocked surfaces are worked examples,
+  the full roster is the acceptance bar.
 - Status never depends on colour alone; `state-*`/`wb-ok` etc. contrast math respected
   (computed against the new 2-surface-lightness reality), not rediscovered from scratch.
 - All 5 target viewports genuinely usable — verified with real rendered checks, not CSS
