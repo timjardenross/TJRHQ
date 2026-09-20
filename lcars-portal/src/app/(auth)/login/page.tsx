@@ -218,7 +218,7 @@ export default function LoginPage() {
               <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full border border-state-ok bg-state-ok/10" aria-hidden="true">
                 <span className="text-xl text-state-ok-on">✓</span>
               </div>
-              <h2 className="mb-2 font-serif text-lg text-state-ok-on">Link sent</h2>
+              <h2 className="mb-2 inline-block rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 font-serif text-lg text-state-ok-on">Link sent</h2>
               <p className="text-sm text-wb-ink2">
                 Check <span className="text-wb-sage-deep">{email}</span> for your access link. It expires in 1 hour.
               </p>

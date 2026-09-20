@@ -115,7 +115,30 @@ const STATE_CLASSES: Record<StateTone, { text: string; border: string; bg: strin
   info:    { text: 'text-state-info',    border: 'border-state-info',    bg: 'bg-state-info/15',    dot: 'bg-state-info',    on: 'text-state-info-on' },
 };
 
-/** Map a state tone to text/border/bg/dot classes, plus a high-contrast `on` variant for text on solid fills. */
+/**
+ * Map a state tone to text/border/bg/dot classes, plus a high-contrast `on`
+ * variant for text on solid fills.
+ *
+ * `on` MUST always be rendered alongside `border` and/or `bg` from this same
+ * call — never as a bare/standalone text colour. This isn't a style
+ * preference: `state-*` is deliberately theme-invariant (same architecture
+ * as `wb-ok`/`wb-warn`/`wb-crit`, see globals.css's header comment — status
+ * colour should communicate status, not atmosphere, so it doesn't shift per
+ * theme), and no single flat colour can pass 4.5:1 text contrast against
+ * both a near-white theme background and `midnight`'s near-black one at the
+ * same time — that's not a tuning problem, it's mathematically impossible
+ * (confirmed: against midnight's #111820, a colour needs luminance <=0.168
+ * to pass on white and >=0.265 to pass on black; those ranges don't
+ * overlap). `on` was contrast-validated only against the pre-adaptive-theme
+ * light backgrounds (Phase 1A, docs/design-tokens/PHASE-1A-CONTRAST-
+ * MATRIX.md) and fails badly as bare text against `midnight` (Mission 7
+ * §3.9: 1.4-2.3:1). Pairing it with `border`/`bg` (already contrast-
+ * validated at the >=3:1 non-text-UI-component bar, which a flat colour CAN
+ * pass in every theme) is the permanent rule, not an interim mitigation —
+ * decided Mission 7 §3.10/§5 item 14, Captain-directed (Option B: formalize
+ * the pairing rather than break the theme-invariance principle, which was
+ * the only other way to make `on` pass on its own).
+ */
 export function stateToneClasses(tone: StateTone): { text: string; border: string; bg: string; dot: string; on: string } {
   return STATE_CLASSES[tone];
 }

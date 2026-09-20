@@ -110,6 +110,18 @@ const config: Config = {
         // Values below are contrast-validated (>=3:1 DEFAULT, >=4.5:1 "on")
         // against all three live backgrounds; see
         // lcars-portal/docs/design-tokens/PHASE-1A-CONTRAST-MATRIX.md.
+        // That validation predates the 5-theme adaptive system (2026-09-05)
+        // and doesn't hold against it: these values are deliberately
+        // theme-invariant (same architecture as wb-ok/wb-warn/wb-crit in
+        // globals.css — status colour communicates status, not atmosphere),
+        // and "on" fails badly as bare text against the midnight theme
+        // specifically (Mission 7 §3.9: 1.4-2.3:1) — no single flat colour
+        // can pass 4.5:1 against both a near-white and a near-black theme
+        // background at once, so this isn't fixable by picking a better
+        // hex. "on" is >=3:1-safe (the DEFAULT/non-text-UI bar) in every
+        // theme, never guaranteed >=4.5:1 as bare text in every theme — see
+        // stateToneClasses()'s own doc comment (lib/departments.ts) for the
+        // mandatory pairing rule this requires of every consumer.
         state: {
           ok:      { DEFAULT: '#278A44', soft: '#cfe8d5', on: '#1B5E20' }, // Healthy / Operational
           warn:    { DEFAULT: '#9C5D10', soft: '#f0ddc4', on: '#7A4610' }, // Warning / Attention Required

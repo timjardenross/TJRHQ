@@ -2,7 +2,7 @@
 
 **Type:** UI + UX + navigation + interaction design. Not a backend architecture programme —
 Missions 1–6 own the canonical machinery; this mission consumes and exposes it.
-**Status:** Active — Phases 1-10 shipped 2026-09-19/20 (same session, one PR). This is a
+**Status:** Active — Phases 1-11 shipped 2026-09-19/20 (same session, one PR). This is a
 large, multi-phase mission; this record is honest about what's actually closed versus what
 remains open (see §5/§6/§6.1). Phase-by-phase build record: §3 (Phase 1: ambient Number One,
 navigation fixes, directory grouping, Hub/Chair actionability), §3.1 (Phase 2: Hub→Ready Room
@@ -11,8 +11,10 @@ continuity), §3.3 (Phase 3: accessibility — Modal focus trap, aria-live), §3
 dead-page risk into live workbenches), §3.8 (Phase 7: `operations` converted), §3.9 (Phase 8:
 contrast/label audit), §3.10 (Phase 9: weight-trend view ported, `state-*`/midnight text
 paired with outline/ring), §3.11 (Phase 10: `operating-model` relocated into Knowledge
-Workbench, closing legacy-page retirement 8/8). 2 of the 4 items from the Phase 8 deferred
-register remain open (items 1 and 7 — both genuinely blocked on live-environment access).
+Workbench, closing legacy-page retirement 8/8), §3.12 (Phase 11: `state-*`/`midnight` pairing
+rule formalized as the permanent fix, item 14 fully closed). Only 2 of the 14-item deferred
+register remain open now (items 1 and 7 — both genuinely blocked on live-environment access,
+see the VM mission brief prepared for them).
 **Branch:** `claude/tjr-hq-mission-7-az63cy`.
 
 ## 0. Mission question
@@ -596,6 +598,28 @@ always the separate "reaffirm/rewrite" option, which the Captain didn't choose t
 `npx tsc --noEmit` and `npx eslint` both pass clean; no existing test suite covers Knowledge
 Workbench to re-run.
 
+## 3.12 Phase 11 — item 14 (`state-*`/`midnight`) actually closed, not just mitigated
+
+Phase 9 (§3.10) shipped the border/ring pairing as a mitigation, with the "real" fix (a
+Visual Design Officer shade revision) left open. Asked directly whether that shade revision
+was worth doing now, checking it first surfaced a fact that changes the item's own framing:
+`state-*` is (almost certainly deliberately) theme-invariant, like its `wb-ok`/`wb-warn`/
+`wb-crit` sibling family — confirmed for real in `globals.css`, not assumed — and a flat
+colour passing 4.5:1 text contrast against both `midnight` and the 4 light themes at once is
+mathematically impossible, not just hard (full numbers in §5 item 14). So "do the shade
+revision" was never actually an available third option — the real choice was always between
+breaking theme-invariance for this one token family, or declaring the pairing rule permanent.
+Presented that choice, Captain chose the latter (Option B).
+
+Closed out for real, not just documented as a decision: `stateToneClasses()`
+(`lib/departments.ts`) now carries the mandatory-pairing rule and its full reasoning inline;
+`tailwind.config.ts`'s `state` block comment corrected (no longer claims `on` "genuinely
+pass[es] everywhere"); every one of the 26 `stateToneClasses()` consumers and every literal
+`text-state-*-on` usage in the app re-audited (not just the file list Phase 9's first pass
+found) — one remaining bare instance found (`(auth)/login`'s "Link sent" heading) and fixed.
+`npx tsc --noEmit`, `npx eslint`, and the full test suite (725/725) pass clean. §5 item 14 is
+now CLOSED, not partially closed — see there for the full record.
+
 ## 4. Core end-to-end test (§40) — status
 
 The backend path this test exercises (remember → what am I forgetting → help me start →
@@ -795,20 +819,48 @@ where the next pass should start:
     Events data has no view yet rather than pretending the page conversion depended on
     building one. This item is now purely about the future view itself, not about unblocking
     a retirement.
-14. **PARTIALLY CLOSED (Phase 9, §3.10) — Path 1 of the 2 prescribed paths applied; a full
-    text-contrast fix is still open.** `state-ok`/`state-info` `DEFAULT` values still sit
-    under 4.5:1 against every theme (likely acceptable, designed to a ≥3:1 graphical-fill bar
-    per the original Phase 1A doc — unchanged, not this item's finding). The `-on` text
-    variant's failure against `midnight` (1.4-2.3:1) is now mitigated: every bare
-    `text-state-*-on` instance found across the app is paired with the already-passing
-    `border-state-*` token (Captain's chosen path, over a shade revision, when asked
-    directly) — see §3.10 for the full file list and what was deliberately left alone. This
-    is the same "Colour+Shape+Label, not colour alone" mitigation the Phase 1A doc itself
-    prescribed for its dot component; it does not make the `-on` text itself pass SC 1.4.3.
-    **Still open:** a Visual Design Officer-approved shade revision remains the only path to
-    a genuine text-contrast fix, and no live-browser render was available this pass to
-    confirm the border/chip treatment reads well — both need a future pass with
-    live-environment access.
+14. **CLOSED (Phase 9 §3.10, formalized Phase 11 below) — Option B: the pairing rule *is*
+    the permanent fix, not an interim mitigation; a shade revision was ruled out as the wrong
+    path, not just deferred.** `state-ok`/`state-info` `DEFAULT` values still sit under 4.5:1
+    against every theme (unchanged, not this item's finding — designed to a ≥3:1
+    graphical-fill bar per the original Phase 1A doc).
+
+    Asked directly which of the 2 originally-prescribed paths to take (pair with an
+    outline/ring, or a Visual Design Officer shade revision), Captain chose the pairing path
+    in Phase 9. Before formalizing that as permanent, checked whether a shade revision was
+    even viable — it isn't, for a reason neither original path anticipated: `globals.css`'s
+    own header comment states `state-*`'s sibling family (`wb-ok`/`wb-warn`/`wb-crit`) is
+    **deliberately theme-invariant** ("status colour should communicate status, not
+    atmosphere") — confirmed for real, not just claimed: `--wb-ok`/`--wb-ok-on`/etc. are
+    defined exactly once in the file, never overridden per `[data-theme]`. `state-*` was
+    almost certainly built the same way for the same reason. Given that, a flat `-on` shade
+    revision is mathematically impossible to land on top of: against `midnight`'s `#111820`,
+    a colour needs luminance ≤0.168 to pass 4.5:1 on the 4 near-white themes and ≥0.265 to
+    pass 4.5:1 on `midnight` itself — those ranges don't overlap, for any hue. The only way to
+    make `-on` pass as bare text in every theme would be making it theme-aware (like `wb-ink`/
+    `wb-ink2` already are) — which breaks the stated theme-invariance principle for this
+    token family, a real design-system call, not a numeric one. Presented both real options
+    (break theme-invariance, or formalize pairing as permanent, not provisional) — Captain
+    chose the latter (Option B).
+
+    **Closed out as follows:** `stateToneClasses()` (`lib/departments.ts`) now carries a
+    mandatory doc comment: `on` MUST always render with `border`/`bg` from the same call,
+    never as bare text, with the full contrast-math reasoning inline so it doesn't need
+    re-deriving next time someone asks "why not just fix the colour." `tailwind.config.ts`'s
+    `state` block comment updated to match — the old claim that `on` "genuinely pass[es]
+    everywhere" is corrected. Full-codebase audit (not just the file list a first pass found):
+    grepped every `stateToneClasses()` consumer (26 files) and every literal
+    `text-state-*-on` usage — all 4 programmatic `.on` consumers were already correctly
+    paired (`Badge.tsx`, `OutcomesView.tsx`, `CommandStatus.tsx`, `PipelineHealthView.tsx`);
+    of the literal-string instances, only one was still bare after Phase 9
+    (`(auth)/login/page.tsx`'s "Link sent" heading) — fixed. `StatusView.tsx`'s
+    `TONE_DOT_CLASS` (`bg-state-X text-state-X-on`) is correctly left alone — that pairs `on`
+    against the dot's own solid fill, a different contrast pair than `on` vs. the page
+    background, not the failure this item describes. `npx tsc --noEmit`, `npx eslint`, and
+    the full test suite (725/725) all pass clean. No live-browser render was available to
+    confirm the border/chip treatment reads well visually — that's a genuinely separate,
+    smaller open question (does it *look* right) from whether it's the *correct* fix (settled,
+    this item is closed).
 
 ## 6. Recommended next steps
 
