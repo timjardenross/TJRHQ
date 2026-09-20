@@ -758,6 +758,38 @@ Settings.
 
 Next: Stream B, starting with LifeOS Hub (Command), per the Captain's own sequencing.
 
+### Phase 2 — Stream D (partial): dead-code deletion only (2026-09-20)
+
+Scope: the safe, narrow slice of Stream D only — the 4 zero-importer Panel components
+flagged in §3.2. Not in scope and untouched: the `delivery` page migration, `LCARSPanel.tsx`,
+`stage-progression/page.tsx`, and the §3.3/§3.4 department-colour and `lcars-*`-class cleanup
+— those remain open Stream D work for a later phase.
+
+**Fresh importer re-check performed this phase, not taken on the Discovery pass's word
+alone** (§3.2 explicitly asked for this, since repo state may have moved between Discovery
+and implementation): re-ran `grep -rn "<ComponentName>" src` for each of the 4 components
+against the current tree, plus a broader check for default-import syntax and any
+quoted-import-path form. Result: all 4 components still had **zero real importers** — every
+hit was either the component's own file or a comment mentioning the name (e.g.
+`ConfidenceIndicator.tsx`'s doc comment listing `HumanSystemsPanel`/`WellnessInsightPanel` as
+prior art, `mockData.ts`'s `// Alerts (AlertPanel across pages)` comment, `wellness/route.ts`'s
+comments about `WellnessInsightPanel.tsx`'s historical callers). No test files existed for
+any of the 4. Nothing was found live that wasn't already in the Discovery list — no file was
+skipped or left alone.
+
+**Deleted** (via `git rm`):
+- `lcars-portal/src/components/AlertPanel.tsx`
+- `lcars-portal/src/components/HumanSystemsPanel.tsx`
+- `lcars-portal/src/components/LearningStatusPanel.tsx`
+- `lcars-portal/src/components/WellnessInsightPanel.tsx`
+
+**Verified:** `npx tsc --noEmit` clean (no errors — confirms no missed importer). Full test
+suite: 725 tests / 69 files, all green (`npm run test`). `npm run build` not run this phase
+(out of the stated minimum bar, time budget not spent on it).
+
+Next: remaining Stream D scope (`delivery` LCARS migration, §3.3/§3.4 colour-class cleanup,
+`LCARSPanel.tsx` retirement) still open for a future phase.
+
 Phase-by-phase build record inside this same doc, same discipline as Mission 7's own
 (§3.x-numbered sections per phase, updated in place as work lands — not a separate status
 doc). Knowledge record on completion at `knowledge/missions/` following this mission's own
