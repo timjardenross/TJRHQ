@@ -214,9 +214,17 @@ reinvent:**
 - Human Systems' "Capacity Trend — Last 14 days" bar chart → the existing `Sparkline`
   component and `TREND_GROUPS` structure in the same file — a real, already-built chart,
   needs restyling not rebuilding.
-- Briefs' Latest/Areas/Saved/Archive tabs, article list + reading pane with Executive
-  Summary/Key Points → the existing Briefs workbench (`intelligence_briefs`/
-  `captains_daily_briefs`), already absorbed Intelligence's Briefs-shaped tabs in Mission 7.
+- **Correction (2026-09-20, superseding the original analysis below):** this bullet
+  originally claimed Image 1's "Latest/Areas/Saved/Archive" tabs already matched the real
+  Briefs workbench. **That was wrong** — verified directly against
+  `lcars-portal/src/app/briefs/page.tsx` this session: the real tab set is
+  **`Latest / Domains / Timeline / Explore`** (lines 24-28), not Areas/Saved/Archive. This is
+  near-identical to Image 3's "Domains/Timeline/Explore" mockup (§1.6 item 2, Captain-
+  confirmed authoritative) — Image 3 is the accurate one, Image 1 was the outdated/wrong
+  guess. Article list + reading pane with Executive Summary/Key Points → the existing Briefs
+  workbench (`intelligence_briefs`/`captains_daily_briefs`), already absorbed Intelligence's
+  Briefs-shaped tabs in Mission 7 (Phase 6, §3.7) — reuse `LatestView`/`DomainsView`/
+  `TimelineView`/`ExploreView` (same file) as the real components to restyle, don't rebuild.
 
 **Specific mockup elements that need verification before building — real §31 (no fabricated
 data) risk if skipped:**
@@ -352,28 +360,34 @@ only the ones mocked up. This was already this doc's Stream C intent ("migrate r
 workbenches by classification") but is now stated explicitly rather than left implicit. See
 §1.7 for the full confirmed page list this mission covers.
 
-### 1.6 Discrepancies found in Image 3 — flagged, not silently resolved
+### 1.6 Discrepancies found in Image 3 — both resolved by Captain decision
 
-Two real conflicts surfaced comparing Image 3 against Image 1 and the text brief. Both need a
-Captain decision before implementation locks either interpretation in:
+Two real conflicts surfaced comparing Image 3 against Image 1 and the text brief. Both are
+now resolved (2026-09-20) — recorded here rather than silently dropped, since the reasoning
+(and, for item 2, a real correction to this doc's own earlier analysis) matters for whoever
+builds these surfaces.
 
-1. **Captain's Chair — mode conflict.** Image 3 shows Captain's Chair with a **light/cream
-   background**, matching the Read-mode surface treatment. But both the original text brief
-   and this doc's own §1.1 classify Chair under **Command mode (dark)**, grouped with Hub.
-   These are genuinely incompatible for one page — either the text brief/§1.1 classification
-   is wrong and Chair is actually Read-mode (it does involve reading synthesis/summaries, per
-   `captainsChairSynthesis.ts`, so a Read classification isn't implausible), or Image 3's
-   mockup is an inconsistent draft. **Do not silently pick one** — surface this explicitly to
-   the Captain at Stream A/B kickoff before building Chair's surface.
-2. **Briefs — two different tab structures shown.** Image 1's Briefs mockup shows
-   **Latest / Areas / Saved / Archive** tabs (already cross-referenced in §1.1 against the
-   real `intelligence_briefs`/`captains_daily_briefs`-backed Briefs workbench). Image 3's
-   second Briefs treatment shows a **different tab set: Domains / Timeline / Explore**. These
-   don't obviously map onto each other 1:1 (Domains/Timeline/Explore reads like a different
-   information architecture, not just a restyle of the same 4 tabs). **Do not assume Image 3
-   supersedes Image 1** — both are Captain-supplied, so which is authoritative (or whether
-   they're two options to choose between) needs an explicit Captain call before Stream B
-   builds the Briefs reference surface, not a session-level guess either way.
+1. **Captain's Chair — mode conflict. RESOLVED (Captain-confirmed, 2026-09-20): Chair is
+   Read-mode (light).** Image 3 showed Chair with a light/cream background; the original text
+   brief and this doc's own §1.1 had classified Chair under Command mode (dark), grouped with
+   Hub — that classification was wrong. The Captain's own reasoning generalizes beyond Chair
+   alone: **Read/light applies to any "heavy wording" page — one whose primary content is
+   reading dense text/synthesis, not a glance-dashboard or an action surface — for a
+   consistent look and feel across all such pages, not just Briefs and Chair.** This is a
+   real change to the Command/Focus/Read model in §1.1 (which had implied Read was Briefs-
+   only) — see the new §1.8 below for what this means for the other 19 workbenches.
+2. **Briefs — two different tab structures shown. RESOLVED (Captain-confirmed, 2026-09-20):
+   Image 3's Domains / Timeline / Explore is authoritative.** Image 1's mockup showed
+   **Latest / Areas / Saved / Archive**; this doc's original §1.1 analysis wrongly claimed
+   that already matched the real workbench. It doesn't — verified directly against
+   `briefs/page.tsx` this session, the real tab set is **`Latest / Domains / Timeline /
+   Explore`** (see the corrected §1.1 bullet above), which is near-identical to Image 3's
+   mockup (missing only the leading `Latest` tab, most likely just not visible in that
+   mockup panel's crop, not a real omission). So Image 3 wasn't just the Captain's preferred
+   option — it's also the one that actually matches the shipped app, and Image 1's tab names
+   never existed anywhere in this codebase. Build Briefs' reference surface against
+   `Latest/Domains/Timeline/Explore` and the real `LatestView`/`DomainsView`/`TimelineView`/
+   `ExploreView` components (same file), not Image 1's tab names.
 
 ### 1.7 Full scope confirmation — every live workbench, not just the mocked-up subset
 
@@ -406,6 +420,58 @@ examples rather than redesigned from scratch. Stream C's existing wording ("migr
 workbenches by classification") already meant this; this section makes the full list and the
 9-mocked/11-unmocked split explicit and checkable rather than leaving "remaining workbenches"
 vague.
+
+### 1.8 Read-mode classification, generalized (Captain decision, 2026-09-20)
+
+§1.6 item 1's resolution wasn't just "Chair is light" — the Captain's own reasoning was
+general: **Read/light applies to any "heavy wording" page (primarily reading dense text or
+synthesis), for a consistent look and feel, not just Briefs.** This changes §1.1's original
+model, which implied Read was Briefs-only and everything else was Command/Focus (dark). This
+section applies that principle to all 20 workbenches as a first pass — **reasoned from each
+page's real, already-documented PURPOSE (§2 responsibility matrix, §6.1 experience inventory,
+Mission 7 Phase 16's per-workbench write-up), not from re-reading every page live this
+session.** Confirm the ambiguous ones (flagged below) before Stream A locks the classification
+— this is a documented starting point, not a final ruling on every entry:
+
+**Read (light) — primarily reading/synthesis, not a glance-dashboard or an action surface:**
+- Captain's Chair (Captain-confirmed, §1.6 item 1)
+- Briefs (was already Read; unaffected by this generalization)
+- Weekly Review — its own PURPOSE is "one calm weekly pass... organised around significance,"
+  described in §6.1/Phase 16 as a read-first synthesis page with no unique action chrome
+- Technical OSINT Workbench, Health OSINT Workbench — intelligence triage surfaces whose
+  actual content is reading briefs/articles, not entering data or taking action
+- Advisory — "Think it through" is a long-form conversational consult, not a quick action
+- Knowledge Workbench — decisions/lessons/ADR search and reading, the most text-dense page
+  in the app by PURPOSE
+- HQ Evolution (`self-improvement-findings`) — overnight discovery write-ups, read-first
+
+**Command/Focus (dark) — glance-dashboards or action/execution surfaces, not primarily
+reading:**
+- Hub (Command — glance/orientation, unaffected)
+- Ready Room (Focus — single-task execution, unaffected)
+- Human Systems (Focus — capacity tiles/charts, unaffected)
+- Capture Workbench — inbox triage + quick capture, action-oriented
+- Mission Workbench — mission list with a dominant filter row, management not reading
+- Emergency Alerts — deliberately concise/scannable by design (§6.1: "raw volume ≠
+  workload"), not heavy wording
+- Shopping List — a list of action items
+- HQ Status — a multi-tab status dashboard
+
+**Ambiguous — flag for Stream A confirmation, not guessed here:**
+- **Physical Readiness** — "exercise library/history, read-only record" (§6.1) could read
+  either way: structured log data (Focus) vs. a page whose job is reading records (Read).
+- **Content Workbench** — mixed: the Today/Pipeline/Library tabs are action/kanban-shaped
+  (Focus), but the Studio (drafting/editing a piece of content) is genuinely writing-heavy.
+  May need a per-view mode rather than one classification for the whole page — worth deciding
+  explicitly rather than forcing a single answer.
+- **Search** — browsing text results could lean Read, but the page's own PRIMARY ACTION is
+  the search box itself (an input/action), not passive reading.
+- **Timeline** — a chronological feed; entries are short/scannable per Phase 16's own NOISE
+  finding (colour-dots already simplified for scannability), which leans Focus, but "reading
+  a feed" leans Read. Genuinely unclear from the existing record.
+- **Engineering Handoffs** — "deliberately read-only" per its own name, but §6.1 also notes
+  its actual content is mostly PR links/metadata, not long-form text — the external PR itself
+  carries the heavy wording, not this page.
 
 ## 2. Colour Philosophy & Token Architecture
 
