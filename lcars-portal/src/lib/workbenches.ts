@@ -83,6 +83,29 @@ export interface WorkbenchEntry {
   group: WorkbenchGroup;
 }
 
+export const PRIMARY_ACTIONS: Record<string, { label: string; href: string }> = {
+  '/hub': { label: 'Open Captain’s Chair', href: '/captains-chair-workbench' },
+  '/focus-workbench': { label: 'Start a focus session', href: '/focus-workbench' },
+  '/captains-chair-workbench': { label: 'Review what needs you', href: '/captains-chair-workbench' },
+  '/weekly-review': { label: 'Start weekly review', href: '/weekly-review' },
+  '/ready-room': { label: 'Choose what to do next', href: '/ready-room' },
+  '/intelligence-workbench': { label: 'Review today’s intelligence', href: '/intelligence-workbench' },
+  '/health-osint': { label: 'Review health evidence', href: '/health-osint' },
+  '/emergency-alert-hub-workbench': { label: 'Check active alerts', href: '/emergency-alert-hub-workbench' },
+  '/human-systems-workbench': { label: 'Check current capacity', href: '/human-systems-workbench' },
+  '/physical-readiness': { label: 'Review movement record', href: '/physical-readiness' },
+  '/shopping-list-workbench': { label: 'Review shopping list', href: '/shopping-list-workbench' },
+  '/content-workbench': { label: 'Review content queue', href: '/content-workbench' },
+  '/advisory-workbench': { label: 'Start a decision', href: '/advisory-workbench' },
+  '/briefs': { label: 'Read latest brief', href: '/briefs' },
+  '/knowledge-workbench': { label: 'Search command memory', href: '/knowledge-workbench' },
+  '/search': { label: 'Search HQ', href: '/search' },
+  '/timeline': { label: 'Review timeline', href: '/timeline' },
+  '/agent-status-workbench': { label: 'Check HQ status', href: '/agent-status-workbench' },
+  '/self-improvement-findings': { label: 'Review HQ evolution', href: '/self-improvement-findings' },
+  '/engineering-handoffs': { label: 'Review engineering handoffs', href: '/engineering-handoffs' },
+};
+
 // Order below is deliberate, not alphabetical: command/triage surfaces
 // first (what a Captain opens most), then domain intelligence, then work
 // pipelines, then the archive, then platform-ops/meta last (2026-08-31 —
