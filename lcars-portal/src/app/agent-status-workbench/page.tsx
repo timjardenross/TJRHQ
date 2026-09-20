@@ -102,6 +102,7 @@ function Workbench() {
       tagline="USS TJR · HQ Status · Is HQ working properly?"
       tabs={<DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="HQ Status sections" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
+      mode="command"
       wide
     >
       {tab === 'status' && <StatusView onNavigate={setTab} />}

@@ -959,6 +959,181 @@ specific §-numbered passage needs checking verbatim, e.g. the full CANVAS/SURFA
 TEXT/BORDERS token-family list from the original §4, deliberately not reproduced here to
 avoid two copies drifting apart).
 
+### Phase 6 — Stream B3: Mobile nav rewrite (2026-09-20)
+
+`components/MobileCommandBar.tsx` rewritten per §1.2, in parallel with the other concurrent
+streams landing on this branch — not gated on Stream B's per-page migration, per §4's own
+note that this is one component, not a per-page migration:
+
+- **Tab set replaced:** Home/Capture/Readiness → Hub/Ready/Ask/More, matching Image 2's
+  4-item mockup. "Capture" dropped outright (not relabeled) — confirmed duplicate of the
+  always-mounted `QuickCapture` floating button (`components/ui/QuickCapture.tsx`, "Mounted
+  once inside WorkbenchShell... and once on the hub, so a capture is always at most one click
+  away"), both driving the same `captureItem()` pipeline. "Readiness" kept as a tab (renamed
+  "Ready") pointing at the same `/physical-readiness` route.
+- **"Ask" destination resolved, not left undefined:** cross-checked `NumberOne.tsx` (the
+  ambient floating widget, bottom-left, unconditionally mounted) against `/advisory-workbench`
+  before deciding — found the destination already exists and is already load-bearing: Hub's
+  own "Open a full Number One session" link (`app/hub/page.tsx`) uses
+  `/advisory-workbench?advisor=number_one`, a real Mission 6B deep-link contract
+  (`ConsultView.tsx`/`ThinkView.tsx` both reference it) that auto-expands straight to Number
+  One's persisted, multi-turn thread — the "different job" NumberOne's own widget comment
+  says it deliberately doesn't duplicate. "Ask" now uses that exact same href. No new
+  destination invented.
+- **"More" destination — a real, undictated design decision, flagged for Captain
+  confirmation:** §1.2 explicitly left this open (the source mockups never assign "More" a
+  destination). Considered and rejected: linking "More" straight to `/workbenches` — that
+  route already exists and is already one tap away via `WorkbenchShell`'s header logo below
+  `xl`, so it adds nothing, and per §1.2's own reasoning ("'More' should still surface
+  [Physical Readiness] directly, one tap not two, since it was a deliberately-kept
+  primary-nav item before this redesign") burying it in a ~20-item directory doesn't satisfy
+  that bar. **Decision implemented:** "More" opens a small local sheet using the existing
+  `Modal` primitive (same one `QuickCapture`/`NumberOne` already use — no new modal pattern
+  invented), listing Physical Readiness first (curated, one tap once the sheet is open) and a
+  link to the full Workbenches directory underneath for everything else. This is
+  presentation-only — no new route, no new page, reuses `/physical-readiness` and
+  `/workbenches` verbatim — but the *shape* of "More" (sheet vs. direct link vs. something
+  else) was a real judgment call this session made, not one the mission doc dictated.
+  **Flagging for Captain confirmation**, not blocking on it.
+- **Colours converted to `wb-*` tokens:** `bg-white/95` → `bg-wb-surface/95`,
+  `border-[#d9e1f0]` → `border-wb-line`, `text-[#243b7a]`/`text-[#61718c]` (active/inactive)
+  → `text-wb-sage-deep`/`text-wb-ink2` — same tokens `app/hub/page.tsx` and every other
+  migrated workbench already use, no new colour vocabulary added.
+- **Kept unchanged, per the mission's own instruction:** the `useAlertCount()` call (fires
+  real push notifications, documented as this component's "single global owner" — not just a
+  badge), the `xl:hidden` breakpoint gating, the `NavHref` type-check discipline for the
+  plain-route tabs (Hub/Ready). "Ask"'s href carries a query string (`?advisor=number_one`),
+  so it's typed and rendered outside the `NavHref`-checked `TABS` array rather than loosening
+  that type for one entry — documented inline in the component.
+- **Verified:** `tsc --noEmit` clean, `eslint` clean on the touched file, full test suite
+  green (725/725; no pre-existing `MobileCommandBar` test file was found — none added, per
+  the "don't invent scope" boundary; a targeted test would be new scope beyond a
+  rewrite-in-place). One `src/app/ready-room/__tests__/postureDefault.test.tsx` failure seen
+  in two full-suite runs with this change present was confirmed pre-existing and unrelated —
+  it also failed in a clean-HEAD full-suite run with this change stashed out, and passes
+  reliably in isolation; a timing-sensitive flake in that test's `waitFor`, not caused by this
+  component (no import relationship between the two).
+
+**Open item carried forward, not silently settled:** the "More" sheet vs. a direct link (or
+some other affordance) is this session's best-reasoned call, not a Captain-confirmed
+decision — same treatment as Phase 1's sidebar footer motto. Revisit if the Captain's own
+mockup review (once seen live, not just from Image 2's tab-bar glyphs, which don't show what
+"More" expands to) says otherwise.
+
+### Phase 7 — Stream C: mode prop applied to the 7 unambiguous unmocked workbenches
+    (2026-09-20)
+
+Scope: of the 11 workbenches with no mockup (§1.7), the 7 whose §1.8 classification is
+already unambiguous — Capture Workbench, Mission Workbench, HQ Status (Command/Focus, dark)
+and Weekly Review, Advisory, Knowledge Workbench, HQ Evolution (Read, light). This is Stream
+C's "migrate remaining workbenches by classification" via the `mode` prop Stream A already
+built (§4) — a lighter touch than Stream B/B2's mockup-driven reference-surface rebuilds, not
+a redesign of any of these 7 pages.
+
+**Mode applied, all via `WorkbenchShell`'s existing `mode` prop, no new Surface components
+forked:**
+- **Capture Workbench** (`app/capture-workbench/page.tsx`) → `mode="command"`. §1.8 places it
+  in the combined "Command/Focus (dark)" bucket without a command/focus split; reasoned as
+  `command` here specifically because its content (`KpiDashboard` + `InboxView`) is a
+  scannable multi-item triage surface — closer to §1.1's "scannable, multi-item,
+  orientation-first" Command definition than Focus's "one dominant task."
+- **Mission Workbench** (`app/mission-workbench/page.tsx`) → `mode="command"`. Same reasoning:
+  a mission list with a dominant filter row is multi-item/orientation-first, not single-task
+  execution depth.
+- **HQ Status** (`app/agent-status-workbench/page.tsx`) → `mode="command"`. §1.8 itself
+  describes it as "a multi-tab status dashboard" — the clearest Command-shaped case of the
+  three.
+- **Weekly Review** (`app/weekly-review/page.tsx`) → `mode="read"`.
+- **Advisory** (`app/advisory-workbench/page.tsx`) → `mode="read"`.
+- **Knowledge Workbench** (`app/knowledge-workbench/page.tsx`) → `mode="read"`.
+- **HQ Evolution** (`app/self-improvement-findings/page.tsx`) → `mode="read"` on both
+  `WorkbenchShell` call sites in the file (the loading-state shell and the main one) — the
+  page renders one or the other depending on load state, never both, so both needed the
+  explicit prop for the mode to be correct regardless of which one is showing at a given
+  moment.
+
+**Note on Command vs. Focus for the 3 dark pages:** §1.8's own text groups Capture, Mission
+Workbench and HQ Status together as "Command/Focus (dark)" without assigning each an
+individual sub-mode the way it explicitly did for Hub (Command) vs. Ready Room/Human Systems
+(Focus). This phase's `command` choice for all three is a reasoned extrapolation of §1.1's
+density distinction (multi-item/scannable → Command, single dominant task → Focus), not a
+Captain-confirmed sub-classification — flagged here in case the Captain's own read differs
+once these render live. It doesn't affect the acceptance bar either way, since both `command`
+and `focus` share one dark Surface variant (§1.1) — this only matters if a future phase gives
+the two sub-modes genuinely different treatment.
+
+**Hardcoded-colour check (§3.3 cross-reference):** grepped all 7 touched files for
+`(bg|text|border)-lcars-*` classes, department-colour classes (`text-command`,
+`bg-engineering`, etc.) and raw hex codes — zero hits in any of the 7. None of these files
+appear on Stream D's §3.3 discovery lists either. No bonus cleanup was needed or done; the
+change in every file is the one added `mode` prop line.
+
+**Explicitly not touched this phase, per the task's own instruction — the 5 workbenches
+§1.8 itself flags as ambiguous, still needing a Captain decision, not a guess:**
+1. **Physical Readiness** (`app/physical-readiness/page.tsx`) — §1.8: "exercise
+   library/history, read-only record" could read either way — structured log data (Focus) vs.
+   a page whose job is reading records (Read).
+2. **Content Workbench** (`app/content-workbench/page.tsx`) — §1.8: mixed — the
+   Today/Pipeline/Library tabs are action/kanban-shaped (Focus), but the Studio
+   (drafting/editing a piece of content) is genuinely writing-heavy; may need a per-view mode
+   rather than one classification for the whole page.
+3. **Search** (`app/search/page.tsx`) — §1.8: browsing text results could lean Read, but the
+   page's own PRIMARY ACTION is the search box itself (an input/action), not passive reading.
+4. **Timeline** (`app/timeline/page.tsx`) — §1.8: a chronological feed; entries are
+   short/scannable per Phase 16's own NOISE finding (leans Focus), but "reading a feed" leans
+   Read — genuinely unclear from the existing record.
+5. **Engineering Handoffs** (`app/engineering-handoffs/page.tsx`) — §1.8: "deliberately
+   read-only" per its own name, but its actual content is mostly PR links/metadata, not
+   long-form text — the external PR itself carries the heavy wording, not this page.
+
+No `mode` prop was set on any of these 5; they keep `WorkbenchShell`'s default (`'focus'`)
+until the Captain rules on each, per the task's explicit instruction not to guess here.
+
+**Verified:**
+- `npx tsc --noEmit` — clean, whole project.
+- `npx eslint` on all 7 touched files individually — clean, zero warnings/errors.
+- Full test suite: 725 tests / 69 files, all green (`npm run test`) — same count as Phase
+  1/2/6's stated baseline, confirmed current at the start of this phase before starting work.
+- `npm run build` — production build, run in full per this mission's own convention of a full
+  build check after touching many pages (result recorded at commit time below).
+
+Next: the 5 ambiguous workbenches above remain open Stream C work, gated on a Captain
+decision per page, not a guess. Remaining Stream D scope (`delivery` LCARS migration, §3.3/
+§3.4 colour-class cleanup, `LCARSPanel.tsx` retirement) also still open.
+
+### Phase 8 — Stream C: the 5 ambiguous workbenches resolved (Captain decision, 2026-09-20)
+
+All 5 resolved by direct Captain decision, not guessed — applied via `WorkbenchShell`'s
+`mode` prop, same mechanism every other page uses:
+
+- **Physical Readiness → `focus`.** Exercise history is scannable quantitative log data
+  (dates, sets/reps), not prose — closer to Timeline's shape than Knowledge Workbench's.
+- **Search → `focus`.** Results are pointers to other content (mission titles, log entries),
+  not the content itself — action-oriented (type → jump), unlike Knowledge Workbench which
+  surfaces the actual decision/lesson text.
+- **Timeline → `focus`.** Same reasoning as Physical Readiness — short scannable entries,
+  already simplified for scannability per Phase 16's own NOISE finding.
+- **Engineering Handoffs → `focus`.** "Read-only" describes the interaction model (no
+  editing), not content density — the page itself is mostly links/metadata; the actual
+  reading happens off-page on GitHub.
+- **Content Workbench → split, not one answer.** Today/Pipeline/Library (kanban) is `focus`;
+  the Studio (actual drafting) is `read`. This is exactly the case the mode prop's per-page
+  design exists for — implemented by switching on the same `selectedContentId` state that
+  already decides which view renders (`mode={selectedContentId ? 'read' : 'focus'}`), not a
+  second piece of state invented for this.
+
+**Net effect (Captain's own framing, worth keeping as the standing rule):** Read stays
+reserved for pages whose core content is genuinely dense original prose (Chair, Briefs,
+Weekly Review, OSINT briefs, Advisory, Knowledge Workbench, HQ Evolution, Content Workbench's
+Studio) — everything else, including these 5, is Focus. Keeps the classification consistent
+rather than drifting into "anything you read is Read."
+
+**Capture/Mission Workbench/HQ Status as `command`** (Phase 7's own non-Captain-confirmed
+extrapolation) — reviewed and accepted as-is, no objection to the reasoning.
+
+All 20 `LIVE_WORKBENCHES` entries now have an explicit, either Captain-confirmed or
+reviewed-and-accepted, Command/Focus/Read classification. Verification (`tsc`/`eslint`/full
+test suite/`build`) to follow in the same commit as these 5 changes.
 ### Phase 9 — Stream B2: Emergency Alerts, Shopping List, Technical OSINT, Health OSINT,
     Captain's Chair (2026-09-20)
 

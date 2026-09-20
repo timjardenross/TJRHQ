@@ -277,6 +277,7 @@ export default function TimelinePage() {
       back={{ href: '/workbenches', label: 'Workbenches' }}
       right={daySelector}
       tabs={sourceFilters}
+      mode="focus"
     >
       {/* MSN-0351: honest, quiet note when one or more sources failed to
           load — an outage no longer masquerades as "no events". */}

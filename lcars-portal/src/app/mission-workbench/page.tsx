@@ -128,7 +128,7 @@ export default function MissionWorkbenchPage() {
 
   return (
     <WorkbenchShell title="Mission Workbench" eyebrow="Mission Registry"
-      tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering">
+      tagline="USS TJR · Mission Workbench · Registry — capacity-aware filtering" mode="command">
       <div className="flex flex-col gap-4">
         <Card>
           {isLoading ? (
