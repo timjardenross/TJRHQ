@@ -32,9 +32,13 @@ def stats(client: SupabaseClient) -> dict[str, int]:
     rows = client.rpc("document_chunk_embedding_stats", {}) or []
     if rows:
         return {key: int(value) for key, value in rows[0].items()}
-    all_rows = client.select("document_chunks", "id,embedding")
-    embedded = sum(1 for row in all_rows if row.get("embedding"))
-    return {"chunk_count": len(all_rows), "embedded_chunk_count": embedded}
+    # RPC fallback: two exact HEAD counts instead of selecting every row's
+    # `embedding` vector just to check it's non-null — that unbounded
+    # `id,embedding` select was a latent multi-MB-per-call egress spike
+    # (Supabase egress investigation, 2026-09-20).
+    chunk_count = client.count("document_chunks")
+    embedded_chunk_count = client.count("document_chunks", {"embedding": "not.is.null"})
+    return {"chunk_count": chunk_count, "embedded_chunk_count": embedded_chunk_count}
 
 
 def generate(batch_size: int, max_chunks: int | None, dry_run: bool) -> None:

@@ -44,11 +44,17 @@ function WorkbenchSwitcher() {
   const current = LIVE_WORKBENCHES.find((w) => pathname?.startsWith(w.href))?.href ?? '';
 
   return (
+    // Mission 7 item 1 (Phase 14 finding, Phase 15 fix): this <select> had
+    // no width constraint, so its closed-state face sized to the longest
+    // workbench title (up to 25 chars, "Technical OSINT Workbench") —
+    // confirmed overflowing the viewport at 375px on 20 of 21 workbenches.
+    // max-w + truncate caps the closed face only; the dropdown's own open
+    // list still shows full titles untruncated (native <select> behaviour).
     <select
       aria-label="Switch workbench"
       value={current}
       onChange={(e) => { if (e.target.value) router.push(e.target.value); }}
-      className="rounded-md border border-wb-line bg-wb-surface px-2 py-1 text-[12px] text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+      className="w-[92px] max-w-[92px] truncate rounded-md border border-wb-line bg-wb-surface px-2 py-1 text-[12px] text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep sm:w-auto sm:max-w-[180px]"
     >
       {!current && <option value="" disabled>Switch workbench…</option>}
       {LIVE_WORKBENCHES.map((w) => (
@@ -131,7 +137,12 @@ export function WorkbenchShell({
                 <div className="font-serif text-[17px]">{title}</div>
                 <div className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">{eyebrow}</div>
               </div>
-              <span className="ml-auto flex items-center gap-3 text-[12px] text-wb-ink2">
+              {/* Mission 7 item 1 (Phase 15): flex-wrap here is the second
+                  layer of the mobile-overflow fix — even with both <select>s
+                  now width-capped, this gives the cluster somewhere to go
+                  (wrap to its own line) rather than force horizontal
+                  scroll, on whatever narrower screen turns up next. */}
+              <span className="ml-auto flex flex-wrap items-center justify-end gap-2 text-[12px] text-wb-ink2">
                 {right}
                 {/* Settings Page Redesign mission §23: Sidebar (xl+) already
                     links to /settings, but Sidebar is hidden below xl and

@@ -176,8 +176,8 @@ def build_brief() -> str:
         from core.platform.captain_brief_orchestrator import (
             assemble_captain_brief_document,
         )
-        from core.platform.event_bus import poll_events
-        polled_events = poll_events(limit=50)
+        from core.platform.event_bus import CAPTAIN_BRIEF_COLUMNS, poll_events
+        polled_events = poll_events(limit=50, columns=CAPTAIN_BRIEF_COLUMNS)
         canonical_doc = assemble_captain_brief_document(polled_events)
     except Exception as exc:  # noqa: BLE001 - best-effort canonical brief assembly
         log.debug("[brief] Canonical brief document assembly failed: %s", exc)

@@ -33,7 +33,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
-from core.platform.event_bus import poll_events
+from core.platform.event_bus import CAPTAIN_BRIEF_COLUMNS, poll_events
 from intelligence.brief.llm_provider import LLMProvider
 
 log = logging.getLogger(__name__)
@@ -135,7 +135,7 @@ def build_daily_digest(hours: int = 24, signals: list[dict] | None = None) -> st
     since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     try:
-        events = poll_events(since=since, limit=200)
+        events = poll_events(since=since, limit=200, columns=CAPTAIN_BRIEF_COLUMNS)
     except Exception as exc:  # noqa: BLE001 - best-effort events poll, already logged; caller falls back to an empty event list
         log.warning("[daily_digest] poll_events failed: %s", exc)
         events = []

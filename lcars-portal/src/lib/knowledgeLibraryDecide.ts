@@ -149,9 +149,19 @@ export async function decideDocument(
     if (chunkCountErr) throw chunkCountErr;
 
     if (!existingChunkCount) {
+      // Text only, deliberately not `embedding` (Supabase egress
+      // investigation, 2026-09-20): processing_chunks.embedding is
+      // vector(768) (nomic, migration 0042) but document_chunks.embedding
+      // is vector(1024) (mistral, migration 0102) — copying the raw vector
+      // across would throw a pgvector dimension-mismatch error on insert
+      // whenever a chunk actually has one, and would otherwise round-trip
+      // ~10-15KB/chunk through the API for a value that can't even be used
+      // here. document_chunks' own async re-embedding pipeline
+      // (generate_embeddings.py, `embedding is null` filter) picks these
+      // rows up and embeds them at the correct model/dimension.
       const { data: chunks, error: chunksErr } = await supabase
         .from('processing_chunks')
-        .select('chunk_index, chunk_text, embedding, embedding_model, embedded_at')
+        .select('chunk_index, chunk_text')
         .eq('document_id', doc.id)
         .order('chunk_index', { ascending: true });
       if (chunksErr) throw chunksErr;
@@ -161,9 +171,6 @@ export async function decideDocument(
           document_id: memoryDocumentId,
           chunk_index: c.chunk_index,
           chunk_text: c.chunk_text,
-          embedding: c.embedding,
-          embedding_model: c.embedding_model,
-          embedded_at: c.embedded_at,
         }));
         const { error: insertChunksErr } = await supabase.from('document_chunks').insert(rows);
         if (insertChunksErr) throw insertChunksErr;

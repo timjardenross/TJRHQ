@@ -17,9 +17,15 @@ import { useAbortEffect } from '@/hooks/useAbortEffect';
 // HQ V1 Integration QA §22 (recovery propagation) fix: this tab previously
 // fetched once on mount only — a Captain with the Status tab open during an
 // incident would never see it flip back to NORMAL on recovery without
-// reloading the page. Matches JobsView.tsx's existing 30s polling interval
-// on this same workbench, rather than inventing a different cadence.
-const REFRESH_INTERVAL_MS = 30_000;
+// reloading the page. Matches JobsView.tsx's existing polling interval on
+// this same workbench, rather than inventing a different cadence.
+// 2026-09-20 (Supabase egress investigation): this poll, fanning out 6
+// Supabase queries per tick from every open browser tab regardless of
+// whether the tab was actually visible, was the single highest sustained
+// call-volume site found in the codebase. 30s -> 60s halves the volume;
+// pausing while the tab is hidden (see the interval below) removes most of
+// what's left for a tab left open in the background.
+const REFRESH_INTERVAL_MS = 60_000;
 
 type Posture = 'normal' | 'degraded' | 'attention' | 'unknown';
 type CapabilityTone = 'healthy' | 'degraded' | 'unavailable' | 'unknown';
@@ -141,7 +147,13 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
       }
     }
     load(true);
-    const intervalId = setInterval(() => load(false), REFRESH_INTERVAL_MS);
+    // Skip ticks while this tab is hidden/backgrounded — the leading cause
+    // of this endpoint's call volume was a tab left open and forgotten,
+    // not a tab someone is actually watching (2026-09-20 egress fix).
+    const intervalId = setInterval(() => {
+      if (document.hidden) return;
+      load(false);
+    }, REFRESH_INTERVAL_MS);
     return () => clearInterval(intervalId);
   }, []);
 
