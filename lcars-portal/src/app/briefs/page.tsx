@@ -149,7 +149,7 @@ function LatestView({ latest, loading }: { latest: BriefListItem | null; loading
         </p>
       )}
 
-      <Link href={`/briefs/${encodeURIComponent(latest.brief_id)}`} className="text-[13px] text-wb-sage-deep underline">
+      <Link href={`/briefs/${encodeURIComponent(latest.brief_id)}`} className="text-[13px] text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
         Read full brief →
       </Link>
     </Card>
@@ -246,7 +246,7 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
           <Collapsible.Trigger asChild>
             <button
               type="button"
-              className="rounded-md border border-wb-line px-3 py-1.5 text-[13px] text-wb-ink2 hover:bg-wb-bg"
+              className="rounded-md border border-wb-line px-3 py-1.5 text-[13px] text-wb-ink2 hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
             >
               {showAdvanced ? 'Hide' : 'Show'} advanced filters
             </button>
@@ -263,7 +263,7 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
                     type="button"
                     onClick={() => setStatusFilter(s)}
                     aria-pressed={statusFilter === s}
-                    className={`rounded-full border px-3 py-1 text-[12px] ${
+                    className={`rounded-full border px-3 py-1 text-[12px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
                       statusFilter === s ? 'border-wb-sage-deep bg-wb-sage-deep text-white' : 'border-wb-line text-wb-ink2'
                     }`}
                   >

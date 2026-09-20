@@ -273,10 +273,10 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
                 <div>Generated: {data.brief.generated_at ? new Date(data.brief.generated_at).toLocaleString() : '—'}</div>
                 {data.brief.executive_snapshot && <div className="mt-2 italic">{data.brief.executive_snapshot}</div>}
                 <div className="mt-2 flex gap-3">
-                  <Link href={`/intelligence-workbench/brief/${data.brief.brief_id}`} className="text-wb-sage-deep hover:underline">
+                  <Link href={`/intelligence-workbench/brief/${data.brief.brief_id}`} className="text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                     View full brief →
                   </Link>
-                  <Link href={`/intelligence-workbench/escalation/${data.brief.brief_id}`} className="text-wb-sage-deep hover:underline">
+                  <Link href={`/intelligence-workbench/escalation/${data.brief.brief_id}`} className="text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                     Escalation workflow →
                   </Link>
                 </div>
@@ -365,7 +365,7 @@ function Workbench() {
               <button
                 type="button"
                 onClick={openAnalyst}
-                className="text-[12px] text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep"
+                className="text-[12px] text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
               >
                 Technical view (analyst console) →
               </button>

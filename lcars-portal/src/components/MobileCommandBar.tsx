@@ -140,8 +140,14 @@ export function MobileCommandBar() {
                   aria-current={isActive ? 'page' : undefined}
                   className={[
                     'relative flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2',
+                    'focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-wb-sage-deep',
                     isActive ? 'text-wb-sage-deep' : 'text-wb-ink2',
                   ].join(' ')}
+                  // Negative offset (vs. the app's usual positive
+                  // focus-visible:outline-offset-2): this tab sits flush
+                  // against the fixed bottom bar's own edge, so a positive
+                  // offset would clip outside the bar/viewport. Same
+                  // reasoning as settings/page.tsx's row items.
                 >
                   <span className="relative text-xl leading-none" aria-hidden>
                     {tab.glyph}
@@ -162,6 +168,7 @@ export function MobileCommandBar() {
               aria-current={isAskActive ? 'page' : undefined}
               className={[
                 'relative flex min-h-[56px] w-full flex-col items-center justify-center gap-0.5 py-2',
+                'focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-wb-sage-deep',
                 isAskActive ? 'text-wb-sage-deep' : 'text-wb-ink2',
               ].join(' ')}
             >
@@ -182,6 +189,7 @@ export function MobileCommandBar() {
               aria-expanded={moreOpen}
               className={[
                 'relative flex min-h-[56px] w-full flex-col items-center justify-center gap-0.5 py-2',
+                'focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-wb-sage-deep',
                 isMoreActive || moreOpen ? 'text-wb-sage-deep' : 'text-wb-ink2',
               ].join(' ')}
             >
@@ -204,7 +212,7 @@ export function MobileCommandBar() {
               <Link
                 href={link.href}
                 onClick={() => setMoreOpen(false)}
-                className="flex items-center gap-3 rounded-md border border-wb-line bg-wb-surface p-3 text-wb-ink transition-colors hover:border-wb-sage-deep/40"
+                className="flex items-center gap-3 rounded-md border border-wb-line bg-wb-surface p-3 text-wb-ink transition-colors hover:border-wb-sage-deep/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
               >
                 <span className="text-xl leading-none" aria-hidden>
                   {link.glyph}

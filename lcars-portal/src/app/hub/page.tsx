@@ -415,7 +415,7 @@ export default function LifeOSHub() {
                   {needsYouItems.length > 3 && (
                     <li className="text-xs text-wb-ink2">
                       +{needsYouItems.length - 3} more — see{' '}
-                      <Link href="/captains-chair-workbench" className="text-wb-sage-deep hover:underline">Captain&apos;s Chair</Link>
+                      <Link href="/captains-chair-workbench" className="text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Captain&apos;s Chair</Link>
                     </li>
                   )}
                 </ul>

@@ -86,7 +86,7 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
   if (loading) return <p className="text-[13px] text-wb-ink2">Loading today&apos;s briefing…</p>;
   if (error) return (
     <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-[13px] text-wb-crit-on">
-      Unavailable: {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline">Check pipeline health →</Link>
+      Unavailable: {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Check pipeline health →</Link>
     </p>
   );
   if (!data) return null;
@@ -161,7 +161,7 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
       <button
         type="button"
         onClick={onOpenTechnical}
-        className="text-[12px] text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep"
+        className="text-[12px] text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
       >
         Technical view (analyst console) →
       </button>

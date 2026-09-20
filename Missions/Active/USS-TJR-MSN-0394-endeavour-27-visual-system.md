@@ -1356,3 +1356,169 @@ mission's explicit scope fence):**
 Streams E, F, and G authorised to proceed under this discipline: verify `tsc`/`eslint`/
 `build`/test suite after every merge, flag anything else genuinely ambiguous rather than
 guessing, live-rendered verification deferred to production per the Captain's own call above.
+
+### Phase 12 — Stream F: Accessibility + adversarial review, plus the two Phase-11-authorised
+    technical fixes (2026-09-20)
+
+**Part 1 — the two Phase 11-authorised fixes:**
+
+1. **`StatusBadge`/`StatusTone` department-identity/risk-state conflation (Phase 9 finding),
+   fixed.** `StatusBadge` (`src/components/StatusBadge.tsx`) gained a new optional `stateTone?:
+   StateTone` prop, resolved via `stateToneClasses()` (mandatory `on`+`border`/`bg` pairing per
+   that function's own doc comment) and given precedence over the existing `tone`/`status`
+   (`StatusTone`, department-identity) path — the two systems now render through genuinely
+   separate code paths inside the same component, not one repurposed prop. `DeliveryPanel.tsx`'s
+   4 risk/WIP badges (open-by-state pills, the Control Tower's high-risk/constraint/WIP badges,
+   and the top-risks list) switched from `tone` to `stateTone`. `lib/delivery.ts`'s `STATE_TONE`
+   map retyped from `Record<string, StatusTone>` to `Record<string, StateTone>` with a real
+   severity-ordered remap (`proposed`→unknown, `planned`/`in_review`→info, `in_progress`/
+   `validated`/`closed`→ok, `blocked`→crit, `archived`→unknown) rather than the old department-
+   colour reuse. `DepartmentCard.tsx` (real department-identity usage, `tone={department.tone}`)
+   and `MissionCard.tsx` (`status`-inferred) — `StatusBadge`'s only other 2 real callers,
+   confirmed via a fresh `grep -rln "StatusBadge"` — are untouched and still compile; `dept.hex`/
+   `text-engineering`/`border-engineering` genuine department-identity uses elsewhere in
+   `DeliveryPanel.tsx` (Control Tower box, page H1) are also untouched, per Phase 9's own
+   carve-out.
+2. **`captains-chair-workbench/notebook/page.tsx`'s `bg-wb-bg/80`-on-hex-var opacity bug
+   (Phase 10 finding), fixed.** Every `wb-*` opacity-modifier occurrence in the file (11 found
+   via `grep -n "wb-[a-z-]*/[0-9]"`, spanning the note-card wrapper, hover state, triage-summary
+   text, officer-findings cards, strategic/confidence metric tiles, the routed-artefact box, the
+   route-result message, the approve-route button, and the status-filter tabs) converted to
+   solid tokens using the same substitution this pattern used 5 times already this mission:
+   `bg-wb-bg/NN`/`bg-wb-sage-deep/NN`/`bg-wb-ok/NN`/`bg-wb-crit/NN` fills → `bg-wb-surface-raised`
+   (solid raised-panel token), `text-wb-ink/80` → `text-wb-ink2` (existing solid secondary-ink
+   token, exact substitution Phase 5/10 already used), tinted borders (`border-wb-X/NN`) →
+   the same colour at full opacity (`border-wb-X`). Also fixed in the same pass, found while
+   grepping: the collapsed-note button's `hover:bg-wb-border/30` referenced a token that doesn't
+   exist anywhere in `tailwind.config.ts` (no `wb-border` — the real name is `wb-line`), so that
+   hover state was rendering nothing at all, not just transparent; fixed to `hover:bg-wb-surface`
+   (distinct solid hover state from the card's own `bg-wb-surface-raised`).
+
+Both verified with `npx tsc --noEmit` (clean) and `npx eslint` (clean on every touched file).
+
+**Part 2 — WCAG contrast audit of colour combinations Phase 1 didn't already validate.**
+Wrote a small Node script (relative-luminance formula, alpha-compositing for tinted fills over
+their backdrop — same method Mission 7 Phase 8 and this mission's own Phase 1 used, not
+eyeballed) and swept every raw hex added this mission first: `grep -rnoE "#[0-9a-fA-F]{6}"`
+across every Stream B/B2/B3 surface (Hub, Ready Room, Human Systems, Briefs, Emergency Alerts,
+Shopping List, Technical OSINT, Health OSINT, Captain's Chair, `MobileCommandBar.tsx`,
+`Sidebar.tsx`) found **zero** inline hex outside `globals.css`/`tailwind.config.ts` themselves —
+the 2 hex-looking strings in `MobileCommandBar.tsx` are inside its own doc comment describing
+the *pre*-Endeavour-27 hardcoded values it replaced, not live code. Every mission-added surface
+goes through the token system; no new-hex audit item to fix.
+
+Computed contrast for the token pairings Phase 1's own numbers didn't cover — `state-*`
+(`tailwind.config.ts`) and `wb-ok/warn/crit` (`globals.css`, theme/mode-invariant) against the
+2 new Endeavour 27 surfaces (dark `#0B1E2E`, read `#F4F0E8`), since Phase 1 only computed
+ink/ink2/accent/sand/gold:
+
+- `state-*` DEFAULT (border/dot, ≥3:1 UI-component bar) vs both surfaces: **all pass**, though
+  3 are close to the floor on dark — `state-warn` 3.22:1, `state-crit` 3.08:1, `state-unknown`
+  3.02:1 (dark); all comfortably clear on read (3.57–4.94:1).
+- `state-*-on` text, in its *actual rendered pairing* (`bg-state-X/15` tint composited over the
+  surface, `text-state-X-on` on top — the exact markup `Badge.tsx`/my own new `StatusBadge`
+  `stateTone` path both use): **passes comfortably on read (5.62–8.11:1), fails badly on dark
+  (1.33–1.95:1)**, all 5 tones. This is not a new bug — `stateToneClasses()`'s own doc comment
+  already documents this exact failure against `midnight` (Mission 7 §3.9: "1.4–2.3:1... no
+  single flat colour can pass 4.5:1 against both a near-white and a near-black background at
+  once... not a tuning problem, it's mathematically impossible") and records it as a
+  **Captain-directed accepted trade-off** (Mission 7 §3.10/§5 item 14, "Option B: formalize the
+  pairing rather than break theme-invariance"), not something this session is authorised to
+  silently redesign. What *is* new: under Endeavour 27 the dark surface is the **default,
+  permanent** Command/Focus background for most of the app, not one of 5 optional themes a
+  Captain had to select — so this pre-existing, Captain-accepted trade-off is now exposed far
+  more often than before. Recording the real numbers here rather than re-asserting Phase 1's
+  "untouched — already governed" line unchecked; **flagging for a Captain decision on whether
+  the accepted trade-off still holds at this new exposure level**, not silently re-deciding it.
+  My own 2 authorised fixes (`StatusBadge`'s new `stateTone` path, `DeliveryPanel.tsx`) inherit
+  this same existing, documented pattern rather than introducing a new instance of it.
+- `wb-ok/warn/crit` DEFAULT vs both surfaces (≥3:1): dark 4.07–4.68:1 (comfortable), read
+  3.19–3.66:1 (passes, less comfortable — `wb-warn` 3.19:1 is the tightest).
+- `wb-ok/warn/crit-on` text: same failure shape as `state-*-on` above (bare, on
+  `bg-wb-surface-raised`, or on a `/5`–`/15` tint of itself — all fail on dark, 1.9–2.9:1; all
+  pass comfortably on read, 4.46–6.85:1) — same pre-existing, Captain-accepted trade-off,
+  same new-exposure flag. My own notebook fix uses solid `border-wb-X bg-wb-surface-raised
+  text-wb-X-on` (stronger border contrast than the `/40` opacity original, same `on`-text
+  pairing convention already used ~15+ times elsewhere in the app, e.g. `WatchingView.tsx`,
+  `InboxView.tsx`, `ThinkView.tsx`, `ContentStudio.tsx`) — consistent with, not worse than, the
+  existing convention.
+- `wb-sand`/`wb-sand-deep` and `wb-ink`/`wb-ink2`/`wb-sage`/`wb-sage-deep`/`wb-gold`: already
+  computed in Phase 1's own entry (dark bg vs sand 8.95:1, read bg vs sand-deep 5.18:1, etc.) —
+  not re-derived, those numbers stand.
+
+**Not fixed, flagged instead (real, pre-existing, app-wide, not a new-this-session bug):** the
+same `border-wb-X/40 bg-wb-X/10 text-wb-X-on` pattern I fixed in `notebook/page.tsx` (Part 1)
+appears in dozens of other files across the app (`WatchingView.tsx`, `InboxView.tsx`,
+`ThinkView.tsx`, `ContentStudio.tsx`, `JobsView.tsx`, `LibraryView.tsx`, `ConsultView.tsx`, and
+more — found via grep, not enumerated exhaustively here) — out of this session's authorised
+scope (Part 1 authorised exactly 2 fixes) and would be a large cross-cutting change touching
+files owned by concurrent agents on this branch. Recording it here as a Stream F finding with
+real numbers rather than silently leaving it undocumented.
+
+**Part 3 — keyboard nav / reduced motion / colourblind-safe status spot-check.**
+
+*Focus-visible:* grepped every mission-touched surface (Stream B primary 4, Stream B2's 5,
+Stream B3's `MobileCommandBar.tsx`) for `<Link`/`<button` vs `focus-visible:outline` counts.
+Found and fixed real gaps, all using the app's own established
+`focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
+focus-visible:outline-wb-sage-deep` convention (a `-outline-offset-2` variant, same as
+`settings/page.tsx`'s own precedent, for `MobileCommandBar`'s bottom-bar tabs specifically,
+since a positive offset would clip against the fixed bar's own edge):
+- `MobileCommandBar.tsx` (Stream B3 rewrite) — **all 6 new interactive elements** (Hub/Ready
+  tabs, Ask link, More button, both More-sheet links) had **zero** `focus-visible` classes；
+  fixed all 6. Flagging: this file is also in the concurrent responsive-review agent's scope —
+  this is an accessibility-specific fix only (focus-visible outline classes), no responsive
+  classes touched.
+- `hub/page.tsx` — 1 of 10 links ("… see Captain's Chair") missing it; fixed. (Also in the
+  concurrent responsive-review agent's file list — same accessibility-only-fix boundary.)
+- `briefs/page.tsx` — 3 of 6 interactive elements missing it (the "Read full brief →" link, the
+  "Show/Hide advanced filters" toggle, the historical-status filter buttons); fixed. (Also in
+  the concurrent agent's file list — same boundary.)
+- `health-osint/_components/MyEvidenceView.tsx` / `TodayView.tsx` — all 5 interactive elements
+  (a topic-row button, 4 links) missing it; fixed. Not one of Phase 10's own edits (Phase 10
+  only added `mode="read"` to this surface, no structural change), but directly relevant to
+  Stream F's bar for the newly-Read-mode page and trivial to fix, so fixed rather than only
+  flagged.
+- `intelligence-workbench/page.tsx` / `_components/TodayView.tsx` — 3 of 3 and 2 of 2
+  respectively missing it; fixed. Same reasoning as Health OSINT above.
+- Everything else checked (Emergency Alerts, Shopping List, Captain's Chair, Sidebar.tsx,
+  `Button`/`Modal`/`Select` shared components) already had it on every interactive element —
+  no action needed there.
+- Not swept: `intelligence-workbench`'s own sub-pages (`brief/[id]`, `escalation/[id]`,
+  `LibraryView.tsx`, `WatchingView.tsx`) — real gaps exist there too but those files weren't
+  touched by any phase of this mission; flagging for a future pass rather than pulling them
+  into this session's scope.
+
+*Colourblind-safe status (colour + text/icon, never colour alone):* checked Shopping List's new
+stat row (icons + text label + number, not colour-only), Emergency Alerts' severity tiers (every
+`state-*` tinted box pairs with a `Badge`/heading text, per `stateToneClasses()`'s own mandatory
+pairing rule), and Technical OSINT's new confidence badge (`Badge` renders a text label, not a
+bare dot) — all compliant, no fix needed.
+
+*Reduced motion:* `globals.css`'s `@media (prefers-reduced-motion: reduce)` block (lines 168-174)
+and its `data-motion='reduced'` manual-override twin (lines 181-187) both catch any
+`animation-duration`/`transition-duration` CSS property globally, regardless of which Tailwind
+utility set it — this is a blanket rule, not an opt-in list, so it already covers every
+`transition-colors`/`hover:`-driven fade this mission added. Grepped every mission-touched
+surface for `requestAnimationFrame`, `framer-motion`, and inline `style={{ animation`/
+`transition` — **zero hits**. Nothing added this mission bypasses the global rule.
+
+**Verified:** `npx tsc --noEmit` clean. `npx eslint` clean on all 11 touched files
+(`StatusBadge.tsx`, `lib/delivery.ts`, `DeliveryPanel.tsx`,
+`captains-chair-workbench/notebook/page.tsx`, `MobileCommandBar.tsx`, `hub/page.tsx`,
+`briefs/page.tsx`, `health-osint/_components/MyEvidenceView.tsx`,
+`health-osint/_components/TodayView.tsx`, `intelligence-workbench/page.tsx`,
+`intelligence-workbench/_components/TodayView.tsx`). Full `npm run test`: **725/725 passing,
+69/69 files** — same baseline as every prior phase this mission, no regressions, no growth.
+`npm run build`: exit 0, all routes present including `/delivery`,
+`/captains-chair-workbench/notebook`, `/intelligence-workbench`, `/health-osint`, `/briefs`.
+No live-rendered verification attempted, per Phase 11's Captain-confirmed direction (deferred
+to production).
+
+**Open items carried forward, not silently dropped:**
+1. The app-wide `border-wb-X/40 bg-wb-X/10 text-wb-X-on` contrast trade-off, now far more
+   exposed under the permanent dark surface — Captain decision needed on whether it still
+   holds; real numbers above, not re-decided here.
+2. `intelligence-workbench`'s untouched sub-pages' missing `focus-visible` — pre-existing, out
+   of this mission's file scope.
+3. Stream G (cleanup + reporting, residual-debt register) — not started this phase.

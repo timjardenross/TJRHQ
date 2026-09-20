@@ -63,7 +63,7 @@ export function DeliveryPanel() {
       {/* Open by state */}
       <div className="mt-4 flex flex-wrap gap-2">
         {OPEN_STATES.filter((s) => byState[s]).map((s) => (
-          <StatusBadge key={s} label={`${s.replace('_', ' ')} ${byState[s]}`} tone={STATE_TONE[s]} />
+          <StatusBadge key={s} label={`${s.replace('_', ' ')} ${byState[s]}`} stateTone={STATE_TONE[s]} />
         ))}
         {open.length === 0 && <span className="text-xs text-wb-ink2">No open missions.</span>}
       </div>
@@ -88,21 +88,23 @@ export function DeliveryPanel() {
 
       {/* Control Tower (WP2): risk + constraint + capacity. border/bg/text-engineering
           kept: real department identity (Engineering's own control tower panel within
-          its delivery surface), not a decorative/status use — see Stream D report. */}
+          its delivery surface), not a decorative/status use — see Stream D report.
+          The badges inside use `stateTone` (risk/WIP state), not `tone` (department
+          identity) — MSN-0394 Phase 9 flagged this conflation, fixed Phase 12. */}
       <div className="mt-4 rounded-md border border-engineering bg-engineering/10 p-3">
         <p className="text-[10px] uppercase tracking-[0.2em] text-engineering">Control Tower</p>
         <div className="mt-1 flex flex-wrap gap-2 text-xs">
-          <StatusBadge label={`${tower.highRiskCount} high-risk`} tone={tower.highRiskCount ? 'operations' : 'status'} />
+          <StatusBadge label={`${tower.highRiskCount} high-risk`} stateTone={tower.highRiskCount ? 'crit' : 'ok'} />
           {tower.constraint && (
-            <StatusBadge label={`constraint: ${tower.constraint.replace('_', ' ')} ${tower.constraintCount}`} tone="command" />
+            <StatusBadge label={`constraint: ${tower.constraint.replace('_', ' ')} ${tower.constraintCount}`} stateTone="info" />
           )}
-          <StatusBadge label={`eng WIP ${tower.engWip}`} tone={tower.engWip > 3 ? 'operations' : 'medical'} />
+          <StatusBadge label={`eng WIP ${tower.engWip}`} stateTone={tower.engWip > 3 ? 'warn' : 'ok'} />
         </div>
         {tower.topRisks.length > 0 && (
           <ul className="mt-2 flex flex-col gap-1">
             {tower.topRisks.slice(0, 4).map((r, i) => (
               <li key={i} className="flex items-center gap-2 text-xs text-wb-ink/80">
-                <StatusBadge label={String(r.score)} tone={r.level === 'high' ? 'operations' : r.level === 'medium' ? 'command' : 'neutral'} />
+                <StatusBadge label={String(r.score)} stateTone={r.level === 'high' ? 'crit' : r.level === 'medium' ? 'warn' : 'ok'} />
                 <span>{r.title}</span>
               </li>
             ))}
