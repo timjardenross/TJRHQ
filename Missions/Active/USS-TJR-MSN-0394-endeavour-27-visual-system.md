@@ -790,6 +790,58 @@ suite: 725 tests / 69 files, all green (`npm run test`). `npm run build` not run
 Next: remaining Stream D scope (`delivery` LCARS migration, §3.3/§3.4 colour-class cleanup,
 `LCARSPanel.tsx` retirement) still open for a future phase.
 
+### Phase 3 — Stream B: LifeOS Hub reference surface (2026-09-20)
+
+**Captain direction obtained before building:** asked directly whether to build toward the
+mockup's literal 4-tile grid + 3-peer-card layout for Hub, given a real tension: Hub's
+current implementation is a deliberate "Command-Experience vNext" rewrite whose own header
+comment explains it replaced a permanent tile/badge grid specifically because that was a
+"dashboard, not command system" anti-pattern. Captain's answer: move toward the mockups where
+possible, retaining UI/accessibility — so built the mockup's structure, wired to real data,
+rather than picking one side silently.
+
+**What changed** (`app/hub/page.tsx`), all "presentation only" — no canonical logic touched,
+every number/label sourced from data this page already computed or a field that already
+exists elsewhere in the codebase, nothing fabricated:
+- Explicit `mode="command"` on `WorkbenchShell` (Stream A's mechanism, first real page to use
+  it).
+- Daypart greeting ("Good evening, Captain.") — reuses `HomeScreen.tsx`'s dead greeting logic
+  per mission §1.1, not reinvented.
+- Mission §1.1's 4-tile status grid (Capacity/Focus/In Progress/Wellbeing), each tied to real
+  data: Capacity/Wellbeing both read the one real Human Systems posture band via
+  `systemPostureStatus()` (`human-systems-workbench/_components/types.ts`'s own canonical
+  posture→tone map, reused rather than a second tone scale invented for this page) — two
+  framings of one real assessment, not two independent signals, matching how the mockup
+  itself frames them. Focus reuses `needsYouItems.length` (already computed). In Progress is
+  a genuinely new read — `personalTasks.ts`'s real `work_state === 'in_progress'` field,
+  fetched once in the same effect that already loads tasks for the Pick Up card, not a second
+  query.
+- Mission §1.1's Quick Access peer card — 4 links, all pre-existing real destinations
+  (Capture, Ready Room, Today Stream, Ask Number One), no new capability.
+- Kept the posture headline, Next/Needs You/World/HQ-status sections, and the Read
+  Aloud/Number One actions — real, mission-documented Command-Experience-vNext capability
+  that answers the page's own "5 questions" mandate; removing it to hit the mockup's exact
+  pixel layout would have silently deleted real functionality, which the mission's own
+  "presentation only" boundary rules out.
+
+**Verified:** `tsc --noEmit` and `eslint` clean. Existing `hub/__tests__/page.test.tsx` (6
+tests) still green unmodified — those tests already exercise the full loaded-render path
+(`findByText('STEADY TODAY')` etc. resolve past the loading gate the new tiles/cards also sit
+behind), so they cover the new JSX paths without needing new assertions this pass. Live
+screenshot verification was attempted (same Playwright-via-project-package workaround as
+prior sessions) but the page stayed on "Assessing…" indefinitely in this container — a
+pre-environment-limitation already seen during Stream A's own verification pass (this
+container's backend services, e.g. `context_service.py`, aren't reachable), not a regression
+from this change. Full pixel-level live confirmation is Stream E's job once a real backend is
+reachable.
+
+**Concurrent-session note:** two other streams (B3 mobile-nav rewrite, remaining Stream D)
+were run in parallel this phase via isolated `git worktree`s per AGENTS.md's own concurrent-
+session rule, specifically because a separate live session was independently active on this
+same branch at the same time (already merged one real doc conflict from it earlier this
+mission) — kept this session's own direct edits to Hub's own file only, to avoid compounding
+that risk.
+
 Phase-by-phase build record inside this same doc, same discipline as Mission 7's own
 (§3.x-numbered sections per phase, updated in place as work lands — not a separate status
 doc). Knowledge record on completion at `knowledge/missions/` following this mission's own

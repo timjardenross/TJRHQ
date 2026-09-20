@@ -78,6 +78,9 @@ import { deriveCommandPosture, buildNeedsYouItems, deriveIntelligenceHeadline } 
 import { playTts, type TtsPlaybackState } from '@/lib/ttsPlayer';
 import { useWakeLock } from '@/lib/useWakeLock';
 import { fetchTasks, pickUpItems, type PersonalTask } from '@/lib/personalTasks';
+import { systemPostureStatus, type SystemPostureBand } from '@/app/human-systems-workbench/_components/types';
+import { stateToneClasses } from '@/lib/departments';
+import type { StateTone } from '@/lib/types';
 
 const POSTURE_TONE_CLASS: Record<string, string> = {
   RESPOND: 'text-state-crit',
@@ -87,6 +90,26 @@ const POSTURE_TONE_CLASS: Record<string, string> = {
   STEADY: 'text-state-ok',
   UNKNOWN: 'text-state-unknown',
 };
+
+// Endeavour 27 (USS-TJR-MSN-0394) Stream B: the mockup's 4-tile status grid
+// (Capacity/Focus/In Progress/Wellbeing). Reuses the real canonical posture
+// judgement (systemPostureStatus(), human-systems-workbench's own badge-
+// status map) rather than inventing a second tone scale for the same
+// signal -- Capacity and Wellbeing both read off the one real Human
+// Systems posture, same as the mockup's own two related-but-distinct
+// framings of one assessment, not two independent measurements.
+const BADGE_TO_STATE_TONE: Record<'success' | 'info' | 'warning' | 'error' | 'neutral', StateTone> = {
+  success: 'ok',
+  info: 'info',
+  warning: 'warn',
+  error: 'crit',
+  neutral: 'unknown',
+};
+
+function daypartGreeting(): string {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
 
 export default function LifeOSHub() {
   // Always-on wall-tablet use (this page's whole purpose) — keeps the
@@ -115,12 +138,18 @@ export default function LifeOSHub() {
   // logic verbatim, same one already ported for Number One's "where was
   // I?" dispatcher intent in this mission.
   const [pickUpCandidate, setPickUpCandidate] = useState<PersonalTask | null>(null);
+  // Endeavour 27 Stream B: the mockup's "In Progress" tile needs a real
+  // count, not a placeholder -- work_state === 'in_progress' is the same
+  // canonical field pickUpItems() itself already reads (personalTasks.ts),
+  // fetched here once and reused for both rather than a second query.
+  const [inProgressCount, setInProgressCount] = useState<number | null>(null);
   useEffect(() => {
     let alive = true;
     fetchTasks({ includeCompleted: false }).then((tasks) => {
       if (!alive) return;
       const candidates = pickUpItems(tasks);
       setPickUpCandidate(candidates[0] ?? null);
+      setInProgressCount(tasks.filter((t) => t.work_state === 'in_progress').length);
     });
     return () => { alive = false; };
   }, []);
@@ -206,6 +235,19 @@ export default function LifeOSHub() {
 
   const [speakState, setSpeakState] = useState<TtsPlaybackState>('idle');
 
+  // Endeavour 27 Stream B tiles — real Human Systems posture, reused for
+  // both Capacity and Wellbeing (one assessment, two framings — see this
+  // file's header note above).
+  const postureBand = (humanSystems?.posture ?? 'UNKNOWN') as SystemPostureBand;
+  const postureTone = stateToneClasses(BADGE_TO_STATE_TONE[systemPostureStatus(postureBand)]);
+  const capacityLabel = humanSystems?.available_capacity ?? (postureBand === 'UNKNOWN' ? 'No check-in yet' : postureBand);
+  const wellbeingLabel = postureBand === 'ENGAGE' ? 'Steady'
+    : postureBand === 'STEADY' ? 'Steady'
+    : postureBand === 'PROTECT' ? 'Protecting capacity'
+    : postureBand === 'RESET' ? 'Regulation first'
+    : postureBand === 'RECOVER' ? 'Recovering'
+    : 'Unknown';
+
   // TTS reads the command picture (posture, next commitment, Needs You,
   // intelligence headline), not a dashboard inventory — 2026-09-05 switched
   // from browser SpeechSynthesis to generated audio via <audio> playback;
@@ -237,9 +279,14 @@ export default function LifeOSHub() {
       // directory is the header logo (and desktop Sidebar's own
       // Workbenches entry) — this is now honestly just a footer label.
       tagline="USS TJR · LifeOS Hub"
+      mode="command"
       wide
     >
-      <div className="mx-auto max-w-xl space-y-6 py-2">
+      <div className="mx-auto max-w-3xl space-y-6 py-2">
+        {/* ── 0. Greeting — Endeavour 27 Stream B: reuses HomeScreen.tsx's
+            daypart pattern, previously dead code since /home's retirement
+            (mission §1.1) ── */}
+        <p className="text-lg font-serif text-wb-ink">{daypartGreeting()}, Captain.</p>
         {/* ── 1. Day / date / time — subtle, always useful ── */}
         <p className="text-center text-xs uppercase tracking-wider text-wb-ink2">
           {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
@@ -266,6 +313,34 @@ export default function LifeOSHub() {
             </>
           )}
         </div>
+
+        {/* ── 2b. Status tiles — Endeavour 27 Stream B (mission §1.1's
+            4-tile grid), each wired to the same real data this page
+            already computed above, not a second data source. ── */}
+        {!stillLoading && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-lg border border-wb-line bg-wb-surface p-3">
+              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Capacity</p>
+              <p className={`mt-0.5 text-sm font-semibold ${postureTone.text}`}>{capacityLabel}</p>
+            </div>
+            <div className="rounded-lg border border-wb-line bg-wb-surface p-3">
+              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Focus</p>
+              <p className="mt-0.5 text-sm font-semibold text-wb-ink">
+                {needsYouItems.length} {needsYouItems.length === 1 ? 'priority' : 'priorities'}
+              </p>
+            </div>
+            <div className="rounded-lg border border-wb-line bg-wb-surface p-3">
+              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">In Progress</p>
+              <p className="mt-0.5 text-sm font-semibold text-wb-ink">
+                {inProgressCount === null ? '—' : `${inProgressCount} ${inProgressCount === 1 ? 'task' : 'tasks'}`}
+              </p>
+            </div>
+            <div className="rounded-lg border border-wb-line bg-wb-surface p-3">
+              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">Wellbeing</p>
+              <p className={`mt-0.5 text-sm font-semibold ${postureTone.text}`}>{wellbeingLabel}</p>
+            </div>
+          </div>
+        )}
 
         {!stillLoading && (
           <>
@@ -364,6 +439,26 @@ export default function LifeOSHub() {
                 )}
               </div>
             )}
+
+            {/* ── 4c. Quick Access — mission §1.1's peer card, every link an
+                existing real destination, no new capability. ── */}
+            <div className="rounded-lg border border-wb-line bg-wb-surface p-4">
+              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-wb-ink2">Quick Access</h2>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <Link href="/capture-workbench" className="rounded-md border border-wb-line px-2.5 py-2 text-center text-[12px] font-medium text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                  Capture a thought
+                </Link>
+                <Link href="/ready-room" className="rounded-md border border-wb-line px-2.5 py-2 text-center text-[12px] font-medium text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                  Open Ready Room
+                </Link>
+                <Link href="/ready-room?domain=do" className="rounded-md border border-wb-line px-2.5 py-2 text-center text-[12px] font-medium text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                  View Today Stream
+                </Link>
+                <Link href="/advisory-workbench?advisor=number_one" className="rounded-md border border-wb-line px-2.5 py-2 text-center text-[12px] font-medium text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                  Ask Number One
+                </Link>
+              </div>
+            </div>
 
             {/* ── 5. World / intelligence — one headline or honest unknown ── */}
             {!hideWorldSection && (
