@@ -439,7 +439,12 @@ session.** Confirm the ambiguous ones (flagged below) before Stream A locks the 
 - Weekly Review — its own PURPOSE is "one calm weekly pass... organised around significance,"
   described in §6.1/Phase 16 as a read-first synthesis page with no unique action chrome
 - Technical OSINT Workbench, Health OSINT Workbench — intelligence triage surfaces whose
-  actual content is reading briefs/articles, not entering data or taking action
+  actual content is reading briefs/articles, not entering data or taking action.
+  **Reconfirmed (Captain decision, 2026-09-20, Stream A Phase 1):** Image 3's own mockup
+  panels for both actually render dark Command chrome, not light — a real discrepancy
+  against this classification, flagged rather than silently picked either way. Captain
+  ruled this doc's PURPOSE-based reasoning wins; treat the mockup panels as the
+  inconsistency, not this classification. Both stay Read (light).
 - Advisory — "Think it through" is a long-form conversational consult, not a quick action
 - Knowledge Workbench — decisions/lessons/ADR search and reading, the most text-dense page
   in the app by PURPOSE
@@ -727,9 +732,9 @@ and accent-blue links render correctly end-to-end, and that the Theme control is
 Settings.
 
 **Open items carried to the next phase, not silently dropped:**
-1. Technical OSINT / Health OSINT Command-vs-Read discrepancy (above) — needs a Captain
-   decision before Stream C touches either page, same discipline as §1.6's two prior
-   discrepancies.
+1. ~~Technical OSINT / Health OSINT Command-vs-Read discrepancy~~ — **Resolved (Captain
+   decision, 2026-09-20): both stay Read (light)**, this doc's PURPOSE-based §1.8 reasoning
+   wins over Image 3's mockup panels. See §1.8's own updated bullet for the full record.
 2. Sidebar footer motto — real brief copy, not yet Captain-confirmed as final.
 3. Typography scale (H1/H2/Body/Status Label) and spacing/radius tokens from Image 2's
    "Key Design Elements" panel — not formalised into Tailwind tokens this phase; Stream A's
