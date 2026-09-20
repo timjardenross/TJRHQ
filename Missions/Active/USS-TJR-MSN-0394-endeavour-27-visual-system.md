@@ -444,7 +444,11 @@ session.** Confirm the ambiguous ones (flagged below) before Stream A locks the 
   panels for both actually render dark Command chrome, not light — a real discrepancy
   against this classification, flagged rather than silently picked either way. Captain
   ruled this doc's PURPOSE-based reasoning wins; treat the mockup panels as the
-  inconsistency, not this classification. Both stay Read (light).
+  inconsistency, not this classification. Both stay Read (light). **Note the direction:**
+  this is the opposite outcome from §1.6's two prior discrepancies (Chair mode, Briefs
+  tabs), where the mockup won over the text/doc reasoning both times. Don't treat "the
+  mockup always wins" as a standing rule for future discrepancies — each one was decided
+  on its own merits, and this one went the other way.
 - Advisory — "Think it through" is a long-form conversational consult, not a quick action
 - Knowledge Workbench — decisions/lessons/ADR search and reading, the most text-dense page
   in the app by PURPOSE
