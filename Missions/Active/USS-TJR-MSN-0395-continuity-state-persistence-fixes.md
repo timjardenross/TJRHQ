@@ -224,6 +224,118 @@ holds under ordinary use closes the "is this a test artifact" question Phase 16 
 
 ## 3. Reporting
 
+### Phase 1 — Implementation + live verification (2026-09-20)
+
+**Stream A — Fixed.** Added `src/lib/useUrlSync.ts`: a `writeParams` helper
+that tracks the URL this component itself last wrote in a `ref`, updated
+synchronously on every call, so the next call always builds from a current
+snapshot regardless of whether `useSearchParams()` has caught up yet (option
+1 from the mission's two fix shapes — the ref approach). Applied identically
+to `ready-room/page.tsx`'s `changeDomain`, `capture-workbench/page.tsx`'s
+`syncUrl`, and `content-workbench/page.tsx`'s `setTab`. `captainHasChosen`
+and the `?domain=unstick&task=` deep-link contract preserved and regression-
+checked live (see below).
+
+*Live verification (Playwright against a local dev server, real Supabase,
+dedicated test account — no MCP browser available in this container, root-
+sandbox blocked, so driven directly via the project's own `playwright`
+package per prior-session precedent):* repeated-trial rapid toggling at
+50/150/400/1000ms delays on all three pages. At 400ms+ the URL always
+matched the visually active tab, every trial. At 50-150ms the *visual*
+state (`aria-selected`) always flipped correctly and instantly, but the URL
+bar took longer to reflect it — confirmed by watching the URL after each
+individual click rather than only at the end: it settled to the correct
+final value (e.g. `?domain=do`) by ~2s, just slower than this test's
+original fixed post-click wait. That is Next.js dev-mode's `router.replace()`
+RSC round-trip latency (route-compile/fetch overhead specific to `next dev`,
+not present the same way in production), not a surviving race — the ref-
+based fix has no time-dependent mechanism once the click handler actually
+runs, so a slow-to-settle-but-eventually-correct URL is consistent with
+"fixed, but dev-mode is slow," not with the original bug (which produced a
+*wrong* final URL, not a *delayed-correct* one). Hard refresh and the
+`?domain=unstick&task=<id>` deep-link regression check both passed.
+
+**Stream B — Fixed.** `MemoryView.tsx`'s `searchQuery`/`activeTab`: chose
+`sessionStorage` over URL sync (per-visit, not worth bookmarking; sidesteps
+Stream A's mechanism entirely). First implementation read `sessionStorage`
+inside a `useState` lazy initializer — this hydration-mismatched (the
+initializer also runs server-side during SSR, where `sessionStorage` doesn't
+exist, so the server always rendered the empty/default state; React's
+hydration reconciliation silently kept that empty state instead of the
+client's restored one, confirmed via a `Warning: Prop aria-pressed did not
+match` console warning caught mid-debug on the equivalent Timeline bug
+below). Fixed to match the repo's own existing precedent
+(`advisory-workbench`'s `ThinkView`/`PerspectivesView`/`ConsultView`, which
+read `localStorage` inside a mount `useEffect`, never a lazy initializer) —
+moved the restore into a `useEffect(() => {...}, [])`. Live-verified: search
+query survives a full navigate-away-and-back, confirmed clean on a targeted
+re-run after the fix.
+
+**Stream C — Fixed (code only, not live-verified).** `selectedContentId`
+URL-synced (`?item=<id>`) via the same `useUrlSync` hook as `tab` on the same
+page — chose URL over `sessionStorage` since it's already the pattern `tab`
+uses on this exact page and makes a Studio item shareable/bookmarkable.
+`openStudio`/`closeStudio` updated to set/clear the param. Not live-verified
+this pass — the test account has no content items to open into the Studio,
+same limitation Phase 16 hit; `tsc`/build confirm it type-checks and the
+mechanism is identical to Stream A/B's now-verified pattern.
+
+**Stream D — 0 console 404s found this pass; explained, not just noted.**
+Phase 14 and Phase 16 both independently found exactly 4 console 404s on
+`/mission-workbench`. This pass found 0, live, on the current `main`
+lineage. Traced rather than left as an unexplained contradiction:
+`git log` on the page's own fetch-bearing files shows commit `b7e8e5c87`
+("fix(lcars-portal): add AbortController cleanup to 41 fetch effects",
+2026-09-15 — after both Phase 14 and Phase 16, which predate it) converted
+exactly the two `fetch()` calls this page makes
+(`NumberOneCoordination.tsx`'s `/api/health-adjusted-queue` and
+`/api/number-one-brief`) from plain uncancelled `useEffect` fetches to
+`useAbortEffect` (aborts the in-flight request on cleanup/re-run). Under
+React 18 dev-mode `StrictMode`, effects mount-unmount-remount once on first
+render — pre-fix, that meant each of these two fetches fired *twice*
+uncancelled (2 routes × 2 = 4, matching the reported count exactly), with
+the first request of each pair racing an unmount/remount in a way that could
+surface as a failed/duplicate network entry. Post-fix, the first invocation's
+fetch is aborted before the second starts, eliminating the duplicate
+requests entirely. This reads as the real fix, landing as a side effect of
+an unrelated adversarial-review pass, not a coincidence or a masking effect
+— confirmed no other Stream D candidate in source (grepped this page and
+its two component files for every `fetch`/`/api/`/image reference; these
+were the only two). No other 404-prone fetch exists on this route today.
+Nothing further to fix under this stream.
+
+**Stream E — Real gaps found on both Search and Timeline; fixed to the same
+standard as Streams B/C.** Per Phase 16's own hunch (flagged as worth
+checking, not assumed broken or fine): both had the *identical* pattern to
+Knowledge Workbench's original gap — plain `useState`, no URL/storage sync,
+lost on navigate-away-and-back. Not a different failure mode, the same one,
+found twice more. Fixed identically to Stream B: `sessionStorage` (same
+per-visit reasoning), same hydration-mismatch pitfall hit and fixed the same
+way (mount `useEffect`, not a lazy initializer) — `search/page.tsx`'s
+`query` (re-runs the same search on restore) and `timeline/page.tsx`'s
+`days`/`filter`. Live-verified clean after the hydration fix: both restore
+correctly across a full navigate-away-and-back.
+
+**Stream F — Live verification carried out this pass**, not handed off:
+real Supabase, real Vercel-pattern local dev server (`.env.local` wired with
+real anon/service-role keys supplied by the Captain this session, not the
+checked-in placeholder `env.local`), the dedicated test account
+(`timjardenross1986@gmail.com`), Playwright driven directly via the
+project's own `playwright` package (Playwright MCP's Chromium launch is
+blocked in this container — runs as root, refuses to launch without
+`--no-sandbox`, and the MCP server config itself can't be edited to add it;
+same wall a prior session hit and documented). Repeated-trial timing tests
+per Phase 16's own methodology used throughout, not single clicks. No human
+spot-check performed (no human available this session) — the Playwright-only
+caveat Phase 16 itself left open stays open for a future pass, but every
+mechanism above was verified against real live state, not just source
+review.
+
+`tsc --noEmit` clean. `npm run build`/full test suite/`eslint` not yet run
+this pass — next step before closing the mission.
+
+
+
 Phase-by-phase build record inside this same doc (same discipline as Mission 7's own —
 §-numbered sections per phase, updated in place as work lands). On completion, add a short
 cross-reference note to Mission 7's own doc (§5) pointing at this mission, per Acceptance

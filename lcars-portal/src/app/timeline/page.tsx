@@ -181,14 +181,42 @@ function relTs(iso: string): string {
 const DAY_OPTIONS = [7, 14, 30];
 const ALL_SOURCES: EventSource[] = ['missions', 'health', 'log', 'events', 'captures'];
 
+// Stream E (USS-TJR-MSN-0395): same CONTINUITY gap as Search (see that
+// file's header comment) -- `days`/`filter` were plain useState, lost on
+// navigate-away-and-back. Same sessionStorage fix.
+const SS_DAYS = 'timeline-days';
+const SS_FILTER = 'timeline-filter';
+
+function readSession(key: string): string | null {
+  try { return sessionStorage.getItem(key); } catch { return null; }
+}
+
+function writeSession(key: string, value: string) {
+  try { sessionStorage.setItem(key, value); } catch { /* ignore */ }
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TimelinePage() {
   const [events, setEvents]     = useState<TimelineEvent[]>([]);
   const [failedSources, setFailedSources] = useState<EventSource[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [days, setDays]         = useState(14);
-  const [filter, setFilter]     = useState<EventSource | ''>('');
+  const [days, setDaysState]    = useState(14);
+  const [filter, setFilterState] = useState<EventSource | ''>('');
+
+  const setDays = (d: number) => { setDaysState(d); writeSession(SS_DAYS, String(d)); };
+  const setFilter = (f: EventSource | '') => { setFilterState(f); writeSession(SS_FILTER, f); };
+
+  // Restored from sessionStorage on mount, not a useState lazy initializer --
+  // that ran server-side too (no sessionStorage there), producing a
+  // server/client hydration mismatch that silently lost the restored value
+  // (see MemoryView.tsx / search/page.tsx for the same fix).
+  useEffect(() => {
+    const savedDays = Number(readSession(SS_DAYS));
+    if (DAY_OPTIONS.includes(savedDays)) setDaysState(savedDays);
+    const savedFilter = readSession(SS_FILTER);
+    if (savedFilter && (ALL_SOURCES as string[]).includes(savedFilter)) setFilterState(savedFilter as EventSource);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

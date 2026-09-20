@@ -44,8 +44,9 @@
  */
 
 import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { DomainToggle, WorkbenchShell } from '@/components/ui';
+import { useUrlSync } from '@/lib/useUrlSync';
 import { QuickCaptureModal } from './_components/QuickCaptureModal';
 import { TodayView } from './_components/TodayView';
 import { QueueView } from './_components/QueueView';
@@ -67,28 +68,32 @@ function isTab(v: string | null): v is Tab {
 }
 
 function Workbench() {
-  const router = useRouter();
   const params = useSearchParams();
+  const { writeParams } = useUrlSync('/content-workbench');
   const initial = params.get('tab');
   const [tab, setTabState] = useState<Tab>(isTab(initial) ? initial : 'today');
   const [pipelineView, setPipelineView] = useState<PipelineView>('queue');
   const [refreshSignal, setRefreshSignal] = useState(0);
-  const [selectedContentId, setSelectedContentId] = useState<string | null>(null);
+  // Stream C (USS-TJR-MSN-0395): URL-synced, not just local state, so a
+  // refresh or a shared link lands back in the same Studio item instead of
+  // silently dropping back to the tab list -- same pattern as `tab` above,
+  // now race-safe via useUrlSync (Stream A).
+  const [selectedContentId, setSelectedContentId] = useState<string | null>(params.get('item'));
   const refresh = () => setRefreshSignal((n) => n + 1);
 
   const setTab = (t: Tab) => {
     setTabState(t);
-    const sp = new URLSearchParams(Array.from(params.entries()));
-    sp.set('tab', t);
-    router.replace(`/content-workbench?${sp.toString()}`, { scroll: false });
+    writeParams((sp) => sp.set('tab', t));
   };
 
   function openStudio(contentId: string) {
     setSelectedContentId(contentId);
+    writeParams((sp) => sp.set('item', contentId));
   }
 
   function closeStudio() {
     setSelectedContentId(null);
+    writeParams((sp) => sp.delete('item'));
     refresh();
   }
 

@@ -6,8 +6,9 @@
 // WorkbenchShell + DomainToggle architecture as every other workbench.
 
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { WorkbenchShell, DomainToggle } from '@/components/ui';
+import { useUrlSync } from '@/lib/useUrlSync';
 import { TodayStream } from './_components/TodayStream';
 import { DecomposeView } from './_components/DecomposeView';
 import { EYEBROW, isDomain, type Domain } from './_components/types';
@@ -27,8 +28,8 @@ import type { SystemPostureBand } from '@/app/human-systems-workbench/_component
 const REDUCED_CAPACITY_POSTURES: ReadonlySet<SystemPostureBand> = new Set(['RECOVER', 'RESET', 'PROTECT']);
 
 function Workbench() {
-  const router = useRouter();
   const params = useSearchParams();
+  const { writeParams } = useUrlSync('/ready-room');
   const { context: humanSystems } = useHumanSystemsContext();
 
   // Mission 6B §8.4: Hub's Needs You deep-links a specific personal-task
@@ -72,9 +73,7 @@ function Workbench() {
   const changeDomain = (d: Domain) => {
     captainHasChosen.current = true;
     setDomain(d);
-    const sp = new URLSearchParams(Array.from(params.entries()));
-    sp.set('domain', d);
-    router.replace(`/ready-room?${sp.toString()}`, { scroll: false });
+    writeParams((sp) => sp.set('domain', d));
   };
 
   const right = (
