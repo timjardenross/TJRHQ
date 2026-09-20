@@ -3,7 +3,7 @@
 **Type:** UI + UX + navigation + interaction design. Not a backend architecture programme —
 Missions 1–6 own the canonical machinery; this mission consumes and exposes it.
 **Status:** Active — Phases 1-16 shipped 2026-09-19/20 (across three sessions/PRs — #288
-merged, #289/#290 in flight or merged, check before assuming). This is a large, multi-phase
+merged, #290 merged, #289 in flight, carries Phases 14-16). This is a large, multi-phase
 mission; this record is honest about what's actually closed versus what remains open (see
 §5/§6/§6.1). Phase-by-phase build record: §3 (Phase 1: ambient Number One, navigation fixes,
 directory grouping, Hub/Chair actionability), §3.1 (Phase 2: Hub→Ready Room continuity), §3.3
@@ -830,9 +830,8 @@ behaviour. The header cluster's wrapping span also gained `flex-wrap` as a secon
 375px ever turns up), and its class order was reviewed for internal consistency while
 touched (`gap-3` → `gap-2`, `justify-end` added) — a minor, in-scope tightening, not a
 separate change. `npx tsc --noEmit`, `npx eslint`, the full test suite (725/725), and
-`npm run build` all pass clean. Not re-verified against a live rendered browser at 375px in
-this pass (no live-environment access here, same wall as always) — the next live-environment
-session should confirm visually rather than take the CSS math on faith.
+`npm run build` all pass clean. Re-verified live at 375px in Phase 16 (see §3.16) — 0/21
+overflow, confirming the CSS math held up under a real browser, not just review.
 
 Secondary, lower-confidence finding: `mission-workbench` logged 4 console 404s on load in
 this pass's sweep (`sweep-results.json`) — not traced to a specific resource in the time
@@ -1266,7 +1265,6 @@ pass, not a silent gap: **item 1 is closed** on the terms mission §11 actually 
 workbench got the same depth of interaction testing it did not get.
 
 **Item 1 is now CLOSED.**
-
 
 ## 4. Core end-to-end test (§40) — status
 
