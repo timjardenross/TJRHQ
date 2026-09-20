@@ -7,7 +7,8 @@
 // out of scope for v1 — see migration 0199's header comment).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { WorkbenchShell, Button, Select } from '@/components/ui';
+import { ShoppingCart, Receipt, Heart } from 'lucide-react';
+import { WorkbenchShell, Button, Card, Select } from '@/components/ui';
 import {
   fetchShoppingList,
   createShoppingListItem,
@@ -65,6 +66,15 @@ export default function ShoppingListWorkbench() {
 
   const subtotals = useMemo(() => subtotalsByCurrency(filtered), [filtered]);
 
+  // Real, derived-from-fetched-data stats for the summary row — no field
+  // here is fabricated: purchasedSubtotals/wishlistedCount are the same
+  // `items` this page already loads, just filtered by status.
+  const purchasedSubtotals = useMemo(
+    () => subtotalsByCurrency(items.filter((i) => i.status === 'purchased')),
+    [items],
+  );
+  const wishlistedCount = useMemo(() => items.filter((i) => i.status === 'wishlist').length, [items]);
+
   async function handleSave(input: NewShoppingListItemInput): Promise<ShoppingListResult> {
     const result = editing
       ? await updateShoppingListItem(editing.id, input)
@@ -115,54 +125,87 @@ export default function ShoppingListWorkbench() {
       tagline="Everything worth buying, in one place — for you or for someone else. Nothing tracked here is a bill or a subscription."
       back={{ href: '/workbenches', label: 'Workbenches' }}
       right={<Button size="sm" variant="primary" onClick={() => { setEditing(null); setModalOpen(true); }}>Add item</Button>}
+      mode="command"
     >
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap gap-2">
-          <Select aria-label="Filter by category" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-            <option value={ALL}>All categories</option>
-            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-          </Select>
-          <Select aria-label="Filter by status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value={ALL}>All statuses</option>
-            {STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-          </Select>
-          <Select aria-label="Filter by recipient" value={recipientFilter} onChange={(e) => setRecipientFilter(e.target.value)}>
-            <option value={ALL}>Everyone</option>
-            {recipients.map((r) => <option key={r} value={r}>{r}</option>)}
-          </Select>
-          <Select aria-label="Filter by occasion" value={occasionFilter} onChange={(e) => setOccasionFilter(e.target.value)}>
-            <option value={ALL}>All occasions</option>
-            {occasions.map((o) => <option key={o} value={o}>{o}</option>)}
-          </Select>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Card className="flex items-center gap-3 p-4">
+            <ShoppingCart className="h-5 w-5 shrink-0 text-wb-sage-deep" aria-hidden />
+            <div>
+              <div className="text-[13px] font-semibold text-wb-ink">{items.length} item{items.length === 1 ? '' : 's'}</div>
+              <div className="text-[11px] text-wb-ink2">
+                {subtotals.length > 0
+                  ? subtotals.map((s) => `${s.currency} ${s.total.toFixed(2)}`).join(' · ')
+                  : 'No cost recorded yet'}
+              </div>
+            </div>
+          </Card>
+          <Card className="flex items-center gap-3 p-4">
+            <Receipt className="h-5 w-5 shrink-0 text-state-ok-on" aria-hidden />
+            <div>
+              <div className="text-[13px] font-semibold text-wb-ink">
+                {items.filter((i) => i.status === 'purchased').length} purchased
+              </div>
+              <div className="text-[11px] text-wb-ink2">
+                {purchasedSubtotals.length > 0
+                  ? purchasedSubtotals.map((s) => `${s.currency} ${s.total.toFixed(2)}`).join(' · ')
+                  : 'Nothing purchased yet'}
+              </div>
+            </div>
+          </Card>
+          <Card className="flex items-center gap-3 p-4">
+            <Heart className="h-5 w-5 shrink-0 text-wb-sand-deep" aria-hidden />
+            <div>
+              <div className="text-[13px] font-semibold text-wb-ink">{wishlistedCount} wishlisted</div>
+              <div className="text-[11px] text-wb-ink2">Not yet saving or purchased</div>
+            </div>
+          </Card>
         </div>
 
-        {subtotals.length > 0 && (
-          <p className="text-[12px] text-wb-ink2">
-            {subtotals.map((s) => `${s.currency}: $${s.total.toFixed(2)} across ${s.count} item${s.count === 1 ? '' : 's'}`).join(' · ')}
-          </p>
-        )}
+        <Card>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap gap-2">
+              <Select aria-label="Filter by category" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                <option value={ALL}>All categories</option>
+                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </Select>
+              <Select aria-label="Filter by status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value={ALL}>All statuses</option>
+                {STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </Select>
+              <Select aria-label="Filter by recipient" value={recipientFilter} onChange={(e) => setRecipientFilter(e.target.value)}>
+                <option value={ALL}>Everyone</option>
+                {recipients.map((r) => <option key={r} value={r}>{r}</option>)}
+              </Select>
+              <Select aria-label="Filter by occasion" value={occasionFilter} onChange={(e) => setOccasionFilter(e.target.value)}>
+                <option value={ALL}>All occasions</option>
+                {occasions.map((o) => <option key={o} value={o}>{o}</option>)}
+              </Select>
+            </div>
 
-        {loading ? (
-          <p className="text-[13px] text-wb-ink2">Loading…</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-[13px] text-wb-ink2">Nothing here yet. Add an item to get started.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {filtered.map((item, index) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                draggable={!isFiltered}
-                onDragStart={() => { dragIndexRef.current = index; }}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handleDrop(index)}
-                onEdit={() => { setEditing(item); setModalOpen(true); }}
-                onMarkPurchased={() => handleMarkPurchased(item.id)}
-                onDelete={() => handleDelete(item.id)}
-              />
-            ))}
+            {loading ? (
+              <p className="text-[13px] text-wb-ink2">Loading…</p>
+            ) : filtered.length === 0 ? (
+              <p className="text-[13px] text-wb-ink2">Nothing here yet. Add an item to get started.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {filtered.map((item, index) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    draggable={!isFiltered}
+                    onDragStart={() => { dragIndexRef.current = index; }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleDrop(index)}
+                    onEdit={() => { setEditing(item); setModalOpen(true); }}
+                    onMarkPurchased={() => handleMarkPurchased(item.id)}
+                    onDelete={() => handleDelete(item.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </Card>
       </div>
 
       <ItemFormModal

@@ -28,7 +28,7 @@ export function DataSourceIndicator({
   loadingLabel = 'Loading…',
 }: DataSourceIndicatorProps) {
   if (loading) {
-    return <span className="text-[10px] uppercase tracking-wider text-lcars-muted animate-pulse">{loadingLabel}</span>;
+    return <span className="text-[10px] uppercase tracking-wider text-wb-ink2 animate-pulse">{loadingLabel}</span>;
   }
 
   const tone = live ? 'ok' : 'unknown';
@@ -37,7 +37,7 @@ export function DataSourceIndicator({
 
   if (variant === 'inline') {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-lcars-muted">
+      <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-wb-ink2">
         <span className={`h-2 w-2 rounded-full ${c.dot} ${live ? 'animate-pulse' : ''}`} />
         {label}
       </span>

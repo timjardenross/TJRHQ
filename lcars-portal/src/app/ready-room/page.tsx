@@ -97,6 +97,7 @@ function Workbench() {
       right={executing ? undefined : right}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       minimal={executing}
+      mode="focus"
       wide
     >
       {domain === 'do' && (

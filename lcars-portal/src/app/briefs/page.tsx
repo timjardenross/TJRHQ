@@ -45,7 +45,16 @@ function monthLabel(dateStr: string): string {
 
 function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
   return (
-    <div className="flex gap-2" role="tablist" aria-label="Briefs views">
+    // Endeavour 27 Stream E: 4 tabs at 375px overflowed with no wrap/scroll
+    // fallback -- same class of defect DomainToggle.tsx's own 2026-08-09 P0
+    // fix addressed (see that file's comment). Matches its established
+    // flex-nowrap + overflow-x-auto + snap pattern rather than inventing a
+    // new one -- a deliberate horizontal scroll, not an accidental clip.
+    <div
+      className="flex flex-nowrap gap-2 overflow-x-auto [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory"
+      role="tablist"
+      aria-label="Briefs views"
+    >
       {TABS.map((t) => (
         <button
           key={t.key}
@@ -53,7 +62,7 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
           role="tab"
           aria-selected={active === t.key}
           onClick={() => onChange(t.key)}
-          className={`rounded-full border px-4 py-1.5 text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+          className={`shrink-0 snap-start rounded-full border px-4 py-1.5 text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
             active === t.key
               ? 'border-wb-sage-deep bg-wb-sage-deep text-white'
               : 'border-wb-line text-wb-ink2 hover:bg-wb-bg'
@@ -149,7 +158,7 @@ function LatestView({ latest, loading }: { latest: BriefListItem | null; loading
         </p>
       )}
 
-      <Link href={`/briefs/${encodeURIComponent(latest.brief_id)}`} className="text-[13px] text-wb-sage-deep underline">
+      <Link href={`/briefs/${encodeURIComponent(latest.brief_id)}`} className="text-[13px] text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
         Read full brief →
       </Link>
     </Card>
@@ -246,7 +255,7 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
           <Collapsible.Trigger asChild>
             <button
               type="button"
-              className="rounded-md border border-wb-line px-3 py-1.5 text-[13px] text-wb-ink2 hover:bg-wb-bg"
+              className="rounded-md border border-wb-line px-3 py-1.5 text-[13px] text-wb-ink2 hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
             >
               {showAdvanced ? 'Hide' : 'Show'} advanced filters
             </button>
@@ -263,7 +272,7 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
                     type="button"
                     onClick={() => setStatusFilter(s)}
                     aria-pressed={statusFilter === s}
-                    className={`rounded-full border px-3 py-1 text-[12px] ${
+                    className={`rounded-full border px-3 py-1 text-[12px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
                       statusFilter === s ? 'border-wb-sage-deep bg-wb-sage-deep text-white' : 'border-wb-line text-wb-ink2'
                     }`}
                   >
@@ -366,6 +375,7 @@ export default function BriefsPage() {
       tagline="USS TJR · HQ's canonical daily synthesis of the intelligence picture — one assessment, multiple delivery formats"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       tabs={<TabBar active={tab} onChange={setTab} />}
+      mode="read"
     >
       {error && (
         <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>

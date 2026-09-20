@@ -46,6 +46,7 @@ function Workbench() {
       eyebrow="Scan · Synthesise · Learn · Adapt"
       tagline="USS TJR · Weekly Review · What happened, what mattered, what HQ learned — one calm pass."
       back={{ href: '/workbenches', label: 'Workbenches' }}
+      mode="read"
     >
       {loading && <div className="h-40 animate-pulse rounded-md bg-wb-line/40" />}
 

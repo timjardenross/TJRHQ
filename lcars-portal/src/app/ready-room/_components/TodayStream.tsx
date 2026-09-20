@@ -293,6 +293,7 @@ export function TodayStream({
         onDone={() => { setActiveTask(null); refresh(); }}
         onPaused={() => { setActiveTask(null); refresh(); }}
         onBack={() => setActiveTask(null)}
+        onOverload={() => { setActiveTask(null); setOverloaded(true); }}
       />
     );
   }

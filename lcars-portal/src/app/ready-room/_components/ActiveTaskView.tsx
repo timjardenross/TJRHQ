@@ -28,6 +28,7 @@ export function ActiveTaskView({
   onPaused,
   onBack,
   supportContext,
+  onOverload,
 }: {
   task: PersonalTask;
   onDone: () => void;
@@ -35,6 +36,10 @@ export function ActiveTaskView({
   onBack: () => void;
   /** Mission 5 (optional, default none) — see SupportContext above. */
   supportContext?: SupportContext | null;
+  /** Endeavour 27 Stream B (mission §1.1): "This feels too much" reuses
+   * TodayStream's existing OverloadView, not a new intervention — optional
+   * so callers that don't have that flow (none currently) degrade gracefully. */
+  onOverload?: () => void;
 }) {
   const [stopping, setStopping] = useState(false);
   const [note, setNote] = useState(task.restart_cue ?? '');
@@ -121,6 +126,44 @@ export function ActiveTaskView({
               I&apos;m stopping here
             </Button>
             <Button variant="ghost" disabled={busy} onClick={onBack}>Back</Button>
+          </div>
+
+          {/* Endeavour 27 Stream B (mission §1.1): mockup's "Feeling stuck?"
+              panel — every option here is an existing real capability,
+              relabeled/reshelled, not new logic (mission's own guidance:
+              maps near 1:1 to Mission 4's decomposition/overload/regulation
+              support, already built). */}
+          <div className="border-t border-wb-line pt-3">
+            <p className="mb-2 text-[11px] uppercase tracking-wide text-wb-ink2">Feeling stuck?</p>
+            <div className="flex flex-wrap gap-2">
+              {/* Mockup shows "Break it down" and "Help me start" as two
+                  separate options; this app has one real capability behind
+                  both (DecomposeView's Unstick Me for this same task) — no
+                  second distinct engine to route to. Merged into one honest
+                  link rather than showing two buttons that do the same
+                  thing (mission's own no-fabricated-affordance principle). */}
+              <a
+                href={`/ready-room?domain=unstick&task=${encodeURIComponent(task.id)}`}
+                className="rounded-md border border-wb-line px-2.5 py-1.5 text-[12px] text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+              >
+                Break it down / Help me start
+              </a>
+              {onOverload && (
+                <button
+                  type="button"
+                  onClick={onOverload}
+                  className="rounded-md border border-wb-line px-2.5 py-1.5 text-[12px] text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                >
+                  This feels too much
+                </button>
+              )}
+              <a
+                href="/human-systems-workbench?domain=recovery"
+                className="rounded-md border border-wb-line px-2.5 py-1.5 text-[12px] text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+              >
+                Take a breath
+              </a>
+            </div>
           </div>
         </>
       )}

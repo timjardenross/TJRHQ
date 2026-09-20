@@ -65,7 +65,7 @@ export default function PhysicalReadinessHome() {
   }, []);
 
   return (
-    <WorkbenchShell title="Physical Readiness" eyebrow="Adaptive Gym Decision-Support" tagline="USS TJR · Physical Readiness" wide>
+    <WorkbenchShell title="Physical Readiness" eyebrow="Adaptive Gym Decision-Support" tagline="USS TJR · Physical Readiness" mode="focus" wide>
       <div className="space-y-4">
         <div className="rounded-lg border border-wb-line bg-white p-4">
           <p className="text-xs leading-relaxed text-wb-ink2">
