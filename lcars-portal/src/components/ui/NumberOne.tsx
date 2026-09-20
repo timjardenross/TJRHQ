@@ -125,7 +125,14 @@ export function NumberOne() {
       {/* Opposite corner from QuickCapture (bottom-right) — see file header.
           Same safe-area-aware offset fix as QuickCapture: below xl the fixed
           MobileCommandBar occupies the bottom ~4.5rem of the viewport, so a
-          plain bottom-5 would render partly hidden behind/under it. */}
+          plain bottom-5 would render partly hidden behind/under it.
+          Endeavour 27 (USS-TJR-MSN-0394): xl:left- was missing entirely, so
+          at xl+ (Sidebar visible) this sat at left-5 -- inside the
+          Sidebar's own 0-16rem span, regardless of its width. Harmless
+          overlap risk under the old 5-item Sidebar's shorter content;
+          became a real, visible collision once Stream A's full-workbench-
+          list Sidebar reliably has a nav row at this height. Shift past
+          Sidebar's w-64. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -133,7 +140,7 @@ export function NumberOne() {
         title="Number One"
         className="fixed z-40 grid h-12 w-12 place-items-center rounded-full bg-wb-ink text-white shadow-lg transition hover:shadow-xl active:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep
           bottom-[max(5.25rem,calc(env(safe-area-inset-bottom)_+_4.75rem))] left-[max(1.25rem,env(safe-area-inset-left))]
-          xl:bottom-[max(1.25rem,env(safe-area-inset-bottom))]"
+          xl:bottom-[max(1.25rem,env(safe-area-inset-bottom))] xl:left-[calc(16rem_+_1.25rem)]"
       >
         <Sparkles className="h-5 w-5" aria-hidden />
       </button>

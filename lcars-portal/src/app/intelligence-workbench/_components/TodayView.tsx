@@ -9,7 +9,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui';
+import { Badge, Button, riskToStatus } from '@/components/ui';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 import type { Development } from './shared';
 import { KNOWN_UNKNOWNS } from './shared';
@@ -45,15 +45,23 @@ function DevelopmentCard({ item, tone }: { item: Development; tone: 'needs-you' 
       ) : (
         <p className="text-[14px] font-medium leading-snug text-wb-ink">{item.title}</p>
       )}
+      {item.published_at && (
+        <p className="text-[11px] text-wb-ink2">{new Date(item.published_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+      )}
       <p className="text-[12.5px] text-wb-ink2">{item.what_happened}</p>
       <p className="text-[12.5px] text-wb-ink2">{item.why_you_care}</p>
       <p className="text-[11.5px] italic text-wb-ink2">{item.assessment}</p>
       <p className="text-[12.5px] font-medium text-wb-ink">{item.you_need_to}</p>
-      {item.canonical_url && (
-        <a href={item.canonical_url} target="_blank" rel="noopener noreferrer" className="inline-block text-[12px] text-wb-sage-deep hover:underline">
-          Why it matters →
-        </a>
-      )}
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        {item.confidence_level && (
+          <Badge status={riskToStatus(item.confidence_level)}>{item.confidence_level} confidence</Badge>
+        )}
+        {item.canonical_url && (
+          <a href={item.canonical_url} target="_blank" rel="noopener noreferrer" className="inline-block text-[12px] text-wb-sage-deep hover:underline">
+            Why it matters →
+          </a>
+        )}
+      </div>
     </div>
   );
 }
@@ -78,7 +86,7 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
   if (loading) return <p className="text-[13px] text-wb-ink2">Loading today&apos;s briefing…</p>;
   if (error) return (
     <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-[13px] text-wb-crit-on">
-      Unavailable: {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline">Check pipeline health →</Link>
+      Unavailable: {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Check pipeline health →</Link>
     </p>
   );
   if (!data) return null;
@@ -153,7 +161,7 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
       <button
         type="button"
         onClick={onOpenTechnical}
-        className="text-[12px] text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep"
+        className="text-[12px] text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
       >
         Technical view (analyst console) →
       </button>

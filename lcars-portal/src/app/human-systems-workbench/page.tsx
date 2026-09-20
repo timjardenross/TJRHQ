@@ -169,6 +169,7 @@ function Workbench() {
       tagline="USS TJR · A live view of how my body, nervous system, mind, environment and demands are interacting today · Evidence-informed, non-diagnostic"
       right={right}
       tabs={tabsRow}
+      mode="focus"
       back={{ href: '/workbenches', label: 'Workbenches' }}>
       {/* Human Systems redesign Phase 10 (2026-09-06): recovery-brief's real
           content has been consolidated into the NOW/PATTERNS tabs below

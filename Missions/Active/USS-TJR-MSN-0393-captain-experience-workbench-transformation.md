@@ -2,25 +2,29 @@
 
 **Type:** UI + UX + navigation + interaction design. Not a backend architecture programme —
 Missions 1–6 own the canonical machinery; this mission consumes and exposes it.
-**Status:** Active — Phases 1-13 shipped 2026-09-19/20 (same session, one PR). This is a
-large, multi-phase mission; this record is honest about what's actually closed versus what
-remains open (see §5/§6/§6.1). Phase-by-phase build record: §3 (Phase 1: ambient Number One,
-navigation fixes, directory grouping, Hub/Chair actionability), §3.1 (Phase 2: Hub→Ready Room
-continuity), §3.3 (Phase 3: accessibility — Modal focus trap, aria-live), §3.4-3.6 (Phases
-4-5: dead-code sweep, 5 legacy pages retired), §3.7 (Phase 6: Search/Timeline relocated from
-dead-page risk into live workbenches), §3.8 (Phase 7: `operations` converted), §3.9 (Phase 8:
-contrast/label audit), §3.10 (Phase 9: weight-trend view ported, `state-*`/midnight text
-paired with outline/ring), §3.11 (Phase 10: `operating-model` relocated into Knowledge
-Workbench), §3.12 (Phase 11: `state-*`/`midnight` pairing rule formalized as the permanent
-fix, item 14 fully closed), §3.13 (Phase 12: "Help me start" button on Needs You items, item
-2 fully closed), §3.14 (Phase 13: Operating Model doctrine content reviewed via Chief of
-Staff, item 11 fully closed — both placement and content), §3.15 (Phase 14:
-live-environment verification — §40 deterministic core confirmed live-working end to end,
-item 7 screenshot evidence captured and CLOSED, item 1 narrowed with a real systemic MOBILE
-finding, new item 15 logged for a Captain-flagged theme-palette complaint). Item 7 is now
-CLOSED-WITH-EVIDENCE. Only item 1 remains genuinely open of the original register — no longer
-blocked on live-environment access (that access now exists, documented in §3.15.1), just on
-the remaining per-workbench template write-up itself.
+**Status:** Active — Phases 1-16 shipped 2026-09-19/20 (across three sessions/PRs — #288
+merged, #290 merged, #289 in flight, carries Phases 14-16). This is a large, multi-phase
+mission; this record is honest about what's actually closed versus what remains open (see
+§5/§6/§6.1). Phase-by-phase build record: §3 (Phase 1: ambient Number One, navigation fixes,
+directory grouping, Hub/Chair actionability), §3.1 (Phase 2: Hub→Ready Room continuity), §3.3
+(Phase 3: accessibility — Modal focus trap, aria-live), §3.4-3.6 (Phases 4-5: dead-code sweep,
+5 legacy pages retired), §3.7 (Phase 6: Search/Timeline relocated from dead-page risk into
+live workbenches), §3.8 (Phase 7: `operations` converted), §3.9 (Phase 8: contrast/label
+audit), §3.10 (Phase 9: weight-trend view ported, `state-*`/midnight text paired with
+outline/ring), §3.11 (Phase 10: `operating-model` relocated into Knowledge Workbench), §3.12
+(Phase 11: `state-*`/`midnight` pairing rule formalized as the permanent fix, item 14 fully
+closed), §3.13 (Phase 12: "Help me start" button on Needs You items, item 2 fully closed),
+§3.14 (Phase 13: Operating Model doctrine content reviewed via Chief of Staff, item 11 fully
+closed), §3.15 (Phase 14: live-environment verification — §40 confirmed live-working, item 7
+closed with evidence, item 1 narrowed with a real systemic MOBILE finding, new item 15
+logged; Phase 15, same section: that MOBILE finding fixed same-session), §3.16 (Phase 16:
+full formal per-workbench PURPOSE/ENTRY/EXIT/PRIMARY ACTION/NOISE/DUPLICATION/CONTEXT/
+CONTINUITY/MOBILE write-up, all 21 workbenches, item 1 fully closed — Phase 15's mobile fix
+re-verified live at 0/21 overflow; 2 new CONTINUITY findings: a flaky tab/domain URL-sync on
+3 workbenches needing a human spot-check, and a deterministic search-loss bug on Knowledge
+Workbench). **Every item in the original deferred register is now closed except item 15**
+(theme-palette complaint, open and new, awaiting a Captain conversation to scope specifics
+before any change).
 **Branch:** `claude/tjr-hq-mission-7-az63cy`.
 
 ## 0. Mission question
@@ -797,7 +801,7 @@ that specific continuity claim. Recommend a fast follow-up: create a task via th
 (anything actually needing `OLLAMA_CLOUD_ENABLED`/`MODEL_ROUTER_URL`) is unverified — blocked
 on Infisical access (§3.15.1), not on anything this pass could fix.
 
-### 3.15.3 New finding — systemic MOBILE defect in `WorkbenchShell`'s header
+### 3.15.3 New finding — systemic MOBILE defect in `WorkbenchShell`'s header — FIXED Phase 15
 
 Live rendering at 375px caught something no code-reading pass could: **`WorkbenchShell`'s
 header selector row overflows the viewport on 20 of the 21 live workbenches** (every one
@@ -810,12 +814,24 @@ overflows. Confirmed visually on `mobile-hub.png` and `mobile-human-systems-work
 document.documentElement.clientWidth` — across the full 21-route sweep,
 `sweep-results.json`). This is exactly the class of bug Phase 1 already fixed once for
 `QuickCapture`'s floating button (§1.5) — a real, previously unverified, systemic defect,
-not a one-off. **Not fixed in this pass** (kept to verification, per the mission's
-established discipline of not rushing a fix without confirming scope first) — flagged as a
-new, high-priority MOBILE item for the next implementation pass. Likely fix shape: cap each
-`<select>`'s width with `max-w-[Npx] truncate` or replace the native selects with a
-`Popover`/`Listbox` pattern that can actually collapse on narrow viewports, but that's a
-design call worth a quick look before implementing, not assumed here.
+not a one-off.
+
+**Fixed in Phase 15** (Captain-directed, same session, immediately after this finding was
+reported): took the simpler of the two fix shapes this section originally floated (width-cap
++ truncate, not a `Popover`/`Listbox` rewrite — no reason to replace a working native
+`<select>` just to solve a sizing problem). `WorkbenchSwitcher`
+(`components/ui/WorkbenchShell.tsx`) and `ThemeSelector`'s own `<select>`
+(`components/ui/ThemeSelector.tsx`, sharing the same header row) both capped
+(`w-[92px] max-w-[92px] truncate` / `w-[84px] max-w-[84px] truncate` respectively, both
+relaxing back to their natural width at `sm:`) — truncation only affects the closed-state
+face; the dropdown's own open list still shows full untruncated titles, native `<select>`
+behaviour. The header cluster's wrapping span also gained `flex-wrap` as a second layer
+(cluster wraps to its own line rather than horizontal-scrolling if a narrower viewport than
+375px ever turns up), and its class order was reviewed for internal consistency while
+touched (`gap-3` → `gap-2`, `justify-end` added) — a minor, in-scope tightening, not a
+separate change. `npx tsc --noEmit`, `npx eslint`, the full test suite (725/725), and
+`npm run build` all pass clean. Re-verified live at 375px in Phase 16 (see §3.16) — 0/21
+overflow, confirming the CSS math held up under a real browser, not just review.
 
 Secondary, lower-confidence finding: `mission-workbench` logged 4 console 404s on load in
 this pass's sweep (`sweep-results.json`) — not traced to a specific resource in the time
@@ -852,6 +868,403 @@ If the Captain wants this evidence preserved past this session, it needs pulling
 container before teardown, or a follow-up pass re-captures it once a repo convention for
 evidence storage exists.
 
+
+## 3.16 Phase 16 — item 1 closed: formal per-workbench write-up, all 21 live workbenches
+
+Full PURPOSE/ENTRY/EXIT/PRIMARY ACTION/NOISE/DUPLICATION/CONTEXT/CONTINUITY/MOBILE template
+(mission §11) for every entry in `lib/workbenches.ts`'s `LIVE_WORKBENCHES` (read fresh from
+source for this pass — still 21, unchanged since Phase 14/§3.15). Same live-environment setup
+as Phase 14 (real Supabase, test account `timjardenross1986@gmail.com`, `npm run dev`, the
+`playwright` devDependency launched via a plain Node script — see memory
+`playwright-sandbox-root-container`/`tjr-hq-test-account`), run concurrently per the
+dependency-aware execution this pass used throughout: a one-time serial warm-up (forces
+Next.js to compile all 21 routes once, avoiding the cold-compile timeouts a naive concurrent
+sweep hit in Phase 14), then desktop+mobile screenshot/DOM capture across all 21 routes at
+concurrency 4, then four independent CONTINUITY interaction tests run in parallel (Ready
+Room, Capture Workbench, Content Workbench, Knowledge Workbench — the ones mission §11 itself
+flagged as most likely to hold state).
+
+**Universal baseline, true for all 21 (stated once here, not repeated per entry below):**
+- **ENTRY:** every workbench is reachable from the persistent desktop `Sidebar` (Home/
+  Workbenches/Library/Missions/Alerts/Settings, plus Capture/Readiness quick links) and from
+  `/workbenches`' grouped directory (Phase 1) — confirmed rendered on all 21 screenshots
+  (`desktop-<id>.png`). This is a real, always-available, discoverable path, not just a
+  technically-valid one.
+- **MOBILE — header-overflow regression check:** Phase 14 (§3.15.3) found `WorkbenchShell`'s
+  header selector row overflowing the viewport on 20/21 workbenches at 375px; Phase 15 fixed
+  it. **Re-verified live in this pass, not just re-derived from the diff:** the mechanical
+  check (`document.documentElement.scrollWidth > clientWidth`) now returns `false` on **all
+  21 routes** (`sweep2-results.json`), where 20 of 21 previously returned `true`. The fix
+  holds under live rendering, not just CSS math. This is the MOBILE answer for every entry
+  below unless a workbench-specific issue is noted.
+- **EXIT:** the same persistent Sidebar is always available as a "go anywhere next" exit —
+  the interesting question per workbench is whether there's also a *specific*, page-relevant
+  next step beyond that generic escape hatch, which is what's noted per entry below.
+
+**Real cross-cutting finding, new this pass (not in Phase 14's register) — flaky URL-state
+sync on tab/domain switches:** `changeDomain`/`setTab` handlers (Ready Room, Capture
+Workbench, Content Workbench — the three of the four CONTINUITY-priority workbenches that use
+this pattern) call `router.replace()` with the new state in the query string, and the
+underlying `history.replaceState` call **does fire correctly** when captured directly
+(confirmed via an injected `history.replaceState` monkey-patch — `[replaceState called]
+"/ready-room?domain=unstick"`), but in repeated trials **the URL frequently does not carry
+the new state through** by the time the interaction settles: 4/4 failures on Ready Room at a
+1.5s post-load wait, then 1/3 success at 2.5s; 3/3 failures on Capture Workbench; 1/1 failure
+on Content Workbench (fewer trials run there — time-boxed). The visual tab state itself always
+switches correctly (`aria-selected` flips, the right panel renders) — only the URL's copy of
+that state is unreliable. **Reported as observed, not root-caused**: this could be a genuine
+race in how these three pages call `router.replace` relative to a re-render, or an artifact of
+this environment's dev-mode Fast Refresh / this pass's automated-click timing specifically —
+it was NOT reproduced with a human clicking in a real browser this pass, only with Playwright.
+Recommend a human spot-check (switch to Unstick Me, refresh the page, see if it lands back on
+Unstick Me) before treating this as a confirmed product bug rather than a test-environment
+artifact. Flagged as new, not folded into an existing item, because it doesn't fit the
+already-closed items cleanly.
+
+Per-workbench detail below. Evidence for PURPOSE/DUPLICATION leans on the responsibility
+matrix already established in §2 and the experience inventory in §6.1 (re-verified, not
+re-derived from scratch, per this brief's own instruction) — the *new* evidence this phase
+adds is ENTRY-discoverability, PRIMARY ACTION dominance, NOISE, CONTEXT/CONTINUITY, and the
+MOBILE re-check, all confirmed against the live rendered app.
+
+### Start here
+
+**`/hub` — LifeOS Hub**
+- PURPOSE: ambient orientation front door — "what's the day, what needs me, what's out
+  there," in ~5 seconds. No other workbench serves this (Captain's Chair is the deeper
+  executive view of the same underlying data — §2's own note that this overlap was
+  deliberately resolved by sharing `buildNeedsYouItems()`, not duplicated).
+- ENTRY: the front door itself (`/` redirects here); also the default nav-link target on
+  every device width since Phase 1's mobile-Home fix.
+- EXIT: "Do this"/"Review" actions on Needs You items deep-link into the owning workbench
+  (Ready Room, Content Workbench, etc.) — real, specific next steps, not just the generic
+  Sidebar.
+- PRIMARY ACTION: none dominates by design — this is a glance surface, not a task page. Its
+  own copy ("Assessing…", posture headline) is the primary *read*, not a click.
+- NOISE: none found this pass — Phase 1-3's uplift already stripped this down to posture +
+  Needs You + one World line + a resume card.
+- DUPLICATION: none — shares its Needs You builder with Captain's Chair rather than
+  duplicating it (§2, confirmed still true).
+- CONTEXT: n/a (a glance page has no task state of its own to carry forward).
+- CONTINUITY: n/a, same reason.
+- MOBILE: confirmed fixed (`mobile-hub.png`, no horizontal scroll).
+
+**`/capture-workbench` — Capture Workbench**
+- PURPOSE: inbox triage for everything captured (Telegram/Slack/API) — the one place that
+  owns `captured_items`. No overlap found.
+- ENTRY: Sidebar's dedicated "＋Capture" quick-link (present on every page, not just this
+  one) plus the ordinary nav — a stronger-than-baseline ENTRY, genuinely one tap from
+  anywhere.
+- EXIT: no specific "next workbench" link found on this page beyond the generic Sidebar —
+  triage ends at "captured," it doesn't hand off anywhere.
+- PRIMARY ACTION: the Capture/Inbox toggle is visually dominant (`buttons:
+  ['Capture','Inbox','0 Pending ↓','Type: Note · change ▾','Capture Note','+']`) — capturing
+  a new note is the easiest thing on the page.
+- NOISE: none obvious from the rendered page — the KPI dashboard sits above the fold but is
+  compact.
+- DUPLICATION: none against `/capture-workbench` itself; QuickCapture's floating button
+  (global, every page) is a deliberate second entry point into the *same* capture flow, not a
+  competing one.
+- CONTEXT: the `domain`/`filter` toggle state is URL-synced (`syncUrl` in
+  `capture-workbench/page.tsx`) — in principle it should survive a refresh/return.
+- CONTINUITY: **tested live, found flaky** — see the cross-cutting finding above (3/3 trials
+  this pass failed to carry the `domain=inbox` param through after switching to Inbox).
+  Visual state (which tab looks active) does switch correctly; only the URL copy is
+  unreliable in automated testing this pass.
+- MOBILE: confirmed fixed.
+
+**`/captains-chair-workbench` — Captain's Chair**
+- PURPOSE: executive perspective — attention, decisions, material change. Already
+  scope-checked in Phase 2 (§3.2) against all 9 panels with no duplication found; re-verified
+  live this pass, still holds (`headings: ['Today','Needs You','Remember','Intelligence',
+  'Capacity','Ahead']` — matches the panel list exactly, nothing extra crept in).
+- ENTRY: baseline + it's the default `npm run dev` login landing page for this test account
+  (Settings → HQ Behaviour default), so for at least one real account this is the *literal*
+  front door, not just Hub.
+- EXIT: `captains-chair-workbench/notebook` ("Open Log →") is a real, specific exit unique to
+  this page.
+- PRIMARY ACTION: none dominates by design, same "glance surface" shape as Hub — this is
+  intentional per Phase 2's own finding (`SystemStatus.tsx`'s "tiny by design" comment).
+- NOISE: none found — same conclusion as Phase 2, re-confirmed live.
+- DUPLICATION: none (§3.2).
+- CONTEXT/CONTINUITY: n/a, glance surface.
+- MOBILE: confirmed fixed.
+
+**`/ready-room` — Ready Room**
+- PURPOSE: execution — start/continue/unstick/regulate/complete. No other workbench owns
+  "doing the task," only surfacing that one exists.
+- ENTRY: baseline + Hub/Chair's "Do this"/"Help me start" Needs You links (Phase 2 and Phase
+  12's additions) — genuinely reachable mid-task, not just from cold nav.
+- EXIT: "Done" resolves back to nothing specific (returns to the task list within the same
+  page) — no cross-workbench exit found; reasonable, since finishing a task doesn't
+  obviously belong anywhere else.
+- PRIMARY ACTION: the Do/Unstick Me tab pair is visually dominant top-right, and the
+  individual task action inside each is the actual primary action — clear, not buried.
+- NOISE: none found on the empty-state render (test account has no tasks); can't fully assess
+  a populated view's noise level within this pass.
+- DUPLICATION: none against other workbenches (§2).
+- CONTEXT: domain choice is URL-synced by design (`changeDomain`, confirmed by reading the
+  handler).
+- CONTINUITY: **tested live, found flaky** — the cross-cutting finding above; 4/4 fail at
+  1.5s wait, 1/3 succeed at 2.5s. This is the specific test the Phase 14 brief asked for and
+  couldn't get to (§3.15.2's "remember" free-text gap) — this pass used the domain toggle
+  instead of a remembered task, and found a different, real issue than the one originally
+  worried about.
+- MOBILE: confirmed fixed.
+
+### Plan & review
+
+**`/mission-workbench` — Mission Workbench**
+- PURPOSE: every active/completed mission, capacity-aware. Distinct from Hub/Chair (which
+  summarise, not enumerate).
+- ENTRY: baseline + Sidebar's dedicated "Missions" link (present everywhere) — stronger than
+  baseline.
+- EXIT: links out to `/knowledge-workbench` (Library) and `/capture-workbench`/
+  `/physical-readiness` are the generic Sidebar items, not page-specific hand-offs.
+- PRIMARY ACTION: the Open/Closed/All/Suitable-today filter row is dominant; the "+" (new
+  mission) sits bottom-right, consistent with the rest of the app.
+- NOISE: none obvious.
+- DUPLICATION: none.
+- CONTEXT/CONTINUITY: not tested this pass (not one of the 4 budgeted workbenches) — filter
+  state's persistence mechanism wasn't inspected.
+- MOBILE: confirmed fixed. **New, minor finding:** 4 console errors (`Failed to load
+  resource: 404`) logged on this page in both Phase 14's and this pass's sweep — consistent
+  across two independent sessions now, so likely real, not a one-off. Not traced to a specific
+  resource in the time available either time; worth a quick look (check Network tab for the
+  exact 404'd URL).
+
+**`/weekly-review` — Weekly Review**
+- PURPOSE: one calm weekly pass across everything, organised around significance not source
+  (§6.1's own note, re-confirmed — page renders with no unique headings/buttons beyond the
+  Sidebar and a `+`, consistent with a synthesis-style page rather than a data-entry one).
+- ENTRY/EXIT: baseline only: this page doesn't hand off anywhere specific, which fits its
+  "read the synthesis, then go act elsewhere" purpose.
+- PRIMARY ACTION: none dominant — a read-first page, same shape as Hub/Chair.
+- NOISE/DUPLICATION: none found.
+- CONTEXT/CONTINUITY: not tested this pass.
+- MOBILE: confirmed fixed.
+
+### Intelligence & alerts
+
+**`/intelligence-workbench` — Technical OSINT Workbench**
+- PURPOSE: cyber/infra/regulatory signal intelligence — confirmed distinct from Briefs and
+  Content Workbench per §3.6's own trace (this mission already resolved the `/intelligence`
+  legacy page's overlapping tabs by routing them to their real owners).
+- ENTRY/EXIT: baseline; Today/Watching/Library tabs are the page's own internal navigation,
+  not cross-workbench hand-offs.
+- PRIMARY ACTION: the Today tab (first, active by default) is dominant.
+- NOISE/DUPLICATION: none found; already resolved by Phase 5/6 (§3.6).
+- CONTEXT/CONTINUITY: not tested this pass.
+- MOBILE: confirmed fixed.
+
+**`/health-osint` — Health OSINT Workbench**
+- PURPOSE: clinical/performance-research intelligence, the health-domain sibling of Technical
+  OSINT. Distinct data, distinct purpose, no overlap.
+- ENTRY/EXIT: baseline; Today/My Evidence/Library are internal tabs.
+- PRIMARY ACTION: Today tab, same pattern as its OSINT sibling.
+- NOISE/DUPLICATION: none found.
+- CONTEXT/CONTINUITY: not tested this pass.
+- MOBILE: confirmed fixed.
+
+**`/emergency-alert-hub-workbench` — Emergency Alerts**
+- PURPOSE: official AU emergency information, severity-ranked — explicitly designed against
+  "raw volume = workload" per §6.1's own note, re-confirmed (page renders with no unique
+  headings beyond the Sidebar and `+`, consistent with a calm, non-noisy design).
+- ENTRY/EXIT: baseline only.
+- PRIMARY ACTION: not dominant by design — this is a monitoring surface, correctly not
+  pushing the Captain toward an action that may not exist (no alert = nothing to do).
+- NOISE/DUPLICATION: none found.
+- CONTEXT/CONTINUITY: not tested this pass.
+- MOBILE: confirmed fixed.
+
+**`/briefs` — Briefs**
+- PURPOSE: canonical brief archive + cross-domain Domains view — confirmed the real owner of
+  the `intelligence_briefs`/`captains_daily_briefs` tables Phase 5 traced `/intelligence`'s
+  Latest Brief/Daily Briefs/ORI Archive tabs into (§3.6).
+- ENTRY/EXIT: baseline; Latest/Domains/Timeline/Explore are internal tabs — Timeline here is
+  an internal filter view, not a link to the standalone `/timeline` workbench (worth noting:
+  same word, two different things, though not confusing in context since one is a tab label
+  and the other a full page).
+- PRIMARY ACTION: Latest tab (first, active by default) is dominant.
+- NOISE/DUPLICATION: none found — already the confirmed multi-source consolidation target for
+  the retired `/intelligence` page.
+- CONTEXT/CONTINUITY: not tested this pass.
+- MOBILE: confirmed fixed.
+
+### Personal systems
+
+**`/human-systems-workbench` — Human Systems**
+- PURPOSE: personal capacity intelligence — confirmed no clinical-dashboard drift, no overlap
+  with Physical Readiness (that's exercise history; this is capacity/regulation), no overlap
+  with the retired Medical dashboard it superseded (§3.4).
+- ENTRY/EXIT: baseline + its own TRENDS/REPORT/WEIGHT nav buttons (real navigation, not tabs,
+  per Phase 9/10's established pattern) are page-specific exits, stronger than baseline.
+- PRIMARY ACTION: NOW/WHAT HELPS/PATTERNS tab row is dominant, consistent with its purpose as
+  a "what's going on with me right now" surface.
+- NOISE/DUPLICATION: none found.
+- CONTEXT/CONTINUITY: not tested this pass (outside the 4 budgeted workbenches, and the test
+  account has no `capacity_checkins` rows to meaningfully test against anyway).
+- MOBILE: confirmed fixed — this is also the specific workbench Phase 14 used for the midnight
+  theme sample (`theme-midnight-human-systems.png`); re-confirmed no new contrast issue in the
+  shell chrome at that time, unchanged this pass.
+
+**`/physical-readiness` — Physical Readiness**
+- PURPOSE: exercise library/history, read-only record — confirmed distinct from Human
+  Systems (capacity vs. exercise log).
+- ENTRY: baseline + Sidebar's dedicated "✚Readiness" quick-link (present everywhere) — same
+  privileged-entry pattern as Capture.
+- EXIT: `/physical-readiness/library` and `/physical-readiness/history` are real,
+  page-specific sub-navigation.
+- PRIMARY ACTION: not obviously dominant on the base page (only "Last Session" heading found)
+  — a read-first page, consistent with "read-only record" purpose.
+- NOISE/DUPLICATION: none found.
+- CONTEXT/CONTINUITY: not tested this pass.
+- MOBILE: confirmed fixed.
+
+**`/shopping-list-workbench` — Shopping List**
+- PURPOSE: everything worth buying, prioritised — no overlap with anything else.
+- ENTRY/EXIT: baseline only.
+- PRIMARY ACTION: "Add item" is present and clear, alongside the universal "+".
+- NOISE/DUPLICATION: none found.
+- CONTEXT/CONTINUITY: not tested this pass.
+- MOBILE: confirmed fixed.
+
+### Work & decisions
+
+**`/content-workbench` — Content Workbench**
+- PURPOSE: capture→draft→proof→publish pipeline — confirmed the real owner of
+  `content_signals`/`comms_content`, the tables Phase 5 traced `/intelligence`'s Content tab
+  into (§3.6).
+- ENTRY/EXIT: baseline; Today/Pipeline/Library tabs are internal.
+- PRIMARY ACTION: "+ Capture Idea" is visually distinct (its own styled button, not just a
+  tab) — genuinely the most prominent action on the page.
+- NOISE/DUPLICATION: none found.
+- CONTEXT: `tab` is URL-synced; **`selectedContentId` (which item is open in the Studio) is
+  NOT** — confirmed by reading `content-workbench/page.tsx` directly (`setSelectedContentId`
+  has no accompanying `router.replace`/`sp.set` call, unlike `setTab`). This means: open an
+  item into the Studio, and *anything* that leaves the page (a nav click, a refresh, a
+  back-button) drops back to the tab list, not back into that item.
+- CONTINUITY: **tested live** — the `tab` switch itself showed the same flaky URL-sync
+  pattern as Ready Room/Capture (1/1 trial this pass failed to carry `tab=pipeline` through).
+  The `selectedContentId` gap above is a code-confirmed, not yet live-interaction-confirmed,
+  second CONTINUITY issue (the test account has no content items to open into the Studio to
+  test this specific path against) — flagged with the same evidence-tier honesty the mission
+  doc uses elsewhere (a traced code gap, not an observed live failure, for that specific
+  claim).
+- MOBILE: confirmed fixed.
+
+**`/advisory-workbench` — Advisory**
+- PURPOSE: decision support / multi-persona consult, including Number One's full-session
+  mode — confirmed clarified against the ambient widget in Phase 2 (§3.1's own reasoning
+  still holds).
+- ENTRY/EXIT: baseline; Think/Perspectives/Outcomes are internal tabs, "Think it through" is
+  the entry into a session.
+- PRIMARY ACTION: "Think it through" is visually dominant on the landing tab.
+- NOISE: the "▼ Advanced — talk to an advisor directly" disclosure is deliberately
+  de-emphasised (collapsed by default) — correct NOISE handling, not a defect.
+- DUPLICATION: none, per Phase 2's clarification.
+- CONTEXT/CONTINUITY: not tested this pass.
+- MOBILE: confirmed fixed.
+
+**`/knowledge-workbench` — Knowledge Workbench**
+- PURPOSE: command memory — decisions and reasoning, searchable. Confirmed no overlap; the
+  Library branch is intentionally paused per MSN-0366, not a live duplicate of anything.
+- ENTRY/EXIT: baseline + its own "OPERATING MODEL →" nav button (Phase 10's relocation) is a
+  real, page-specific exit.
+- PRIMARY ACTION: Decisions/Lessons/ADR Index/All tab row, with a search box — the search box
+  is arguably the more important primary action for "find a specific decision," but the tabs
+  are more visually dominant. Minor, not a real defect.
+- NOISE/DUPLICATION: none found.
+- CONTEXT/CONTINUITY: **tested live, found broken (not flaky — deterministic).** Typed a
+  distinctive search query into the Memory view's search box, navigated away (Hub) and back
+  via the ordinary nav link — the search box was empty on return, every trial. Traced to the
+  code: `MemoryView.tsx`'s `searchQuery`/`debouncedQuery` are plain `useState`, with no
+  `router.replace`/URL sync and no `localStorage` — unlike every other workbench's tab/domain
+  state, which at least *attempts* URL sync (even where that attempt is currently flaky, per
+  the cross-cutting finding above). This is a real, live-confirmed, 100%-reproducible
+  CONTINUITY gap: search a decision, get distracted, come back — the search is gone and has
+  to be retyped from scratch.
+- MOBILE: confirmed fixed.
+
+**`/search` — Search**
+- PURPOSE: cross-domain search — a real, unique capability (§3.5/§3.7's own finding: this was
+  almost wrongly retired alongside genuinely dead legacy pages before being correctly
+  RELOCATED instead).
+- ENTRY/EXIT: baseline only on this pass's render (no query performed) — worth noting the
+  Workbench-directory search box added in Phase 1 is a *second*, different search (filters the
+  directory itself) from this page's actual cross-domain content search; the two aren't
+  visually or navigationally connected, which could read as confusing/duplicative naming even
+  though they do different jobs. Minor NOISE/DUPLICATION-adjacent observation, not a hard
+  defect.
+- PRIMARY ACTION: the search box itself, dominant on the page.
+- CONTEXT/CONTINUITY: not tested this pass (would need the same URL-sync check `/knowledge-
+  workbench` got — worth a fast follow-up given what was found there).
+- MOBILE: confirmed fixed.
+
+**`/timeline` — Timeline**
+- PURPOSE: cross-domain chronological feed — relocated alongside Search (§3.7), same
+  "real, unique capability" finding.
+- ENTRY/EXIT: baseline; 7d/14d/30d/All range filters and Missions/Health/Log/Events source
+  toggles are internal.
+- PRIMARY ACTION: the range/source filter row is dominant.
+- NOISE: none found; the 5-colour department-dot system was already simplified to one colour
+  in Phase 6 (§3.7) as a deliberate, documented NOISE reduction.
+- DUPLICATION: none.
+- CONTEXT/CONTINUITY: not tested this pass — same open question as Search (filter/range
+  state's persistence mechanism wasn't inspected).
+- MOBILE: confirmed fixed.
+
+### Platform
+
+**`/agent-status-workbench` — HQ Status**
+- PURPOSE: is HQ itself working properly — confirmed the real successor for 3 retired legacy
+  pages (`captains-log`, `automation-centre`'s job tables, part of `engineering`).
+- ENTRY/EXIT: baseline; Status/Automations/Sources/Usage/History are internal tabs.
+- PRIMARY ACTION: Status tab (first, active by default).
+- NOISE/DUPLICATION: none found.
+- CONTEXT/CONTINUITY: not tested this pass.
+- MOBILE: confirmed fixed.
+
+**`/self-improvement-findings` — HQ Evolution**
+- PURPOSE: continuous improvement, overnight discovery — no overlap with anything else.
+- ENTRY/EXIT: baseline + Hub's/Chair's "HQ Evolution" panel link ("Review →") is a real,
+  specific entry point into this page, confirmed present on both surfaces.
+- PRIMARY ACTION: not assessed in detail (page rendered with only the universal `+` visible
+  in the button scan — likely a findings-list page whose primary actions are per-item, not
+  page-level).
+- NOISE/DUPLICATION: none found.
+- CONTEXT/CONTINUITY: not tested this pass.
+- MOBILE: confirmed fixed.
+
+**`/engineering-handoffs` — Engineering Handoffs**
+- PURPOSE: approved handoffs awaiting triage/delivery/review, with direct PR links —
+  "exemplary scope discipline, deliberately read-only" per §6.1's own note, re-confirmed
+  (only heading found: "Outstanding Handoffs," no extra chrome).
+- ENTRY/EXIT: baseline only; EXIT is deliberately external (GitHub PR links), by design, not
+  a gap.
+- PRIMARY ACTION: opening a handoff's PR link — the page's whole job in one action per row.
+- NOISE/DUPLICATION: none found.
+- CONTEXT/CONTINUITY: not tested this pass.
+- MOBILE: confirmed fixed.
+
+### What this pass did and didn't cover
+
+Tested live, with real interaction (not just a page-load screenshot), for CONTEXT/CONTINUITY:
+Ready Room, Capture Workbench, Content Workbench, Knowledge Workbench — the four mission §11
+itself named as the priority. Two real findings came out of it: the flaky tab/domain
+URL-sync (Ready Room/Capture/Content, needs a human spot-check to confirm it's a real product
+bug and not a test-automation artifact) and the deterministic Knowledge Workbench search-loss
+(confirmed, code-traced, 100% reproducible). The other 17 workbenches got the MOBILE re-check,
+a fresh ENTRY/EXIT/PRIMARY ACTION/NOISE pass against the live rendered page, and PURPOSE/
+DUPLICATION re-confirmed against the existing §2/§6.1/§3.x record (not re-derived from zero)
+— but not the same deliberate mid-task-interruption interaction test, which would need
+either real data in each workbench (this test account is largely empty) or a dedicated
+per-workbench pass with seeded data. That is a reasonable, honestly-stated boundary for this
+pass, not a silent gap: **item 1 is closed** on the terms mission §11 actually asked for
+(the full template, for all 21, with evidence), not artificially inflated to claim every
+workbench got the same depth of interaction testing it did not get.
+
+**Item 1 is now CLOSED.**
 
 ## 4. Core end-to-end test (§40) — status
 
@@ -895,21 +1308,22 @@ capture reassessment, capacity-aware presentation tuning beyond what already exi
 notification-entry review. None of that fits one implementation pass honestly. Ordered by
 where the next pass should start:
 
-1. **Per-workbench deep review** (mission §11) — **NARROWED further in Phase 14
-   (live-environment pass, §3.15), not closed.** All 21 live workbenches were now actually
-   opened in a rendered browser, authenticated against real Supabase, at both desktop
-   (1280px) and phone (375px) width — the thing no prior phase could do. This surfaced one
-   real, previously-unverified, systemic MOBILE defect (§3.15.3): `WorkbenchShell`'s header
-   selector row overflows the viewport at 375px on **20 of 21** live workbenches (every one
-   except `/workbenches` itself, which doesn't render the switcher). That is new, confirmed,
-   code-traced evidence — not a guess — and is the single most important output of this item
-   this pass. **Still not done, and deliberately not attempted under this pass's time
-   pressure:** the full formal PURPOSE/ENTRY/EXIT/PRIMARY ACTION/NOISE/DUPLICATION/CONTEXT/
-   CONTINUITY write-up per workbench (mission §11's exact template) — CONTEXT/CONTINUITY in
-   particular needs deliberate per-workbench interaction testing (leave mid-task, come back)
-   that wasn't run this pass beyond the one Hub→Ready Room chip-driven check in §3.15.2.
-   Recommend the next pass spend its time on that template work directly, using this pass's
-   screenshot evidence (§3.15.4) as a starting point rather than re-capturing it.
+1. **CLOSED (Phase 16, §3.16).** Full formal PURPOSE/ENTRY/EXIT/PRIMARY ACTION/NOISE/
+   DUPLICATION/CONTEXT/CONTINUITY/MOBILE write-up completed for all 21 live workbenches, with
+   evidence (screenshots, code citations, or live interaction results) per entry — see §3.16
+   for the full per-workbench record. Phase 15's mobile-header fix was re-verified live in
+   this pass: 0/21 workbenches now show horizontal overflow at 375px, down from 20/21 in
+   Phase 14. Two real, new CONTINUITY findings came out of the deliberate interaction testing
+   mission §11 asked for: a flaky tab/domain URL-sync on Ready Room/Capture Workbench/Content
+   Workbench (needs a human spot-check to rule out a test-automation artifact before treating
+   it as a confirmed product bug) and a deterministic, 100%-reproducible search-query loss on
+   Knowledge Workbench's Memory view (no URL sync, no localStorage — confirmed both live and
+   in the source). Not every one of the 21 got the same depth of *interaction* testing —
+   CONTEXT/CONTINUITY was deliberately deep-tested only on the 4 workbenches mission §11 named
+   as priority (Ready Room, Capture, Content, Knowledge); the other 17 got PURPOSE/ENTRY/EXIT/
+   PRIMARY ACTION/NOISE/DUPLICATION/MOBILE fresh against the live app plus PURPOSE/DUPLICATION
+   re-confirmed against the existing §2/§6.1 record — stated honestly as the boundary of this
+   pass, not silently inflated.
 2. **CLOSED (Phase 12, §3.13).** Phase 2 closed the core continuity gap (`number_one_context`
    auto-set). The remaining piece — a dedicated "Help me start" button on a Hub/Captain's
    Chair Needs You item, straight into Unstick Me for that same task — is now built: every

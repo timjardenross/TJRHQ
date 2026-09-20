@@ -241,6 +241,7 @@ export default function EngineeringHandoffsPage() {
       title="Engineering Handoffs"
       eyebrow="Number One · Engineering Handoffs"
       tagline="Approved engineering handoffs awaiting triage, delivery, or your review — with a direct link to every draft PR"
+      mode="focus"
     >
       <div className="flex flex-col gap-4">
         <Card>

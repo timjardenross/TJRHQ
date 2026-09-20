@@ -12,12 +12,15 @@ export interface MissionCardProps {
   mission: Mission;
 }
 
+// Priority is an operational-state signal, not department identity — mapped
+// onto state-* tokens (see lib/departments.ts's stateToneClasses() doc
+// comment: "never repurpose a department colour to mean 'state'").
 const PRIORITY_TONE: Record<string, string> = {
-  P0: 'text-operations border-operations',
-  P1: 'text-command border-command',
-  P2: 'text-medical border-medical',
-  P3: 'text-lcars-muted border-edge',
-  '—': 'text-lcars-muted border-edge'
+  P0: 'text-state-crit border-state-crit',
+  P1: 'text-state-warn border-state-warn',
+  P2: 'text-state-info border-state-info',
+  P3: 'text-state-unknown border-state-unknown',
+  '—': 'text-state-unknown border-state-unknown'
 };
 
 export function MissionCard({ mission }: MissionCardProps) {
@@ -25,11 +28,11 @@ export function MissionCard({ mission }: MissionCardProps) {
   return (
     <Link href={`/missions/${mission.mission_id}`} className="block">
     <article
-      className="flex flex-col gap-2 rounded-lcars border border-edge border-l-4 bg-panel-2/60 p-3 hover:border-command/60 transition-colors cursor-pointer"
+      className="flex flex-col gap-2 rounded-lcars border border-edge border-l-4 bg-panel-2/60 p-3 hover:border-wb-sage-deep/60 transition-colors cursor-pointer"
       style={{ borderLeftColor: dept.hex }}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="font-mono text-xs text-lcars-muted">
+        <span className="font-mono text-xs text-wb-ink2">
           {mission.mission_id}
         </span>
         <span
@@ -40,10 +43,10 @@ export function MissionCard({ mission }: MissionCardProps) {
           {mission.priority}
         </span>
       </div>
-      <h3 className="text-sm font-semibold normal-case tracking-normal text-lcars-text">
+      <h3 className="text-sm font-semibold normal-case tracking-normal text-wb-ink">
         {mission.title}
       </h3>
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-lcars-muted">
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-wb-ink2">
         <StatusBadge label={mission.status} status={mission.status} />
         {mission.owner && <span>· {mission.owner}</span>}
         {mission.specialist && <span>· {mission.specialist}</span>}

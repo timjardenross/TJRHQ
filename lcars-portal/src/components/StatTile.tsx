@@ -16,9 +16,9 @@ export function StatTile({ label, value, accent = 'command', hint }: StatTilePro
   const dept = DEPARTMENTS[accent];
   return (
     <div className="rounded-lcars border border-edge bg-panel/60 p-4">
-      <p className="text-[10px] uppercase tracking-[0.25em] text-lcars-muted">{label}</p>
+      <p className="text-[10px] uppercase tracking-[0.25em] text-wb-ink2">{label}</p>
       <p className={`mt-1 text-3xl font-bold ${dept.text}`}>{value}</p>
-      {hint && <p className="mt-1 text-[11px] text-lcars-muted">{hint}</p>}
+      {hint && <p className="mt-1 text-[11px] text-wb-ink2">{hint}</p>}
     </div>
   );
 }

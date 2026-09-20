@@ -107,7 +107,7 @@ function Workbench() {
   return (
     <WorkbenchShell wide title="Capture" eyebrow={EYEBROW[domain]}
       tagline="USS TJR · Capture · Review-first — nothing auto-routes without your say"
-      right={right} back={{ href: '/workbenches', label: 'Workbenches' }}>
+      right={right} back={{ href: '/workbenches', label: 'Workbenches' }} mode="command">
       <KpiDashboard stats={stats} loading={loading} loadError={loadError} onFilter={filterToInbox} />
       {domain === 'capture' && <CaptureView onCaptured={refresh} />}
       {domain === 'inbox' && (

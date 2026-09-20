@@ -99,7 +99,7 @@ export function TodayView() {
   if (loading && !data) return <p className="text-sm text-wb-ink2">Loading…</p>;
   if (error && !data) return (
     <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
-      {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline">Check pipeline health →</Link>
+      {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Check pipeline health →</Link>
     </p>
   );
   if (!data) return null;
@@ -110,7 +110,7 @@ export function TodayView() {
     <div className="space-y-6">
       {error && (
         <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
-          {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline">Check pipeline health →</Link>
+          {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Check pipeline health →</Link>
         </p>
       )}
 
@@ -157,7 +157,7 @@ export function TodayView() {
         {data.emerging_count > 0 ? (
           <>
             {data.emerging_count} finding{data.emerging_count === 1 ? ' is' : 's are'} being watched. Evidence not yet strong enough to change what HQ thinks.{' '}
-            <Link href="/health-osint?tab=my-evidence" className="text-wb-sage-deep hover:underline">View emerging →</Link>
+            <Link href="/health-osint?tab=my-evidence" className="text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">View emerging →</Link>
           </>
         ) : (
           <>Nothing currently in the watch list.</>
@@ -220,7 +220,7 @@ export function TodayView() {
           </div>
           {data.needs_review_total_pending > data.needs_review.length && (
             <p className="mt-3 text-[11px] text-wb-ink2">
-              <Link href="/health-osint-curation" className="text-wb-sage-deep hover:underline">See the full queue →</Link>
+              <Link href="/health-osint-curation" className="text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">See the full queue →</Link>
             </p>
           )}
         </Card>

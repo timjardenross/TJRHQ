@@ -35,7 +35,6 @@ import { MobileCommandBar } from '@/components/MobileCommandBar';
 import { NumberOne } from './NumberOne';
 import { QuickCapture } from './QuickCapture';
 import { Sidebar } from './Sidebar';
-import { ThemeSelector } from './ThemeSelector';
 
 const GLOBAL_HOME = '/workbenches';
 
@@ -45,11 +44,17 @@ function WorkbenchSwitcher() {
   const current = LIVE_WORKBENCHES.find((w) => pathname?.startsWith(w.href))?.href ?? '';
 
   return (
+    // Mission 7 item 1 (Phase 14 finding, Phase 15 fix): this <select> had
+    // no width constraint, so its closed-state face sized to the longest
+    // workbench title (up to 25 chars, "Technical OSINT Workbench") —
+    // confirmed overflowing the viewport at 375px on 20 of 21 workbenches.
+    // max-w + truncate caps the closed face only; the dropdown's own open
+    // list still shows full titles untruncated (native <select> behaviour).
     <select
       aria-label="Switch workbench"
       value={current}
       onChange={(e) => { if (e.target.value) router.push(e.target.value); }}
-      className="rounded-md border border-wb-line bg-wb-surface px-2 py-1 text-[12px] text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+      className="w-[92px] max-w-[92px] truncate rounded-md border border-wb-line bg-wb-surface px-2 py-1 text-[12px] text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep sm:w-auto sm:max-w-[180px]"
     >
       {!current && <option value="" disabled>Switch workbench…</option>}
       {LIVE_WORKBENCHES.map((w) => (
@@ -68,6 +73,7 @@ export function WorkbenchShell({
   back,
   wide = false,
   minimal = false,
+  mode = 'focus',
   children,
 }: {
   title: string;
@@ -88,10 +94,18 @@ export function WorkbenchShell({
    * workbench switcher, back-link and tagline while the Captain is inside
    * a single active-execution moment (Ready Room's ActiveTaskView) — one
    * fewer decision surface competing for attention mid-task. Opt-in, off
-   * by default, so every other workbench is unaffected. Settings/theme
-   * stay reachable (never trap the Captain), QuickCapture/MobileCommandBar
+   * by default, so every other workbench is unaffected. Settings stay
+   * reachable (never trap the Captain), QuickCapture/MobileCommandBar
    * stay mounted. */
   minimal?: boolean;
+  /** Endeavour 27 (USS-TJR-MSN-0394): 'command' and 'focus' share the dark
+   * Command/Focus surface (differ by density/layout, not colour — mission
+   * §1.1), 'read' switches to the light reading surface via
+   * [data-wb-mode='read'] in globals.css. Defaults to 'focus' — the
+   * majority of existing action/execution workbenches — so unclassified
+   * pages don't silently go light. Set explicitly per mission §1.8's
+   * classification when migrating a page. */
+  mode?: 'command' | 'focus' | 'read';
   children: ReactNode;
 }) {
   const shellWidth = wide ? 'max-w-7xl' : 'max-w-4xl';
@@ -106,11 +120,38 @@ export function WorkbenchShell({
       {/* Adaptive Themes mission (2026-09-05): Sidebar is global chrome on
           every *-workbench page, not just Home — Captain's explicit call.
           xl:flex on Sidebar itself, no extra breakpoint class needed here.
-          Mission 4: hidden in `minimal` mode (see prop doc above). */}
+          Mission 4: hidden in `minimal` mode (see prop doc above).
+          Endeavour 27 (USS-TJR-MSN-0394) Stream A/B: `data-wb-mode` scopes
+          to this inner column only, not the outer wrapper -- mission §1.1
+          is explicit that Read mode swaps the reading pane's surface
+          lightness while "the header/sidebar chrome stays dark navy" (also
+          confirmed directly against Image 1's own Briefs panel). Scoping it
+          on the whole shell made Sidebar go light too on first
+          implementation -- a real bug, caught via live verification, not
+          left in. */}
       <div className="flex">
         {!minimal && <Sidebar />}
-        <div className="min-w-0 flex-1">
-          <header className="border-b border-wb-line bg-wb-bg/80 backdrop-blur">
+        {/* text-wb-ink re-declared here (not just relying on inheriting
+            the outer wrapper's already-computed colour): `color` inherits
+            the parent's COMPUTED value, not a live re-evaluation of
+            var(--wb-ink) -- without a fresh declaration inside this scope,
+            title text (and anything else with no colour class of its own)
+            silently inherited the outer wrapper's dark-mode ink, invisible
+            against this div's light Read-mode background. Same class of
+            bug as the bg-wb-bg/80 fix above, caught the same way. */}
+        <div data-wb-mode={mode} className="min-w-0 flex-1 bg-wb-bg text-wb-ink">
+          {/* Endeavour 27 Stream B, found via live verification: `bg-wb-bg/80`
+              never actually rendered a translucent fill -- Tailwind's
+              opacity modifier needs an RGB-channel CSS var (e.g.
+              `--wb-bg-rgb: 11 30 46`), not a plain hex var like `--wb-bg`,
+              so it silently resolved to fully transparent. Invisible before
+              this mission (this header sits on the same solid colour as
+              everything behind it in the old single-surface system), but a
+              real bug once Read mode wants this header genuinely lighter
+              than the dark chrome around it. `backdrop-blur` was already a
+              no-op too -- header isn't `sticky`/`fixed`, nothing scrolls
+              underneath it. Solid bg-wb-bg is the correct, simpler fix. */}
+          <header className="border-b border-wb-line bg-wb-bg">
             <div className={`mx-auto flex ${shellWidth} flex-wrap items-center gap-3 px-6 py-4`}>
               <Link
                 href={GLOBAL_HOME}
@@ -123,7 +164,12 @@ export function WorkbenchShell({
                 <div className="font-serif text-[17px]">{title}</div>
                 <div className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">{eyebrow}</div>
               </div>
-              <span className="ml-auto flex items-center gap-3 text-[12px] text-wb-ink2">
+              {/* Mission 7 item 1 (Phase 15): flex-wrap here is the second
+                  layer of the mobile-overflow fix — even with both <select>s
+                  now width-capped, this gives the cluster somewhere to go
+                  (wrap to its own line) rather than force horizontal
+                  scroll, on whatever narrower screen turns up next. */}
+              <span className="ml-auto flex flex-wrap items-center justify-end gap-2 text-[12px] text-wb-ink2">
                 {right}
                 {/* Settings Page Redesign mission §23: Sidebar (xl+) already
                     links to /settings, but Sidebar is hidden below xl and
@@ -139,7 +185,6 @@ export function WorkbenchShell({
                 >
                   <Settings className="h-4 w-4" aria-hidden />
                 </Link>
-                <ThemeSelector />
                 {!minimal && <WorkbenchSwitcher />}
               </span>
             </div>

@@ -28,6 +28,21 @@ log = logging.getLogger(__name__)
 
 _VALID_STATUSES = {"new", "acknowledged", "acted_on", "dismissed", "superseded"}
 
+# Narrow column list for callers that feed assemble_captain_brief_document()
+# (attention_engine/priority/interrupt_dispatcher — verified to read only
+# these fields, never the linked_entities/linked_missions/linked_documents
+# jsonb arrays). Shared here, rather than each call site inlining its own
+# copy, so the one list that's actually been verified against those readers
+# doesn't drift into N slightly-different guesses. Do NOT reuse this for a
+# caller that feeds assemble_evolved_captain_brief() / build_understanding()
+# — that path reads the jsonb linked_* columns this list omits and needs
+# columns="*" (Supabase usage investigation, 2026-09-20: this omission was
+# the single largest identified source of the org's egress overage).
+CAPTAIN_BRIEF_COLUMNS = (
+    "event_id,domain,event_type,importance,confidence,relevance,"
+    "time_sensitivity,metrics,status,recommended_action"
+)
+
 
 def _record_bus_heartbeat(success: bool) -> None:
     """Record a heartbeat for the Core Event Bus domain. Non-blocking — never raises."""

@@ -21,25 +21,28 @@
 // weeks after that step was removed from the actual pipeline).
 //
 // Redesigned 2026-09-05 (Adaptive Themes + Home/Workbench Redesign
-// mission, §7-9) — welcome header + theme-specific tagline, icon-bearing
-// WorkbenchCard grid, global Sidebar (this page doesn't use WorkbenchShell
-// itself — it's the one page that predates it — so it renders Sidebar
-// directly, matching the Captain's "global sidebar everywhere" call rather
-// than being the one page left out of it). Every existing route/position
-// unchanged; this only touches how they're presented.
+// mission, §7-9) — welcome header, icon-bearing WorkbenchCard grid, global
+// Sidebar (this page doesn't use WorkbenchShell itself — it's the one page
+// that predates it — so it renders Sidebar directly, matching the
+// Captain's "global sidebar everywhere" call rather than being the one
+// page left out of it). Every existing route/position unchanged; this only
+// touches how they're presented.
+//
+// Endeavour 27 (USS-TJR-MSN-0394): dropped the per-theme tagline
+// (lib/theme.ts's THEME_TAGLINE) along with the 5-theme selector it came
+// from — this page is Command-mode (glance/orientation, mission §1.8), no
+// per-visit tagline needed.
 'use client';
 
 import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
-import { NumberOne, QuickCapture, Sidebar, ThemeSelector, WorkbenchCard } from '@/components/ui';
+import { NumberOne, QuickCapture, Sidebar, WorkbenchCard } from '@/components/ui';
 import { MobileCommandBar } from '@/components/MobileCommandBar';
 import { LIVE_WORKBENCHES, WORKBENCH_GROUP_META, type WorkbenchGroup } from '@/lib/workbenches';
-import { useTheme, THEME_TAGLINE } from '@/lib/theme';
 
 const GROUP_ORDER = Object.keys(WORKBENCH_GROUP_META) as WorkbenchGroup[];
 
 export default function Workbenches() {
-  const [theme] = useTheme();
   const [query, setQuery] = useState('');
 
   // Mission 7 §16: a flat 19-tile grid with no structure was one long
@@ -61,17 +64,11 @@ export default function Workbenches() {
       <div className="flex">
         <Sidebar />
         <div className="min-w-0 flex-1">
-          <header className="border-b border-wb-line bg-wb-bg/80 px-6 py-4 backdrop-blur">
-            <div className="mx-auto flex max-w-6xl items-center justify-end">
-              <ThemeSelector />
-            </div>
-          </header>
           <main className="mx-auto max-w-6xl px-6 py-10">
             <h1 className="mb-1 font-serif text-2xl text-wb-ink">Welcome, TJR</h1>
-            <p className="mb-1 text-[13px] text-wb-ink2">
+            <p className="mb-6 text-[13px] text-wb-ink2">
               Choose a workbench or surface to navigate to. Every real experience is reachable from here.
             </p>
-            <p className="mb-6 text-[13px] italic text-wb-sage-deep">{THEME_TAGLINE[theme]}</p>
 
             <div className="relative mb-8 max-w-sm">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-wb-ink2" aria-hidden />
