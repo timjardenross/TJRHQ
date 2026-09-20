@@ -217,6 +217,15 @@ export interface NeedsYouItem {
   detail: string;
   href: string;
   actionLabel: string;
+  /** Mission 7 deferred-register item 2 (closed): a second, optional path
+   * straight into Ready Room's Unstick Me decompose flow for this same
+   * task — only set for personal-task execution items. Lets the Captain
+   * choose "Help me start" right from the Needs You item itself instead of
+   * needing the ambient widget or a manual Ready Room mode switch. Not a
+   * new classification of "which tasks are stuck" (no such signal exists
+   * upstream, and mission §4 rules out building one) — every personal-task
+   * item gets both options; the Captain picks. */
+  helpMeStartHref?: string;
 }
 
 export function sortNeedsYou(items: NeedsYouItem[]): NeedsYouItem[] {

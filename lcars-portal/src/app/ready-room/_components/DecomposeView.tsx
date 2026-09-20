@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Button, Textarea, Input, Select } from '@/components/ui';
 import {
   createTask, decomposeTask, fetchTasks, getReadyRoomContext, getTask, pickUpItems, promoteToMission,
-  updateTaskState, type FollowThroughMode, type PersonalTask, type ReadyRoomContext,
+  updateTaskFields, updateTaskState, type FollowThroughMode, type PersonalTask, type ReadyRoomContext,
 } from '@/lib/personalTasks';
 import { FOLLOW_THROUGH_MODES, autoSwitchModeOnDueDate } from './followThroughMode';
 import { ActiveTaskView } from './ActiveTaskView';
@@ -32,9 +32,16 @@ const CLARIFY_PREFIX = 'CLARIFY:';
  * single-string response the endpoint already returns — no new response
  * shape, no new persistence. */
 export function DecomposeView({
+  initialTaskId,
   onSaved,
   onExecutingChange,
 }: {
+  /** Mission 7 item 2: an existing personal_tasks.id deep-linked from a
+   * Hub/Captain's Chair Needs You item's "Help me start" action
+   * (?domain=unstick&task=<id>). When set, the goal field is pre-filled
+   * from that task's title and `startHere()` updates the same task
+   * instead of creating a new, duplicate one. */
+  initialTaskId?: string | null;
   onSaved: () => void;
   /** Mission 4: reports whether ActiveTaskView is showing, so the page shell
    * can drop into minimal/nav-free mode. */
@@ -42,6 +49,7 @@ export function DecomposeView({
 }) {
   const [stage, setStage] = useState<Stage>('input');
   const [goal, setGoal] = useState('');
+  const [existingTask, setExistingTask] = useState<PersonalTask | null>(null);
   const [microAction, setMicroAction] = useState('');
   const [goodEnough, setGoodEnough] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -82,6 +90,20 @@ export function DecomposeView({
     // capacity routed them to this domain instead of Do.
     fetchTasks({ includeCompleted: false }).then((tasks) => { if (alive()) setPickUp(pickUpItems(tasks)); });
   }, []);
+  // Mission 7 item 2: pre-fill from the deep-linked existing task, if any.
+  // Runs once per initialTaskId — if the task can't be found (deleted,
+  // already completed elsewhere), falls back silently to the normal
+  // fresh-goal flow rather than blocking on an error.
+  useAbortEffect((_signal, alive) => {
+    if (!initialTaskId) return;
+    getTask(initialTaskId).then((task) => {
+      if (!alive() || !task) return;
+      setExistingTask(task);
+      setGoal(task.title);
+      if (task.due_date) setDueDate(task.due_date);
+      if (task.follow_through_mode) setFollowThroughMode(task.follow_through_mode);
+    });
+  }, [initialTaskId]);
 
   function handleDueDateChange(value: string) {
     setDueDate(value);
@@ -186,17 +208,27 @@ export function DecomposeView({
 
   async function startHere() {
     setBusy(true);
-    const result = await createTask({
-      title: goal,
-      category: 'task',
-      due_date: dueDate || null,
-      micro_action: microAction.trim() || null,
-      mvp_note: goodEnough.trim() || null,
-      follow_through_mode: followThroughMode,
-    });
-    if (result.ok && result.id) {
-      await updateTaskState(result.id, 'in_progress');
-      const fresh = await getTask(result.id);
+    // Mission 7 item 2: decomposing a deep-linked existing task updates
+    // that same task rather than creating a duplicate — createTask() is
+    // only for a genuinely fresh goal typed into this view.
+    const targetId = existingTask
+      ? (await updateTaskFields(existingTask.id, {
+          due_date: dueDate || null,
+          micro_action: microAction.trim() || null,
+          mvp_note: goodEnough.trim() || null,
+          follow_through_mode: followThroughMode,
+        })).ok ? existingTask.id : null
+      : (await createTask({
+          title: goal,
+          category: 'task',
+          due_date: dueDate || null,
+          micro_action: microAction.trim() || null,
+          mvp_note: goodEnough.trim() || null,
+          follow_through_mode: followThroughMode,
+        })).id ?? null;
+    if (targetId) {
+      await updateTaskState(targetId, 'in_progress');
+      const fresh = await getTask(targetId);
       if (fresh) {
         setStartedTask(fresh);
         setStage('started');
@@ -227,6 +259,7 @@ export function DecomposeView({
   function reset() {
     setStage('input');
     setGoal('');
+    setExistingTask(null);
     setMicroAction('');
     setGoodEnough('');
     setDueDate('');
@@ -264,6 +297,11 @@ export function DecomposeView({
     <div className="flex flex-col gap-4">
       {stage === 'input' && pickUp.length > 0 && (
         <PickUpBanner tasks={pickUp} onResume={resumePickUp} />
+      )}
+      {existingTask && stage === 'input' && (
+        <p className="text-[11px] uppercase tracking-wide text-wb-sage-deep">
+          Helping you start &ldquo;{existingTask.title}&rdquo; — from your Needs You list
+        </p>
       )}
       <div>
         <Textarea

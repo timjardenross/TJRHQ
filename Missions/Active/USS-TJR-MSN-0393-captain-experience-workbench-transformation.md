@@ -2,7 +2,7 @@
 
 **Type:** UI + UX + navigation + interaction design. Not a backend architecture programme —
 Missions 1–6 own the canonical machinery; this mission consumes and exposes it.
-**Status:** Active — Phases 1-11 shipped 2026-09-19/20 (same session, one PR). This is a
+**Status:** Active — Phases 1-12 shipped 2026-09-19/20 (same session, one PR). This is a
 large, multi-phase mission; this record is honest about what's actually closed versus what
 remains open (see §5/§6/§6.1). Phase-by-phase build record: §3 (Phase 1: ambient Number One,
 navigation fixes, directory grouping, Hub/Chair actionability), §3.1 (Phase 2: Hub→Ready Room
@@ -12,9 +12,10 @@ dead-page risk into live workbenches), §3.8 (Phase 7: `operations` converted), 
 contrast/label audit), §3.10 (Phase 9: weight-trend view ported, `state-*`/midnight text
 paired with outline/ring), §3.11 (Phase 10: `operating-model` relocated into Knowledge
 Workbench, closing legacy-page retirement 8/8), §3.12 (Phase 11: `state-*`/`midnight` pairing
-rule formalized as the permanent fix, item 14 fully closed). Only 2 of the 14-item deferred
-register remain open now (items 1 and 7 — both genuinely blocked on live-environment access,
-see the VM mission brief prepared for them).
+rule formalized as the permanent fix, item 14 fully closed), §3.13 (Phase 12: "Help me start"
+button on Needs You items, item 2 fully closed). Only 2 of the 14-item deferred register
+remain open now (items 1 and 7 — both genuinely blocked on live-environment access, see the
+VM mission brief prepared for them).
 **Branch:** `claude/tjr-hq-mission-7-az63cy`.
 
 ## 0. Mission question
@@ -620,6 +621,41 @@ found) — one remaining bare instance found (`(auth)/login`'s "Link sent" headi
 `npx tsc --noEmit`, `npx eslint`, and the full test suite (725/725) pass clean. §5 item 14 is
 now CLOSED, not partially closed — see there for the full record.
 
+## 3.13 Phase 12 — item 2 fully closed: "Help me start" on the Needs You item itself
+
+Phase 2 (§3.1) closed the harder half of this item (Hub→Ready Room context continuity). The
+remaining piece — a dedicated button, not a manual mode switch or the ambient widget — is
+built now.
+
+**What changed:** `commandState.ts`'s `buildNeedsYouItems()` now sets an optional
+`helpMeStartHref` (`/ready-room?domain=unstick&task=<id>`) on every personal-task-sourced
+Needs You item, alongside its existing `href`/`actionLabel` ("Do this" → the plain task
+view). `NeedsYouItem` (`captainsChairSynthesis.ts`) carries the new field. Both Hub
+(`app/hub/page.tsx`) and Captain's Chair's `NeedsYou.tsx` render it as a second, smaller
+action next to "Do this" when present — same item, Captain's choice, not a new "is this task
+stuck" classification (no such signal exists upstream, and mission §4 rules that out anyway).
+
+**Making the deep link actually work required 3 real fixes, not just a new href:**
+1. `ready-room/page.tsx` previously forced `do` mode whenever `?task=<id>` was present,
+   ignoring any `?domain=` alongside it (Mission 6B's own deep-link logic, written before
+   this combination existed) — now an explicit `?domain=` always wins, `?task=<id>` alone
+   still defaults to `do`.
+2. `DecomposeView.tsx` (Unstick Me) had no way to receive an *existing* task at all — it only
+   ever composed a brand-new one via `createTask()`. Added an `initialTaskId` prop: on
+   mount, fetches that task, pre-fills the goal field with its title, and shows a small
+   "Helping you start ⟨title⟩ — from your Needs You list" cue so the pre-filled field isn't
+   mysterious.
+3. `startHere()` (the "Start here" button that commits a decomposed micro-action) always
+   called `createTask()` — which would have created a duplicate task instead of updating the
+   one the Captain came from. Now branches: an existing deep-linked task goes through
+   `updateTaskFields()` + `updateTaskState(..., 'in_progress')` (already-exported functions,
+   no new ones needed); a genuinely fresh goal still creates a new task exactly as before.
+
+`npx tsc --noEmit`, `npx eslint`, and the full test suite (725/725, including
+`ready-room/__tests__/postureDefault.test.tsx`'s existing `?domain=unstick` coverage) all
+pass clean. No live-environment access needed for this one — it's a pure code/routing fix,
+unlike items 1 and 7.
+
 ## 4. Core end-to-end test (§40) — status
 
 The backend path this test exercises (remember → what am I forgetting → help me start →
@@ -657,15 +693,15 @@ where the next pass should start:
    it's not broken before assuming it needs a review," which is what this pass's remaining
    time allowed. The 3 intelligence workbenches (Technical OSINT, Health OSINT, Briefs) and
    Advisory got a lighter read than the others.
-2. **Hub → Ready Room contextual "Help me start" — partially closed in Phase 2** (§18/§40,
-   see §3.1). Once the Captain is looking at a task in Ready Room (via Hub's "Do this" link
-   or any other path), `number_one_context` is now set automatically and the ambient
-   widget's "I'm stuck"/"still can't start"/"too much"/"done" resolve correctly with no
-   re-explanation needed — the core gap this item described. Still open: there is no
-   dedicated "Help me start" *button* on a Hub Needs You/Remember item itself that jumps
-   straight to Unstick Me's decompose flow (vs. Ready Room's plain "Do" task view) — today
-   that still needs either the ambient widget or a manual mode switch inside Ready Room.
-   Worth a per-item action next pass if that distinction turns out to matter in practice.
+2. **CLOSED (Phase 12, §3.13).** Phase 2 closed the core continuity gap (`number_one_context`
+   auto-set). The remaining piece — a dedicated "Help me start" button on a Hub/Captain's
+   Chair Needs You item, straight into Unstick Me for that same task — is now built: every
+   personal-task Needs You item gets a second, smaller action alongside "Do this", deep-
+   linking to `/ready-room?domain=unstick&task=<id>`. No new "is this task stuck"
+   classification (none exists upstream, and mission §4 rules out building one) — the
+   Captain chooses between "Do this" and "Help me start" on the same item, same as they
+   always could inside Ready Room, just without leaving Hub/Chair or switching modes
+   manually first.
 3. **Notification deep-linking audit** (§25) — reviewed in Phase 2, no defect found:
    `lib/notifications.ts`'s `fireNotification` already carries a real per-alert `data.url`
    (`lib/useAlerts.ts` passes `a.href`, not a generic destination), and `public/sw.js`'s

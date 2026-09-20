@@ -324,6 +324,17 @@ export default function LifeOSHub() {
                           {item.actionLabel}
                         </span>
                       </Link>
+                      {/* Mission 7 item 2: same task, straight into Unstick
+                          Me — Captain's choice alongside "Do this", not a
+                          second engine deciding which tasks need it. */}
+                      {item.helpMeStartHref && (
+                        <Link
+                          href={item.helpMeStartHref}
+                          className="mt-1 inline-block rounded-md border border-wb-line px-2.5 py-1 text-[11px] font-semibold text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                        >
+                          Help me start
+                        </Link>
+                      )}
                     </li>
                   ))}
                   {needsYouItems.length > 3 && (
