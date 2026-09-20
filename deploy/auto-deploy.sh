@@ -92,7 +92,14 @@ echo "$CHANGED_FILES" | sed "s|^|$LOG_PREFIX   changed: |"
 
 if echo "$CHANGED_FILES" | grep -q '^lcars-portal/'; then
   echo "$LOG_PREFIX lcars-portal/ changed - rebuilding"
-  ( cd "$REPO_ROOT/lcars-portal" && npm ci --no-audit --no-fund && npm run build )
+  # NEXT_PUBLIC_* vars are inlined into the client bundle at `next build`
+  # time, not read at `next start` runtime - a plain `npm run build` here
+  # never saw them, so the browser Supabase client silently fell back to a
+  # dead localhost:54321 placeholder in every auto-deployed build (found
+  # 2026-09-20 during VM API activation). Route the build through the same
+  # Infisical wrapper the systemd unit uses at runtime so NEXT_PUBLIC_*
+  # gets baked in for real.
+  ( cd "$REPO_ROOT/lcars-portal" && npm ci --no-audit --no-fund && "$REPO_ROOT/platform-runtime/run-with-infisical.sh" npm run build )
   echo "$LOG_PREFIX restarting lcars-portal.service"
   "$SYSTEMCTL" restart lcars-portal.service || echo "$LOG_PREFIX WARNING: restart failed for lcars-portal.service" >&2
 fi
