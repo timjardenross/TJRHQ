@@ -121,7 +121,12 @@ export async function GET() {
       fetchAgentStatusEntries(sb),
       sb.from('intelligence_ingestion_quality_daily').select('*').order('day', { ascending: false }).limit(1),
       sb.from('health_ingestion_quality_daily').select('*').order('day', { ascending: false }).limit(1),
-      sb.from('intelligence_source_health_latest').select('source_id, status, checked_at, error_message'),
+      // Defensive bound (Supabase egress investigation, 2026-09-20): this
+      // view is one row per source (~200 today per intelligence_source_
+      // registry), but this endpoint is polled every REFRESH_INTERVAL_MS
+      // by every open Status-tab browser tab, so an unbounded select here
+      // is one accidental registry-growth away from a real cost.
+      sb.from('intelligence_source_health_latest').select('source_id, status, checked_at, error_message').limit(1000),
       sb.from('intelligence_source_registry').select('source_id').eq('active', true),
       sb.from('health_source_fetch_config').select('source_id, cadence, last_fetch, last_fetch_status, last_fetch_message, health_source_registry(source_name)'),
     ]);

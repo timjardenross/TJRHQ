@@ -77,6 +77,31 @@ class SupabaseClient:
         query = urllib.parse.urlencode(params, safe="*,().")
         return self.request("GET", f"/rest/v1/{table}?{query}") or []
 
+    def count(self, table: str, filters: dict[str, str] | None = None) -> int:
+        """Exact row count via a HEAD request (PostgREST `Prefer: count=exact`)
+        — transfers zero rows, just the `Content-Range` response header.
+        Use this instead of `select(...)` + `len(...)` whenever only a count
+        is needed; selecting real rows just to count them re-transfers
+        every column (including any embedding/vector columns) for no
+        benefit (Supabase egress investigation, 2026-09-20)."""
+        params = {"select": "id"}
+        if filters:
+            params.update(filters)
+        query = urllib.parse.urlencode(params, safe="*,().")
+        request = urllib.request.Request(
+            f"{self.url}/rest/v1/{table}?{query}",
+            method="HEAD",
+            headers=self._headers({"Prefer": "count=exact", "Range-Unit": "items", "Range": "0-0"}),
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:  # nosec B310 - url built from self.url (SUPABASE_URL env var), not user input
+                content_range = response.headers.get("Content-Range", "")
+        except urllib.error.HTTPError as error:
+            detail = error.read().decode("utf-8")
+            raise SupabaseError(f"HEAD /rest/v1/{table} failed: {error.code} {detail}") from error
+        total = content_range.rsplit("/", 1)[-1]
+        return int(total) if total.isdigit() else 0
+
     def upsert(self, table: str, rows: list[dict[str, Any]], conflict: str) -> list[dict[str, Any]]:
         query = urllib.parse.urlencode({"on_conflict": conflict})
         return self.request(

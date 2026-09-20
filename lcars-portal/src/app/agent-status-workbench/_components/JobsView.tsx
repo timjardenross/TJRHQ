@@ -26,7 +26,10 @@ const CRITICALITY_LABEL: Record<AgentStatusEntry['criticality'], string> = {
   background: 'Background',
 };
 
-const REFRESH_INTERVAL_MS = 30_000;
+// 2026-09-20 (Supabase egress investigation): 30s -> 60s, plus the
+// document.hidden guard on the interval below — see StatusView.tsx's
+// matching comment for the full reasoning (same workbench, same fix).
+const REFRESH_INTERVAL_MS = 60_000;
 
 /** Groups job entries by their domain field, preserving insertion order. */
 function groupByDomain(jobs: AgentStatusEntry[]): Map<string, AgentStatusEntry[]> {
@@ -145,7 +148,10 @@ export function JobsView() {
       }
     }
     fetchStatus(true);
-    const intervalId = setInterval(() => fetchStatus(false), REFRESH_INTERVAL_MS);
+    const intervalId = setInterval(() => {
+      if (document.hidden) return;
+      fetchStatus(false);
+    }, REFRESH_INTERVAL_MS);
     return () => clearInterval(intervalId);
   }, []);
 
