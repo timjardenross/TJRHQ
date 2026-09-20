@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: {
-    absolute: 'Login | TJR Mind & Body',
+    absolute: 'Command Access | TJR HQ',
   },
-  description: 'Secure login for the private TJR Mind & Body LCARS command centre.',
+  description: 'Secure command access for TJR HQ · Endeavour 27.',
   robots: {
     index: false,
     follow: false,

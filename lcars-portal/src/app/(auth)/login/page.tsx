@@ -70,18 +70,19 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-wb-bg px-4 font-sans antialiased">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-md">
 
         {/* Header */}
         <div className="mb-6 flex items-center gap-3">
-          <div className="h-8 w-2 rounded-sm bg-wb-sage-deep" aria-hidden="true" />
+          <div className="h-12 w-1 rounded-full bg-wb-sage-deep shadow-[0_0_18px_rgba(126,220,190,0.35)]" aria-hidden="true" />
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-wb-ink2">
-              USS TJR · NCC-170239
+              TJR HQ · ENDEAVOUR 27
             </p>
-            <h1 className="font-serif text-xl text-wb-ink">
-              LCARS Portal
+            <h1 className="font-serif text-2xl text-wb-ink">
+              Command access
             </h1>
+            <p className="mt-1 text-[12px] text-wb-ink2">A calmer mind. A stronger you. A brighter tomorrow.</p>
           </div>
         </div>
 
@@ -118,7 +119,7 @@ export default function LoginPage() {
                 Authentication required
               </p>
               <h2 className="mb-4 font-serif text-lg text-wb-ink">
-                Captain Access
+                Enter the command centre
               </h2>
               <div className="flex flex-col gap-3">
                 {/* Mission 7 §31 accessibility pass: neither input had a
@@ -174,7 +175,7 @@ export default function LoginPage() {
                 Authentication required
               </p>
               <h2 className="mb-4 font-serif text-lg text-wb-ink">
-                Captain Access
+                Enter the command centre
               </h2>
               <p className="mb-4 text-sm text-wb-ink2">
                 Enter your email to receive a one-time access link.
