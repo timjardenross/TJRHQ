@@ -28,7 +28,7 @@ SELF_IMPROVEMENT_DIR = REPO_ROOT / "scripts" / "self_improvement"
 sys.path.insert(0, str(MODEL_ROUTER_DIR))
 sys.path.insert(0, str(SELF_IMPROVEMENT_DIR))
 
-import app  # noqa: E402 - path setup above must run first
+import app
 
 _CALL_ROUTER_TASK_TYPE = re.compile(r'self\._call_router\(\s*"([a-z0-9-]+)"')
 
