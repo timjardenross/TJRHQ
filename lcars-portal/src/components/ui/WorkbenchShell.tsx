@@ -120,6 +120,15 @@ export function WorkbenchShell({
   const originHref = from === 'captains-chair' ? '/captains-chair-workbench' : from === 'hub' ? '/hub' : null;
   const primaryAction = LIVE_WORKBENCHES.find((w) => pathname?.startsWith(w.href)) ? PRIMARY_ACTIONS[LIVE_WORKBENCHES.find((w) => pathname?.startsWith(w.href))!.href] : null;
   const initialPathRef = useRef(pathname);
+  const workbenchStartedAtRef = useRef<number>(Date.now());
+  useEffect(() => {
+    if (!pathname) return;
+    const taskId = `workbench:${pathname}`;
+    trackTaskEvent(taskId, 'started');
+    const abandon = () => trackTaskEvent(taskId, 'abandoned', { duration_ms: Date.now() - workbenchStartedAtRef.current });
+    window.addEventListener('pagehide', abandon, { once: true });
+    return () => window.removeEventListener('pagehide', abandon);
+  }, [pathname]);
   useEffect(() => {
     if (initialPathRef.current === pathname) return;
     initialPathRef.current = pathname;

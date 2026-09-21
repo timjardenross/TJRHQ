@@ -57,6 +57,40 @@ reachable, have visible focus treatment, and expose state changes through
 `aria-live` where appropriate. Destructive or externally visible actions must
 not be triggered by navigation alone.
 
+## Governance rules
+
+The machine-readable governance registry lives in
+`lcars-portal/src/lib/designGovernance.ts`. It is the review authority for
+terms, status tones, density, and primary actions.
+
+### Terms
+
+Use the canonical labels `LifeOS Hub`, `Briefs`, `Emergency Alerts`, and
+`Human Systems`. Do not introduce retired labels such as `Home`, `Captain's
+Brief`, `Alerts`, or `Medical` for current surfaces. Lifecycle labels use
+`Needs action`, `Awaiting owner`, `No action needed`, `Unavailable`, and
+`Stale`.
+
+### Status colours
+
+Use `stateToneClasses`/`Badge` and the canonical state-to-badge mapping. The
+operational state tone communicates status, never department identity. Text,
+icons, and ARIA semantics must carry the meaning without colour.
+
+### Density
+
+Every new surface chooses one density deliberately: `comfortable` for
+decision reading, `compact` for queues, or `data-dense` for deliberately
+scannable tables. Dense layouts must use progressive disclosure on mobile and
+must not reduce the target size or focus visibility of controls.
+
+### Primary actions
+
+Every live workbench has exactly one semantic first-viewport primary action,
+registered in `PRIMARY_ACTIONS`. It must be a specific verb describing the
+next decision—not a generic `Open`, `Go`, `Click`, or `Submit`. The
+`validatePrimaryAction` contract is required in workbench registry tests.
+
 ## Review checklist
 
 - [ ] One semantic primary action is present in the first viewport.
@@ -66,3 +100,4 @@ not be triggered by navigation alone.
 - [ ] Source, observed time, and confidence are real or explicitly unavailable.
 - [ ] Empty, no-action, unavailable, stale, loading, and error states are distinct.
 - [ ] Primary controls are keyboard reachable with visible focus.
+- [ ] Canonical terms, state tones, density, and primary-action rules pass the governance registry tests.

@@ -15,6 +15,8 @@ import Link from 'next/link';
 import { Card } from '@/components/ui';
 import { OperationalStateBadge, type OperationalState } from '@/components/OperationalState';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
+import { OperationalConfidencePanel } from '@/components/OperationalConfidencePanel';
+import type { OperationalConfidence } from '@/lib/operationalConfidence';
 
 // HQ V1 Integration QA §22 (recovery propagation) fix: this tab previously
 // fetched once on mount only — a Captain with the Status tab open during an
@@ -61,6 +63,7 @@ interface StatusData {
     health: { healthy: number; delayed: number; failing: number };
   };
   jobsSummary: { scheduled: number; healthy: number; attention: number };
+  operationalConfidence: OperationalConfidence;
 }
 
 const POSTURE_GLYPH: Record<Posture, string> = {
@@ -245,6 +248,8 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
           Updated {new Date(data.fetchedAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })} · covers all monitored capabilities, jobs, and governed sources.
         </p>
       </Card>
+
+      <OperationalConfidencePanel confidence={data.operationalConfidence} />
 
       {/* Capability list — progressive disclosure, calm when healthy */}
       <Card>

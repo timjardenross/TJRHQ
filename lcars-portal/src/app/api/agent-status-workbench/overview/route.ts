@@ -29,6 +29,7 @@ import {
   buildCaptainChairSummary,
   type CapabilityTone,
 } from '@/lib/hqStatusInterpreter';
+import { calculateOperationalConfidence } from '@/lib/operationalConfidence';
 
 type StageTone = 'ok' | 'warn' | 'crit' | 'unknown';
 
@@ -219,6 +220,20 @@ export async function GET() {
       technical: { healthy: technicalSourceStatuses.filter((s) => s === 'ok').length, degraded: techDegraded, failing: techFailing },
       health: { healthy: healthConfigs.filter((r) => r.last_fetch_status !== 'failed' && r.last_fetch).length, delayed: 0, failing: healthFailing },
     };
+    const operationalConfidence = calculateOperationalConfidence([
+      ...Array.from(latestTechBySource.entries()).map(([id, source]) => ({
+        id: `technical:${id}`,
+        label: `Technical source ${id}`,
+        completeness: 1,
+        freshness: source.status === 'ok' ? 'fresh' as const : source.status === 'stale' ? 'stale' as const : source.status === 'failed' ? 'unavailable' as const : 'unknown' as const,
+      })),
+      ...healthConfigs.map((source) => ({
+        id: `health:${source.source_id}`,
+        label: `Health source ${source.source_id}`,
+        completeness: source.last_fetch ? 1 : 0,
+        freshness: source.last_fetch_status === 'failed' ? 'unavailable' as const : source.last_fetch ? 'fresh' as const : 'unknown' as const,
+      })),
+    ]);
     const liveJobs = jobs.filter((j) => j.status !== 'retired' && j.status !== 'disabled');
     const jobsSummary = {
       scheduled: liveJobs.length,
@@ -245,6 +260,7 @@ export async function GET() {
         health: { stages: healthStages, day: h?.day ?? null },
       },
       sourcesSummary,
+      operationalConfidence,
       jobsSummary,
     });
   } catch (err) {

@@ -1,4 +1,6 @@
-export type TaskEvent = 'started' | 'completed' | 'retry' | 'abandoned';
+export type TaskEvent = 'started' | 'completed' | 'retry' | 'abandoned' | 'friction';
+
+export type FrictionPoint = 'validation' | 'network' | 'timeout' | 'permission' | 'unknown';
 
 /** Best-effort, privacy-preserving task telemetry for measuring mobile flow completion. */
 export function trackTaskEvent(taskId: string, event: TaskEvent, details: Record<string, unknown> = {}) {
@@ -19,4 +21,8 @@ export function trackTaskEvent(taskId: string, event: TaskEvent, details: Record
       },
     }),
   }).catch(() => {});
+}
+
+export function trackFriction(taskId: string, point: FrictionPoint, details: Record<string, unknown> = {}) {
+  trackTaskEvent(taskId, 'friction', { friction_point: point, ...details });
 }

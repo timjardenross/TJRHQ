@@ -54,6 +54,7 @@ import {
   History,
   Timer,
 } from 'lucide-react';
+import type { PrimaryActionContract } from '@/lib/designGovernance';
 
 // Mission 7 §16 — the directory grid this drives (workbenches/page.tsx)
 // used to render all ~19 tiles as one flat, unlabelled list; a Captain
@@ -81,7 +82,7 @@ export interface WorkbenchEntry {
   group: WorkbenchGroup;
 }
 
-export const PRIMARY_ACTIONS: Record<string, { label: string; href: string }> = {
+export const PRIMARY_ACTIONS: Record<string, PrimaryActionContract> = {
   '/hub': { label: 'Open Captain’s Chair', href: '/captains-chair-workbench' },
   '/focus-workbench': { label: 'Start a focus session', href: '/focus-workbench' },
   '/captains-chair-workbench': { label: 'Review what needs you', href: '/captains-chair-workbench' },
