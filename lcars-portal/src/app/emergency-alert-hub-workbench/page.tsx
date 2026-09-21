@@ -40,6 +40,8 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Badge, Card, WorkbenchShell, toneToStatus } from '@/components/ui';
+import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import { emergencyAlertTierToTone } from '@/lib/departments';
 import type { EmergencyAlertEntry } from '@/app/api/emergency-alerts/route';
 import type { EmergencyAlertSourceEntry } from '@/app/api/emergency-alerts/sources/route';
@@ -208,12 +210,26 @@ function HighSeverityCard({ alert, isMuted, onSelect }: { alert: EmergencyAlertE
     <div
       className={`rounded-md border p-4 ${isEmergency ? 'border-state-crit/50 bg-state-crit/10' : 'border-state-warn/50 bg-state-warn/10'}`}
     >
-      <div className="mb-2 flex items-center gap-2">
+      {/* WP3 defect #4 sweep (200% zoom, live-verified: this row's own
+          offsetWidth 45 vs its badges' combined scrollWidth 146 at the
+          zoomed-equivalent width) — no flex-wrap, so the severity/
+          jurisdiction/muted badge trio pushed past the card at a narrow
+          effective width, which was the real source of this page's overall
+          horizontal page overflow (traced up through risk-reference-surface
+          to document.documentElement.scrollWidth). */}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <SeverityBadge alert={alert} />
         <Badge status="neutral">{alert.jurisdiction}</Badge>
         {isMuted && <MutedBadge />}
       </div>
-      <h3 className="font-serif text-base text-wb-ink">{alert.headline}</h3>
+      {/* WP3 defect #4 sweep: real headline text (e.g. "Fire Weather Warning
+          for Greater Hunter fire weather district") has no soft-wrap point
+          long enough at a narrow effective width — overflow-wrap defaults
+          to `normal`, which never breaks inside a word, so the single
+          longest word in the headline set this card's (and therefore the
+          whole page's) min-content width and forced horizontal page
+          scroll. `break-words` lets it wrap mid-word as a last resort. */}
+      <h3 className="break-words font-serif text-base text-wb-ink">{alert.headline}</h3>
       {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
       <p className="mt-1 text-[11px] text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
       <div className="mt-3 flex flex-wrap gap-3">
@@ -243,12 +259,12 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
     <Card>
       <div className="mb-3 flex items-start justify-between gap-4 border-b border-wb-line pb-3">
         <div>
-          <div className="mb-1 flex items-center gap-2">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
             <Badge status="neutral">{alert.jurisdiction}</Badge>
             <SeverityBadge alert={alert} />
             <Badge status={alert.isActive ? 'success' : 'neutral'}>{alert.status}</Badge>
           </div>
-          <h2 className="font-serif text-lg text-wb-ink">{alert.headline}</h2>
+          <h2 className="break-words font-serif text-lg text-wb-ink">{alert.headline}</h2>
           {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
           {alert.severity === 'unknown' && isBomSource(alert.sourceKey) && (
             <p className="mt-1 text-[11px] italic text-wb-ink2">
@@ -293,6 +309,7 @@ function CoveragePanel({ sources, latestCheckedAt }: { sources: EmergencyAlertSo
   else state = 'good';
 
   return (
+    <section aria-label={`Alert coverage: ${state}`} data-alert-state={state === 'degraded' ? 'unavailable' : state}>
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -314,6 +331,11 @@ function CoveragePanel({ sources, latestCheckedAt }: { sources: EmergencyAlertSo
           <p className="mt-1 text-[11px] text-wb-ink2">
             {latestCheckedAt ? `Last checked ${relativeTime(latestCheckedAt)}.` : 'No collection recorded yet.'}
           </p>
+          <EvidenceMeta
+            source={`${sources.length} official alert source${sources.length === 1 ? '' : 's'} (domain_heartbeats)`}
+            observedAt={latestCheckedAt}
+            state={state === 'unknown' ? 'unavailable' : state === 'degraded' ? 'unavailable' : state === 'stale' ? 'stale' : undefined}
+          />
         </div>
         <Link
           href="/agent-status-workbench"
@@ -323,6 +345,7 @@ function CoveragePanel({ sources, latestCheckedAt }: { sources: EmergencyAlertSo
         </Link>
       </div>
     </Card>
+    </section>
   );
 }
 
@@ -627,6 +650,7 @@ export default function EmergencyAlertsWorkbench() {
   const activeAlerts = useMemo(() => allAlerts.filter((a) => a.isActive), [allAlerts]);
   const emergencyAlerts = useMemo(() => activeAlerts.filter((a) => a.severity === 'emergency_warning'), [activeAlerts]);
   const watchAlerts = useMemo(() => activeAlerts.filter((a) => a.severity === 'watch_and_act'), [activeAlerts]);
+  const informationalAlerts = useMemo(() => activeAlerts.filter((a) => a.severity !== 'emergency_warning' && a.severity !== 'watch_and_act'), [activeAlerts]);
   const adviceCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'advice').length, [activeAlerts]);
   const unknownCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'unknown').length, [activeAlerts]);
 
@@ -674,6 +698,7 @@ export default function EmergencyAlertsWorkbench() {
           <Card><p className="text-[13px] italic text-wb-ink2">Loading Emergency Alerts…</p></Card>
         ) : loadError ? (
           <Card>
+            <DataAvailabilityNotice state="unavailable" sources={[`Emergency Alerts: ${loadError}`]} />
             <div className="rounded-md border border-state-crit/40 bg-state-crit/10 px-4 py-3">
               <p className="text-[13px] font-semibold text-state-crit-on">Emergency alert data could not be loaded</p>
               <p className="mt-1 text-[12px] text-wb-ink2">{loadError}</p>
@@ -685,8 +710,19 @@ export default function EmergencyAlertsWorkbench() {
                 long one) with no wrap fallback overflowed at 375px -- same
                 class of defect as Briefs' TabBar, fixed the same way
                 (DomainToggle.tsx's established flex-nowrap + overflow-x-auto
-                scroll pattern rather than a new one). */}
-            <div className="flex flex-nowrap gap-2 overflow-x-auto [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory">
+                scroll pattern rather than a new one).
+                WP3 defect #4 sweep (200% zoom, live-verified: htmlScrollWidth
+                248 vs 195 innerWidth at the zoomed-equivalent width): this
+                row is a flex item inside the surrounding `flex flex-col`
+                wrapper above. Without `min-w-0`, a flex item's default
+                automatic minimum size is its content's min-content width —
+                here the sum of 3 unwrapped buttons — so the scroll container
+                meant to contain that overflow (`overflow-x-auto`) was itself
+                being stretched past the viewport by its flex parent instead
+                of clipping to it, pushing the whole page into horizontal
+                scroll rather than just this row. `min-w-0` lets it shrink to
+                the parent's actual width so overflow-x-auto does its job. */}
+            <div className="flex min-w-0 flex-nowrap gap-2 overflow-x-auto [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory">
               <button
                 onClick={() => setView('overview')}
                 className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
@@ -727,8 +763,10 @@ export default function EmergencyAlertsWorkbench() {
                 )}
 
                 {emergencyAlerts.length > 0 && (
+                  <section aria-labelledby="alerts-action-required" data-alert-state="action-required">
                   <Card>
                     <h2 className="mb-3 inline-block rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-state-crit-on">
+                      <span id="alerts-action-required">Action required · </span>
                       {emergencyAlerts.length} Emergency Warning{emergencyAlerts.length === 1 ? '' : 's'}
                     </h2>
                     <div className="flex flex-col gap-3">
@@ -737,11 +775,14 @@ export default function EmergencyAlertsWorkbench() {
                       ))}
                     </div>
                   </Card>
+                  </section>
                 )}
 
                 {watchAlerts.length > 0 && (
+                  <section aria-labelledby="alerts-watch" data-alert-state="watch">
                   <Card>
                     <h2 className="mb-3 inline-block rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-state-warn-on">
+                      <span id="alerts-watch">Watch · </span>
                       Watch and Act — {watchAlerts.length} active
                     </h2>
                     <div className="flex flex-col gap-3">
@@ -750,6 +791,18 @@ export default function EmergencyAlertsWorkbench() {
                       ))}
                     </div>
                   </Card>
+                  </section>
+                )}
+
+                {informationalAlerts.length > 0 && (
+                  <section aria-labelledby="alerts-informational" data-alert-state="informational">
+                  <Card>
+                    <h2 className="mb-3 inline-block rounded border border-wb-line bg-wb-surface-raised px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-wb-ink2"><span id="alerts-informational">Informational · </span>{informationalAlerts.length} active · no immediate action</h2>
+                    <div className="flex flex-col gap-3">
+                      {informationalAlerts.map((alert) => <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
+                    </div>
+                  </Card>
+                  </section>
                 )}
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">

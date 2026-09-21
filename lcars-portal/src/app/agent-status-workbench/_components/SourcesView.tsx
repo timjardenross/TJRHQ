@@ -2,9 +2,29 @@
 
 import { useState } from 'react';
 import { Card, Badge } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { relativeTime, sourceStatusToBadge, sourceStatusLabel } from './shared';
 import type { SourceStatus } from './shared';
+import type { EvidenceState } from '@/lib/designContracts';
+
+// WP2: each row already carries real per-source evidence (status + last
+// checked/fetched timestamp, via Badge + relativeTime) — this maps that
+// same SourceStatus vocabulary onto the shared EvidenceState contract for a
+// table-level rollup rather than inventing a second status scale. 'failing'
+// is unavailable (the source can't be reached at all); 'delayed'/'degraded'
+// are stale (reachable but behind); 'healthy'/'unknown' carry no evidence
+// anomaly worth flagging here (unknown has no anomaly signal of its own —
+// it's absence of classification, not a confirmed problem).
+function rollupState(statuses: SourceStatus[]): EvidenceState | undefined {
+  if (statuses.some((s) => s === 'failing')) return 'unavailable';
+  if (statuses.some((s) => s === 'delayed' || s === 'degraded')) return 'stale';
+  return undefined;
+}
+
+function mostRecent(timestamps: (string | null)[]): string | null {
+  return timestamps.reduce<string | null>((latest, t) => (t && (!latest || t > latest) ? t : latest), null);
+}
 
 interface TechnicalSourceRow {
   sourceId: string;
@@ -109,6 +129,11 @@ export function SourcesView() {
           </table>
         </div>
         <p className="mt-2 text-[11px] text-wb-ink2">No per-source cadence metadata exists for technical sources (only source_type/priority) — &ldquo;Last Success&rdquo; is shown without an expected-cadence comparison.</p>
+        <EvidenceMeta
+          source="Technical OSINT source registry"
+          observedAt={mostRecent(technical.map((s) => s.lastCheckedAt))}
+          state={rollupState(technical.map((s) => s.status))}
+        />
       </Card>
 
       <Card>
@@ -140,6 +165,11 @@ export function SourcesView() {
           </table>
         </div>
         <p className="mt-2 text-[11px] text-wb-ink2">{data.note}</p>
+        <EvidenceMeta
+          source="Health OSINT source registry (auto-fetched)"
+          observedAt={mostRecent(health.map((s) => s.lastFetch))}
+          state={rollupState(health.map((s) => s.status))}
+        />
       </Card>
     </div>
   );

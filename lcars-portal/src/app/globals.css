@@ -313,6 +313,14 @@
   }
 }
 
+/* Accessibility regression contract: preserve boundaries and focus affordances
+ * when Windows High Contrast/forced-colors removes authored colour tokens. */
+@media (forced-colors: active) {
+  *, *::before, *::after { forced-color-adjust: auto; }
+  :focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+  button, a, input, select, textarea { border: 1px solid ButtonText; }
+}
+
 /* Settings → Appearance → Motion: 'Reduced' — a manual override for a
    Captain whose OS-level prefers-reduced-motion isn't set (or can't be,
    e.g. a shared/kiosk device) but who still wants HQ's own motion cut.

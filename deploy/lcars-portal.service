@@ -13,6 +13,12 @@ WorkingDirectory=/opt/starship-endeavour/lcars-portal
 # launched `npm exec next start -p 3200` quietly took over serving
 # instead, unmanaged and not surviving a reboot. This unit was enabled
 # the whole time but pointed at a port nothing routed to.
+# 2026-09-21: OLLAMA_MODEL_DEFAULT misconfig (misspelled Infisical key ->
+# code fell back to a model Ollama doesn't have) silently killed Content
+# Workbench AI Review/Polish/Generate — no crash, no error, the honest
+# fallback path just quietly served scaffold output forever. Fail the
+# start loudly instead of coming up into that same silent state again.
+ExecStartPre=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/check-ollama-model-default.sh
 ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/lcars-portal/node_modules/.bin/next start -p 3200
 # Restart=always (not on-failure) matches this repo's other persistent
 # daemons (see deploy/model-router.service) — a clean-exit hang is just as

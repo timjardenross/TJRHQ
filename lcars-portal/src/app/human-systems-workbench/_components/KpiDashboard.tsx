@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge, KpiCard, type BadgeStatus } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import { CAPACITY_STATE_LABEL, capacityStateStatus, systemPostureStatus, type RecoveryPayload } from './types';
 
 // Energy (recovery.energy, top-level RecoveryPayload field — High/Moderate/
@@ -59,7 +60,8 @@ export function KpiDashboard({ recovery }: { recovery: RecoveryPayload }) {
   const ef = recovery.executive_function;
 
   return (
-    <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="mb-6">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <KpiCard
         label="Current Capacity"
         value={kpis.latest_capacity_state ? CAPACITY_STATE_LABEL[kpis.latest_capacity_state] ?? kpis.latest_capacity_state : 'No data'}
@@ -90,6 +92,16 @@ export function KpiDashboard({ recovery }: { recovery: RecoveryPayload }) {
         value={ef ? EF_LABEL[ef] ?? ef : 'No data'}
         badge={<Badge status={ef ? EF_STATUS[ef] ?? 'neutral' : 'neutral'}>{(ef ? EF_LABEL[ef] ?? ef : 'no data').toUpperCase()}</Badge>}
       />
+    </div>
+    {/* WP2: confidence_label/data_available are real fields off
+     * capacity_checkins_today (route.ts) — no fabricated observedAt: this
+     * payload doesn't currently carry a per-checkin timestamp on
+     * RecoveryPayload (backend gap, noted separately), only today's count. */}
+    <EvidenceMeta
+      source="Capacity check-ins (capacity_checkins_today)"
+      confidence={recovery.confidence_label}
+      state={recovery.data_available ? undefined : 'unavailable'}
+    />
     </div>
   );
 }

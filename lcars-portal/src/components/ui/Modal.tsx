@@ -15,6 +15,14 @@ export interface ModalProps {
 /** TJR Design System — new primitive (no existing modal was found across the 3 audited sources). */
 export function Modal({ open, onClose, title, variant = 'dialog', children }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // WP3 defect #2: focus was falling back to <body> on Escape/close instead
+  // of returning to whatever control opened the dialog. Capture
+  // document.activeElement at the moment `open` flips true (that's still
+  // the trigger button — this runs before the caller's own click handler
+  // has moved focus anywhere else) and restore it once `open` flips back
+  // to false, regardless of which path closed the dialog (Escape, backdrop
+  // click, the X button, or a link inside the panel).
+  const triggerRef = useRef<HTMLElement | null>(null);
 
   // Mission 7 §31 accessibility pass: Escape-to-close already existed, but
   // nothing kept Tab/Shift+Tab inside the dialog — every one of this
@@ -61,6 +69,21 @@ export function Modal({ open, onClose, title, variant = 'dialog', children }: Mo
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (open) {
+      triggerRef.current = document.activeElement as HTMLElement | null;
+      return;
+    }
+    const trigger = triggerRef.current;
+    triggerRef.current = null;
+    // Only refocus an element still attached to the document — a trigger
+    // that navigated away or unmounted while the dialog was open shouldn't
+    // throw or silently no-op focus() on a detached node.
+    if (trigger && document.contains(trigger)) {
+      trigger.focus();
+    }
+  }, [open]);
+
   if (!open) return null;
 
   // Full literal sm: class strings (not sm:${...} concatenation) —
@@ -82,17 +105,31 @@ export function Modal({ open, onClose, title, variant = 'dialog', children }: Mo
   // presentation without adding swipe-to-dismiss gesture logic (real
   // touch-gesture work, out of scope for this pass). sm+ is completely
   // unchanged: centered, padded, original widthClass/85vh/rounded-lg.
+  // WP3 defect #1: below `xl`, MobileCommandBar (components/MobileCommandBar.tsx)
+  // is a fixed bottom nav at z-50, mounted *after* this dialog's own
+  // WorkbenchShell sibling in the DOM (<QuickCapture/> then
+  // <MobileCommandBar/>). At equal z-index, later-DOM wins paint order, so
+  // the nav bar rendered on top of this sheet's own flush-bottom edge and
+  // silently ate pointer events meant for whatever sat at the bottom of the
+  // panel (e.g. QuickCapture's Capture submit button) — confirmed live at
+  // 390px, had to force-click via JS to get past it. z-[60] guarantees this
+  // dialog (and its backdrop) always sits above that nav regardless of DOM
+  // order. The mobile sheet variant also sits flush against the physical
+  // bottom edge (items-end, no bottom offset) so its own p-6 alone isn't
+  // enough headroom on devices with a safe-area inset (notch/home
+  // indicator) — bump bottom padding to clear it below `sm`, unchanged at
+  // `sm`+ where the dialog is centered with margin on all sides already.
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-wb-ink/40 sm:items-center sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-wb-ink/40 sm:items-center sm:p-4" onClick={onClose}>
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="tjr-modal-title"
         tabIndex={-1}
-        className={`flex max-h-[90dvh] w-full flex-col rounded-t-2xl border border-wb-line bg-wb-surface p-6 shadow-lg
+        className={`flex max-h-[90dvh] w-full flex-col rounded-t-2xl border border-wb-line bg-wb-surface p-6 pb-[max(1.5rem,calc(env(safe-area-inset-bottom)_+_1rem))] shadow-lg
           focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep
-          sm:max-h-[85vh] ${widthClass} sm:rounded-lg`}
+          sm:max-h-[85vh] sm:pb-6 ${widthClass} sm:rounded-lg`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex shrink-0 items-start justify-between gap-4">

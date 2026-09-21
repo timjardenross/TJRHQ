@@ -17,6 +17,8 @@ import { useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { collectSourceOutcomes } from '@/lib/sourceResults';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
+import { deriveLifecycleState, LIFECYCLE_FILTERS, type LifecycleFilter } from '@/lib/lifecycleFilters';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -29,6 +31,9 @@ interface TimelineEvent {
   detail?: string;
   timestamp: string;
   metadata?: Record<string, unknown>;
+  attentionState?: 'needs-action' | 'normal';
+  importance?: 'important' | 'normal';
+  lifecycleState?: LifecycleFilter;
 }
 
 // MSN-0351: each fetcher reports whether its Supabase read succeeded, so a
@@ -203,6 +208,8 @@ export default function TimelinePage() {
   const [loading, setLoading]   = useState(true);
   const [days, setDaysState]    = useState(14);
   const [filter, setFilterState] = useState<EventSource | ''>('');
+  const [attentionView, setAttentionView] = useState<'all' | 'needs-action' | 'important'>('all');
+  const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleFilter | null>(null);
 
   const setDays = (d: number) => { setDaysState(d); writeSession(SS_DAYS, String(d)); };
   const setFilter = (f: EventSource | '') => { setFilterState(f); writeSession(SS_FILTER, f); };
@@ -233,7 +240,15 @@ export default function TimelinePage() {
       if (cancelled) return;
       const { items, failed } = collectSourceOutcomes(outcomes);
       items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      setEvents(items);
+      setEvents(items.map((item) => {
+        const status = String(item.metadata?.to ?? item.metadata?.status ?? item.detail ?? '').toLowerCase();
+        return {
+          ...item,
+          attentionState: ['blocked', 'failed', 'error', 'pending', 'review', 'queued'].includes(status) ? 'needs-action' : 'normal',
+          importance: item.source === 'missions' || item.source === 'events' ? 'important' : 'normal',
+          lifecycleState: deriveLifecycleState({ status, updatedAt: item.timestamp }) ?? undefined,
+        };
+      }));
       setFailedSources(failed as EventSource[]);
       setLoading(false);
     });
@@ -241,9 +256,20 @@ export default function TimelinePage() {
   }, [days]);
 
   const visible = filter ? events.filter(e => e.source === filter) : events;
+  const isNeedsAction = (e: TimelineEvent) => e.attentionState === 'needs-action';
+  const isImportant = (e: TimelineEvent) => e.importance === 'important';
+  const attentionVisible = attentionView === 'needs-action' ? visible.filter(isNeedsAction) : attentionView === 'important' ? visible.filter(isImportant) : visible;
+  const lifecycleVisible = lifecycleFilter ? attentionVisible.filter(e => e.lifecycleState === lifecycleFilter) : attentionVisible;
 
   const daySelector = (
-    <div role="group" aria-label="Date range" className="flex gap-1">
+    // WP3 defect #3 (200% zoom, ~10px horizontal overflow: scrollWidth 400
+    // vs clientWidth 390): every other filter-chip row on this page
+    // (sourceFilters, attentionFilters, lifecycle) is `flex flex-wrap`;
+    // this was the one row still `flex` with no wrap, so at a narrow
+    // effective width (zoomed-in mobile) its 3 buttons had nowhere to go
+    // but past the WorkbenchShell header's edge instead of dropping to a
+    // second line like its siblings.
+    <div role="group" aria-label="Date range" className="flex flex-wrap gap-1">
       {DAY_OPTIONS.map(d => (
         <button
           key={d}
@@ -296,6 +322,21 @@ export default function TimelinePage() {
       </span>
     </div>
   );
+  const attentionFilters = (
+    <div className="flex flex-wrap items-center gap-2">
+      <div role="group" aria-label="Attention view" className="flex flex-wrap items-center gap-2">
+      {([['all', 'All'], ['needs-action', 'Needs action'], ['important', 'Important only']] as const).map(([value, label]) => (
+        <button key={value} type="button" onClick={() => setAttentionView(value)} aria-pressed={attentionView === value} className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${attentionView === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+      ))}
+      </div>
+      <div role="group" aria-label="Lifecycle state" className="flex flex-wrap items-center gap-2">
+        {LIFECYCLE_FILTERS.map(({ value, label }) => (
+          <button key={value} type="button" onClick={() => setLifecycleFilter(lifecycleFilter === value ? null : value)} aria-pressed={lifecycleFilter === value} className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${lifecycleFilter === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+        ))}
+      </div>
+      <span className="text-[10px] text-wb-ink2">{lifecycleVisible.length} shown</span>
+    </div>
+  );
 
   return (
     <WorkbenchShell
@@ -304,7 +345,7 @@ export default function TimelinePage() {
       tagline="USS TJR · Timeline · Missions, health, log, events, captures"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       right={daySelector}
-      tabs={sourceFilters}
+      tabs={<div className="flex flex-col gap-2">{attentionFilters}{sourceFilters}</div>}
       mode="focus"
     >
       {/* MSN-0351: honest, quiet note when one or more sources failed to
@@ -317,19 +358,19 @@ export default function TimelinePage() {
 
       {loading ? (
         <p className="text-sm text-wb-ink2 animate-pulse">Loading timeline…</p>
-      ) : visible.length === 0 ? (
+      ) : lifecycleVisible.length === 0 ? (
         // Only claim a genuine empty result when every source actually
         // succeeded; if some failed, the note above already explains it.
         failedSources.length > 0 ? null : (
-          <p className="text-sm text-wb-ink2">No events in the last {days} days.</p>
+          <p className="text-sm text-wb-ink2">{lifecycleFilter ? `No ${LIFECYCLE_FILTERS.find(f => f.value === lifecycleFilter)?.label.toLowerCase()} events in the current view.` : attentionView === 'all' ? `No events in the last ${days} days.` : `No ${attentionView === 'needs-action' ? 'needs-action' : 'important'} events in the current view.`}</p>
         )
       ) : (
         <div className="flex flex-col">
-          {visible.map((e, i) => (
+          {lifecycleVisible.map((e, i) => (
             <div key={e.id} className="group flex gap-3">
               <div className="flex w-4 shrink-0 flex-col items-center">
                 <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-wb-sage-deep" aria-hidden />
-                {i < visible.length - 1 && (
+                {i < lifecycleVisible.length - 1 && (
                   <span className="mt-1 w-px flex-1 bg-wb-line" />
                 )}
               </div>
@@ -344,6 +385,7 @@ export default function TimelinePage() {
                 <span className="mt-1 block text-[9px] uppercase tracking-[0.15em] text-wb-ink2/70">
                   {SOURCE_META[e.source]?.label ?? e.source}
                 </span>
+                <EvidenceMeta source={SOURCE_META[e.source]?.label ?? e.source} observedAt={e.timestamp} />
               </div>
             </div>
           ))}

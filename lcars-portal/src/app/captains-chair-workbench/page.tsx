@@ -1,6 +1,7 @@
 'use client';
 
 import { WorkbenchShell } from '@/components/ui';
+import Link from 'next/link';
 import { TodaysBriefPanel } from '@/components/TodaysBriefPanel';
 import { useAlerts } from '@/lib/useAlerts';
 import {
@@ -32,6 +33,7 @@ import { HqEvolution } from './_components/HqEvolution';
 import { Ahead } from './_components/Ahead';
 import { CaptainsLog } from './_components/CaptainsLog';
 import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { WhatNeedsMeNow } from '@/components/WhatNeedsMeNow';
 
 // Command-Experience vNext (Phase 2, 2026-09-06) — re-anchors this page
 // around the mission's target information architecture: TODAY -> NEEDS YOU
@@ -181,6 +183,8 @@ export default function CaptainsChairWorkbench() {
       <div className="space-y-4">
         <DataAvailabilityNotice sources={needsYouErrors} />
         <CommandStatus posture={commandPosture} status={commandStatus} loading={commandStatusLoading} signals={signalChips} />
+
+        <WhatNeedsMeNow items={sortedNeedsYou} loading={attentionLoading} errors={needsYouErrors} />
 
         <NeedsYou items={sortedNeedsYou} loading={attentionLoading} errors={needsYouErrors} />
 

@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ShoppingCart, Receipt, Heart } from 'lucide-react';
 import { WorkbenchShell, Button, Card, Select } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import {
   fetchShoppingList,
   createShoppingListItem,
@@ -22,6 +23,13 @@ import {
   type NewShoppingListItemInput,
   type ShoppingListResult,
 } from '@/lib/shoppingList';
+import {
+  fetchSavedViews,
+  createSavedView as createSavedViewApi,
+  deleteSavedView as deleteSavedViewApi,
+  selectSavedView as selectSavedViewApi,
+  type SavedShoppingView,
+} from '@/lib/shoppingListViews';
 import { ItemFormModal } from './_components/ItemFormModal';
 import { ItemRow } from './_components/ItemRow';
 
@@ -37,6 +45,14 @@ export default function ShoppingListWorkbench() {
   const [statusFilter, setStatusFilter] = useState(ALL);
   const [recipientFilter, setRecipientFilter] = useState(ALL);
   const [occasionFilter, setOccasionFilter] = useState(ALL);
+  // Server-backed (migration 0223 / /api/shopping-list/views) — no longer
+  // localStorage. `savedViewsUnavailable` surfaces a real backend failure
+  // honestly (control disabled + labelled) rather than silently behaving
+  // like there are simply no saved views yet.
+  const [savedViews, setSavedViews] = useState<SavedShoppingView[]>([]);
+  const [savedViewsUnavailable, setSavedViewsUnavailable] = useState(false);
+  const [selectedViewId, setSelectedViewId] = useState('');
+  const [viewName, setViewName] = useState('');
 
   const dragIndexRef = useRef<number | null>(null);
 
@@ -46,9 +62,65 @@ export default function ShoppingListWorkbench() {
     setLoading(false);
   }
 
+  async function loadSavedViews() {
+    const result = await fetchSavedViews();
+    if (!result.ok) {
+      setSavedViewsUnavailable(true);
+      setSavedViews([]);
+      return;
+    }
+    setSavedViewsUnavailable(false);
+    const views = result.data ?? [];
+    setSavedViews(views);
+    // Reload-safe selection: the server's own is_default flag decides what
+    // applies on load, never a client-only remembered choice.
+    const defaultView = views.find((v) => v.is_default);
+    if (defaultView) {
+      setSelectedViewId(defaultView.id);
+      applyView(defaultView);
+    }
+  }
+
   useEffect(() => {
     load();
+    loadSavedViews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function saveView() {
+    const name = viewName.trim();
+    if (!name) return;
+    const result = await createSavedViewApi({
+      name,
+      filters: { category: categoryFilter, status: statusFilter, recipient: recipientFilter, occasion: occasionFilter },
+    });
+    if (!result.ok) return; // error already logged by shoppingListViews.ts; control stays usable
+    setViewName('');
+    await loadSavedViews();
+  }
+
+  function applyView(view: SavedShoppingView) {
+    const f = view.filters ?? {};
+    setCategoryFilter(f.category ?? ALL);
+    setStatusFilter(f.status ?? ALL);
+    setRecipientFilter(f.recipient ?? ALL);
+    setOccasionFilter(f.occasion ?? ALL);
+  }
+
+  async function handleSelectView(id: string) {
+    setSelectedViewId(id);
+    if (!id) return;
+    const view = savedViews.find((v) => v.id === id);
+    if (view) applyView(view);
+    await selectSavedViewApi(id); // persists is_default server-side for reload-safety
+  }
+
+  async function handleDeleteView(id: string) {
+    if (!id) return;
+    await deleteSavedViewApi(id);
+    if (selectedViewId === id) setSelectedViewId('');
+    await loadSavedViews();
+  }
 
   const categories = useMemo(() => uniqueSorted(items.map((i) => i.category)), [items]);
   const recipients = useMemo(() => uniqueSorted(items.map((i) => i.recipient).filter(Boolean) as string[]), [items]);
@@ -74,6 +146,14 @@ export default function ShoppingListWorkbench() {
     [items],
   );
   const wishlistedCount = useMemo(() => items.filter((i) => i.status === 'wishlist').length, [items]);
+
+  // WP2: latest write across the loaded rows themselves (updated_at), so
+  // the summary counts carry a real observed time rather than "page load
+  // time" — the two can genuinely differ if the list hasn't changed today.
+  const latestUpdatedAt = useMemo(
+    () => items.reduce<string | null>((latest, i) => (!latest || i.updated_at > latest ? i.updated_at : latest), null),
+    [items],
+  );
 
   async function handleSave(input: NewShoppingListItemInput): Promise<ShoppingListResult> {
     const result = editing
@@ -162,6 +242,13 @@ export default function ShoppingListWorkbench() {
             </div>
           </Card>
         </div>
+        {!loading && (
+          <EvidenceMeta
+            source="Shopping list (Supabase shopping_list_items)"
+            observedAt={latestUpdatedAt}
+            state={items.length === 0 ? 'empty' : undefined}
+          />
+        )}
 
         <Card>
           <div className="flex flex-col gap-4">
@@ -182,6 +269,28 @@ export default function ShoppingListWorkbench() {
                 <option value={ALL}>All occasions</option>
                 {occasions.map((o) => <option key={o} value={o}>{o}</option>)}
               </Select>
+              <div className="flex flex-wrap items-center gap-2 border-l border-wb-line pl-2">
+                {savedViewsUnavailable ? (
+                  <span className="text-[11px] text-state-crit-on">Saved views unavailable — backend unreachable.</span>
+                ) : (
+                  <>
+                    <select
+                      aria-label="Saved shopping view"
+                      value={selectedViewId}
+                      onChange={(e) => handleSelectView(e.target.value)}
+                      className="rounded border border-wb-line bg-wb-surface px-2 py-1.5 text-xs text-wb-ink"
+                    >
+                      <option value="">{savedViews.length === 0 ? 'No saved views yet' : 'Saved views'}</option>
+                      {savedViews.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                    </select>
+                    {selectedViewId && (
+                      <Button size="sm" variant="secondary" onClick={() => handleDeleteView(selectedViewId)}>Delete view</Button>
+                    )}
+                  </>
+                )}
+                <input aria-label="Saved view name" value={viewName} onChange={(e) => setViewName(e.target.value)} placeholder="Name this view" className="w-28 rounded border border-wb-line bg-wb-surface px-2 py-1.5 text-xs" />
+                <Button size="sm" variant="secondary" onClick={saveView} disabled={!viewName.trim() || savedViewsUnavailable}>Save view</Button>
+              </div>
             </div>
 
             {loading ? (

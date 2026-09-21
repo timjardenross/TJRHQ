@@ -17,6 +17,7 @@
 import Link from 'next/link';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { Card, RiskPill } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import { stateToneClasses } from '@/lib/departments';
 import type { StateTone } from '@/lib/types';
 import { AVAILABILITY_LABEL } from '@/lib/domainsShared';
@@ -60,6 +61,11 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
             </span>
           </div>
           <p className="mt-0.5 text-[11px] text-wb-ink2">As of {relativeTime(domain.as_of)}</p>
+          <EvidenceMeta
+            source={SOURCE_LABEL[domain.source]}
+            observedAt={domain.as_of}
+            confidence={domain.confidence != null ? `${Math.round(domain.confidence)}%` : domain.availability === 'unavailable' ? 'Unavailable' : undefined}
+          />
         </div>
         <div className="flex items-center gap-2">
           {domain.availability !== 'ok' && (

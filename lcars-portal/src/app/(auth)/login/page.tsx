@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
@@ -15,16 +15,45 @@ export default function LoginPage() {
   const [error, setError]     = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    // Belt-and-braces cleanup only — see the `method="post"` on both <form>
+    // elements below for the actual fix. Without an explicit method, a form
+    // whose onSubmit handler never attaches (a JS hydration failure) falls
+    // back to the browser's native default, which is GET: the browser then
+    // submits email+password as a URL query string, exposing them to
+    // history, screenshots, referrers, and server/proxy access logs before
+    // this effect ever runs. `method="post"` makes that fallback path safe
+    // (a failed POST, not a credential-bearing GET) even when JS never
+    // loads. Confirmed live 2026-09-21: a concurrent build-lock collision
+    // broke hydration mid-login and reproduced exactly this GET fallback.
+    if (typeof window !== 'undefined' && (window.location.search.includes('email=') || window.location.search.includes('password='))) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   async function handlePassword(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim() || !password) return;
+    // Browser password managers can populate controlled inputs without
+    // dispatching React's change event. Read the submitted form as the source
+    // of truth so a visibly completed form cannot remain inert.
+    const form = e.currentTarget as HTMLFormElement;
+    const formData = new FormData(form);
+    const submittedEmail = String(formData.get('email') ?? email).trim();
+    const submittedPassword = String(formData.get('password') ?? password);
+    if (!submittedEmail || !submittedPassword) return;
     setLoading(true);
     setError(null);
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    let error: { message: string } | null = null;
+    try {
+      const result = await Promise.race([
+        supabase.auth.signInWithPassword({ email: submittedEmail, password: submittedPassword }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 12_000)),
+      ]);
+      ({ error } = result);
+    } catch {
+      error = { message: 'Authentication service did not respond. Check HQ Status or try again.' };
+    }
     setLoading(false);
     if (error) {
       setError(error.message);
@@ -114,7 +143,7 @@ export default function LoginPage() {
 
           {/* Password form */}
           {mode === 'password' && (
-            <form onSubmit={handlePassword} aria-label="Password authentication">
+            <form onSubmit={handlePassword} method="post" action="#" aria-label="Password authentication">
               <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-wb-ink2">
                 Authentication required
               </p>
@@ -132,6 +161,7 @@ export default function LoginPage() {
                 <label htmlFor="password-form-email" className="sr-only">Email address</label>
                 <input
                   id="password-form-email"
+                  name="email"
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
@@ -144,6 +174,7 @@ export default function LoginPage() {
                 <label htmlFor="password-form-password" className="sr-only">Password</label>
                 <input
                   id="password-form-password"
+                  name="password"
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
@@ -155,7 +186,7 @@ export default function LoginPage() {
                 />
                 <button
                   type="submit"
-                  disabled={loading || !email.trim() || !password}
+                  disabled={loading}
                   className="w-full rounded-md bg-wb-sage-deep px-4 py-2 text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   aria-busy={loading}
                 >
@@ -170,7 +201,7 @@ export default function LoginPage() {
 
           {/* Magic link form */}
           {mode === 'magic' && !sent && (
-            <form onSubmit={handleMagicLink} aria-label="Magic link authentication">
+            <form onSubmit={handleMagicLink} method="post" action="#" aria-label="Magic link authentication">
               <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-wb-ink2">
                 Authentication required
               </p>

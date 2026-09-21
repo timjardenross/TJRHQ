@@ -55,7 +55,7 @@ _EXCLUDED_ROUTES: dict[str, str] = {
 
 
 def _live_workbench_hrefs() -> set[str]:
-    text = _WORKBENCHES_TS.read_text()
+    text = _WORKBENCHES_TS.read_text().split('export const LIVE_WORKBENCHES', 1)[1].split('\n];', 1)[0]
     return {href.lstrip("/") for href in re.findall(r"href:\s*'([^']+)'", text)}
 
 

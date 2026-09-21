@@ -1,6 +1,7 @@
 'use client';
 
 import type { SystemSummary } from '@/lib/weeklyReview';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 
 function Stat({ label, value, tone }: { label: string; value: number; tone: 'ok' | 'warn' | 'crit' | 'neutral' }) {
   const toneClass = {
@@ -34,6 +35,11 @@ export function SummaryCards({ summary }: { summary: SystemSummary }) {
         <Stat label="Urgent this week" value={summary.urgentThisWeek} tone={summary.urgentThisWeek > 0 ? 'crit' : 'ok'} />
       </div>
       <p className="mt-2 text-center text-[11px] text-wb-ink2">{debtLabel}</p>
+      <EvidenceMeta
+        source="Weekly Review summary (live workbench queries)"
+        observedAt={summary.weekEnd}
+        state={summary.reviewDebtDays != null && summary.reviewDebtDays > 8 ? 'stale' : undefined}
+      />
     </div>
   );
 }

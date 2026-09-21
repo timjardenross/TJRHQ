@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { errorDetail } from '@/lib/errorDetail';
+import { logActionHistory } from '@/lib/actionHistoryServer';
 
 const JURISDICTIONS = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT'] as const;
 const ALERT_TYPES = ['bushfire', 'flood', 'storm', 'cyclone', 'heatwave', 'hazard_reduction', 'structure_fire', 'other'] as const;
@@ -145,15 +146,18 @@ export async function POST(request: NextRequest) {
 
   const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
   if (!reason) {
+    await logActionHistory({ action: 'emergency_alert.silence_create', outcome: 'failed', workbench: 'emergency-alerts', details: { reason: 'reason_required' } });
     return NextResponse.json({ error: 'reason is required' }, { status: 400 });
   }
 
   const endsAt = typeof body.endsAt === 'string' ? body.endsAt : '';
   if (!endsAt || Number.isNaN(new Date(endsAt).getTime())) {
+    await logActionHistory({ action: 'emergency_alert.silence_create', outcome: 'failed', workbench: 'emergency-alerts', details: { reason: 'endsAt_invalid' } });
     return NextResponse.json({ error: 'endsAt is required and must be a valid timestamp' }, { status: 400 });
   }
   const startsAt = typeof body.startsAt === 'string' && body.startsAt ? body.startsAt : new Date().toISOString();
   if (new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
+    await logActionHistory({ action: 'emergency_alert.silence_create', outcome: 'failed', workbench: 'emergency-alerts', details: { reason: 'endsAt_before_startsAt' } });
     return NextResponse.json({ error: 'endsAt must be after startsAt' }, { status: 400 });
   }
 
@@ -173,6 +177,7 @@ export async function POST(request: NextRequest) {
       continue;
     }
     if (typeof value !== 'string' || !allowed.includes(value)) {
+      await logActionHistory({ action: 'emergency_alert.silence_create', outcome: 'failed', workbench: 'emergency-alerts', details: { reason: `${field}_invalid` } });
       return NextResponse.json({ error: `${field} must be one of ${allowed.join(', ')}` }, { status: 400 });
     }
     resolved.push(value);
@@ -195,8 +200,10 @@ export async function POST(request: NextRequest) {
       .select('id')
       .maybeSingle<{ id: string }>();
     if (error) throw error;
+    await logActionHistory({ action: 'emergency_alert.silence_create', outcome: 'success', workbench: 'emergency-alerts', recordId: data?.id ?? null, details: { source_key: sourceKey } });
     return NextResponse.json({ silence: data }, { status: 201 });
   } catch (err) {
+    await logActionHistory({ action: 'emergency_alert.silence_create', outcome: 'failed', workbench: 'emergency-alerts', details: { reason: 'write_error' } });
     return NextResponse.json({ error: 'Failed to create silence', detail: errorDetail(err) }, { status: 500 });
   }
 }

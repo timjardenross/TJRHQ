@@ -22,28 +22,54 @@
 #   3. Never runs `git push` - read-only against GitHub, this VM only ever
 #      pulls.
 #
-# Service restarts are scoped by what actually changed:
-#   - lcars-portal/ changes trigger `npm ci && npm run build` (a Next.js
-#     production server is pre-compiled - restarting without rebuilding
-#     would keep serving the OLD build) then a restart of that one service.
-#   - Everything else in SERVICES_CONF (see auto-deploy-services.conf)
-#     restarts unconditionally on ANY successful pull, rather than trying
-#     to map changed file paths to services - that mapping is fragile and
-#     easy to get wrong; these are lightweight bots/services that restart
-#     in seconds under systemd's own supervision (Restart=always).
+# 2026-09-21 (staleness rework — see memory
+# auto-deploy-skips-restart-on-local-commits-2026-09-21): this used to
+# ONLY restart services inside the "we just pulled a new commit" branch,
+# which is exactly the case a commit made DIRECTLY ON THIS VM (the normal
+# in-place Claude-session workflow) never hits — that commit is already
+# at HEAD locally the moment it's made, so there is nothing to pull, so
+# nothing ever restarted. Diagnosed live: intelligence-scheduler.service
+# ran for 2 days on a pre-rename AttentionDecision class after a same-VM
+# commit renamed one of its fields, and only surfaced when its weekly
+# drill job finally exercised the mismatch.
+#
+# Fix: service restarts are now driven by STALENESS (does the unit's own
+# `ActiveEnterTimestamp` predate the newest relevant commit already on
+# disk), checked unconditionally on every run of this script regardless
+# of whether a pull happened this cycle. This one mechanism now covers
+# both cases:
+#   - a real `git pull` landing new commits (the newest commit's time
+#     moves forward, almost certainly past every running service's start
+#     time) - same effective behaviour as the old "restart on any pull";
+#   - a commit already made directly on this VM before this script ever
+#     ran (no pull needed - HEAD hasn't moved, but the commit's own
+#     timestamp is still newer than a long-running service's start time).
+#
+# Service scoping:
+#   - lcars-portal.service: staleness measured against the newest commit
+#     touching `lcars-portal/` specifically (it needs `npm ci && npm run
+#     build` first, not just a restart - a Next.js production server is
+#     pre-compiled).
+#   - Everything else in SERVICES_CONF (see auto-deploy-services.conf):
+#     staleness measured against the newest commit anywhere in the repo,
+#     same "don't try to map file paths to services" reasoning the old
+#     unconditional-restart comment gave - these are lightweight
+#     bots/services that restart in seconds under systemd's own
+#     supervision (Restart=always).
 #   - The rest of this VM's automation (delivery-reconciler.timer,
 #     hq-evolution.timer, etc.) needs NO restart at all: they're oneshot
 #     jobs re-invoked fresh from disk on their own schedule, so they pick
 #     up new code on their very next scheduled run automatically.
 #
-# A restart target that doesn't exist (wrong or stale unit name) just logs
-# a warning and moves on - it never silently restarts the WRONG unit under
-# a different name. See auto-deploy-services.conf's own header for why
-# that list must be verified against this VM's actual `systemctl` output,
-# not assumed from this repo's deploy/*.service filenames (confirmed
-# drift: this repo's xo-bot.service file names a unit that isn't what
-# actually runs - telegram-bots/xo/app.py's own restart command targets
-# "tg-xo.service" instead).
+# A restart target that doesn't exist (wrong or stale unit name, or one
+# that has simply never been started so has no ActiveEnterTimestamp) just
+# logs a warning and moves on - it never silently restarts the WRONG unit
+# under a different name. See auto-deploy-services.conf's own header for
+# why that list must be verified against this VM's actual `systemctl`
+# output, not assumed from this repo's deploy/*.service filenames
+# (confirmed drift: this repo's xo-bot.service file names a unit that
+# isn't what actually runs - telegram-bots/xo/app.py's own restart
+# command targets "tg-xo.service" instead).
 
 set -euo pipefail
 
@@ -66,7 +92,7 @@ cd "$REPO_ROOT"
 # abort path. What this check still must catch is an uncommitted EDIT to an
 # already-tracked file - that's the one thing a pull could actually stomp on.
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-  echo "$LOG_PREFIX ABORT: working tree is dirty (uncommitted changes to tracked files) - not pulling. Resolve manually." >&2
+  echo "$LOG_PREFIX ABORT: working tree is dirty (uncommitted changes to tracked files) - not pulling, not checking staleness this cycle. Resolve manually." >&2
   exit 1
 fi
 
@@ -76,40 +102,71 @@ LOCAL_SHA="$(git rev-parse HEAD)"
 REMOTE_SHA="$(git rev-parse "origin/$BRANCH")"
 
 if [ "$LOCAL_SHA" = "$REMOTE_SHA" ]; then
-  echo "$LOG_PREFIX up to date ($LOCAL_SHA) - nothing to do."
-  exit 0
+  echo "$LOG_PREFIX up to date ($LOCAL_SHA) - nothing to pull."
+else
+  if ! git merge --ff-only "origin/$BRANCH"; then
+    echo "$LOG_PREFIX ABORT: fast-forward failed (history diverged?) - needs a human." >&2
+    exit 1
+  fi
+  echo "$LOG_PREFIX pulled $LOCAL_SHA -> $REMOTE_SHA"
+  git diff --name-only "$LOCAL_SHA" "$REMOTE_SHA" | sed "s|^|$LOG_PREFIX   changed: |"
 fi
 
-CHANGED_FILES="$(git diff --name-only "$LOCAL_SHA" "$REMOTE_SHA")"
+# ── Staleness-driven restarts (runs every cycle, pull or no pull) ──────────
 
-if ! git merge --ff-only "origin/$BRANCH"; then
-  echo "$LOG_PREFIX ABORT: fast-forward failed (history diverged?) - needs a human." >&2
-  exit 1
-fi
+# Epoch seconds a unit last became active, or empty if it's never been
+# started (unknown/stale unit name) - `systemctl show` never errors even
+# for a name that doesn't exist, it just returns an empty value, so this
+# stays consistent with the existing "wrong/stale unit name just logs a
+# warning" contract.
+unit_active_since_epoch() {
+  local ts
+  ts="$("$SYSTEMCTL" show -p ActiveEnterTimestamp --value "$1" 2>/dev/null || true)"
+  [ -z "$ts" ] && return 1
+  date -d "$ts" +%s 2>/dev/null || return 1
+}
 
-echo "$LOG_PREFIX pulled $LOCAL_SHA -> $REMOTE_SHA"
-echo "$CHANGED_FILES" | sed "s|^|$LOG_PREFIX   changed: |"
+# Epoch seconds of the newest commit touching the given path (or the whole
+# repo if no path given) - 0 if the path has no history at all.
+newest_commit_epoch() {
+  git log -1 --format=%ct -- "${1:-.}" 2>/dev/null || echo 0
+}
 
-if echo "$CHANGED_FILES" | grep -q '^lcars-portal/'; then
-  echo "$LOG_PREFIX lcars-portal/ changed - rebuilding"
-  # NEXT_PUBLIC_* vars are inlined into the client bundle at `next build`
-  # time, not read at `next start` runtime - a plain `npm run build` here
-  # never saw them, so the browser Supabase client silently fell back to a
-  # dead localhost:54321 placeholder in every auto-deployed build (found
-  # 2026-09-20 during VM API activation). Route the build through the same
-  # Infisical wrapper the systemd unit uses at runtime so NEXT_PUBLIC_*
-  # gets baked in for real.
-  ( cd "$REPO_ROOT/lcars-portal" && npm ci --no-audit --no-fund && "$REPO_ROOT/platform-runtime/run-with-infisical.sh" npm run build )
-  echo "$LOG_PREFIX restarting lcars-portal.service"
-  "$SYSTEMCTL" restart lcars-portal.service || echo "$LOG_PREFIX WARNING: restart failed for lcars-portal.service" >&2
+LP_COMMIT_TS="$(newest_commit_epoch lcars-portal)"
+if LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
+  if [ "$LP_COMMIT_TS" -gt "$LP_START_TS" ]; then
+    echo "$LOG_PREFIX lcars-portal.service is stale (running since before the newest lcars-portal/ commit) - rebuilding"
+    ( cd "$REPO_ROOT/lcars-portal" && npm ci --no-audit --no-fund && "$REPO_ROOT/platform-runtime/run-with-infisical.sh" npm run build )
+    # 2026-09-21: OLLAMA_MODEL_DEFAULT misconfig (misspelled secret key ->
+    # code fell back to a model Ollama doesn't have) silently killed AI
+    # Review/Polish/Generate for an unknown period - no error, no crash, just
+    # honest-fallback scaffold mode forever. Fail the deploy loudly here
+    # instead of restarting into the same silent failure again.
+    echo "$LOG_PREFIX checking OLLAMA_MODEL_DEFAULT against Ollama's pulled models"
+    if ! "$REPO_ROOT/platform-runtime/run-with-infisical.sh" "$REPO_ROOT/platform-runtime/check-ollama-model-default.sh"; then
+      echo "$LOG_PREFIX ABORT: OLLAMA_MODEL_DEFAULT is missing or unavailable - not restarting lcars-portal.service into a broken AI config. Needs a human." >&2
+      exit 1
+    fi
+    echo "$LOG_PREFIX restarting lcars-portal.service"
+    "$SYSTEMCTL" restart lcars-portal.service || echo "$LOG_PREFIX WARNING: restart failed for lcars-portal.service" >&2
+  fi
+else
+  echo "$LOG_PREFIX WARNING: lcars-portal.service has no ActiveEnterTimestamp (never started / wrong unit name?) - skipping staleness check for it" >&2
 fi
 
 if [ -f "$SERVICES_CONF" ]; then
+  REPO_COMMIT_TS="$(newest_commit_epoch)"
   while IFS= read -r line; do
     svc="$(echo "$line" | sed 's/#.*//' | xargs || true)"
     [ -z "$svc" ] && continue
-    echo "$LOG_PREFIX restarting $svc"
-    "$SYSTEMCTL" restart "$svc" || echo "$LOG_PREFIX WARNING: restart failed for $svc (wrong/stale unit name?)" >&2
+    if svc_start_ts="$(unit_active_since_epoch "$svc")"; then
+      if [ "$REPO_COMMIT_TS" -gt "$svc_start_ts" ]; then
+        echo "$LOG_PREFIX $svc is stale (running since before the newest repo commit) - restarting"
+        "$SYSTEMCTL" restart "$svc" || echo "$LOG_PREFIX WARNING: restart failed for $svc (wrong/stale unit name?)" >&2
+      fi
+    else
+      echo "$LOG_PREFIX WARNING: $svc has no ActiveEnterTimestamp (never started / wrong unit name?) - skipping staleness check for it" >&2
+    fi
   done < "$SERVICES_CONF"
 fi
 

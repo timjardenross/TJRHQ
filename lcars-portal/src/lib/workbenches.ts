@@ -54,6 +54,7 @@ import {
   History,
   Timer,
 } from 'lucide-react';
+import type { PrimaryActionContract } from '@/lib/designGovernance';
 
 // Mission 7 §16 — the directory grid this drives (workbenches/page.tsx)
 // used to render all ~19 tiles as one flat, unlabelled list; a Captain
@@ -64,15 +65,13 @@ import {
 // pipelines-then-platform order the comment below already documented, just
 // made renderable instead of implicit in array position.
 export type WorkbenchGroup =
-  | 'start_here' | 'plan_review' | 'intelligence' | 'personal_systems' | 'work_decisions' | 'platform';
+  | 'orient' | 'decide' | 'understand' | 'operate';
 
 export const WORKBENCH_GROUP_META: Record<WorkbenchGroup, { label: string; hint: string }> = {
-  start_here: { label: 'Start here', hint: 'Where most days begin' },
-  plan_review: { label: 'Plan & review', hint: 'Missions, and the weekly pass across everything' },
-  intelligence: { label: 'Intelligence & alerts', hint: 'What’s happening outside HQ' },
-  personal_systems: { label: 'Personal systems', hint: 'Capacity, readiness, life admin' },
-  work_decisions: { label: 'Work & decisions', hint: 'Content, advisory, and command memory' },
-  platform: { label: 'Platform', hint: 'Is HQ itself working properly' },
+  orient: { label: 'Orient', hint: 'See what matters now and choose where to begin' },
+  decide: { label: 'Decide & plan', hint: 'Turn priorities, questions, and commitments into a decision' },
+  understand: { label: 'Understand', hint: 'Review intelligence, evidence, history, and personal capacity' },
+  operate: { label: 'Operate HQ', hint: 'Capture, deliver, improve, and keep the platform healthy' },
 };
 
 export interface WorkbenchEntry {
@@ -82,6 +81,31 @@ export interface WorkbenchEntry {
   icon: LucideIcon;
   group: WorkbenchGroup;
 }
+
+export const PRIMARY_ACTIONS: Record<string, PrimaryActionContract> = {
+  '/hub': { label: 'Open Captain’s Chair', href: '/captains-chair-workbench' },
+  '/focus-workbench': { label: 'Start a focus session', href: '/focus-workbench' },
+  '/captains-chair-workbench': { label: 'Review what needs you', href: '/captains-chair-workbench' },
+  '/capture-workbench': { label: 'Capture an item', href: '/capture-workbench' },
+  '/mission-workbench': { label: 'Review missions', href: '/mission-workbench' },
+  '/weekly-review': { label: 'Start weekly review', href: '/weekly-review' },
+  '/ready-room': { label: 'Choose what to do next', href: '/ready-room' },
+  '/intelligence-workbench': { label: 'Review today’s intelligence', href: '/intelligence-workbench' },
+  '/health-osint': { label: 'Review health evidence', href: '/health-osint' },
+  '/emergency-alert-hub-workbench': { label: 'Check active alerts', href: '/emergency-alert-hub-workbench' },
+  '/human-systems-workbench': { label: 'Check current capacity', href: '/human-systems-workbench' },
+  '/physical-readiness': { label: 'Review movement record', href: '/physical-readiness' },
+  '/shopping-list-workbench': { label: 'Review shopping list', href: '/shopping-list-workbench' },
+  '/content-workbench': { label: 'Review content queue', href: '/content-workbench' },
+  '/advisory-workbench': { label: 'Start a decision', href: '/advisory-workbench' },
+  '/briefs': { label: 'Read latest brief', href: '/briefs' },
+  '/knowledge-workbench': { label: 'Search command memory', href: '/knowledge-workbench' },
+  '/search': { label: 'Search HQ', href: '/search' },
+  '/timeline': { label: 'Review timeline', href: '/timeline' },
+  '/agent-status-workbench': { label: 'Check HQ status', href: '/agent-status-workbench' },
+  '/self-improvement-findings': { label: 'Review HQ evolution', href: '/self-improvement-findings' },
+  '/engineering-handoffs': { label: 'Review engineering handoffs', href: '/engineering-handoffs' },
+};
 
 // Order below is deliberate, not alphabetical: command/triage surfaces
 // first (what a Captain opens most), then domain intelligence, then work
@@ -93,119 +117,119 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     title: 'Focus Workbench',
     description: 'ADHD-friendly execution — one next step, a clear time-box, and a calm way back when you get stuck.',
     icon: Timer,
-    group: 'start_here',
+    group: 'orient',
   },
   {
     href: '/hub',
     title: 'LifeOS Hub',
     description: 'Always-on glance view — situation strip, live alerts, calendar, reminders, and today\'s briefing. The front door.',
     icon: LayoutDashboard,
-    group: 'start_here',
+    group: 'orient',
   },
   {
     href: '/capture-workbench',
     title: 'Capture Workbench',
     description: 'Quick capture and inbox triage — everything that comes in via Telegram/Slack/API, live, in one place.',
     icon: Inbox,
-    group: 'start_here',
+    group: 'operate',
   },
   {
     href: '/captains-chair-workbench',
     title: "Captain's Chair",
     description: 'Operational dashboard — recovery posture, mission overview, alerts, and intelligence at a glance.',
     icon: Compass,
-    group: 'start_here',
+    group: 'orient',
   },
   {
     href: '/mission-workbench',
     title: 'Mission Workbench',
     description: 'Every active and completed mission — capacity-cost aware, filtered by what fits today\'s recovery posture.',
     icon: Rocket,
-    group: 'plan_review',
+    group: 'decide',
   },
   {
     href: '/weekly-review',
     title: 'Weekly Review',
     description: 'One calm weekly pass across every workbench — what happened, what slipped, what needs attention, what is safe to ignore.',
     icon: BarChart3,
-    group: 'plan_review',
+    group: 'decide',
   },
   {
     href: '/ready-room',
     title: 'Ready Room',
     description: 'Life admin and task decomposition in one place — what needs attention now, what is waiting on someone else, and a tiny first step for anything overwhelming.',
     icon: ListChecks,
-    group: 'start_here',
+    group: 'orient',
   },
   {
     href: '/intelligence-workbench',
     title: 'Technical OSINT Workbench',
     description: 'Cyber, infrastructure, and regulatory signal intelligence — source reliability, confidence scoring, and threat escalation.',
     icon: Radar,
-    group: 'intelligence',
+    group: 'understand',
   },
   {
     href: '/health-osint',
     title: 'Health OSINT Workbench',
     description: 'Clinical trial and performance-research intelligence — source reliability, study confidence, and safety escalation.',
     icon: Heart,
-    group: 'intelligence',
+    group: 'understand',
   },
   {
     href: '/emergency-alert-hub-workbench',
     title: 'Emergency Alerts',
     description: 'Official Australian emergency information, prioritised by what may require attention now.',
     icon: TriangleAlert,
-    group: 'intelligence',
+    group: 'understand',
   },
   {
     href: '/human-systems-workbench',
     title: 'Human Systems',
     description: "Personal capacity intelligence — understand your current state, what's consuming capacity, what appears to help, and what may need to change.",
     icon: Users,
-    group: 'personal_systems',
+    group: 'understand',
   },
   {
     href: '/physical-readiness',
     title: 'Physical Readiness',
     description: 'Exercise library and workout history — a read-only record of what you\'ve done. Session generation and readiness check-in were retired (Captain directive, 2026-08-10/11); Recovery Pulse is the single source for capacity/stats now.',
     icon: Dumbbell,
-    group: 'personal_systems',
+    group: 'understand',
   },
   {
     href: '/shopping-list-workbench',
     title: 'Shopping List',
     description: 'Everything worth buying, wishlist to purchased — manually prioritised, filterable by category/status/recipient/occasion, with per-currency subtotals.',
     icon: ShoppingCart,
-    group: 'personal_systems',
+    group: 'decide',
   },
   {
     href: '/content-workbench',
     title: 'Content Workbench',
     description: 'Capture, research, draft, proof, and publish comms content end-to-end, plus a Portfolio of everything published — one QA-gated pipeline.',
     icon: FileText,
-    group: 'work_decisions',
+    group: 'operate',
   },
   {
     href: '/advisory-workbench',
     title: 'Advisory',
     description: 'Decision support — think through a question, challenge assumptions, explore perspectives, and learn from what happened.',
     icon: MessageSquare,
-    group: 'work_decisions',
+    group: 'decide',
   },
   {
     href: '/briefs',
     title: 'Briefs',
     description: 'The canonical briefing Workbench — the daily OSINT/world-news brief archive plus a merged cross-domain Domains picture, filterable and searchable.',
     icon: ArchiveIcon,
-    group: 'intelligence',
+    group: 'understand',
   },
   {
     href: '/knowledge-workbench',
     title: 'Knowledge Workbench',
     description: 'Command memory — organisational decisions and the reasoning behind them, searchable in one place.',
     icon: BookOpen,
-    group: 'work_decisions',
+    group: 'understand',
   },
   {
     // Mission 7 §35/§16: relocated 2026-09-19 from app/(app)/search — a
@@ -216,7 +240,7 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     title: 'Search',
     description: 'Cross-domain search — missions, Captain\'s Log, captures, and events, all from one search box.',
     icon: SearchIcon,
-    group: 'work_decisions',
+    group: 'understand',
   },
   {
     // Mission 7 §35/§16: relocated 2026-09-19 from app/(app)/timeline,
@@ -226,14 +250,14 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     title: 'Timeline',
     description: 'One chronological feed across missions, health, log, events, and captures — filterable by source.',
     icon: History,
-    group: 'work_decisions',
+    group: 'understand',
   },
   {
     href: '/agent-status-workbench',
     title: 'HQ Status',
     description: 'Is HQ working properly? Interpreted platform health across capabilities, automations, sources, and machinery — not just a wall of job rows.',
     icon: Activity,
-    group: 'platform',
+    group: 'operate',
   },
   {
     // HQ Evolution (retitled from "Self-Improvement Findings" — the
@@ -245,7 +269,7 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     title: 'HQ Evolution',
     description: 'Continuous improvement for TJR HQ — overnight discovery, research and investigation of new capabilities, open-source opportunities, cost reductions, reliability improvements and better ways for HQ to work.',
     icon: Lightbulb,
-    group: 'platform',
+    group: 'operate',
   },
   {
     // Added 2026-09-06 — previously this data (approved engineering
@@ -261,6 +285,6 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     title: 'Engineering Handoffs',
     description: 'Approved engineering handoffs awaiting triage, delivery, or your review — with a direct link to every draft PR so nothing sits waiting on a bare ID.',
     icon: GitPullRequest,
-    group: 'platform',
+    group: 'operate',
   },
 ];

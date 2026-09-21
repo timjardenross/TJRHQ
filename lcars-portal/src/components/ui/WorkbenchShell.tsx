@@ -28,22 +28,23 @@
 // instead of being squeezed into the header's status-text corner.
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import { Settings } from 'lucide-react';
-import { LIVE_WORKBENCHES } from '@/lib/workbenches';
+import { LIVE_WORKBENCHES, PRIMARY_ACTIONS, WORKBENCH_GROUP_META, type WorkbenchGroup } from '@/lib/workbenches';
 import { MobileCommandBar } from '@/components/MobileCommandBar';
 import { NumberOne } from './NumberOne';
 import { QuickCapture } from './QuickCapture';
 import { Sidebar } from './Sidebar';
 import { AttentionControls } from '@/components/AttentionControls';
 import { ActionHistoryPanel } from '@/components/FocusLane';
+import { trackTaskEvent } from '@/lib/taskTelemetry';
 
 const GLOBAL_HOME = '/workbenches';
 
 function WorkbenchSwitcher() {
   const router = useRouter();
   const pathname = usePathname();
-  const current = LIVE_WORKBENCHES.find((w) => pathname?.startsWith(w.href))?.href ?? '';
+  const currentGroup = LIVE_WORKBENCHES.find((w) => pathname?.startsWith(w.href))?.group ?? '';
 
   return (
     // Mission 7 item 1 (Phase 14 finding, Phase 15 fix): this <select> had
@@ -54,13 +55,13 @@ function WorkbenchSwitcher() {
     // list still shows full titles untruncated (native <select> behaviour).
     <select
       aria-label="Switch workbench"
-      value={current}
+      value={currentGroup ? `/workbenches?group=${currentGroup}` : ''}
       onChange={(e) => { if (e.target.value) router.push(e.target.value); }}
       className="w-[92px] max-w-[92px] truncate rounded-md border border-wb-line bg-wb-surface px-2 py-1 text-[12px] text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep sm:w-auto sm:max-w-[180px]"
     >
-      {!current && <option value="" disabled>Switch workbench…</option>}
-      {LIVE_WORKBENCHES.map((w) => (
-        <option key={w.href} value={w.href}>{w.title}</option>
+      {!currentGroup && <option value="" disabled>Choose a family…</option>}
+      {(Object.keys(WORKBENCH_GROUP_META) as WorkbenchGroup[]).map((group) => (
+        <option key={group} value={`/workbenches?group=${group}`}>{WORKBENCH_GROUP_META[group].label}</option>
       ))}
     </select>
   );
@@ -117,6 +118,25 @@ export function WorkbenchShell({
   const item = searchParams.get('item');
   const originLabel = from === 'captains-chair' ? 'Captain’s Chair' : from === 'hub' ? 'LifeOS Hub' : from;
   const originHref = from === 'captains-chair' ? '/captains-chair-workbench' : from === 'hub' ? '/hub' : null;
+  const primaryAction = LIVE_WORKBENCHES.find((w) => pathname?.startsWith(w.href)) ? PRIMARY_ACTIONS[LIVE_WORKBENCHES.find((w) => pathname?.startsWith(w.href))!.href] : null;
+  const initialPathRef = useRef(pathname);
+  const workbenchStartedAtRef = useRef<number>(Date.now());
+  useEffect(() => {
+    if (!pathname) return;
+    const taskId = `workbench:${pathname}`;
+    trackTaskEvent(taskId, 'started');
+    const abandon = () => trackTaskEvent(taskId, 'abandoned', { duration_ms: Date.now() - workbenchStartedAtRef.current });
+    window.addEventListener('pagehide', abandon, { once: true });
+    return () => window.removeEventListener('pagehide', abandon);
+  }, [pathname]);
+  useEffect(() => {
+    if (initialPathRef.current === pathname) return;
+    initialPathRef.current = pathname;
+    // Preserve keyboard context after client-side navigation: move focus to
+    // the new workbench content landmark instead of leaving it on a stale
+    // control that no longer exists.
+    document.getElementById('wb-main')?.focus();
+  }, [pathname]);
   return (
     <div className="min-h-[100dvh] bg-wb-bg font-sans text-wb-ink antialiased">
       <a
@@ -202,7 +222,8 @@ export function WorkbenchShell({
               </div>
             )}
           </header>
-          <main id="wb-main" className={`mx-auto ${shellWidth} px-4 py-6 pb-28 sm:px-6 sm:py-8 sm:pb-28 xl:pb-8`}>
+          <main id="wb-main" tabIndex={-1} className={`mx-auto ${shellWidth} px-4 py-6 pb-28 outline-none sm:px-6 sm:py-8 sm:pb-28 xl:pb-8`}>
+            {!minimal && primaryAction && <div className="mb-4"><Link href={primaryAction.href} onClick={() => trackTaskEvent(`${pathname}:primary`, 'started', { label: primaryAction.label })} className="inline-flex min-h-11 items-center rounded-md bg-wb-sage-deep px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">{primaryAction.label} →</Link></div>}
             {!minimal && <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><AttentionControls label="Attention" /><ActionHistoryPanel /></div>}
             {originLabel && pathname !== originHref && (
               <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-wb-line bg-wb-surface px-3 py-2 text-[11px] text-wb-ink2" role="status">

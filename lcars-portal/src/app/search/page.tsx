@@ -21,6 +21,8 @@ import { Search as SearchIcon } from 'lucide-react';
 import { WorkbenchShell } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { collectSourceOutcomes } from '@/lib/sourceResults';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
+import { deriveLifecycleState, LIFECYCLE_FILTERS, type LifecycleFilter } from '@/lib/lifecycleFilters';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,6 +33,9 @@ interface SearchResult {
   detail?: string;
   timestamp?: string;
   href?: string;
+  attentionState?: 'needs-action' | 'normal';
+  importance?: 'important' | 'normal';
+  lifecycleState?: LifecycleFilter;
 }
 
 // MSN-0351: each searcher reports whether its Supabase read succeeded so a
@@ -200,6 +205,8 @@ export default function SearchPage() {
   const [failedSources, setFailedSources] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [attentionView, setAttentionView] = useState<'all' | 'needs-action' | 'important'>('all');
+  const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleFilter | null>(null);
   const [timer, setTimer]     = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const runSearch = useCallback(async (q: string) => {
@@ -222,7 +229,15 @@ export default function SearchPage() {
         if (!b.timestamp) return -1;
         return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
       });
-      setResults(items);
+      setResults(items.map((item) => {
+        const status = (item.detail ?? '').split(' · ').at(-1)?.toLowerCase();
+        return {
+          ...item,
+          attentionState: ['blocked', 'failed', 'error', 'pending', 'review', 'queued', 'needs_review'].includes(status ?? '') ? 'needs-action' : 'normal',
+          lifecycleState: deriveLifecycleState({ status }) ?? undefined,
+          importance: item.type === 'mission' || item.type === 'event' ? 'important' : 'normal',
+        };
+      }));
       setFailedSources(failed);
     } finally {
       setLoading(false);
@@ -253,6 +268,14 @@ export default function SearchPage() {
     acc[r.type].push(r);
     return acc;
   }, {});
+  // These views consume the result contract rather than scanning prose. Until
+  // every upstream query supplies explicit fields, the adapters below assign
+  // conservative defaults; unknown results never become falsely urgent.
+  const isNeedsAction = (r: SearchResult) => r.attentionState === 'needs-action';
+  const isImportant = (r: SearchResult) => r.importance === 'important';
+  const filteredResults = attentionView === 'needs-action' ? results.filter(isNeedsAction) : attentionView === 'important' ? results.filter(isImportant) : results;
+  const lifecycleResults = lifecycleFilter ? filteredResults.filter(r => r.lifecycleState === lifecycleFilter) : filteredResults;
+  const filteredGrouped = lifecycleResults.reduce<Record<string, SearchResult[]>>((acc, r) => { (acc[r.type] ??= []).push(r); return acc; }, {});
 
   return (
     <WorkbenchShell
@@ -280,6 +303,15 @@ export default function SearchPage() {
             </span>
           )}
         </div>
+        <div role="group" aria-label="Attention view" className="flex flex-wrap gap-2">
+          {([['all', 'All'], ['needs-action', 'Needs action'], ['important', 'Important only']] as const).map(([value, label]) => (
+            <button key={value} type="button" onClick={() => setAttentionView(value)} aria-pressed={attentionView === value} className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${attentionView === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+          ))}
+          {LIFECYCLE_FILTERS.map(({ value, label }) => (
+            <button key={value} type="button" onClick={() => setLifecycleFilter(lifecycleFilter === value ? null : value)} aria-pressed={lifecycleFilter === value} className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${lifecycleFilter === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+          ))}
+          <span className="self-center text-[10px] text-wb-ink2">{lifecycleResults.length} shown</span>
+        </div>
 
         {!searched && (
           <p className="text-sm text-wb-ink2">
@@ -300,7 +332,10 @@ export default function SearchPage() {
           <p className="text-sm text-wb-ink2">No results for <span className="text-wb-ink">&ldquo;{query}&rdquo;</span></p>
         )}
 
-        {Object.entries(grouped).map(([type, items]) => (
+        {searched && !loading && lifecycleResults.length === 0 && results.length > 0 && (
+          <p className="text-sm text-wb-ink2">No {lifecycleFilter ? LIFECYCLE_FILTERS.find(f => f.value === lifecycleFilter)?.label.toLowerCase() : attentionView === 'needs-action' ? 'needs-action' : 'important'} results in the current search.</p>
+        )}
+        {Object.entries(filteredGrouped).map(([type, items]) => (
           <div key={type} className="flex flex-col gap-1">
             <p className="border-b border-wb-line pb-1 text-[10px] uppercase tracking-[0.2em] text-wb-ink2">
               {TYPE_LABEL[type] ?? type}
@@ -316,6 +351,7 @@ export default function SearchPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-wb-ink group-hover:text-wb-sage-deep">{r.title}</p>
                   {r.detail && <p className="mt-0.5 truncate text-xs text-wb-ink2">{r.detail}</p>}
+                  <EvidenceMeta source={TYPE_LABEL[r.type] ?? r.type} observedAt={r.timestamp} />
                 </div>
                 <span className="mt-1 shrink-0 text-[10px] text-wb-ink2">{relTs(r.timestamp)}</span>
               </button>

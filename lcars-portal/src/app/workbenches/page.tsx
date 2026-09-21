@@ -34,7 +34,8 @@
 // per-visit tagline needed.
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { NumberOne, QuickCapture, Sidebar, WorkbenchCard } from '@/components/ui';
 import { MobileCommandBar } from '@/components/MobileCommandBar';
@@ -42,8 +43,11 @@ import { LIVE_WORKBENCHES, WORKBENCH_GROUP_META, type WorkbenchGroup } from '@/l
 
 const GROUP_ORDER = Object.keys(WORKBENCH_GROUP_META) as WorkbenchGroup[];
 
-export default function Workbenches() {
+function WorkbenchesContent() {
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState('');
+  const requestedGroup = searchParams.get('group') as WorkbenchGroup | null;
+  const selectedGroup = GROUP_ORDER.includes(requestedGroup as WorkbenchGroup) ? requestedGroup : null;
 
   // Mission 7 §16: a flat 19-tile grid with no structure was one long
   // unlabelled scroll on mobile and gave a Captain scanning for "the health
@@ -94,7 +98,29 @@ export default function Workbenches() {
               )
             ) : (
               <div className="space-y-8">
-                {GROUP_ORDER.map((group) => {
+                {!selectedGroup && (
+                  <section aria-label="Task families">
+                    <h2 className="mb-0.5 text-[12px] font-semibold uppercase tracking-wider text-wb-ink">Choose how you want to work</h2>
+                    <p className="mb-3 text-[12px] text-wb-ink2">Start with your intent, then choose the workbench that supports it.</p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {GROUP_ORDER.map((group) => {
+                        const meta = WORKBENCH_GROUP_META[group];
+                        const count = LIVE_WORKBENCHES.filter((entry) => entry.group === group).length;
+                        return (
+                          <a key={group} href={`/workbenches?group=${group}`} className="rounded-xl border border-wb-line bg-wb-surface p-5 transition hover:border-wb-sage-deep/60 hover:bg-wb-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                            <h3 className="font-serif text-lg text-wb-ink">{meta.label}</h3>
+                            <p className="mt-1 text-[12px] leading-relaxed text-wb-ink2">{meta.hint}</p>
+                            <p className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-wb-sage-deep">{count} workbenches →</p>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
+                {selectedGroup && (
+                  <p><a href="/workbenches" className="text-[12px] font-semibold text-wb-sage-deep hover:underline">← All task families</a></p>
+                )}
+                {selectedGroup && GROUP_ORDER.filter((group) => group === selectedGroup).map((group) => {
                   const entries = LIVE_WORKBENCHES.filter((e) => e.group === group);
                   if (entries.length === 0) return null;
                   const meta = WORKBENCH_GROUP_META[group];
@@ -121,5 +147,13 @@ export default function Workbenches() {
       <NumberOne />
       <MobileCommandBar />
     </div>
+  );
+}
+
+export default function Workbenches() {
+  return (
+    <Suspense fallback={<div className="min-h-[100dvh] bg-wb-bg" aria-label="Loading workbench families" />}>
+      <WorkbenchesContent />
+    </Suspense>
   );
 }

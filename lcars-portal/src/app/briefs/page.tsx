@@ -16,6 +16,7 @@ import * as Collapsible from '@radix-ui/react-collapsible';
 import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
 import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
 import { EvidenceMeta } from '@/components/EvidenceMeta';
+import { WhatNeedsMeNow } from '@/components/WhatNeedsMeNow';
 import type { ApprovalStatus, BriefListItem } from '@/lib/briefsShared';
 import { buildMorningIntelligenceView, isToday } from '@/lib/briefsShared';
 import type { DomainsDocument } from '@/lib/domainsShared';
@@ -384,6 +385,14 @@ export default function BriefsPage() {
         <div className="read-reference-kicker">Read mode · canonical intelligence record</div>
         {error && <DataAvailabilityNotice sources={[`Briefs: ${error}`]} className="mb-4" />}
         {domainsError && <DataAvailabilityNotice sources={[`Brief domains: ${domainsError}`]} className="mb-4" />}
+        <div className="mb-4">
+          <WhatNeedsMeNow
+            items={latest ? [{ id: latest.brief_id, title: 'Latest intelligence brief is ready to review', detail: latest.coverage ? `${latest.coverage.completed ?? 0}/${latest.coverage.expected ?? 0} sources complete.` : undefined, href: `/briefs/${encodeURIComponent(latest.brief_id)}`, actionLabel: 'Read brief' }] : []}
+            loading={loading}
+            errors={error ? [`Briefs: ${error}`] : []}
+            emptyLabel="No brief requires your attention yet."
+          />
+        </div>
 
         {tab === 'latest' && <LatestView latest={latest} loading={loading} />}
         {tab === 'domains' && <DomainsView doc={domainsDoc} loading={domainsLoading} error={domainsError} />}

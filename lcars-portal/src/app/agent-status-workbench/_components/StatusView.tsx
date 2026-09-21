@@ -11,9 +11,12 @@
  */
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Card } from '@/components/ui';
 import { OperationalStateBadge, type OperationalState } from '@/components/OperationalState';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
+import { OperationalConfidencePanel } from '@/components/OperationalConfidencePanel';
+import type { OperationalConfidence } from '@/lib/operationalConfidence';
 
 // HQ V1 Integration QA §22 (recovery propagation) fix: this tab previously
 // fetched once on mount only — a Captain with the Status tab open during an
@@ -60,6 +63,7 @@ interface StatusData {
     health: { healthy: number; delayed: number; failing: number };
   };
   jobsSummary: { scheduled: number; healthy: number; attention: number };
+  operationalConfidence: OperationalConfidence;
 }
 
 const POSTURE_GLYPH: Record<Posture, string> = {
@@ -103,7 +107,25 @@ const TONE_DOT_CLASS: Record<CapabilityTone, string> = {
   unknown: 'bg-wb-line text-wb-ink2',
 };
 
+const CAPABILITY_RECOVERY: Record<string, { workbench: string; href: string; action: string }> = {
+  morning_intelligence: { workbench: 'Briefs', href: '/briefs', action: 'Read latest brief' },
+  emergency_monitoring: { workbench: 'Emergency Alerts', href: '/emergency-alert-hub-workbench', action: 'Check active alerts' },
+  technical_intelligence: { workbench: 'Technical OSINT', href: '/intelligence-workbench', action: 'Review intelligence' },
+  health_intelligence: { workbench: 'Health OSINT', href: '/health-osint', action: 'Review health evidence' },
+  hq_evolution: { workbench: 'HQ Evolution', href: '/self-improvement-findings', action: 'Review HQ evolution' },
+  weekly_review: { workbench: 'Weekly Review', href: '/weekly-review', action: 'Start weekly review' },
+  ready_room: { workbench: 'Ready Room', href: '/ready-room', action: 'Choose what to do next' },
+  human_systems: { workbench: 'Human Systems', href: '/human-systems-workbench', action: 'Check current capacity' },
+  platform_core: { workbench: 'HQ Status', href: '/agent-status-workbench', action: 'Review platform status' },
+  content_workbench: { workbench: 'Content Workbench', href: '/content-workbench', action: 'Review content queue' },
+};
+
 function CapabilityRow({ cap }: { cap: CapabilityResult }) {
+  const recovery = CAPABILITY_RECOVERY[cap.key] ?? {
+    workbench: 'HQ Status',
+    href: '/agent-status-workbench',
+    action: 'Review capability status',
+  };
   return (
     <li className="flex items-start gap-2.5 py-2" title={cap.reason}>
       <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${TONE_DOT_CLASS[cap.tone]}`} aria-hidden>
@@ -115,6 +137,7 @@ function CapabilityRow({ cap }: { cap: CapabilityResult }) {
           <span className="sr-only"> — {cap.tone}</span>
         </p>
         {cap.tone !== 'healthy' && <p className="mt-0.5 text-[12px] text-wb-ink2">{cap.reason}</p>}
+        {cap.tone !== 'healthy' && <p className="mt-1 text-[11px] text-wb-ink2">Affected workbench: <Link href={recovery.href} className="font-semibold text-wb-sage-deep hover:underline">{recovery.workbench}</Link> · <Link href={recovery.href} className="text-wb-sage-deep hover:underline">{recovery.action} →</Link></p>}
       </div>
     </li>
   );
@@ -225,6 +248,8 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
           Updated {new Date(data.fetchedAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })} · covers all monitored capabilities, jobs, and governed sources.
         </p>
       </Card>
+
+      <OperationalConfidencePanel confidence={data.operationalConfidence} />
 
       {/* Capability list — progressive disclosure, calm when healthy */}
       <Card>

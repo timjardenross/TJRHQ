@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { Card, Badge, Button, Select } from '@/components/ui';
 import { EvidenceMeta } from '@/components/EvidenceMeta';
 import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { CollapsibleSection } from '@/app/human-systems-workbench/_components/CollapsibleSection';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { EVIDENCE_CONTRIBUTION_LABEL, IGNORE_REASONS, type EvidenceItem } from './shared';
 
@@ -165,7 +166,7 @@ export function TodayView() {
 
       {/* NEEDS YOUR REVIEW — curation folded in, ambiguous-only subset. */}
       {data.needs_review.length > 0 && (
-        <Card title="Needs Your Review">
+        <CollapsibleSection title={`Needs Your Review · ${data.needs_review.length}`} defaultOpen={false}>
           <p className="mb-3 text-[11.5px] text-wb-ink2">
             The system is not confident these are relevant — everything else it already handled automatically.
           </p>
@@ -222,7 +223,7 @@ export function TodayView() {
               <Link href="/health-osint-curation" className="text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">See the full queue →</Link>
             </p>
           )}
-        </Card>
+        </CollapsibleSection>
       )}
     </div>
   );

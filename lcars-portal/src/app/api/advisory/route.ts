@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSession } from '@/lib/supabase-server';
 import { resolveAdvisoryRepoRoot, runAdvisoryCli, tryAdvisoryHttpBackend } from '@/lib/advisoryRuntime';
+import { logActionHistory } from '@/lib/actionHistoryServer';
 
 /**
  * Advisory Runtime endpoint — USS-TJR-MSN-0092 / MSN-0093 (Advisor Hub).
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest) {
     const advisoryId = (body.advisoryId ?? '').trim();
     const outcome = (body.outcome ?? '').trim();
     if (!advisoryId || !['success', 'failure', 'partial', 'unknown'].includes(outcome)) {
+      await logActionHistory({ action: 'advisory.loop_outcome', outcome: 'failed', workbench: 'advisory', details: { reason: 'invalid_input' } });
       return NextResponse.json(
         { error: 'outcome requires advisoryId and outcome in {success,failure,partial}.' },
         { status: 400 },
@@ -76,6 +78,9 @@ export async function POST(req: NextRequest) {
   // 1. Try HTTP backend first.
   try {
     const result = await tryAdvisoryHttpBackend(body);
+    if (action === 'outcome') {
+      await logActionHistory({ action: 'advisory.loop_outcome', outcome: 'success', workbench: 'advisory', recordId: body.advisoryId ?? null, details: { loop_outcome: body.outcome } });
+    }
     return NextResponse.json({ action, result });
   } catch (err) {
     console.debug('[advisory] HTTP backend unavailable, falling back to CLI:', err instanceof Error ? err.message : err);
@@ -84,6 +89,9 @@ export async function POST(req: NextRequest) {
   // 2. Fall back to Python CLI subprocess.
   const root = resolveAdvisoryRepoRoot();
   if (!root) {
+    if (action === 'outcome') {
+      await logActionHistory({ action: 'advisory.loop_outcome', outcome: 'failed', workbench: 'advisory', recordId: body.advisoryId ?? null, details: { reason: 'backend_unavailable' } });
+    }
     return NextResponse.json(
       { error: 'Advisory backend unavailable. Start the Command Centre or set COMMAND_CENTRE_API_URL.' },
       { status: 503 },
@@ -92,9 +100,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await runAdvisoryCli(root, args);
+    if (action === 'outcome') {
+      await logActionHistory({ action: 'advisory.loop_outcome', outcome: 'success', workbench: 'advisory', recordId: body.advisoryId ?? null, details: { loop_outcome: body.outcome } });
+    }
     return NextResponse.json({ action, result });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Advisory runtime failed.';
+    if (action === 'outcome') {
+      await logActionHistory({ action: 'advisory.loop_outcome', outcome: 'failed', workbench: 'advisory', recordId: body.advisoryId ?? null, details: { reason: 'cli_error' } });
+    }
     return NextResponse.json({ error: message }, { status: 502 });
   }
 }

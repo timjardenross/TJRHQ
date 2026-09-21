@@ -31,9 +31,9 @@ import { ProactiveBanner } from './_components/ProactiveBanner';
 import { EYEBROW, normalizeDomain, type Domain } from './_components/types';
 
 const DOMAIN_OPTIONS: { key: Domain; label: string }[] = [
-  { key: 'think', label: 'Think' },
-  { key: 'perspectives', label: 'Perspectives' },
-  { key: 'outcomes', label: 'Outcomes' },
+  { key: 'think', label: 'Make a decision' },
+  { key: 'perspectives', label: 'Compare options' },
+  { key: 'outcomes', label: 'Review outcomes' },
 ];
 
 function Workbench() {
@@ -73,11 +73,18 @@ function Workbench() {
     <WorkbenchShell wide
       title="Advisory"
       eyebrow={EYEBROW[domain]}
-      tagline="USS TJR · Advisory · Think through a decision, challenge your assumptions, and get another perspective · Advisory only. You decide what happens next."
-      tabs={<DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Advisory mode" />}
+      tagline="USS TJR · Advisory · Clarify the decision, compare the options, and choose what happens next."
+      tabs={<DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Advisory task" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       mode="command"
     >
+      <div className="mb-4 rounded-lg border-2 border-wb-sage-deep/40 bg-wb-sage/10 p-4">
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-wb-sage-deep">Your decision</p>
+        <p className="mt-1 text-sm font-semibold text-wb-ink">
+          {domain === 'think' ? 'What decision, problem, or question needs clarity?' : domain === 'perspectives' ? 'Which options or viewpoints do you want to compare?' : 'What happened after the decision, and what should HQ learn?'}
+        </p>
+        <p className="mt-1 text-xs text-wb-ink2">Advisory provides reasoning and evidence. You remain the decision-maker.</p>
+      </div>
       <div className="mb-4">
         <ProactiveBanner onThinkItThrough={thinkItThrough} />
       </div>
