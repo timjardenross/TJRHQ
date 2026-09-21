@@ -16,9 +16,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Never retain credentials accidentally placed in the address bar. This
-    // also prevents browser history, screenshots, analytics, or referrers
-    // from preserving them.
+    // Belt-and-braces cleanup only — see the `method="post"` on both <form>
+    // elements below for the actual fix. Without an explicit method, a form
+    // whose onSubmit handler never attaches (a JS hydration failure) falls
+    // back to the browser's native default, which is GET: the browser then
+    // submits email+password as a URL query string, exposing them to
+    // history, screenshots, referrers, and server/proxy access logs before
+    // this effect ever runs. `method="post"` makes that fallback path safe
+    // (a failed POST, not a credential-bearing GET) even when JS never
+    // loads. Confirmed live 2026-09-21: a concurrent build-lock collision
+    // broke hydration mid-login and reproduced exactly this GET fallback.
     if (typeof window !== 'undefined' && (window.location.search.includes('email=') || window.location.search.includes('password='))) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -136,7 +143,7 @@ export default function LoginPage() {
 
           {/* Password form */}
           {mode === 'password' && (
-            <form onSubmit={handlePassword} aria-label="Password authentication">
+            <form onSubmit={handlePassword} method="post" action="#" aria-label="Password authentication">
               <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-wb-ink2">
                 Authentication required
               </p>
@@ -194,7 +201,7 @@ export default function LoginPage() {
 
           {/* Magic link form */}
           {mode === 'magic' && !sent && (
-            <form onSubmit={handleMagicLink} aria-label="Magic link authentication">
+            <form onSubmit={handleMagicLink} method="post" action="#" aria-label="Magic link authentication">
               <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-wb-ink2">
                 Authentication required
               </p>
