@@ -262,7 +262,14 @@ export default function TimelinePage() {
   const lifecycleVisible = lifecycleFilter ? attentionVisible.filter(e => e.lifecycleState === lifecycleFilter) : attentionVisible;
 
   const daySelector = (
-    <div role="group" aria-label="Date range" className="flex gap-1">
+    // WP3 defect #3 (200% zoom, ~10px horizontal overflow: scrollWidth 400
+    // vs clientWidth 390): every other filter-chip row on this page
+    // (sourceFilters, attentionFilters, lifecycle) is `flex flex-wrap`;
+    // this was the one row still `flex` with no wrap, so at a narrow
+    // effective width (zoomed-in mobile) its 3 buttons had nowhere to go
+    // but past the WorkbenchShell header's edge instead of dropping to a
+    // second line like its siblings.
+    <div role="group" aria-label="Date range" className="flex flex-wrap gap-1">
       {DAY_OPTIONS.map(d => (
         <button
           key={d}

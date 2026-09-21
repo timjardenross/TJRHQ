@@ -210,12 +210,26 @@ function HighSeverityCard({ alert, isMuted, onSelect }: { alert: EmergencyAlertE
     <div
       className={`rounded-md border p-4 ${isEmergency ? 'border-state-crit/50 bg-state-crit/10' : 'border-state-warn/50 bg-state-warn/10'}`}
     >
-      <div className="mb-2 flex items-center gap-2">
+      {/* WP3 defect #4 sweep (200% zoom, live-verified: this row's own
+          offsetWidth 45 vs its badges' combined scrollWidth 146 at the
+          zoomed-equivalent width) — no flex-wrap, so the severity/
+          jurisdiction/muted badge trio pushed past the card at a narrow
+          effective width, which was the real source of this page's overall
+          horizontal page overflow (traced up through risk-reference-surface
+          to document.documentElement.scrollWidth). */}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <SeverityBadge alert={alert} />
         <Badge status="neutral">{alert.jurisdiction}</Badge>
         {isMuted && <MutedBadge />}
       </div>
-      <h3 className="font-serif text-base text-wb-ink">{alert.headline}</h3>
+      {/* WP3 defect #4 sweep: real headline text (e.g. "Fire Weather Warning
+          for Greater Hunter fire weather district") has no soft-wrap point
+          long enough at a narrow effective width — overflow-wrap defaults
+          to `normal`, which never breaks inside a word, so the single
+          longest word in the headline set this card's (and therefore the
+          whole page's) min-content width and forced horizontal page
+          scroll. `break-words` lets it wrap mid-word as a last resort. */}
+      <h3 className="break-words font-serif text-base text-wb-ink">{alert.headline}</h3>
       {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
       <p className="mt-1 text-[11px] text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
       <div className="mt-3 flex flex-wrap gap-3">
@@ -245,12 +259,12 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
     <Card>
       <div className="mb-3 flex items-start justify-between gap-4 border-b border-wb-line pb-3">
         <div>
-          <div className="mb-1 flex items-center gap-2">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
             <Badge status="neutral">{alert.jurisdiction}</Badge>
             <SeverityBadge alert={alert} />
             <Badge status={alert.isActive ? 'success' : 'neutral'}>{alert.status}</Badge>
           </div>
-          <h2 className="font-serif text-lg text-wb-ink">{alert.headline}</h2>
+          <h2 className="break-words font-serif text-lg text-wb-ink">{alert.headline}</h2>
           {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
           {alert.severity === 'unknown' && isBomSource(alert.sourceKey) && (
             <p className="mt-1 text-[11px] italic text-wb-ink2">
