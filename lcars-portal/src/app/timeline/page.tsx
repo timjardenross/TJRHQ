@@ -18,6 +18,7 @@ import { WorkbenchShell } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { collectSourceOutcomes } from '@/lib/sourceResults';
 import { EvidenceMeta } from '@/components/EvidenceMeta';
+import { deriveLifecycleState, LIFECYCLE_FILTERS, type LifecycleFilter } from '@/lib/lifecycleFilters';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -32,6 +33,7 @@ interface TimelineEvent {
   metadata?: Record<string, unknown>;
   attentionState?: 'needs-action' | 'normal';
   importance?: 'important' | 'normal';
+  lifecycleState?: LifecycleFilter;
 }
 
 // MSN-0351: each fetcher reports whether its Supabase read succeeded, so a
@@ -207,6 +209,7 @@ export default function TimelinePage() {
   const [days, setDaysState]    = useState(14);
   const [filter, setFilterState] = useState<EventSource | ''>('');
   const [attentionView, setAttentionView] = useState<'all' | 'needs-action' | 'important'>('all');
+  const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleFilter | null>(null);
 
   const setDays = (d: number) => { setDaysState(d); writeSession(SS_DAYS, String(d)); };
   const setFilter = (f: EventSource | '') => { setFilterState(f); writeSession(SS_FILTER, f); };
@@ -243,6 +246,7 @@ export default function TimelinePage() {
           ...item,
           attentionState: ['blocked', 'failed', 'error', 'pending', 'review', 'queued'].includes(status) ? 'needs-action' : 'normal',
           importance: item.source === 'missions' || item.source === 'events' ? 'important' : 'normal',
+          lifecycleState: deriveLifecycleState({ status, updatedAt: item.timestamp }) ?? undefined,
         };
       }));
       setFailedSources(failed as EventSource[]);
@@ -255,6 +259,7 @@ export default function TimelinePage() {
   const isNeedsAction = (e: TimelineEvent) => e.attentionState === 'needs-action';
   const isImportant = (e: TimelineEvent) => e.importance === 'important';
   const attentionVisible = attentionView === 'needs-action' ? visible.filter(isNeedsAction) : attentionView === 'important' ? visible.filter(isImportant) : visible;
+  const lifecycleVisible = lifecycleFilter ? attentionVisible.filter(e => e.lifecycleState === lifecycleFilter) : attentionVisible;
 
   const daySelector = (
     <div role="group" aria-label="Date range" className="flex gap-1">
@@ -311,11 +316,18 @@ export default function TimelinePage() {
     </div>
   );
   const attentionFilters = (
-    <div role="group" aria-label="Attention view" className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      <div role="group" aria-label="Attention view" className="flex flex-wrap items-center gap-2">
       {([['all', 'All'], ['needs-action', 'Needs action'], ['important', 'Important only']] as const).map(([value, label]) => (
         <button key={value} type="button" onClick={() => setAttentionView(value)} aria-pressed={attentionView === value} className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${attentionView === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
       ))}
-      <span className="text-[10px] text-wb-ink2">{attentionVisible.length} shown</span>
+      </div>
+      <div role="group" aria-label="Lifecycle state" className="flex flex-wrap items-center gap-2">
+        {LIFECYCLE_FILTERS.map(({ value, label }) => (
+          <button key={value} type="button" onClick={() => setLifecycleFilter(lifecycleFilter === value ? null : value)} aria-pressed={lifecycleFilter === value} className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${lifecycleFilter === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+        ))}
+      </div>
+      <span className="text-[10px] text-wb-ink2">{lifecycleVisible.length} shown</span>
     </div>
   );
 
@@ -339,19 +351,19 @@ export default function TimelinePage() {
 
       {loading ? (
         <p className="text-sm text-wb-ink2 animate-pulse">Loading timeline…</p>
-      ) : attentionVisible.length === 0 ? (
+      ) : lifecycleVisible.length === 0 ? (
         // Only claim a genuine empty result when every source actually
         // succeeded; if some failed, the note above already explains it.
         failedSources.length > 0 ? null : (
-          <p className="text-sm text-wb-ink2">{attentionView === 'all' ? `No events in the last ${days} days.` : `No ${attentionView === 'needs-action' ? 'needs-action' : 'important'} events in the current view.`}</p>
+          <p className="text-sm text-wb-ink2">{lifecycleFilter ? `No ${LIFECYCLE_FILTERS.find(f => f.value === lifecycleFilter)?.label.toLowerCase()} events in the current view.` : attentionView === 'all' ? `No events in the last ${days} days.` : `No ${attentionView === 'needs-action' ? 'needs-action' : 'important'} events in the current view.`}</p>
         )
       ) : (
         <div className="flex flex-col">
-          {attentionVisible.map((e, i) => (
+          {lifecycleVisible.map((e, i) => (
             <div key={e.id} className="group flex gap-3">
               <div className="flex w-4 shrink-0 flex-col items-center">
                 <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-wb-sage-deep" aria-hidden />
-                {i < visible.length - 1 && (
+                {i < lifecycleVisible.length - 1 && (
                   <span className="mt-1 w-px flex-1 bg-wb-line" />
                 )}
               </div>

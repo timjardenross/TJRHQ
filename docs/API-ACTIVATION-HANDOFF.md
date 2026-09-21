@@ -35,6 +35,39 @@ These endpoints returned upstream failures during the authenticated local sweep.
 6. Run `npm run typecheck`, `npm run test`, `npm run build`.
 7. Only then promote a deployment.
 
+## Deferred VM implementation — Shopping List saved views
+
+The portal UI may expose saved-view affordances, but persistence must be completed server-side before this capability is treated as production-ready.
+
+Claude CLI on the VM is to:
+
+1. Define the authenticated saved-view contract for Shopping List: create, rename, update filters/sort, select, duplicate, and delete.
+2. Persist views in Supabase with an owner/user key, stable identifier, display name, filter payload, sort payload, default-view flag, and created/updated timestamps.
+3. Add RLS so a user can only read and mutate their own views; do not use localStorage as the source of truth.
+4. Add the existing API boundary for list/create/update/delete operations, preserving the portal's current Supabase/auth connection method and returning typed `ok`, `data`, `empty`, and `unavailable` outcomes.
+5. Make the selected view reload-safe and validate malformed or obsolete filter payloads without silently falling back to a misleading result.
+6. Add regression coverage for ownership isolation, CRUD, default selection, unavailable backend, and stale/invalid view state.
+7. Run the authenticated Shopping List smoke test, `npm run typecheck`, `npm test`, and `npm run build`; record the endpoint status and migration/RLS revision in the completion report.
+
+This item remains **deferred / not activated** until the migration, RLS policies, API contract, and authenticated smoke test are complete. Do not mark it healthy based on a client-only or localStorage implementation.
+
+## Local bundle status — navigation and workflow improvements
+
+The following items are implemented in the local portal bundle but remain uncommitted/unpushed until explicitly authorised:
+
+| Item | Status | Evidence / handoff condition |
+|---|---|---|
+| Reduce the 21-workbench navigation model to four family-level entry points | Implemented | `/workbenches` family navigation is in the local bundle; verify route reachability after deployment. |
+| Canonical “What needs me now” pattern for Hub, Captain’s Chair, Ready Room, and Briefs | Implemented | Shared component is integrated across all four surfaces; run authenticated smoke checks after deployment. |
+| Separate action-required, watch, informational, stale, and unavailable states | Implemented locally | Semantic regions and state markers are present; verify populated, stale, and failed-source states with real data. |
+| End-to-end screen-reader and zoom testing | Partially verified locally | Local accessibility-tree and browser zoom checks passed, plus regression contracts. VM must run the full authenticated six-flow screen-reader/zoom sweep and record results. |
+| Explicit lifecycle filters: blocked, overdue, stale, awaiting-owner | Implemented locally | Shared contract is used by Search and Timeline; verify real records expose each state before production sign-off. |
+| Standard action outcome, retry, undo, and recovery patterns | Implemented locally | Shared outcome component and retry/recovery affordances are present; VM must verify consequential actions against server-backed history. |
+| Server-backed saved views for Shopping List | Deferred to VM | Complete the migration, RLS, API, reload safety, and authenticated smoke test in the section above. |
+| Progressive disclosure for dense OSINT and Human Systems views | Implemented locally | Review queues, capacity trends, recovery trajectory, medical details, and pattern details use accessible disclosures. |
+
+Do not treat “implemented locally” as production-complete until the relevant authenticated smoke test and production build gates pass. Do not push this bundle without explicit instruction.
+
 ## Safety boundary
 
 Do not add service-role keys to client bundles, replace existing adapters with mock data, or convert an upstream failure into a reassuring “clear” state. The portal is designed to remain useful and honest while the VM activates the real services.

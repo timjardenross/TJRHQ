@@ -17,6 +17,7 @@ describe('formal accessibility regression contract', () => {
     expect(skip.getAttribute('href')).toBe('#wb-main');
     expect(screen.getByRole('button', { name: 'Primary action' }).getAttribute('tabindex')).not.toBe('-1');
     expect(document.querySelector('#wb-main')).toBeTruthy();
+    expect(document.querySelector('#wb-main')?.getAttribute('tabindex')).toBe('-1');
   });
 
   it('announces action outcomes and exposes evidence metadata to screen readers', () => {

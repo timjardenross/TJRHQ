@@ -6,7 +6,7 @@
 // promote-to-mission creates a candidate only. Route buttons are neutral per
 // Captain decision 2026-07-12 (no department-hue rainbow).
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   markCaptureReviewed,
@@ -22,6 +22,7 @@ import {
 } from '@/lib/capture';
 import { promoteCaptureToTask } from '@/lib/personalTasks';
 import { SourceBadge, ClassBadge, AiBadge, VoiceMeta, AiSuggestion, parseSummary, fmtDate } from './badges';
+import { ActionOutcome } from '@/components/ActionOutcome';
 
 const ROUTE_DEST: Record<string, { label: string; href: string }> = {
   personal:  { label: "Captain's Log", href: '/captains-log' },
@@ -57,10 +58,14 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
   const [newClass, setNewClass] = useState<CaptureClassification>(item.classification ?? 'unclassified');
   const [newImp, setNewImp] = useState<CaptureImportance>(item.importance ?? 'medium');
   const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  const retryRef = useRef<(() => Promise<{ ok: boolean; error?: string; mission_id?: string }>) | null>(null);
+  const actionStartedAtRef = useRef<number | null>(null);
 
   const parsedSummary = parseSummary(item.summary as Record<string, unknown> | string | null);
 
   const act = useCallback(async (fn: () => Promise<{ ok: boolean; error?: string; mission_id?: string }>, label: string) => {
+    retryRef.current = fn;
+    actionStartedAtRef.current = Date.now();
     setBusy(true);
     setErr(null);
     const res = await fn();
@@ -70,6 +75,7 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
     } else {
       const msg = res.mission_id ? `${label} — Mission candidate: ${res.mission_id}` : label;
       setFlash(msg);
+      retryRef.current = null;
       setTimeout(() => { setFlash(null); onRefresh(); }, 1800);
     }
   }, [onRefresh]);
@@ -116,7 +122,7 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
 
           {flash && (
             <div className="mb-2">
-              <p className="text-xs text-wb-ok-on">✓ {flash}</p>
+              <ActionOutcome message={flash} tone="success" taskId={`capture:${item.id}`} startedAt={actionStartedAtRef.current ?? undefined} />
               {routedDest && (
                 <Link href={routedDest.href} className="mt-1 inline-block text-[10px] uppercase tracking-wider text-wb-sage-deep hover:text-wb-sage-deep/70">
                   View in {routedDest.label} →
@@ -124,7 +130,7 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
               )}
             </div>
           )}
-          {err && <p className="mb-2 text-xs text-wb-crit-on">{err}</p>}
+          {err && <ActionOutcome message={err} tone="error" retry={() => retryRef.current && void act(retryRef.current, 'Action completed')} recoveryHref="/captains-chair-workbench" recoveryLabel="Open Captain’s Chair" />}
 
           {/* Classification + Importance pickers */}
           <div className="mb-3 flex flex-wrap gap-3">

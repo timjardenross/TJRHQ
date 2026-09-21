@@ -294,6 +294,7 @@ function CoveragePanel({ sources, latestCheckedAt }: { sources: EmergencyAlertSo
   else state = 'good';
 
   return (
+    <section aria-label={`Alert coverage: ${state}`} data-alert-state={state === 'degraded' ? 'unavailable' : state}>
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -324,6 +325,7 @@ function CoveragePanel({ sources, latestCheckedAt }: { sources: EmergencyAlertSo
         </Link>
       </div>
     </Card>
+    </section>
   );
 }
 
@@ -730,8 +732,10 @@ export default function EmergencyAlertsWorkbench() {
                 )}
 
                 {emergencyAlerts.length > 0 && (
+                  <section aria-labelledby="alerts-action-required" data-alert-state="action-required">
                   <Card>
                     <h2 className="mb-3 inline-block rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-state-crit-on">
+                      <span id="alerts-action-required">Action required · </span>
                       {emergencyAlerts.length} Emergency Warning{emergencyAlerts.length === 1 ? '' : 's'}
                     </h2>
                     <div className="flex flex-col gap-3">
@@ -740,11 +744,14 @@ export default function EmergencyAlertsWorkbench() {
                       ))}
                     </div>
                   </Card>
+                  </section>
                 )}
 
                 {watchAlerts.length > 0 && (
+                  <section aria-labelledby="alerts-watch" data-alert-state="watch">
                   <Card>
                     <h2 className="mb-3 inline-block rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-state-warn-on">
+                      <span id="alerts-watch">Watch · </span>
                       Watch and Act — {watchAlerts.length} active
                     </h2>
                     <div className="flex flex-col gap-3">
@@ -753,15 +760,18 @@ export default function EmergencyAlertsWorkbench() {
                       ))}
                     </div>
                   </Card>
+                  </section>
                 )}
 
                 {informationalAlerts.length > 0 && (
+                  <section aria-labelledby="alerts-informational" data-alert-state="informational">
                   <Card>
-                    <h2 className="mb-3 inline-block rounded border border-wb-line bg-wb-surface-raised px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-wb-ink2">Informational — {informationalAlerts.length} active · no immediate action</h2>
+                    <h2 className="mb-3 inline-block rounded border border-wb-line bg-wb-surface-raised px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-wb-ink2"><span id="alerts-informational">Informational · </span>{informationalAlerts.length} active · no immediate action</h2>
                     <div className="flex flex-col gap-3">
                       {informationalAlerts.map((alert) => <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
                     </div>
                   </Card>
+                  </section>
                 )}
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">

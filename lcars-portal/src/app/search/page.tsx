@@ -22,6 +22,7 @@ import { WorkbenchShell } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { collectSourceOutcomes } from '@/lib/sourceResults';
 import { EvidenceMeta } from '@/components/EvidenceMeta';
+import { deriveLifecycleState, LIFECYCLE_FILTERS, type LifecycleFilter } from '@/lib/lifecycleFilters';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,7 @@ interface SearchResult {
   href?: string;
   attentionState?: 'needs-action' | 'normal';
   importance?: 'important' | 'normal';
+  lifecycleState?: LifecycleFilter;
 }
 
 // MSN-0351: each searcher reports whether its Supabase read succeeded so a
@@ -204,6 +206,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [attentionView, setAttentionView] = useState<'all' | 'needs-action' | 'important'>('all');
+  const [lifecycleFilter, setLifecycleFilter] = useState<LifecycleFilter | null>(null);
   const [timer, setTimer]     = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const runSearch = useCallback(async (q: string) => {
@@ -231,6 +234,7 @@ export default function SearchPage() {
         return {
           ...item,
           attentionState: ['blocked', 'failed', 'error', 'pending', 'review', 'queued', 'needs_review'].includes(status ?? '') ? 'needs-action' : 'normal',
+          lifecycleState: deriveLifecycleState({ status }) ?? undefined,
           importance: item.type === 'mission' || item.type === 'event' ? 'important' : 'normal',
         };
       }));
@@ -270,7 +274,8 @@ export default function SearchPage() {
   const isNeedsAction = (r: SearchResult) => r.attentionState === 'needs-action';
   const isImportant = (r: SearchResult) => r.importance === 'important';
   const filteredResults = attentionView === 'needs-action' ? results.filter(isNeedsAction) : attentionView === 'important' ? results.filter(isImportant) : results;
-  const filteredGrouped = filteredResults.reduce<Record<string, SearchResult[]>>((acc, r) => { (acc[r.type] ??= []).push(r); return acc; }, {});
+  const lifecycleResults = lifecycleFilter ? filteredResults.filter(r => r.lifecycleState === lifecycleFilter) : filteredResults;
+  const filteredGrouped = lifecycleResults.reduce<Record<string, SearchResult[]>>((acc, r) => { (acc[r.type] ??= []).push(r); return acc; }, {});
 
   return (
     <WorkbenchShell
@@ -302,7 +307,10 @@ export default function SearchPage() {
           {([['all', 'All'], ['needs-action', 'Needs action'], ['important', 'Important only']] as const).map(([value, label]) => (
             <button key={value} type="button" onClick={() => setAttentionView(value)} aria-pressed={attentionView === value} className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${attentionView === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
           ))}
-          <span className="self-center text-[10px] text-wb-ink2">{filteredResults.length} shown</span>
+          {LIFECYCLE_FILTERS.map(({ value, label }) => (
+            <button key={value} type="button" onClick={() => setLifecycleFilter(lifecycleFilter === value ? null : value)} aria-pressed={lifecycleFilter === value} className={`rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${lifecycleFilter === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+          ))}
+          <span className="self-center text-[10px] text-wb-ink2">{lifecycleResults.length} shown</span>
         </div>
 
         {!searched && (
@@ -324,8 +332,8 @@ export default function SearchPage() {
           <p className="text-sm text-wb-ink2">No results for <span className="text-wb-ink">&ldquo;{query}&rdquo;</span></p>
         )}
 
-        {searched && !loading && filteredResults.length === 0 && results.length > 0 && (
-          <p className="text-sm text-wb-ink2">No {attentionView === 'needs-action' ? 'needs-action' : 'important'} results in the current search.</p>
+        {searched && !loading && lifecycleResults.length === 0 && results.length > 0 && (
+          <p className="text-sm text-wb-ink2">No {lifecycleFilter ? LIFECYCLE_FILTERS.find(f => f.value === lifecycleFilter)?.label.toLowerCase() : attentionView === 'needs-action' ? 'needs-action' : 'important'} results in the current search.</p>
         )}
         {Object.entries(filteredGrouped).map(([type, items]) => (
           <div key={type} className="flex flex-col gap-1">
