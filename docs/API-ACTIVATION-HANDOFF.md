@@ -51,9 +51,9 @@ Claude CLI on the VM is to:
 
 This item remains **deferred / not activated** until the migration, RLS policies, API contract, and authenticated smoke test are complete. Do not mark it healthy based on a client-only or localStorage implementation.
 
-## Local bundle status — navigation and workflow improvements
+## Delivered bundle status — navigation and workflow improvements
 
-The following items are implemented in the local portal bundle but remain uncommitted/unpushed until explicitly authorised:
+The following items were delivered in commit `c81a279` on `main`:
 
 | Item | Status | Evidence / handoff condition |
 |---|---|---|
@@ -64,9 +64,19 @@ The following items are implemented in the local portal bundle but remain uncomm
 | Explicit lifecycle filters: blocked, overdue, stale, awaiting-owner | Implemented locally | Shared contract is used by Search and Timeline; verify real records expose each state before production sign-off. |
 | Standard action outcome, retry, undo, and recovery patterns | Implemented locally | Shared outcome component and retry/recovery affordances are present; VM must verify consequential actions against server-backed history. |
 | Server-backed saved views for Shopping List | Deferred to VM | Complete the migration, RLS, API, reload safety, and authenticated smoke test in the section above. |
-| Progressive disclosure for dense OSINT and Human Systems views | Implemented locally | Review queues, capacity trends, recovery trajectory, medical details, and pattern details use accessible disclosures. |
+| Progressive disclosure for dense OSINT and Human Systems views | Implemented | Review queues, capacity trends, recovery trajectory, medical details, and pattern details use accessible disclosures. |
 
-Do not treat “implemented locally” as production-complete until the relevant authenticated smoke test and production build gates pass. Do not push this bundle without explicit instruction.
+The UI and automated verification gates passed before the push: full suite `71 files / 731 tests`, typecheck, diff validation, and production build. Do not treat the partially verified accessibility item or deferred Shopping List item as production-complete until the VM checks below pass.
+
+## VM verification for delivered workflow improvements
+
+After deploying commit `c81a279`, Claude CLI on the VM must:
+
+1. Confirm task telemetry writes authenticated `task_started`, `task_completed`, and retry events to the existing server-backed action-history path, including viewport and coarse-pointer context; do not log content or credentials.
+2. Run six high-risk mobile workflows and report start, completion, retry, abandonment, and time-to-completion observations from the server history.
+3. Keyboard-tab through the global shell on desktop and mobile/tablet widths: skip link, home, settings, workbench/family switcher, tabs, back link, primary action, mobile Command Bar, More sheet, Quick Capture, and Number One.
+4. Confirm client-side navigation places focus on `#wb-main`, the new page heading/content is announced, no control disappears with focus, and focus-visible indicators remain visible at 200% zoom.
+5. Complete the full authenticated screen-reader/zoom sweep and record route, viewport, browser/reader, result, and any remediation.
 
 ## Safety boundary
 
