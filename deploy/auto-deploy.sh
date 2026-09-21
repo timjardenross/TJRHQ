@@ -100,6 +100,16 @@ if echo "$CHANGED_FILES" | grep -q '^lcars-portal/'; then
   # Infisical wrapper the systemd unit uses at runtime so NEXT_PUBLIC_*
   # gets baked in for real.
   ( cd "$REPO_ROOT/lcars-portal" && npm ci --no-audit --no-fund && "$REPO_ROOT/platform-runtime/run-with-infisical.sh" npm run build )
+  # 2026-09-21: OLLAMA_MODEL_DEFAULT misconfig (misspelled secret key ->
+  # code fell back to a model Ollama doesn't have) silently killed AI
+  # Review/Polish/Generate for an unknown period - no error, no crash, just
+  # honest-fallback scaffold mode forever. Fail the deploy loudly here
+  # instead of restarting into the same silent failure again.
+  echo "$LOG_PREFIX checking OLLAMA_MODEL_DEFAULT against Ollama's pulled models"
+  if ! "$REPO_ROOT/platform-runtime/run-with-infisical.sh" "$REPO_ROOT/platform-runtime/check-ollama-model-default.sh"; then
+    echo "$LOG_PREFIX ABORT: OLLAMA_MODEL_DEFAULT is missing or unavailable - not restarting lcars-portal.service into a broken AI config. Needs a human." >&2
+    exit 1
+  fi
   echo "$LOG_PREFIX restarting lcars-portal.service"
   "$SYSTEMCTL" restart lcars-portal.service || echo "$LOG_PREFIX WARNING: restart failed for lcars-portal.service" >&2
 fi
