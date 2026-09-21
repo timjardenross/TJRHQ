@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireSession } from '@/lib/supabase-server';
 import { supabaseAdmin } from '@/lib/ai-actions';
 import { recordHeartbeatServerSide } from '@/lib/heartbeat';
+import { logActionHistory } from '@/lib/actionHistoryServer';
 
 // Advisory transcripts are Captain-only content - require a real session
 // before reading or writing (WORKBENCH-REVIEW.md finding C3, 2026-07-18:
@@ -28,12 +29,15 @@ export async function POST(req: NextRequest) {
     const { mode, advisor_id, question, response, result, metadata } = body;
 
     if (!mode || !question) {
+      await logActionHistory({ action: 'advisory.session_save', outcome: 'failed', workbench: 'advisory', details: { reason: 'mode_and_question_required' } });
       return NextResponse.json({ error: 'mode and question are required' }, { status: 400 });
     }
     if (mode === 'consult' && !response) {
+      await logActionHistory({ action: 'advisory.session_save', outcome: 'failed', workbench: 'advisory', details: { reason: 'response_required', mode } });
       return NextResponse.json({ error: 'response is required for consult mode' }, { status: 400 });
     }
     if (mode === 'board' && !result) {
+      await logActionHistory({ action: 'advisory.session_save', outcome: 'failed', workbench: 'advisory', details: { reason: 'result_required', mode } });
       return NextResponse.json({ error: 'result is required for board mode' }, { status: 400 });
     }
 
@@ -46,16 +50,19 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error('[advisory-sessions POST] insert failed:', error);
+      await logActionHistory({ action: 'advisory.session_save', outcome: 'failed', workbench: 'advisory', details: { reason: 'write_error', mode } });
       return NextResponse.json({ error: 'internal error' }, { status: 500 });
     }
 
     // Heartbeat only after the real advisory_sessions row is confirmed
     // written — never before, never on the error path above.
     await recordHeartbeatServerSide({ domainKey: 'advisory_sessions', detail: `mode=${mode}` });
+    await logActionHistory({ action: 'advisory.session_save', outcome: 'success', workbench: 'advisory', recordId: data.id, details: { mode, advisor_id: advisor_id ?? null } });
 
     return NextResponse.json({ ok: true, id: data.id, created_at: data.created_at });
   } catch (err) {
     console.error('[advisory-sessions POST] unhandled error:', err);
+    await logActionHistory({ action: 'advisory.session_save', outcome: 'failed', workbench: 'advisory', details: { reason: 'exception' } });
     return NextResponse.json({ error: 'internal error' }, { status: 500 });
   }
 }

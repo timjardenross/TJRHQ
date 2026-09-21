@@ -460,11 +460,21 @@ export async function updateTaskState(
   try {
     const supabase = createSupabaseBrowserClient();
     const { error } = await supabase.from('personal_tasks').update(patch).eq('id', id);
-    if (error) return { ok: false, error: error.message };
-    void fetch('/api/action-history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'personal_task_state_changed', outcome: 'recorded', details: { task_id: id, work_state } }) }).catch(() => {});
+    if (error) {
+      // Controlled failure — the request reached the mutation boundary and
+      // was rejected by the database (e.g. RLS/permission denial or a
+      // constraint violation), not a network/client-side exception. Log it
+      // as a failed outcome instead of returning silently with zero event,
+      // same minimal {task_id, work_state}-style payload as the success path.
+      void fetch('/api/action-history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'personal_task_state_changed', outcome: 'failed', details: { task_id: id, work_state, error: error.message } }) }).catch(() => {});
+      return { ok: false, error: error.message };
+    }
+    void fetch('/api/action-history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'personal_task_state_changed', outcome: 'success', details: { task_id: id, work_state } }) }).catch(() => {});
     return { ok: true, id };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Failed to update task.' };
+    const message = err instanceof Error ? err.message : 'Failed to update task.';
+    void fetch('/api/action-history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'personal_task_state_changed', outcome: 'failed', details: { task_id: id, work_state, error: message } }) }).catch(() => {});
+    return { ok: false, error: message };
   }
 }
 

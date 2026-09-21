@@ -3,6 +3,7 @@ import { createSupabaseServerClient, requireSession } from '@/lib/supabase-serve
 import { decideDocument, VALID_DECISIONS } from '@/lib/knowledgeLibraryDecide';
 import type { ReviewDecision } from '@/lib/types';
 import { errorDetail } from '@/lib/errorDetail';
+import { logActionHistory } from '@/lib/actionHistoryServer';
 
 // USS-TJR-MSN-0205D: the ONLY write path from the processing pipeline
 // (processing_documents/processing_chunks, MSN-0205C, pre-approval
@@ -53,6 +54,7 @@ export async function POST(
 
   const decision = body.decision as ReviewDecision;
   if (!VALID_DECISIONS.includes(decision)) {
+    await logActionHistory({ action: 'knowledge_library.document_decide', outcome: 'failed', workbench: 'knowledge-library', recordId: id, details: { reason: 'invalid_decision' } });
     return NextResponse.json(
       { error: 'Invalid decision', valid_decisions: VALID_DECISIONS },
       { status: 400 },
@@ -66,13 +68,20 @@ export async function POST(
 
     if (!outcome.ok) {
       if (outcome.error === 'not_found') {
+        await logActionHistory({ action: 'knowledge_library.document_decide', outcome: 'failed', workbench: 'knowledge-library', recordId: id, details: { reason: 'not_found', decision } });
         return NextResponse.json({ error: 'Document not found', id }, { status: 404 });
       }
       if (outcome.error === 'not_awaiting_review' || outcome.error === 'already_resolved') {
+        // A controlled rejection — e.g. deciding a document twice — is a
+        // distinct, visible retry outcome, not a repeated success.
+        await logActionHistory({ action: 'knowledge_library.document_decide', outcome: 'cancelled', workbench: 'knowledge-library', recordId: id, details: { reason: outcome.error, decision } });
         return NextResponse.json({ error: outcome.detail }, { status: 409 });
       }
+      await logActionHistory({ action: 'knowledge_library.document_decide', outcome: 'failed', workbench: 'knowledge-library', recordId: id, details: { reason: outcome.error, decision } });
       return NextResponse.json({ error: outcome.detail, valid_decisions: VALID_DECISIONS }, { status: 400 });
     }
+
+    await logActionHistory({ action: 'knowledge_library.document_decide', outcome: 'success', workbench: 'knowledge-library', recordId: outcome.id, details: { decision: outcome.decision, review_status: outcome.review_status } });
 
     return NextResponse.json({
       id: outcome.id,
@@ -84,6 +93,7 @@ export async function POST(
     });
   } catch (err) {
     const detail = errorDetail(err);
+    await logActionHistory({ action: 'knowledge_library.document_decide', outcome: 'failed', workbench: 'knowledge-library', recordId: id, details: { reason: 'exception', decision } });
     return NextResponse.json({ error: 'Decision failed', detail }, { status: 500 });
   }
 }
