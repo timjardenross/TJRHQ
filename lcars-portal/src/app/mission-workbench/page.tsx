@@ -81,15 +81,16 @@ export default function MissionWorkbenchPage() {
           .order('priority', { ascending: true });
         if (error) throw error;
         if (data) {
-          setLiveMissions(data as Mission[]);
+          const missions = data as Mission[];
+          setLiveMissions(missions);
           const byPriority: Record<string, number> = {};
-          data.forEach(m => { if (m.priority) byPriority[m.priority] = (byPriority[m.priority] ?? 0) + 1; });
+          missions.forEach(m => { if (m.priority) byPriority[m.priority] = (byPriority[m.priority] ?? 0) + 1; });
           setLiveSummary({
-            total: data.length,
-            active: data.filter(m => ACTIVE_STATUSES.includes(m.status)).length,
-            in_progress: data.filter(m => m.status === 'Implemented' || m.status === 'Tested').length,
-            blocked: data.filter(m => m.status === 'Blocked').length,
-            completed: data.filter(m => COMPLETED_STATUSES.includes(m.status)).length,
+            total: missions.length,
+            active: missions.filter(m => ACTIVE_STATUSES.includes(m.status)).length,
+            in_progress: missions.filter(m => m.status === 'Implemented' || m.status === 'Tested').length,
+            blocked: missions.filter(m => m.status === 'Blocked').length,
+            completed: missions.filter(m => COMPLETED_STATUSES.includes(m.status)).length,
             by_priority: byPriority,
           });
         }
