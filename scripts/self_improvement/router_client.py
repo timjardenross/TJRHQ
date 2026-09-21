@@ -295,6 +295,37 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
 
             return response_data
 
+        except urllib.error.HTTPError as exc:
+            # HTTPError is a URLError subclass raised whenever the router
+            # responds with a non-2xx status (e.g. the 500 it sends for
+            # `{"success": False, ...}` results - see app.py's do_POST).
+            # str(exc) on it is just "HTTP Error 500: Internal Server
+            # Error" - the generic reason phrase, not the router's actual
+            # "error" field, which is sitting unread in the response body.
+            # Caught separately from URLError below (which never has a
+            # response to read) so the real failure reason - a missing
+            # GEMINI_API_KEY, a guardrails block, an upstream Gemini error,
+            # etc. - reaches the log instead of this one indistinguishable
+            # line for every possible 500.
+            duration_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
+            detail = exc.reason
+            try:
+                body = exc.read().decode()
+                parsed = json.loads(body)
+                if isinstance(parsed, dict) and parsed.get("error"):
+                    detail = parsed["error"]
+                elif body:
+                    detail = body
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                pass
+            log.error(f"{task_type} HTTP {exc.code}: {detail}")
+            self._log_call(task_type, None, duration_ms, error=str(detail))
+            return {
+                "success": False,
+                "error": str(detail),
+                "task_type": task_type,
+                "duration_ms": duration_ms,
+            }
         except urllib.error.URLError as exc:
             duration_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
             log.error(f"{task_type} network error: {exc}")
