@@ -20,6 +20,7 @@ Endpoints:
     POST /api/model/self-improvement-mission   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/hq-evolution-investigate   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/hq-evolution-evaluate-outcome  gemini-flash-latest  (cloud, GEMINI_API_KEY)
+    POST /api/model/hq-evolution-external-fit  gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/health-signal-curation     gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/adhd-decompose      gemma3:4b      keep_alive 2m   (Ready Room workbench)
     GET  /api/model/status              Ollama status + loaded models
@@ -301,6 +302,21 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # evidence), not a re-run of the original investigation — same timeout
     # class as hq-evolution-investigate.
     "hq-evolution-evaluate-outcome": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300},
+    # HQ Evolution (follow-up to MSN-0099): README-grounded fit assessment
+    # for a bounded top-N of external-discovery candidates per cycle (see
+    # scripts/self_improvement/external_enrichment.py and router_client.py's
+    # assess_external_candidate). This entry was missing entirely — the
+    # client called POST /api/model/hq-evolution-external-fit against a
+    # route that didn't exist here, so every enrichment call 404'd and was
+    # silently swallowed by enrich()'s fail-open per-candidate handling.
+    # Net effect: every external candidate kept external_discovery.py's
+    # metadata-only fit="moderate"/evidence_strength="moderate" defaults
+    # forever, which relevance.py's score_candidate() can never raise
+    # above ~0.42 — under min_relevance_score_to_investigate (0.5) — so no
+    # external candidate could ever clear the relevance gate. Same bounded
+    # input shape (one candidate + a truncated README excerpt) as
+    # hq-evolution-investigate — same timeout class.
+    "hq-evolution-external-fit": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300},
     # HQ V1 Integration QA §28 fix: tools/health-osint/health_signal_curation.py
     # previously called core/llm/provider_chain.py directly, bypassing this
     # router entirely (the one confirmed Model Router bypass found in that
@@ -398,6 +414,38 @@ _ADHD_DECOMPOSE_LOW_CAPACITY_SUFFIX = (
 )
 
 _LOW_CAPACITY_POSTURES = {"PROTECT", "RECOVER", "RESET"}
+
+# do_POST's generic dispatch table: POST path -> TASK_POLICY key. Every
+# TASK_POLICY entry except "adhd-decompose" (its own handler, different
+# request/response shape — see _handle_adhd_decompose) must have a route
+# here, or a client calling that task_type 404s silently forever (see
+# "hq-evolution-external-fit"'s own TASK_POLICY comment for the real
+# incident this caused). tests/test_model_router_route_contract.py
+# enforces this invariant against router_client.py's actual call sites —
+# update both together.
+TASK_ROUTES: dict[str, str] = {
+    "/api/model/classify-capture":     "classify-capture",
+    "/api/model/summarise-note":       "summarise-note",
+    "/api/model/classify-document":    "classify-document",
+    "/api/model/summarise-document":   "summarise-document",
+    "/api/model/intelligence-brief":   "intelligence-brief",
+    "/api/model/intelligence-signals": "intelligence-signals",
+    "/api/model/xo-response":          "xo-response",
+    "/api/model/embed":                "embed",
+    "/api/model/escalate":             "escalate",
+    "/api/model/fallback-complex":     "fallback-complex",
+    "/api/model/engineering-review":   "engineering-review",
+    "/api/model/captain-insight-synthesis": "captain-insight-synthesis",
+    "/api/model/captain-reasoning-synthesis": "captain-reasoning-synthesis",
+    "/api/model/billing-report":        "billing-report",
+    "/api/model/self-improvement-analyse": "self-improvement-analyse",
+    "/api/model/self-improvement-critique": "self-improvement-critique",
+    "/api/model/self-improvement-mission": "self-improvement-mission",
+    "/api/model/hq-evolution-investigate": "hq-evolution-investigate",
+    "/api/model/hq-evolution-evaluate-outcome": "hq-evolution-evaluate-outcome",
+    "/api/model/hq-evolution-external-fit": "hq-evolution-external-fit",
+    "/api/model/health-signal-curation": "health-signal-curation",
+}
 
 # Escalation triggers — checked against PROMPT ONLY (not response) for classify-capture.
 # Narrow and intent-based: matches things the Captain is actually asking to do,
@@ -811,29 +859,7 @@ class RouterHandler(BaseHTTPRequestHandler):
             self._handle_adhd_decompose()
             return
 
-        route_map = {
-            "/api/model/classify-capture":     "classify-capture",
-            "/api/model/summarise-note":       "summarise-note",
-            "/api/model/classify-document":    "classify-document",
-            "/api/model/summarise-document":   "summarise-document",
-            "/api/model/intelligence-brief":   "intelligence-brief",
-            "/api/model/intelligence-signals": "intelligence-signals",
-            "/api/model/xo-response":          "xo-response",
-            "/api/model/embed":                "embed",
-            "/api/model/escalate":             "escalate",
-            "/api/model/fallback-complex":     "fallback-complex",
-            "/api/model/engineering-review":   "engineering-review",
-            "/api/model/captain-insight-synthesis": "captain-insight-synthesis",
-            "/api/model/captain-reasoning-synthesis": "captain-reasoning-synthesis",
-            "/api/model/billing-report":        "billing-report",
-            "/api/model/self-improvement-analyse": "self-improvement-analyse",
-            "/api/model/self-improvement-critique": "self-improvement-critique",
-            "/api/model/self-improvement-mission": "self-improvement-mission",
-            "/api/model/hq-evolution-investigate": "hq-evolution-investigate",
-            "/api/model/hq-evolution-evaluate-outcome": "hq-evolution-evaluate-outcome",
-            "/api/model/health-signal-curation": "health-signal-curation",
-        }
-        task_type = route_map.get(path)
+        task_type = TASK_ROUTES.get(path)
         if task_type is None:
             self._send_json(404, {"error": f"unknown route: {path}"})
             return

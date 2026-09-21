@@ -1,6 +1,6 @@
 {
-  "version": "2.0.0",
-  "last_updated": "2026-09-12",
+  "version": "2.1.0",
+  "last_updated": "2026-09-21",
   "_comment": "HQ Evolution external-discovery watchlist (spec section 9/43). Each topic must answer 'why is this relevant to TJR HQ?' before being searched — no generic tech-trend scanning. `gap_hypothesis` is exactly that — a HYPOTHESIS, not a settled fact — validated against current repo evidence by state_validation.py before any external search happens (`validation`, when present; omitted where no honest deterministic check exists, which validates as 'unclear' and still proceeds cautiously). github_query uses GitHub's search-qualifiers syntax (https://docs.github.com/search-github/searching-on-github).",
   "topics": [
     {
@@ -63,7 +63,8 @@
       "github_query": "model context protocol server topic:mcp",
       "gap_hypothesis": "MCP integration effort and fit are tracked ad hoc, not evaluated against a standard checklist.",
       "validation_question": "Is there a documented MCP integration checklist or evaluation record anywhere in the repo?",
-      "why_relevant": "HQ already integrates several MCP servers; new MCP servers may close a specific integration gap (e.g. a data source Technical OSINT currently polls by hand) rather than being adopted for novelty."
+      "why_relevant": "HQ already integrates several MCP servers; new MCP servers may close a specific integration gap (e.g. a data source Technical OSINT currently polls by hand) rather than being adopted for novelty.",
+      "validation": {"check_type": "file_exists_resolves", "paths": ["specialists/knowledge-packs/MCP-Integration-Checklist.md"]}
     },
     {
       "id": "task-decomposition",
@@ -80,7 +81,8 @@
       "github_query": "local llm inference server efficient quantized",
       "gap_hypothesis": "No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.",
       "validation_question": "Does a cost/quality tradeoff review for TASK_POLICY's cloud-routed task types exist anywhere in docs/?",
-      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost.",
+      "validation": {"check_type": "file_exists_resolves", "paths": ["docs/model-router-cost-quality-review.md"]}
     }
   ]
 }
