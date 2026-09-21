@@ -1,0 +1,81 @@
+{
+  "findings": [
+    {
+      "category": "router_bypass",
+      "title": "Direct LLM API calls bypass model router in emergency alerts",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct invocation of call_gemini and call_mistral via environment API keys instead of routing through model router",
+          "location": "intelligence/emergency_alert_<URL>"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "high",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Refactor emergency alert generation to route LLM queries through the centralized model router interface"
+      },
+      "expected_benefit": "Enforces unified model routing policies, observability, rate limiting, and centralized fallback handling"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Model router call log file is missing",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "Model router specifies call log path at /opt/starship-endeavour/core/model-router/call_log.jsonl but call_log_exists is false",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure model router creates and maintains call_log.jsonl with appropriate directory write permissions"
+      },
+      "expected_benefit": "Restores visibility into router request volumes, token usage, latency metrics, and error rates"
+    },
+    {
+      "category": "operational_failure",
+      "title": "Model router reports repeated recent failures",
+      "evidence": [
+        {
+          "type": "service_status",
+          "observation": "Model router reports 5 recent failed invocations while recent_avg_ms is null",
+          "location": "http://localhost:8891"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "monitor",
+        "description": "Investigate router failure logs and test backend inference connectivity to Ollama and cloud provider targets"
+      },
+      "expected_benefit": "Prevents upstream application task failures across dependent services requiring LLM completions"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Incomplete Phase 5 implementations and stubbed anomaly queries",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "TODO stub leaving recent_anomalies empty without querying quality_anomalies table",
+          "location": "platform-runtime/lib/quality_forecasting_<URL>"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Multiple TODO comments for Phase 5 Supabase authorization and decision_to_memory integration",
+          "location": "platform-runtime/commands/research_<URL>"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement database querying for quality anomalies and complete authorization checking in research commands"
+      },
+      "expected_benefit": "Ensures forecasting algorithms use real historical data and prevents unauthorized execution of research commands"
+    }
+  ]
+}
