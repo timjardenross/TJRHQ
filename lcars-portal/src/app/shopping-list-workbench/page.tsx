@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ShoppingCart, Receipt, Heart } from 'lucide-react';
 import { WorkbenchShell, Button, Card, Select } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import {
   fetchShoppingList,
   createShoppingListItem,
@@ -146,6 +147,14 @@ export default function ShoppingListWorkbench() {
   );
   const wishlistedCount = useMemo(() => items.filter((i) => i.status === 'wishlist').length, [items]);
 
+  // WP2: latest write across the loaded rows themselves (updated_at), so
+  // the summary counts carry a real observed time rather than "page load
+  // time" — the two can genuinely differ if the list hasn't changed today.
+  const latestUpdatedAt = useMemo(
+    () => items.reduce<string | null>((latest, i) => (!latest || i.updated_at > latest ? i.updated_at : latest), null),
+    [items],
+  );
+
   async function handleSave(input: NewShoppingListItemInput): Promise<ShoppingListResult> {
     const result = editing
       ? await updateShoppingListItem(editing.id, input)
@@ -233,6 +242,13 @@ export default function ShoppingListWorkbench() {
             </div>
           </Card>
         </div>
+        {!loading && (
+          <EvidenceMeta
+            source="Shopping list (Supabase shopping_list_items)"
+            observedAt={latestUpdatedAt}
+            state={items.length === 0 ? 'empty' : undefined}
+          />
+        )}
 
         <Card>
           <div className="flex flex-col gap-4">

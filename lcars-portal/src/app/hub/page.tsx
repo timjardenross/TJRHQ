@@ -61,6 +61,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { WorkbenchShell } from '@/components/ui';
 import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import { WhatNeedsMeNow } from '@/components/WhatNeedsMeNow';
 import { OperationalStateBadge, type OperationalState } from '@/components/OperationalState';
 import {
@@ -507,6 +508,17 @@ export default function LifeOSHub() {
                       ? 'Degraded — no action required'
                       : 'Status unknown'}
             </p>
+            {/* WP2: Hub deliberately stays terse (mission §8) — one compact
+             * evidence line, not a repeat of the fuller System Status panel
+             * Captain's Chair shows for the same /api/agent-status-workbench
+             * overview data. */}
+            <div className="text-center">
+              <EvidenceMeta
+                source="Agent status overview"
+                observedAt={hqStatus?.observedAt}
+                state={hqStatusError || !hqStatus || hqStatus.posture === 'UNKNOWN' ? 'unavailable' : undefined}
+              />
+            </div>
 
             {/* ── 7. Calm end state + Read aloud + Ask Number One ── */}
             <div className="flex flex-col items-center gap-2 pt-2">

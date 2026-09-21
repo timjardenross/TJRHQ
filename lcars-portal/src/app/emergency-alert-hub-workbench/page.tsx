@@ -41,6 +41,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Badge, Card, WorkbenchShell, toneToStatus } from '@/components/ui';
 import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import { emergencyAlertTierToTone } from '@/lib/departments';
 import type { EmergencyAlertEntry } from '@/app/api/emergency-alerts/route';
 import type { EmergencyAlertSourceEntry } from '@/app/api/emergency-alerts/sources/route';
@@ -316,6 +317,11 @@ function CoveragePanel({ sources, latestCheckedAt }: { sources: EmergencyAlertSo
           <p className="mt-1 text-[11px] text-wb-ink2">
             {latestCheckedAt ? `Last checked ${relativeTime(latestCheckedAt)}.` : 'No collection recorded yet.'}
           </p>
+          <EvidenceMeta
+            source={`${sources.length} official alert source${sources.length === 1 ? '' : 's'} (domain_heartbeats)`}
+            observedAt={latestCheckedAt}
+            state={state === 'unknown' ? 'unavailable' : state === 'degraded' ? 'unavailable' : state === 'stale' ? 'stale' : undefined}
+          />
         </div>
         <Link
           href="/agent-status-workbench"
@@ -690,8 +696,19 @@ export default function EmergencyAlertsWorkbench() {
                 long one) with no wrap fallback overflowed at 375px -- same
                 class of defect as Briefs' TabBar, fixed the same way
                 (DomainToggle.tsx's established flex-nowrap + overflow-x-auto
-                scroll pattern rather than a new one). */}
-            <div className="flex flex-nowrap gap-2 overflow-x-auto [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory">
+                scroll pattern rather than a new one).
+                WP3 defect #4 sweep (200% zoom, live-verified: htmlScrollWidth
+                248 vs 195 innerWidth at the zoomed-equivalent width): this
+                row is a flex item inside the surrounding `flex flex-col`
+                wrapper above. Without `min-w-0`, a flex item's default
+                automatic minimum size is its content's min-content width —
+                here the sum of 3 unwrapped buttons — so the scroll container
+                meant to contain that overflow (`overflow-x-auto`) was itself
+                being stretched past the viewport by its flex parent instead
+                of clipping to it, pushing the whole page into horizontal
+                scroll rather than just this row. `min-w-0` lets it shrink to
+                the parent's actual width so overflow-x-auto does its job. */}
+            <div className="flex min-w-0 flex-nowrap gap-2 overflow-x-auto [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory">
               <button
                 onClick={() => setView('overview')}
                 className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}

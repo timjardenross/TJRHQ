@@ -26,7 +26,7 @@ export function SourceDetail({ summary, sections }: { summary: SystemSummary; se
         <div className="flex flex-col gap-4 border-t border-wb-line px-4 py-4">
           <SummaryCards summary={summary} />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {sections.map((section) => <WorkbenchCard key={section.key} section={section} />)}
+            {sections.map((section) => <WorkbenchCard key={section.key} section={section} observedAt={summary.weekEnd} />)}
           </div>
         </div>
       )}

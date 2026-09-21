@@ -28,6 +28,7 @@ import { useState } from 'react';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { Badge, Card, WorkbenchShell } from '@/components/ui';
 import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import type { BadgeStatus } from '@/components/ui';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 
@@ -182,6 +183,11 @@ function HandoffCard({ handoff }: { handoff: Handoff }) {
         </span>
       </div>
       <p className="mb-3 text-[12px] text-wb-ink2">{handoff.next_action}</p>
+      <EvidenceMeta
+        source="Engineering handoff reader"
+        observedAt={metadata.approved_at || undefined}
+        state={!metadata.pr_url && !metadata.batch_artifact ? 'no-action' : undefined}
+      />
       {metadata.engineering_status === 'Completed' ? (
         metadata.pr_url && (
           <a
@@ -255,6 +261,13 @@ export default function EngineeringHandoffsPage() {
   const sortedCompleted = [...completed].sort(
     (a, b) => (b.metadata.approved_at || '').localeCompare(a.metadata.approved_at || '')
   );
+  // WP2: the only real timestamp this shape carries is approved_at, and only
+  // completed/reviewed handoffs have one — the most recent across all loaded
+  // handoffs is the honest "as of" for the stage-count tiles below.
+  const latestApprovedAt = handoffs.reduce<string | null>(
+    (latest, h) => (h.metadata.approved_at && (!latest || h.metadata.approved_at > latest) ? h.metadata.approved_at : latest),
+    null,
+  );
   const queues: Record<Queue, Handoff[]> = {
     review: sorted.filter(h => queueFor(h) === 'review'),
     delivery: [...sortedCompleted, ...sorted.filter(h => queueFor(h) === 'delivery')],
@@ -283,6 +296,13 @@ export default function EngineeringHandoffsPage() {
                 </div>
               ))}
             </div>
+          )}
+          {!isLoading && !loadError && (
+            <EvidenceMeta
+              source="Engineering handoff reader (core/coordination/engineering_handoff_reader.py)"
+              observedAt={latestApprovedAt}
+              state={handoffs.length === 0 ? 'empty' : undefined}
+            />
           )}
         </Card>
 

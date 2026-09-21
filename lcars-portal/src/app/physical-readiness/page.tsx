@@ -15,6 +15,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { WorkbenchShell } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { SESSION_TYPE_LABELS, type SessionType } from '@/lib/physical-readiness';
 
@@ -100,6 +101,13 @@ export default function PhysicalReadinessHome() {
             <p className="mt-3 text-xs text-wb-ink2">
               {weeklyCount} session{weeklyCount === 1 ? '' : 's'} completed in the last 7 days.
             </p>
+          )}
+          {!loading && (
+            <EvidenceMeta
+              source="physical_workout_sessions (Supabase)"
+              observedAt={lastSession?.started_at}
+              state={!lastSession ? 'empty' : undefined}
+            />
           )}
         </div>
 

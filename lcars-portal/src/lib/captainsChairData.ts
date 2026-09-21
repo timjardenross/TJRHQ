@@ -228,6 +228,10 @@ export interface HqStatusSummary {
   summary: string;
   needsAttentionCount: number;
   attentionItems: Array<{ title: string; detail: string }>;
+  /** WP2: real fetchedAt from /api/agent-status-workbench/overview — was
+   * computed server-side (route.ts) but previously dropped on the floor
+   * here, so no caller could show when this posture was actually assessed. */
+  observedAt: string | null;
 }
 
 export function useHqStatusSummary(): { data: HqStatusSummary | null; loading: boolean; error: string | null } {
@@ -248,6 +252,7 @@ export function useHqStatusSummary(): { data: HqStatusSummary | null; loading: b
           summary: body?.captainSummary?.summary ?? body?.headline ?? 'HQ status unknown',
           needsAttentionCount: body?.needsAttentionCount ?? 0,
           attentionItems: Array.isArray(body?.attentionItems) ? body.attentionItems : [],
+          observedAt: typeof body?.fetchedAt === 'string' ? body.fetchedAt : null,
         });
         setError(null);
       } catch (e) {

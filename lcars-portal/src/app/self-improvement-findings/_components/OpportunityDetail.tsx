@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import { Card, Badge, toneToStatus } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import { lifecycleStateToTone, valueToTone, opportunityRiskToTone, outcomeResultToTone } from '@/lib/departments';
 import { CHANGE_CLASS_LABEL, MISSION_ONLY_CLASSES, type Opportunity } from './types';
 
@@ -115,6 +116,16 @@ export function OpportunityDetail({
           <div className="text-sm text-wb-ink">{Math.round((inv.confidence ?? opportunity.confidence ?? 0) * 100)}%</div>
         </div>
       </div>
+
+      {/* WP2: opportunity_store.py's own provenance/created_at/confidence —
+       * no fabricated timestamp or score. `unavailable` only when the
+       * finding literally has no cited provenance entries at all. */}
+      <EvidenceMeta
+        source={opportunity.provenance?.length ? opportunity.provenance.map((p) => p.source).filter(Boolean).join(', ') : undefined}
+        observedAt={opportunity.created_at}
+        confidence={`${Math.round((inv.confidence ?? opportunity.confidence ?? 0) * 100)}%`}
+        state={!opportunity.provenance?.length ? 'unavailable' : undefined}
+      />
 
       {!!inv.potential_benefits?.length && (
         <Field label="Potential benefits">
