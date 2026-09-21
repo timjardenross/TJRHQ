@@ -1,0 +1,81 @@
+{
+  "findings": [
+    {
+      "category": "router_bypass",
+      "title": "Direct provider API calls bypass Model Router in emergency alert service",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct calls to call_gemini and call_mistral using raw environment API keys instead of routing through local model router port 8891",
+          "location": "intelligence/emergency_alert_summariser.py"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "high",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Refactor emergency alert summarisation to use ModelRouterClient routes instead of direct Gemini/Mistral SDK calls"
+      },
+      "expected_benefit": "Ensures centralized model governance, fallbacks, observability, and audit tracking across alerts"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Model router call log file is missing",
+      "evidence": [
+        {
+          "type": "service_status",
+          "observation": "router_status reports recent failures and requests, but call_log_exists is false for path /opt/starship-endeavour/core/model-router/call_log.jsonl",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure the directory exists and write permissions are granted for model router call_log.jsonl creation"
+      },
+      "expected_benefit": "Restores visibility into LLM routing latency, call logs, error rates, and failure forensics"
+    },
+    {
+      "category": "route_policy_drift",
+      "title": "Missing routing policy entry for task hq-evolution-external-fit",
+      "evidence": [
+        {
+          "type": "config_value",
+          "observation": "configured_routes contains 22 task types including 'hq-evolution-external-fit', but routing_policy contains only 21 entries and lacks this route",
+          "location": "core/model-router"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Add explicit route configuration and keep-alive policy for hq-evolution-external-fit in routing_policy"
+      },
+      "expected_benefit": "Prevents unexpected fallbacks or routing failures during hq-evolution-external-fit execution"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 logic and hardcoded anomaly stubs in platform-runtime",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Hardcoded empty anomalies list 'recent_anomalies = []' marked with TODO to query quality_anomalies table",
+          "location": "platform-runtime/lib/quality_forecasting_engine.py"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Multiple TODO placeholders for Phase 5 Supabase authorization checking and memory integration",
+          "location": "platform-runtime/commands/research_command.py"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement the quality_anomalies Supabase query and resolve research command Phase 5 stubs"
+      },
+      "expected_benefit": "Replaces stubbed return values with actual database-backed anomaly detection and enforcement"
+    }
+  ]
+}
