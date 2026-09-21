@@ -1,12 +1,12 @@
-annotated-types==0.7.0
+annotated-types==0.8.0
 anyio==4.15.1
-certifi==2026.5.20
+certifi==2026.7.22
 distro==1.9.0
 exceptiongroup==1.3.1
 h11==0.16.0
 httpcore==1.0.9
 httpx==0.28.1
-idna==3.18
+idna==3.20
 # 2026-09-12: anyio==4.15.1 (bumped in PR #112 for graphiti-core/mem0ai)
 # requires typing_extensions>=4.16.0 — was pinned at 4.15.0, an unresolvable
 # conflict a clean `pip install -r` always hits (first caught for real by
@@ -19,38 +19,38 @@ idna==3.18
 # version conflict, just a torch/transformers footprint (~6.2GB on a plain
 # `pip install docling`, confirmed live 2026-09-12) this file's other
 # consumers shouldn't have to carry. See core/knowledge/requirements-docling.txt.
-jiter==0.16.0
-openai==3.13.0
-pydantic==2.13.4
-pydantic_core==2.46.4
-python-dotenv==1.2.1
+jiter==0.17.0
+openai==3.15.0
+pydantic==2.13.5
+pydantic_core==2.49.0
+python-dotenv==1.2.3
 sniffio==1.3.1
-tqdm==4.67.3
+tqdm==4.70.1
 typing-inspection==0.4.4
 typing_extensions==4.16.0
-numpy>=1.26.0
+numpy>=2.5.3
 # Pin to v1.x: the code uses the v1 API (`from mistralai import Mistral`,
 # `client.beta.conversations.start`). v2.x ships an incompatible package layout
 # with no top-level `Mistral` export and breaks the import.
-mistralai>=1.0.0,<2
+mistralai>=2.10.1,<3
 # Gemini (Google) client used by the research decomposer (gemini_xo_decomposer).
 google-generativeai>=0.8.6
 # Supabase client: research-metrics persistence + Command Memory / working memory.
-supabase>=2.0.0
-apscheduler>=3.10.0
+supabase>=2.31.0
+apscheduler>=3.11.3
 # USS-TJR-MSN-0375: Postgres-native durable-queue pilot for
 # human_systems_scheduler.py's --daemon mode (SKIP LOCKED dedup + a real
 # job ledger against the existing Supabase Postgres instance — no new
 # infra). Does not replace apscheduler above, which intelligence/scheduler.py
 # and revs/scheduler.py still use (out of scope for this pilot).
-pgqueuer>=1.3.2
-asyncpg>=0.29.0
+pgqueuer>=1.4.0
+asyncpg>=0.31.0
 # intelligence/ RSS + scrape adapters (feedparser: ~25 RSS sources; beautifulsoup4:
 # ~15 scrape sources incl. APRA/ASIC/ACSC) — never declared here, so every
 # RSS/scrape source in intelligence_source_registry failed collection with
 # "not installed" (confirmed via intelligence_source_health) until this line was added.
-feedparser>=6.0.0
-beautifulsoup4>=4.12.0
+feedparser>=6.0.14
+beautifulsoup4>=4.15.0
 # USS-TJR-MSN-0368 Stream 9: was only a transitive dep (pulled in by
 # something else) -- pinned explicitly now that emergency-alert-adapters/
 # health-signal/RSS XML parsing depends on it directly for XXE safety
@@ -61,7 +61,7 @@ defusedxml>=0.7.1
 # context-service.service) needs these - not previously declared here
 # because nothing ran `serve` under process supervision before this unit.
 flask>=3.1.3
-flask-cors>=4.0.0
+flask-cors>=6.0.5
 # 2026-08-22: core/platform/memory_graph.py (Graphiti Slice 1 — long-term
 # memory infrastructure). falkordblite embeds FalkorDB Lite in-process (no
 # separate DB server/container); google-genai is Graphiti's real Gemini
@@ -72,8 +72,8 @@ graphiti-core[falkordblite,google-genai]>=0.30.2
 # 2026-09-06: core/platform/unified_memory.py's mem0 backend for SEMANTIC/
 # FACTUAL recall (_Mem0Backend) — already installed and merged, just never
 # declared here.
-mem0ai>=2.0.18
-arize-phoenix>=20.10.0
+mem0ai>=2.0.20
+arize-phoenix>=20.14.0
 opentelemetry-sdk
 opentelemetry-exporter-otlp-proto-http
 openinference-instrumentation-openai
@@ -81,12 +81,12 @@ openinference-instrumentation-mistralai
 # 2026-08-23: platform-runtime/lib/quality_scoring_service.py's score_output()
 # (HallucinationMetric-backed LLM-output quality scoring, GAP 1). Installed
 # and importable since e27d1ead, never declared here.
-deepeval>=4.1.10
+deepeval>=4.2.3
 # 2026-09-12: core/context-assembly/context_service.py's `serve` command now
 # launches gunicorn instead of calling flask_app.run() (the Werkzeug dev
 # server) — that was never meant to serve production traffic and had no
 # concurrency/process-management guarantees under deploy/context-service.service.
-gunicorn>=23.0.0
+gunicorn>=26.2.0
 # garak (core/quality/garak_gate.py, tools/garak_sweep.sh) is intentionally
 # NOT declared here — see core/quality/requirements-garak.txt and its own
 # dedicated venv (platform-runtime/.venv-garak/). garak==0.17.0 hard-requires
@@ -128,4 +128,4 @@ semhash>=0.4.1
 # 2026-09-15 adversarial review: caps a single hanging/slow test at
 # --timeout=30 (set in pytest.ini) instead of letting it stall the whole
 # suite/CI job indefinitely.
-pytest-timeout>=2.3.1
+pytest-timeout>=2.4.0
