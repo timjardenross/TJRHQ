@@ -22,6 +22,13 @@ import {
   type NewShoppingListItemInput,
   type ShoppingListResult,
 } from '@/lib/shoppingList';
+import {
+  fetchSavedViews,
+  createSavedView as createSavedViewApi,
+  deleteSavedView as deleteSavedViewApi,
+  selectSavedView as selectSavedViewApi,
+  type SavedShoppingView,
+} from '@/lib/shoppingListViews';
 import { ItemFormModal } from './_components/ItemFormModal';
 import { ItemRow } from './_components/ItemRow';
 
@@ -37,7 +44,13 @@ export default function ShoppingListWorkbench() {
   const [statusFilter, setStatusFilter] = useState(ALL);
   const [recipientFilter, setRecipientFilter] = useState(ALL);
   const [occasionFilter, setOccasionFilter] = useState(ALL);
-  const [savedViews, setSavedViews] = useState<Record<string, { category: string; status: string; recipient: string; occasion: string }>>({});
+  // Server-backed (migration 0223 / /api/shopping-list/views) — no longer
+  // localStorage. `savedViewsUnavailable` surfaces a real backend failure
+  // honestly (control disabled + labelled) rather than silently behaving
+  // like there are simply no saved views yet.
+  const [savedViews, setSavedViews] = useState<SavedShoppingView[]>([]);
+  const [savedViewsUnavailable, setSavedViewsUnavailable] = useState(false);
+  const [selectedViewId, setSelectedViewId] = useState('');
   const [viewName, setViewName] = useState('');
 
   const dragIndexRef = useRef<number | null>(null);
@@ -48,22 +61,64 @@ export default function ShoppingListWorkbench() {
     setLoading(false);
   }
 
-  useEffect(() => {
-    load();
-    try { setSavedViews(JSON.parse(localStorage.getItem('tjr-shopping-saved-views') ?? '{}')); } catch { /* optional preference */ }
-  }, []);
-
-  function saveView() {
-    const name = viewName.trim();
-    if (!name) return;
-    const next = { ...savedViews, [name]: { category: categoryFilter, status: statusFilter, recipient: recipientFilter, occasion: occasionFilter } };
-    setSavedViews(next); setViewName('');
-    try { localStorage.setItem('tjr-shopping-saved-views', JSON.stringify(next)); } catch { /* optional preference */ }
+  async function loadSavedViews() {
+    const result = await fetchSavedViews();
+    if (!result.ok) {
+      setSavedViewsUnavailable(true);
+      setSavedViews([]);
+      return;
+    }
+    setSavedViewsUnavailable(false);
+    const views = result.data ?? [];
+    setSavedViews(views);
+    // Reload-safe selection: the server's own is_default flag decides what
+    // applies on load, never a client-only remembered choice.
+    const defaultView = views.find((v) => v.is_default);
+    if (defaultView) {
+      setSelectedViewId(defaultView.id);
+      applyView(defaultView);
+    }
   }
 
-  function applyView(name: string) {
-    const view = savedViews[name]; if (!view) return;
-    setCategoryFilter(view.category); setStatusFilter(view.status); setRecipientFilter(view.recipient); setOccasionFilter(view.occasion);
+  useEffect(() => {
+    load();
+    loadSavedViews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function saveView() {
+    const name = viewName.trim();
+    if (!name) return;
+    const result = await createSavedViewApi({
+      name,
+      filters: { category: categoryFilter, status: statusFilter, recipient: recipientFilter, occasion: occasionFilter },
+    });
+    if (!result.ok) return; // error already logged by shoppingListViews.ts; control stays usable
+    setViewName('');
+    await loadSavedViews();
+  }
+
+  function applyView(view: SavedShoppingView) {
+    const f = view.filters ?? {};
+    setCategoryFilter(f.category ?? ALL);
+    setStatusFilter(f.status ?? ALL);
+    setRecipientFilter(f.recipient ?? ALL);
+    setOccasionFilter(f.occasion ?? ALL);
+  }
+
+  async function handleSelectView(id: string) {
+    setSelectedViewId(id);
+    if (!id) return;
+    const view = savedViews.find((v) => v.id === id);
+    if (view) applyView(view);
+    await selectSavedViewApi(id); // persists is_default server-side for reload-safety
+  }
+
+  async function handleDeleteView(id: string) {
+    if (!id) return;
+    await deleteSavedViewApi(id);
+    if (selectedViewId === id) setSelectedViewId('');
+    await loadSavedViews();
   }
 
   const categories = useMemo(() => uniqueSorted(items.map((i) => i.category)), [items]);
@@ -199,12 +254,26 @@ export default function ShoppingListWorkbench() {
                 {occasions.map((o) => <option key={o} value={o}>{o}</option>)}
               </Select>
               <div className="flex flex-wrap items-center gap-2 border-l border-wb-line pl-2">
-                <select aria-label="Saved shopping view" defaultValue="" onChange={(e) => applyView(e.target.value)} className="rounded border border-wb-line bg-wb-surface px-2 py-1.5 text-xs text-wb-ink">
-                  <option value="">Saved views</option>
-                  {Object.keys(savedViews).map((name) => <option key={name} value={name}>{name}</option>)}
-                </select>
+                {savedViewsUnavailable ? (
+                  <span className="text-[11px] text-state-crit-on">Saved views unavailable — backend unreachable.</span>
+                ) : (
+                  <>
+                    <select
+                      aria-label="Saved shopping view"
+                      value={selectedViewId}
+                      onChange={(e) => handleSelectView(e.target.value)}
+                      className="rounded border border-wb-line bg-wb-surface px-2 py-1.5 text-xs text-wb-ink"
+                    >
+                      <option value="">{savedViews.length === 0 ? 'No saved views yet' : 'Saved views'}</option>
+                      {savedViews.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                    </select>
+                    {selectedViewId && (
+                      <Button size="sm" variant="secondary" onClick={() => handleDeleteView(selectedViewId)}>Delete view</Button>
+                    )}
+                  </>
+                )}
                 <input aria-label="Saved view name" value={viewName} onChange={(e) => setViewName(e.target.value)} placeholder="Name this view" className="w-28 rounded border border-wb-line bg-wb-surface px-2 py-1.5 text-xs" />
-                <Button size="sm" variant="secondary" onClick={saveView} disabled={!viewName.trim()}>Save view</Button>
+                <Button size="sm" variant="secondary" onClick={saveView} disabled={!viewName.trim() || savedViewsUnavailable}>Save view</Button>
               </div>
             </div>
 
