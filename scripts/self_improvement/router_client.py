@@ -276,7 +276,15 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
                 headers={"Content-Type": "application/json"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=300) as resp:  # nosec B310 - url built from self.base_url, a fixed local model-router constant, not user input - reviewed 2026-09-12
+            # 400s, not 300: matches TASK_POLICY["hq-evolution-external-fit"]'s
+            # own timeout in core/model-router/app.py (keep both in sync). Was
+            # 300s on both sides — 2026-09-22 found this client giving up
+            # ~2-23s before the router actually finished (call_log.jsonl
+            # showed genuine successes at 302-323s that this client had
+            # already logged as failures), after the guardrail model swap +
+            # Ollama serialization lock made real completion take longer than
+            # 300s under load but still succeed.
+            with urllib.request.urlopen(req, timeout=400) as resp:  # nosec B310 - url built from self.base_url, a fixed local model-router constant, not user input - reviewed 2026-09-12
                 response_data = json.loads(resp.read().decode())
 
             duration_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)

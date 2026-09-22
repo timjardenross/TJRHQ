@@ -60,7 +60,17 @@ _WORKER = Path(__file__).parent / "_llmsec_worker.py"
 # unredacted. Only ever meant for a documented, deliberate rollback.
 _FAIL_OPEN = os.environ.get("LLM_GUARDRAILS_FAIL_OPEN", "").strip().lower() in ("1", "true", "yes")
 
-_WORKER_TIMEOUT_S = float(os.environ.get("LLM_GUARDRAILS_TIMEOUT_S", "45"))
+# 45s was too short: this VM runs gemma3:4b CPU-only (no GPU, confirmed via
+# `ollama ps` size_vram=0), and a single check_input/check_output call
+# measured 73-172s cold on 2026-09-22 (high variance under load) — every
+# real call was timing out, silently killing external-fit enrichment in
+# hq-evolution AND raising GuardrailsUnavailableError on every live
+# gemini-provider dispatch in core/model-router/app.py
+# (secure_outbound_prompt gates ALL of them). 240s keeps margin over the
+# worst observed latency while staying under the 300s per-route timeout
+# core/model-router/app.py sets for hq-evolution-external-fit, so this
+# isn't the bottleneck that eats that budget.
+_WORKER_TIMEOUT_S = float(os.environ.get("LLM_GUARDRAILS_TIMEOUT_S", "240"))
 
 
 class GuardrailsUnavailableError(RuntimeError):

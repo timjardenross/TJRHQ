@@ -78,6 +78,12 @@ reports/garak/
 # Track .id-counters.json itself (it's the durable counter state); never this.
 .id-counters.lock
 
+# deploy/auto-deploy.sh's dirty-tree debounce marker (tools/
+# alert_on_stale_dirty_tree.py) — must never be tracked, or committing it
+# would itself be a tracked-file change the script's own dirty-check would
+# then trip on.
+.auto-deploy-dirty-since
+
 # core/platform/memory_graph.py's embedded FalkorDB Lite store (via
 # redislite) — a local binary graph database file, not a durable evidence
 # artifact like data/self-improvement/runs/ (which IS tracked) — rebuilt
