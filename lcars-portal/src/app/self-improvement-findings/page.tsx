@@ -43,6 +43,24 @@ const LIFECYCLE_STAGES: Array<{ key: Opportunity['lifecycle_state']; label: stri
   { key: 'resolved_before_research', label: 'Resolved before research' },
 ];
 
+// Which tab actually shows each lifecycle state — mirrors the filters each
+// tab already applies (see `proposed`/`investigating`/`watching`/`learned`/
+// `rejected`/`improving`/`discoveredOnly` useMemo's below). Lets the
+// lifecycle strip's stage tiles jump straight there instead of being a
+// dead-end count display.
+const LIFECYCLE_STAGE_TAB: Record<Opportunity['lifecycle_state'], TabKey> = {
+  discovered: 'discover',
+  proposed: 'discover',
+  investigating: 'investigate',
+  watching: 'investigate',
+  approved: 'improve',
+  implementing: 'improve',
+  verifying: 'improve',
+  resolved_before_research: 'improve',
+  learned: 'learned',
+  rejected: 'rejected',
+};
+
 const REFRESH_MS = 60_000;
 
 function usePolling(load: () => void) {
@@ -314,9 +332,17 @@ export default function HqEvolutionPage() {
         </div>
         <ol aria-label="HQ Evolution lifecycle states" className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:grid-cols-10">
           {LIFECYCLE_STAGES.map(({ key, label }) => (
-            <li key={key} className="rounded-md border border-wb-line bg-wb-bg p-2">
-              <p className="text-lg font-bold text-wb-ink">{lifecycleCounts[key]}</p>
-              <Badge status={toneToStatus(lifecycleStateToTone(key))}>{label}</Badge>
+            <li key={key}>
+              <button
+                type="button"
+                onClick={() => setTab(LIFECYCLE_STAGE_TAB[key])}
+                disabled={lifecycleCounts[key] === 0}
+                title={lifecycleCounts[key] === 0 ? `No opportunities in "${label}"` : `View ${label} in the ${LIFECYCLE_STAGE_TAB[key]} tab`}
+                className="w-full rounded-md border border-wb-line bg-wb-bg p-2 text-left transition-colors enabled:hover:border-wb-sage-deep enabled:hover:bg-wb-sage-deep/10 disabled:cursor-default disabled:opacity-60"
+              >
+                <p className="text-lg font-bold text-wb-ink">{lifecycleCounts[key]}</p>
+                <Badge status={toneToStatus(lifecycleStateToTone(key))}>{label}</Badge>
+              </button>
             </li>
           ))}
         </ol>
