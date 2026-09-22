@@ -82,6 +82,56 @@ LOG_PREFIX="[auto-deploy]"
 
 cd "$REPO_ROOT"
 
+# 2026-09-22: hq-evolution.service writes several files under
+# data/self-improvement/ every cycle (evolution_summary.json,
+# finding_staleness.jsonl, opportunity_id_counter.txt) but never commits
+# them - deliberately (evolution_orchestrator.py's own module docstring:
+# "never touches git ... HQ Evolution's overnight authority ends at
+# investigation and proposal"). Left uncommitted, the very next cycle
+# permanently dirties this checkout, and the dirty-check below then aborts
+# EVERY cycle forever after that - not just for hq-evolution's own next
+# run, for every service in SERVICES_CONF plus lcars-portal, since this is
+# the one shared checkout all of them are staleness-checked against.
+# Confirmed live: an unbroken streak of these ABORTs in journalctl from at
+# least 2026-09-19 to 2026-09-22.
+#
+# STASHED, not committed. A commit was the first fix tried here and it was
+# wrong: this script's own rules #2 and #3 above (fast-forward only, never
+# push) mean a local commit can only ever be reconciled with origin/$BRANCH
+# by being an ancestor of it or vice versa. The moment origin/$BRANCH ALSO
+# advances independently before this VM's own commit is separately pushed
+# upstream (by whatever out-of-band process produces the periodic "chore
+# (self-improvement): auto-sync tracked state files" commits already seen
+# on main), the two histories have genuinely diverged and `git merge
+# --ff-only` can never succeed again - reproducing, one layer up, the
+# exact permanent-divergence bug this whole fix exists to close (see
+# run_daily_cycle.sh's own near-identical fix and its comment for the
+# general shape of that failure). Confirmed live in testing: a real
+# incoming commit plus one local auto-commit produced exactly this
+# "Not possible to fast-forward" abort. A stash never becomes history, so
+# it can never diverge from anything - it's popped back the moment the
+# pull window closes below, on every exit path (clean pull, no-op, or a
+# genuine fast-forward failure on something ELSE), so the live files on
+# disk (read directly by anything that doesn't go through git, e.g. a
+# dashboard) are only ever unavailable for the few seconds the pull
+# itself takes, never for as long as some OTHER unrelated dirty file
+# happens to block the rest of this cycle.
+STASHED_SELF_IMPROVEMENT=0
+if [ -n "$(git status --porcelain --untracked-files=no -- data/self-improvement)" ]; then
+  git stash push --quiet -- data/self-improvement
+  STASHED_SELF_IMPROVEMENT=1
+fi
+
+restore_self_improvement_stash() {
+  if [ "$STASHED_SELF_IMPROVEMENT" = "1" ]; then
+    if git stash pop --quiet; then
+      STASHED_SELF_IMPROVEMENT=0
+    else
+      echo "$LOG_PREFIX WARNING: could not restore stashed data/self-improvement/ changes - see \`git stash list\` on this VM. Needs a human." >&2
+    fi
+  fi
+}
+
 # --untracked-files=no: a new untracked file (several live processes on this
 # VM drop one, e.g. self-improvement/mission-dispatch handoff docs, before a
 # separate job commits it later) can't be endangered by a fast-forward pull -
@@ -92,9 +142,27 @@ cd "$REPO_ROOT"
 # abort path. What this check still must catch is an uncommitted EDIT to an
 # already-tracked file - that's the one thing a pull could actually stomp on.
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  # 2026-09-15's OnFailure= alert for this exact ABORT was disabled the
+  # same day for paging every 5-minute retry through ordinary short-lived
+  # human WIP (alert_on_systemd_failure.py's own _EXPECTED_NOISE entry
+  # still suppresses it unconditionally today, and rightly so for THAT
+  # case). That fix-for-a-fix traded "too noisy" for "silent forever" -
+  # this exact ABORT then ran unbroken for 3+ days (see the stash step
+  # above for the specific cause this time, now closed). Debounced instead
+  # of either extreme: alert_on_stale_dirty_tree.py only pages once the
+  # SAME dirty episode has persisted past its own threshold (long enough
+  # that no few-minutes human edit ever pages, short enough that the next
+  # unknown cause surfaces same-day instead of running silent for days),
+  # reusing alert_on_systemd_failure.py's own cooldown so it can't spam
+  # once it does start alerting.
+  "$REPO_ROOT/tools/.venv-alert/bin/python3" "$REPO_ROOT/tools/alert_on_stale_dirty_tree.py" mark \
+    || echo "$LOG_PREFIX WARNING: dirty-tree alert check failed" >&2
   echo "$LOG_PREFIX ABORT: working tree is dirty (uncommitted changes to tracked files) - not pulling, not checking staleness this cycle. Resolve manually." >&2
+  restore_self_improvement_stash
   exit 1
 fi
+"$REPO_ROOT/tools/.venv-alert/bin/python3" "$REPO_ROOT/tools/alert_on_stale_dirty_tree.py" clear \
+  || echo "$LOG_PREFIX WARNING: dirty-tree alert state clear failed" >&2
 
 git fetch origin "$BRANCH" --quiet
 
@@ -106,11 +174,14 @@ if [ "$LOCAL_SHA" = "$REMOTE_SHA" ]; then
 else
   if ! git merge --ff-only "origin/$BRANCH"; then
     echo "$LOG_PREFIX ABORT: fast-forward failed (history diverged?) - needs a human." >&2
+    restore_self_improvement_stash
     exit 1
   fi
   echo "$LOG_PREFIX pulled $LOCAL_SHA -> $REMOTE_SHA"
   git diff --name-only "$LOCAL_SHA" "$REMOTE_SHA" | sed "s|^|$LOG_PREFIX   changed: |"
 fi
+
+restore_self_improvement_stash
 
 # ── Staleness-driven restarts (runs every cycle, pull or no pull) ──────────
 
