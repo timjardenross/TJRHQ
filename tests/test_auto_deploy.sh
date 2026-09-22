@@ -45,10 +45,35 @@ setup_fixture() {
     git config user.email test@example.com
     git config user.name Test
     git checkout --quiet -B main
-    mkdir -p lcars-portal deploy
+    mkdir -p lcars-portal deploy tools platform-runtime
     echo "one" > README.md
     echo "placeholder" > lcars-portal/page.tsx  # git never tracks an empty dir
     echo "context-service.service" > deploy/auto-deploy-services.conf
+    # These are called by their literal $REPO_ROOT-relative paths (not
+    # PATH-resolved like the npm/systemctl fakes below), so they have to
+    # actually exist inside the fixture's own clone. Trivial stubs are
+    # enough - their real behavior has its own dedicated coverage
+    # elsewhere; these tests only care that auto-deploy.sh's own
+    # git/staleness/restart logic runs correctly around them.
+    cat > tools/alert_on_stale_dirty_tree.py <<'PYEOF'
+#!/usr/bin/env python3
+import sys
+print(f"stub alert_on_stale_dirty_tree.py {' '.join(sys.argv[1:])}")
+sys.exit(0)
+PYEOF
+    chmod +x tools/alert_on_stale_dirty_tree.py
+    cat > platform-runtime/run-with-infisical.sh <<'SHEOF'
+#!/bin/bash
+echo "run-with-infisical.sh $*" >> "$CALL_LOG"
+exec "$@"
+SHEOF
+    chmod +x platform-runtime/run-with-infisical.sh
+    cat > platform-runtime/check-ollama-model-default.sh <<'SHEOF'
+#!/bin/bash
+echo "check-ollama-model-default.sh" >> "$CALL_LOG"
+exit 0
+SHEOF
+    chmod +x platform-runtime/check-ollama-model-default.sh
     git add -A
     git commit --quiet -m "initial"
     git push --quiet origin main
@@ -64,10 +89,43 @@ setup_fixture() {
 echo "npm $*" >> "$CALL_LOG"
 exit 0
 EOF
-  cat > "$bin/systemctl" <<'EOF'
+  # 2026-09-22: captured NOW, right after the fixture's own "initial"
+  # commit/push above and before any test pushes a LATER commit - so every
+  # unit looks like it started right when the fixture was built (not
+  # stale relative to the content setup_fixture itself just created), but
+  # IS stale relative to whatever a test pushes afterward. A fixed
+  # arbitrary-old timestamp here would make every unit - including
+  # lcars-portal.service, whose "placeholder" file setup_fixture itself
+  # commits above - look permanently stale in every test, which isn't
+  # what any of these tests are actually asserting.
+  FIXTURE_NOW="$(date -u +"%a %Y-%m-%d %H:%M:%S UTC")"
+  # Both this timestamp and git commit timestamps are 1-second resolution,
+  # and this fixture setup plus a test's own later commit routinely
+  # complete within the same wall-clock second - an exact "now" here can
+  # TIE against that later commit (not-stale, no restart) instead of the
+  # intended "started here, then a later commit made it stale." A real
+  # 1s delay (not a backdate, which would then risk tying the OTHER way
+  # against the initial commit above) guarantees genuine separation.
+  sleep 1
+  cat > "$bin/systemctl" <<EOF
 #!/bin/bash
-echo "systemctl $*" >> "$CALL_LOG"
-if [ "$FAIL_SYSTEMCTL_FOR" = "$2" ]; then exit 1; fi
+echo "systemctl \$*" >> "\$CALL_LOG"
+# a \`show -p ActiveEnterTimestamp\` call must actually print a real
+# timestamp, not just log-and-succeed like every other verb -
+# auto-deploy.sh's staleness check treats empty stdout as "unit never
+# started" and skips the restart entirely. Real bug this masked: the
+# production AUTO_DEPLOY_SYSTEMCTL override (deploy/scoped-restart.sh)
+# only implements \`restart\`, not \`show\`, and this stub used to return
+# the same empty-but-successful response for both - so this test suite
+# never would have caught the exact live failure it reproduced instead of
+# catching. auto-deploy.sh now calls unprefixed \`systemctl\` (this stub)
+# for the read and only "\$SYSTEMCTL" for the actual restart, so this one
+# stub must behave like a real systemctl for both call shapes.
+if [ "\$1" = "show" ]; then
+  echo "$FIXTURE_NOW"
+  exit 0
+fi
+if [ "\$FAIL_SYSTEMCTL_FOR" = "\$2" ]; then exit 1; fi
 exit 0
 EOF
   chmod +x "$bin/npm" "$bin/systemctl"
@@ -90,7 +148,11 @@ run_script() {
 echo "test: up to date -> no-op, exit 0, no restarts"
 tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
 if out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"; then
-  if echo "$out" | grep -q "nothing to do" && [ ! -s "$log" ]; then
+  # 2026-09-22: staleness checks run every cycle regardless of whether a
+  # pull happened (by design - see auto-deploy.sh's own header comment),
+  # so `systemctl show` calls are expected here even on a no-op; only an
+  # actual `restart` would mean this test's "no restarts" claim is false.
+  if echo "$out" | grep -q "nothing to pull" && ! grep -q "systemctl restart" "$log"; then
     pass "up-to-date no-op"
   else
     fail "up-to-date no-op (output: $out / log: $(cat "$log"))"

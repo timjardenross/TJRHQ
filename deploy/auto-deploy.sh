@@ -205,9 +205,27 @@ restore_self_improvement_stash
 # for a name that doesn't exist, it just returns an empty value, so this
 # stays consistent with the existing "wrong/stale unit name just logs a
 # warning" contract.
+#
+# 2026-09-22: confirmed live - this used "$SYSTEMCTL" (the restart-scoped
+# override point, AUTO_DEPLOY_SYSTEMCTL) for this READ too, not just the
+# actual restart call below. In production AUTO_DEPLOY_SYSTEMCTL points at
+# deploy/scoped-restart.sh, which only ever implemented the `restart` verb
+# (by design - it's the one command the non-root `deploy` user is allowed
+# to run as root) and rejects anything else, including `show`, with a
+# usage error. That error was swallowed by `2>/dev/null || true` below, so
+# every staleness check has been silently returning "never started" and
+# skipping every restart through the real production path since that
+# scoping was introduced - invisible until this exact function got
+# exercised end-to-end for the first time in this incident. Reading a
+# unit's ActiveEnterTimestamp needs no privilege at all (confirmed live:
+# a plain, unprivileged `systemctl show` works fine as `deploy`, no
+# polkit prompt) - unlike `restart`, which is the one thing that actually
+# needs the scoped wrapper. Using plain `systemctl` here instead of
+# "$SYSTEMCTL" fixes the read path without touching that security-reviewed
+# restart-only binary at all.
 unit_active_since_epoch() {
   local ts
-  ts="$("$SYSTEMCTL" show -p ActiveEnterTimestamp --value "$1" 2>/dev/null || true)"
+  ts="$(systemctl show -p ActiveEnterTimestamp --value "$1" 2>/dev/null || true)"
   [ -z "$ts" ] && return 1
   date -d "$ts" +%s 2>/dev/null || return 1
 }
