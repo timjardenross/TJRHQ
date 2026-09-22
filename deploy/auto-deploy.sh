@@ -155,13 +155,13 @@ if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
   # unknown cause surfaces same-day instead of running silent for days),
   # reusing alert_on_systemd_failure.py's own cooldown so it can't spam
   # once it does start alerting.
-  "$REPO_ROOT/tools/.venv-alert/bin/python3" "$REPO_ROOT/tools/alert_on_stale_dirty_tree.py" mark \
+  /usr/bin/python3 "$REPO_ROOT/tools/alert_on_stale_dirty_tree.py" mark \
     || echo "$LOG_PREFIX WARNING: dirty-tree alert check failed" >&2
   echo "$LOG_PREFIX ABORT: working tree is dirty (uncommitted changes to tracked files) - not pulling, not checking staleness this cycle. Resolve manually." >&2
   restore_self_improvement_stash
   exit 1
 fi
-"$REPO_ROOT/tools/.venv-alert/bin/python3" "$REPO_ROOT/tools/alert_on_stale_dirty_tree.py" clear \
+/usr/bin/python3 "$REPO_ROOT/tools/alert_on_stale_dirty_tree.py" clear \
   || echo "$LOG_PREFIX WARNING: dirty-tree alert state clear failed" >&2
 
 git fetch origin "$BRANCH" --quiet
