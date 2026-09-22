@@ -33,10 +33,29 @@ alerting/dedup mechanism.
 Usage (from auto-deploy.sh):
     tools/alert_on_stale_dirty_tree.py mark
     tools/alert_on_stale_dirty_tree.py clear
+
+`mark`/`clear` never need Telegram credentials themselves - the common case
+on every cycle is just a cheap timestamp/state-file check with no network
+call at all. Only the rare "actually page" branch inside `mark` does, and
+auto-deploy.service (unlike alert-on-failure@.service, which already runs
+under platform-runtime/run-with-infisical-bot.sh as root) runs as `deploy`
+with no Infisical wrapper of its own - confirmed live 2026-09-22: no
+TELEGRAM_BOT_TOKEN in that process's environment, and no
+tools/.venv-alert/ on disk either (an earlier version of this fix wrongly
+assumed one existed, copying the path from this file's own docstring
+example above instead of the real deployed alert-on-failure@.service unit,
+which uses /usr/bin/python3 directly - notification_service.py is
+stdlib-only, no venv is actually needed). `_send_alert` below re-execs this
+same script's own hidden `_notify` action through run-with-infisical-bot.sh
+only at the point an alert is actually about to fire, not on every no-op
+mark() call - that would mean an `infisical login` round-trip on every
+single dirty auto-deploy cycle (as often as every 5 minutes) just to reach
+a check that returns immediately almost all the time.
 """
 
 from __future__ import annotations
 
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -51,6 +70,7 @@ from tools.alert_on_systemd_failure import _cooldown_active, _record_alert
 _ALERT_KEY = "auto-deploy-dirty-tree"
 _ALERT_THRESHOLD_SECONDS = 30 * 60
 _SINCE_PATH = _REPO_ROOT / ".auto-deploy-dirty-since"
+_INFISICAL_WRAPPER = _REPO_ROOT / "platform-runtime" / "run-with-infisical-bot.sh"
 
 
 def mark() -> int:
@@ -69,19 +89,43 @@ def mark() -> int:
         print("already paged for this episode within the cooldown window — not paging again", file=sys.stderr)
         return 0
 
-    result = notify(
+    title = "auto-deploy stuck: working tree dirty 30+ min"
+    body = (
         f"auto-deploy.sh's working tree has been dirty (uncommitted changes to "
         f"tracked files) for {elapsed / 60:.0f} minutes straight. Every service in "
         f"auto-deploy-services.conf, plus lcars-portal's rebuild path, is stuck on "
         f"stale code until this is resolved manually — see "
-        f"`journalctl -u auto-deploy.service` for the exact files.",
-        title="auto-deploy stuck: working tree dirty 30+ min",
-        severity=Severity.CRITICAL,
+        f"`journalctl -u auto-deploy.service` for the exact files."
     )
-    if not result.ok:
-        print(f"alert send failed: {result.error}", file=sys.stderr)
+    if not _send_alert(title, body):
         return 0
     _record_alert(_ALERT_KEY)
+    return 0
+
+
+def _send_alert(title: str, body: str) -> bool:
+    proc = subprocess.run(
+        [
+            str(_INFISICAL_WRAPPER), "xo", "--",
+            sys.executable, str(Path(__file__).resolve()), "_notify", title, body,
+        ],
+        cwd=str(_REPO_ROOT),
+        check=False,
+    )
+    if proc.returncode != 0:
+        print(f"alert send failed: run-with-infisical-bot.sh exited {proc.returncode}", file=sys.stderr)
+        return False
+    return True
+
+
+def _notify(title: str, body: str) -> int:
+    """Hidden action: assumes Telegram credentials are already in the
+    environment, which is only true when invoked via run-with-infisical-bot.sh
+    as _send_alert above does - never call this action directly."""
+    result = notify(body, title=title, severity=Severity.CRITICAL)
+    if not result.ok:
+        print(f"alert send failed: {result.error}", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -96,6 +140,8 @@ def main() -> int:
         return mark()
     if action == "clear":
         return clear()
+    if action == "_notify":
+        return _notify(sys.argv[2], sys.argv[3])
     print("usage: alert_on_stale_dirty_tree.py {mark|clear}", file=sys.stderr)
     return 2
 
