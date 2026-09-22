@@ -540,6 +540,20 @@ def _ollama_tags() -> dict[str, Any]:
 # writes from different threads could corrupt a JSON line.
 _LOG_LOCK = threading.Lock()
 
+# Serializes every local-Ollama-bound call this process makes — both the
+# direct _ollama_generate()/_ollama_embed() dispatch AND the llmsec worker
+# subprocess the guardrails gate spawns (core/security/llm_guardrails.py,
+# secure_outbound_prompt/check_output_rail — itself a separate process
+# hitting Ollama's /v1 endpoint, not routed through _ollama_generate).
+# ThreadingHTTPServer means two concurrent requests can otherwise both
+# start CPU-only Ollama inference at once on this GPU-less VM; 2026-09-22
+# investigation measured two such jobs fighting for the same cores
+# (498%/437% CPU each) and pushing guardrail check latency past 240s.
+# Holding this only around the actual Ollama-bound call (not the whole
+# request) still lets unrelated work — e.g. a Gemini network round-trip —
+# proceed concurrently; it just stops two LOCAL inferences overlapping.
+_OLLAMA_LOCK = threading.Lock()
+
 
 def _log_call(entry: dict[str, Any]) -> None:
     try:
@@ -674,12 +688,14 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             # `except Exception` below, on a blocked prompt or an
             # unreachable guardrails venv — either way, nothing reaches
             # Gemini until the prompt has been checked and redacted.
-            safe_prompt, _redaction = secure_outbound_prompt(prompt)
+            with _OLLAMA_LOCK:
+                safe_prompt, _redaction = secure_outbound_prompt(prompt)
             raw = _gemini_generate(model, safe_prompt, timeout, policy.get("api_key_env", "GEMINI_API_KEY"))
             candidates = raw.get("candidates", [])
             parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
             response_text = "".join(p.get("text", "") for p in parts).strip()
-            check_output_rail(response_text)
+            with _OLLAMA_LOCK:
+                check_output_rail(response_text)
             embeddings = None
             usage = raw.get("usageMetadata", {})
             token_info = {
@@ -687,12 +703,14 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
                 "eval_count": usage.get("candidatesTokenCount"),
             }
         elif task_type == "embed":
-            raw = _ollama_embed(model, prompt, keep_alive, timeout)
+            with _OLLAMA_LOCK:
+                raw = _ollama_embed(model, prompt, keep_alive, timeout)
             response_text = ""
             embeddings = raw.get("embeddings", raw.get("embedding", []))
             token_info = {"prompt_eval_count": raw.get("prompt_eval_count")}
         else:
-            raw = _ollama_generate(model, prompt, keep_alive, timeout, policy.get("num_predict"))
+            with _OLLAMA_LOCK:
+                raw = _ollama_generate(model, prompt, keep_alive, timeout, policy.get("num_predict"))
             response_text = raw.get("response", "").strip()
             embeddings = None
             token_info = {
@@ -715,7 +733,8 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
                 needs_esc, reason = _check_escalation_needed(prompt, response_text)
                 if needs_esc:
                     esc_model, esc_keep_alive, esc_timeout = MODEL_LARGE, "15m", 300
-                    esc_raw = _ollama_generate(esc_model, prompt, esc_keep_alive, esc_timeout)
+                    with _OLLAMA_LOCK:
+                        esc_raw = _ollama_generate(esc_model, prompt, esc_keep_alive, esc_timeout)
                     response_text = esc_raw.get("response", "").strip()
                     model = esc_model
                     keep_alive = esc_keep_alive
