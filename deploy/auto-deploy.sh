@@ -118,7 +118,22 @@ cd "$REPO_ROOT"
 # happens to block the rest of this cycle.
 STASHED_SELF_IMPROVEMENT=0
 if [ -n "$(git status --porcelain --untracked-files=no -- data/self-improvement)" ]; then
-  git stash push --quiet -- data/self-improvement
+  # 2026-09-22: confirmed live - this failed silently ("Cannot save the
+  # current status", exit 1, no further script output) the first two
+  # times this ran on the VM. Root cause: `deploy` (the user
+  # auto-deploy.service runs as) has never needed a git identity before
+  # this stash - every git operation here before it was a fetch or a
+  # fast-forward merge, neither of which creates a commit. A stash entry
+  # IS a commit (git stash push calls commit-tree internally), and
+  # git-stash's own wrapper collapses commit-tree's real "empty ident
+  # name/email not allowed" failure into that generic one-liner. Passing
+  # identity inline here - rather than relying on the `deploy` account
+  # having git config set up out-of-band - means this doesn't depend on
+  # implicit VM-provisioning state that can silently go missing again on
+  # a fresh box (same class of gap as the tools/.venv-alert mistake this
+  # file's own alert-dispatch code just went through).
+  git -c user.name="auto-deploy.sh" -c user.email="auto-deploy@starship-endeavour.local" \
+    stash push --quiet -- data/self-improvement
   STASHED_SELF_IMPROVEMENT=1
 fi
 
