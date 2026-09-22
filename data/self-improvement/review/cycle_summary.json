@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-09-21T23:38:39.472648+00:00",
-  "run_id": "2026-09-21-233627",
+  "timestamp": "2026-09-22T21:07:13.431679+00:00",
+  "run_id": "2026-09-22-210205",
   "success": true,
   "evidence_collected": 7,
-  "findings_analyzed": 4,
-  "findings_classified": 4,
+  "findings_analyzed": 3,
+  "findings_classified": 3,
   "findings_errors": 0,
   "decisions_processed": 0,
   "model_confidence": 0.5,
@@ -13,7 +13,7 @@
     "skipped": true
   },
   "decision_report": {
-    "timestamp": "2026-09-21T23:38:39.467460+00:00",
+    "timestamp": "2026-09-22T21:07:13.430608+00:00",
     "model_confidence": 0.5,
     "model_confidence_rating": "low",
     "total_decisions": 0,
@@ -26,15 +26,13 @@
     "manual_review_needed": [
       "FND-001",
       "FND-002",
-      "FND-003",
-      "FND-004"
+      "FND-003"
     ],
-    "manual_review_count": 4,
+    "manual_review_count": 3,
     "finding_scores": {
       "FND-001": 0.5,
       "FND-002": 0.5,
-      "FND-003": 0.5,
-      "FND-004": 0.5
+      "FND-003": 0.5
     },
     "recommendations": [
       "Model confidence is 50% \u2014 recommend manual review before auto-fix",
