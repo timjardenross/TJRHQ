@@ -5,13 +5,26 @@
 # in core/model-router/app.py and the mistralai cloud client modules listed
 # in docs/decisions/ADR-llm-application-security-baseline.md.
 #
-# Checking model: this platform's OWN local Ollama model (gemma3:4b — the
-# router's fast classifier/XO-chat model, MODEL_MID in app.py), reached via
+# Checking model: this platform's OWN local Ollama model, reached via
 # Ollama's OpenAI-compatible /v1 endpoint (native support since Ollama
 # 0.1.26+). No new model is installed or hosted for this — per the mission
 # brief's "no new model to host" constraint. NeMo Guardrails 0.24.0 has a
 # built-in "ollama" engine (nemoguardrails/llm/frameworks/default.py) that
 # talks to this endpoint directly; no langchain dependency required.
+#
+# 2026-09-22: switched from gemma3:4b to qwen2.5-coder:7b. gemma3:4b is a
+# multimodal checkpoint — Ollama's llama-server loads a vision projector
+# (--mmproj) alongside the text weights even for this pure-text self-check,
+# and on this CPU-only VM (no GPU, confirmed via `ollama ps` size_vram=0)
+# that made a single check_input/check_output call measure 73-241s live,
+# blowing LLM_GUARDRAILS_TIMEOUT_S on a majority of calls. Every other
+# installed qwen3.5/gemma4 model also carries "vision" and/or "thinking"
+# (chain-of-thought before the final answer, unbounded token generation on
+# a trivial yes/no classification) per `ollama show <model>`'s capabilities
+# list — qwen2.5-coder:7b is the only installed model with neither. Cold
+# load measured ~116s live (vs. gemma3:4b's 73-241s and unpredictable
+# thinking-model runaway generation), warm ~5s; verified it still
+# correctly blocks a jailbreak/DAN-style prompt and allows a benign one.
 #
 # base_url below is the default OLLAMA_BASE_URL (http://localhost:11434).
 # core/security/llm_guardrails.py rewrites parameters.base_url from the real
@@ -20,7 +33,7 @@
 models:
   - type: main
     engine: ollama
-    model: gemma3:4b
+    model: qwen2.5-coder:7b
     parameters:
       base_url: http://localhost:11434/v1
       # Ollama's OpenAI-compat endpoint doesn't check this, but the
@@ -28,11 +41,11 @@ models:
       api_key: "ollama-local-no-key-required"  # pragma: allowlist secret
       # System-wide OLLAMA_KEEP_ALIVE=0 (see ollama.service.d/keep-alive-
       # zero.conf) unloads every model right after each request, so back-
-      # to-back check_input/check_output calls each cold-load gemma3:4b
-      # (~50s+, confirmed 2026-09-18) and blow LLM_GUARDRAILS_TIMEOUT_S.
-      # This extra field passes straight through nemoguardrails' OpenAI-
-      # compat client into the request body, and Ollama's /v1 endpoint
-      # does honor it (verified live: model stays loaded across calls).
+      # to-back check_input/check_output calls each cold-load the checking
+      # model. This extra field passes straight through nemoguardrails'
+      # OpenAI-compat client into the request body, and Ollama's /v1
+      # endpoint does honor it (verified live: model stays loaded across
+      # calls) — still worth keeping even on a smaller model.
       keep_alive: "5m"
 
 rails:
