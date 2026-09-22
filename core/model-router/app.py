@@ -316,7 +316,16 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # external candidate could ever clear the relevance gate. Same bounded
     # input shape (one candidate + a truncated README excerpt) as
     # hq-evolution-investigate — same timeout class.
-    "hq-evolution-external-fit": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300},
+    #
+    # timeout here only budgets the Gemini leg itself (_gemini_generate's
+    # own urlopen) — the caller (router_client.py) separately budgets the
+    # WHOLE round trip including the input/output guardrail checks around
+    # it. Raised 300->400 alongside router_client.py's own timeout
+    # (2026-09-22): the guardrail model swap + Ollama serialization lock
+    # made genuine round trips land at 302-323s under load, past the old
+    # 300s on both sides — router_client gave up seconds before the router
+    # actually finished successfully (confirmed via call_log.jsonl).
+    "hq-evolution-external-fit": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 400},
     # HQ V1 Integration QA §28 fix: tools/health-osint/health_signal_curation.py
     # previously called core/llm/provider_chain.py directly, bypassing this
     # router entirely (the one confirmed Model Router bypass found in that
