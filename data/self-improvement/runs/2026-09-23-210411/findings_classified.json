@@ -1,0 +1,79 @@
+{
+  "findings": [
+    {
+      "category": "router_bypass",
+      "title": "Direct LLM provider calls bypass Model Router in emergency alert pipeline",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Emergency alert module invokes call_gemini and call_mistral directly via environment API keys rather than querying Model Router",
+          "location": "intelligence/emergency_alert_<URL>"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "high",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Refactor emergency alert inference to request completions via Model Router task types instead of direct provider SDK calls"
+      },
+      "expected_benefit": "Centralizes model governance, rate limiting, and observability across intelligence services",
+      "finding_id": "FND-001",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "high",
+      "policy_decision_rationale": "Category: router_bypass; Evidence strength: conclusive; Confidence: 0.95; Risk: high; Automation: needs_signoff; Category reason: Router bypasses must be corrected by design review"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Model Router call log file is missing",
+      "evidence": [
+        {
+          "type": "service_status",
+          "observation": "Model Router is reachable on port 8891 but call_log_exists evaluates to false at /opt/starship-endeavour/core/model-router/call_log.jsonl",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Verify directory permissions and ensure call_log.jsonl is created and flushed on router invocations"
+      },
+      "expected_benefit": "Restores visibility into latency, task volumes, token usage, and router failures",
+      "finding_id": "FND-002",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: conclusive; Confidence: 0.95; Risk: medium; Automation: needs_signoff; Category reason: Changes to running services require verification"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 logic and query stubs in platform-runtime",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Stubbed empty array for recent_anomalies with TODO to query quality_anomalies table",
+          "location": "platform-runtime/lib/quality_forecasting_<URL>"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Multiple TODO Phase 5 stubs for Supabase authorization checking and memory integration",
+          "location": "platform-runtime/commands/research_<URL>"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement quality_anomalies table querying in quality forecasting and complete Phase 5 authorization and memory integration"
+      },
+      "expected_benefit": "Prevents silent functional no-ops and completes research command capabilities",
+      "finding_id": "FND-003",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: conclusive; Confidence: 0.90; Risk: medium; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    }
+  ],
+  "errors": []
+}
