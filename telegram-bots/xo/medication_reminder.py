@@ -31,7 +31,8 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import date, datetime, time as dtime, timedelta
+from datetime import date, datetime, timedelta
+from datetime import time as dtime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -96,10 +97,10 @@ def is_outstanding(now: datetime | None = None, path: Path = STATE_PATH) -> bool
 
 _MEDS_WORDS = r"(?:med|meds|medicine|medicines|medication|medications|tablets|pills)"
 _CONFIRM_PATTERNS = [
-    re.compile(r"^\s*(?:taken|done|took (?:them|it)|all done|yep,? taken)\s*[.!✅👍]*\s*$", re.I),
-    re.compile(r"\b(?:i'?ve|i have|i|just|already)\s+(?:taken|took|had)\s+(?:them|it|my|the)\b", re.I),
-    re.compile(rf"\b(?:taken|took|had)\s+(?:my\s+|the\s+|all\s+)?{_MEDS_WORDS}\b", re.I),
-    re.compile(rf"\b{_MEDS_WORDS}\s+(?:taken|done)\b", re.I),
+    re.compile(r"^\s*(?:taken|done|took (?:them|it)|all done|yep,? taken)\s*[.!✅👍]*\s*$", re.IGNORECASE),
+    re.compile(r"\b(?:i'?ve|i have|i|just|already)\s+(?:taken|took|had)\s+(?:them|it|my|the)\b", re.IGNORECASE),
+    re.compile(rf"\b(?:taken|took|had)\s+(?:my\s+|the\s+|all\s+)?{_MEDS_WORDS}\b", re.IGNORECASE),
+    re.compile(rf"\b{_MEDS_WORDS}\s+(?:taken|done)\b", re.IGNORECASE),
 ]
 
 
