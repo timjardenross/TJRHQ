@@ -120,6 +120,7 @@ from telegram_bots.recovery_officer.engagement_dispatcher import (
     get_recovery_status,
 )
 from telegram_bots.wellness_officer.intelligence import get_wellness_snapshot
+from telegram_bots.xo import medication_reminder as meds
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 
@@ -375,7 +376,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/revs\\_generate \\<brief path\\> \\[formats\\] — REVS: design brief \\-\\> 7 formats "
         "\\(e\\.g\\. `/revs_generate examples/sample_brief.md poster,social`\\)\n\n"
         "*Health*\n"
-        "/mood\\_chart — log mood \\(1\\-10 scale\\) with optional context\n\n"
+        "/mood\\_chart — log mood \\(1\\-10 scale\\) with optional context\n"
+        "/meds\\_taken — confirm medicines taken \\(stops the 07:00 reminder, which repeats every 15 min\\)\n\n"
         "*System*\n"
         "/db\\_status — Supabase connectivity test\n"
         "/restart\\_bots \\[slack\\|telegram\\|all\\] — restart starfleet services\n\n"
@@ -1094,6 +1096,18 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # never got a reply, with no error visible anywhere except the service
     # log. Wrapped so a failure is always at least visible + logged.
     try:
+        # Daily medication reminder — "taken" / "I've taken my meds" stops
+        # today's 15-minute nag. Only while today's reminder is outstanding,
+        # and not when replying to some other XO message (e.g. a
+        # follow-through "done" belongs to that task, not the meds).
+        reply_to = update.message.reply_to_message
+        replying_elsewhere = reply_to is not None and not (reply_to.text or "").startswith("💊")
+        if (not replying_elsewhere and meds.is_outstanding()
+                and meds.is_confirmation_text(text)):
+            meds.confirm(context.job_queue)
+            await update.message.reply_text(meds.CONFIRMED_TEXT)
+            return
+
         db = _get_supabase()
 
         # Adaptive Follow-Through — NL updates against a tracked reminder.
@@ -1891,6 +1905,24 @@ async def handle_task_followthrough_callback(update: Update, context: ContextTyp
         await query.edit_message_text("Something went wrong — try again.")
 
 
+# ── Daily medication reminder (07:00, repeats every 15 min until confirmed) ──
+
+async def cmd_meds_taken(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    meds.confirm(context.job_queue)
+    await update.message.reply_text(meds.CONFIRMED_TEXT)
+
+
+async def handle_meds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer("Logged")
+    meds.confirm(context.job_queue)
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception as exc:  # noqa: BLE001 - stale/already-edited message; confirmation itself already succeeded
+        log.debug("[meds] could not clear keyboard: %s", exc)
+    await query.message.reply_text(meds.CONFIRMED_TEXT)
+
+
 async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Quick capture: /note <content>  — writes to captured_items as a reference."""
     content = " ".join(context.args or []).strip()
@@ -2164,6 +2196,7 @@ _BOT_COMMANDS = [
     ("revs_generate",   "REVS: brief -> 7 formats  e.g. /revs_generate examples/sample_brief.md"),
     # Health & recovery
     ("mood_chart",      "Log mood (1-10 scale) with optional context"),
+    ("meds_taken",      "Confirm medicines taken (stops today's reminders)"),
     # System
     ("restart_bots",    "Restart starfleet services  e.g. /restart_bots all"),
     ("db_status",       "Supabase connectivity test"),
@@ -2177,6 +2210,15 @@ async def _post_init(app) -> None:
     from telegram import BotCommand
     await app.bot.set_my_commands([BotCommand(cmd, desc) for cmd, desc in _BOT_COMMANDS])
     log.info("[startup] Telegram command menu registered (%d commands)", len(_BOT_COMMANDS))
+
+    if app.job_queue is None:
+        log.error("[startup] JobQueue unavailable (pytz/apscheduler missing?) — "
+                  "medication reminder NOT scheduled; re-run pip install -r requirements.txt")
+        return
+    meds.schedule(app.job_queue, TELEGRAM_CHAT_ID)
+    await meds.resume_if_due(app.bot, app.job_queue, TELEGRAM_CHAT_ID)
+    log.info("[startup] medication reminder scheduled 07:00 Australia/Brisbane, every %d min until confirmed",
+             meds.INTERVAL_MINUTES)
 
 
 async def _on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2210,6 +2252,7 @@ def main() -> None:
     app.add_handler(CommandHandler("start",           cmd_start))
     app.add_handler(CommandHandler("help",            cmd_help))
     app.add_handler(CommandHandler("mood_chart",      cmd_mood_chart))
+    app.add_handler(CommandHandler("meds_taken",      cmd_meds_taken))
     app.add_handler(CommandHandler("signals",         cmd_signals))
     app.add_handler(CommandHandler("themes",          cmd_themes))
     app.add_handler(CommandHandler("source_status",   cmd_source_status))
@@ -2222,6 +2265,7 @@ def main() -> None:
     app.add_handler(CommandHandler("priorities",      cmd_priorities))
     app.add_handler(CommandHandler("restart_bots",    cmd_restart_bots))
     app.add_handler(CallbackQueryHandler(handle_mood_chart_callback,         pattern=r"^mc\|"))
+    app.add_handler(CallbackQueryHandler(handle_meds_callback,               pattern=r"^md\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback,      pattern=r"^vc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_debrief_decision_callback, pattern=r"^vd\|"))
     app.add_handler(CallbackQueryHandler(handle_revs_generate_callback,      pattern=r"^rg\|"))

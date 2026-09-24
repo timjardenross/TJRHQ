@@ -172,3 +172,6 @@ deploy/watchlist-data/
 # (drained every collection cycle), not repo content.
 intelligence/watchlist/_queue/*.jsonl
 .claude/settings.local.json
+
+# XO bot daily medication reminder — local per-VM confirmation state
+telegram-bots/xo/.medication_state.json
