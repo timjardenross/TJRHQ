@@ -111,13 +111,11 @@ function Workbench() {
         <DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Content Workbench sections" />
       ) : undefined}
       back={{ href: '/workbenches', label: 'Workbenches' }}
-      // Endeavour 27 Stream C (Captain decision, 2026-09-20): Content
-      // Workbench genuinely has two jobs -- Today/Pipeline/Library (kanban,
-      // Focus) vs. the Studio (actual drafting, Read) -- exactly the case
-      // the mode prop's per-page (not per-app) design exists for. Switches
-      // on the same selectedContentId gate that already decides which view
-      // renders, not a second piece of state.
-      mode={selectedContentId ? 'read' : 'focus'}
+      // Reversed 2026-09-25: the Read-mode light surface for Studio made
+      // Content Workbench swap from dark to light background moving from
+      // pipeline into an item. Keep Focus mode across the whole workbench
+      // so the dark theme is consistent end-to-end.
+      mode="focus"
       wide
     >
       {selectedContentId ? (
