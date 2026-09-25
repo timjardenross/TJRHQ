@@ -1,11 +1,15 @@
 # HQ Evolution — Expanding External Research Sources (research / proposal)
 
-Status: **Phase 1 + Phase 2 implemented** (2026-09-25/26) — topic rotation,
-the `sort=updated` fix, `dependency_releases` (Phase 1); the `sources/`
-adapter registry, arXiv/HN/HF adapters, `queries` schema, per-source caps,
-and per-source enrichment fetchers (Phase 2) are all live in
-`scripts/self_improvement/`. Phase 3 (MCP registry, Scorecard/deps.dev/
-Semantic Scholar enrichment, paid search) remains proposal-only.
+Status: **Phase 1 + 2 + 3 (minus paid search) implemented** (2026-09-25/26)
+— topic rotation, the `sort=updated` fix, `dependency_releases` (Phase 1);
+the `sources/` adapter registry, arXiv/HN/HF adapters, `queries` schema,
+per-source caps, per-source enrichment fetchers (Phase 2); the MCP
+registry adapter, deps.dev/Scorecard/Semantic Scholar supply-chain
+evidence enrichment, and vendor-changelog reuse from the existing
+intelligence pipeline (Phase 3) are all live in
+`scripts/self_improvement/`. The budget-capped paid search API is the one
+Phase 3 item NOT built — see §11: it needs a real evidence-of-gap finding
+first (the doc's own gating condition), which nothing has produced yet.
 Date: 2026-09-26
 Scope: `scripts/self_improvement/external_discovery.py`, `external_enrichment.py`,
 `config/evolution_watchlist.json`, the `evolution` block of
@@ -268,3 +272,37 @@ failure logs a warning and returns `[]`, same as any other source outage,
 so arXiv candidates will simply resume once arXiv's API recovers with no
 further code change needed. HN and HF were live-verified end-to-end from
 this host and returned real, correctly-shaped candidates.
+
+## 11. Phase 3 implementation notes (2026-09-26)
+
+Built: `sources/mcp_registry.py` (official registry.modelcontextprotocol.io,
+live-verified — an entry with no linked GitHub repo is skipped, since
+there's nothing for an integration decision to evaluate), `sources/
+vendor_changelog.py` (reads the existing `intelligence_events` table for
+`category='cloud_technology'` rather than adding a second RSS fetcher, per
+§2's "reuse, don't rebuild" — degrades to no candidates when
+`SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` aren't set, same fail-open
+contract as every other source), and `sources/deps_dev.py` +
+`sources/scorecard.py` + `sources/semantic_scholar.py` (enrichment, not
+discovery — `external_enrichment.apply_supply_chain_evidence()`, called
+before the LLM-ranked enrichment pass so ranking itself sees the sharpened
+fields). deps.dev's own project response already embeds an OpenSSF
+Scorecard result for most GitHub-hosted repos (`scorecard.overallScore`,
+live-verified against `psf/requests`: 8.2), so `scorecard.py`'s dedicated
+API call only fires as a fallback when deps.dev has no embedded score —
+avoids doubling the request count for the common case. Both were
+live-verified from this host.
+
+**The budget-capped paid search API (§2 Tier 2, deliberately last in §7's
+rollout) is NOT built.** The doc's own gating condition — "only once the
+free sources above are shown to leave gaps" — hasn't been met: nothing in
+Phase 1/2/3 has surfaced a concrete watchlist topic that the seven free
+sources (GitHub, arXiv, HN, HF, dependency releases, MCP registry,
+vendor-changelog) all miss. Building it now would be exactly the "search
+because it's possible, not because HQ needs it" pattern section 8
+prohibits everywhere else in this pipeline. It also needs a decision this
+document can't make on its own: which provider (Brave/Tavily/Exa/
+Firecrawl), a real API key, and a $ budget cap wired through the existing
+`intelligence/ingestion/external_fetch_budget.py` circuit breaker. Revisit
+once a specific gap is identified from real overnight cycles running the
+sources above.

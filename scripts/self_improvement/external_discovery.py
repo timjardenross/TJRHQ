@@ -32,7 +32,9 @@ from sources import SOURCES
 
 log = logging.getLogger("external_discovery")
 
-DEFAULT_PER_SOURCE_SEARCH_CAPS = {"github": 6, "arxiv": 4, "hn": 4, "hf": 3}
+DEFAULT_PER_SOURCE_SEARCH_CAPS = {
+    "github": 6, "arxiv": 4, "hn": 4, "hf": 3, "mcp_registry": 3, "vendor_changelog": 2,
+}
 
 
 def _topic_queries(topic: dict[str, Any]) -> dict[str, str]:
