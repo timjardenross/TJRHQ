@@ -35,7 +35,7 @@ rules out generic trend scanning (spec section 8).
 
 | Source | API | Answers | Maps to topics | Notes |
 |---|---|---|---|---|
-| **Release notes of dependencies HQ already runs** | PyPI JSON (`pypi.org/pypi/<pkg>/json`), npm registry (`registry.npmjs.org/<pkg>`), GitHub Releases (`/repos/{o}/{r}/releases`) | "What became possible in things we already use?" (new features, deprecations, breaking changes) | All of them. Especially `retrieval-evaluation` (deepeval, ragas), `observability-llm-ops` (Phoenix), model SDKs, Supabase, Next.js | **Best fit of any source.** Relevance is built in because HQ already depends on the package. Build the list from the existing `requirements*.txt` (10 files) and `lcars-portal/package.json`. Don't maintain a second hand-written list. PyPI and npm both returned 200 from the sandbox. |
+| **Release notes of dependencies HQ already runs** | PyPI JSON (`pypi.org/pypi/<pkg>/json`), npm registry (`registry.npmjs.org/<pkg>`), GitHub Releases (`/repos/{o}/{r}/releases`) | "What became possible in things we already use?" (new features, deprecations, breaking changes) | All of them. Especially `retrieval-evaluation` (deepeval, ragas), `observability-llm-ops` (Phoenix), model SDKs, Supabase, Next.js | **Best fit of any source.** Relevance is built in because HQ already depends on the package. Build the list from the existing `requirements*.txt` (16 files, excluding vendored `.venv` copies) and `lcars-portal/package.json`. Don't maintain a second hand-written list. PyPI and npm both returned 200 from the sandbox. |
 | **arXiv** | `export.arxiv.org/api/query` (Atom, no key, ≤1 req / 3 s) | Techniques that don't exist as repos yet | `long-term-memory`, `retrieval-evaluation`, `model-routing`, `task-decomposition` | A paper is a *concept*, not an adoptable component. Use lower default `evidence_strength` (see §4). |
 | **Hacker News (Algolia)** | `hn.algolia.com/api/v1/search?tags=story&numericFilters=points>50` | Practitioner signal: what engineers are actually adopting or complaining about | All, especially `local-inference`, `observability-llm-ops` | The points threshold is the noise filter. The story URL often points to a GitHub repo, so dedup against the GitHub candidate should use the canonical repo URL. |
 | **Hugging Face Hub** | `huggingface.co/api/models?search=…&sort=downloads` (no key for reads) | New or quantised models that could replace a paid route | `local-inference`, `model-routing` | Directly feeds the "move a `TASK_POLICY` cloud route local" question. Downloads and likes act as the `value` signal. |
@@ -199,3 +199,39 @@ work, not ready-made entries:
   UI should show `provenance.source` so the Captain can see where a
   candidate came from. It is already stored, but check whether it is
   rendered.
+
+## 9. Validation notes (2026-09-25 code review)
+
+Checked this doc's claims against `/opt/starship-endeavour` at PR time. All
+of §1's numbers are live, not aspirational: `sort=updated` at
+`external_discovery.py:128`, the `stargazers_count >= 500` threshold at
+`external_discovery.py:80`, the 0.35/0.35/0.30 weights at
+`relevance.py:59`, and every budget number in §5's "Today" column matches
+`config/self_improvement_policy.json` exactly (6 / 20 / 3 / 0.65 / 20 min).
+The topic-starvation claim is real: 9 topics exist in
+`config/evolution_watchlist.json`, `max_external_searches_per_cycle` is 6,
+and `watchlist_topics[:max_searches]` is a plain list slice with no
+rotation logic anywhere in the codebase — topics 7–9 are simply never
+reached. `.github/dependabot.yml` exists (Tier 3 rejection is justified),
+`intelligence/classification/source_tier.py` does list `reddit.com` as
+low-tier, and `intelligence/ingestion/rss_adapter.py` exists (reuse claim
+is valid). The dedup reasoning in §2's HN row also checks out:
+`new_fingerprint()` hashes `discovery_source:source:title`
+(`opportunity_store.py:78-88`), so an HN adapter only collapses onto a
+GitHub candidate if it sets `source` to the resolved GitHub URL rather
+than the HN thread URL, exactly as the doc specifies.
+
+Two follow-ups this review surfaced, not yet folded into the plan above:
+
+- **Rotation (§5) needs a `last_searched` timestamp added to each of the 9
+  existing watchlist topics.** No such field exists today, so "sort by
+  last-searched, take the N stalest" has nothing to sort by on first run.
+  Add this as an explicit Phase 1 migration step, and decide whether a
+  fail-open (network error) counts as "searched" for rotation purposes —
+  currently ambiguous.
+- **Gate Phase 2 explicitly on the §8 egress spike, not just "confirm each
+  host."** Reachability for arXiv, HN Algolia and Hugging Face from the
+  production host is unverified (only `pypi.org` and
+  `registry.npmjs.org` responded from the sandbox). Recommend making this
+  a literal go/no-go check before Phase 2 work starts, rather than a
+  footnote resolved implicitly during implementation.
