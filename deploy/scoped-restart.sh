@@ -31,8 +31,18 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SERVICES_CONF="$REPO_ROOT/deploy/auto-deploy-services.conf"
+# The conf file always lives alongside this script — deploy/scoped-restart.sh
+# + deploy/auto-deploy-services.conf here, /opt/deploy-guard/scoped-restart.sh
+# + /opt/deploy-guard/auto-deploy-services.conf in the enforced copy. A prior
+# version derived this via REPO_ROOT="$(dirname "$0")/.." + "/deploy/...",
+# which only worked for the repo layout (deploy/ as a subdir of REPO_ROOT);
+# in the enforced /opt/deploy-guard/ copy that resolved to the nonexistent
+# /opt/deploy/auto-deploy-services.conf, so every scoped restart silently
+# refused (confirmed live, every restart since 2026-09-15 second pass logged
+# "not in the auto-deploy restart allowlist" for every service). Resolving
+# next to the script itself works in both layouts.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SERVICES_CONF="$SCRIPT_DIR/auto-deploy-services.conf"
 
 # Drop-in replacement for $SYSTEMCTL in auto-deploy.sh, which calls
 # "$SYSTEMCTL" restart "$svc" — so this takes the same (verb, unit) shape
