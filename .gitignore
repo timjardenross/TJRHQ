@@ -138,8 +138,14 @@ platform-runtime/.venv-llmsec/
 # mission_dispatch_log.jsonl, finding_staleness.jsonl) are intentionally
 # still committed as each cycle's record and are unaffected by this.
 data/self-improvement/review/.evolution_cycle.lock
+data/self-improvement/review/opportunity_id_counter.lock
 data/self-improvement/review/decisions.jsonl
 data/self-improvement/review/opportunities.jsonl
+
+# data/alert_state/: runtime alert-dedup state written by auto-deploy's
+# health-check step, root-owned, mutates every cycle — untracked for the
+# same reason as the self-improvement lock files above.
+data/alert_state/
 
 # cortex_suite (github.com/Artistsyn/cortex_suite) local install, wired into
 # core/engineering/context_enricher.py's STRUCTURAL API CONTEXT section.
