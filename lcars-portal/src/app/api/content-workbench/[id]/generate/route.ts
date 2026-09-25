@@ -13,6 +13,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireSession } from '@/lib/supabase-server';
 
+// 2026-09-26: no-op touch to force a real Vercel build (Ignored Build Step
+// was skipping redeploys with no file diff, so env var changes weren't
+// being picked up by the running deployment).
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? 'https://ollama.com';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL_DEFAULT ?? 'glm-5.2';
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY ?? '';
