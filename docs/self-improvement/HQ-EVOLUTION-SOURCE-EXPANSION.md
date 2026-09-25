@@ -1,0 +1,201 @@
+# HQ Evolution — Expanding External Research Sources (research / proposal)
+
+Status: **PROPOSAL** — research only, nothing in this doc is implemented yet.
+Date: 2026-09-25
+Scope: `scripts/self_improvement/external_discovery.py`, `external_enrichment.py`,
+`config/evolution_watchlist.json`, the `evolution` block of
+`config/self_improvement_policy.json`.
+
+## 1. Where we are today
+
+The nightly HQ Evolution cycle (`deploy/hq-evolution.timer`, 03:00) has exactly
+one external source: GitHub repository search.
+
+| Stage | Today | Limitation |
+|---|---|---|
+| Discovery | `external_discovery.discover()` → `GET api.github.com/search/repositories?q=<github_query>&sort=updated` per watchlist topic | Only finds *repos*. Papers, model releases, vendor features, release notes of tools HQ already runs, and practitioner write-ups are invisible. |
+| Topic coverage | `watchlist_topics[:max_external_searches_per_cycle]` with the bound at **6** and **9** topics in the watchlist | Topics 7–9 (`mcp-integrations`, `task-decomposition`, `local-inference`) are only ever searched on nights when an earlier topic has resolved in `state_validation.py`. In practice they are mostly never researched. |
+| Ranking inside a search | `sort=updated` | Favours whatever was pushed most recently (often forks/toy repos), not quality. |
+| `value` signal | `stargazers_count >= 500` | Stars are the only value signal, and are GitHub-specific. |
+| Enrichment | `external_enrichment.enrich()` fetches the **GitHub README** of the top 3 | `_repo_full_name_from_source()` returns `None` for any non-GitHub URL, so any new source type gets no enrichment. |
+
+What is already sound and should **not** change: the research order
+(internal validation → external discovery), the `why_relevant` requirement,
+the deterministic `RelevanceGate`, fingerprint + near-duplicate dedup, and
+fail-open behaviour on network errors. A wider source base should feed the
+**same** gate. It should not add a second path around it.
+
+## 2. Candidate sources, ranked by fit for HQ
+
+The criteria are: no auth or a free key, a stable JSON/Atom API, a clear
+mapping to the existing candidate shape, and a real tie to an HQ gap. This
+rules out generic trend scanning (spec section 8).
+
+### Tier 1 — highest signal, lowest effort
+
+| Source | API | Answers | Maps to topics | Notes |
+|---|---|---|---|---|
+| **Release notes of dependencies HQ already runs** | PyPI JSON (`pypi.org/pypi/<pkg>/json`), npm registry (`registry.npmjs.org/<pkg>`), GitHub Releases (`/repos/{o}/{r}/releases`) | "What became possible in things we already use?" (new features, deprecations, breaking changes) | All of them. Especially `retrieval-evaluation` (deepeval, ragas), `observability-llm-ops` (Phoenix), model SDKs, Supabase, Next.js | **Best fit of any source.** Relevance is built in because HQ already depends on the package. Build the list from the existing `requirements*.txt` (10 files) and `lcars-portal/package.json`. Don't maintain a second hand-written list. PyPI and npm both returned 200 from the sandbox. |
+| **arXiv** | `export.arxiv.org/api/query` (Atom, no key, ≤1 req / 3 s) | Techniques that don't exist as repos yet | `long-term-memory`, `retrieval-evaluation`, `model-routing`, `task-decomposition` | A paper is a *concept*, not an adoptable component. Use lower default `evidence_strength` (see §4). |
+| **Hacker News (Algolia)** | `hn.algolia.com/api/v1/search?tags=story&numericFilters=points>50` | Practitioner signal: what engineers are actually adopting or complaining about | All, especially `local-inference`, `observability-llm-ops` | The points threshold is the noise filter. The story URL often points to a GitHub repo, so dedup against the GitHub candidate should use the canonical repo URL. |
+| **Hugging Face Hub** | `huggingface.co/api/models?search=…&sort=downloads` (no key for reads) | New or quantised models that could replace a paid route | `local-inference`, `model-routing` | Directly feeds the "move a `TASK_POLICY` cloud route local" question. Downloads and likes act as the `value` signal. |
+
+### Tier 2 — worthwhile, moderate effort
+
+| Source | API | Use | Notes |
+|---|---|---|---|
+| **MCP server registry** | `registry.modelcontextprotocol.io` (official) and npm search `registry.npmjs.org/-/v1/search?text=mcp server` | `mcp-integrations` topic | Much better targeted than GitHub `topic:mcp`. npm search returned 200 from the sandbox. |
+| **Vendor changelogs / engineering blogs (RSS)** | Existing `intelligence/ingestion/rss_adapter.py` | Model-provider, Supabase, Vercel, Next.js feature launches | **Reuse, don't rebuild.** The intelligence source registry already has 34 `cloud_technology` sources, mostly status pages. Tag a small subset as HQ-Evolution-relevant, or read their already-ingested signals, rather than adding a second fetcher. Per AGENTS.md "check-first registries", grep `SOURCES` in `tools/intelligence/seed_source_registry.py` before adding any feed. |
+| **Semantic Scholar** | `api.semanticscholar.org/graph/v1/paper/search` (unauthenticated, low rate limit; free key raises it) | Citation count as the `value` signal for arXiv candidates | Enrichment, not discovery. |
+| **deps.dev + OpenSSF Scorecard** | `api.deps.dev/v3/...`, `api.securityscorecards.dev/projects/github.com/{o}/{r}` | Supply-chain evidence for section 41 (maintenance, dependency count, security practices) | Enrichment, not discovery. Replaces the current licence/archived-only `complexity` heuristic with real evidence. |
+
+### Tier 3 — not recommended now
+
+| Source | Why not |
+|---|---|
+| Reddit | API needs OAuth plus agreement to commercial API terms (since 2023). HN covers most of the same practitioner signal. `intelligence/classification/source_tier.py` already classes reddit.com as low-tier. |
+| X / Twitter | Paid API, high noise. |
+| Papers with Code | Sunset in 2025 (redirects to Hugging Face). Use HF + arXiv instead. |
+| Paid web-search APIs (Brave, Tavily, Exa, Firecrawl search) | Possible later, but only behind the existing `intelligence/ingestion/external_fetch_budget.py` hard-cap circuit breaker, and only once the free sources above are shown to leave gaps. |
+| OSV.dev / GitHub Advisory DB for vulnerability discovery | `.github/dependabot.yml` already covers this. Adding it would duplicate a working pipeline. |
+
+## 3. Proposed architecture change
+
+Keep everything downstream of discovery unchanged. Turn discovery into a small
+adapter registry.
+
+```
+config/evolution_watchlist.json  (per topic)
+  "queries": {
+     "github":  "local llm model router topic:llm-router",
+     "arxiv":   "ti:\"LLM routing\" OR abs:\"model cascade\"",
+     "hn":      "llm router",
+     "hf":      "router"
+  }
+  # "github_query" stays accepted as an alias for queries.github (backwards compatible)
+
+scripts/self_improvement/sources/          (new, one module per source)
+  github.py   arxiv.py   hn.py   hf.py   dependency_releases.py
+  each: search(query, limit, timeout) -> list[candidate]   # same dict shape as today
+
+external_discovery.discover()
+  for topic in rotated(topics):            # see §5
+    for source, query in topic.queries:    # bounded per source
+      candidates += SOURCES[source].search(...)
+```
+
+Each adapter must:
+
+- Return the **same candidate dict** `_repo_to_candidate()` builds today, with
+  `provenance[0].source` set to the adapter name (`"arxiv"`, `"hn"`, …) and
+  `source` set to a canonical URL, so `new_fingerprint()` and
+  `find_near_duplicate()` work unchanged.
+- Fail open the same way `_get_json()` does: a network error means no
+  candidates from this source this cycle, never a failed cycle.
+- Set its own honest `value` / `evidence_strength` / `complexity` (§4). It must
+  not reuse GitHub-star logic.
+
+Enrichment (`external_enrichment.py`) needs one change: a per-source content
+fetcher. That is the README for GitHub, the abstract for arXiv (already in the
+Atom response, so no extra call), the linked URL's title and top comment for
+HN, and the model card for HF. Without it, non-GitHub candidates are always
+scored on discovery-stage constants.
+
+`relevance.py` does not change.
+
+## 4. Scoring inputs per source
+
+`RelevanceGate.score_candidate()` weighs fit 0.35, value 0.35 and evidence
+0.30, minus a complexity penalty. Each adapter should map its native signals
+onto those fields explicitly:
+
+| Source | `value` from | default `evidence_strength` | `complexity` from | `change_class` |
+|---|---|---|---|---|
+| GitHub | stars (as today) | moderate | licence / archived (as today, later Scorecard) | topic class |
+| Dependency release | always `high` (already a dependency) | strong (vendor's own release notes) | `low` for minor, `moderate` for major-version bumps | topic class, or `reliability` for deprecations |
+| arXiv | citations via Semantic Scholar, else `low` | weak (a claim, not a proven implementation) | `high` (no implementation to adopt) | topic class |
+| HN | points (≥200 → medium, ≥500 → high) | weak | inherit from the linked repo if there is one | topic class |
+| HF | downloads / likes | moderate | licence (many model licences restrict use) | `cost_optimisation` for `local-inference` |
+
+With these defaults, papers and HN threads rarely clear
+`min_relevance_score_to_surface` (0.65) on their own. That is intended: they
+should mostly reach the Captain *after* enrichment has confirmed fit, or as
+corroborating provenance on a GitHub or dependency candidate for the same
+concept.
+
+## 5. Budget changes
+
+The spec's funnel is "DISCOVER MANY → relevance filter → dedup → shortlist →
+deep investigation of FEW". Widening discovery is cheap because the gate and
+dedup are deterministic. The paid part (LLM enrichment and investigation) can
+stay bounded exactly as it is.
+
+| Setting | Today | Proposed | Why |
+|---|---|---|---|
+| Topic selection | first N topics | **rotate**: sort topics by last-searched timestamp, take the N stalest | Every topic gets researched at least every ~2 nights, instead of topics 7–9 almost never |
+| `max_external_searches_per_cycle` | 6 | 20 (with per-source caps below) | Counts topic × source searches, not topics |
+| per-source cap (new) | — | github 6, arxiv 4, hn 4, hf 3, dependency_releases 1 batch | arXiv rate limit is 1 req/3 s, so 4 searches ≈ 12 s |
+| `max_external_candidates_per_cycle` | 20 | 40 | More raw candidates; the gate discards most |
+| `max_external_enrichments_per_cycle` | 3 | 5 | Only LLM-cost line that grows |
+| `max_shortlist_per_cycle` / `max_investigations_per_cycle` / `max_opportunities_surfaced_per_cycle` | 6 / 6 / 3 | unchanged | Captain-facing output volume stays the same; it just gets better candidates |
+| `run_duration_budget_minutes` | 20 | unchanged | ~20 extra HTTP calls at 8 s timeout fit comfortably |
+
+Also switch GitHub search from `sort=updated` to default best-match plus a
+`pushed:>` date qualifier. That keeps results recent without ranking by
+"whoever pushed last".
+
+## 6. Suggested new watchlist topics
+
+Every new topic still needs a `gap_hypothesis`, a `why_relevant` and, where
+possible, a deterministic `validation` block. These are candidates for that
+work, not ready-made entries:
+
+- **Prompt-injection / tool-use safety for MCP and agents.** HQ integrates
+  several MCP servers and has an adversarial-review history
+  (`docs/security/2026-09-15-adversarial-review-remediation.md`). Sources:
+  arXiv, HN, GitHub.
+- **Prompt caching / token cost reduction.** This ties directly to the
+  Model Router's paid routes. Sources: dependency releases (provider SDKs),
+  vendor changelogs.
+- **Agent / LLM-output evaluation beyond hallucination.** This extends the
+  `retrieval-evaluation` topic now that `score_output()` exists.
+
+## 7. Rollout plan
+
+1. **Phase 1 (small, no new network hosts beyond ones already in use).**
+   - Topic rotation.
+   - `sort=updated` fix.
+   - `dependency_releases` adapter over PyPI, npm and GitHub Releases for
+     packages parsed from existing manifests.
+2. **Phase 2.**
+   - `queries` schema with `github_query` alias.
+   - arXiv, HN and HF adapters.
+   - Per-source scoring defaults.
+   - Per-source enrichment fetchers.
+   - Tests in the style of `tests/test_external_enrichment.py`, using
+     recorded fixtures with no live network.
+3. **Phase 3.**
+   - MCP registry adapter.
+   - Scorecard / deps.dev / Semantic Scholar enrichment.
+   - Read HQ-Evolution-tagged vendor-changelog signals from the intelligence
+     pipeline.
+   - Only then consider a budget-capped paid search API.
+
+## 8. Open questions / prerequisites
+
+- **Egress allowlist on the production host.** From the Claude Code sandbox
+  only `pypi.org` and `registry.npmjs.org` were reachable. arXiv, HN Algolia,
+  Hugging Face, deps.dev, Scorecard, Semantic Scholar and OSV were all refused
+  by *this sandbox's* egress proxy. The production VM has a different
+  allowlist; `HQ-EVOLUTION.md` already notes the same sandbox-vs-production
+  difference for GitHub. Confirm each host from `/opt/starship-endeavour`
+  before building its adapter.
+- **GitHub rate limit.** Unauthenticated search allows 10 req/min, and the
+  REST API allows 60 req/hour. Six searches plus three README fetches fit
+  today. Twenty-plus release lookups do not, so Phase 1 needs either a
+  read-only token or PyPI/npm as the primary release source with GitHub
+  Releases as a fallback.
+- **Per-source attribution in the portal.** The self-improvement findings
+  UI should show `provenance.source` so the Captain can see where a
+  candidate came from. It is already stored, but check whether it is
+  rendered.
