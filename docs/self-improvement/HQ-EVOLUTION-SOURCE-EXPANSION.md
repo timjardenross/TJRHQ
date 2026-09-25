@@ -1,10 +1,12 @@
 # HQ Evolution — Expanding External Research Sources (research / proposal)
 
-Status: **Phase 1 implemented** (2026-09-25, this PR) — topic rotation, the
-`sort=updated` fix, and the `dependency_releases` source (§7 Phase 1) are
-live in `scripts/self_improvement/`. Phase 2/3 (adapter registry, arXiv/HN/HF,
-per-source enrichment) remain proposal-only, gated on the §8/§9 egress spike.
-Date: 2026-09-25
+Status: **Phase 1 + Phase 2 implemented** (2026-09-25/26) — topic rotation,
+the `sort=updated` fix, `dependency_releases` (Phase 1); the `sources/`
+adapter registry, arXiv/HN/HF adapters, `queries` schema, per-source caps,
+and per-source enrichment fetchers (Phase 2) are all live in
+`scripts/self_improvement/`. Phase 3 (MCP registry, Scorecard/deps.dev/
+Semantic Scholar enrichment, paid search) remains proposal-only.
+Date: 2026-09-26
 Scope: `scripts/self_improvement/external_discovery.py`, `external_enrichment.py`,
 `config/evolution_watchlist.json`, the `evolution` block of
 `config/self_improvement_policy.json`.
@@ -238,3 +240,31 @@ Two follow-ups this review surfaced, not yet folded into the plan above:
   `registry.npmjs.org` responded from the sandbox). Recommend making this
   a literal go/no-go check before Phase 2 work starts, rather than a
   footnote resolved implicitly during implementation.
+
+## 10. Phase 2 implementation notes (2026-09-26)
+
+Egress spike run for real from the production host (`/opt/starship-endeavour`,
+not the sandbox): arXiv, HN Algolia, Hugging Face, deps.dev, OpenSSF
+Scorecard, Semantic Scholar, and the MCP registry are all reachable — none
+of the sandbox's restrictions apply here. Gate cleared; built the `sources/`
+adapter registry (`github.py`/`arxiv.py`/`hn.py`/`hf.py`/`common.py`), the
+`queries` schema with the `github_query` alias, `per_source_search_caps`,
+and per-source enrichment content fetchers (README / stored abstract / HN
+top comment / HF model card).
+
+**arXiv finding, corrected from an earlier session's note in this PR
+thread:** the first pass concluded arXiv's edge WAF rejected literal `"` in
+the query string. Systematic retesting disproved that — the actual cause is
+that arXiv's export API is currently returning HTTP 406 for **every fresh
+(cache-MISS) query regardless of content** (`all:electron`, a heavily-cached
+query, returns 200 from Fastly's cache; `all:model`, `ti:routing`, and even
+an unused nonsense term all 406 as cache-MISSes going to origin). This looks
+like a transient degradation on arXiv's side as of 2026-09-25/26, not a
+content-based block. `arxiv.py`'s `_sanitize_query()` (rewriting a quoted
+phrase into an AND of its words) is kept regardless, since it's a reasonable
+defensive measure and does no harm — but it was not the fix. The adapter's
+existing fail-open contract already covers this correctly: a 406/network
+failure logs a warning and returns `[]`, same as any other source outage,
+so arXiv candidates will simply resume once arXiv's API recovers with no
+further code change needed. HN and HF were live-verified end-to-end from
+this host and returned real, correctly-shaped candidates.

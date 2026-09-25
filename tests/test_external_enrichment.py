@@ -231,7 +231,10 @@ class TestEnrich(unittest.TestCase):
         }
         # A dependency-release candidate outranks the GitHub one but has no
         # README to fetch; the single slot must go to the GitHub candidate.
-        release = _candidate(title="pkg 1.0 -> 2.0", source="https://pypi.org/project/pkg/", value="high")
+        release = _candidate(
+            title="pkg 1.0 -> 2.0", source="https://pypi.org/project/pkg/", value="high",
+            provenance=[{"source": "dependency_release", "detail": json.dumps({})}],
+        )
         repo = _candidate(title="org/repo", value="low")
         with patch("external_enrichment._fetch_readme_excerpt", return_value="readme"):
             external_enrichment.enrich(

@@ -57,6 +57,9 @@ import urllib.request
 from collections.abc import Callable
 from typing import Any
 
+from sources import hf as sources_hf
+from sources import hn as sources_hn
+
 log = logging.getLogger("external_enrichment")
 
 GITHUB_API_BASE = "https://api.github.com"
@@ -107,20 +110,50 @@ def _fetch_readme_excerpt(source_url: str, *, max_chars: int, timeout: int) -> s
     return raw[:max_chars] if raw else None
 
 
-def _gap_hypothesis_from_provenance(candidate: dict[str, Any]) -> str | None:
-    """external_discovery._repo_to_candidate() records the watchlist
-    topic's gap_hypothesis inside provenance[0]['detail'] (a JSON string)
-    — pulls it back out for the assessment prompt, defensively."""
+def _provenance_detail(candidate: dict[str, Any]) -> dict[str, Any]:
+    """Every source adapter (sources/*.py) records its own structured
+    facts inside provenance[0]['detail'] (a JSON string) — pulls it back
+    out defensively, never raising on a malformed/missing detail."""
     for prov in candidate.get("provenance", []):
         detail = prov.get("detail")
         if not isinstance(detail, str):
             continue
         try:
-            hypothesis = json.loads(detail).get("watchlist_gap_hypothesis")
+            return json.loads(detail)
         except json.JSONDecodeError:
             continue
-        if hypothesis:
-            return hypothesis
+    return {}
+
+
+def _provenance_source(candidate: dict[str, Any]) -> str | None:
+    provenance = candidate.get("provenance") or []
+    return provenance[0].get("source") if provenance else None
+
+
+def _gap_hypothesis_from_provenance(candidate: dict[str, Any]) -> str | None:
+    return _provenance_detail(candidate).get("watchlist_gap_hypothesis")
+
+
+def _fetch_content_excerpt(candidate: dict[str, Any], *, max_chars: int, timeout: int) -> str | None:
+    """Per-source content fetch (docs/self-improvement/
+    HQ-EVOLUTION-SOURCE-EXPANSION.md §3): the README for GitHub, the
+    abstract for arXiv (already captured in provenance at discovery time,
+    so no extra HTTP call), the top comment for HN, and the model card for
+    Hugging Face. None for any other/unrecognised source (e.g.
+    dependency_release, which has no comparable content to fetch) — such
+    candidates are excluded from enrichment entirely by `enrich()` below,
+    same as before this dispatch existed."""
+    source = _provenance_source(candidate)
+    if source == "github":
+        return _fetch_readme_excerpt(candidate.get("source", ""), max_chars=max_chars, timeout=timeout)
+    if source == "arxiv":
+        abstract = _provenance_detail(candidate).get("abstract") or ""
+        return abstract[:max_chars] or None
+    if source == "hn":
+        hn_object_id = _provenance_detail(candidate).get("hn_object_id")
+        return sources_hn.fetch_top_comment(hn_object_id, max_chars=max_chars, timeout=timeout) if hn_object_id else None
+    if source == "huggingface":
+        return sources_hf.fetch_model_card(candidate.get("title", ""), max_chars=max_chars, timeout=timeout)
     return None
 
 
@@ -181,19 +214,21 @@ def enrich(
     readme_timeout = evolution_config.get("external_readme_timeout_seconds", 8)
 
     rank = score_fn or _default_rank
-    # Only GitHub-sourced candidates have a README this module can fetch.
-    # Without this filter, higher-scoring non-GitHub candidates (e.g.
-    # dependency_releases.py's, which score well above metadata-only GitHub
-    # ones) would take every enrichment slot and leave nothing to enrich.
-    enrichable = [c for c in candidates if _repo_full_name_from_source(c.get("source", ""))]
+    # Only sources with a real per-source content fetcher (github, arxiv,
+    # hn, huggingface — see _fetch_content_excerpt) get enriched. Without
+    # this filter, higher-scoring candidates with no fetcher (e.g.
+    # dependency_releases.py's, which score well above metadata-only
+    # candidates) would take every enrichment slot and leave nothing to
+    # enrich.
+    enrichable = [c for c in candidates if _provenance_source(c) in {"github", "arxiv", "hn", "huggingface"}]
     ranked = sorted(enrichable, key=rank, reverse=True)
 
     for candidate in ranked[:max_enrichments]:
-        readme = _fetch_readme_excerpt(candidate.get("source", ""), max_chars=readme_max_chars, timeout=readme_timeout)
+        content = _fetch_content_excerpt(candidate, max_chars=readme_max_chars, timeout=readme_timeout)
         gap_hypothesis = _gap_hypothesis_from_provenance(candidate)
 
         try:
-            result = router.assess_external_candidate(candidate, readme, gap_hypothesis)
+            result = router.assess_external_candidate(candidate, content, gap_hypothesis)
         except Exception as exc:  # noqa: BLE001 - a router call failing must never abort the rest of enrichment or the cycle; already logged
             log.warning(f"assess_external_candidate failed for {candidate.get('title')}: {exc}")
             continue
