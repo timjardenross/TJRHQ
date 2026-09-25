@@ -46,25 +46,24 @@ _DEFAULT_FROM = os.environ.get("RESEND_FROM", "Emergency Alert Hub <onboarding@r
 
 
 def _running_under_tests() -> bool:
-    r"""True while pytest is actually executing a test (PYTEST_CURRENT_TEST
-    is pytest's own documented signal, set only for the duration of each
-    test) or when unittest has been imported at all (python -m unittest,
-    the other way this repo's tests are run — confirmed via `grep -rl
-    "^import unittest\|^from unittest"` that no production module in this
-    repo imports unittest itself, so this has no real false-positive risk
-    here, unlike a generic "are we in CI" heuristic would).
+    r"""True only while pytest is actually executing a test
+    (PYTEST_CURRENT_TEST is pytest's own documented signal, set only for
+    the duration of each test).
 
-    2026-09-19: added after intelligence/workflow/service.py's publish_brief()
-    unconditionally called notify_published() -> send_email(), and
-    tests/test_intelligence_workflow.py / tests/test_telstra_poc.py — which
-    exercise that exact path against fixture briefs ({"period_end": "b"},
-    {"period_end": "2026-07-11"}) — sent three real emails to the Captain's
-    inbox from a plain local test run. That call site is now separately
-    gated (only fires for the real SupabaseRepository), but this module is
-    the actual network boundary every notification path funnels through —
-    gating here protects every current and future caller at once, not just
-    the one call site that happened to get caught this time."""
-    return bool(os.environ.get("PYTEST_CURRENT_TEST")) or "unittest" in sys.modules
+    2026-09-19: originally also matched "unittest" in sys.modules (python -m
+    unittest, the other way this repo's tests are run), on the assumption
+    that no production module imports unittest itself. That assumption was
+    wrong: platform-runtime/.venv's logfire_api package unconditionally does
+    `from unittest.mock import patch` at import time, so unittest ends up in
+    sys.modules in every live process too — this silently blocked every real
+    Resend send from 2026-09-19 to 2026-09-25 (confirmed live: emergency
+    alert summaries and Captain's brief emails all failed with this warning
+    while RESEND_API_KEY/RESEND_FROM were correctly configured). Dropped the
+    sys.modules check; PYTEST_CURRENT_TEST alone still catches the actual
+    incident this guard was added for (intelligence/workflow/service.py's
+    publish_brief() -> notify_published() -> send_email(), exercised by
+    tests/test_intelligence_workflow.py / tests/test_telstra_poc.py)."""
+    return bool(os.environ.get("PYTEST_CURRENT_TEST"))
 
 
 def send_email(to: str, subject: str, html: str, from_addr: str | None = None, timeout: int = 15) -> bool:
