@@ -9,7 +9,7 @@ shape `_repo_to_candidate()` originally built (see sources/common.py's
 came from.
 """
 
-from . import arxiv, github, hf, hn, mcp_registry, vendor_changelog
+from . import arxiv, firecrawl_search, github, hf, hn, mcp_registry, vendor_changelog
 
 SOURCES = {
     "github": github.search,
@@ -18,4 +18,5 @@ SOURCES = {
     "hf": hf.search,
     "mcp_registry": mcp_registry.search,
     "vendor_changelog": vendor_changelog.search,
+    "firecrawl_search": firecrawl_search.search,
 }
