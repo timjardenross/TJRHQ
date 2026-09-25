@@ -703,13 +703,11 @@ def register_jobs(scheduler, tz) -> None:
     )
 
     # Telegram delivery jobs
-    scheduler.add_job(
-        job_lifecycle_recommendations,
-        CronTrigger(hour=8, minute=15, timezone=tz),
-        id="lifecycle_recommendations",
-        name="Lifecycle Pending Actions (MSN-0066)",
-        replace_existing=True,
-    )
+    # lifecycle_recommendations retired 2026-09-26 (Captain-directed): daily
+    # approval-queue digest no longer needed. Was firing on 2 stale
+    # ENG-HANDOFF records (PR #83/#84, closed-not-merged since 2026-09-09)
+    # that never got marked resolved after close — build_pending_actions()
+    # doesn't re-check PR state. Function left in place, just unregistered.
     # fortnightly_idea_review disabled: no dedup/ack, re-nags the same
     # Idea-status missions verbatim every cycle with no resolution path.
     scheduler.add_job(
