@@ -1,15 +1,15 @@
 # HQ Evolution — Expanding External Research Sources (research / proposal)
 
-Status: **Phase 1 + 2 + 3 (minus paid search) implemented** (2026-09-25/26)
-— topic rotation, the `sort=updated` fix, `dependency_releases` (Phase 1);
-the `sources/` adapter registry, arXiv/HN/HF adapters, `queries` schema,
+Status: **Phase 1 + 2 + 3 fully implemented** (2026-09-25/26) — topic
+rotation, the `sort=updated` fix, `dependency_releases` (Phase 1); the
+`sources/` adapter registry, arXiv/HN/HF adapters, `queries` schema,
 per-source caps, per-source enrichment fetchers (Phase 2); the MCP
 registry adapter, deps.dev/Scorecard/Semantic Scholar supply-chain
-evidence enrichment, and vendor-changelog reuse from the existing
-intelligence pipeline (Phase 3) are all live in
-`scripts/self_improvement/`. The budget-capped paid search API is the one
-Phase 3 item NOT built — see §11: it needs a real evidence-of-gap finding
-first (the doc's own gating condition), which nothing has produced yet.
+evidence enrichment, vendor-changelog reuse, and the budget-capped
+Firecrawl paid-search source (Phase 3) are all live in
+`scripts/self_improvement/`. See §11/§12 for how the paid-search gating
+condition was actually resolved, and §12 for which of the 9 watchlist
+topics now use which sources.
 Date: 2026-09-26
 Scope: `scripts/self_improvement/external_discovery.py`, `external_enrichment.py`,
 `config/evolution_watchlist.json`, the `evolution` block of
@@ -294,15 +294,51 @@ avoids doubling the request count for the common case. Both were
 live-verified from this host.
 
 **The budget-capped paid search API (§2 Tier 2, deliberately last in §7's
-rollout) is NOT built.** The doc's own gating condition — "only once the
-free sources above are shown to leave gaps" — hasn't been met: nothing in
-Phase 1/2/3 has surfaced a concrete watchlist topic that the seven free
-sources (GitHub, arXiv, HN, HF, dependency releases, MCP registry,
-vendor-changelog) all miss. Building it now would be exactly the "search
-because it's possible, not because HQ needs it" pattern section 8
-prohibits everywhere else in this pipeline. It also needs a decision this
-document can't make on its own: which provider (Brave/Tavily/Exa/
-Firecrawl), a real API key, and a $ budget cap wired through the existing
-`intelligence/ingestion/external_fetch_budget.py` circuit breaker. Revisit
-once a specific gap is identified from real overnight cycles running the
-sources above.
+rollout) IS now built** (`sources/firecrawl_search.py`, 2026-09-26,
+Captain-directed follow-up). What actually unblocked it wasn't a new
+evidence-of-gap finding — it was that the "provider decision" this
+document flagged as a blocker turned out to already be made: Firecrawl is
+a provisioned, budget-gated fetch path this repo already runs in
+production (`intelligence/ingestion/firecrawl_client.py`,
+`intelligence/ingestion/external_fetch_budget.py`, provider="firecrawl"),
+not a new vendor/key to source. The adapter shares that SAME real
+account-wide monthly cap with the intelligence pipeline's existing usage
+— deliberately, not a separate budget that could double real spend — and
+degrades to no candidates on any refusal, same fail-open contract as
+every other source.
+
+The evidence-of-gap concern this section originally raised is handled by
+scope instead of by proof: `per_source_search_caps.firecrawl_search`
+defaults to 1 search/cycle, and — unlike every other source — no
+watchlist topic enables it by default. It only ever fires for a topic
+whose `queries` dict explicitly adds a `"firecrawl_search"` key, so it
+stays genuinely last-resort until a specific topic is deliberately opted
+in. NOT live-tested against the real API during development — doing so
+would spend a real credit from the Captain's shared account for no
+operational reason; built and unit-tested against Firecrawl's documented
+`/v1/search` response shape instead.
+
+## 12. Two follow-up items closed (2026-09-26)
+
+**Per-source attribution in the portal (§8's open question) — already
+handled, no code change needed.** Checked
+`lcars-portal/src/app/self-improvement-findings/_components/OpportunityDetail.tsx`:
+every candidate's `provenance` array is already rendered, both as a
+compact joined summary line and in a full "Evidence & provenance"
+expandable section showing each entry's `source`/`location`/`detail`
+verbatim. It has no hardcoded source-name switch, so every new source
+this doc has added (arxiv/hn/huggingface/mcp_registry/vendor_changelog/
+dependency_release/firecrawl_search) renders correctly with zero
+frontend change. The concern raised in the first review was
+speculative, not confirmed — now confirmed false.
+
+**A few watchlist topics now actually use the new sources.** Every
+adapter built in Phase 2/3 existed but sat dormant — no topic's `queries`
+dict referenced anything but `github`. Wired four of the 9 topics in
+`config/evolution_watchlist.json` to the sources that most directly match
+their own `why_relevant`: `model-routing` (+ arxiv, hn), `retrieval-evaluation`
+(+ arxiv), `mcp-integrations` (+ mcp_registry), `local-inference` (+ hf,
+hn). The arXiv queries use bare AND-joined terms (`ti:LLM AND ti:routing`),
+not quoted phrases, per §10's finding. The other 5 topics and
+`firecrawl_search` were deliberately left untouched — narrower blast
+radius, and firecrawl_search specifically should stay opt-in per §11.

@@ -34,6 +34,7 @@ log = logging.getLogger("external_discovery")
 
 DEFAULT_PER_SOURCE_SEARCH_CAPS = {
     "github": 6, "arxiv": 4, "hn": 4, "hf": 3, "mcp_registry": 3, "vendor_changelog": 2,
+    "firecrawl_search": 1,  # paid, last-resort — see sources/firecrawl_search.py
 }
 
 
