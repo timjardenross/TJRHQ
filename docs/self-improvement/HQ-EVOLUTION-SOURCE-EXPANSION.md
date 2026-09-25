@@ -1,6 +1,9 @@
 # HQ Evolution — Expanding External Research Sources (research / proposal)
 
-Status: **PROPOSAL** — research only, nothing in this doc is implemented yet.
+Status: **Phase 1 implemented** (2026-09-25, this PR) — topic rotation, the
+`sort=updated` fix, and the `dependency_releases` source (§7 Phase 1) are
+live in `scripts/self_improvement/`. Phase 2/3 (adapter registry, arXiv/HN/HF,
+per-source enrichment) remain proposal-only, gated on the §8/§9 egress spike.
 Date: 2026-09-25
 Scope: `scripts/self_improvement/external_discovery.py`, `external_enrichment.py`,
 `config/evolution_watchlist.json`, the `evolution` block of
