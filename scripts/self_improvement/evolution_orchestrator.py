@@ -599,6 +599,19 @@ class EvolutionOrchestrator:
             if remaining_budget > 0:
                 external_candidates += self._collect_dependency_releases(remaining_budget)
 
+            # Tier 2 supply-chain evidence (deps.dev/Scorecard complexity,
+            # Semantic Scholar citation-based value) — deterministic, no
+            # Model Router involved, so it runs regardless of
+            # router_reachable and BEFORE the LLM ranking below, so
+            # ranking itself sees the sharpened fields.
+            if external_candidates:
+                try:
+                    external_candidates = external_enrichment.apply_supply_chain_evidence(
+                        external_candidates, self.evolution_config,
+                    )
+                except Exception as exc:  # noqa: BLE001 - supply-chain evidence is optional upside, never load-bearing; a failure here must not affect discovery/relevance/scoring; already logged
+                    log.error(f"Supply-chain evidence enrichment failed entirely — continuing with metadata-only complexity/value: {exc}")
+
             # Upgrades a bounded few candidates' fit/evidence_strength
             # from discover()'s hardcoded metadata-only defaults to a
             # real README-grounded assessment (see external_enrichment.py's
