@@ -1,0 +1,79 @@
+{
+  "findings": [
+    {
+      "category": "observability_gap",
+      "title": "Model router call log missing",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "Model router call log file is reported as missing (call_log_exists: false)",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure model router creates and writes to call_log.jsonl to maintain operational visibility and telemetry"
+      },
+      "expected_benefit": "Restores visibility into model router latency, call volume, and failure rates",
+      "finding_id": "FND-001",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: conclusive; Confidence: 0.95; Risk: medium; Automation: needs_signoff; Category reason: Changes to running services require verification"
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct LLM API invocation bypassing model router in emergency alert processing",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct calls to call_gemini and call_mistral bypassing the centralized model router endpoint",
+          "location": "intelligence/emergency_alert_<URL>"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Route emergency alert LLM requests through the centralized model router on port 8891"
+      },
+      "expected_benefit": "Enforces centralized LLM rate limiting, fallback routing, logging, and token cost tracking",
+      "finding_id": "FND-002",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: router_bypass; Evidence strength: conclusive; Confidence: 0.90; Risk: medium; Automation: needs_signoff; Category reason: Router bypasses must be corrected by design review"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 research and quality forecasting stubs",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Recent anomalies list stubbed with empty array pending quality_anomalies table query",
+          "location": "platform-runtime/lib/quality_forecasting_<URL>"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Phase 5 authorization check and memory integration stubbed with TODO comments",
+          "location": "platform-runtime/commands/research_<URL>"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement Phase 5 database integration for quality anomalies and authorization checking"
+      },
+      "expected_benefit": "Completes planned runtime functionality and eliminates dead placeholder branches",
+      "finding_id": "FND-003",
+      "evidence_strength": "strong",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: strong; Confidence: 0.85; Risk: low; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    }
+  ],
+  "errors": []
+}
