@@ -141,6 +141,9 @@ data/self-improvement/review/.evolution_cycle.lock
 data/self-improvement/review/opportunity_id_counter.lock
 data/self-improvement/review/decisions.jsonl
 data/self-improvement/review/opportunities.jsonl
+# Per-topic last-searched timestamps for external_discovery.py's watchlist
+# rotation — rewritten every cycle, same reason as the files above.
+data/self-improvement/review/watchlist_rotation_state.json
 
 # data/alert_state/: runtime alert-dedup state written by auto-deploy's
 # health-check step, root-owned, mutates every cycle — untracked for the

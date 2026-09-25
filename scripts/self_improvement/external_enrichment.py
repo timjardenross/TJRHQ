@@ -57,6 +57,12 @@ import urllib.request
 from collections.abc import Callable
 from typing import Any
 
+from sources import deps_dev as sources_deps_dev
+from sources import hf as sources_hf
+from sources import hn as sources_hn
+from sources import scorecard as sources_scorecard
+from sources import semantic_scholar as sources_semantic_scholar
+
 log = logging.getLogger("external_enrichment")
 
 GITHUB_API_BASE = "https://api.github.com"
@@ -107,21 +113,139 @@ def _fetch_readme_excerpt(source_url: str, *, max_chars: int, timeout: int) -> s
     return raw[:max_chars] if raw else None
 
 
-def _gap_hypothesis_from_provenance(candidate: dict[str, Any]) -> str | None:
-    """external_discovery._repo_to_candidate() records the watchlist
-    topic's gap_hypothesis inside provenance[0]['detail'] (a JSON string)
-    — pulls it back out for the assessment prompt, defensively."""
+def _provenance_detail(candidate: dict[str, Any]) -> dict[str, Any]:
+    """Every source adapter (sources/*.py) records its own structured
+    facts inside provenance[0]['detail'] (a JSON string) — pulls it back
+    out defensively, never raising on a malformed/missing detail."""
     for prov in candidate.get("provenance", []):
         detail = prov.get("detail")
         if not isinstance(detail, str):
             continue
         try:
-            hypothesis = json.loads(detail).get("watchlist_gap_hypothesis")
+            return json.loads(detail)
         except json.JSONDecodeError:
             continue
-        if hypothesis:
-            return hypothesis
+    return {}
+
+
+def _provenance_source(candidate: dict[str, Any]) -> str | None:
+    provenance = candidate.get("provenance") or []
+    return provenance[0].get("source") if provenance else None
+
+
+def _gap_hypothesis_from_provenance(candidate: dict[str, Any]) -> str | None:
+    return _provenance_detail(candidate).get("watchlist_gap_hypothesis")
+
+
+def _fetch_content_excerpt(candidate: dict[str, Any], *, max_chars: int, timeout: int) -> str | None:
+    """Per-source content fetch (docs/self-improvement/
+    HQ-EVOLUTION-SOURCE-EXPANSION.md §3): the README for GitHub, the
+    abstract for arXiv (already captured in provenance at discovery time,
+    so no extra HTTP call), the top comment for HN, and the model card for
+    Hugging Face. None for any other/unrecognised source (e.g.
+    dependency_release, which has no comparable content to fetch) — such
+    candidates are excluded from enrichment entirely by `enrich()` below,
+    same as before this dispatch existed."""
+    source = _provenance_source(candidate)
+    if source == "github":
+        return _fetch_readme_excerpt(candidate.get("source", ""), max_chars=max_chars, timeout=timeout)
+    if source == "arxiv":
+        abstract = _provenance_detail(candidate).get("abstract") or ""
+        return abstract[:max_chars] or None
+    if source == "hn":
+        hn_object_id = _provenance_detail(candidate).get("hn_object_id")
+        return sources_hn.fetch_top_comment(hn_object_id, max_chars=max_chars, timeout=timeout) if hn_object_id else None
+    if source == "huggingface":
+        return sources_hf.fetch_model_card(candidate.get("title", ""), max_chars=max_chars, timeout=timeout)
+    if source == "mcp_registry":
+        # An MCP registry entry's `source` is the linked GitHub repo (see
+        # sources/mcp_registry.py — entries with no repo are never turned
+        # into a candidate), so the same README fetcher applies.
+        return _fetch_readme_excerpt(candidate.get("source", ""), max_chars=max_chars, timeout=timeout)
     return None
+
+
+def _complexity_from_scorecard_score(score: float) -> str:
+    """OpenSSF Scorecard is 0-10, higher is better-maintained/safer to
+    adopt. Doc §2's Tier 2 framing: "Replaces the current licence/
+    archived-only complexity heuristic with real evidence."."""
+    if score >= 7:
+        return "low"
+    if score >= 4:
+        return "moderate"
+    return "high"
+
+
+def _value_from_citation_count(citations: int) -> str:
+    if citations >= 100:
+        return "high"
+    if citations >= 20:
+        return "medium"
+    return "low"
+
+
+def apply_supply_chain_evidence(candidates: list[dict[str, Any]], evolution_config: dict[str, Any]) -> list[dict[str, Any]]:
+    """Docs/self-improvement/HQ-EVOLUTION-SOURCE-EXPANSION.md Tier 2:
+    deps.dev + OpenSSF Scorecard sharpen `complexity` for any
+    GitHub-linked candidate (github/hn/mcp_registry — any source whose
+    `source` field resolves to a GitHub repo) with real maintenance/
+    security evidence instead of the licence/archived-only heuristic.
+    Semantic Scholar sharpens `value` for arXiv candidates via citation
+    count. Runs BEFORE enrich()'s LLM ranking, so ranking itself sees the
+    sharpened fields — not just the final surfaced candidate.
+
+    Bounded by `max_supply_chain_evidence_per_cycle` (shared across both
+    evidence types, since both hit free/low-rate-limited public APIs) and
+    fail-open exactly like every other source: any failure leaves a
+    candidate's fields exactly as they were, never a partial write."""
+    max_calls = evolution_config.get("max_supply_chain_evidence_per_cycle", 10)
+    timeout = evolution_config.get("external_request_timeout_seconds", 8)
+    calls_made = 0
+
+    for candidate in candidates:
+        if calls_made >= max_calls:
+            break
+        full_name = _repo_full_name_from_source(candidate.get("source", ""))
+        if full_name:
+            owner, repo = full_name.split("/", 1)
+            try:
+                evidence = sources_deps_dev.get_evidence(owner, repo, timeout)
+            except Exception as exc:  # noqa: BLE001 - supply-chain evidence is optional upside, never load-bearing; already logged
+                log.warning(f"deps.dev evidence fetch failed for {full_name}: {exc}")
+                evidence = None
+            calls_made += 1
+            score = evidence.get("scorecard_score") if evidence else None
+            if score is None and evidence is not None and calls_made < max_calls:
+                # deps.dev succeeded but had no embedded scorecard for this
+                # repo — try the dedicated Scorecard API as a fallback,
+                # rather than on every deps.dev failure (which would just
+                # double the request count for the common case).
+                try:
+                    score = sources_scorecard.get_score(owner, repo, timeout)
+                except Exception as exc:  # noqa: BLE001 - same optional-upside posture
+                    log.warning(f"Scorecard fallback fetch failed for {full_name}: {exc}")
+                    score = None
+                calls_made += 1
+            if isinstance(score, (int, float)):
+                candidate["complexity"] = _complexity_from_scorecard_score(score)
+                candidate["supply_chain_scorecard_score"] = score
+            continue
+
+        if _provenance_source(candidate) == "arxiv":
+            arxiv_id = sources_semantic_scholar.extract_arxiv_id(candidate.get("source", ""))
+            if not arxiv_id:
+                continue
+            try:
+                citations = sources_semantic_scholar.get_citation_count(arxiv_id, timeout)
+            except Exception as exc:  # noqa: BLE001 - same optional-upside posture
+                log.warning(f"Semantic Scholar citation fetch failed for {arxiv_id}: {exc}")
+                citations = None
+            calls_made += 1
+            if isinstance(citations, int):
+                candidate["value"] = _value_from_citation_count(citations)
+                candidate["supply_chain_citation_count"] = citations
+
+    return candidates
 
 
 def _apply_assessment(candidate: dict[str, Any], assessment: dict[str, Any]) -> bool:
@@ -181,14 +305,21 @@ def enrich(
     readme_timeout = evolution_config.get("external_readme_timeout_seconds", 8)
 
     rank = score_fn or _default_rank
-    ranked = sorted(candidates, key=rank, reverse=True)
+    # Only sources with a real per-source content fetcher (github, arxiv,
+    # hn, huggingface — see _fetch_content_excerpt) get enriched. Without
+    # this filter, higher-scoring candidates with no fetcher (e.g.
+    # dependency_releases.py's, which score well above metadata-only
+    # candidates) would take every enrichment slot and leave nothing to
+    # enrich.
+    enrichable = [c for c in candidates if _provenance_source(c) in {"github", "arxiv", "hn", "huggingface", "mcp_registry"}]
+    ranked = sorted(enrichable, key=rank, reverse=True)
 
     for candidate in ranked[:max_enrichments]:
-        readme = _fetch_readme_excerpt(candidate.get("source", ""), max_chars=readme_max_chars, timeout=readme_timeout)
+        content = _fetch_content_excerpt(candidate, max_chars=readme_max_chars, timeout=readme_timeout)
         gap_hypothesis = _gap_hypothesis_from_provenance(candidate)
 
         try:
-            result = router.assess_external_candidate(candidate, readme, gap_hypothesis)
+            result = router.assess_external_candidate(candidate, content, gap_hypothesis)
         except Exception as exc:  # noqa: BLE001 - a router call failing must never abort the rest of enrichment or the cycle; already logged
             log.warning(f"assess_external_candidate failed for {candidate.get('title')}: {exc}")
             continue

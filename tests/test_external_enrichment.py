@@ -224,6 +224,27 @@ class TestEnrich(unittest.TestCase):
         self.assertEqual(b["fit"], "strong")
         self.assertEqual(a["fit"], "moderate")
 
+    def test_non_github_candidates_do_not_consume_enrichment_slots(self):
+        router = MagicMock()
+        router.assess_external_candidate.return_value = {
+            "success": True, "assessment": {"fit": "strong", "evidence_strength": "strong", "confidence": 0.9},
+        }
+        # A dependency-release candidate outranks the GitHub one but has no
+        # README to fetch; the single slot must go to the GitHub candidate.
+        release = _candidate(
+            title="pkg 1.0 -> 2.0", source="https://pypi.org/project/pkg/", value="high",
+            provenance=[{"source": "dependency_release", "detail": json.dumps({})}],
+        )
+        repo = _candidate(title="org/repo", value="low")
+        with patch("external_enrichment._fetch_readme_excerpt", return_value="readme"):
+            external_enrichment.enrich(
+                [release, repo], {**self.config, "max_external_enrichments_per_cycle": 1}, router=router,
+                score_fn=lambda c: 1 if c is release else 0,
+            )
+        router.assess_external_candidate.assert_called_once()
+        self.assertEqual(repo["fit"], "strong")
+        self.assertEqual(release["fit"], "moderate")
+
     def test_router_exception_for_one_candidate_does_not_abort_the_rest(self):
         router = MagicMock()
         router.assess_external_candidate.side_effect = [

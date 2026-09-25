@@ -547,6 +547,7 @@ class TestOrchestratorOutcomeLoop(unittest.TestCase):
 
     def _make_orchestrator(self):
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
         orch._load_watchlist = list
         return orch
 

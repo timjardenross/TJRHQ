@@ -194,6 +194,7 @@ class TestOverlapPrevention(unittest.TestCase):
 
     def test_run_cycle_skips_cleanly_when_lock_held(self):
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
         orch._load_watchlist = list
         (self.tmpdir / "review").mkdir(parents=True, exist_ok=True)
         held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")  # noqa: SIM115 - flock held across the try/finally below, can't use a `with` block
@@ -210,6 +211,7 @@ class TestOverlapPrevention(unittest.TestCase):
         """Section 5: dry-run remains scheduler-independent — it should
         succeed even while a real cycle's lock is held."""
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
         orch._load_watchlist = list
         (self.tmpdir / "review").mkdir(parents=True, exist_ok=True)
         held_fd = open(self.tmpdir / "review" / ".evolution_cycle.lock", "w")  # noqa: SIM115 - flock held across the try/finally below, can't use a `with` block
@@ -234,6 +236,7 @@ class TestResearchOrderAndBounds(unittest.TestCase):
         EXTERNAL DISCOVERY. A topic that validates as resolved must never
         be handed to external_discovery.discover()."""
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
         orch._load_watchlist = lambda: [
             {"id": "resolved-topic", "class": "capability", "why_relevant": "x",
              "validation": {"check_type": "file_exists_resolves", "paths": ["scripts/self_improvement/collector.py"]}},
@@ -241,7 +244,7 @@ class TestResearchOrderAndBounds(unittest.TestCase):
         ]
         captured_topic_ids = []
 
-        def fake_discover(topics, config):
+        def fake_discover(topics, config, **_kwargs):
             captured_topic_ids.extend(t["id"] for t in topics)
             return []
 
@@ -253,6 +256,7 @@ class TestResearchOrderAndBounds(unittest.TestCase):
 
     def test_resolved_topic_persists_as_resolved_before_research_and_is_not_duplicated(self):
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
         orch._load_watchlist = lambda: [
             {"id": "resolved-topic", "class": "capability", "why_relevant": "x", "gap_hypothesis": "g",
              "validation": {"check_type": "file_exists_resolves", "paths": ["scripts/self_improvement/collector.py"]}},
@@ -272,11 +276,12 @@ class TestResearchOrderAndBounds(unittest.TestCase):
 
     def test_external_search_count_bounded_regardless_of_active_topic_count(self):
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
         orch.evolution_config = {**orch.evolution_config, "max_external_searches_per_cycle": 2, "max_external_candidates_per_search": 1, "max_external_candidates_per_cycle": 2}
         many_topics = [{"id": f"t{i}", "class": "capability", "why_relevant": "x"} for i in range(10)]
         orch._load_watchlist = lambda: many_topics
 
-        with patch("external_discovery.urllib.request.urlopen", side_effect=urllib.error.URLError("no network")):
+        with patch("sources.common.urllib.request.urlopen", side_effect=urllib.error.URLError("no network")):
             result = orch.run_cycle(dry_run=False)
 
         self.assertLessEqual(result["cost_accounting"]["external_searches_made"], 10)  # all 10 are "active" (unclear)
@@ -293,6 +298,7 @@ class TestResearchOrderAndBounds(unittest.TestCase):
         automation_eligibility every time, because classify_finding() never
         reads the investigation dict at all."""
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
         orch._load_watchlist = list
         candidate = {
             "title": "Some capability idea", "source": "s", "discovery_source": "internal",

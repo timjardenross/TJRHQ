@@ -703,13 +703,11 @@ def register_jobs(scheduler, tz) -> None:
     )
 
     # Telegram delivery jobs
-    scheduler.add_job(
-        job_lifecycle_recommendations,
-        CronTrigger(hour=8, minute=15, timezone=tz),
-        id="lifecycle_recommendations",
-        name="Lifecycle Pending Actions (MSN-0066)",
-        replace_existing=True,
-    )
+    # lifecycle_recommendations retired 2026-09-26 (Captain-directed): daily
+    # approval-queue digest no longer needed. Was firing on 2 stale
+    # ENG-HANDOFF records (PR #83/#84, closed-not-merged since 2026-09-09)
+    # that never got marked resolved after close — build_pending_actions()
+    # doesn't re-check PR state. Function left in place, just unregistered.
     # fortnightly_idea_review disabled: no dedup/ack, re-nags the same
     # Idea-status missions verbatim every cycle with no resolution path.
     scheduler.add_job(
@@ -733,20 +731,15 @@ def register_jobs(scheduler, tz) -> None:
         name="Forgotten Decisions & ADR Alert",
         replace_existing=True,
     )
-    scheduler.add_job(
-        job_decision_review,
-        CronTrigger(day_of_week="fri", hour=16, minute=0, timezone=tz),
-        id="decision_review",
-        name="Friday Decision Review",
-        replace_existing=True,
-    )
-    scheduler.add_job(
-        job_weekly_review,
-        CronTrigger(day_of_week="fri", hour=16, minute=30, timezone=tz),
-        id="weekly_review",
-        name="Friday Weekly Review",
-        replace_existing=True,
-    )
+    # decision_review retired 2026-09-26 (Captain-directed): no longer
+    # needed. _get_pending_decisions() had no dedup/ack (same disease as
+    # fortnightly_idea_review above) — 14 never-closed decision files from
+    # 2026-09-12 (~5 duplicate "Slack vs Voice Core" proposals fired in 15
+    # min under USS-TJR-MSN-0010A) kept re-nagging every Friday. Function
+    # left in place, just unregistered — re-add scheduler.add_job() to revive.
+    # weekly_review retired 2026-09-26 (Captain-directed): no longer needed.
+    # job_weekly_review() and weeklyReview.ts/alerts.ts untouched — just
+    # unregistered here.
     # shakedown_digest retired 2026-08-27 (Captain-directed): the shakedown
     # concept (core/health/shakedown_logger.py) was a 7-day operational
     # burn-in tracker starting 2026-06-15 (mission M-20260615), never
