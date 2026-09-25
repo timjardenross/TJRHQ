@@ -24,6 +24,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -193,33 +194,55 @@ def _to_candidate(*, ecosystem: str, name: str, pinned: str, latest: str, bump: 
     }
 
 
-def discover(evolution_config: dict[str, Any], repo_root: Path, max_total: int | None = None) -> list[dict[str, Any]]:
+def _daily_window(packages: list[Any], size: int, today: date | None = None) -> list[Any]:
+    """A `size`-long slice of `packages` that advances by `size` each day
+    and wraps around, so every package gets checked every
+    ceil(len/size) days. Without it, a fixed alphabetical order would
+    always check the same head-of-list packages and never reach the rest,
+    which is the same starvation external_discovery.py's topic rotation
+    fixes. Stateless on purpose: the date alone decides the window."""
+    if not packages or size <= 0:
+        return []
+    if size >= len(packages):
+        return list(packages)
+    day = (today or datetime.now(timezone.utc).date()).toordinal()
+    start = (day * size) % len(packages)
+    return [packages[(start + i) % len(packages)] for i in range(size)]
+
+
+def discover(
+    evolution_config: dict[str, Any], repo_root: Path, max_total: int | None = None, today: date | None = None,
+) -> list[dict[str, Any]]:
     """Bounded, single batch per cycle (docs/self-improvement/
     HQ-EVOLUTION-SOURCE-EXPANSION.md §5: "dependency_releases 1 batch").
     `max_total` lets the caller give this a remaining slice of the shared
     max_external_candidates_per_cycle budget rather than a separate cap
-    that could push the combined external total over budget."""
+    that could push the combined external total over budget.
+
+    Two separate bounds: `dependency_release_batch_size` caps candidates
+    returned, `dependency_release_max_requests` caps registry calls made.
+    Most packages are usually up to date and yield no candidate, so a
+    candidate cap alone would let one cycle call the registry for every
+    package HQ depends on."""
     batch_size = evolution_config.get("dependency_release_batch_size", 5)
     if max_total is not None:
         batch_size = min(batch_size, max_total)
+    max_requests = evolution_config.get("dependency_release_max_requests", 15)
     timeout = evolution_config.get("external_request_timeout_seconds", 8)
-    if batch_size <= 0:
+    if batch_size <= 0 or max_requests <= 0:
         return []
 
-    pypi_packages = parse_pypi_packages(repo_root)
-    npm_packages = parse_npm_packages(repo_root)
+    packages = (
+        [("pypi", name, pinned) for name, pinned in parse_pypi_packages(repo_root)]
+        + [("npm", name, pinned) for name, pinned in parse_npm_packages(repo_root)]
+    )
 
     candidates: list[dict[str, Any]] = []
-    for name, pinned in pypi_packages:
+    for ecosystem, name, pinned in _daily_window(packages, max_requests, today):
         if len(candidates) >= batch_size:
             break
-        candidate = _pypi_candidate(name, pinned, timeout)
-        if candidate:
-            candidates.append(candidate)
-    for name, pinned in npm_packages:
-        if len(candidates) >= batch_size:
-            break
-        candidate = _npm_candidate(name, pinned, timeout)
+        fetch = _pypi_candidate if ecosystem == "pypi" else _npm_candidate
+        candidate = fetch(name, pinned, timeout)
         if candidate:
             candidates.append(candidate)
 

@@ -14,6 +14,7 @@ import sys
 import tempfile
 import unittest
 import urllib.error
+from datetime import date, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -205,6 +206,27 @@ class TestDependencyReleases(unittest.TestCase):
             with patch("dependency_releases.urllib.request.urlopen", return_value=FakeResponse(payload)):
                 candidates = dependency_releases.discover({"dependency_release_batch_size": 5}, root, max_total=3)
         self.assertEqual(len(candidates), 3)
+
+    def test_discover_caps_registry_requests_when_nothing_is_outdated(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "requirements.txt").write_text("\n".join(f"pkg{i}==1.0.0" for i in range(40)))
+            payload = {"info": {"version": "1.0.0", "summary": "s", "project_url": "https://pypi.org/project/x/"}}
+            with patch("dependency_releases.urllib.request.urlopen", return_value=FakeResponse(payload)) as urlopen:
+                candidates = dependency_releases.discover(
+                    {"dependency_release_batch_size": 5, "dependency_release_max_requests": 7}, root,
+                )
+        self.assertEqual(candidates, [])
+        self.assertEqual(urlopen.call_count, 7)  # not 40: up-to-date packages still spend request budget
+
+    def test_daily_window_advances_and_covers_every_package(self):
+        packages = list(range(10))
+        seen = set()
+        for day in range(3):
+            seen.update(dependency_releases._daily_window(packages, 4, date(2026, 9, 25) + timedelta(days=day)))
+        self.assertEqual(seen, set(packages))  # ceil(10/4)=3 days covers all, no head-of-list starvation
+        self.assertEqual(dependency_releases._daily_window(packages, 20), packages)
+        self.assertEqual(dependency_releases._daily_window([], 4), [])
 
     def test_discover_returns_empty_list_when_no_budget_remains(self):
         with tempfile.TemporaryDirectory() as tmpdir:

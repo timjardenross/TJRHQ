@@ -181,7 +181,12 @@ def enrich(
     readme_timeout = evolution_config.get("external_readme_timeout_seconds", 8)
 
     rank = score_fn or _default_rank
-    ranked = sorted(candidates, key=rank, reverse=True)
+    # Only GitHub-sourced candidates have a README this module can fetch.
+    # Without this filter, higher-scoring non-GitHub candidates (e.g.
+    # dependency_releases.py's, which score well above metadata-only GitHub
+    # ones) would take every enrichment slot and leave nothing to enrich.
+    enrichable = [c for c in candidates if _repo_full_name_from_source(c.get("source", ""))]
+    ranked = sorted(enrichable, key=rank, reverse=True)
 
     for candidate in ranked[:max_enrichments]:
         readme = _fetch_readme_excerpt(candidate.get("source", ""), max_chars=readme_max_chars, timeout=readme_timeout)
