@@ -21,13 +21,14 @@ import logging
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 log = logging.getLogger("external_discovery")
 
 GITHUB_API_BASE = "https://api.github.com"
 USER_AGENT = "tjrhq-hq-evolution-discovery/1.0 (+internal research bot; bounded, read-only)"
+_ONE_YEAR = timedelta(days=365)
 
 
 def _get_json(url: str, timeout: int) -> dict[str, Any] | None:
@@ -105,10 +106,33 @@ def _repo_to_candidate(repo: dict[str, Any], topic: dict[str, Any], retrieved_at
     }
 
 
-def discover(watchlist_topics: list[dict[str, Any]], evolution_config: dict[str, Any]) -> list[dict[str, Any]]:
+def _select_rotated_topics(
+    watchlist_topics: list[dict[str, Any]], rotation_state: dict[str, str], max_searches: int,
+) -> list[dict[str, Any]]:
+    """Section 9 follow-up (2026-09-25 review): a plain `[:max_searches]`
+    slice always favours the first N topics in the watchlist file, so with
+    9 topics and max_searches=6, topics 7-9 were never reached. Sort by
+    last-searched timestamp instead (never-searched sorts first via ""),
+    so every topic gets a turn instead of the same head-of-list topics
+    being searched every night."""
+    return sorted(watchlist_topics, key=lambda t: rotation_state.get(t.get("id", ""), ""))[:max_searches]
+
+
+def discover(
+    watchlist_topics: list[dict[str, Any]],
+    evolution_config: dict[str, Any],
+    rotation_state: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
     """Bounded discovery across watchlist topics. Returns opportunity
     candidates ready for relevance.py — never more than the configured
-    per-cycle bound, even if every topic and every search succeeds."""
+    per-cycle bound, even if every topic and every search succeeds.
+
+    `rotation_state` is optional and caller-owned (mutated in place, keyed
+    by topic id -> ISO timestamp of the last attempt): passing it enables
+    stalest-first topic rotation instead of always favouring the first
+    `max_searches` topics in the watchlist. Callers that don't need
+    rotation (including existing tests) can omit it entirely and get the
+    prior plain-slice behaviour unchanged."""
     max_searches = evolution_config.get("max_external_searches_per_cycle", 6)
     max_per_search = evolution_config.get("max_external_candidates_per_search", 5)
     max_total = evolution_config.get("max_external_candidates_per_cycle", 20)
@@ -117,7 +141,13 @@ def discover(watchlist_topics: list[dict[str, Any]], evolution_config: dict[str,
     candidates: list[dict[str, Any]] = []
     retrieved_at = datetime.now(timezone.utc).isoformat()
 
-    for topic in watchlist_topics[:max_searches]:
+    selected_topics = (
+        _select_rotated_topics(watchlist_topics, rotation_state, max_searches)
+        if rotation_state is not None
+        else watchlist_topics[:max_searches]
+    )
+
+    for topic in selected_topics:
         if len(candidates) >= max_total:
             break
         query = topic.get("github_query")
@@ -126,8 +156,19 @@ def discover(watchlist_topics: list[dict[str, Any]], evolution_config: dict[str,
             log.warning(f"Skipping watchlist topic without github_query/why_relevant: {topic.get('id')}")
             continue
 
-        url = f"{GITHUB_API_BASE}/search/repositories?{urllib.parse.urlencode({'q': query, 'sort': 'updated', 'per_page': max_per_search})}"
+        # Best-match ranking plus a recency floor, rather than sort=updated:
+        # sort=updated favours whatever was pushed most recently (often
+        # forks/toy repos touched minutes ago), not quality or fit.
+        one_year_ago = (datetime.now(timezone.utc) - _ONE_YEAR).strftime("%Y-%m-%d")
+        scoped_query = f"{query} pushed:>{one_year_ago}"
+        url = f"{GITHUB_API_BASE}/search/repositories?{urllib.parse.urlencode({'q': scoped_query, 'per_page': max_per_search})}"
         result = _get_json(url, timeout)
+        if rotation_state is not None and topic.get("id"):
+            # Counts as "searched" whether the request succeeded or not —
+            # a topic that's unreachable every night must not permanently
+            # monopolise the rotation's front slot at every other topic's
+            # expense (fail-open applies to candidates, not to rotation).
+            rotation_state[topic["id"]] = retrieved_at
         if not result:
             continue
 

@@ -540,6 +540,7 @@ class TestEvolutionOrchestrator(unittest.TestCase):
         import evolution_orchestrator
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
         orch._load_watchlist = list  # never hit the real network in this test
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
         # Force the deterministic honest_fallback_investigation() path instead
         # of a live call to router.investigate_opportunity() — these tests
         # exercise dedup/eligibility/lifecycle logic, not model output, and a

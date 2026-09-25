@@ -28,6 +28,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import IO, Any
 
+import dependency_releases
 import evolution_memory
 import external_discovery
 import external_enrichment
@@ -35,6 +36,7 @@ import internal_discovery
 import outcome_evaluation
 import staleness_check
 import state_validation
+import watchlist_rotation
 from collector import EvidenceCollector
 from decision_processor import DecisionProcessor
 from investigation_schema import honest_fallback_investigation, validate_investigation
@@ -61,6 +63,7 @@ class EvolutionOrchestrator:
         self.store = OpportunityStore(data_root)
         self.gate = RelevanceGate(self.evolution_config, self.store)
         self.watchlist_path = repo_root / "config" / "evolution_watchlist.json"
+        self.rotation_state_path = data_root / "review" / "watchlist_rotation_state.json"
         self._lock_path = data_root / "review" / ".evolution_cycle.lock"
         self._lock_fd: IO | None = None
 
@@ -138,6 +141,16 @@ class EvolutionOrchestrator:
                 )
 
         return active_topics
+
+    def _collect_dependency_releases(self, max_total: int) -> list[dict[str, Any]]:
+        """Own method (not inlined) so tests can neutralize this real-network
+        call the same way `_load_watchlist`/`router.health_check` already
+        are — see tests/test_hq_evolution.py's `_make_orchestrator()`."""
+        try:
+            return dependency_releases.discover(self.evolution_config, self.repo_root, max_total=max_total)
+        except Exception as exc:  # noqa: BLE001 - same fail-open posture as the enrichment call below: a new, less battle-tested source must never take discovery down with it
+            log.error(f"Dependency-release discovery failed entirely — continuing without it: {exc}")
+            return []
 
     def _load_watchlist(self) -> list[dict[str, Any]]:
         if not self.watchlist_path.exists():
@@ -573,24 +586,36 @@ class EvolutionOrchestrator:
         if not dry_run:
             active_topics = self._resolve_watchlist(run_id, dry_run)
             if active_topics:
-                external_candidates = external_discovery.discover(active_topics, self.evolution_config)
-                # Upgrades a bounded few candidates' fit/evidence_strength
-                # from discover()'s hardcoded metadata-only defaults to a
-                # real README-grounded assessment (see external_enrichment.py's
-                # own module docstring for why that matters) — LLM judgment
-                # only, RelevanceGate below remains the sole permission gate.
-                # Same belt-and-suspenders posture as the outcome-evaluation
-                # phase above: this is newer and less battle-tested than
-                # discovery itself, so a failure here must never take
-                # discovery/relevance/scoring down with it.
-                if external_candidates and router_reachable:
-                    try:
-                        external_candidates = external_enrichment.enrich(
-                            external_candidates, self.evolution_config, self.router,
-                            score_fn=self.gate.score_candidate,
-                        )
-                    except Exception as exc:  # noqa: BLE001 - external enrichment is optional upside, never load-bearing; a failure here must not affect discovery/relevance/scoring; already logged
-                        log.error(f"External candidate enrichment failed entirely — continuing with metadata-only fit/evidence_strength: {exc}")
+                rotation_state = watchlist_rotation.load_rotation_state(self.rotation_state_path)
+                external_candidates = external_discovery.discover(active_topics, self.evolution_config, rotation_state=rotation_state)
+                watchlist_rotation.save_rotation_state(self.rotation_state_path, rotation_state)
+
+            # Tier 1 dependency-release source (docs/self-improvement/
+            # HQ-EVOLUTION-SOURCE-EXPANSION.md): shares the same
+            # max_external_candidates_per_cycle budget as the watchlist
+            # searches above rather than a separate uncapped total.
+            max_external_total = self.evolution_config.get("max_external_candidates_per_cycle", 20)
+            remaining_budget = max_external_total - len(external_candidates)
+            if remaining_budget > 0:
+                external_candidates += self._collect_dependency_releases(remaining_budget)
+
+            # Upgrades a bounded few candidates' fit/evidence_strength
+            # from discover()'s hardcoded metadata-only defaults to a
+            # real README-grounded assessment (see external_enrichment.py's
+            # own module docstring for why that matters) — LLM judgment
+            # only, RelevanceGate below remains the sole permission gate.
+            # Same belt-and-suspenders posture as the outcome-evaluation
+            # phase above: this is newer and less battle-tested than
+            # discovery itself, so a failure here must never take
+            # discovery/relevance/scoring down with it.
+            if external_candidates and router_reachable:
+                try:
+                    external_candidates = external_enrichment.enrich(
+                        external_candidates, self.evolution_config, self.router,
+                        score_fn=self.gate.score_candidate,
+                    )
+                except Exception as exc:  # noqa: BLE001 - external enrichment is optional upside, never load-bearing; a failure here must not affect discovery/relevance/scoring; already logged
+                    log.error(f"External candidate enrichment failed entirely — continuing with metadata-only fit/evidence_strength: {exc}")
 
         all_candidates = internal_candidates + external_candidates
         for c in all_candidates:
