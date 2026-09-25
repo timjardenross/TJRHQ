@@ -1,0 +1,68 @@
+{
+  "findings": [
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 logic and placeholder queries in research commands and quality forecasting",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "TODO comment indicates quality_anomalies query is unimplemented",
+          "location": "platform-runtime/lib/quality_forecasting_<URL>"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Multiple TODO comments for Phase 5 implementation covering authorization checking via Supabase and decision_to_memory integration",
+          "location": "platform-runtime/commands/research_<URL>"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Complete Phase 5 implementations for authorization and memory integration, and implement the quality_anomalies table query."
+      },
+      "expected_benefit": "Eliminates placeholder stubs and enables full authorization, memory integration, and anomaly tracking functionality."
+    },
+    {
+      "category": "observability_gap",
+      "title": "Model router call log file is missing",
+      "evidence": [
+        {
+          "type": "service_status",
+          "observation": "call_log_exists is false and call_log_size_mb is null for configured path /opt/starship-endeavour/core/model-router/call_log.jsonl",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure the model router creates and logs routing calls to the configured call_log.jsonl file."
+      },
+      "expected_benefit": "Enables auditing, performance monitoring, and usage tracking for all model routing operations."
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct LLM provider API calls bypassing model router in emergency alert summary",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct invocation of call_gemini using GEMINI_API_KEY environment variable bypassing router",
+          "location": "intelligence/emergency_alert_<URL>"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Direct invocation of call_mistral using MISTRAL_API_KEY environment variable bypassing router",
+          "location": "intelligence/emergency_alert_<URL>"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Route emergency alert LLM invocations through the central model router endpoint instead of invoking client libraries directly."
+      },
+      "expected_benefit": "Centralises telemetry, failure handling, model fallbacks, and rate limit management."
+    }
+  ]
+}
