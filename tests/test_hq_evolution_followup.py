@@ -281,7 +281,7 @@ class TestResearchOrderAndBounds(unittest.TestCase):
         many_topics = [{"id": f"t{i}", "class": "capability", "why_relevant": "x"} for i in range(10)]
         orch._load_watchlist = lambda: many_topics
 
-        with patch("external_discovery.urllib.request.urlopen", side_effect=urllib.error.URLError("no network")):
+        with patch("sources.common.urllib.request.urlopen", side_effect=urllib.error.URLError("no network")):
             result = orch.run_cycle(dry_run=False)
 
         self.assertLessEqual(result["cost_accounting"]["external_searches_made"], 10)  # all 10 are "active" (unclear)

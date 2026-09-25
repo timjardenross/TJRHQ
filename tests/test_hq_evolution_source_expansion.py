@@ -81,13 +81,13 @@ class TestTopicRotation(unittest.TestCase):
         """rotation_state=None (the default) must behave exactly like the
         pre-rotation code: first max_searches topics, in file order."""
         topics = [{"id": f"t{i}", "github_query": "q", "why_relevant": "x"} for i in range(9)]
-        with patch("external_discovery.urllib.request.urlopen", side_effect=urllib.error.URLError("no network")):
+        with patch("sources.common.urllib.request.urlopen", side_effect=urllib.error.URLError("no network")):
             external_discovery.discover(topics, DEFAULT_EVOLUTION_CONFIG)  # must not raise, no rotation bookkeeping
 
     def test_discover_updates_rotation_state_for_selected_topics_even_on_network_failure(self):
         topics = [{"id": "a", "github_query": "q", "why_relevant": "x"}]
         state: dict[str, str] = {}
-        with patch("external_discovery.urllib.request.urlopen", side_effect=urllib.error.URLError("no network")):
+        with patch("sources.common.urllib.request.urlopen", side_effect=urllib.error.URLError("no network")):
             external_discovery.discover(topics, DEFAULT_EVOLUTION_CONFIG, rotation_state=state)
         self.assertIn("a", state)
 
@@ -105,7 +105,7 @@ class TestTopicRotation(unittest.TestCase):
             captured_urls.append(req.full_url)
             return FakeResponse({"items": []})
 
-        with patch("external_discovery.urllib.request.urlopen", side_effect=fake_urlopen):
+        with patch("sources.common.urllib.request.urlopen", side_effect=fake_urlopen):
             external_discovery.discover([topic], DEFAULT_EVOLUTION_CONFIG)
         self.assertEqual(len(captured_urls), 1)
         self.assertNotIn("sort=updated", captured_urls[0])
