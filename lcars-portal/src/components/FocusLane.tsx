@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 export type FocusLaneItem = { title: string; nextStep: string; href?: string; source?: string; energy?: 'low' | 'medium' | 'high' };
-const STORAGE_KEY = 'tjr-focus-lane-v1';
-const HISTORY_KEY = 'tjr-action-history-v1';
+const STORAGE_KEY = 'tjr-focus-lane-v1'; // gitleaks:allow — localStorage key name, not a secret
+const HISTORY_KEY = 'tjr-action-history-v1'; // gitleaks:allow — localStorage key name, not a secret
 
 export function FocusLane({ item, compact = false }: { item: FocusLaneItem; compact?: boolean }) {
   const [parked, setParked] = useState(false);
