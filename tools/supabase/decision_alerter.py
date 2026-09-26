@@ -7,9 +7,12 @@ written to the Decision Register. Operational decisions are ignored.
 Alert is:
   1. Printed to stdout immediately (Captain sees it in the terminal).
   2. Written to logs/alerts/ as a persistent record.
-  3. Optionally sent to a Slack webhook if DECISION_ALERT_SLACK_WEBHOOK
-     is set in the environment (future capability — skipped silently if
-     not configured).
+
+2026-09-26: Slack fully decommissioned (Captain confirmed) — the
+Slack-webhook delivery path (DECISION_ALERT_SLACK_WEBHOOK) has been
+removed. Terminal + persisted-record alerting remains the sole path;
+Telegram/email are the Captain's confirmed messaging channels and are
+not wired into this module.
 
 Failure never breaks Commander execution — all errors are caught and
 printed as warnings.
@@ -22,9 +25,6 @@ Usage (called automatically from collaborative_specialist_runtime.py):
 from __future__ import annotations
 
 import json
-import os
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -48,7 +48,6 @@ def emit_decision_alert(
         alert_text = _format_alert(record, record_path)
         _print_alert(alert_text)
         _write_alert(alert_text, record)
-        _send_slack_webhook(alert_text)
     except Exception as error:  # noqa: BLE001
         print(f"  Warning: Decision alert could not be emitted: {error}")
 
@@ -58,7 +57,7 @@ def emit_decision_alert(
 # ---------------------------------------------------------------------------
 
 def _format_alert(record: dict[str, Any], record_path: Path | None) -> str:
-    """Format the decision alert in the required Slack-ready structure."""
+    """Format the decision alert text for terminal + persisted-record display."""
     action = (
         record.get("recommended_action")
         or record.get("final_recommendation")
@@ -122,37 +121,9 @@ def _write_alert(alert_text: str, record: dict[str, Any]) -> None:
         "time_to_value": record.get("time_to_value"),
         "reversibility": record.get("reversibility"),
         "channel": "terminal",
-        "slack_sent": False,
     }
     path = ALERT_DIR / f"{timestamp}-alert.json"
     path.write_text(json.dumps(alert_record, indent=2), encoding="utf-8")
-
-
-def _send_slack_webhook(alert_text: str) -> None:
-    """Send alert to Slack webhook if configured (future capability).
-
-    Set DECISION_ALERT_SLACK_WEBHOOK in .env to enable.
-    Silently skipped if not configured.
-    """
-    webhook_url = os.environ.get("DECISION_ALERT_SLACK_WEBHOOK", "").strip()
-    if not webhook_url:
-        return
-
-    payload = json.dumps({"text": alert_text}).encode("utf-8")
-    request = urllib.request.Request(
-        webhook_url,
-        data=payload,
-        method="POST",
-        headers={"Content-Type": "application/json"},
-    )
-    timeout = float(os.environ.get("DECISION_ALERT_TIMEOUT_SECONDS", "10"))
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as resp:  # nosec B310 - webhook_url from DECISION_ALERT_SLACK_WEBHOOK env var, admin-configured, not user input - reviewed 2026-09-12
-            if resp.status == 200:
-                # Update alert record to mark slack_sent=True
-                pass  # future: look up latest alert and update flag
-    except Exception as error:  # noqa: BLE001
-        print(f"  Warning: Slack webhook delivery failed: {error}")
 
 
 def load_alerts(limit: int = 20) -> list[dict[str, Any]]:
