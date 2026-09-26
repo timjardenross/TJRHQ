@@ -1,10 +1,23 @@
 """ROS-001 v1.1 — /health-brief command handler.
 
-Generates a Medical Officer weekly health synthesis from analytics_health_daily
-and delivers it as a DM to the Captain.
+Generates a Medical Officer weekly health synthesis from analytics_health_daily.
+
+2026-09-26: Slack fully decommissioned (Captain confirmed). The
+`handle_health_brief()` Slack-DM entry point has been removed — it had
+no live Slack app registering `/health-brief` since the slack-bot
+service was retired (its only output was the
+`client.chat_postMessage` send, so there was nothing to keep once that
+was gone), and the weekly health-synthesis feature this handler covered
+already has a live, more capable successor at
+core/health/weekly_synthesis.py (persists to `health_insights`, updates
+memory/Health-Summary.md). The pure data/formatting helpers below
+(`_fetch_recent_logs`, `_summarise`, `_llm_synthesis`) have no Slack
+dependency and are kept, still covered by
+platform-runtime/test_health_synthesis.py.
 
 Public API:
-    handle_health_brief(user_id, client)
+    _fetch_recent_logs(db, days) -> list[dict]
+    _summarise(rows) -> str
 """
 
 from __future__ import annotations
@@ -185,27 +198,3 @@ def _llm_synthesis(raw_summary: str) -> str | None:
         return None
 
 
-# ── Public handler ────────────────────────────────────────────────────────────
-
-def handle_health_brief(user_id: str, client) -> None:
-    """Fetch 7 days of health data, synthesise, and DM the brief to the Captain."""
-    db = _make_supabase()
-    rows = _fetch_recent_logs(db, days=7)
-    raw_summary = _summarise(rows)
-
-    # Attempt LLM enrichment; fall back to statistical summary
-    llm_text = _llm_synthesis(raw_summary)
-
-    if llm_text:
-        dm_text = (
-            f"{raw_summary}\n\n"
-            f"*Medical Officer Interpretation*\n{llm_text}"
-        )
-    else:
-        dm_text = raw_summary
-
-    try:
-        client.chat_postMessage(channel=user_id, text=dm_text)
-        log.info("[health-brief] Brief delivered to user=%s (%d rows)", user_id, len(rows))
-    except Exception as exc:  # noqa: BLE001 - best-effort Slack DM, already logged
-        log.error("[health-brief] DM failed: %s", exc)

@@ -3,10 +3,21 @@
 Registers message and file_shared event handlers for the #captains-inbox channel.
 Call register_captains_inbox_handlers(app) once at startup.
 
+2026-09-26: Slack fully decommissioned (Captain confirmed) — this whole
+module has zero production callers today (register_captains_inbox_handlers()
+is never called anywhere, since no Slack Bolt `app` is ever instantiated
+in this repo any more). Out of this pass's explicit scope (only
+lib/captains_inbox_capture.py was named), so left otherwise untouched;
+just removed the two calls into that module's now-deleted
+ack_to_slack()/alert_capture_failure() Slack-thread notifications
+(replaced with log lines) so this file doesn't fail on import. The
+remaining Slack Bolt coupling here (client.files_info, @app.event,
+etc.) is a separate, larger cleanup this pass didn't take on.
+
 Design:
   - Only processes events in CAPTAINS_INBOX_CHANNEL_ID
   - Skips bot messages, edits, and subtypes that aren't user posts
-  - Capture is synchronous (store-first); ack to Slack is best-effort
+  - Capture is synchronous (store-first); ack/failure notification removed
   - file_shared events supplemented with files.info API call for metadata
 """
 
@@ -19,8 +30,6 @@ import time
 from typing import Any
 
 from lib.captains_inbox_capture import (
-    ack_to_slack,
-    alert_capture_failure,
     capture_item,
     detect_item_type,
 )
@@ -63,7 +72,7 @@ def _dispatch(capture_event: dict, client) -> None:
             _health["last_capture_ts"] = time.time()
             _health["last_capture_item_id"] = item_id
             _health["capture_count"] += 1
-            ack_to_slack(client, channel, thread_ts)
+            log.info("[captains-inbox] Captured item_id=%s channel=%s thread_ts=%s", item_id, channel, thread_ts)
             # Async enrichment (classification, governance) — best-effort
             if item_id:
                 try:
@@ -73,8 +82,7 @@ def _dispatch(capture_event: dict, client) -> None:
                     log.warning("[captains-inbox] Orchestration failed (non-blocking): %s", orch_exc)
         except Exception as exc:  # noqa: BLE001 - best-effort item capture, already logged
             _health["capture_failures"] += 1
-            log.error("[captains-inbox] Permanent capture failure: %s", exc)
-            alert_capture_failure(client, channel, thread_ts)
+            log.error("[captains-inbox] Permanent capture failure: channel=%s thread_ts=%s error=%s", channel, thread_ts, exc)
 
     threading.Thread(target=_run, daemon=True).start()
 

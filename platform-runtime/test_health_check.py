@@ -123,7 +123,7 @@ class TestSubmitPayloadSafety(unittest.TestCase):
         values = _full_values(diagnosis={"value": {"value": "should never be read"}})
 
         with patch("commands.health_check._make_supabase", return_value=mock_db):
-            handle_health_check_submit(values, user_id="U1", client=MagicMock())
+            handle_health_check_submit(values, user_id="U1")
 
         upsert_call = mock_db.raw_client.table.return_value.upsert.call_args
         sent_payload = upsert_call[0][0]
@@ -142,7 +142,7 @@ class TestSubmitPayloadSafety(unittest.TestCase):
 
         values = _full_values(pain_score={"value": {"value": "99"}})
         with patch("commands.health_check._make_supabase", return_value=mock_db):
-            handle_health_check_submit(values, user_id="U1", client=MagicMock())
+            handle_health_check_submit(values, user_id="U1")
 
         sent_payload = mock_db.raw_client.table.return_value.upsert.call_args[0][0]
         self.assertEqual(sent_payload["pain_score"], 10)
@@ -151,13 +151,10 @@ class TestSubmitPayloadSafety(unittest.TestCase):
 class TestSupabaseFailureHandling(unittest.TestCase):
 
     def test_no_client_sends_warning_dm_no_crash(self):
-        mock_client = MagicMock()
         with patch("commands.health_check._make_supabase", return_value=None):
-            handle_health_check_submit(_full_values(), user_id="U1", client=mock_client)
+            result = handle_health_check_submit(_full_values(), user_id="U1")
 
-        mock_client.chat_postMessage.assert_called_once()
-        call_text = str(mock_client.chat_postMessage.call_args)
-        self.assertIn("could not be saved", call_text.lower())
+        self.assertIn("could not be saved", result.lower())
 
     def test_upsert_exception_falls_back_to_insert(self):
         mock_db = MagicMock()
@@ -166,7 +163,7 @@ class TestSupabaseFailureHandling(unittest.TestCase):
         mock_db.insert.return_value = MagicMock(ok=True)
 
         with patch("commands.health_check._make_supabase", return_value=mock_db):
-            handle_health_check_submit(_full_values(), user_id="U1", client=MagicMock())
+            handle_health_check_submit(_full_values(), user_id="U1")
 
         mock_db.insert.assert_called_once()
 
@@ -176,15 +173,11 @@ class TestConfirmationMessage(unittest.TestCase):
     def test_success_sends_confirmation(self):
         mock_db = MagicMock()
         mock_db.is_enabled.return_value = True
-        mock_client = MagicMock()
 
         with patch("commands.health_check._make_supabase", return_value=mock_db):
-            handle_health_check_submit(_full_values(), user_id="U456", client=mock_client)
+            result = handle_health_check_submit(_full_values(), user_id="U456")
 
-        mock_client.chat_postMessage.assert_called_once()
-        call_text = str(mock_client.chat_postMessage.call_args)
-        self.assertIn("U456", call_text)
-        self.assertIn("Check-in logged", call_text)
+        self.assertIn("Check-in logged", result)
 
 
 if __name__ == "__main__":

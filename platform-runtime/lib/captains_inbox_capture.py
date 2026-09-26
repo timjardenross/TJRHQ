@@ -6,7 +6,18 @@ Enrichment (classification, summarisation, governance) is async and best-effort.
 Reliability contract:
   - Up to 3 retries with exponential backoff on Supabase failures
   - Idempotent: duplicate source_message_id is silently ignored (upsert)
-  - Permanent failure triggers ops alert + Slack thread notification
+  - Permanent failure is logged (see capture_item()'s final log.error call)
+
+2026-09-26: Slack fully decommissioned (Captain confirmed). The
+`ack_to_slack()`/`alert_capture_failure()` Slack-thread notifications
+this module used to offer have been removed — both were thin
+`client.chat_postMessage` wrappers with no callers left besides
+lib/captains_inbox_events.py's own Slack `@app.event` handlers, which
+have zero production callers themselves (no Slack Bolt `app` is ever
+instantiated anywhere in this repo since the slack-bot service was
+retired — `register_captains_inbox_handlers()` has no caller either).
+`capture_item()` below (the real, load-bearing Supabase write) is
+unaffected.
 """
 
 from __future__ import annotations
@@ -161,28 +172,3 @@ def capture_item(capture_event: dict[str, Any], attempt: int = 0) -> str | None:
         log.error("[captains-inbox] Capture failed permanently after 3 attempts: %s", exc)
         raise
 
-
-# ---------------------------------------------------------------------------
-# Slack acknowledgement (non-blocking — failure here doesn't matter)
-# ---------------------------------------------------------------------------
-
-def ack_to_slack(client: Any, channel: str, thread_ts: str) -> None:
-    try:
-        client.chat_postMessage(
-            channel=channel,
-            thread_ts=thread_ts,
-            text="✅ Captured to intelligence registry.",
-        )
-    except Exception as exc:  # noqa: BLE001 - Slack ack, non-blocking, already logged
-        log.warning("[captains-inbox] Slack ack failed (non-critical): %s", exc)
-
-
-def alert_capture_failure(client: Any, channel: str, thread_ts: str) -> None:
-    try:
-        client.chat_postMessage(
-            channel=channel,
-            thread_ts=thread_ts,
-            text="🚨 Capture failed after 3 retries. Contact Number One.",
-        )
-    except Exception as _exc:  # noqa: BLE001 - Slack failure-alert send, non-blocking, already logged
-        log.debug("[lib.captains_inbox_capture] best-effort step failed, continuing: %s", _exc)

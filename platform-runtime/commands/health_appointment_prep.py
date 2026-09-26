@@ -1,15 +1,21 @@
 """
 Appointment Preparation Workflow — M-20260614 WP4
 
-Two entry points:
-  1. check_upcoming_appointments(client, lead_days) — scheduled job.
-     Queries health_events for appointments within lead_days (default 2).
-     For each upcoming appointment found, generates a preparation brief
-     and posts it to the Captain's DM / BRIEF_CHANNEL.
-
-  2. handle_health_prep(ack, command, client) — /health-prep Slack command.
-     Manual trigger. Generates a preparation brief for the next appointment
-     found in health_events (regardless of lead time).
+2026-09-26: Slack fully decommissioned (Captain confirmed). This
+module's three Slack-coupled entry points — `_post()`,
+`check_upcoming_appointments(client, lead_days)` (the scheduled job),
+and `handle_health_prep(ack, command, client)` (the `/health-prep`
+slash command) — have been removed. They were already unreachable in
+production: their own module docstring claimed they were "still live
+via platform-runtime/proactive_scheduler.py + app.py", but neither of
+those files exists in this repo anymore, and there is no other Slack
+Bolt app registering `/health-prep` or scheduling
+check_upcoming_appointments() (zero test coverage for any of the
+three, confirmed before removal). The query + brief-generation helpers
+below aren't Slack-specific and remain live — reused directly by
+intelligence/proactive_cadences.py's `job_appointment_prep()`, which
+delivers over Telegram via `_tg_notify()` (see that module's docstring
+for the 2026-09-08 migration note).
 
 Preparation brief includes:
   - Appointment details (type, provider, date)
@@ -27,14 +33,14 @@ Privacy boundary:
   - Safety footer appended to all outputs
 
 Configuration (.env):
-  BRIEF_CHANNEL / BRIEF_USER_ID  — delivery target
-  APPOINTMENT_LEAD_DAYS          — hours before appointment to trigger (default 48)
+  APPOINTMENT_LEAD_DAYS          — days before appointment to trigger (default 2,
+                                    read by intelligence/proactive_cadences.py's
+                                    job_appointment_prep(), not this module directly)
 """
 
 from __future__ import annotations
 
 import logging
-import os
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -45,10 +51,6 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _HEALTH_LIB = _REPO_ROOT / "core" / "health"
 if str(_HEALTH_LIB) not in sys.path:
     sys.path.insert(0, str(_HEALTH_LIB))
-
-_BRIEF_CHANNEL = os.environ.get("BRIEF_CHANNEL", "")
-_BRIEF_USER_ID = os.environ.get("BRIEF_USER_ID", "")
-_LEAD_DAYS     = int(os.environ.get("APPOINTMENT_LEAD_DAYS", "2"))
 
 SAFETY_FOOTER = (
     "\n\n---\n"
@@ -83,27 +85,6 @@ def _get_upcoming_appointments(lead_days: int) -> list[dict]:
     except Exception as exc:  # noqa: BLE001 - best-effort appointment query, already logged
         log.error("[appt-prep] Failed to query upcoming appointments: %s", exc)
         return []
-
-
-def _get_next_appointment() -> dict | None:
-    """Return the next upcoming appointment regardless of lead time."""
-    try:
-        sys.path.insert(0, str(_HEALTH_LIB))
-        from supabase_client import is_configured, supabase_get
-        if not is_configured():
-            return None
-        today = datetime.now(timezone.utc).date().isoformat()
-        rows = supabase_get(
-            f"health_events"
-            f"?event_type=eq.appointment"
-            f"&event_date=gte.{today}"
-            f"&order=event_date.asc"
-            f"&limit=1"
-        )
-        return rows[0] if rows else None
-    except Exception as exc:  # noqa: BLE001 - best-effort appointment query, already logged
-        log.error("[appt-prep] Failed to query next appointment: %s", exc)
-        return None
 
 
 def _get_health_summary_period(days: int = 7) -> dict:
@@ -305,84 +286,3 @@ def _derive_discussion_topics(health_summary: dict, recent_events: list, follow_
     return topics[:7]
 
 
-# ---------------------------------------------------------------------------
-# Delivery helpers
-# ---------------------------------------------------------------------------
-
-def _post(client, text: str) -> bool:
-    channel = _BRIEF_CHANNEL or _BRIEF_USER_ID
-    if not channel:
-        log.warning("[appt-prep] No delivery channel configured (BRIEF_CHANNEL / BRIEF_USER_ID)")
-        return False
-    try:
-        client.chat_postMessage(channel=channel, text=text)
-        return True
-    except Exception as exc:  # noqa: BLE001 - best-effort Slack delivery, already logged
-        log.error("[appt-prep] Slack post failed: %s", exc)
-        return False
-
-
-# ---------------------------------------------------------------------------
-# Scheduled job — called by proactive_scheduler
-# ---------------------------------------------------------------------------
-
-def check_upcoming_appointments(client, lead_days: int = _LEAD_DAYS) -> int:
-    """
-    Check for upcoming appointments and post preparation briefs.
-    Returns the number of briefs posted.
-    """
-    appointments = _get_upcoming_appointments(lead_days)
-    if not appointments:
-        log.info("[appt-prep] No appointments within %d days", lead_days)
-        return 0
-
-    health_summary = _get_health_summary_period(days=7)
-    recent_events  = _get_recent_health_events(since_days=30)
-    follow_ups     = _get_pending_followups()
-
-    posted = 0
-    for appt in appointments:
-        try:
-            brief = _generate_prep_brief(appt, health_summary, recent_events, follow_ups)
-            if _post(client, brief):
-                posted += 1
-                log.info("[appt-prep] Appointment prep brief posted for %s on %s",
-                         appt.get("title", "appointment"), appt.get("event_date", ""))
-        except Exception as exc:  # noqa: BLE001 - best-effort brief generation per appointment, already logged
-            log.error("[appt-prep] Brief generation failed: %s", exc)
-
-    return posted
-
-
-# ---------------------------------------------------------------------------
-# Slack command handler — /health-prep
-# ---------------------------------------------------------------------------
-
-def handle_health_prep(ack, command, client):
-    """/health-prep — generate appointment preparation brief for next appointment."""
-    ack()
-    user_id = command.get("user_id", "")
-    try:
-        appointment = _get_next_appointment()
-        if not appointment:
-            client.chat_postMessage(
-                channel=user_id,
-                text=(
-                    ":calendar: *No upcoming appointments found in health_events.*\n\n"
-                    "Log an appointment using `/health-event` (type: appointment) to enable preparation briefs."
-                )
-            )
-            return
-
-        health_summary = _get_health_summary_period(days=7)
-        recent_events  = _get_recent_health_events(since_days=30)
-        follow_ups     = _get_pending_followups()
-        brief = _generate_prep_brief(appointment, health_summary, recent_events, follow_ups)
-        client.chat_postMessage(channel=user_id, text=brief)
-        log.info("[appt-prep] /health-prep brief delivered to %s", user_id)
-    except Exception as exc:  # noqa: BLE001 - best-effort slash command handling, already logged
-        log.error("[appt-prep] /health-prep failed: %s", exc)
-        client.chat_postMessage(
-            channel=user_id,
-            text=f":warning: Appointment prep failed: {exc}"
-        )
