@@ -1,5 +1,14 @@
 # Repository Cleanup Audit — 2026-09-09
 
+> **SUPERSEDED 2026-09-26.** This audit's "safe to delete now" branch list has
+> already been acted on and gone further — a fresh Archive/Delete Mission
+> (2026-09-26) tagged-then-deleted 78 confirmed fully-merged branches
+> (`git merge-base --is-ancestor`, cross-checked against open PRs) plus the
+> `claude/kind-wing-264776` closed-unmerged branch. Branch state has moved
+> significantly since this doc (17 days, PRs into the #300s merged). Do not
+> act on the specific branch list below without re-verifying against current
+> `git branch -r` first.
+
 Non-destructive audit of `timjardenross/TJRHQ`: branches, remote-tracking refs, commit
 history, and pull requests. No branches, refs, or history were modified to produce this
 report — every finding below was derived from read-only `git`/GitHub API queries.

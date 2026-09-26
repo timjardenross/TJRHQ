@@ -1,5 +1,12 @@
 # Systemd Unit File Audit — 2026-07-29
 
+> **SUPERSEDED.** Point-in-time snapshot, ~2 months stale as of 2026-09-26
+> (missing `command-bus`, `lcars-portal`, most timers, and everything else
+> added since). Methodology (diff repo unit files vs `systemctl cat` on the
+> live host) is still reusable as a template for re-running this same audit
+> — the specific findings below are not current, do not read them as today's
+> state. See `USS-TJR-Control/README.md` for the current service list.
+
 Issue 13: does the repo's `deploy/*.service`/`systemd/*.service` set match what's
 actually enabled and running on the VM (`vmi3371936`, 109.123.227.196)? Ran
 directly on the VM (this session's shell is the VM itself, no SSH hop needed).
