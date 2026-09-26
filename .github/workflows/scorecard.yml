@@ -54,12 +54,11 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          # Scorecard team runs a weekly scan of public GitHub repos,
-          # see https://github.com/ossf/scorecard#public-data.
-          # Setting `publish_results: true` helps us scale by leveraging your workflow to
-          # extract the results instead of relying on our own infrastructure to run scans.
-          # And it's free for you!
-          publish_results: true
+          # 2026-09-26 GitHub archive/delete audit: this is a private
+          # exec-ops repo, not an open-source project, so publish_results
+          # stays false — no reason to send scan results to Scorecard's
+          # public dataset (https://github.com/ossf/scorecard#public-data).
+          publish_results: false
 
       # Upload the results as artifacts (optional). Commenting out will disable
       # uploads of run results in SARIF format to the repository Actions tab.
