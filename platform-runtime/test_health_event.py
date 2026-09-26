@@ -109,7 +109,7 @@ class TestSubmitPayloadSafety(unittest.TestCase):
         mock_db.insert.return_value = MagicMock(ok=True)
 
         with patch("commands.health_event._make_supabase", return_value=mock_db):
-            handle_health_event_submit(_full_values(), user_id="U1", client=MagicMock())
+            handle_health_event_submit(_full_values(), user_id="U1")
 
         sent_payload = mock_db.insert.call_args[0][1]
         for prohibited in ("diagnosis", "medication_name", "clinical_notes",
@@ -130,7 +130,7 @@ class TestSubmitPayloadSafety(unittest.TestCase):
 
         values = _full_values(follow_up_required={"value": {"selected_option": {"value": "no"}}})
         with patch("commands.health_event._make_supabase", return_value=mock_db):
-            handle_health_event_submit(values, user_id="U1", client=MagicMock())
+            handle_health_event_submit(values, user_id="U1")
 
         sent_payload = mock_db.insert.call_args[0][1]
         self.assertFalse(sent_payload["follow_up_required"])
@@ -143,7 +143,7 @@ class TestSubmitPayloadSafety(unittest.TestCase):
 
         values = _full_values(title={"value": {"value": None}})
         with patch("commands.health_event._make_supabase", return_value=mock_db):
-            handle_health_event_submit(values, user_id="U1", client=MagicMock())
+            handle_health_event_submit(values, user_id="U1")
 
         sent_payload = mock_db.insert.call_args[0][1]
         self.assertEqual(sent_payload["title"], "(untitled)")
@@ -152,26 +152,20 @@ class TestSubmitPayloadSafety(unittest.TestCase):
 class TestSupabaseFailureHandling(unittest.TestCase):
 
     def test_no_client_sends_warning_dm_no_crash(self):
-        mock_client = MagicMock()
         with patch("commands.health_event._make_supabase", return_value=None):
-            handle_health_event_submit(_full_values(), user_id="U123", client=mock_client)
+            result = handle_health_event_submit(_full_values(), user_id="U123")
 
-        mock_client.chat_postMessage.assert_called_once()
-        call_text = str(mock_client.chat_postMessage.call_args)
-        self.assertIn("U123", call_text)
-        self.assertIn("could not be saved", call_text.lower())
+        self.assertIn("could not be saved", result.lower())
 
     def test_insert_failure_sends_warning_not_confirmation(self):
         mock_db = MagicMock()
         mock_db.is_enabled.return_value = True
         mock_db.insert.return_value = MagicMock(ok=False, error="insert failed")
-        mock_client = MagicMock()
 
         with patch("commands.health_event._make_supabase", return_value=mock_db):
-            handle_health_event_submit(_full_values(), user_id="U789", client=mock_client)
+            result = handle_health_event_submit(_full_values(), user_id="U789")
 
-        call_text = str(mock_client.chat_postMessage.call_args)
-        self.assertIn("could not be saved", call_text.lower())
+        self.assertIn("could not be saved", result.lower())
 
 
 class TestConfirmationMessage(unittest.TestCase):
@@ -180,15 +174,12 @@ class TestConfirmationMessage(unittest.TestCase):
         mock_db = MagicMock()
         mock_db.is_enabled.return_value = True
         mock_db.insert.return_value = MagicMock(ok=True)
-        mock_client = MagicMock()
 
         with patch("commands.health_event._make_supabase", return_value=mock_db):
-            handle_health_event_submit(_full_values(), user_id="U456", client=mock_client)
+            result = handle_health_event_submit(_full_values(), user_id="U456")
 
-        call_text = str(mock_client.chat_postMessage.call_args)
-        self.assertIn("U456", call_text)
-        self.assertIn("Event logged", call_text)
-        self.assertIn("Spine review", call_text)
+        self.assertIn("Event logged", result)
+        self.assertIn("Spine review", result)
 
 
 if __name__ == "__main__":

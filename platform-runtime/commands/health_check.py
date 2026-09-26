@@ -3,10 +3,18 @@
 Captures the daily health check-in via a Block Kit modal and writes to
 health_daily_logs in Supabase.
 
+2026-09-26: Slack fully decommissioned (Captain confirmed — no live
+Slack bot process anywhere). This handler's Block Kit modal has had no
+Slack app registering it since the slack-bot service was retired, so
+this was already unreachable in production; the `client.chat_postMessage`
+confirmation DM (the only Slack-SDK-coupled part) has been removed.
+`handle_health_check_submit()` now returns the confirmation text instead
+of sending it, so the Supabase write path and its tests stay intact.
+
 Public API:
     MODAL_CALLBACK_ID        — view callback_id registered in app.py
     build_health_check_modal() -> dict
-    handle_health_check_submit(values, user_id, client)
+    handle_health_check_submit(values, user_id) -> str
 """
 
 from __future__ import annotations
@@ -305,8 +313,13 @@ def _extract(values: dict, block_id: str) -> str | None:
     return None
 
 
-def handle_health_check_submit(values: dict, user_id: str, client) -> None:
-    """Write check-in to health_daily_logs and DM confirmation to user."""
+def handle_health_check_submit(values: dict, user_id: str) -> str:
+    """Write check-in to health_daily_logs and return confirmation text.
+
+    2026-09-26: previously DM'd the confirmation via Slack's
+    `client.chat_postMessage` — Slack is retired, so this now returns
+    the text instead (there is no live caller today; kept as a pure
+    return so a future transport can send it without re-deriving it)."""
     today = today_brisbane_iso()
 
     # ── Parse modal values ────────────────────────────────────────────────────
@@ -417,7 +430,5 @@ def handle_health_check_submit(values: dict, user_id: str, client) -> None:
         "The nervous system is doing its job._"
     )
 
-    try:
-        client.chat_postMessage(channel=user_id, text=dm_text)
-    except Exception as exc:  # noqa: BLE001 - best-effort Slack DM send, already logged
-        log.error("[health-check] DM failed: %s", exc)
+    log.info("[health-check] Confirmation prepared for user=%s (saved=%s)", user_id, saved)
+    return dm_text

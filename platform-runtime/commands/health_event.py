@@ -3,10 +3,19 @@
 Captures a significant health timeline event via a Block Kit modal and
 writes to health_events in Supabase.
 
+2026-09-26: Slack fully decommissioned (Captain confirmed). This
+handler's Block Kit modal has had no Slack app registering it since the
+slack-bot service was retired, so it was already unreachable in
+production; the `client.chat_postMessage` confirmation DM (the only
+Slack-SDK-coupled part) has been removed.
+`handle_health_event_submit()` now returns the confirmation text
+instead of sending it, so the Supabase write path and its tests stay
+intact.
+
 Public API:
     EVENT_MODAL_CALLBACK_ID      — view callback_id registered in app.py
     build_health_event_modal() -> dict
-    handle_health_event_submit(values, user_id, client)
+    handle_health_event_submit(values, user_id) -> str
 """
 
 from __future__ import annotations
@@ -214,8 +223,12 @@ def _extract(values: dict, block_id: str) -> str | None:
     return None
 
 
-def handle_health_event_submit(values: dict, user_id: str, client) -> None:
-    """Write health event to health_events and DM confirmation to user."""
+def handle_health_event_submit(values: dict, user_id: str) -> str:
+    """Write health event to health_events and return confirmation text.
+
+    2026-09-26: previously DM'd the confirmation via Slack's
+    `client.chat_postMessage` — Slack is retired, so this now returns
+    the text instead (no live caller today)."""
     event_date        = _extract(values, "event_date") or today_brisbane_iso()
     event_type        = _extract(values, "event_type")
     title             = _extract(values, "title") or "(untitled)"
@@ -265,7 +278,5 @@ def handle_health_event_submit(values: dict, user_id: str, client) -> None:
     if follow_up_required and follow_up_date:
         dm_text += f"• *Follow-up:* {follow_up_date}\n"
 
-    try:
-        client.chat_postMessage(channel=user_id, text=dm_text)
-    except Exception as exc: # noqa: BLE001 - DM failed, already logged
-        log.error("[health-event] DM failed: %s", exc)
+    log.info("[health-event] Confirmation prepared for user=%s (saved=%s)", user_id, saved)
+    return dm_text
