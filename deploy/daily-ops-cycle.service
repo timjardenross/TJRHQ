@@ -1,0 +1,61 @@
+[Unit]
+Description=USS TJR Daily Operating Cycle — Executive Staff Orchestrator (EXEC-001..010A)
+Documentation=file:///opt/starship-endeavour/Missions/Active/USS-TJR-MSN-0390-officer-cycle-adoption.md
+After=network-online.target
+Wants=network-online.target
+
+# USS-TJR-MSN-0210L/M convergence (2026-09-26): platform-runtime/lib/
+# daily_ops_cycle.py's run_daily_cycle() -- the live executive-staff
+# orchestrator that sequences Human Systems -> Strategic Planning -> ORI ->
+# Engineering -> Communications -> Number One -> Investigation/Learning/
+# Strategic/Program/Portfolio/Enterprise-Architecture/Investment reviews ->
+# Autonomous Officers (EXEC-010A, platform-runtime/lib/officers/
+# daily_operations_cycle.py) -> Exception Router -> Captain Brief -- was
+# fully implemented, tested, and correctly wired internally, but had ZERO
+# production callers anywhere in the repo (no systemd unit, timer, or cron
+# referenced it). This unit + daily-ops-cycle.timer close that gap.
+#
+# Same circuit-breaker discipline as self-improving-system.service (see
+# that unit's own 2026-09-15 adversarial-review comment): OnFailure alert +
+# a burst limit, so a new unrelated failure mode fails loud after repeated
+# attempts instead of crash-looping silently.
+OnFailure=alert-on-failure@%n.service
+StartLimitIntervalSec=3600
+StartLimitBurst=5
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/starship-endeavour
+
+# No dedicated worktree needed here (unlike self-improving-system.service):
+# this cycle only reads missions/capacity data and prints the assembled
+# Captain brief -- it does not git-commit anything, so there is no
+# git_commit()-style branch precondition to satisfy. Runs directly against
+# the same checkout every interactive session on this host also uses, same
+# as mission-registry-sync.service and human-systems-scheduler.service.
+#
+# run-with-infisical.sh injects SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY
+# (needed by tools/supabase/client.py's CommanderSupabaseClient, used for
+# the live mission overlay and today's capacity_checkins row) -- same
+# secrets wrapper as mission-registry-sync.service and every other unit
+# that migrated off a hand-maintained .env (USS-TJR-MSN-0371).
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical.sh /opt/starship-endeavour/platform-runtime/.venv/bin/python3 /opt/starship-endeavour/scripts/daily_ops/run_daily_ops_cycle.py
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=daily-ops-cycle
+
+# Restart on failure (wait 5 min before retrying) -- matches
+# self-improving-system.service's convention.
+Restart=on-failure
+RestartSec=300
+
+# Timeout after 30 minutes -- this cycle runs ~20 sequential officer/review
+# steps, each individually non-blocking/best-effort, so 30 min matches
+# self-improving-system.service's bound for a comparable multi-step job.
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target
