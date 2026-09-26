@@ -242,7 +242,7 @@
     "per_source_search_caps": {"github": 6, "arxiv": 4, "hn": 4, "hf": 3, "mcp_registry": 3, "vendor_changelog": 2, "firecrawl_search": 1},
     "dependency_release_batch_size": 5,
     "dependency_release_max_requests": 15,
-    "max_external_enrichments_per_cycle": 5,
+    "max_external_enrichments_per_cycle": 3,
     "max_supply_chain_evidence_per_cycle": 10,
     "external_readme_max_chars": 4000,
     "external_readme_timeout_seconds": 8,
