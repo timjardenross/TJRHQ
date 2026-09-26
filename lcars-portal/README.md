@@ -1,32 +1,21 @@
-# Starship Endeavour — LCARS Web Portal (Phase 1)
+# Starship Endeavour — LCARS Web Portal
 
-A reusable **LCARS-style command dashboard** for **USS TJR — Starship Endeavour
+A **LCARS-style command dashboard** for **USS TJR — Starship Endeavour
 (NCC-170230)**, built with **Next.js + React + TypeScript + Tailwind CSS**.
 
-> **Phase 1 scope:** static and navigable, **placeholder data only**. No live
-> backend calls are wired up yet. All domain data lives in a single file
-> (`src/lib/mockData.ts`) so Phase 2 can swap mocks for live API calls without
-> touching any page or component.
+> **2026-09-26 correction:** this README described a pre-activation "Phase 1,
+> placeholder-data-only" state, a port that hasn't been current since
+> 2026-08-11, and dependencies (Dashy, a Slack bot) that have since been
+> fully retired. The portal has been live with real Supabase-backed data on
+> **`:3200`**, fronted by Caddy, since August/September 2026 — see
+> `USS-TJR-Control/README.md` for the current whole-platform topology. This
+> file is scoped to the portal itself.
 
-This app is **additive**. It does **not** modify or depend on the existing
-Dashy Control Deck, Number One Slack bot, Commander (Command Centre) backend,
-Context Assembly service, or Supabase integrations — it lives in its own
-`lcars-portal/` directory and runs on its own port (**3100**).
-
----
-
-## Pages
-
-| Route | Page | Department accent |
-|-------|------|-------------------|
-| `/` → `/captains-chair` | Captain's Chair | Command Gold |
-| `/missions` | Missions | Command Gold |
-| `/engineering` | Engineering | Engineering Orange |
-| `/number-one` | Number One | Operations Red |
-| `/xo-brief` | XO Brief | Science Purple |
-| `/medical` | Medical / Wellness | Medical Blue |
-| `/operations` | Operations | Operations Red |
-| `/knowledge-base` | Knowledge Base | Science Purple |
+For the current, real list of live pages/workbenches, read
+**`src/lib/workbenches.ts`** — it's the app's own single source of truth
+(both the hub tile grid and the persistent switcher render directly from it),
+not this README. A page's absence from that file means legacy, deprecated,
+experimental, or deliberately zero-nav — see that file's own header comment.
 
 ## Reusable components (`src/components/`)
 
@@ -36,7 +25,7 @@ Context Assembly service, or Supabase integrations — it lives in its own
 - **StatusBadge** — state pill; pass an explicit `tone` or let it infer one.
 - **MissionCard** — mission readout (shape matches the mission registry rows).
 - **DepartmentCard** — at-a-glance department summary with metrics.
-- **AlertPanel** — stacked, severity-coded alert list.
+- ~~AlertPanel~~ — no longer exists in `src/components/`; this line is stale, not re-verified further.
 
 ## Department colours (`src/lib/departments.ts` + `tailwind.config.ts`)
 
@@ -62,14 +51,14 @@ Requires **Node.js ≥ 18.18**.
 cd lcars-portal
 npm install
 npm run dev
-# open http://localhost:3100  (redirects to /captains-chair)
+# open http://localhost:3200  (redirects to /captains-chair)
 ```
 
 Other scripts:
 
 ```bash
 npm run build   # production build (also type-checks + lints)
-npm run start   # serve the production build on port 3100
+npm run start   # serve the production build on port 3200
 npm run lint    # eslint (next/core-web-vitals)
 ```
 
@@ -77,23 +66,14 @@ npm run lint    # eslint (next/core-web-vitals)
 
 ## Deployment
 
-The portal is a standard Next.js app and deploys anywhere Next.js is supported.
+**Live today:** `lcars-portal.service` (systemd), Node server, `:3200`,
+fronted by Caddy — deploy is `npm run build` + `systemctl restart
+lcars-portal`. See `USS-TJR-Control/README.md`.
 
-**Option A — Node server (recommended for the local fleet):**
-
-```bash
-cd lcars-portal
-npm ci
-npm run build
-npm run start        # listens on :3100
-```
-
-Put it behind the existing reverse proxy / Dashy as another card, or run it
-alongside the Command Centre backend.
-
-**Option B — Vercel / static host:** push the repo and point the platform at
-the `lcars-portal/` directory; the default build command (`next build`) and
-output are used as-is.
+The Vercel-specific config below (`vercel.json`) is also present in this
+directory — whether Vercel is a currently-live second deployment target or a
+leftover from an earlier deploy approach was **not verified** in this pass;
+confirm before treating both as authoritative.
 
 `vercel.json`'s `ignoreCommand` skips the build entirely when a push doesn't
 touch anything under this directory (TJRHQ is a large multi-service monorepo
@@ -113,32 +93,6 @@ biggest source of noise (a bump to some unrelated Python service's
 and GitHub Actions CI already validates them. A Dependabot bump that does
 touch `lcars-portal/` (e.g. a JS dependency) still gets validated by CI
 and picked up by the next production deploy once merged to `main`.
-
-**Port note:** 3100 is chosen to avoid collisions with existing services
-(Dashy `8000`, Command Centre backend `5050`, Slack bot `3001`).
-
----
-
-## Phase 2 — wiring live data
-
-All data is centralised in **`src/lib/mockData.ts`**. Each export is annotated
-with the existing Command Centre endpoint it maps onto, e.g.:
-
-| Mock export | Live endpoint (existing backend) |
-|-------------|----------------------------------|
-| `missions`, `missionSummary` | `GET /api/v1/missions/active`, `/summary` |
-| `captainBrief` | `GET /api/v1/context/captain-brief` |
-| `operatingPicture` | `GET /api/v1/context/operating-picture` |
-| `alerts` | `GET /api/v1/health/alerts` |
-| `crew` | `GET /api/v1/agents/status` |
-| `wellness` | `GET /api/v1/personal-health` / `context/health` |
-| `services` | `GET /api/v1/health/services` |
-| `intelligenceBrief` | `GET /api/v1/intelligence/latest` |
-| `knowledgeArticles` | `knowledge/` + Supabase knowledge prototype |
-
-To go live: set `NEXT_PUBLIC_API_BASE_URL` (see `.env.example`), then replace
-the static exports in `mockData.ts` with `fetch` calls returning the same typed
-shapes (`src/lib/types.ts`). **No page or component code needs to change.**
 
 ---
 

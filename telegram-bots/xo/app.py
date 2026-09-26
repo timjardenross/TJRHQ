@@ -380,7 +380,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/meds\\_taken — confirm medicines taken \\(stops the 07:00 reminder, which repeats every 15 min\\)\n\n"
         "*System*\n"
         "/db\\_status — Supabase connectivity test\n"
-        "/restart\\_bots \\[slack\\|telegram\\|all\\] — restart starfleet services\n\n"
+        "/restart\\_bots \\[telegram\\|all\\] — restart XO itself\n\n"
         "_Or just talk to me — I understand plain English\\._",
         parse_mode="MarkdownV2",
     )
@@ -450,15 +450,20 @@ async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 # XO is the only Telegram bot (Captain decision 2026-07-05); tg-engineer /
 # tg-engineering-dept are retired. The "telegram" group is therefore empty here —
 # XO self-restarts tg-xo.service separately below (restart_xo).
+# 2026-09-26: "slack" target removed — starfleet-slack-bot.service was deleted
+# (Slack fully retired). "all"/"telegram" previously restarted only the Slack
+# bot (never the XO process's own systemd unit via the services list — XO
+# restarting itself is handled separately below via restart_xo), so with
+# nothing Slack-related left, there are currently no services to restart via
+# this dict; the command still restarts XO itself when arg is telegram/all.
 _RESTARTABLE_SERVICES = {
-    "slack":    ["starfleet-slack-bot.service"],
     "telegram": [],
-    "all":      ["starfleet-slack-bot.service"],
+    "all":      [],
 }
 
 
 async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/restart_bots [slack|telegram|all]  — restart starfleet services. XO restarts itself last."""
+    """/restart_bots [telegram|all]  — restart XO itself (last remaining target after Slack removal)."""
     if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
         return
 
