@@ -326,6 +326,14 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # 300s on both sides — router_client gave up seconds before the router
     # actually finished successfully (confirmed via call_log.jsonl).
     "hq-evolution-external-fit": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 400, "thinking_level": "low"},
+    # 2026-09-26: the XO engineering-review gate (core/engineering/
+    # xo_review.py) for auto-generated version-bump PRs — an independent
+    # review pass, never the same model that generated the patch. Ports
+    # .claude/skills/xo/SKILL.md's Gatekeeper-mode rubric into a real
+    # model call so it runs unattended (a Claude Code Skill only runs
+    # inside an interactive session). Same timeout class as the other
+    # single-diff review call above.
+    "xo-engineering-review": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300, "thinking_level": "low"},
     # HQ V1 Integration QA §28 fix: tools/health-osint/health_signal_curation.py
     # previously called core/llm/provider_chain.py directly, bypassing this
     # router entirely (the one confirmed Model Router bypass found in that
@@ -454,6 +462,7 @@ TASK_ROUTES: dict[str, str] = {
     "/api/model/hq-evolution-evaluate-outcome": "hq-evolution-evaluate-outcome",
     "/api/model/hq-evolution-external-fit": "hq-evolution-external-fit",
     "/api/model/health-signal-curation": "health-signal-curation",
+    "/api/model/xo-engineering-review": "xo-engineering-review",
 }
 
 # Escalation triggers — checked against PROMPT ONLY (not response) for classify-capture.
