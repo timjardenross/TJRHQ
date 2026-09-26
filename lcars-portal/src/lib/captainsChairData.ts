@@ -545,6 +545,39 @@ export function useEvolutionSignal(): { pendingCount: number | null; highestValu
   return { pendingCount, highestValueTitle, error };
 }
 
+/** Engineering handoffs genuinely awaiting the Captain's approve/reject
+ * decision — the real, governed source MSN-0345 built (lib/decisions.ts's
+ * fetchEngineeringDecisions()), same data MobileAlertDrawer already
+ * surfaces on mobile. Desktop had no equivalent: Needs You never included
+ * it, so the count was invisible unless the Captain guessed the URL. Not
+ * fetchDecisionsInbox() itself — this only needs the engineering count for
+ * a Needs You entry, not the full merged/sorted inbox shape. */
+export function useEngineeringApprovals(): { count: number; oldestTitle: string | null; error: string | null } {
+  const [count, setCount] = useState(0);
+  const [oldestTitle, setOldestTitle] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    import('@/lib/decisions')
+      .then(({ fetchEngineeringDecisions }) => fetchEngineeringDecisions())
+      .then((items) => {
+        if (cancelled) return;
+        setCount(items.length);
+        // Already sorted highest-priorityRank-first by the caller's own
+        // convention elsewhere (decisions.ts's fetchDecisionsInbox) — here
+        // we call the unsorted per-source fetch directly, so sort locally
+        // rather than assume an order this function doesn't guarantee.
+        const sorted = [...items].sort((a, b) => b.priorityRank - a.priorityRank);
+        setOldestTitle(sorted[0]?.title ?? null);
+      })
+      .catch((e) => { if (!cancelled) { console.error('[captainsChairData] Engineering approvals fetch failed:', e); setError('Engineering approvals'); } });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { count, oldestTitle, error };
+}
+
 /** Minimal slice of the old NotebookCard's fetch — just the ready-for-
  * routing count. Full detail is one click away, in Captain's Chair's
  * Notebook sub-page. */

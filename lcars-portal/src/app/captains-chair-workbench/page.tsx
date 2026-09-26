@@ -17,6 +17,7 @@ import {
   useReminders,
   useAttentionCounts,
   useEvolutionSignal,
+  useEngineeringApprovals,
   useNotebookReadyCount,
   useNumberOneAttentionItems,
   useRemember,
@@ -77,6 +78,7 @@ export default function CaptainsChairWorkbench() {
   const { tasks: reminders, loading: remindersLoading } = useReminders();
   const { readyCount: notebookReadyCount } = useNotebookReadyCount();
   const { pendingCount: evolutionPendingCount, highestValueTitle: evolutionHighestValueTitle } = useEvolutionSignal();
+  const { count: engineeringApprovalsCount, oldestTitle: oldestEngineeringApproval } = useEngineeringApprovals();
   const { items: numberOneAttentionItems } = useNumberOneAttentionItems();
   const { data: rememberData, error: rememberError } = useRemember();
 
@@ -115,6 +117,8 @@ export default function CaptainsChairWorkbench() {
     oldestCapturePending: attention.oldestCapturePending,
     evolutionPendingCount,
     evolutionHighestValueTitle,
+    engineeringApprovalsCount,
+    oldestEngineeringApproval,
     hqPosture: hqStatus?.posture ?? null,
     hqAttentionItems: hqStatus?.attentionItems ?? [],
     criticalAlerts: liveAlerts.filter((a) => a.severity === 'critical').map((a) => ({ id: a.id, title: a.title, detail: a.detail, href: a.href })),

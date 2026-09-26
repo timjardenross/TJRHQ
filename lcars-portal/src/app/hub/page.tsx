@@ -73,6 +73,7 @@ import {
   useCalendarToday,
   useAttentionCounts,
   useEvolutionSignal,
+  useEngineeringApprovals,
   useNotebookReadyCount,
   useNumberOneAttentionItems,
 } from '@/lib/captainsChairData';
@@ -129,6 +130,7 @@ export default function LifeOSHub() {
   const { data: attention, loading: attentionLoading } = useAttentionCounts();
   const { readyCount: notebookReadyCount } = useNotebookReadyCount();
   const { pendingCount: evolutionPendingCount, highestValueTitle: evolutionHighestValueTitle } = useEvolutionSignal();
+  const { count: engineeringApprovalsCount, oldestTitle: oldestEngineeringApproval } = useEngineeringApprovals();
   const { alerts: liveAlerts } = useAlerts();
   const { items: numberOneAttentionItems } = useNumberOneAttentionItems();
 
@@ -193,6 +195,8 @@ export default function LifeOSHub() {
     oldestCapturePending: attention.oldestCapturePending,
     evolutionPendingCount,
     evolutionHighestValueTitle,
+    engineeringApprovalsCount,
+    oldestEngineeringApproval,
     hqPosture: hqStatus?.posture ?? null,
     hqAttentionItems: hqStatus?.attentionItems ?? [],
     criticalAlerts: liveAlerts.filter((a) => a.severity === 'critical').map((a) => ({ id: a.id, title: a.title, detail: a.detail, href: a.href })),

@@ -186,6 +186,8 @@ function baseNeedsYouInputs(overrides: Partial<NeedsYouBuildInputs> = {}): Needs
     oldestCapturePending: null,
     evolutionPendingCount: null,
     evolutionHighestValueTitle: null,
+    engineeringApprovalsCount: null,
+    oldestEngineeringApproval: null,
     hqPosture: 'NORMAL',
     hqAttentionItems: [],
     criticalAlerts: [],

@@ -105,6 +105,7 @@ export const PRIMARY_ACTIONS: Record<string, PrimaryActionContract> = {
   '/agent-status-workbench': { label: 'Check HQ status', href: '/agent-status-workbench' },
   '/self-improvement-findings': { label: 'Review HQ evolution', href: '/self-improvement-findings' },
   '/engineering-handoffs': { label: 'Review engineering handoffs', href: '/engineering-handoffs' },
+  '/decisions': { label: 'Review pending decisions', href: '/decisions' },
 };
 
 // Order below is deliberate, not alphabetical: command/triage surfaces
@@ -215,6 +216,13 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     title: 'Advisory',
     description: 'Decision support — think through a question, challenge assumptions, explore perspectives, and learn from what happened.',
     icon: MessageSquare,
+    group: 'decide',
+  },
+  {
+    href: '/decisions',
+    title: 'Decisions Inbox',
+    description: 'Engineering handoffs and operational-intelligence recommendations awaiting your approve/reject, merged into one prioritised queue.',
+    icon: Inbox,
     group: 'decide',
   },
   {
