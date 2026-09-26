@@ -26,6 +26,7 @@ CLI (run with a venv that has mistralai, e.g. platform-runtime/.venv):
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import logging
 import os
@@ -341,6 +342,72 @@ def _run_xo_review_and_notify(*, token: str, repo: str, pr_url: str, diff: str, 
         log.warning("[batch_coding] failed to notify Captain about %s: %s", pr_url, exc)
 
 
+def _synthesize_deferred_diff(deferred_existing: list[str], files: dict[str, str]) -> str:
+    """Read-only comparison — never writes anything, never touches the
+    real checkout. A unified diff between each deferred file's real
+    on-disk content and the model's proposed content, so XO's review
+    below has something real to look at even though the new-files-only
+    guard correctly refused to write it."""
+    parts = []
+    for rel in deferred_existing:
+        if rel not in files:
+            continue  # fenced out — no proposed content left to compare
+        target = _REPO_ROOT / rel
+        try:
+            old_content = target.read_text(encoding="utf-8", errors="replace") if target.exists() else ""
+        except OSError:
+            old_content = ""
+        diff_lines = difflib.unified_diff(
+            old_content.splitlines(keepends=True), files[rel].splitlines(keepends=True),
+            fromfile=f"a/{rel}", tofile=f"b/{rel}",
+        )
+        parts.append("".join(diff_lines))
+    return "\n".join(parts)
+
+
+def _review_deferred_files(
+    *, deferred_existing: list[str], files: dict[str, str], title: str, summary: str, custom_id: str,
+) -> dict[str, Any] | None:
+    """Independent XO review for proposed edits the new-files-only guard
+    correctly refused to write automatically (anything outside the narrow
+    version-bump auto-PR class). There is no PR here for XO to approve or
+    hold — the point isn't a merge gate, it's closing the gap where
+    "coded, review the artifact manually" reached nobody, ever, unless a
+    human happened to go dig through Missions/Engineering-Handoffs/
+    artifacts/ on their own. Best-effort: never raises, never blocks
+    delivery — returns None if there's nothing to review."""
+    if not deferred_existing:
+        return None
+    diff = _synthesize_deferred_diff(deferred_existing, files)
+    if not diff.strip():
+        return None
+
+    try:
+        review = xo_review.review_diff(diff=diff, mission_title=title, mission_summary=summary)
+    except Exception as exc:  # noqa: BLE001 - review_diff itself is documented never-raises, but this call site must survive even a bug in that contract
+        log.warning("[batch_coding] deferred-file XO review raised for %s: %s", custom_id, exc)
+        review = {"verdict": "hold", "authority_check": "", "spot_check_findings": "",
+                  "reasoning": f"XO review crashed: {exc}"}
+
+    try:
+        from core.platform.notification_service import Severity, notify
+        verdict = review.get("verdict", "hold")
+        severity = Severity.INFO if verdict == "approve" else Severity.WARNING
+        notify(
+            f"{title}\n\nProposed edits to {len(deferred_existing)} existing file(s) were "
+            f"generated but not auto-applied (outside the narrow version-bump auto-PR class — "
+            f"see docs/self-improvement/HQ-EVOLUTION-SOURCE-EXPANSION.md).\n\n"
+            f"XO verdict: {verdict.replace('_', ' ').title()}\n{review.get('reasoning', '')}\n\n"
+            f"Review the handoff artifact for {custom_id} before applying manually.",
+            title="XO Engineering Review (manual-apply)",
+            severity=severity,
+        )
+    except Exception as exc:  # noqa: BLE001 - notification is best-effort surfacing; the review result is still returned for the artifact regardless of whether this send succeeds
+        log.warning("[batch_coding] failed to notify Captain about deferred review for %s: %s", custom_id, exc)
+
+    return review
+
+
 def _open_files_pr(custom_id: str, files: dict[str, str], fields: dict[str, str]) -> dict[str, Any]:
     """Best-effort: open a draft PR from whole-file contents (FULL_FILE mode).
 
@@ -365,7 +432,8 @@ def _open_files_pr(custom_id: str, files: dict[str, str], fields: dict[str, str]
         "true", "1", "yes", "on",
     }
     allow_existing = env_allow_existing or is_version_bump
-    deferred = sorted(rel for rel in files if (_REPO_ROOT / rel).exists()) if not allow_existing else []
+    deferred_existing = sorted(rel for rel in files if (_REPO_ROOT / rel).exists()) if not allow_existing else []
+    deferred = deferred_existing
 
     # 2026-08-29 (self-improvement autonomous-remediation council): hard fence,
     # not just a risk-level heuristic — an LLM-generated file targeting CI/CD
@@ -376,7 +444,7 @@ def _open_files_pr(custom_id: str, files: dict[str, str], fields: dict[str, str]
     fenced = sorted(rel for rel in files if _is_fenced_path(rel))
     if fenced:
         files = {rel: content for rel, content in files.items() if rel not in fenced}
-        deferred = sorted(set(deferred) | set(fenced))
+        deferred = sorted(set(deferred_existing) | set(fenced))
         if not files:
             return {"opened": False, "reason": "all_files_fenced", "skipped": fenced}
 
@@ -406,6 +474,16 @@ def _open_files_pr(custom_id: str, files: dict[str, str], fields: dict[str, str]
         _run_xo_review_and_notify(
             token=token, repo=repo, pr_url=result.get("url", ""), diff=result.get("diff", ""),
             title=title, summary=fields.get("summary", ""),
+        )
+
+    # Independent of whether a PR opened for the NEW files above — the
+    # deferred EXISTING-file edits (outside the version-bump class) get
+    # their own review regardless, since that's a real proposal nobody
+    # would otherwise look at (see _review_deferred_files' own docstring).
+    if deferred_existing:
+        result["deferred_review"] = _review_deferred_files(
+            deferred_existing=deferred_existing, files=files, title=title,
+            summary=fields.get("summary", ""), custom_id=custom_id,
         )
     return result
 
@@ -662,6 +740,13 @@ def run_sync_one(handoff_path: str | Path, model: str = batch_api.DEFAULT_MODEL,
                 pr_error = f"{reason}: {detail}" if detail else reason
                 log.info("[batch_coding] files-PR not opened for %s (%s)",
                          path.stem, pr_error)
+            if pr_result.get("deferred_review"):
+                dr = pr_result["deferred_review"]
+                artifact_text += (
+                    f"\n\n## XO review — deferred/manual-apply files\n\n"
+                    f"**Verdict:** {dr.get('verdict', '').replace('_', ' ').title()}\n\n"
+                    f"{dr.get('reasoning', '')}\n"
+                )
         else:
             # Model returned a diff/prose instead of FILE blocks → diff-mode PR.
             mode_used = "patch-fallback"

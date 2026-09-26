@@ -79,13 +79,19 @@ class TestOpenFilesPrConditionalAllowExisting(unittest.TestCase):
             captured.update(k)
             return {"opened": True, "url": "https://github.com/org/repo/pull/2"}
 
+        # Path.exists() patched True to simulate an existing file — this
+        # also makes _open_files_pr's OWN deferred-review call believe the
+        # file is real, so it must be mocked too, or this test makes a
+        # real call to the live model-router + a real notify() attempt.
         with patch("pathlib.Path.exists", return_value=True), \
-             patch.object(github_pr, "open_files_pr", side_effect=fake_open_files_pr):
+             patch.object(github_pr, "open_files_pr", side_effect=fake_open_files_pr), \
+             patch.object(batch_coding, "_review_deferred_files") as mocked_deferred_review:
             batch_coding._open_files_pr(
                 "custom-id", {"some/existing_file.py": "content"},
                 {"__mission_title__": "Fix a real bug in the router"},
             )
         self.assertFalse(captured["allow_existing"])
+        mocked_deferred_review.assert_called_once()
 
     def test_xo_review_only_runs_for_version_bump_titles(self):
         with patch.object(github_pr, "open_files_pr", return_value={"opened": True, "url": "https://github.com/org/repo/pull/3", "diff": "d"}), \
@@ -347,6 +353,89 @@ class TestGithubPrVerdictAndMergeHelpers(unittest.TestCase):
     def test_close_pr_failure_returns_false(self):
         with patch.object(github_pr, "_api_request", side_effect=urllib.error.URLError("down")):
             self.assertFalse(github_pr.close_pr("tok", "org/repo", 14))
+
+
+class TestSynthesizeDeferredDiff(unittest.TestCase):
+    def test_builds_unified_diff_against_real_on_disk_content(self):
+        with patch("pathlib.Path.exists", return_value=True), \
+             patch("pathlib.Path.read_text", return_value="old line\n"):
+            diff = batch_coding._synthesize_deferred_diff(
+                ["some/existing_file.py"], {"some/existing_file.py": "new line\n"},
+            )
+        self.assertIn("-old line", diff)
+        self.assertIn("+new line", diff)
+        self.assertIn("a/some/existing_file.py", diff)
+        self.assertIn("b/some/existing_file.py", diff)
+
+    def test_missing_on_disk_file_diffs_against_empty_string(self):
+        with patch("pathlib.Path.exists", return_value=False):
+            diff = batch_coding._synthesize_deferred_diff(
+                ["some/new_looking_file.py"], {"some/new_looking_file.py": "content\n"},
+            )
+        self.assertIn("+content", diff)
+
+    def test_fenced_out_file_missing_from_files_dict_is_skipped(self):
+        diff = batch_coding._synthesize_deferred_diff(["not/in/files.py"], {})
+        self.assertEqual(diff, "")
+
+    def test_unreadable_file_treated_as_empty_old_content(self):
+        with patch("pathlib.Path.exists", return_value=True), \
+             patch("pathlib.Path.read_text", side_effect=OSError("boom")):
+            diff = batch_coding._synthesize_deferred_diff(
+                ["some/existing_file.py"], {"some/existing_file.py": "content\n"},
+            )
+        self.assertIn("+content", diff)
+
+
+class TestReviewDeferredFiles(unittest.TestCase):
+    def test_returns_none_when_no_deferred_files(self):
+        self.assertIsNone(batch_coding._review_deferred_files(
+            deferred_existing=[], files={}, title="t", summary="s", custom_id="MSN-1",
+        ))
+
+    def test_returns_none_when_synthesized_diff_is_blank(self):
+        with patch.object(batch_coding, "_synthesize_deferred_diff", return_value="   "), \
+             patch.object(xo_review, "review_diff") as mocked_review:
+            result = batch_coding._review_deferred_files(
+                deferred_existing=["some/file.py"], files={"some/file.py": "x"},
+                title="t", summary="s", custom_id="MSN-1",
+            )
+        self.assertIsNone(result)
+        mocked_review.assert_not_called()
+
+    def test_calls_xo_review_with_the_synthesized_diff_and_notifies(self):
+        notify_calls = []
+        with patch.object(batch_coding, "_synthesize_deferred_diff", return_value="diff-content"), \
+             patch.object(xo_review, "review_diff", return_value={"verdict": "approve", "reasoning": "looks fine"}) as mocked_review, \
+             patch("core.platform.notification_service.notify", side_effect=lambda *a, **k: notify_calls.append((a, k))):
+            result = batch_coding._review_deferred_files(
+                deferred_existing=["some/file.py"], files={"some/file.py": "x"},
+                title="Fix a real bug", summary="details", custom_id="MSN-1",
+            )
+        mocked_review.assert_called_once_with(diff="diff-content", mission_title="Fix a real bug", mission_summary="details")
+        self.assertEqual(result["verdict"], "approve")
+        self.assertEqual(len(notify_calls), 1)
+
+    def test_xo_review_exception_produces_fail_closed_hold_verdict(self):
+        with patch.object(batch_coding, "_synthesize_deferred_diff", return_value="diff-content"), \
+             patch.object(xo_review, "review_diff", side_effect=RuntimeError("boom")), \
+             patch("core.platform.notification_service.notify"):
+            result = batch_coding._review_deferred_files(
+                deferred_existing=["some/file.py"], files={"some/file.py": "x"},
+                title="t", summary="s", custom_id="MSN-1",
+            )
+        self.assertEqual(result["verdict"], "hold")
+        self.assertIn("boom", result["reasoning"])
+
+    def test_notify_failure_does_not_prevent_review_result_from_being_returned(self):
+        with patch.object(batch_coding, "_synthesize_deferred_diff", return_value="diff-content"), \
+             patch.object(xo_review, "review_diff", return_value={"verdict": "hold", "reasoning": "needs eyes"}), \
+             patch("core.platform.notification_service.notify", side_effect=RuntimeError("telegram down")):
+            result = batch_coding._review_deferred_files(
+                deferred_existing=["some/file.py"], files={"some/file.py": "x"},
+                title="t", summary="s", custom_id="MSN-1",
+            )
+        self.assertEqual(result["verdict"], "hold")
 
 
 class TestModelRouterXoReviewPolicy(unittest.TestCase):
