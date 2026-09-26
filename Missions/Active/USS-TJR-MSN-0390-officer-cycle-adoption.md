@@ -2,10 +2,13 @@
 
 **Parent context:** MSN-0210L/M (Officer & Experience Convergence, design-only, 2026-07-05).
 **Type:** Implementation — scheduling + ownership, not new feature design.
-**Status:** Active — opened 2026-09-15 during a Chief-of-Staff Tier-2 decision review.
-Reconciliation + scheduling (items 1-3) DELIVERED 2026-09-26 (see "Convergence update"
-below); item 4 (readiness re-verify) also closed out same date. Remaining: coordinating
-session to review/merge `deploy/daily-ops-cycle.service`+`.timer` and enable on the host.
+**Status:** DELIVERED 2026-09-26 — opened 2026-09-15 during a Chief-of-Staff Tier-2 decision
+review. All 4 items closed same date (see "Convergence update" below).
+`deploy/daily-ops-cycle.service`+`.timer` enabled on the production host 2026-09-26; first
+real run completed successfully same day (11:18:28, exit 0, real non-empty brief).
+Verified independently via a fresh audit re-run the same day. Remaining follow-ups are
+tracked in the registry entry (real distribution channel for the brief, `create_escalation()`
+still has zero live callers), not blockers to this mission's own scope.
 
 ## Convergence update (2026-09-26)
 
