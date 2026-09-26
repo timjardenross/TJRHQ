@@ -156,7 +156,48 @@ restore_self_improvement_stash() {
 # and fails loudly, which is exactly the existing "fast-forward failed"
 # abort path. What this check still must catch is an uncommitted EDIT to an
 # already-tracked file - that's the one thing a pull could actually stomp on.
-if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+#
+# 2026-09-26 (fresh HQ audit found auto-deploy.service ABORTing on EVERY
+# cycle, with journalctl showing an unbroken streak - no auto-deploy had
+# landed in a long time): mission-engineering-dispatch.service runs every
+# 15 minutes and, as part of its normal, expected operation, rewrites
+# these TRACKED files every single cycle:
+#   - .id-counters.json
+#   - data/self-improvement/review/evolution_summary.json
+#   - data/self-improvement/review/finding_staleness.jsonl
+#   - data/self-improvement/review/opportunity_id_counter.txt
+#   - data/self-improvement/review/mission_dispatch_log.jsonl (its own
+#     idempotent dispatch log - DISPATCH_LOG_NAME in
+#     core/engineering/mission_dispatch.py)
+# sync-self-improvement-state.service already owns committing the first
+# four of these on its own 3-minute cycle (see its STATE_FILES allowlist
+# in deploy/sync-self-improvement-state.sh) - mission_dispatch_log.jsonl
+# is the same class of mechanically-rewritten state file but isn't yet in
+# that allowlist (a separate, pre-existing gap, not fixed here). Either
+# way, none of these five paths are ever a human's real in-progress edit,
+# so a modification confined to them is not the "manual WIP" case this
+# guard exists to protect - it's `data/self-improvement/review/` acting
+# exactly as its own header describes: "mechanically-rewritten tracked
+# state files", permanently re-dirtying the tree faster than the 3-minute
+# sync job can commit-and-push it, tripping this guard on every 5-minute
+# auto-deploy cycle in between.
+#
+# Fix: exclude the specific known-owned paths from the dirty-check
+# pathspec, not the untracked-files flag above (that would silently widen
+# protection for genuinely untracked human/other-automation output too,
+# which is not the fix this bug needs) and not by committing them here
+# (that would blur ownership - these paths are already owned and
+# committed by sync-self-improvement-state.service; auto-deploy.sh has no
+# business writing to git history). A real uncommitted edit ANYWHERE else
+# - including a new, not-yet-allowlisted file under
+# data/self-improvement/review/ that isn't one of the paths above, or any
+# genuine human WIP - still trips this guard exactly as before.
+DIRTY_CHECK_EXCLUDES=(
+  ':!.id-counters.json'
+  ':!data/self-improvement/review'
+  ':!Missions/Engineering-Handoffs'
+)
+if [ -n "$(git status --porcelain --untracked-files=no -- . "${DIRTY_CHECK_EXCLUDES[@]}")" ]; then
   # 2026-09-15's OnFailure= alert for this exact ABORT was disabled the
   # same day for paging every 5-minute retry through ordinary short-lived
   # human WIP (alert_on_systemd_failure.py's own _EXPECTED_NOISE entry
