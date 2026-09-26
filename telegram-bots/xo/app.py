@@ -63,6 +63,28 @@ def _ensure_mistral_env() -> None:
 
 _ensure_mistral_env()
 
+
+def _ensure_github_env() -> None:
+    """Same single-key-borrow pattern as _ensure_mistral_env() above — this
+    process loads only its own .env, but /merge_pr and /decline_pr
+    (2026-09-26) need GITHUB_TOKEN/GITHUB_REPO, which live in
+    platform-runtime/.env alongside the rest of the GitHub config
+    core/engineering/providers/github_pr.py already reads."""
+    if os.environ.get("GITHUB_TOKEN") and os.environ.get("GITHUB_REPO"):
+        return
+    envf = _REPO_ROOT / "platform-runtime" / ".env"
+    try:
+        for line in envf.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith(("GITHUB_TOKEN=", "GITHUB_REPO=")):
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    except Exception as exc:  # noqa: BLE001 - best-effort .env bootstrap, must not crash bot startup
+        logging.getLogger(__name__).debug("failed to load GITHUB_TOKEN/GITHUB_REPO from .env: %s", exc)
+
+
+_ensure_github_env()
+
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID   = int(os.environ["TELEGRAM_CHAT_ID"])
 SUPABASE_URL       = os.environ.get("SUPABASE_URL", "")
@@ -88,6 +110,10 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 # ── Shared modules ────────────────────────────────────────────────────────────
 
 sys.path.insert(0, str(_REPO_ROOT))
+
+from core.engineering.providers import (
+    github_pr,
+)
 
 # ── Telemetry ─────────────────────────────────────────────────────────────────
 try:
@@ -501,6 +527,70 @@ async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if restart_xo:
         await asyncio.sleep(3)
         await asyncio.create_subprocess_exec("systemctl", "restart", "tg-xo.service")
+
+
+# ── Engineering review gate (2026-09-26) ──────────────────────────────────────
+# Merge/decline for the auto-generated version-bump PRs core/engineering/
+# batch_coding.py opens (see xo_review.py) — a human action, always. The
+# XO-review verdict posted as a PR comment is the single source of truth
+# for whether a merge is authorized; this bot never re-derives or stores
+# its own copy of that verdict, it just reads the PR back.
+
+async def cmd_merge_pr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/merge_pr <number> [anyway] — merges only if the PR's own XO-review
+    verdict comment says "approve"; `anyway` overrides a Hold (or an
+    unreviewed PR) explicitly, never silently."""
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+    if not context.args:
+        await update.message.reply_text("Usage: /merge_pr <number> [anyway]")
+        return
+    try:
+        pr_number = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("PR number must be an integer.")
+        return
+    force = len(context.args) > 1 and context.args[1].lower() == "anyway"
+
+    token, repo = os.environ.get("GITHUB_TOKEN", ""), os.environ.get("GITHUB_REPO", "")
+    if not token or not repo:
+        await update.message.reply_text("GitHub not configured for this bot.")
+        return
+
+    verdict = await asyncio.to_thread(github_pr.get_pr_review_verdict, token, repo, pr_number)
+    if verdict != "approve" and not force:
+        await update.message.reply_text(
+            f"PR #{pr_number} verdict: {verdict or 'unreviewed'} — refusing to merge.\n"
+            f"Reply /merge_pr {pr_number} anyway to override."
+        )
+        return
+
+    ok, message = await asyncio.to_thread(github_pr.merge_pr, token, repo, pr_number)
+    await update.message.reply_text(f"{'✅' if ok else '❌'} {message}")
+
+
+async def cmd_decline_pr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/decline_pr <number> — closes without merging."""
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+    if not context.args:
+        await update.message.reply_text("Usage: /decline_pr <number>")
+        return
+    try:
+        pr_number = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("PR number must be an integer.")
+        return
+
+    token, repo = os.environ.get("GITHUB_TOKEN", ""), os.environ.get("GITHUB_REPO", "")
+    if not token or not repo:
+        await update.message.reply_text("GitHub not configured for this bot.")
+        return
+
+    ok = await asyncio.to_thread(
+        github_pr.close_pr, token, repo, pr_number, "Declined by the Captain via XO bot.",
+    )
+    await update.message.reply_text("✅ Closed." if ok else "❌ Failed to close PR.")
 
 
 # ── OR Intelligence brief ─────────────────────────────────────────────────────
@@ -2204,6 +2294,8 @@ _BOT_COMMANDS = [
     ("meds_taken",      "Confirm medicines taken (stops today's reminders)"),
     # System
     ("restart_bots",    "Restart starfleet services  e.g. /restart_bots all"),
+    ("merge_pr",        "Merge an XO-reviewed auto-PR  e.g. /merge_pr 314"),
+    ("decline_pr",      "Close an auto-PR without merging  e.g. /decline_pr 314"),
     ("db_status",       "Supabase connectivity test"),
     ("start",           "XO introduction and quick-start"),
     ("help",            "Commands"),
@@ -2269,6 +2361,8 @@ def main() -> None:
     app.add_handler(CommandHandler("brief",           cmd_brief))
     app.add_handler(CommandHandler("priorities",      cmd_priorities))
     app.add_handler(CommandHandler("restart_bots",    cmd_restart_bots))
+    app.add_handler(CommandHandler("merge_pr",        cmd_merge_pr))
+    app.add_handler(CommandHandler("decline_pr",      cmd_decline_pr))
     app.add_handler(CallbackQueryHandler(handle_mood_chart_callback,         pattern=r"^mc\|"))
     app.add_handler(CallbackQueryHandler(handle_meds_callback,               pattern=r"^md\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback,      pattern=r"^vc\|"))
