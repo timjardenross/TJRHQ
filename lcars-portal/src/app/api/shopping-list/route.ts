@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { errorDetail } from '@/lib/errorDetail';
+import { logActionHistory } from '@/lib/actionHistoryServer';
 
 const VALID_STATUSES = ['wishlist', 'saved_for', 'purchased', 'cancelled'] as const;
 const ITEM_SELECT = [
@@ -45,14 +46,17 @@ export async function POST(request: NextRequest) {
 
   const product_name = typeof body.product_name === 'string' ? body.product_name.trim() : '';
   if (!product_name) {
+    await logActionHistory({ action: 'shopping_list.item_create', outcome: 'failed', workbench: 'shopping-list', details: { reason: 'product_name_required' } });
     return NextResponse.json({ error: 'product_name is required' }, { status: 400 });
   }
   const category = typeof body.category === 'string' ? body.category.trim() : '';
   if (!category) {
+    await logActionHistory({ action: 'shopping_list.item_create', outcome: 'failed', workbench: 'shopping-list', details: { reason: 'category_required' } });
     return NextResponse.json({ error: 'category is required' }, { status: 400 });
   }
   const cost = typeof body.cost === 'number' ? body.cost : Number(body.cost);
   if (!Number.isFinite(cost)) {
+    await logActionHistory({ action: 'shopping_list.item_create', outcome: 'failed', workbench: 'shopping-list', details: { reason: 'cost_invalid' } });
     return NextResponse.json({ error: 'cost must be a number' }, { status: 400 });
   }
   const rawStatus = typeof body.status === 'string' ? body.status.trim() : 'wishlist';
@@ -89,8 +93,10 @@ export async function POST(request: NextRequest) {
       .select('id')
       .maybeSingle<{ id: string }>();
     if (error) throw error;
+    await logActionHistory({ action: 'shopping_list.item_create', outcome: 'success', workbench: 'shopping-list', recordId: data?.id ?? null, details: { product_name, category } });
     return NextResponse.json({ item: data }, { status: 201 });
   } catch (err) {
+    await logActionHistory({ action: 'shopping_list.item_create', outcome: 'failed', workbench: 'shopping-list', details: { reason: 'write_error', product_name, category } });
     return NextResponse.json({ error: 'Failed to create item', detail: errorDetail(err) }, { status: 500 });
   }
 }

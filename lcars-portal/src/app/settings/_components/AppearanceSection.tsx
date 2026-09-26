@@ -1,12 +1,15 @@
 'use client';
 
-// Mission §3/§4 — Appearance controls the persistent visual experience,
-// using HQ's EXISTING global theme implementation (lib/theme.ts, already
-// live across every *-workbench page via WorkbenchShell/ThemeSelector) and
-// its motion counterpart (lib/motion.ts). No second theme engine here —
-// this section is a thin, discoverable home for controls that already
-// exist as a header dropdown, plus one small uplift (a manual motion
-// override, mission §3's "Motion: Reduced/Standard").
+// Mission §3/§4 — Appearance controls the persistent visual experience.
+// Motion (lib/motion.ts) is the one remaining user-facing appearance
+// control (mission §3's "Motion: Reduced/Standard").
+//
+// Endeavour 27 (USS-TJR-MSN-0394): the 5-theme selector this section used
+// to expose (lib/theme.ts, ThemeSelector.tsx) is retired — Captain-
+// confirmed decision, "One fixed dark Command/Focus identity + Read as a
+// contextual light surface... not 5 independently-selectable whole-app
+// palettes." Reading mode is now a per-page classification
+// (WorkbenchShell's `mode` prop), not a Captain-facing setting.
 //
 // Interface density (Calm/Comfortable/Compact) is explicitly NOT built:
 // the audit found no global density/spacing-scale system to hook into, and
@@ -17,13 +20,11 @@
 import { useEffect, useState } from 'react';
 import { SectionHeading, SettingRow } from './SectionHeading';
 import { Select } from '@/components/ui/Input';
-import { useTheme, THEME_NAMES, THEME_LABELS } from '@/lib/theme';
 import { useMotion, MOTION_NAMES, MOTION_LABELS } from '@/lib/motion';
 
 export function AppearanceSection() {
-  const [theme, setTheme] = useTheme();
   const [motion, setMotion] = useMotion();
-  const [savedFlash, setSavedFlash] = useState<'theme' | 'motion' | null>(null);
+  const [savedFlash, setSavedFlash] = useState<'motion' | null>(null);
 
   useEffect(() => {
     if (!savedFlash) return;
@@ -35,26 +36,6 @@ export function AppearanceSection() {
     <div>
       <SectionHeading title="Appearance" description="Control the persistent visual experience across TJR HQ." />
       <div className="rounded-lg border border-wb-line bg-wb-surface px-4">
-        <SettingRow label="Theme" hint="One of five shared HQ themes — applies everywhere, immediately.">
-          <div className="flex items-center gap-2">
-            <Select
-              aria-label="Theme"
-              value={theme}
-              onChange={(e) => {
-                setTheme(e.target.value as (typeof THEME_NAMES)[number]);
-                setSavedFlash('theme');
-              }}
-              className="min-w-[140px]"
-            >
-              {THEME_NAMES.map((name) => (
-                <option key={name} value={name}>
-                  {THEME_LABELS[name]}
-                </option>
-              ))}
-            </Select>
-            {savedFlash === 'theme' && <span className="text-[12px] font-medium text-wb-ok-on">Saved ✓</span>}
-          </div>
-        </SettingRow>
         <SettingRow label="Motion" hint="Reduced turns off HQ's own transitions and animations, regardless of your device's own setting.">
           <div className="flex items-center gap-2">
             <Select

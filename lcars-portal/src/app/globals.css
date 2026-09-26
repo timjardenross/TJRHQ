@@ -5,91 +5,95 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
-}
-
-/* ── Adaptive themes (mission: Adaptive Themes + Home/Workbench Redesign,
-   2026-09-05) ────────────────────────────────────────────────────────────
-   5 selectable visual environments, all feeding the same `wb-*` Tailwind
-   tokens (tailwind.config.ts now reads these as var(--wb-*) instead of
-   literal hex) — structure/routes/workbench positions never change between
-   themes, only these values do. Selected via src/lib/theme.ts's
-   useTheme()/[data-theme] on <html>, set before hydration by the inline
-   script in layout.tsx to avoid a flash of the wrong theme.
-
-   Status colours (ok/warn/crit/-on, gold, navy, crit-deep) are
-   DELIBERATELY IDENTICAL across every theme — "colour should communicate
-   atmosphere, not status" (mission brief §2) — only background/surface/
-   text/accent/border shift per theme. All text/accent pairings below are
-   contrast-validated (see conversation) against both --wb-bg and
-   --wb-surface: text-primary >=11:1, text-secondary/sage-deep >=4.5:1
-   (AA body text), sage (fills/borders/large-text only, same two-tier
-   pattern the existing Archive palette already used for sage/sage-deep)
-   >=3:1.
-
-   --wb-surface-raised is new (existing bg-wb-surface call sites are
-   unaffected — they read --wb-surface, unchanged) — for new components
-   (Sidebar, ThemeSelector, WorkbenchCard) that want a second, brighter
-   surface tier on top of the base card surface. */
-:root,
-:root[data-theme='archive'] {
-  --wb-bg: #F5F1EA;
-  --wb-surface: #FCFBF8;
-  --wb-surface-raised: #FFFFFF;
-  --wb-line: #DDD8CF;
-  --wb-ink: #273248;
-  --wb-ink2: #657080;
-  --wb-sage: #176D70;
-  --wb-sage-deep: #125759;
-}
-
-:root[data-theme='command'] {
-  --wb-bg: #F3F5F6;
-  --wb-surface: #FFFFFF;
-  --wb-surface-raised: #FFFFFF;
-  --wb-line: #D9E0E3;
-  --wb-ink: #17263A;
-  --wb-ink2: #607080;
-  --wb-sage: #006C70;
-  --wb-sage-deep: #005154;
-}
-
-:root[data-theme='midnight'] {
   color-scheme: dark;
-  --wb-bg: #111820;
-  --wb-surface: #19232D;
-  --wb-surface-raised: #202C37;
-  --wb-line: #2C3A46;
-  --wb-ink: #E7EDF2;
-  --wb-ink2: #A4B2BE;
-  --wb-sage: #66B8BA;
-  --wb-sage-deep: #66B8BA;
 }
 
-:root[data-theme='horizon'] {
-  --wb-bg: #EEF4F5;
-  --wb-surface: #F8FBFB;
-  --wb-surface-raised: #FFFFFF;
-  --wb-line: #D6E4E7;
-  --wb-ink: #203342;
-  --wb-ink2: #5A6B74;
-  --wb-sage: #3B7F8C;
-  --wb-sage-deep: #2C5F69;
+/* ── Endeavour 27 visual system (USS-TJR-MSN-0394, 2026-09-20) ───────────
+   REPLACES the 5-theme adaptive system (Archive/Command/Midnight/Horizon/
+   Sanctuary, 2026-09-05) entirely — Captain-confirmed decision, mission §2:
+   "One fixed dark Command/Focus identity + Read as a contextual light
+   surface within the same system — not 5 independently-selectable
+   whole-app palettes." `lib/theme.ts`/`ThemeSelector.tsx` are retired, not
+   repurposed.
+
+   Two real surface lightnesses now, not five:
+   - Command/Focus (dark navy) — the default, on bare :root. Command (Hub)
+     and Focus (Ready Room, Human Systems, most action/execution surfaces)
+     share this one dark Surface, differentiated by density/layout, not by
+     colour identity (mission §1.1).
+   - Read (warm light) — scoped to [data-wb-mode='read'], set by
+     WorkbenchShell's `mode` prop on pages whose primary content is reading
+     dense text/synthesis (Briefs, Captain's Chair, Knowledge Workbench,
+     etc. — mission §1.8's classification). A real surface-lightness swap,
+     not just "calmer" within the dark shell.
+
+   Hex values are Image 3's named footer legend (mission §1.1/§2) —
+   authoritative over any colour-picked estimate. All pairings below are
+   WCAG relative-luminance contrast-computed (not eyeballed — same method
+   Mission 7 Phase 8 used), text >=4.5:1, UI-component/large-text >=3:1:
+   dark bg vs ink 14.90:1, dark bg vs ink2 8.43:1, dark bg vs accent
+   4.61:1, dark bg vs sand 8.95:1, dark bg vs gold 7.41:1; read bg vs ink
+   13.32:1, read bg vs ink2 5.49:1, read bg vs accent-deep 6.88:1, read bg
+   vs sand-deep 5.18:1. Plain `--wb-sage`/`accent` fails AA text on the
+   *read* surface only (3.24:1) — same two-tier fills-vs-text-safe pattern
+   `wb-sage`/`wb-sage-deep` already used pre-Endeavour-27 (tailwind.config.ts
+   §"sage" comment), just now driven by mode instead of theme. `--wb-gold`
+   fails AA text on both surfaces (2.01:1 read, and was already
+   decorative-only pre-Endeavour-27 per that same tailwind.config.ts
+   comment) — fills/borders/icons only, never bare text, unchanged rule.
+
+   `--wb-ok/--wb-warn/--wb-crit` and state-* (tailwind.config.ts) stay
+   exactly as they were: deliberately theme-invariant, mandatory
+   bg/border-paired `-on` usage per `stateToneClasses()`'s doc comment
+   (lib/departments.ts) — that constraint predates and is unaffected by
+   this token replacement, not re-derived here. */
+:root {
+  --wb-bg: #0B1E2E;
+  --wb-surface: #142B3D;
+  --wb-surface-raised: #1B3347;
+  --wb-line: #24405A;
+  --wb-ink: #ECF1F5;
+  --wb-ink2: #A9B9C7;
+  /* Accent TJR Blue — interactive/link colour (mission §1.1: distinct from
+     the celebratory/brand gold below). Passes AA text on the dark surface
+     directly; `-deep` is the read-surface-safe variant (see [data-wb-mode
+     ='read'] below) and the general hover/pressed-state shade on dark. */
+  --wb-sage: #3B82F6;
+  --wb-sage-deep: #2F68C9;
+  /* Sand Warm Accent (mission §1.1) — new token, warm heritage accent for
+     decorative fills/highlights (avatar rings, card accents), same
+     fills-only discipline as gold. `-deep` is the read-surface text-safe
+     variant. */
+  --wb-sand: #D6B88C;
+  --wb-sand-deep: #7D5F37;
 }
 
-:root[data-theme='sanctuary'] {
+/* Read (light) surface — WorkbenchShell mode="read" sets this attribute on
+   its own wrapper div, not <html>; CSS custom properties cascade normally
+   from there, so no pre-hydration anti-flash script is needed the way the
+   old theme system required (mode is a static per-route design
+   classification, known at render time, never a client-toggled
+   preference). Reusing `sanctuary`'s former warm-cream values (mission
+   §1.1: "close to the existing sanctuary theme... no named hex given for
+   this either") as the starting point, re-contrast-checked above rather
+   than assumed still valid under the new pairing set. */
+[data-wb-mode='read'] {
+  color-scheme: light;
   --wb-bg: #F4F0E8;
   --wb-surface: #FAF8F3;
   --wb-surface-raised: #FFFFFF;
   --wb-line: #DDD8CE;
-  --wb-ink: #293240;
-  --wb-ink2: #6D726E;
-  --wb-sage: #667C78;
-  --wb-sage-deep: #4C5D5A;
+  --wb-ink: #1C2733;
+  --wb-ink2: #56626D;
+  --wb-sage: #1F4FA0;
+  --wb-sage-deep: #173D80;
+  --wb-sand: #D6B88C;
+  --wb-sand-deep: #7D5F37;
 }
 
-/* Status/constant tokens — same across all 5 themes, defined once on
-   :root so no theme block above needs to repeat them. */
+/* Status/constant tokens — theme/mode-invariant, defined once on :root.
+   Unchanged by the Endeavour 27 token replacement above (see header
+   comment) — status communicates status, not atmosphere or reading mode. */
 :root {
   --wb-navy: #1B365D;
   --wb-gold: #C9A84C;
@@ -100,6 +104,18 @@
   --wb-warn-on: #8A5A1B;
   --wb-crit-on: #A23A34;
   --wb-crit-deep: #8a2f2a;
+
+  /* Compatibility aliases for the remaining pre-Endeavour primitives.
+     Consumers can migrate incrementally without reintroducing a second
+     visual language. These aliases intentionally resolve to Endeavour
+     surfaces/statuses rather than the former rainbow LCARS palette. */
+  --legacy-space: var(--wb-bg);
+  --legacy-panel: var(--wb-surface);
+  --legacy-panel-2: var(--wb-surface-raised);
+  --legacy-edge: var(--wb-line);
+  --legacy-text: var(--wb-ink);
+  --legacy-muted: var(--wb-ink2);
+  --legacy-accent: var(--wb-sage);
 }
 
 @layer base {
@@ -112,19 +128,146 @@
      overscroll on *-workbench routes despite neither route group actually
      depending on it (design-audit finding, advisory-workbench). */
   body {
-    @apply bg-white text-wb-ink font-sans antialiased;
+    /* Endeavour 27: was bg-white — wrong once the default surface became
+       dark navy (see [data-wb-mode] block above); this is what the
+       overscroll gutter actually shows now. */
+    @apply bg-wb-bg text-wb-ink font-sans antialiased;
     min-height: 100dvh; /* dvh tracks mobile browser chrome correctly */
-    /* Gentle theme-switch cross-fade (mission §15: ~150-200ms only) —
-       prefers-reduced-motion below already zeroes all transition-duration
-       globally, so this degrades to an instant swap for anyone who wants
-       that. */
     transition: background-color 180ms ease, color 180ms ease;
+    overflow-x: hidden;
+  }
+
+  html {
+    scroll-padding-top: 1rem;
+    scroll-padding-bottom: calc(env(safe-area-inset-bottom) + 5rem);
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--wb-sage) 35%, transparent);
+    color: var(--wb-ink);
   }
 
   h1,
   h2,
   h3 {
     @apply font-sans font-semibold uppercase tracking-[0.12em];
+  }
+}
+
+@layer components {
+  .endeavour-brand-mark {
+    @apply grid place-items-center rounded-xl border border-wb-sand bg-wb-bg text-wb-sand shadow-[0_0_0_1px_rgba(214,184,140,0.12),0_8px_24px_rgba(0,0,0,0.22)];
+  }
+
+  .endeavour-command-hero {
+    @apply relative overflow-hidden rounded-2xl border border-wb-line bg-wb-surface px-5 py-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] sm:px-7 sm:py-8;
+    background-image:
+      radial-gradient(ellipse at 88% 0%, color-mix(in srgb, var(--wb-sage) 24%, transparent), transparent 42%),
+      linear-gradient(135deg, color-mix(in srgb, var(--wb-surface) 88%, var(--wb-bg)), var(--wb-bg));
+  }
+
+  .endeavour-command-hero::after {
+    content: '';
+    @apply pointer-events-none absolute -right-24 -top-20 h-56 w-2/3 rounded-full border-b border-wb-sand opacity-70;
+    transform: rotate(-12deg);
+  }
+
+  .endeavour-status-tile {
+    @apply rounded-xl border border-wb-line bg-wb-surface p-3 transition-colors hover:border-wb-sage-deep sm:p-4;
+  }
+
+  .endeavour-mobile-action {
+    @apply grid h-12 w-12 place-items-center rounded-2xl border border-wb-line bg-wb-surface text-wb-ink shadow-lg transition hover:border-wb-sand hover:bg-wb-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep;
+  }
+
+  /* Reference-mode composition. Focus pages get a clearer action runway;
+     Read pages use editorial rhythm instead of making every paragraph feel
+     like another dashboard object. These are intentionally shell-level
+     defaults so Ready Room/Human Systems and Briefs/Technical OSINT converge
+     without duplicating page-local layout rules. */
+  .wb-mode-focus #wb-main > :first-child {
+    @apply rounded-2xl border border-wb-line bg-wb-bg p-3 sm:p-5;
+  }
+
+  .wb-mode-read #wb-main {
+    @apply leading-relaxed;
+  }
+
+  .wb-mode-read #wb-main h2 {
+    @apply tracking-[0.08em];
+  }
+
+  .wb-mode-read #wb-main article p,
+  .wb-mode-read #wb-main section p {
+    @apply max-w-prose;
+  }
+
+  .focus-reference-surface {
+    @apply rounded-2xl border border-wb-line bg-wb-surface p-4 shadow-[0_16px_40px_rgba(0,0,0,0.12)] sm:p-6;
+  }
+
+  .focus-reference-kicker,
+  .read-reference-kicker {
+    @apply mb-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-wb-ink2;
+  }
+
+  .focus-reference-surface > .focus-reference-kicker {
+    @apply text-wb-sage;
+  }
+
+  .read-reference-surface {
+    @apply rounded-2xl border border-wb-line bg-wb-surface-raised px-4 py-5 shadow-[0_16px_40px_rgba(28,39,51,0.08)] sm:px-7 sm:py-7;
+  }
+
+  .read-reference-kicker {
+    @apply border-b border-wb-line pb-3 text-wb-sand-deep;
+  }
+
+  .risk-reference-surface {
+    @apply rounded-2xl border border-wb-line p-4 shadow-[0_16px_40px_rgba(0,0,0,0.1)] sm:p-6;
+  }
+
+  .risk-reference-command,
+  .risk-reference-focus {
+    @apply bg-wb-surface;
+  }
+
+  .risk-reference-read {
+    @apply bg-wb-surface-raised;
+  }
+
+  .risk-reference-kicker {
+    @apply mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-wb-ink2;
+  }
+
+  .risk-reference-command > .risk-reference-kicker {
+    @apply text-wb-crit-on;
+  }
+
+  .risk-reference-focus > .risk-reference-kicker {
+    @apply text-wb-sage-deep;
+  }
+
+  .risk-reference-read > .risk-reference-kicker {
+    @apply mb-5 border-b border-wb-line pb-3 text-wb-sand-deep;
+  }
+
+  /* Responsive/accessibility contract for the below-XL command bar. */
+  @media (max-width: 1279px) {
+    #wb-main {
+      padding-bottom: calc(7rem + env(safe-area-inset-bottom));
+    }
+
+    [role='tablist'] {
+      scrollbar-width: thin;
+      scroll-padding-inline: 1rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto !important;
+    }
   }
 }
 
@@ -168,6 +311,14 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Accessibility regression contract: preserve boundaries and focus affordances
+ * when Windows High Contrast/forced-colors removes authored colour tokens. */
+@media (forced-colors: active) {
+  *, *::before, *::after { forced-color-adjust: auto; }
+  :focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+  button, a, input, select, textarea { border: 1px solid ButtonText; }
 }
 
 /* Settings → Appearance → Motion: 'Reduced' — a manual override for a

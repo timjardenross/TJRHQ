@@ -69,17 +69,23 @@ export function QuickCapture() {
           real device inset where one exists — a no-op on desktop/most
           Android, a real fix on notched/gesture-nav iOS. active: added
           alongside the existing hover:-only lift, which never fired on
-          touch. */}
+          touch.
+          Mission 7 adversarial pass: that offset alone still wasn't enough
+          below `xl` — MobileCommandBar is a *separate* fixed element
+          covering the bottom ~4.5rem of the viewport at a higher z-index
+          (z-50 vs this button's z-40), so on every real phone/tablet this
+          button rendered partly hidden behind the nav bar, not floating
+          above it. `max(5.25rem, …)` clears that bar; `xl:bottom-5`
+          reverts to the original tight offset once MobileCommandBar
+          itself is `xl:hidden`. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Quick capture"
         title="Quick capture"
-        className="fixed z-40 grid h-12 w-12 place-items-center rounded-full bg-wb-sage-deep text-[22px] font-semibold text-white shadow-lg transition hover:shadow-xl active:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
-        style={{
-          bottom: 'max(1.25rem, env(safe-area-inset-bottom))',
-          right: 'max(1.25rem, env(safe-area-inset-right))',
-        }}
+        className="fixed z-40 endeavour-mobile-action bg-wb-sage-deep text-[22px] font-semibold text-white
+          bottom-[max(5.25rem,calc(env(safe-area-inset-bottom)_+_4.75rem))] right-[max(1.25rem,env(safe-area-inset-right))]
+          xl:bottom-[max(1.25rem,env(safe-area-inset-bottom))]"
       >
         +
       </button>

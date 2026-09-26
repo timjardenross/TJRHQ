@@ -5,6 +5,20 @@ on:
   push:
     branches: [main]
 
+# CI/CD friction mission 2026-09-19: no workflow in this repo declared a
+# concurrency group, so a force-push, a rapid string of direct-to-main
+# pushes, or just re-pushing a PR left every prior run for that same
+# ref alive to the end, each still consuming a GitHub-hosted runner slot
+# it no longer needed (only the latest HEAD's result can ever matter for
+# merge). Confirmed on `gh run list`: dozens of stale runs queued/
+# in-progress behind real PR checks at once. Scoping the group to
+# workflow+ref (not run_id) and cancelling in-progress makes only the
+# latest push on a given ref/PR consume CI resources — required-check
+# semantics are unaffected, this only stops wasted/obsolete runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # 2026-08-11: was path-filtered to lcars-portal/**, which meant a PR
 # touching only other parts of the monorepo (docs, python tools, migrations)
 # never triggered this workflow at all. Harmless before today, but branch

@@ -27,6 +27,7 @@ import os
 from collections.abc import Callable
 from typing import Any
 
+from core.notifications.resend_email import send_email
 from core.platform.attention_engine import AttentionCategory
 from core.platform.captain_brief_contract import CaptainBriefItem
 from core.platform.event_bus import mark_event_status, record_dispatch_message_id
@@ -39,17 +40,50 @@ from core.platform.notification_service import (
 
 log = logging.getLogger(__name__)
 
+# Dual-send target (2026-09-26): the real escalation ladder (a genuine
+# "Telegram failed/unacked -> escalate to email" path) doesn't exist yet, so
+# this is an unconditional second channel fired alongside Telegram on every
+# INTERRUPT_NOW item, not gated on Telegram's own result — same
+# env-var-with-real-default recipient convention as
+# intelligence/emergency_alerts.py's EMERGENCY_ALERT_EMAIL_TO /
+# intelligence/emergency_alert_summary.py's EMERGENCY_ALERT_EMAIL_TO
+# (same default address both of those use).
+_INTERRUPT_NOW_EMAIL_TO = os.environ.get("INTERRUPT_NOW_EMAIL_TO", "timjardenross1986@gmail.com")
+
+
+def _email_interrupt_now(title: str, body: str) -> None:
+    """Best-effort email copy of the INTERRUPT_NOW push. Never raises and
+    never affects dispatch_interrupt_now()'s return value, the Telegram
+    result, or the event's ack/dispatch bookkeeping — same fail-open,
+    non-blocking contract as captains_brief.py's _email_morning_brief() /
+    resend_email.send_email's own never-raise contract."""
+    html = body.replace("\n", "<br>\n")
+    ok = send_email(_INTERRUPT_NOW_EMAIL_TO, f"INTERRUPT NOW — {title}", html)
+    if not ok:
+        log.warning(
+            "[interrupt-dispatcher] email to %s failed for %s (non-blocking, Telegram unaffected)",
+            _INTERRUPT_NOW_EMAIL_TO, title,
+        )
+
 
 def _deep_link(event_id: str) -> str | None:
-    """Captain's Brief deep-link for a dispatched event, appended to the
-    Telegram push so a bare "importance=X >= Y" scoring trace is never the
-    only thing the Captain has to act on — same LCARS_PORTAL_URL pattern as
+    """Briefs deep-link for a dispatched event, appended to the Telegram
+    push so a bare "importance=X >= Y" scoring trace is never the only
+    thing the Captain has to act on — same LCARS_PORTAL_URL pattern as
     intelligence/workflow/service.py::_deep_link. None (omitted, not a
-    broken link) when LCARS_PORTAL_URL isn't configured."""
+    broken link) when LCARS_PORTAL_URL isn't configured.
+
+    Phase 5 (Captain's Brief retirement): /captains-brief-workbench no
+    longer exists as a standalone page (redirects to /briefs), so this no
+    longer anchors to a specific #brief-item-{event_id} row — /briefs has
+    no equivalent per-event anchor yet. Losing that precision is a known,
+    accepted simplification of this retirement, not an oversight; `event_id`
+    stays a parameter so that anchor can come back if Briefs ever gains one.
+    """
     base = (os.environ.get("LCARS_PORTAL_URL", "") or "").rstrip("/")
     if not base:
         return None
-    return f"{base}/captains-brief-workbench?domain=brief#brief-item-{event_id}"
+    return f"{base}/briefs"
 
 
 def dispatch_interrupt_now(
@@ -78,11 +112,25 @@ def dispatch_interrupt_now(
         if status != "new":
             continue
 
-        body = item.recommendation.description if item.recommendation else item.reason
+        # Briefs/Captain's Brief consolidation signal-leakage fix: prefer a
+        # genuine recommendation, then the event's own readable description
+        # (a headline, a state transition) — `item._routing_reason` (a bare
+        # scoring formula, "importance=X >= Y AND confidence=Z >= W") is the
+        # last resort, not the first fallback, so a push body is never just
+        # an unreadable threshold trace when real content exists.
+        body = (
+            item.recommendation.description
+            if item.recommendation
+            else (item.description or item._routing_reason)
+        )
         link = _deep_link(item.event_id) if item.event_id else None
         if link:
             body = f"{body}\n\n{link}"
         title = f"{item.domain} · {item.event_type}"
+        # Dual-send, not escalation-gated: email fires unconditionally
+        # alongside Telegram for every INTERRUPT_NOW item below, independent
+        # of notify_fn's own outcome (see _email_interrupt_now docstring).
+        _email_interrupt_now(title, body)
         result = notify_fn(
             body,
             title=title,

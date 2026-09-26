@@ -75,7 +75,7 @@ def record_content(*, content_id: str, title: str, pillar: str | None = None,
                 from core.platform.event_bus import publish_event
                 publish_event(
                     "comms.content_recorded", domain="content-intelligence",
-                    source="comms-portfolio", recommended_action=title,
+                    source="comms-portfolio", description=title,
                 )
             except Exception as _exc:  # noqa: BLE001 - best-effort event bus publish, already logged
                 log.debug("[lib.comms.portfolio] best-effort step failed, continuing: %s", _exc)

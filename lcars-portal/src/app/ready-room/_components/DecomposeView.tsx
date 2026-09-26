@@ -1,22 +1,55 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Textarea, Input, Select } from '@/components/ui';
-import { createTask, decomposeTask, getTask, promoteToMission, updateTaskState, type FollowThroughMode } from '@/lib/personalTasks';
+import {
+  createTask, decomposeTask, fetchTasks, getReadyRoomContext, getTask, pickUpItems, promoteToMission,
+  updateTaskFields, updateTaskState, type FollowThroughMode, type PersonalTask, type ReadyRoomContext,
+} from '@/lib/personalTasks';
 import { FOLLOW_THROUGH_MODES, autoSwitchModeOnDueDate } from './followThroughMode';
 import { ActiveTaskView } from './ActiveTaskView';
-import type { PersonalTask } from '@/lib/personalTasks';
+import { PickUpBanner } from './PickUpBanner';
+import { SupportFeedbackPrompt } from './SupportFeedback';
+import { useAbortEffect } from '@/hooks/useAbortEffect';
 
 type Stage = 'input' | 'thinking' | 'result' | 'started';
 
 const EXAMPLES = ['Sort out the tax stuff', 'Organize the closet', 'Update the project status'];
 
+const REGULATE_PREFIX = 'REGULATE:';
+const CLARIFY_PREFIX = 'CLARIFY:';
+
 /** UNSTICK ME (spec §15-20) — one smallest useful first action, not a plan.
  * "Make it smaller" / "Try another" iterate on that ONE action without
- * creating extra tasks or a long visible history. */
-export function DecomposeView({ onSaved }: { onSaved: () => void }) {
+ * creating extra tasks or a long visible history.
+ *
+ * Mission 4 delta: the decompose call now receives Human Systems' posture
+ * (never re-derived here — read via getReadyRoomContext, same as
+ * TodayStream) so the model can (a) ask one clarifying question instead of
+ * inventing an action for a vague goal, and (b) under PROTECT/RECOVER,
+ * offer regulation/pause as a legitimate answer instead of always forcing
+ * an executable step. Both are plain-string protocol prefixes on the same
+ * single-string response the endpoint already returns — no new response
+ * shape, no new persistence. */
+export function DecomposeView({
+  initialTaskId,
+  onSaved,
+  onExecutingChange,
+}: {
+  /** Mission 7 item 2: an existing personal_tasks.id deep-linked from a
+   * Hub/Captain's Chair Needs You item's "Help me start" action
+   * (?domain=unstick&task=<id>). When set, the goal field is pre-filled
+   * from that task's title and `startHere()` updates the same task
+   * instead of creating a new, duplicate one. */
+  initialTaskId?: string | null;
+  onSaved: () => void;
+  /** Mission 4: reports whether ActiveTaskView is showing, so the page shell
+   * can drop into minimal/nav-free mode. */
+  onExecutingChange?: (executing: boolean) => void;
+}) {
   const [stage, setStage] = useState<Stage>('input');
   const [goal, setGoal] = useState('');
+  const [existingTask, setExistingTask] = useState<PersonalTask | null>(null);
   const [microAction, setMicroAction] = useState('');
   const [goodEnough, setGoodEnough] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -27,10 +60,82 @@ export function DecomposeView({ onSaved }: { onSaved: () => void }) {
   const [startedTask, setStartedTask] = useState<PersonalTask | null>(null);
   const [showMissionPrompt, setShowMissionPrompt] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [context, setContext] = useState<ReadyRoomContext>({
+    posture: 'UNKNOWN', capacityLimit: 3, hasCheckinToday: false, freshnessStatus: 'none',
+  });
+  const [clarifyQuestion, setClarifyQuestion] = useState<string | null>(null);
+  const [regulateSuggestion, setRegulateSuggestion] = useState<string | null>(null);
+  const [pickUp, setPickUp] = useState<PersonalTask[]>([]);
+  // Mission 5 — bumped every time decomposeTask() actually returns a real,
+  // usable micro-action (not a REGULATE/CLARIFY branch, not an error) —
+  // remounts SupportFeedbackPrompt (keyed on this) so feedback is scoped
+  // to the specific suggestion currently on screen, not left over from an
+  // earlier "Try another"/"Make it smaller" pass. Also doubles as "was
+  // UNSTICK ME actually used" for ActiveTaskView's completion signal.
+  const [feedbackNonce, setFeedbackNonce] = useState(0);
+  const [supportUsed, setSupportUsed] = useState(false);
+  // Kept separate from `goal` — `goal` becomes the saved task/mission title
+  // verbatim (startHere/turnIntoMission below), so a clarifying Q&A must
+  // never be folded into it. Only used to build the text sent to the
+  // decompose endpoint.
+  const [clarification, setClarification] = useState<string | null>(null);
+
+  useEffect(() => { onExecutingChange?.(stage === 'started'); }, [stage, onExecutingChange]);
+  useAbortEffect((_signal, alive) => {
+    getReadyRoomContext().then((c) => { if (alive()) setContext(c); });
+    // Interruption-recovery gap (Mission 4 Stream E): a posture-driven
+    // default can land the Captain on Unstick Me without ever seeing
+    // TodayStream's "pick up where you left off" — surface it here too so
+    // a paused, restart-cued task is never invisible just because low
+    // capacity routed them to this domain instead of Do.
+    fetchTasks({ includeCompleted: false }).then((tasks) => { if (alive()) setPickUp(pickUpItems(tasks)); });
+  }, []);
+  // Mission 7 item 2: pre-fill from the deep-linked existing task, if any.
+  // Runs once per initialTaskId — if the task can't be found (deleted,
+  // already completed elsewhere), falls back silently to the normal
+  // fresh-goal flow rather than blocking on an error.
+  useAbortEffect((_signal, alive) => {
+    if (!initialTaskId) return;
+    getTask(initialTaskId).then((task) => {
+      if (!alive() || !task) return;
+      setExistingTask(task);
+      setGoal(task.title);
+      if (task.due_date) setDueDate(task.due_date);
+      if (task.follow_through_mode) setFollowThroughMode(task.follow_through_mode);
+    });
+  }, [initialTaskId]);
 
   function handleDueDateChange(value: string) {
     setDueDate(value);
     setFollowThroughMode((prev) => autoSwitchModeOnDueDate(value, prev, modeTouched));
+  }
+
+  /** Splits a REGULATE:/CLARIFY:-prefixed response into its own state
+   * instead of the micro-action field. Plain-string protocol, matching the
+   * single-string contract /api/ready-room/decompose already has — no new
+   * response shape. */
+  function applyDecomposeResult(action: string | null, error: string | undefined, opts: { countsAsSmaller: boolean }) {
+    setClarifyQuestion(null);
+    setRegulateSuggestion(null);
+    if (opts.countsAsSmaller) setSmallerCount((n) => n + 1);
+    if (action?.startsWith(REGULATE_PREFIX)) {
+      setRegulateSuggestion(action.slice(REGULATE_PREFIX.length).trim());
+      setDecomposeError(null);
+      return;
+    }
+    if (action?.startsWith(CLARIFY_PREFIX)) {
+      setClarifyQuestion(action.slice(CLARIFY_PREFIX.length).trim());
+      setDecomposeError(null);
+      return;
+    }
+    if (action) {
+      setMicroAction(action);
+      setDecomposeError(null);
+      setSupportUsed(true);
+      setFeedbackNonce((n) => n + 1);
+    } else {
+      setDecomposeError(error ?? "Couldn't generate a step automatically — write your own below.");
+    }
   }
 
   async function helpMeStart() {
@@ -38,43 +143,93 @@ export function DecomposeView({ onSaved }: { onSaved: () => void }) {
     setStage('thinking');
     setDecomposeError(null);
     setBusy(true);
-    const { action, error } = await decomposeTask(goal);
+    const { action, error } = await decomposeTask(goal, { posture: context.posture });
     setBusy(false);
-    if (action) setMicroAction(action);
-    else {
-      setDecomposeError(error ?? "Couldn't generate a step automatically — write your own below.");
-      setMicroAction('');
-    }
+    applyDecomposeResult(action, error, { countsAsSmaller: false });
     setStage('result');
+  }
+
+  function decomposeQuery(): string {
+    return clarification ? `${goal}\n\nClarification: ${clarification}` : goal;
   }
 
   async function tryVariant(mode: 'smaller' | 'another') {
     if (busy) return;
     setBusy(true);
-    const { action, error } = await decomposeTask(goal, { mode, previousAction: microAction });
+    const { action, error } = await decomposeTask(decomposeQuery(), { mode, previousAction: microAction, posture: context.posture });
     setBusy(false);
-    if (mode === 'smaller') setSmallerCount((n) => n + 1);
-    if (action) {
-      setMicroAction(action);
-      setDecomposeError(null);
-    } else {
-      setDecomposeError(error ?? "Couldn't generate that automatically — edit the step yourself below.");
-    }
+    applyDecomposeResult(action, error, { countsAsSmaller: mode === 'smaller' });
+  }
+
+  /** Captain answers the model's clarifying question — used only to build
+   * the text sent back to decompose (decomposeQuery), never written into
+   * `goal` itself (that stays the clean, saveable task title/description). */
+  async function answerClarify(answer: string) {
+    if (!answer.trim() || busy) return;
+    setClarification(answer.trim());
+    setStage('thinking');
+    setBusy(true);
+    const { action, error } = await decomposeTask(`${goal}\n\nClarification: ${answer.trim()}`, { posture: context.posture });
+    setBusy(false);
+    applyDecomposeResult(action, error, { countsAsSmaller: false });
+    setStage('result');
+  }
+
+  /** The model asked to clarify but the Captain would rather just get
+   * something to try — retries decomposition on the plain goal (no
+   * clarification, no artificial restriction) rather than leaving an
+   * empty box behind a button that promised "something to try". */
+  async function skipClarify() {
+    if (busy) return;
+    setClarifyQuestion(null);
+    setStage('thinking');
+    setBusy(true);
+    const { action, error } = await decomposeTask(goal, { mode: 'another', posture: context.posture });
+    setBusy(false);
+    applyDecomposeResult(action, error, { countsAsSmaller: false });
+    setStage('result');
+  }
+
+  /** Captain explicitly overrode a REGULATE suggestion ("I'd still like to
+   * try something small") — per Captain Override (mission §22: no repeated
+   * challenge), this omits `posture` so the model cannot offer REGULATE
+   * again on the same request; one override is final, not a starting point
+   * for a loop. */
+  async function tryAnywaySmallAction() {
+    if (busy) return;
+    setRegulateSuggestion(null);
+    setStage('thinking');
+    setBusy(true);
+    const { action, error } = await decomposeTask(decomposeQuery());
+    setBusy(false);
+    applyDecomposeResult(action, error, { countsAsSmaller: false });
+    setStage('result');
   }
 
   async function startHere() {
     setBusy(true);
-    const result = await createTask({
-      title: goal,
-      category: 'task',
-      due_date: dueDate || null,
-      micro_action: microAction.trim() || null,
-      mvp_note: goodEnough.trim() || null,
-      follow_through_mode: followThroughMode,
-    });
-    if (result.ok && result.id) {
-      await updateTaskState(result.id, 'in_progress');
-      const fresh = await getTask(result.id);
+    // Mission 7 item 2: decomposing a deep-linked existing task updates
+    // that same task rather than creating a duplicate — createTask() is
+    // only for a genuinely fresh goal typed into this view.
+    const targetId = existingTask
+      ? (await updateTaskFields(existingTask.id, {
+          title: goal.trim() || existingTask.title,
+          due_date: dueDate || null,
+          micro_action: microAction.trim() || null,
+          mvp_note: goodEnough.trim() || null,
+          follow_through_mode: followThroughMode,
+        })).ok ? existingTask.id : null
+      : (await createTask({
+          title: goal,
+          category: 'task',
+          due_date: dueDate || null,
+          micro_action: microAction.trim() || null,
+          mvp_note: goodEnough.trim() || null,
+          follow_through_mode: followThroughMode,
+        })).id ?? null;
+    if (targetId) {
+      await updateTaskState(targetId, 'in_progress');
+      const fresh = await getTask(targetId);
       if (fresh) {
         setStartedTask(fresh);
         setStage('started');
@@ -82,6 +237,16 @@ export function DecomposeView({ onSaved }: { onSaved: () => void }) {
       }
     }
     setBusy(false);
+  }
+
+  // Mission 6B §8.6: PickUpBanner's "Continue" — resumes directly into
+  // ActiveTaskView the same way startHere() does, instead of the old
+  // "switch to Do" dead end. No task creation, no support/evidence write
+  // (see PickUpBanner.tsx's header comment for why not) — this is exactly
+  // TodayStream's own "Continue" behaviour, now also reachable from here.
+  function resumePickUp(task: PersonalTask) {
+    setStartedTask(task);
+    setStage('started');
   }
 
   async function turnIntoMission() {
@@ -95,6 +260,7 @@ export function DecomposeView({ onSaved }: { onSaved: () => void }) {
   function reset() {
     setStage('input');
     setGoal('');
+    setExistingTask(null);
     setMicroAction('');
     setGoodEnough('');
     setDueDate('');
@@ -104,6 +270,11 @@ export function DecomposeView({ onSaved }: { onSaved: () => void }) {
     setSmallerCount(0);
     setStartedTask(null);
     setShowMissionPrompt(false);
+    setClarifyQuestion(null);
+    setRegulateSuggestion(null);
+    setClarification(null);
+    setSupportUsed(false);
+    setFeedbackNonce(0);
   }
 
   if (stage === 'started' && startedTask) {
@@ -113,12 +284,26 @@ export function DecomposeView({ onSaved }: { onSaved: () => void }) {
         onDone={() => { reset(); onSaved(); }}
         onPaused={() => { reset(); onSaved(); }}
         onBack={reset}
+        // Mission 5: only attribute this task's completion to UNSTICK ME
+        // when a real decompose suggestion actually led here — a task
+        // started after the model failed/errored and the Captain wrote
+        // their own micro-action never used the support, so it must not
+        // count as evidence for it.
+        supportContext={supportUsed ? { interventionId: 'rr_unstick_me', posture: context.posture } : null}
       />
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
+      {stage === 'input' && pickUp.length > 0 && (
+        <PickUpBanner tasks={pickUp} onResume={resumePickUp} />
+      )}
+      {existingTask && stage === 'input' && (
+        <p className="text-[11px] uppercase tracking-wide text-wb-sage-deep">
+          Helping you start &ldquo;{existingTask.title}&rdquo; — from your Needs You list
+        </p>
+      )}
       <div>
         <Textarea
           label="What's feeling hard to start?"
@@ -142,7 +327,33 @@ export function DecomposeView({ onSaved }: { onSaved: () => void }) {
         <p className="text-[13px] text-wb-ink2">Finding a tiny first step…</p>
       )}
 
-      {stage === 'result' && (
+      {stage === 'result' && regulateSuggestion && (
+        <div className="flex flex-col gap-3 rounded-md border border-wb-sage/40 bg-wb-sage/10 p-4">
+          <p className="text-[13px] text-wb-ink">{regulateSuggestion}</p>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="/human-systems-workbench?domain=recovery"
+              className="inline-flex items-center rounded-md border border-wb-line bg-wb-surface px-3 py-1.5 text-[13px] text-wb-ink hover:bg-wb-surface-raised"
+            >
+              Take a break instead
+            </a>
+            <Button
+              variant="secondary"
+              disabled={busy}
+              onClick={tryAnywaySmallAction}
+            >
+              I&apos;d still like to try something small
+            </Button>
+            <Button variant="ghost" onClick={reset}>Not now</Button>
+          </div>
+        </div>
+      )}
+
+      {stage === 'result' && clarifyQuestion && (
+        <ClarifyPrompt question={clarifyQuestion} busy={busy} onAnswer={answerClarify} onSkip={skipClarify} />
+      )}
+
+      {stage === 'result' && !regulateSuggestion && !clarifyQuestion && (
         <div className="flex flex-col gap-4 rounded-md border border-wb-line bg-wb-surface p-4">
           {decomposeError && <p className="text-[12px] text-wb-warn-on">{decomposeError}</p>}
 
@@ -156,6 +367,21 @@ export function DecomposeView({ onSaved }: { onSaved: () => void }) {
             <Button variant="secondary" disabled={busy} onClick={() => tryVariant('smaller')}>Make it smaller</Button>
             <Button variant="secondary" disabled={busy} onClick={() => tryVariant('another')}>Try another</Button>
           </div>
+
+          {/* Mission 5 — Evidence & Adaptive Support (spec §12/§30). Only
+              shown when decomposeTask() actually returned a suggestion
+              (see feedbackNonce/supportUsed above), never on a manually
+              typed step. Keyed on feedbackNonce so it resets per
+              suggestion instead of carrying a stale dismissal across
+              "Try another"/"Make it smaller". */}
+          {supportUsed && (
+            <SupportFeedbackPrompt
+              key={feedbackNonce}
+              interventionId="rr_unstick_me"
+              posture={context.posture}
+              label="Was that suggestion helpful?"
+            />
+          )}
 
           <Textarea
             label="What would be good enough?"
@@ -195,6 +421,30 @@ export function DecomposeView({ onSaved }: { onSaved: () => void }) {
           <Button variant="ghost" onClick={reset}>Discard</Button>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Mission 4: the model asked a clarifying question rather than inventing
+ * an action for a vague goal (spec §9/§32 "ambiguous task" scenario) —
+ * one question, one answer, feeds straight back into decomposition. */
+function ClarifyPrompt({
+  question, busy, onAnswer, onSkip,
+}: {
+  question: string;
+  busy: boolean;
+  onAnswer: (answer: string) => void;
+  onSkip: () => void;
+}) {
+  const [answer, setAnswer] = useState('');
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-wb-line bg-wb-surface p-4">
+      <p className="text-[13px] text-wb-ink">{question}</p>
+      <Textarea rows={2} value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="One or two words is fine" />
+      <div className="flex flex-wrap gap-2">
+        <Button disabled={!answer.trim() || busy} onClick={() => onAnswer(answer)}>Continue</Button>
+        <Button variant="ghost" disabled={busy} onClick={onSkip}>Skip — just give me something to try</Button>
+      </div>
     </div>
   );
 }

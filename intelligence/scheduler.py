@@ -53,6 +53,22 @@ log = logging.getLogger("or-intelligence-scheduler")
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# 2026-09-19: Issue 14 shadow-mode scoring (phase_a_enrichment.enrich_and_save)
+# was hardcoded True at all 4 scheduled collection call sites below, firing a
+# real LLM call (model-router intelligence-brief task) per ingested event on
+# every job run — daily + intraday-status (every 180min) + intraday-media
+# (every 90min) + priority-tiered (every 120min, 07-19 AEST) — ~300-430 calls/
+# day (core/model-router/call_log.jsonl). Issue 15's own evaluation harness
+# (intelligence/analysis/evaluate_shadow_mode_data.py) that this data exists
+# for has never been run against it (no report.json / decision record found).
+# That volume saturated the single-slot CPU-only Ollama guardrails rail
+# (core/security/llm_guardrails.py) added ~2026-09-12, pushing intelligence-
+# brief's failure rate to ~100% and starving other model-router tasks
+# (including self-improving-system's own analysis call) of guardrail
+# capacity. Defaulting OFF; set SHADOW_MODE_SCORING_ENABLED=1 to resume
+# collecting comparison data once Issue 15 is actually going to consume it.
+_SHADOW_MODE_SCORING = os.environ.get("SHADOW_MODE_SCORING_ENABLED", "").strip().lower() in ("1", "true", "yes")
+
 # ── Telemetry ─────────────────────────────────────────────────────────────────
 try:
     sys.path.insert(0, _REPO_ROOT)
@@ -849,7 +865,7 @@ def _daily_collection_job() -> None:
         saved = 0
         try:
             from intelligence.ingestion.phase_a_enrichment import enrich_and_save
-            _stats = enrich_and_save(ranked, store, shadow_mode=True)
+            _stats = enrich_and_save(ranked, store, shadow_mode=_SHADOW_MODE_SCORING)
             saved = _stats["canonical"] + _stats["duplicate"]
             log.info("Phase A enrichment: canonical=%d duplicate=%d failed=%d",
                      _stats["canonical"], _stats["duplicate"], _stats["failed"])
@@ -1144,7 +1160,7 @@ def _priority_tiered_collection_job() -> None:
         saved = 0
         try:
             from intelligence.ingestion.phase_a_enrichment import enrich_and_save
-            _stats = enrich_and_save(ranked, store, shadow_mode=True)
+            _stats = enrich_and_save(ranked, store, shadow_mode=_SHADOW_MODE_SCORING)
             saved = _stats["canonical"] + _stats["duplicate"]
         except Exception as exc:  # noqa: BLE001 - best-effort enrichment path with an explicit plain-save fallback loop right below; already logged
             log.warning("Phase A enrichment failed on priority-tiered run; plain-save fallback: %s", exc)
@@ -1302,7 +1318,7 @@ def _intraday_status_collection_job() -> None:
         saved = 0
         try:
             from intelligence.ingestion.phase_a_enrichment import enrich_and_save
-            _stats = enrich_and_save(ranked, store, shadow_mode=True)
+            _stats = enrich_and_save(ranked, store, shadow_mode=_SHADOW_MODE_SCORING)
             saved = _stats["canonical"] + _stats["duplicate"]
         except Exception as exc:  # noqa: BLE001 - best-effort enrichment path with an explicit plain-save fallback loop right below; already logged
             log.warning("Phase A enrichment failed on intraday run; plain-save fallback: %s", exc)
@@ -1389,7 +1405,7 @@ def _intraday_media_collection_job() -> None:
         saved = 0
         try:
             from intelligence.ingestion.phase_a_enrichment import enrich_and_save
-            _stats = enrich_and_save(ranked, store, shadow_mode=True)
+            _stats = enrich_and_save(ranked, store, shadow_mode=_SHADOW_MODE_SCORING)
             saved = _stats["canonical"] + _stats["duplicate"]
         except Exception as exc:  # noqa: BLE001 - best-effort enrichment path with an explicit plain-save fallback loop right below; already logged
             log.warning("Phase A enrichment failed on intraday media run; plain-save fallback: %s", exc)
@@ -1596,7 +1612,7 @@ def _attention_evaluation_job() -> None:
         from core.platform.captain_brief_orchestrator import (
             assemble_captain_brief_document,
         )
-        from core.platform.event_bus import poll_events
+        from core.platform.event_bus import CAPTAIN_BRIEF_COLUMNS, poll_events
         from core.platform.interrupt_dispatcher import dispatch_interrupt_now
 
         # Runs every ATTENTION_EVAL_INTERVAL_MINUTES (default 10 = 144x/day).
@@ -1619,10 +1635,7 @@ def _attention_evaluation_job() -> None:
         # produces every ATTENTION_EVAL_INTERVAL_MINUTES, since commands/
         # brief.py's manual '/brief' path polls with columns="*" and never
         # hit this gap.
-        events = poll_events(
-            limit=200,
-            columns="event_id,domain,event_type,importance,confidence,relevance,time_sensitivity,metrics,status,recommended_action",
-        )
+        events = poll_events(limit=200, columns=CAPTAIN_BRIEF_COLUMNS)
         doc = assemble_captain_brief_document(events)
         if not doc.interrupt_now:
             log.info("Attention evaluation: %d event(s) evaluated, 0 interrupt_now", len(events))

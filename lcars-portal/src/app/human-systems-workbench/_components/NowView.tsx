@@ -10,6 +10,7 @@
 // supporting detail under WHAT'S CONTRIBUTING, not top-line content.
 
 import { KpiDashboard } from './KpiDashboard';
+import { CapacityTrendCard } from './CapacityTrendCard';
 import {
   BurnoutRecoveryCard,
   CapacityTodayCard,
@@ -20,6 +21,7 @@ import {
 } from './RecoveryView';
 import { CapacityConditionsSection, SensoryRegulationSection, WhatMayNeedToChangeSection } from './MedicalView';
 import type { MedicalPayload, RecoveryPayload } from './types';
+import { CollapsibleSection } from './CollapsibleSection';
 
 function GroupHeading({ children }: { children: React.ReactNode }) {
   return (
@@ -33,9 +35,16 @@ export function NowView({ recovery, medical }: { recovery: RecoveryPayload; medi
   return (
     <div className="flex flex-col gap-4">
       {/* ── TODAY ── */}
-      <KpiDashboard kpis={recovery.kpis} />
+      <KpiDashboard recovery={recovery} />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* Capacity Trend — mockup panel 3's "Capacity Trend — Last 14
+            days" bar chart, placed directly under the 4-tile grid it sits
+            beside in the mockup, ahead of "What's Contributing". */}
+        <CollapsibleSection title="Capacity trend · 14 days" defaultOpen={false}>
+          <CapacityTrendCard />
+        </CollapsibleSection>
+
         <CapacityTodayCard data={recovery} />
 
         {/* ── WHAT'S CONTRIBUTING ── */}
@@ -52,8 +61,12 @@ export function NowView({ recovery, medical }: { recovery: RecoveryPayload; medi
         {/* ── RECOVERY TRAJECTORY (kept a separate labelled block, never
              folded into WHAT'S CONTRIBUTING) ── */}
         <GroupHeading>Recovery Trajectory</GroupHeading>
-        <BurnoutRecoveryCard data={recovery} />
-        <RevsPositionSection data={recovery} className="md:col-span-2" />
+        <CollapsibleSection title="Recovery trajectory" className="md:col-span-2" defaultOpen={false}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <BurnoutRecoveryCard data={recovery} />
+            <RevsPositionSection data={recovery} />
+          </div>
+        </CollapsibleSection>
 
         {/* ── WHAT MAY NEED TO CHANGE ── */}
         {medical && medical.redesign_candidates.length > 0 && (

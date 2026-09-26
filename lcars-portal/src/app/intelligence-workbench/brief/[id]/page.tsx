@@ -3,6 +3,8 @@
 // Phase B — Screens 2 & 3: Brief Review + Approval Gate (standalone brand).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Modal, RiskPill, WorkbenchShell } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
+import { ActionOutcome } from '@/components/ActionOutcome';
 import { runAction } from '../../_components/actions';
 
 // 2026-07-18: consolidated from the original 7-stage ladder (In Review / Data
@@ -82,7 +84,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
     const { status, body } = await runAction(action, { brief_id: id, ...payload });
     setBusy(null);
     const err = (body as { error?: string })?.error;
-    setMsg(status === 200 ? `✓ ${label} succeeded` : `✗ ${label}: ${err ?? status}`);
+    setMsg(status === 200 ? `✓ ${label} succeeded · the brief was refreshed` : `✗ ${label}: ${err ?? status}`);
     load();
   };
 
@@ -106,6 +108,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
       ) : (
         <>
           <Card title={title}>
+            <EvidenceMeta source="Technical intelligence brief" observedAt={brief.period_end ?? brief.period_start} confidence={brief.sources_checked != null && brief.sources_available != null ? `${brief.sources_checked}/${brief.sources_available} sources checked` : undefined} />
             {/* 2026-07-18: was brief.signal_ids.length, which can be empty/stale
                 while the grid below legitimately finds linked events via the
                 brief_id fallback query in route.ts — a real Captain saw "0
@@ -200,7 +203,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
               </a>
             </div>
             {busy && <p className="mt-3 text-[12px] text-wb-ink2" aria-live="polite">Working: {busy}…</p>}
-            {msg && <p className="mt-3 text-[12px]" aria-live="polite">{msg}</p>}
+                  <ActionOutcome message={msg} tone={msg?.startsWith('✓') ? 'success' : 'error'} />
           </Card>
 
           {/* Audit trail — fetched by the brief API since it was built, never

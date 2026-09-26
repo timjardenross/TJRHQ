@@ -12,6 +12,21 @@ Same discipline as insight_engine.py: evidence-bound prompt (only the
 Insight's own fields, no invented facts), strict response parsing
 (reject malformed rather than fabricate), graceful degradation when the
 model router is unreachable (returns None, never raises).
+
+Mission 5 (Evidence & Adaptive Support): `build_recommendation()` now
+consumes `insight_outcomes` — the table `captain_brief_evolution.py`
+has written every real insight/recommendation to since MSN-0329 Phase 4,
+but that until now had zero readers anywhere in the repo
+(`fetch_outcome_history()` was write-only infrastructure). This does
+NOT add a second evidence engine: it reuses `fetch_similar_outcomes()`
+(a thin filter already colocated with the table in `insight_outcomes.py`)
+and mirrors the exact conservative pattern
+`core/coordination/mission_knowledge_store.py`'s
+`get_intelligence_evidence()` already uses elsewhere in this platform —
+same `_MIN_OUTCOMES_FOR_SCORE`-style sample floor, same ±0.15 confidence
+clamp, same "a handful of rows is not proof" discipline. See
+`docs/architecture/mission5-insight-outcomes-decision.md` for the
+architecture decision this wiring is based on.
 """
 
 from __future__ import annotations
@@ -23,8 +38,21 @@ import urllib.request
 
 from core.platform.captain_brief_contract import Recommendation
 from core.platform.insight_engine import Insight, strip_markdown_json_fence
+from core.platform.insight_outcomes import fetch_similar_outcomes
 
 log = logging.getLogger(__name__)
+
+# Mirrors core/coordination/mission_knowledge_store.py's own
+# `_MIN_OUTCOMES_FOR_SCORE = 3` floor — same reasoning applies here:
+# below this many recorded outcomes, "evidence" is noise, not signal,
+# and a single row must never be treated as proof (spec §36).
+_MIN_OUTCOMES_FOR_ADJUSTMENT = 3
+
+# Mirrors mission_knowledge_store.py's `get_intelligence_evidence()`
+# clamp (`round(min(0.15, max(-0.15, confidence_adj)), 3)`) exactly —
+# reusing the bound this platform already settled on, not inventing a
+# new one for the same category of adjustment.
+_MAX_CONFIDENCE_ADJUSTMENT = 0.15
 
 _MODEL_ROUTER_URL = "http://localhost:8891/api/model/captain-reasoning-synthesis"
 
@@ -164,13 +192,85 @@ def _parse_reasoning_response(raw_text: str | None, insight: Insight) -> Recomme
     )
 
 
+def _outcome_evidence(insight: Insight) -> tuple[int, int]:
+    """(sample_size, useful_count) among prior recorded outcomes for
+    insights of the same `source_kind` sharing a domain with this one.
+    Never raises — `fetch_similar_outcomes()` already degrades to []."""
+    matches = fetch_similar_outcomes(insight.source_kind, insight.source_domains)
+    useful = sum(1 for row in matches if row.get("outcome") == "useful")
+    return len(matches), useful
+
+
+def _apply_outcome_evidence(recommendation: Recommendation, insight: Insight) -> Recommendation:
+    """Adjusts `recommendation.confidence` from real recorded outcomes of
+    similar past insights — never from the model's own self-assessment,
+    and never escalated from a single prior row (spec §36). Below
+    `_MIN_OUTCOMES_FOR_ADJUSTMENT`, returns `recommendation` completely
+    unchanged: no adjustment, no note, no error — degrading gracefully
+    is the point, not a fallback for a failure case.
+
+    The adjustment itself is a coarse, tiered bucket (mirroring
+    `mission_knowledge_store.get_intelligence_evidence()`'s own
+    thresholds), not a continuous function of the useful/not_useful
+    ratio — spec explicitly warns against converting that vocabulary
+    into a false-precision score, and a bucket can't manufacture
+    precision a handful of pending/useful/not_useful rows don't have.
+    """
+    sample_size, useful = _outcome_evidence(insight)
+    if sample_size < _MIN_OUTCOMES_FOR_ADJUSTMENT:
+        return recommendation
+
+    useful_rate = useful / sample_size
+    if useful_rate >= 0.8:
+        adjustment = 0.08
+    elif useful_rate >= 0.6:
+        adjustment = 0.04
+    elif useful_rate < 0.4:
+        adjustment = -0.08
+    else:
+        adjustment = 0.0
+    adjustment = round(min(_MAX_CONFIDENCE_ADJUSTMENT, max(-_MAX_CONFIDENCE_ADJUSTMENT, adjustment)), 3)
+
+    if recommendation.confidence is not None:
+        recommendation.confidence = min(100, max(0, round(recommendation.confidence + adjustment * 100)))
+
+    # Explainable reasoning trace (spec §30) — "why did you suggest
+    # that" gets a concrete, evidence-grounded answer, not "the model
+    # calculated this was optimal". Framed the same causality-guarded
+    # way as capacitybot/intervention_engine.py's own outcome surfacing
+    # ("was followed by improvement in N of M") — an association, never
+    # a causal claim.
+    direction = "were marked useful" if useful >= sample_size - useful else "were marked not useful"
+    adjustment_note = (
+        "no confidence adjustment (mixed evidence)" if adjustment == 0.0
+        else f"confidence adjusted {adjustment:+.2f}"
+    )
+    note = (
+        f" Outcome history: {useful} of {sample_size} similarly-sourced past insights "
+        f"(source_kind={insight.source_kind}, domains={', '.join(insight.source_domains)}) "
+        f"{direction} — {adjustment_note}. {sample_size} recorded outcomes is a directional "
+        f"signal, not proof."
+    )
+    recommendation.supporting_context = ((recommendation.supporting_context or "").rstrip() + note).strip()
+    return recommendation
+
+
 def build_recommendation(insight: Insight) -> Recommendation | None:
     """One Insight -> one Recommendation, or None if the model router is
     unreachable or its response didn't validate. A missing recommendation
-    is an honest empty result, not a fabricated fallback."""
+    is an honest empty result, not a fabricated fallback.
+
+    Mission 5: before returning, consults `insight_outcomes` for prior
+    similar insights (same `source_kind` + overlapping `source_domains`)
+    and, only when there is enough recorded history to say anything
+    meaningful, nudges `confidence` and appends an evidence-grounded note
+    to `supporting_context` — see `_apply_outcome_evidence()`."""
     prompt = _build_reasoning_prompt(insight)
     raw = _call_model_router(prompt)
-    return _parse_reasoning_response(raw, insight)
+    recommendation = _parse_reasoning_response(raw, insight)
+    if recommendation is None:
+        return None
+    return _apply_outcome_evidence(recommendation, insight)
 
 
 __all__ = ["build_recommendation"]

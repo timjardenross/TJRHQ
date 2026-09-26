@@ -21,6 +21,7 @@ from unittest.mock import MagicMock
 sys.path.insert(0, str(Path(__file__).parents[2]))
 
 from telegram_bots.capacitybot.intervention_engine import (
+    DOMAIN,
     MIN_SAMPLE_FOR_WEIGHTING,
     _score,
     complete_reassessment,
@@ -28,6 +29,7 @@ from telegram_bots.capacitybot.intervention_engine import (
     personal_effectiveness_summary,
     rank_interventions,
     render_effectiveness_summary,
+    set_preference,
 )
 
 PASS = "PASS"
@@ -153,7 +155,7 @@ def test_score_sufficient_sample_applies_weighting():
 
 # ── rank_interventions / create_event / complete_reassessment — mocked DB ───
 
-def _make_db(interventions, events=None):
+def _make_db(interventions, events=None, preferences=None):
     db = MagicMock()
 
     _table_mocks: dict[str, MagicMock] = {}
@@ -176,6 +178,12 @@ def _make_db(interventions, events=None):
             t.select.return_value = sel
             t.insert.return_value.execute.return_value = MagicMock(data=[{"id": 42}])
             t.update.return_value.eq.return_value.execute.return_value = MagicMock()
+        elif name == "capacity_preferences":
+            sel = MagicMock()
+            sel.eq.return_value.not_.is_.return_value.execute.return_value = MagicMock(data=preferences or [])
+            t.select.return_value = sel
+            t.upsert.return_value.execute.return_value = MagicMock(data=[{"id": "pref-1"}])
+            t.insert.return_value.execute.return_value = MagicMock(data=[{"id": "pref-2"}])
         _table_mocks[name] = t
         return t
 
@@ -210,6 +218,100 @@ def test_rank_interventions_no_db_returns_empty():
     print("\n── rank_interventions — Supabase unavailable degrades gracefully ─")
     ranked = asyncio.run(rank_interventions(None, capacity_state="green"))
     check("no db -> empty list, no crash", ranked == [])
+
+
+# ── Mission 5 — Captain preference override (spec §17/§20/§29) ─────────────
+
+def test_rank_interventions_excludes_do_not_suggest_despite_strong_evidence():
+    print("\n── rank_interventions — do_not_suggest excludes despite strong personal evidence ─")
+    candidates = [
+        _row(intervention_id="body_doubling", target_states=["overwhelmed"]),
+        _row(intervention_id="quiet_10", target_states=["overwhelmed"]),
+    ]
+    # body_doubling has a strong, sample-qualifying track record of "better"
+    # outcomes — without a preference override it would clearly outrank
+    # quiet_10 (which has no track record at all).
+    events = [
+        {"intervention_id": "body_doubling", "outcome": o, "started_at": f"2026-09-{d:02d}T00:00:00Z"}
+        for d, o in enumerate(["better"] * MIN_SAMPLE_FOR_WEIGHTING, start=1)
+    ]
+    preferences = [{"item_code": "body_doubling", "preference_state": "do_not_suggest"}]
+    db = _make_db(candidates, events=events, preferences=preferences)
+
+    ranked_without_override = asyncio.run(rank_interventions(
+        _make_db(candidates, events=events, preferences=[]), help_state="overwhelmed", limit=5,
+    ))
+    check("sanity check: without a preference row, strong personal evidence wins",
+          ranked_without_override[0]["intervention_id"] == "body_doubling")
+
+    ranked = asyncio.run(rank_interventions(db, help_state="overwhelmed", limit=5))
+    ids = [r["intervention_id"] for r in ranked]
+    check("do_not_suggest intervention is excluded from ranking entirely, not just demoted",
+          "body_doubling" not in ids)
+    check("the other candidate still ranks", "quiet_10" in ids)
+
+
+def test_rank_interventions_preferred_is_hard_tie_break_not_blended_score():
+    print("\n── rank_interventions — preferred is a hard tie-break-first bucket, not a score blend ─")
+    candidates = [
+        _row(intervention_id="high_scorer", target_states=["overwhelmed"]),
+        _row(intervention_id="captain_preferred", target_states=[]),  # no match -> flat base, lower score
+    ]
+    preferences = [{"item_code": "captain_preferred", "preference_state": "preferred"}]
+    db_with_pref = _make_db(candidates, events=[], preferences=preferences)
+    db_without_pref = _make_db(candidates, events=[], preferences=[])
+
+    ranked_without = asyncio.run(rank_interventions(db_without_pref, help_state="overwhelmed", limit=5))
+    check("sanity check: without a preference row, the higher-scoring candidate ranks first",
+          ranked_without[0]["intervention_id"] == "high_scorer")
+
+    ranked_with = asyncio.run(rank_interventions(db_with_pref, help_state="overwhelmed", limit=5))
+    check("preferred candidate is moved to the front despite a lower underlying score",
+          ranked_with[0]["intervention_id"] == "captain_preferred")
+    check("both candidates still present — this is a reorder, not a rescoring exclusion",
+          {r["intervention_id"] for r in ranked_with} == {"high_scorer", "captain_preferred"})
+
+
+def test_set_preference_upserts_on_domain_item_code():
+    print("\n── set_preference — upsert on (domain, item_code), captain_stated default ─")
+    db = _make_db([])
+    ok, row, err = asyncio.run(set_preference(
+        db, domain=DOMAIN, item_code="body_doubling", preference_state="do_not_suggest",
+        note="Captain said this doesn't help.",
+    ))
+    check("reports success", ok)
+    check("returns the written row", row == {"id": "pref-1"})
+    check("no error", err is None)
+    upsert_call = db.table("capacity_preferences").upsert.call_args
+    payload = upsert_call[0][0]
+    check("uses upsert, not insert, when item_code is set", db.table("capacity_preferences").insert.called is False)
+    check("upserts on the (domain, item_code) unique index", upsert_call[1].get("on_conflict") == "domain,item_code")
+    check("domain recorded", payload["domain"] == DOMAIN)
+    check("item_code recorded", payload["item_code"] == "body_doubling")
+    check("preference_state recorded", payload["preference_state"] == "do_not_suggest")
+    check("source defaults to captain_stated, never silently 'inferred'", payload["source"] == "captain_stated")
+
+
+def test_set_preference_general_note_without_item_code_is_insert():
+    print("\n── set_preference — no item_code -> plain insert (nothing to upsert against) ─")
+    db = _make_db([])
+    ok, _row, err = asyncio.run(set_preference(
+        db, domain=DOMAIN, preference_state="do_not_suggest", note="General correction, no single intervention.",
+    ))
+    check("reports success", ok)
+    check("no error", err is None)
+    check("falls back to insert when item_code is None", db.table("capacity_preferences").insert.called)
+
+
+def test_set_preference_rejects_invalid_preference_state():
+    print("\n── set_preference — invalid preference_state rejected, not silently written ─")
+    db = _make_db([])
+    ok, row, err = asyncio.run(set_preference(
+        db, domain=DOMAIN, item_code="x", preference_state="not_a_real_state",
+    ))
+    check("reports failure", not ok)
+    check("row is None", row is None)
+    check("error explains why", err is not None)
 
 
 def test_create_event_writes_expected_payload():
@@ -326,6 +428,11 @@ def main():
     test_rank_interventions_filters_and_sorts()
     test_rank_interventions_empty_catalogue_returns_empty()
     test_rank_interventions_no_db_returns_empty()
+    test_rank_interventions_excludes_do_not_suggest_despite_strong_evidence()
+    test_rank_interventions_preferred_is_hard_tie_break_not_blended_score()
+    test_set_preference_upserts_on_domain_item_code()
+    test_set_preference_general_note_without_item_code_is_insert()
+    test_set_preference_rejects_invalid_preference_state()
     test_create_event_writes_expected_payload()
     test_create_event_no_db_fails_gracefully()
     test_complete_reassessment_writes_outcome()

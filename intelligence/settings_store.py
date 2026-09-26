@@ -78,7 +78,40 @@ def _load_enabled_sets() -> dict | None:
     }
 
 
+def _load_follow_through() -> dict | None:
+    """Returns the Settings page's `followThrough` block verbatim, or None on
+    any read failure — same never-block discipline as _load_enabled_sets().
+    Callers apply their own hardcoded defaults when this is None or a key is
+    missing (Mission 1, USS-TJR-MSN-1: the settings UI previously persisted
+    this block to user_settings while follow_through_engine.py read only
+    QUIET_HOURS_START/END and FOLLOW_THROUGH_MAX_PER_DAY env vars — this is
+    the read side that closes that gap)."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return None
+    url = f"{SUPABASE_URL}/rest/v1/user_settings?id=eq.hq&select=data"
+    req = urllib.request.Request(
+        url,
+        headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Accept": "application/json",
+        },
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - url is built from SUPABASE_URL env var, always https
+            rows = json.loads(resp.read())
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError) as exc:
+        logger.warning("settings_store: user_settings read failed, no follow-through overlay applied: %s", exc)
+        return None
+
+    if not rows:
+        return None
+    return (rows[0].get("data") or {}).get("followThrough") or None
+
+
 _ENABLED = _load_enabled_sets()
+_FOLLOW_THROUGH = _load_follow_through()
 
 
 def enabled_technical_categories() -> frozenset[str] | None:
@@ -89,3 +122,20 @@ def enabled_technical_categories() -> frozenset[str] | None:
 def enabled_health_tags() -> frozenset[str] | None:
     """None means "no filter" (every domain_tiers tag stays eligible)."""
     return _ENABLED["health_tags"] if _ENABLED else None
+
+
+def follow_through_reminder_style() -> str | None:
+    """'once' | 'normal' | 'persistent', or None if unset/unreachable —
+    caller applies its own hardcoded default (precedence: per-task DB field
+    → this setting → hardcoded default)."""
+    return (_FOLLOW_THROUGH or {}).get("reminderStyle")
+
+
+def follow_through_increase_as_deadline_approaches() -> bool | None:
+    """None if unset/unreachable — caller applies its own hardcoded default."""
+    return (_FOLLOW_THROUGH or {}).get("increaseAsDeadlineApproaches")
+
+
+def follow_through_check_back_on_waiting_items() -> bool | None:
+    """None if unset/unreachable — caller applies its own hardcoded default."""
+    return (_FOLLOW_THROUGH or {}).get("checkBackOnWaitingItems")

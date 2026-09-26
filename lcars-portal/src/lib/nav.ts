@@ -26,13 +26,11 @@ const VALID_NAV_HREFS = [
   '/search', '/timeline', '/capture', '/capture-workbench',
   '/engineering-queue', '/intelligence', '/comms', '/alerts', '/missions',
   '/medical', '/operations', '/captains-log', '/captains-notebook',
-  '/captains-brief', '/captains-brief-workbench', '/delivery', '/automation-centre', '/model-crew',
+  '/captains-brief', '/captains-brief-workbench', '/briefs', '/delivery', '/automation-centre', '/model-crew',
   '/physical-readiness',
   // MSN-0344: found missing here despite being live in NAV_SECTIONS since
   // MSN-0328 (WP-B) — this list had silently drifted from the real nav.
   '/human-systems', '/recovery-brief', '/stage-progression', '/engineering',
-  // MSN-0344: relocated from orphan into the Platform section (see below).
-  '/operating-model',
   // MSN-0345: the Decisions area now has a real page.
   '/decisions',
   // Workbenches are now the primary navigation model.
@@ -40,6 +38,11 @@ const VALID_NAV_HREFS = [
   // have been decommissioned as of 2026-07-18. Users are routed to /workbenches
   // (the new home) instead.
   '/workbenches', '/investigate',
+  // 2026-09-05: /hub superseded /workbenches as the front door (root '/'
+  // redirect, desktop Sidebar's Home entry). Mission 7: MobileCommandBar's
+  // own Home tab now points here too — added so that build-time check
+  // doesn't reject the one place it was still missing.
+  '/hub',
 ] as const;
 
 /** Union of all valid nav hrefs — type sub-nav components against this to catch stale paths at build time. */
@@ -64,7 +67,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Platform',
     items: [
       { href: '/workbenches', label: 'Workbenches', glyph: '◊', department: 'command', description: 'All surfaces and tools' },
-      { href: '/captains-brief-workbench', label: "Captain's Brief", glyph: '📋', department: 'command', description: 'Live intelligence document' },
+      { href: '/briefs', label: 'Briefs', glyph: '📋', department: 'command', description: 'Canonical briefing — daily intelligence + cross-domain Domains picture' },
     ],
   },
 ];

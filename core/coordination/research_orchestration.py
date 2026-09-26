@@ -127,12 +127,29 @@ _platform_runtime_lib_dir = _orchestrator_path.parent.parent.parent / "platform-
 _research_delegator_file = _platform_runtime_lib_dir / "research_delegator.py"
 
 try:
-    # Use importlib to load from file path directly
-    _spec = importlib.util.spec_from_file_location(
+    if "research_delegator" in sys.modules:
+        # Already loaded (by this module or a normal `import research_delegator`
+        # elsewhere) — reuse it rather than re-exec'ing the file and
+        # overwriting sys.modules["research_delegator"] with a brand-new
+        # module object. Re-executing research_orchestration.py itself
+        # (e.g. test_cps230_final_validation.py loads it a second time via
+        # its own importlib spec, to check for import errors) previously
+        # clobbered the shared module every time, silently breaking any
+        # code elsewhere holding a reference into the original one —
+        # including unittest.mock.patch("research_delegator.X") calls in
+        # other already-collected test files, which patched the NEW
+        # (swapped-in) module while delegate_research_task (bound earlier)
+        # kept calling the OLD one's real, unpatched functions.
+        _delegator_module = sys.modules["research_delegator"]
+        delegate_research_task = _delegator_module.delegate_research_task
+        ResearchOutcome = _delegator_module.ResearchOutcome
+        call_legacy_research_routing = _delegator_module.call_legacy_research_routing
+        call_gemini_2_5_flash_lite_research = _delegator_module.call_gemini_2_5_flash_lite_research
+        log.debug("Reused already-loaded research_delegator from sys.modules")
+    elif (_spec := importlib.util.spec_from_file_location(
         "research_delegator",
         _research_delegator_file
-    )
-    if _spec and _spec.loader:
+    )) and _spec.loader:
         # CRITICAL FIX: Ensure platform-runtime/lib is in sys.path BEFORE exec_module
         # This allows research_delegator.py to import sibling modules like provider_health.py
         if str(_platform_runtime_lib_dir) not in sys.path:

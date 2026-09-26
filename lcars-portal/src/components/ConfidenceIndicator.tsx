@@ -53,7 +53,7 @@ export function ConfidenceIndicator({ score, label, compact = false }: Confidenc
   return (
     <div className="flex w-full flex-col gap-1.5">
       <div className={`flex items-center gap-3 ${label ? 'justify-between' : 'justify-end'}`}>
-        {label && <p className="text-[10px] uppercase tracking-wider text-lcars-muted">{label}</p>}
+        {label && <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{label}</p>}
         {badge}
       </div>
       <div className="h-3 rounded-full bg-edge/30 overflow-hidden">

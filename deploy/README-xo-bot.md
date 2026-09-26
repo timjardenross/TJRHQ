@@ -59,9 +59,9 @@ Grouped roughly as registered in `app.py`'s `main()` / advertised via `/help`:
 - **Captain governance** — `/captain_approve <id>`, `/captain_reject <id> <reason>`, `/mission_submit <id>`, `/handoff_engineering <id>`
 - **Advisory** — `/advise <question>`, `/challenge <plan>`
 - **Debrief** — `/debrief_close`, `/debrief_weekly` (session start/routing depends on `debrief_engine.py`, currently unavailable — see above)
-- **Health & recovery** — `/recovery_status`, `/recovery_pulse` (+ `/pulse_check` alias), `/log_activity`, `/log_weight`
+- **Health & recovery** — `/log_activity`, `/log_weight` (`/recovery_status`, `/recovery_pulse`, `/pulse_check` — **removed 2026-09-26 correction: none of these three are registered commands in app.py**; `recovery_pulses` itself was retired in favor of `capacity_checkins`, see MY CAPACITY TODAY migration)
 - **Capture** — `/note <content>`, voice notes (any voice message)
-- **Ops** — `/dispatch`, `/db_status`, `/restart_bots [slack|telegram|all]`
+- **Ops** — `/dispatch`, `/db_status`, `/restart_bots [telegram|all]` (Slack target removed 2026-09-26 — Slack is fully retired, see `_RESTARTABLE_SERVICES` in `app.py`)
 - **Meta** — `/start`, `/help`
 - Free text (not a command) — routed to the LLM with live recovery/wellness/mission context
 - Inline button callbacks — pulse logging, outcome capture, voice-capture actions, voice-debrief decisions

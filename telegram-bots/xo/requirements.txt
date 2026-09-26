@@ -1,5 +1,9 @@
 python-telegram-bot==20.7
 apscheduler==3.11.3
+# python-telegram-bot 20.7's JobQueue silently disables itself (app.job_queue
+# is None) unless pytz imports — apscheduler 3.11 no longer pulls it in.
+# Required for the daily 07:00 medication reminder (medication_reminder.py).
+pytz
 # USS-TJR-MSN-0370: bumped 2.3.4 -> 2.7.4, NOT the full Dependabot PR #157
 # target (2.31.0) — see scoped_supabase.py's module docstring and
 # knowledge/missions/USS-TJR-MSN-0370-supabase-investigation-knowledge-record.md.

@@ -74,7 +74,10 @@ class CaptainBriefItem:
     domain: str
     event_type: str
     category: AttentionCategory
-    reason: str
+    # Renamed from `reason` (consolidation mission follow-up) — see
+    # AttentionDecision._routing_reason's comment for why. Carried straight
+    # from AttentionDecision._routing_reason; still never Captain-facing.
+    _routing_reason: str
     priority_score: float | None = None
     priority_explanation: str | None = None
     risk_score: float | None = None
@@ -82,6 +85,13 @@ class CaptainBriefItem:
     related_event_ids: list[str] = field(default_factory=list)
     aggregation_key: str | None = None
     metrics: dict[str, Any] = field(default_factory=dict)  # MSN-0328 Wave 2 — structured per-domain detail, see core_events.metrics
+    # Briefs/Captain's Brief consolidation signal-leakage fix: the event's
+    # own readable `description` (a headline, a state transition), carried
+    # from `AttentionDecision.description`. A consumer needing readable
+    # content when there is no `recommendation` should fall back to this,
+    # never to `reason` (a scoring formula) and never by fabricating a
+    # Recommendation out of it.
+    description: str | None = None
 
 
 @dataclass
@@ -159,7 +169,7 @@ def assemble_captain_brief(
             domain=decision.domain,
             event_type=decision.event_type,
             category=decision.category,
-            reason=decision.reason,
+            _routing_reason=decision._routing_reason,
             priority_score=score.total_score if score else None,
             priority_explanation=score.explanation if score else None,
             risk_score=score.risk_score if score else None,
@@ -167,6 +177,7 @@ def assemble_captain_brief(
             related_event_ids=decision.related_event_ids,
             aggregation_key=decision.aggregation_key,
             metrics=decision.metrics,
+            description=decision.description,
         )
 
         if decision.category == AttentionCategory.INTERRUPT_NOW:

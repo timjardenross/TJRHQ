@@ -156,12 +156,12 @@ function NoteCard({
   const isArchived = note.status === 'ARCHIVED';
 
   return (
-    <div className="overflow-hidden rounded-lg border border-wb-line bg-wb-bg/60">
+    <div className="overflow-hidden rounded-lg border border-wb-line bg-wb-surface-raised">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="w-full flex items-start gap-3 p-3 text-left hover:bg-wb-border/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+        className="w-full flex items-start gap-3 p-3 text-left hover:bg-wb-surface transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
       >
         <div className="flex flex-col items-start gap-1.5 flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -203,7 +203,7 @@ function NoteCard({
           {note.triage_summary && (
             <div>
               <p className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2 mb-1">Triage Summary</p>
-              <p className="text-sm text-wb-ink/80 leading-relaxed">{note.triage_summary}</p>
+              <p className="text-sm text-wb-ink2 leading-relaxed">{note.triage_summary}</p>
             </div>
           )}
 
@@ -212,9 +212,9 @@ function NoteCard({
               <p className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2 mb-1">Officer Findings</p>
               <div className="flex flex-col gap-1.5">
                 {Object.entries(note.officer_findings).map(([officer, finding]) => (
-                  <div key={officer} className="rounded border border-wb-sage-deep/20 bg-wb-sage-deep/5 px-2 py-1.5">
+                  <div key={officer} className="rounded border border-wb-sage-deep bg-wb-surface-raised px-2 py-1.5">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-wb-sage-deep mb-0.5">{officer}</p>
-                    <p className="text-xs text-wb-ink/80">
+                    <p className="text-xs text-wb-ink2">
                       {typeof finding === 'object' && finding !== null
                         ? (finding as Record<string, unknown>).recommendation as string ?? JSON.stringify(finding)
                         : String(finding)}
@@ -228,7 +228,7 @@ function NoteCard({
           {(note.strategic_alignment_score !== null || note.confidence_score !== null) && (
             <div className="grid grid-cols-3 gap-2">
               {note.strategic_alignment_score !== null && (
-                <div className="rounded border border-wb-line bg-wb-bg/60 px-2 py-1.5 text-center">
+                <div className="rounded border border-wb-line bg-wb-surface-raised px-2 py-1.5 text-center">
                   <p className="text-[9px] uppercase tracking-wider text-wb-ink2">Strategic</p>
                   <p className="font-sans text-base font-bold text-wb-sage-deep">
                     {Math.round(note.strategic_alignment_score * 100)}
@@ -236,7 +236,7 @@ function NoteCard({
                 </div>
               )}
               {note.confidence_score !== null && (
-                <div className="rounded border border-wb-line bg-wb-bg/60 px-2 py-1.5 text-center">
+                <div className="rounded border border-wb-line bg-wb-surface-raised px-2 py-1.5 text-center">
                   <p className="text-[9px] uppercase tracking-wider text-wb-ink2">Confidence</p>
                   <p className="font-sans text-base font-bold text-wb-ink">
                     {Math.round(note.confidence_score * 100)}
@@ -249,7 +249,7 @@ function NoteCard({
           {note.routed_to_id && (
             <div>
               <p className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2 mb-1">Artefact Created</p>
-              <div className="rounded border border-wb-ok/20 bg-wb-ok/5 px-2 py-1.5 flex flex-col gap-0.5">
+              <div className="rounded border border-wb-ok bg-wb-surface-raised px-2 py-1.5 flex flex-col gap-0.5">
                 {note.routed_entity_type && (
                   <p className="text-[10px] uppercase tracking-wider text-wb-ok-on font-semibold">{note.routed_entity_type.replace(/_/g, ' ')}</p>
                 )}
@@ -262,7 +262,7 @@ function NoteCard({
           )}
 
           {routeMessage && (
-            <div className={`rounded border px-3 py-2 text-xs ${routeMessage.ok ? 'border-wb-ok/40 bg-wb-ok/10 text-wb-ok-on' : 'border-wb-crit/40 bg-wb-crit/10 text-wb-crit-on'}`}>
+            <div className={`rounded border px-3 py-2 text-xs ${routeMessage.ok ? 'border-wb-ok bg-wb-surface-raised text-wb-ok-on' : 'border-wb-crit bg-wb-surface-raised text-wb-crit-on'}`}>
               {routeMessage.text}
             </div>
           )}
@@ -274,7 +274,7 @@ function NoteCard({
                   type="button"
                   onClick={onApproveRoute}
                   disabled={routing}
-                  className="rounded-lg border border-wb-sage-deep bg-wb-sage-deep/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-wb-sage-deep hover:bg-wb-sage-deep/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                  className="rounded-lg border border-wb-sage-deep bg-wb-surface-raised px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-wb-sage-deep hover:bg-wb-surface transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
                 >
                   {routing ? 'Routing…' : `Approve ${routeLabel(note.recommended_route)}`}
                 </button>
@@ -463,6 +463,7 @@ export default function CaptainsNotebookWorkbenchPage() {
             <div className="flex flex-col gap-3">
               <textarea
                 ref={quickRef}
+                aria-label="Notebook capture"
                 value={captureContent}
                 onChange={(e) => setCaptureContent(e.target.value)}
                 rows={5}
@@ -493,6 +494,7 @@ export default function CaptainsNotebookWorkbenchPage() {
                 <p className="text-[10px] uppercase tracking-[0.25em] text-wb-ink2">Title (optional)</p>
                 <input
                   type="text"
+                  aria-label="Title (optional)"
                   value={captureTitle}
                   onChange={(e) => setCaptureTitle(e.target.value)}
                   placeholder="Leave blank to auto-title from content"
@@ -502,6 +504,7 @@ export default function CaptainsNotebookWorkbenchPage() {
               <div className="flex flex-col gap-1">
                 <p className="text-[10px] uppercase tracking-[0.25em] text-wb-ink2">Thought or intelligence</p>
                 <textarea
+                  aria-label="Thought or intelligence"
                   value={captureContent}
                   onChange={(e) => setCaptureContent(e.target.value)}
                   rows={4}
@@ -513,6 +516,7 @@ export default function CaptainsNotebookWorkbenchPage() {
                 <p className="text-[10px] uppercase tracking-[0.25em] text-wb-ink2">Tags (comma-separated, optional)</p>
                 <input
                   type="text"
+                  aria-label="Tags (comma-separated, optional)"
                   value={captureTags}
                   onChange={(e) => setCaptureTags(e.target.value)}
                   placeholder="strategy, delivery, health…"
@@ -560,7 +564,7 @@ export default function CaptainsNotebookWorkbenchPage() {
                   className={[
                     'rounded-lg border px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep',
                     filter === tab.key
-                      ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep'
+                      ? 'border-wb-sage-deep bg-wb-surface-raised text-wb-sage-deep'
                       : 'border-wb-line text-wb-ink2 hover:border-wb-ink2'
                   ].join(' ')}
                 >
@@ -573,7 +577,7 @@ export default function CaptainsNotebookWorkbenchPage() {
           {loading ? (
             <p className="text-sm text-wb-ink2 text-center py-6">Loading…</p>
           ) : loadError ? (
-            <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 px-3 py-4 text-sm text-wb-crit-on text-center">
+            <div className="rounded-lg border border-wb-crit bg-wb-surface-raised px-3 py-4 text-sm text-wb-crit-on text-center">
               Couldn&apos;t load notebook entries — try again.
             </div>
           ) : filtered.length === 0 ? (

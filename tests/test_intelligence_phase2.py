@@ -24,6 +24,7 @@ import json
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -304,15 +305,21 @@ class TestReadinessHistory(unittest.TestCase):
 
         import readiness_history
         orig = readiness_history._READINESS_LOG_DIR
+        # load_readiness_history(30) filters to the last 30 days from
+        # today's real date — hardcoded calendar dates go stale and get
+        # filtered out as soon as more than 30 days pass. Use dates
+        # relative to today instead.
+        today = datetime.now().astimezone().date()
+        dates = [(today - timedelta(days=2)).isoformat(), (today - timedelta(days=1)).isoformat()]
         with tempfile.TemporaryDirectory() as tmpdir:
             readiness_history._READINESS_LOG_DIR = Path(tmpdir)
             try:
-                for score, date_str in [(85, "2026-06-10"), (75, "2026-06-11")]:
+                for score, date_str in zip([85, 75], dates):
                     snap = {"assessment_date": date_str, "readiness_score": score, "readiness_status": "Green"}
                     (Path(tmpdir) / f"{date_str}.json").write_text(json.dumps(snap))
                 history = self.load(30)
                 self.assertEqual(len(history), 2)
-                self.assertEqual(history[0]["assessment_date"], "2026-06-10")
+                self.assertEqual(history[0]["assessment_date"], dates[0])
             finally:
                 readiness_history._READINESS_LOG_DIR = orig
 
@@ -321,8 +328,12 @@ class TestReadinessHistory(unittest.TestCase):
         self.assertEqual(result["status"], "insufficient_data")
 
     def test_trends_stable(self):
+        # avg_7d is computed against today's real date (_days_ago(s, today)
+        # <= 7) — hardcoded calendar dates go stale as soon as more than 7
+        # days pass, silently emptying the 7d window. Use relative dates.
+        today = datetime.now().astimezone().date()
         history = [
-            {"assessment_date": f"2026-06-{i+1:02d}", "readiness_score": 80, "readiness_status": "Green"}
+            {"assessment_date": (today - timedelta(days=7 - i)).isoformat(), "readiness_score": 80, "readiness_status": "Green"}
             for i in range(8)
         ]
         result = self.trends(history)

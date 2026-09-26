@@ -43,7 +43,7 @@ export function MyEvidenceView({ onOpenTopic }: Props) {
           key={t.topic_key}
           type="button"
           onClick={() => onOpenTopic(t.topic_key)}
-          className="flex w-full flex-col gap-1 rounded-xl border border-wb-line bg-wb-surface p-3 text-left transition-colors hover:border-wb-sage-deep sm:flex-row sm:items-center sm:justify-between"
+          className="flex w-full flex-col gap-1 rounded-xl border border-wb-line bg-wb-surface p-3 text-left transition-colors hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="flex items-center gap-2">
             <span className="text-[13.5px] font-medium text-wb-ink">{t.topic_label}</span>

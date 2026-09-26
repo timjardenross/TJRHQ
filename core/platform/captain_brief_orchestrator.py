@@ -208,6 +208,7 @@ def assemble_captain_brief_document(
     *,
     priority_weights: Any | None = None,
     top_n_priorities: int = 10,
+    recent_surfaced: list[dict[str, Any]] | None = None,
 ) -> CaptainBriefDocument:
     """The single assembly entry point (Workstream B/C combined) — pull
     already-polled `core_events`-shaped dicts (caller's responsibility to
@@ -217,8 +218,23 @@ def assemble_captain_brief_document(
     (unchanged), attach Recommendations (existing adapter, MSN-0308), group
     by domain section, generate a narrative summary, and return one
     `CaptainBriefDocument`.
+
+    `recent_surfaced` (Phase 4, consolidation mission §7): forwarded to
+    `evaluate_batch()`'s persistence gate — an event whose `core_events.
+    status` already moved past "new" (acknowledged/dismissed/superseded)
+    stops re-triggering INTERRUPT_NOW once nothing has materially changed.
+    Defaults to `events` itself (not an empty gate): `poll_events()`
+    routinely re-returns the same recent rows on every call (no `since`
+    cursor is enforced), so an already-dispatched INTERRUPT_NOW event
+    would otherwise be re-classified as fresh on every subsequent call to
+    this function — the exact "recurring event re-interrupts every cycle"
+    gap the mission's §7 names. Pass an explicit (possibly empty) list to
+    opt out, or a broader externally-polled history to widen the dedup
+    window beyond this one batch.
     """
-    decisions = evaluate_batch(events)
+    if recent_surfaced is None:
+        recent_surfaced = events
+    decisions = evaluate_batch(events, recent_surfaced=recent_surfaced)
     recommendations_map = recommendations_from_events(events)
 
     inputs = [
@@ -270,11 +286,16 @@ def assemble_captain_brief_document(
 
     # Warnings (Workstream E-adjacent): high-risk items, per the Priority
     # Engine's own risk_score (importance/confidence inverse) — a distinct
-    # cut across the same data, not a new score.
+    # cut across the same data, not a new score. risk_score is None for an
+    # event with no importance/confidence signal at all (priority_engine.py's
+    # own "unscored, not fabricated-0.0" contract) — explicitly excluded
+    # here rather than compared against the threshold (None >= float would
+    # raise) or coerced to 0, which would silently treat "never scored" the
+    # same as "scored and safe."
     warnings: list[CaptainBriefItem] = []
     for item in all_surfaced_items:
         score = score_map.get(item.event_id or "")
-        if score and score.risk_score >= _WARNING_RISK_THRESHOLD:
+        if score and score.risk_score is not None and score.risk_score >= _WARNING_RISK_THRESHOLD:
             warnings.append(item)
 
     domains_represented = {e.get("domain", "unknown") for e in events}

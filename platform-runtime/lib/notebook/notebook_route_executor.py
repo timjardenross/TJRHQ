@@ -164,7 +164,7 @@ def _create_strategic_initiative(note: dict[str, Any], supabase_client: Any) -> 
             from core.platform.event_bus import publish_event
             publish_event(
                 "strategy.objective_created", domain="strategic-planning",
-                source="notebook-route-executor", recommended_action=title,
+                source="notebook-route-executor", description=title,
             )
         except Exception as _exc:  # noqa: BLE001 - best-effort event publish, already logged
             log.debug("[lib.notebook.notebook_route_executor] best-effort step failed, continuing: %s", _exc)

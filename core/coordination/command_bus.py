@@ -274,6 +274,36 @@ def _route(severity: str, tg_msg: str) -> bool:
                     template="raw", transport=Transport.TELEGRAM).ok
 
 
+def _capacity_status(client) -> str:
+    """Mission 2 (USS-TJR-MSN-2): today's capacity status, direct from
+    capacity_checkins (the canonical source, per capacity_score.py's
+    capacity_zone_from_checkin() docstring) via the same Supabase client
+    this cycle already built — no second client, no second network round
+    trip beyond the one query. Returns "Unknown" on any failure or missing
+    today row (never a stale prior day, never treated as Green) — same
+    discipline as core/coordination/health_context_adapter.py's Mission 2
+    fix."""
+    if client is None:
+        return "Unknown"
+    try:
+        from core.health.capacity_score import capacity_zone_from_checkin
+        today = datetime.now(timezone.utc).astimezone().date().isoformat()
+        rows = client.select(
+            "capacity_checkins",
+            filters={
+                "log_date": f"eq.{today}",
+                "checkin_type": "eq.capacity",
+                "order": "captured_at.desc",
+            },
+            limit=1,
+        ) or []
+        _score, status = capacity_zone_from_checkin(rows[0] if rows else None)
+        return status
+    except Exception as exc:  # noqa: BLE001 - best-effort capacity read; Unknown is the documented safe fallback for any failure
+        log.warning("[bus:capacity] Could not read today's capacity_checkins: %s", exc)
+        return "Unknown"
+
+
 def _in_number_one_quiet_hours() -> bool:
     """True during the Captain's quiet hours for Number One's escalation
     push (USS-TJR-MSN-0362 candidate A, 7pm-7am Brisbane by default).
@@ -392,7 +422,12 @@ def _emit_service_state_event(event_type: str, svc: str, state: str, crit: str) 
         from core.platform.event_bus import publish_event
         publish_event(
             event_type, domain="platform-operations", source="command_bus",
-            recommended_action=f"{svc}: {state}",
+            # Signal-leakage fix: a bare service-state transition
+            # ("nginx: failed") is an observation, not a recommended
+            # action — it goes in `description`, not `recommended_action`
+            # (see migration 0218), so it doesn't get surfaced downstream
+            # as if the platform were proposing something.
+            description=f"{svc}: {state}",
             metrics={"service": svc, "state": state, "criticality": crit},
         )
     except Exception:  # noqa: BLE001,S110 - best-effort event emission; must not break the health-monitoring loop it's reporting from
@@ -515,7 +550,7 @@ def _get_number_one_brief() -> dict | None:
         return None
 
 
-def _rule_number_one_escalations(conn: sqlite3.Connection) -> None:
+def _rule_number_one_escalations(conn: sqlite3.Connection, client=None) -> None:
     """Push Number One's CRITICAL/HIGH escalations (PR CI failing, blocked
     P0 missions, etc.) to Telegram — the Captain direction behind this:
     'Number One should also drive what lands in my face' (2026-09-08).
@@ -524,7 +559,16 @@ def _rule_number_one_escalations(conn: sqlite3.Connection) -> None:
     brief. Suppressed during quiet hours (_in_number_one_quiet_hours());
     an escalation still open once quiet hours end is notified on the next
     cycle — quiet hours delay delivery, they never drop it, since a
-    suppressed escalation is simply never marked notified."""
+    suppressed escalation is simply never marked notified.
+
+    Mission 2 (USS-TJR-MSN-2) capacity gating, same never-drop mechanism:
+    on Red capacity, HIGH escalations are deferred exactly like a
+    quiet-hours suppression (left un-notified -> _should_notify() is still
+    True next cycle) -- "what must still interrupt" vs "what can wait"
+    (mission §13). CRITICAL always pushes regardless of capacity, matching
+    this mission's P0-protection principle elsewhere (a genuine CRITICAL
+    is the escalation-level equivalent of a P0 mission). Unknown/Green/
+    Amber capacity: no change from existing behaviour."""
     brief = _get_number_one_brief()
     if brief is None:
         return
@@ -546,6 +590,7 @@ def _rule_number_one_escalations(conn: sqlite3.Connection) -> None:
             _resolve_if_gone(conn, row["event_key"])
 
     quiet = _in_number_one_quiet_hours()
+    capacity_status = _capacity_status(client)
     for e in relevant:
         key = _key(e)
         ev = _upsert_event(conn, key)
@@ -560,6 +605,11 @@ def _rule_number_one_escalations(conn: sqlite3.Connection) -> None:
             continue
 
         level = str(e.get("level", "")).upper()
+        if level == "HIGH" and capacity_status == "Red":
+            # Deferred, not dropped — same mechanism as the quiet-hours
+            # continue above: never marked notified, so _should_notify()
+            # is still True next cycle (Mission 2, USS-TJR-MSN-2).
+            continue
         emoji = _NUMBER_ONE_ALERT_EMOJI.get(level, "⚠️")
         mission_id = e.get("mission_id") or "?"
         reason = e.get("reason") or ""
@@ -591,7 +641,7 @@ def run_once() -> None:
         _rule_executor_stuck(conn, client)
         _rule_service_health(conn)
         _rule_new_missions(conn, client)
-        _rule_number_one_escalations(conn)
+        _rule_number_one_escalations(conn, client)
 
     log.info("[bus] Cycle complete")
 

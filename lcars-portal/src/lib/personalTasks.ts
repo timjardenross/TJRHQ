@@ -98,6 +98,29 @@ export interface PersonalTask {
   pinned_today: boolean;
 }
 
+export interface TaskAnalytics {
+  total: number;
+  frictionPoints: number;
+  abandoned: number;
+  retries: number;
+  completed: number;
+  averageCompletionMinutes: number | null;
+}
+
+/** Descriptive task-flow measures. These are signals for review, not causal diagnoses. */
+export function taskAnalytics(tasks: PersonalTask[]): TaskAnalytics {
+  const completed = tasks.filter((t) => t.work_state === 'completed' || t.completed_at);
+  const durations = completed.map((t) => t.started_at && t.completed_at ? (new Date(t.completed_at).getTime() - new Date(t.started_at).getTime()) / 60000 : null).filter((v): v is number => v != null && Number.isFinite(v) && v >= 0);
+  return {
+    total: tasks.length,
+    frictionPoints: tasks.filter((t) => t.work_state === 'blocked' || t.follow_through_paused || (t.deferral_count ?? 0) > 0).length,
+    abandoned: tasks.filter((t) => t.work_state === 'abandoned').length,
+    retries: tasks.reduce((sum, t) => sum + (t.nudge_count ?? 0) + (t.deferral_count ?? 0), 0),
+    completed: completed.length,
+    averageCompletionMinutes: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null,
+  };
+}
+
 const TASK_SELECT = [
   'id', 'title', 'context', 'category', 'urgency', 'importance', 'effort_minutes',
   'work_state', 'due_date', 'waiting_on', 'micro_action', 'mvp_note', 'stop_point',
@@ -437,10 +460,21 @@ export async function updateTaskState(
   try {
     const supabase = createSupabaseBrowserClient();
     const { error } = await supabase.from('personal_tasks').update(patch).eq('id', id);
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      // Controlled failure — the request reached the mutation boundary and
+      // was rejected by the database (e.g. RLS/permission denial or a
+      // constraint violation), not a network/client-side exception. Log it
+      // as a failed outcome instead of returning silently with zero event,
+      // same minimal {task_id, work_state}-style payload as the success path.
+      void fetch('/api/action-history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'personal_task_state_changed', outcome: 'failed', details: { task_id: id, work_state, error: error.message } }) }).catch(() => {});
+      return { ok: false, error: error.message };
+    }
+    void fetch('/api/action-history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'personal_task_state_changed', outcome: 'success', details: { task_id: id, work_state } }) }).catch(() => {});
     return { ok: true, id };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Failed to update task.' };
+    const message = err instanceof Error ? err.message : 'Failed to update task.';
+    void fetch('/api/action-history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'personal_task_state_changed', outcome: 'failed', details: { task_id: id, work_state, error: message } }) }).catch(() => {});
+    return { ok: false, error: message };
   }
 }
 
@@ -488,10 +522,17 @@ export type DecomposeMode = 'first' | 'smaller' | 'another';
  * can fall back to "write your own first step" rather than block.
  * `mode` drives "Make it smaller" / "Try another" without creating a new
  * task or losing the original goal — see spec §17/§18. `previousAction` is
- * passed along so the router can vary its answer instead of repeating it. */
+ * passed along so the router can vary its answer instead of repeating it.
+ *
+ * Mission 4: `posture` is Human Systems' already-derived ReadyRoomPosture
+ * (read via getReadyRoomContext, never re-derived here) — passed through so
+ * the model can vary its answer for PROTECT/RECOVER (offer regulation) or
+ * an ambiguous goal (ask one clarifying question) instead of always forcing
+ * an executable step. Optional and additive: omitting it behaves exactly as
+ * before. */
 export async function decomposeTask(
   taskText: string,
-  opts?: { mode?: DecomposeMode; previousAction?: string },
+  opts?: { mode?: DecomposeMode; previousAction?: string; posture?: ReadyRoomPosture },
 ): Promise<DecomposeResult> {
   try {
     const resp = await fetch('/api/ready-room/decompose', {
@@ -501,6 +542,7 @@ export async function decomposeTask(
         task: taskText,
         mode: opts?.mode ?? 'first',
         previous_action: opts?.previousAction,
+        posture: opts?.posture,
       }),
     });
     const json = await resp.json();

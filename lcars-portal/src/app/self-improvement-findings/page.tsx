@@ -30,6 +30,37 @@ import {
 
 type TabKey = 'discover' | 'investigate' | 'improve' | 'learned' | 'rejected';
 
+const LIFECYCLE_STAGES: Array<{ key: Opportunity['lifecycle_state']; label: string }> = [
+  { key: 'discovered', label: 'Discovered' },
+  { key: 'investigating', label: 'Investigating' },
+  { key: 'proposed', label: 'Proposed' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'implementing', label: 'Implementing' },
+  { key: 'verifying', label: 'Verifying' },
+  { key: 'learned', label: 'Learned' },
+  { key: 'watching', label: 'Watching' },
+  { key: 'rejected', label: 'Rejected' },
+  { key: 'resolved_before_research', label: 'Resolved before research' },
+];
+
+// Which tab actually shows each lifecycle state — mirrors the filters each
+// tab already applies (see `proposed`/`investigating`/`watching`/`learned`/
+// `rejected`/`improving`/`discoveredOnly` useMemo's below). Lets the
+// lifecycle strip's stage tiles jump straight there instead of being a
+// dead-end count display.
+const LIFECYCLE_STAGE_TAB: Record<Opportunity['lifecycle_state'], TabKey> = {
+  discovered: 'discover',
+  proposed: 'discover',
+  investigating: 'investigate',
+  watching: 'investigate',
+  approved: 'improve',
+  implementing: 'improve',
+  verifying: 'improve',
+  resolved_before_research: 'improve',
+  learned: 'learned',
+  rejected: 'rejected',
+};
+
 const REFRESH_MS = 60_000;
 
 function usePolling(load: () => void) {
@@ -227,6 +258,11 @@ export default function HqEvolutionPage() {
     }
     return counts;
   }, [opportunities]);
+  const lifecycleCounts = useMemo(() => {
+    const counts = Object.fromEntries(LIFECYCLE_STAGES.map(({ key }) => [key, 0])) as Record<Opportunity['lifecycle_state'], number>;
+    opportunities.forEach((o) => { counts[o.lifecycle_state] = (counts[o.lifecycle_state] ?? 0) + 1; });
+    return counts;
+  }, [opportunities]);
 
   const selected = opportunities.find((o) => o.opportunity_id === selectedId) || null;
   const selectedLegacyFinding = legacyFindings.find((f) => f.finding_id === selectedFindingId) || null;
@@ -242,7 +278,7 @@ export default function HqEvolutionPage() {
 
   if (loading) {
     return (
-      <WorkbenchShell title="HQ Evolution" eyebrow="HQ works on HQ while you're away" tagline="USS TJR · HQ Evolution · Continuous discovery, investigation, and improvement">
+      <WorkbenchShell title="HQ Evolution" eyebrow="HQ works on HQ while you're away" tagline="USS TJR · HQ Evolution · Continuous discovery, investigation, and improvement" mode="command">
         <div className="text-center py-8 text-wb-ink2">Checking overnight discoveries…</div>
       </WorkbenchShell>
     );
@@ -253,6 +289,7 @@ export default function HqEvolutionPage() {
       title="HQ Evolution"
       eyebrow="HQ works on HQ while you're away"
       tagline="USS TJR · HQ Evolution · Discover, investigate, improve, learn — nothing changes production without your say"
+      mode="command"
       wide
       tabs={
         <Tabs
@@ -284,6 +321,32 @@ export default function HqEvolutionPage() {
           ✓ {notice}
         </p>
       )}
+
+      <Card>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h2 className="font-serif text-lg text-wb-ink">Evolution lifecycle</h2>
+            <p className="text-xs text-wb-ink2">Every opportunity has one explicit state from discovery through learning or rejection.</p>
+          </div>
+          <span className="text-[11px] text-wb-ink2">{opportunities.length} total</span>
+        </div>
+        <ol aria-label="HQ Evolution lifecycle states" className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:grid-cols-10">
+          {LIFECYCLE_STAGES.map(({ key, label }) => (
+            <li key={key}>
+              <button
+                type="button"
+                onClick={() => setTab(LIFECYCLE_STAGE_TAB[key])}
+                disabled={lifecycleCounts[key] === 0}
+                title={lifecycleCounts[key] === 0 ? `No opportunities in "${label}"` : `View ${label} in the ${LIFECYCLE_STAGE_TAB[key]} tab`}
+                className="w-full rounded-md border border-wb-line bg-wb-bg p-2 text-left transition-colors enabled:hover:border-wb-sage-deep enabled:hover:bg-wb-sage-deep/10 disabled:cursor-default disabled:opacity-60"
+              >
+                <p className="text-lg font-bold text-wb-ink">{lifecycleCounts[key]}</p>
+                <Badge status={toneToStatus(lifecycleStateToTone(key))}>{label}</Badge>
+              </button>
+            </li>
+          ))}
+        </ol>
+      </Card>
 
       {tab === 'discover' && (
         <DiscoverTab

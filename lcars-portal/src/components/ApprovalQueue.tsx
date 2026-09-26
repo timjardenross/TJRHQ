@@ -60,17 +60,17 @@ export interface ApprovalQueueProps {
 
 const CHROME = {
   legacy: {
-    box: 'rounded-lcars border border-edge bg-panel/60 p-3',
-    boxLabel: 'text-lcars-muted',
-    boxBody: 'text-lcars-muted',
-    container: 'rounded-lcars border border-command/40 bg-command/5 p-3',
-    headerLabel: 'text-command',
-    refresh: 'text-lcars-muted hover:text-command',
-    item: 'rounded border border-edge bg-panel-2/60 p-3',
-    itemMeta: 'text-lcars-muted',
-    itemTitle: 'text-lcars-text',
-    input: 'border-edge bg-panel text-lcars-text placeholder:text-lcars-muted',
-    cancel: 'border-edge text-lcars-muted hover:text-lcars-text',
+    box: 'rounded-xl border border-wb-line bg-wb-surface p-3',
+    boxLabel: 'text-wb-ink2',
+    boxBody: 'text-wb-ink2',
+    container: 'rounded-xl border border-wb-sand bg-wb-surface p-3',
+    headerLabel: 'text-wb-sand-deep',
+    refresh: 'text-wb-ink2 hover:text-wb-sand-deep',
+    item: 'rounded border border-wb-line bg-wb-bg p-3',
+    itemMeta: 'text-wb-ink2',
+    itemTitle: 'text-wb-ink',
+    input: 'border-wb-line bg-wb-bg text-wb-ink placeholder:text-wb-ink2',
+    cancel: 'border-wb-line text-wb-ink2 hover:text-wb-ink',
   },
   wb: {
     box: 'rounded-lg border border-wb-line bg-wb-bg/60 p-3',

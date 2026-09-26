@@ -78,6 +78,12 @@ reports/garak/
 # Track .id-counters.json itself (it's the durable counter state); never this.
 .id-counters.lock
 
+# deploy/auto-deploy.sh's dirty-tree debounce marker (tools/
+# alert_on_stale_dirty_tree.py) — must never be tracked, or committing it
+# would itself be a tracked-file change the script's own dirty-check would
+# then trip on.
+.auto-deploy-dirty-since
+
 # core/platform/memory_graph.py's embedded FalkorDB Lite store (via
 # redislite) — a local binary graph database file, not a durable evidence
 # artifact like data/self-improvement/runs/ (which IS tracked) — rebuilt
@@ -132,8 +138,17 @@ platform-runtime/.venv-llmsec/
 # mission_dispatch_log.jsonl, finding_staleness.jsonl) are intentionally
 # still committed as each cycle's record and are unaffected by this.
 data/self-improvement/review/.evolution_cycle.lock
+data/self-improvement/review/opportunity_id_counter.lock
 data/self-improvement/review/decisions.jsonl
 data/self-improvement/review/opportunities.jsonl
+# Per-topic last-searched timestamps for external_discovery.py's watchlist
+# rotation — rewritten every cycle, same reason as the files above.
+data/self-improvement/review/watchlist_rotation_state.json
+
+# data/alert_state/: runtime alert-dedup state written by auto-deploy's
+# health-check step, root-owned, mutates every cycle — untracked for the
+# same reason as the self-improvement lock files above.
+data/alert_state/
 
 # cortex_suite (github.com/Artistsyn/cortex_suite) local install, wired into
 # core/engineering/context_enricher.py's STRUCTURAL API CONTEXT section.
@@ -166,3 +181,6 @@ deploy/watchlist-data/
 # (drained every collection cycle), not repo content.
 intelligence/watchlist/_queue/*.jsonl
 .claude/settings.local.json
+
+# XO bot daily medication reminder — local per-VM confirmation state
+telegram-bots/xo/.medication_state.json

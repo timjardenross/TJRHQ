@@ -27,6 +27,8 @@
 import { useState } from 'react';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { Badge, Card, WorkbenchShell } from '@/components/ui';
+import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import type { BadgeStatus } from '@/components/ui';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 
@@ -45,6 +47,8 @@ interface Handoff {
   priority: string;
   next_action: string;
   metadata: HandoffMetadata;
+  /** Canonical queue supplied by the handoff service. */
+  handoff_queue?: Queue;
 }
 
 const STATUS_BADGE: Record<string, BadgeStatus> = {
@@ -63,6 +67,23 @@ const STATUS_ORDER = ['Awaiting Review', 'In Progress', 'Assigned', 'Pending Tri
 // All 5 stages of the lifecycle (2026-09-07: the Captain wants the full
 // progression visible, not just outstanding work), for the stat-tile row.
 const ALL_STAGES = [...STATUS_ORDER, 'Completed'];
+
+type Queue = 'review' | 'delivery' | 'blocked';
+const QUEUE_META: Record<Queue, { title: string; description: string; empty: string }> = {
+  review: { title: 'Review queue', description: 'Approved handoffs waiting for a Captain or engineering review.', empty: 'No handoffs are waiting for review.' },
+  delivery: { title: 'Delivery queue', description: 'Handoffs assigned, in progress, or completed with a PR or artifact.', empty: 'No handoffs are currently in delivery.' },
+  blocked: { title: 'Blocked queue', description: 'Handoffs that cannot progress until a missing decision, artifact, or upstream dependency is resolved.', empty: 'No blocked handoffs.' },
+};
+
+function queueFor(handoff: Handoff): Queue {
+  if (handoff.handoff_queue) return handoff.handoff_queue;
+  // Compatibility fallback for older upstream payloads. This is deliberately
+  // status-only: queue membership must never be inferred from free text.
+  const status = handoff.metadata.engineering_status;
+  if (status === 'Pending Triage') return 'blocked';
+  if (status === 'Awaiting Review') return 'review';
+  return 'delivery';
+}
 
 function displayTitle(title: string): string {
   return title.replace(/^\[ENG-HANDOFF\]\s*/, '');
@@ -162,6 +183,11 @@ function HandoffCard({ handoff }: { handoff: Handoff }) {
         </span>
       </div>
       <p className="mb-3 text-[12px] text-wb-ink2">{handoff.next_action}</p>
+      <EvidenceMeta
+        source="Engineering handoff reader"
+        observedAt={metadata.approved_at || undefined}
+        state={!metadata.pr_url && !metadata.batch_artifact ? 'no-action' : undefined}
+      />
       {metadata.engineering_status === 'Completed' ? (
         metadata.pr_url && (
           <a
@@ -235,24 +261,32 @@ export default function EngineeringHandoffsPage() {
   const sortedCompleted = [...completed].sort(
     (a, b) => (b.metadata.approved_at || '').localeCompare(a.metadata.approved_at || '')
   );
+  // WP2: the only real timestamp this shape carries is approved_at, and only
+  // completed/reviewed handoffs have one — the most recent across all loaded
+  // handoffs is the honest "as of" for the stage-count tiles below.
+  const latestApprovedAt = handoffs.reduce<string | null>(
+    (latest, h) => (h.metadata.approved_at && (!latest || h.metadata.approved_at > latest) ? h.metadata.approved_at : latest),
+    null,
+  );
+  const queues: Record<Queue, Handoff[]> = {
+    review: sorted.filter(h => queueFor(h) === 'review'),
+    delivery: [...sortedCompleted, ...sorted.filter(h => queueFor(h) === 'delivery')],
+    blocked: sorted.filter(h => queueFor(h) === 'blocked'),
+  };
 
   return (
     <WorkbenchShell
       title="Engineering Handoffs"
       eyebrow="Number One · Engineering Handoffs"
       tagline="Approved engineering handoffs awaiting triage, delivery, or your review — with a direct link to every draft PR"
+      mode="focus"
     >
       <div className="flex flex-col gap-4">
         <Card>
           {isLoading ? (
             <p className="text-[13px] italic text-wb-ink2">Loading engineering handoffs…</p>
           ) : loadError ? (
-            <div className="rounded-md border border-wb-crit/40 bg-wb-crit/10 px-4 py-3">
-              <p className="text-[13px] font-semibold text-wb-crit-on">{loadError}</p>
-              <p className="mt-1 text-[12px] text-wb-ink2">
-                This is a load failure, not an empty queue. Retry shortly.
-              </p>
-            </div>
+            <DataAvailabilityNotice sources={[`Engineering Handoffs: ${loadError}`]} />
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               {ALL_STAGES.map(s => (
@@ -263,47 +297,39 @@ export default function EngineeringHandoffsPage() {
               ))}
             </div>
           )}
+          {!isLoading && !loadError && (
+            <EvidenceMeta
+              source="Engineering handoff reader (core/coordination/engineering_handoff_reader.py)"
+              observedAt={latestApprovedAt}
+              state={handoffs.length === 0 ? 'empty' : undefined}
+            />
+          )}
         </Card>
 
-        <Card>
-          <div className="mb-3">
-            <h2 className="font-serif text-lg text-wb-ink">Outstanding Handoffs</h2>
-            <p className="text-[11px] uppercase tracking-wide text-wb-ink2">
-              Most-needs-attention first
-            </p>
-          </div>
+        <div className="grid gap-4 xl:grid-cols-3">
+          {(['review', 'delivery', 'blocked'] as Queue[]).map((queue) => (
+            <Card key={queue}>
+              <div className="mb-3">
+                <h2 className="font-serif text-lg text-wb-ink">{QUEUE_META[queue].title}</h2>
+                <p className="mt-1 text-[11px] text-wb-ink2">{QUEUE_META[queue].description}</p>
+                <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-wb-sage-deep">{queues[queue].length} handoff{queues[queue].length === 1 ? '' : 's'}</p>
+              </div>
           {isLoading ? (
             <p className="text-[13px] italic text-wb-ink2">Loading engineering handoffs…</p>
           ) : loadError ? (
             <p className="text-[13px] text-wb-crit-on">{loadError} No list to show.</p>
-          ) : sorted.length === 0 ? (
-            <p className="text-[13px] italic text-wb-ink2">
-              Nothing needs your attention — no outstanding engineering handoffs.
-            </p>
+          ) : queues[queue].length === 0 ? (
+            <p className="text-[13px] italic text-wb-ink2">{QUEUE_META[queue].empty}</p>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {sorted.map(h => (
+            <div className="flex flex-col gap-3">
+              {queues[queue].map(h => (
                 <HandoffCard key={h.mission_id} handoff={h} />
               ))}
             </div>
           )}
-        </Card>
-
-        {!isLoading && !loadError && sortedCompleted.length > 0 && (
-          <Card>
-            <div className="mb-3">
-              <h2 className="font-serif text-lg text-wb-ink">Completed</h2>
-              <p className="text-[11px] uppercase tracking-wide text-wb-ink2">
-                Merged and done — most recent first
-              </p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 opacity-80">
-              {sortedCompleted.map(h => (
-                <HandoffCard key={h.mission_id} handoff={h} />
-              ))}
-            </div>
-          </Card>
-        )}
+            </Card>
+          ))}
+        </div>
       </div>
     </WorkbenchShell>
   );

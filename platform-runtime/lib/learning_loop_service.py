@@ -38,6 +38,7 @@ Phase B1F (FUTURE):
 """
 
 import logging
+import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -230,10 +231,11 @@ class LearningLoopService:
             return None
 
         try:
-            response = self.supabase.select(
-                "decision_records",
-                filter_="id.eq." + decision_id,
-            )
+            # CommanderSupabaseClient has no select(); .get() is the real
+            # read method (raw REST query path, returns a plain list) —
+            # this previously called a nonexistent method, always hit the
+            # except below, and silently returned None for every lookup.
+            response = self.supabase.get(f"decision_records?id=eq.{decision_id}")
             if response and len(response) > 0:
                 return DecisionRecord.from_dict(response[0])
             return None
@@ -258,10 +260,7 @@ class LearningLoopService:
             return []
 
         try:
-            response = self.supabase.select(
-                "decision_records",
-                filter_="mission_id.eq." + mission_id,
-            )
+            response = self.supabase.get(f"decision_records?mission_id=eq.{mission_id}")
             return [DecisionRecord.from_dict(r) for r in (response or [])]
 
         except Exception:
@@ -362,10 +361,8 @@ class LearningLoopService:
             return None
 
         try:
-            response = self.supabase.select(
-                "decision_outcomes",
-                filter_="id.eq." + outcome_id,
-            )
+            # Same nonexistent-method bug as get_decision() above.
+            response = self.supabase.get(f"decision_outcomes?id=eq.{outcome_id}")
             if response and len(response) > 0:
                 return DecisionOutcome(**response[0])
             return None
@@ -404,14 +401,21 @@ class LearningLoopService:
             return []
 
     def _generate_decision_id(self) -> str:
-        """Generate canonical decision ID: DEC-REC-YYYYMMDD-HHMMSS"""
+        """Generate canonical decision ID: DEC-REC-YYYYMMDD-HHMMSS-XXXX.
+
+        The 4-hex-char suffix prevents collisions between decisions recorded
+        within the same wall-clock second (e.g. a batch of Slack approvals
+        processed back to back) — without it, two such decisions get an
+        identical id and the second silently overwrites the first's audit
+        record."""
         now = datetime.now(timezone.utc)
-        return f"DEC-REC-{now.strftime('%Y%m%d-%H%M%S')}"
+        return f"DEC-REC-{now.strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(2)}"
 
     def _generate_outcome_id(self) -> str:
-        """Generate canonical outcome ID: OUT-YYYYMMDD-HHMMSS"""
+        """Generate canonical outcome ID: OUT-YYYYMMDD-HHMMSS-XXXX (see
+        _generate_decision_id for why the suffix is needed)."""
         now = datetime.now(timezone.utc)
-        return f"OUT-{now.strftime('%Y%m%d-%H%M%S')}"
+        return f"OUT-{now.strftime('%Y%m%d-%H%M%S')}-{secrets.token_hex(2)}"
 
     def _enqueue_followup(self, decision_id: str, scheduled_for: str) -> bool:
         """

@@ -273,10 +273,10 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
                 <div>Generated: {data.brief.generated_at ? new Date(data.brief.generated_at).toLocaleString() : '—'}</div>
                 {data.brief.executive_snapshot && <div className="mt-2 italic">{data.brief.executive_snapshot}</div>}
                 <div className="mt-2 flex gap-3">
-                  <Link href={`/intelligence-workbench/brief/${data.brief.brief_id}`} className="text-wb-sage-deep hover:underline">
+                  <Link href={`/intelligence-workbench/brief/${data.brief.brief_id}`} className="text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                     View full brief →
                   </Link>
-                  <Link href={`/intelligence-workbench/escalation/${data.brief.brief_id}`} className="text-wb-sage-deep hover:underline">
+                  <Link href={`/intelligence-workbench/escalation/${data.brief.brief_id}`} className="text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                     Escalation workflow →
                   </Link>
                 </div>
@@ -349,29 +349,33 @@ function Workbench() {
       tabs={!showAnalyst ? <DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Technical OSINT sections" /> : undefined}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       wide
+      mode="command"
     >
-      {showAnalyst ? (
-        <AnalystConsole onClose={closeAnalyst} />
-      ) : (
-        <>
-          {tab === 'today' && (
-            <TodayView onOpenWatching={() => setTab('watching')} onOpenTechnical={openAnalyst} />
-          )}
-          {tab === 'watching' && <WatchingView />}
-          {tab === 'library' && (
-            <div className="space-y-3">
-              <LibraryView />
-              <button
-                type="button"
-                onClick={openAnalyst}
-                className="text-[12px] text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep"
-              >
-                Technical view (analyst console) →
-              </button>
-            </div>
-          )}
-        </>
-      )}
+      <div className="read-reference-surface">
+        <div className="read-reference-kicker">Read mode · scan, understand, follow the signal</div>
+        {showAnalyst ? (
+          <AnalystConsole onClose={closeAnalyst} />
+        ) : (
+          <>
+            {tab === 'today' && (
+              <TodayView onOpenWatching={() => setTab('watching')} onOpenTechnical={openAnalyst} />
+            )}
+            {tab === 'watching' && <WatchingView />}
+            {tab === 'library' && (
+              <div className="space-y-3">
+                <LibraryView />
+                <button
+                  type="button"
+                  onClick={openAnalyst}
+                  className="text-[12px] text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                >
+                  Technical view (analyst console) →
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </WorkbenchShell>
   );
 }

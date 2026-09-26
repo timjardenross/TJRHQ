@@ -28,6 +28,21 @@ log = logging.getLogger(__name__)
 
 _VALID_STATUSES = {"new", "acknowledged", "acted_on", "dismissed", "superseded"}
 
+# Narrow column list for callers that feed assemble_captain_brief_document()
+# (attention_engine/priority/interrupt_dispatcher — verified to read only
+# these fields, never the linked_entities/linked_missions/linked_documents
+# jsonb arrays). Shared here, rather than each call site inlining its own
+# copy, so the one list that's actually been verified against those readers
+# doesn't drift into N slightly-different guesses. Do NOT reuse this for a
+# caller that feeds assemble_evolved_captain_brief() / build_understanding()
+# — that path reads the jsonb linked_* columns this list omits and needs
+# columns="*" (Supabase usage investigation, 2026-09-20: this omission was
+# the single largest identified source of the org's egress overage).
+CAPTAIN_BRIEF_COLUMNS = (
+    "event_id,domain,event_type,importance,confidence,relevance,"
+    "time_sensitivity,metrics,status,recommended_action"
+)
+
 
 def _record_bus_heartbeat(success: bool) -> None:
     """Record a heartbeat for the Core Event Bus domain. Non-blocking — never raises."""
@@ -55,6 +70,7 @@ def publish_event(
     linked_missions: list[str] | None = None,
     linked_documents: list[str] | None = None,
     recommended_action: str | None = None,
+    description: str | None = None,
     metrics: dict[str, Any] | None = None,
 ) -> str | None:
     """Publish one event. Non-blocking — never raises.
@@ -67,7 +83,19 @@ def publish_event(
             time_sensitivity added MSN-0308 — how time-critical this event is,
             independent of importance; absent means no signal, not zero.
         linked_entities/missions/documents: lists of reference strings
-        recommended_action: optional free-text or structured-action reference
+        recommended_action: optional free-text or structured-action a Captain
+            could take. Reserved for a genuine reasoned proposition — do NOT
+            pass a raw signal (a scraped headline, an exception message, a
+            bare state transition) here; that is observational content, not
+            a recommendation, and downstream consumers (Captain Brief,
+            interrupt dispatch) treat a populated `recommended_action` as
+            "the platform is proposing something." Use `description` instead.
+        description: optional free-text, human-readable account of what this
+            event *is* (e.g. "Reuters: <headline>", "nginx: failed",
+            "Source X unreachable: <error>") — distinct from
+            `recommended_action`. Downstream consumers fall back to this
+            (never to a fabricated recommendation) when they need readable
+            content and no genuine recommended action exists.
         metrics: MSN-0328 Wave 2 — optional structured detail (counts,
             scores, bands) a presentation layer can render without
             parsing prose, e.g. {"high_risk_count": 3, "open_count": 12}.
@@ -100,6 +128,7 @@ def publish_event(
                 "linked_missions": linked_missions or [],
                 "linked_documents": linked_documents or [],
                 "recommended_action": recommended_action,
+                "description": description,
                 "metrics": metrics or {},
             },
             returning=True,

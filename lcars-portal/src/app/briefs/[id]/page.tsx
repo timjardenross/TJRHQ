@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Modal, RiskPill, WorkbenchShell } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import type { BriefDetail } from '@/lib/briefsShared';
 import { buildMorningIntelligenceView } from '@/lib/briefsShared';
 
@@ -81,6 +82,7 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
       ) : (
         <div className="space-y-4">
           <Card title={fmt(brief.published_at) !== '—' ? `Published ${fmt(brief.published_at)}` : `Generated ${fmt(brief.generated_at)}`}>
+            <EvidenceMeta source="HQ brief pipeline" observedAt={brief.published_at ?? brief.generated_at} confidence={brief.coverage ? `${brief.coverage.completed ?? 0}/${brief.coverage.expected ?? 0} sources` : undefined} />
             <p className="mb-3 text-[13px] text-wb-ink2">
               Period {brief.period_start ?? '—'} → {brief.period_end ?? '—'}
               {brief.morning_cycle_id ? ` · Morning cycle ${brief.morning_cycle_id}` : ''}

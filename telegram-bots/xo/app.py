@@ -63,6 +63,28 @@ def _ensure_mistral_env() -> None:
 
 _ensure_mistral_env()
 
+
+def _ensure_github_env() -> None:
+    """Same single-key-borrow pattern as _ensure_mistral_env() above — this
+    process loads only its own .env, but /merge_pr and /decline_pr
+    (2026-09-26) need GITHUB_TOKEN/GITHUB_REPO, which live in
+    platform-runtime/.env alongside the rest of the GitHub config
+    core/engineering/providers/github_pr.py already reads."""
+    if os.environ.get("GITHUB_TOKEN") and os.environ.get("GITHUB_REPO"):
+        return
+    envf = _REPO_ROOT / "platform-runtime" / ".env"
+    try:
+        for line in envf.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith(("GITHUB_TOKEN=", "GITHUB_REPO=")):
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    except Exception as exc:  # noqa: BLE001 - best-effort .env bootstrap, must not crash bot startup
+        logging.getLogger(__name__).debug("failed to load GITHUB_TOKEN/GITHUB_REPO from .env: %s", exc)
+
+
+_ensure_github_env()
+
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID   = int(os.environ["TELEGRAM_CHAT_ID"])
 SUPABASE_URL       = os.environ.get("SUPABASE_URL", "")
@@ -88,6 +110,10 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 # ── Shared modules ────────────────────────────────────────────────────────────
 
 sys.path.insert(0, str(_REPO_ROOT))
+
+from core.engineering.providers import (
+    github_pr,
+)
 
 # ── Telemetry ─────────────────────────────────────────────────────────────────
 try:
@@ -120,6 +146,7 @@ from telegram_bots.recovery_officer.engagement_dispatcher import (
     get_recovery_status,
 )
 from telegram_bots.wellness_officer.intelligence import get_wellness_snapshot
+from telegram_bots.xo import medication_reminder as meds
 
 # ── Supabase ──────────────────────────────────────────────────────────────────
 
@@ -210,29 +237,33 @@ def _bar(pct: int) -> str:
 # ── XO system prompt ──────────────────────────────────────────────────────────
 
 def _get_open_missions(db) -> str:
-    """Fetch open missions from Supabase, formatted compactly for the system prompt."""
-    if not db:
+    """Open missions, formatted compactly for the XO system prompt.
+
+    Mission 1 Round 2 (USS-TJR-MSN-1): this used to run its own raw
+    `db.table("missions")...order("priority")` query — a second, silently
+    divergent priority ordering next to /priorities' and /brief's canonical
+    core/coordination/number_one.py-derived one (both already reuse
+    _get_number_one_brief() below). Reconciled to the same source: top
+    priorities + blocked missions from Number One's brief, same output
+    text shape as before so the LLM prompt format is unchanged. `db` is
+    accepted but unused now — kept so call sites don't need updating; if
+    Number One's brief is unreachable this degrades to "" exactly as the
+    old query's except-branch did.
+    """
+    brief = _get_number_one_brief()
+    if not brief:
         return ""
-    try:
-        res = db.table("missions").select(
-            "mission_id,title,status,priority"
-        ).not_.in_(
-            "status", ["Closed", "completed", "cancelled", "deferred", "Archived"]
-        ).order("priority").limit(20).execute()
-        rows = res.data or []
-        if not rows:
-            return ""
-        lines = []
-        for r in rows:
-            pri  = f"[{r['priority']}] " if r.get("priority") else ""
-            mid  = r.get("mission_id", "?")
-            st   = r.get("status", "?")
-            title = (r.get("title") or "")[:70]
-            lines.append(f"{pri}{mid} ({st}): {title}")
-        return "\n".join(lines)
-    except Exception as exc:  # noqa: BLE001 - Supabase query surface is unpredictable, already logged
-        log.warning("[missions] fetch failed: %s", exc)
+    rows = (brief.get("top_priorities") or []) + (brief.get("blocked_missions") or [])
+    if not rows:
         return ""
+    lines = []
+    for r in rows[:20]:
+        pri = f"[{r['priority']}] " if r.get("priority") else ""
+        mid = r.get("mission_id", "?")
+        st = r.get("status", "?")
+        title = (r.get("title") or "")[:70]
+        lines.append(f"{pri}{mid} ({st}): {title}")
+    return "\n".join(lines)
 
 
 # ── Conversation turn memory (USS-TJR-MSN-0378 Stream 2) ────────────────────
@@ -371,10 +402,11 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/revs\\_generate \\<brief path\\> \\[formats\\] — REVS: design brief \\-\\> 7 formats "
         "\\(e\\.g\\. `/revs_generate examples/sample_brief.md poster,social`\\)\n\n"
         "*Health*\n"
-        "/mood\\_chart — log mood \\(1\\-10 scale\\) with optional context\n\n"
+        "/mood\\_chart — log mood \\(1\\-10 scale\\) with optional context\n"
+        "/meds\\_taken — confirm medicines taken \\(stops the 07:00 reminder, which repeats every 15 min\\)\n\n"
         "*System*\n"
         "/db\\_status — Supabase connectivity test\n"
-        "/restart\\_bots \\[slack\\|telegram\\|all\\] — restart starfleet services\n\n"
+        "/restart\\_bots \\[telegram\\|all\\] — restart XO itself\n\n"
         "_Or just talk to me — I understand plain English\\._",
         parse_mode="MarkdownV2",
     )
@@ -393,87 +425,18 @@ async def cmd_mood_chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
 
-# ── MY CAPACITY TODAY (2026-08-21, replaces Recovery Pulse) ──────────────────
-
-async def cmd_capacity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Quick capacity check-in. See capacity_today.py for the full flow."""
-    from telegram_bots.xo import capacity_today
-    await update.message.reply_text(
-        "MY CAPACITY TODAY\n\nHow is your capacity right now?",
-        reply_markup=capacity_today.kb_capacity(),
-    )
-
-
-async def cmd_deepcheck(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Deeper reflection, standalone (not following a quick check-in)."""
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    saved, row, err = await capacity_today.write_quick_checkin(db, {})
-    if not saved or not row:
-        await update.message.reply_text(f"⚠️ Could not start deep check-in: {err}")
-        return
-    await update.message.reply_text(
-        "Going deeper.\n\nWhat was the main load — physical, cognitive, sensory, emotional, social, or environmental?",
-        reply_markup=capacity_today.kb_deep_load_category(str(row["id"])),
-    )
-
-
-async def cmd_evening(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    await update.message.reply_text(
-        "Evening reflection\n\nDid your capacity improve, stay the same, or decline today?",
-        reply_markup=capacity_today.kb_evening_trajectory(),
-    )
-
-
-async def cmd_capacity_today(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/today — show today's check-ins."""
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=0)
-    today = datetime.now(_TZ).date().isoformat()
-    rows = [r for r in rows if r.get("log_date") == today]
-    if not rows:
-        await update.message.reply_text("No check-ins logged today yet. /capacity to start one.")
-        return
-    parts = [capacity_today.render_summary(r) for r in rows if r.get("checkin_type") == "capacity"]
-    await update.message.reply_text("\n\n---\n\n".join(parts) if parts else "No capacity check-ins today yet.")
-
-
-async def cmd_capacity_week(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=7)
-    await update.message.reply_text(capacity_today.render_trend_summary(rows, "WEEKLY CAPACITY REVIEW"))
-
-
-async def cmd_capacity_month(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=30)
-    await update.message.reply_text(capacity_today.render_trend_summary(rows, "MONTHLY CAPACITY REVIEW"))
-
-
-async def cmd_capacity_patterns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=30)
-    await update.message.reply_text(capacity_today.render_trend_summary(rows, "CAPACITY PATTERNS — LAST 30 DAYS"))
-
-
-async def cmd_capacity_actions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    db = _get_supabase()
-    rows = await capacity_today.fetch_recent(db, days=30)
-    await update.message.reply_text(capacity_today.render_actions_summary(rows))
-
-
-async def cmd_therapy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from telegram_bots.xo import capacity_today
-    await update.message.reply_text(
-        "Therapy summary — how far back?",
-        reply_markup=capacity_today.kb_therapy_window(),
-    )
+# Mission 2 (USS-TJR-MSN-2, 2026-09-19): removed a full block of dead
+# capacity-capture commands (cmd_capacity, cmd_deepcheck, cmd_evening,
+# cmd_capacity_today, cmd_capacity_week, cmd_capacity_month,
+# cmd_capacity_patterns, cmd_capacity_actions, cmd_therapy) that were never
+# registered as CommandHandlers (confirmed: no add_handler call for any of
+# them) and would have raised ImportError if somehow invoked anyway — they
+# imported `from telegram_bots.xo import capacity_today`, a module that
+# does not exist in this package (only telegram-bots/capacitybot/
+# capacity_today.py exists). This bot's own /help text already correctly
+# says capacity tracking "Moved to @tjrmindbody_capacitybot" — these were
+# leftover unreachable function bodies from before that migration,
+# confirming capacitybot as the sole live capacity-capture surface.
 
 
 async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -513,15 +476,20 @@ async def cmd_db_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 # XO is the only Telegram bot (Captain decision 2026-07-05); tg-engineer /
 # tg-engineering-dept are retired. The "telegram" group is therefore empty here —
 # XO self-restarts tg-xo.service separately below (restart_xo).
+# 2026-09-26: "slack" target removed — starfleet-slack-bot.service was deleted
+# (Slack fully retired). "all"/"telegram" previously restarted only the Slack
+# bot (never the XO process's own systemd unit via the services list — XO
+# restarting itself is handled separately below via restart_xo), so with
+# nothing Slack-related left, there are currently no services to restart via
+# this dict; the command still restarts XO itself when arg is telegram/all.
 _RESTARTABLE_SERVICES = {
-    "slack":    ["starfleet-slack-bot.service"],
     "telegram": [],
-    "all":      ["starfleet-slack-bot.service"],
+    "all":      [],
 }
 
 
 async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/restart_bots [slack|telegram|all]  — restart starfleet services. XO restarts itself last."""
+    """/restart_bots [telegram|all]  — restart XO itself (last remaining target after Slack removal)."""
     if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
         return
 
@@ -559,6 +527,70 @@ async def cmd_restart_bots(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if restart_xo:
         await asyncio.sleep(3)
         await asyncio.create_subprocess_exec("systemctl", "restart", "tg-xo.service")
+
+
+# ── Engineering review gate (2026-09-26) ──────────────────────────────────────
+# Merge/decline for the auto-generated version-bump PRs core/engineering/
+# batch_coding.py opens (see xo_review.py) — a human action, always. The
+# XO-review verdict posted as a PR comment is the single source of truth
+# for whether a merge is authorized; this bot never re-derives or stores
+# its own copy of that verdict, it just reads the PR back.
+
+async def cmd_merge_pr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/merge_pr <number> [anyway] — merges only if the PR's own XO-review
+    verdict comment says "approve"; `anyway` overrides a Hold (or an
+    unreviewed PR) explicitly, never silently."""
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+    if not context.args:
+        await update.message.reply_text("Usage: /merge_pr <number> [anyway]")
+        return
+    try:
+        pr_number = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("PR number must be an integer.")
+        return
+    force = len(context.args) > 1 and context.args[1].lower() == "anyway"
+
+    token, repo = os.environ.get("GITHUB_TOKEN", ""), os.environ.get("GITHUB_REPO", "")
+    if not token or not repo:
+        await update.message.reply_text("GitHub not configured for this bot.")
+        return
+
+    verdict = await asyncio.to_thread(github_pr.get_pr_review_verdict, token, repo, pr_number)
+    if verdict != "approve" and not force:
+        await update.message.reply_text(
+            f"PR #{pr_number} verdict: {verdict or 'unreviewed'} — refusing to merge.\n"
+            f"Reply /merge_pr {pr_number} anyway to override."
+        )
+        return
+
+    ok, message = await asyncio.to_thread(github_pr.merge_pr, token, repo, pr_number)
+    await update.message.reply_text(f"{'✅' if ok else '❌'} {message}")
+
+
+async def cmd_decline_pr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/decline_pr <number> — closes without merging."""
+    if not _chat_is_allowed(update.effective_chat.id, TELEGRAM_CHAT_ID):
+        return
+    if not context.args:
+        await update.message.reply_text("Usage: /decline_pr <number>")
+        return
+    try:
+        pr_number = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("PR number must be an integer.")
+        return
+
+    token, repo = os.environ.get("GITHUB_TOKEN", ""), os.environ.get("GITHUB_REPO", "")
+    if not token or not repo:
+        await update.message.reply_text("GitHub not configured for this bot.")
+        return
+
+    ok = await asyncio.to_thread(
+        github_pr.close_pr, token, repo, pr_number, "Declined by the Captain via XO bot.",
+    )
+    await update.message.reply_text("✅ Closed." if ok else "❌ Failed to close PR.")
 
 
 # ── OR Intelligence brief ─────────────────────────────────────────────────────
@@ -1159,6 +1191,18 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # never got a reply, with no error visible anywhere except the service
     # log. Wrapped so a failure is always at least visible + logged.
     try:
+        # Daily medication reminder — "taken" / "I've taken my meds" stops
+        # today's 15-minute nag. Only while today's reminder is outstanding,
+        # and not when replying to some other XO message (e.g. a
+        # follow-through "done" belongs to that task, not the meds).
+        reply_to = update.message.reply_to_message
+        replying_elsewhere = reply_to is not None and not (reply_to.text or "").startswith("💊")
+        if (not replying_elsewhere and meds.is_outstanding()
+                and meds.is_confirmation_text(text)):
+            meds.confirm(context.job_queue)
+            await update.message.reply_text(meds.CONFIRMED_TEXT)
+            return
+
         db = _get_supabase()
 
         # Adaptive Follow-Through — NL updates against a tracked reminder.
@@ -1221,33 +1265,68 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         # Adaptive Follow-Through — deterministic NL capture. Only reached
         # when the message was NOT a reply to a tracked reminder (handled
         # above). A hit here short-circuits the rest of cmd_message entirely.
+        #
+        # Mission 3 (capture-ingress normalisation): this used to write
+        # straight into personal_tasks, a second capture path that
+        # silently bypassed captured_items and its enrichment/
+        # classification pipeline entirely — the exact "two competing
+        # intake behaviours" discovery flagged. Now it goes through
+        # captured_items like every other capture channel (voice, portal,
+        # /note): the actionability/routing decision (does this actually
+        # become a personal_task, or something else — see
+        # core/capture/enrichment_worker.py's actionable bridge) is made
+        # once, in one place, not re-decided here by a second, looser
+        # regex classifier.
+        #
+        # UX tradeoff (deliberate, approved): the old path could reply
+        # "Added to Life Admin" immediately because it created the task
+        # synchronously. Routing through captured_items means the real
+        # routing decision happens on enrichment's next 15-minute pass,
+        # so this reply is now an honest instant acknowledgement, not a
+        # claim the task exists yet — enrichment sends its own Telegram
+        # confirmation (via the canonical notification service) once
+        # routing actually happens, matching every other capture channel.
         capture = parse_capture_intent(text)
         if capture and db:
-            row = {
-                "id": str(uuid.uuid4()),
-                "title": capture["title"][:200],
-                "category": "task",
-                "urgency": 3,
-                "importance": 3,
-                "effort_minutes": 30,
-                "work_state": "captured",
-                "follow_through_mode": "normal",
-                "due_date": capture["due_date"],
-            }
+            summary: dict = {}
+            if capture["due_date"]:
+                # Mission 3: preserves the NL parser's temporal-intent
+                # extraction across the bridge — captured_items has no
+                # due_date column of its own (deliberately not adding
+                # one; personal_tasks already owns that field), so the
+                # hint travels in `summary` and enrichment_worker.py's
+                # _route_to_personal_task() reads it back out when it
+                # actually creates the task.
+                summary["parsed_due_date"] = capture["due_date"]
+                summary["parse_source"] = "telegram_nl_capture"
             try:
-                inserted = db.table("personal_tasks").insert(row).execute()
-                task_id = inserted.data[0]["id"] if inserted.data else None
-                if task_id:
-                    _ft_insert_event(db, task_id, "nl_capture")
-                due_line = f"\nDue {_escape(capture['due_date'])}\\." if capture["due_date"] else ""
-                await update.message.reply_text(
-                    f"Added to Life Admin\\.\n\n*{_escape(capture['title'])}*{due_line}\n\n"
-                    f"I'll bring it back when it needs attention\\.",
-                    parse_mode="MarkdownV2",
-                )
+                db.table("captured_items").insert({
+                    "id": str(uuid.uuid4()),
+                    "captured_by": "captain-tjr",
+                    "captured_at": datetime.now(timezone.utc).isoformat(),
+                    # Reuses the same source_type /note already established
+                    # for Telegram-originated text capture (0031b's enum
+                    # has no telegram-plain-text-specific value; "channel_
+                    # message" is the existing generic text-capture tag).
+                    "source_type": "channel_message",
+                    "source_channel_id": "telegram-xo-nl-capture",
+                    "source_message_id": str(update.message.message_id),
+                    "source_message_ts": str(int(time.time() * 1000)),
+                    "item_type": "task",
+                    "title": capture["title"][:200],
+                    "raw_text": text,
+                    "processing_status": "pending",
+                    "summary": summary or None,
+                }).execute()
             except Exception as exc:  # noqa: BLE001 - Supabase insert surface is unpredictable, already logged
                 log.error("[follow-through-nl] capture insert failed: %s", exc)
                 await update.message.reply_text("⚠️ Couldn't save that — try again.")
+                return
+            due_line = f" \\(noted for {_escape(capture['due_date'])}\\)" if capture["due_date"] else ""
+            await update.message.reply_text(
+                f"Got it{due_line}\\. Filing that now — I'll confirm shortly\\.",
+                parse_mode="MarkdownV2",
+            )
             return
 
         if db:
@@ -1921,6 +2000,24 @@ async def handle_task_followthrough_callback(update: Update, context: ContextTyp
         await query.edit_message_text("Something went wrong — try again.")
 
 
+# ── Daily medication reminder (07:00, repeats every 15 min until confirmed) ──
+
+async def cmd_meds_taken(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    meds.confirm(context.job_queue)
+    await update.message.reply_text(meds.CONFIRMED_TEXT)
+
+
+async def handle_meds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer("Logged")
+    meds.confirm(context.job_queue)
+    try:
+        await query.edit_message_reply_markup(reply_markup=None)
+    except Exception as exc:  # noqa: BLE001 - stale/already-edited message; confirmation itself already succeeded
+        log.debug("[meds] could not clear keyboard: %s", exc)
+    await query.message.reply_text(meds.CONFIRMED_TEXT)
+
+
 async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Quick capture: /note <content>  — writes to captured_items as a reference."""
     content = " ".join(context.args or []).strip()
@@ -2194,8 +2291,11 @@ _BOT_COMMANDS = [
     ("revs_generate",   "REVS: brief -> 7 formats  e.g. /revs_generate examples/sample_brief.md"),
     # Health & recovery
     ("mood_chart",      "Log mood (1-10 scale) with optional context"),
+    ("meds_taken",      "Confirm medicines taken (stops today's reminders)"),
     # System
     ("restart_bots",    "Restart starfleet services  e.g. /restart_bots all"),
+    ("merge_pr",        "Merge an XO-reviewed auto-PR  e.g. /merge_pr 314"),
+    ("decline_pr",      "Close an auto-PR without merging  e.g. /decline_pr 314"),
     ("db_status",       "Supabase connectivity test"),
     ("start",           "XO introduction and quick-start"),
     ("help",            "Commands"),
@@ -2207,6 +2307,15 @@ async def _post_init(app) -> None:
     from telegram import BotCommand
     await app.bot.set_my_commands([BotCommand(cmd, desc) for cmd, desc in _BOT_COMMANDS])
     log.info("[startup] Telegram command menu registered (%d commands)", len(_BOT_COMMANDS))
+
+    if app.job_queue is None:
+        log.error("[startup] JobQueue unavailable (pytz/apscheduler missing?) — "
+                  "medication reminder NOT scheduled; re-run pip install -r requirements.txt")
+        return
+    meds.schedule(app.job_queue, TELEGRAM_CHAT_ID)
+    await meds.resume_if_due(app.bot, app.job_queue, TELEGRAM_CHAT_ID)
+    log.info("[startup] medication reminder scheduled 07:00 Australia/Brisbane, every %d min until confirmed",
+             meds.INTERVAL_MINUTES)
 
 
 async def _on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2240,6 +2349,7 @@ def main() -> None:
     app.add_handler(CommandHandler("start",           cmd_start))
     app.add_handler(CommandHandler("help",            cmd_help))
     app.add_handler(CommandHandler("mood_chart",      cmd_mood_chart))
+    app.add_handler(CommandHandler("meds_taken",      cmd_meds_taken))
     app.add_handler(CommandHandler("signals",         cmd_signals))
     app.add_handler(CommandHandler("themes",          cmd_themes))
     app.add_handler(CommandHandler("source_status",   cmd_source_status))
@@ -2251,7 +2361,10 @@ def main() -> None:
     app.add_handler(CommandHandler("brief",           cmd_brief))
     app.add_handler(CommandHandler("priorities",      cmd_priorities))
     app.add_handler(CommandHandler("restart_bots",    cmd_restart_bots))
+    app.add_handler(CommandHandler("merge_pr",        cmd_merge_pr))
+    app.add_handler(CommandHandler("decline_pr",      cmd_decline_pr))
     app.add_handler(CallbackQueryHandler(handle_mood_chart_callback,         pattern=r"^mc\|"))
+    app.add_handler(CallbackQueryHandler(handle_meds_callback,               pattern=r"^md\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_capture_callback,      pattern=r"^vc\|"))
     app.add_handler(CallbackQueryHandler(handle_voice_debrief_decision_callback, pattern=r"^vd\|"))
     app.add_handler(CallbackQueryHandler(handle_revs_generate_callback,      pattern=r"^rg\|"))

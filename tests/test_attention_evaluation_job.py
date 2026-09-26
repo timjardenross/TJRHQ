@@ -70,8 +70,8 @@ def test_polls_recommended_action_so_dispatched_pushes_have_real_content(monkeyp
     """Regression test: this job's explicit `columns` list previously omitted
     `recommended_action`, so captain_brief_contract.recommendation_from_event()
     always saw it as absent and every INTERRUPT_NOW push fell back to
-    interrupt_dispatcher's `item.reason` — the Attention Engine's bare
-    threshold formula ("importance=90 >= 75 AND confidence=80 >= 70") — with
+    interrupt_dispatcher's `item._routing_reason` — the Attention Engine's
+    bare threshold formula ("importance=90 >= 75 AND confidence=80 >= 70") — with
     no actual signal content, even though intelligence_store.py writes a
     real title into `recommended_action` for exactly this purpose."""
     seen_columns = {}

@@ -22,14 +22,23 @@ one-way notification).
 
 from __future__ import annotations
 
-import re
 import subprocess
 import sys
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
-_PATTERN = re.compile(r"api\.telegram\.org/bot.*sendMessage|api\.telegram\.org/bot\{")
+# Two markers that together mean "this is talking straight to the Telegram
+# Bot API", checked anywhere in the file rather than co-occurring on one
+# line (Mission 1 fix, USS-TJR-MSN-1: the original single-line regex
+# `api\.telegram\.org/bot.*sendMessage` never scanned *.js at all, and even
+# scoped to *.py it would have missed a file like
+# core/command-centre/backend/connectors/telegram-connector.js, which
+# builds an https.request options object with `hostname: 'api.telegram.org'`
+# on one line and `path: \`/bot${token}/sendMessage\`` several lines later —
+# a normal Node http-options shape, not a same-line string).
+_HOST_MARKER = "api.telegram.org"
+_METHOD_MARKER = "sendMessage"
 
 # Known raw-sender instances not yet migrated, and why. Do not add to this
 # list to silence a NEW instance — migrate it to notify() instead, or get
@@ -62,18 +71,37 @@ _ALLOWLIST = {
         "this is the crisis-escalation path and its own docstring requires "
         "it never block/delay the user's crisis-response send, which a "
         "blocking sync call here would risk.",
+    "core/command-centre/backend/connectors/telegram-connector.js":
+        "KNOWN DUPLICATE, not yet reconciled (Mission 1, USS-TJR-MSN-1, "
+        "item 9 — flagged for a follow-up mission, not fixed here). Command "
+        "Centre's notification-engine.js (services/notification-engine.js) "
+        "deliberately built its own delivery path (headers: \"Replaces "
+        "Python scheduler autonomous push (D-3C-04)\", \"Uses XO bot token "
+        "— no new bot created (D-3C-05)\") rather than calling "
+        "core/platform/notification_service.py's notify() across the "
+        "Python/JS process boundary. Listed here so this gate covers *.js "
+        "and stops a SECOND JS sender from appearing silently, but "
+        "reconciling this one (e.g. Command Centre calling notify() over "
+        "HTTP, or a documented permanent JS-side exception like the ones "
+        "above) needs its own decision, not a drive-by allowlist entry.",
 }
 
 
 def main() -> int:
     out = subprocess.run(
-        ["git", "grep", "-lE", _PATTERN.pattern, "--", "*.py"],
+        ["git", "grep", "-lF", _HOST_MARKER, "--", "*.py", "*.js"],
         cwd=_REPO_ROOT, capture_output=True, text=True, check=False,
     )
-    # Exclude this script itself — it matches its own pattern string as a
-    # literal, not an actual raw sender.
+    # Exclude this script itself — it matches its own marker strings as
+    # literals, not an actual raw sender.
     _self = str(Path(__file__).relative_to(_REPO_ROOT))
-    files = [f for f in out.stdout.splitlines() if f.strip() and f != _self]
+    candidates = [f for f in out.stdout.splitlines() if f.strip() and f != _self]
+
+    files = []
+    for f in candidates:
+        text = (_REPO_ROOT / f).read_text(errors="ignore")
+        if _METHOD_MARKER in text:
+            files.append(f)
 
     new_offenders = [f for f in files if f not in _ALLOWLIST]
     if new_offenders:

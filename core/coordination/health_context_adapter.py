@@ -40,6 +40,28 @@ def _get_captains_log_live():
         return None, None, None
 
 
+def _get_capacity_checkin_live():
+    """Mission 2 (USS-TJR-MSN-2) fix: capacity_checkins is the platform's
+    canonical capacity source (MY CAPACITY TODAY, 2026-08-21) -- this
+    adapter was still deriving capacity_score/capacity_status from
+    captains_log_entries via a weighted pain/energy/sleep formula
+    (compute_capacity_score), a second, competing capacity derivation that
+    could disagree with the Captain's own direct capacity_checkins
+    self-report. captains_log_entries stays the source for every OTHER
+    field here (pain/mood/energy/themes/priorities) -- those are a
+    genuinely different domain (a daily journal), not a capacity
+    duplication, and are untouched by this fix."""
+    try:
+        _HEALTH_ROOT = Path(__file__).resolve().parents[2] / "core" / "health"
+        if str(_HEALTH_ROOT) not in sys.path:
+            sys.path.insert(0, str(_HEALTH_ROOT))
+        from capacity_score import capacity_zone_from_checkin
+        from supabase_client import is_configured, supabase_get
+        return supabase_get, is_configured, capacity_zone_from_checkin
+    except Exception:  # noqa: BLE001 - optional health-module import; (None, None, None) signals unavailability to the caller
+        return None, None, None
+
+
 # ---------------------------------------------------------------------------
 # Section parsing
 # ---------------------------------------------------------------------------
@@ -431,10 +453,17 @@ def build_health_context_from_captains_log(
     assembled = assembled_at or (datetime.now(timezone.utc).isoformat())
 
     if not entry:
+        # Mission 2 (USS-TJR-MSN-2) fix: capacity_score is independent of
+        # captains_log_entries now (it comes from capacity_checkins) -- a
+        # missing/no-today captain's-log row must not also discard a
+        # perfectly valid capacity_checkins reading passed in above.
+        from capacity_score import capacity_status_only
         return HealthContextPackage(
             assembled_at=assembled,
             source_file="supabase:captains_log_entries",
             data_quality="missing",
+            capacity_score=capacity_score,
+            capacity_status=capacity_status_only(capacity_score),
         )
 
     pain_level = _pain_score_to_level(entry.get("pain_score"))
@@ -473,11 +502,16 @@ def build_health_context_from_captains_log(
     if entry.get("wins"):
         priorities.append(f"Recent win: {entry['wins'][:80]}")
 
-    cap_status: str | None = None
+    # Mission 2 (USS-TJR-MSN-2) fix: capacity_status_only(None) already
+    # returns "Unknown" -- gating this call behind `capacity_score is not
+    # None` left cap_status as a bare None instead, contradicting this
+    # package's own capacity_status field comment ("Green | Amber | Red |
+    # Unknown") and hiding "no signal" from callers that check for the
+    # string rather than None (e.g. equality checks against "Unknown").
+    from capacity_score import capacity_status_only
+    cap_status = capacity_status_only(capacity_score)
     mo_note_parts = []
     if capacity_score is not None:
-        from capacity_score import capacity_status_only
-        cap_status = capacity_status_only(capacity_score)
         mo_note_parts.append(f"Capacity {capacity_score}% ({cap_status})")
     if entry.get("overall_note"):
         mo_note_parts.append(entry["overall_note"][:100])
@@ -511,8 +545,18 @@ def build_health_context_live(assembled_at: str | None = None) -> HealthContextP
 
     Tries to read live data from captains_log_entries.
     Falls back to legacy Health-Summary.md path if Supabase unavailable.
+
+    Capacity score/status (Mission 2, USS-TJR-MSN-2) come from today's
+    capacity_checkins row via capacity_zone_from_checkin(), not from this
+    function's captains_log_entries read -- see _get_capacity_checkin_live()'s
+    docstring. No today row means Unknown, never a stale prior day silently
+    served as current (mission's explicit "absence must not imply Green"
+    and "must not treat an old state as indefinitely current" requirements).
     """
-    supabase_get, is_configured, compute_cap = _get_captains_log_live()
+    # compute_capacity_score (3rd return) is unused here since Mission 2's
+    # fix below -- kept import for is_configured()/supabase_get, which are
+    # still needed for the captains_log_entries narrative-field read.
+    supabase_get, is_configured, _compute_cap_unused = _get_captains_log_live()
 
     if supabase_get and is_configured and is_configured():
         try:
@@ -555,10 +599,25 @@ def build_health_context_live(assembled_at: str | None = None) -> HealthContextP
             except Exception:  # noqa: BLE001,S110 - best-effort trend computation; None trend direction is a valid 'insufficient data' outcome
                 pass
 
-            # Compute capacity score
+            # Capacity score/status: canonical capacity_checkins source
+            # (Mission 2, USS-TJR-MSN-2), not captains_log_entries -- see
+            # _get_capacity_checkin_live()'s docstring. `entry`/`compute_cap`
+            # (captains_log_entries/compute_capacity_score) are no longer
+            # used for capacity; kept only for this function's other
+            # (non-capacity) narrative fields below.
             cap_score: int | None = None
-            if entry and compute_cap:
-                cap_score, _ = compute_cap(entry)
+            checkin_get, checkin_configured, zone_from_checkin = _get_capacity_checkin_live()
+            if checkin_get and checkin_configured and checkin_configured():
+                try:
+                    checkin_today = datetime.now().astimezone().date().isoformat()
+                    checkin_rows = checkin_get(
+                        "capacity_checkins?log_date=eq."
+                        f"{checkin_today}&checkin_type=eq.capacity&order=captured_at.desc&limit=1"
+                    )
+                    checkin_row = checkin_rows[0] if checkin_rows else None
+                    cap_score, _ = zone_from_checkin(checkin_row)
+                except Exception:  # noqa: BLE001 - no today capacity_checkins row/unreachable -> cap_score stays None (Unknown), never a stale fallback
+                    cap_score = None
 
             return build_health_context_from_captains_log(
                 entry, trend_direction, cap_score, assembled_at,

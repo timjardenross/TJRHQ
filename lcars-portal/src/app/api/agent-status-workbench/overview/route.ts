@@ -29,6 +29,7 @@ import {
   buildCaptainChairSummary,
   type CapabilityTone,
 } from '@/lib/hqStatusInterpreter';
+import { calculateOperationalConfidence } from '@/lib/operationalConfidence';
 
 type StageTone = 'ok' | 'warn' | 'crit' | 'unknown';
 
@@ -121,7 +122,12 @@ export async function GET() {
       fetchAgentStatusEntries(sb),
       sb.from('intelligence_ingestion_quality_daily').select('*').order('day', { ascending: false }).limit(1),
       sb.from('health_ingestion_quality_daily').select('*').order('day', { ascending: false }).limit(1),
-      sb.from('intelligence_source_health_latest').select('source_id, status, checked_at, error_message'),
+      // Defensive bound (Supabase egress investigation, 2026-09-20): this
+      // view is one row per source (~200 today per intelligence_source_
+      // registry), but this endpoint is polled every REFRESH_INTERVAL_MS
+      // by every open Status-tab browser tab, so an unbounded select here
+      // is one accidental registry-growth away from a real cost.
+      sb.from('intelligence_source_health_latest').select('source_id, status, checked_at, error_message').limit(1000),
       sb.from('intelligence_source_registry').select('source_id').eq('active', true),
       sb.from('health_source_fetch_config').select('source_id, cadence, last_fetch, last_fetch_status, last_fetch_message, health_source_registry(source_name)'),
     ]);
@@ -214,6 +220,20 @@ export async function GET() {
       technical: { healthy: technicalSourceStatuses.filter((s) => s === 'ok').length, degraded: techDegraded, failing: techFailing },
       health: { healthy: healthConfigs.filter((r) => r.last_fetch_status !== 'failed' && r.last_fetch).length, delayed: 0, failing: healthFailing },
     };
+    const operationalConfidence = calculateOperationalConfidence([
+      ...Array.from(latestTechBySource.entries()).map(([id, source]) => ({
+        id: `technical:${id}`,
+        label: `Technical source ${id}`,
+        completeness: 1,
+        freshness: source.status === 'ok' ? 'fresh' as const : source.status === 'stale' ? 'stale' as const : source.status === 'failed' ? 'unavailable' as const : 'unknown' as const,
+      })),
+      ...healthConfigs.map((source) => ({
+        id: `health:${source.source_id}`,
+        label: `Health source ${source.source_id}`,
+        completeness: source.last_fetch ? 1 : 0,
+        freshness: source.last_fetch_status === 'failed' ? 'unavailable' as const : source.last_fetch ? 'fresh' as const : 'unknown' as const,
+      })),
+    ]);
     const liveJobs = jobs.filter((j) => j.status !== 'retired' && j.status !== 'disabled');
     const jobsSummary = {
       scheduled: liveJobs.length,
@@ -240,6 +260,7 @@ export async function GET() {
         health: { stages: healthStages, day: h?.day ?? null },
       },
       sourcesSummary,
+      operationalConfidence,
       jobsSummary,
     });
   } catch (err) {

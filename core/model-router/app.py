@@ -20,6 +20,7 @@ Endpoints:
     POST /api/model/self-improvement-mission   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/hq-evolution-investigate   gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/hq-evolution-evaluate-outcome  gemini-flash-latest  (cloud, GEMINI_API_KEY)
+    POST /api/model/hq-evolution-external-fit  gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/health-signal-curation     gemini-flash-latest  (cloud, GEMINI_API_KEY)
     POST /api/model/adhd-decompose      gemma3:4b      keep_alive 2m   (Ready Room workbench)
     GET  /api/model/status              Ollama status + loaded models
@@ -220,7 +221,7 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # `esc_policy` in _run_task() below for classify-capture's escalation
     # path, deliberately decoupled from this entry rather than reused now
     # that the two have different provider shapes.
-    "intelligence-brief":    {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120},
+    "intelligence-brief":    {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120, "thinking_level": "low"},
     "intelligence-signals":  {"model": MODEL_LARGE, "keep_alive": "10m", "timeout": 300},
     # MSN-0329 Phase 2: Captain Intelligence's Understanding/Insight Engine.
     # Same tier as intelligence-brief: infrequent, quality-sensitive, not
@@ -246,14 +247,14 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # tier every pipeline on this platform tries before anything else.
     # Uses the shared GEMINI_API_KEY (not the billing-report key -- these
     # aren't billing/cost-report calls).
-    "captain-insight-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120},
+    "captain-insight-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120, "thinking_level": "low"},
     # MSN-0329 Phase 2 Step 4: Reasoning Engine. Separate task_type from
     # captain-insight-synthesis (different prompt/purpose) so the call
     # log stays distinguishable, matching this file's own established
     # convention (see classify-document vs summarise-note's comment).
     # Consumes a Step 3 Insight, never the raw event stream directly.
     # Moved to Gemini 2026-08-22 for the same reason as the entry above.
-    "captain-reasoning-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120},
+    "captain-reasoning-synthesis": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 120, "thinking_level": "low"},
     "embed":                 {"model": MODEL_EMBED, "keep_alive": "1m",  "timeout": 30},
     # 2026-09-08: moved from local MODEL_LARGE (mistral-small3.2:24b) to GLM 5.3
     # cloud, same reasoning as intelligence-brief/captain-insight-synthesis/
@@ -280,33 +281,65 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # Gemini API (not Ollama) — separate provider branch in _run_task.
     # Uses GEMINI_BILLING_API_KEY, a dedicated key so billing-report cost
     # tracking stays isolated from the shared GEMINI_API_KEY used elsewhere.
-    "billing-report":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_BILLING_API_KEY", "timeout": 120},
+    "billing-report":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_BILLING_API_KEY", "timeout": 120, "thinking_level": "low"},
     # Self-improvement system (MSN-0099): moved from local MODEL_MID
     # (gemma3:4b) to Gemini — evidence-analysis quality needs a stronger
     # model than the CPU-only VM can serve locally in reasonable time.
     # Uses the shared GEMINI_API_KEY (not the billing-report key — this
     # isn't a billing/cost-report call, so it doesn't belong on that
     # isolated key).
-    "self-improvement-analyse":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
-    "self-improvement-critique": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
-    "self-improvement-mission":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600},
+    "self-improvement-analyse":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600, "thinking_level": "low"},
+    "self-improvement-critique": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600, "thinking_level": "low"},
+    "self-improvement-mission":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 600, "thinking_level": "low"},
     # HQ Evolution (follow-up to MSN-0099's self-improvement system):
     # per-opportunity investigation synthesis. Smaller, bounded input than
     # self-improvement-analyse (one opportunity's evidence bundle, not the
     # whole repo evidence payload) — shorter timeout accordingly. Same
     # shared GEMINI_API_KEY as the rest of this family.
-    "hq-evolution-investigate":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300},
+    "hq-evolution-investigate":  {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300, "thinking_level": "low"},
     # HQ Evolution V2: post-observation-window outcome evaluation. Input is
     # a bounded evidence bundle (outcome_contract + baseline + collected
     # evidence), not a re-run of the original investigation — same timeout
     # class as hq-evolution-investigate.
-    "hq-evolution-evaluate-outcome": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300},
+    "hq-evolution-evaluate-outcome": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300, "thinking_level": "low"},
+    # HQ Evolution (follow-up to MSN-0099): README-grounded fit assessment
+    # for a bounded top-N of external-discovery candidates per cycle (see
+    # scripts/self_improvement/external_enrichment.py and router_client.py's
+    # assess_external_candidate). This entry was missing entirely — the
+    # client called POST /api/model/hq-evolution-external-fit against a
+    # route that didn't exist here, so every enrichment call 404'd and was
+    # silently swallowed by enrich()'s fail-open per-candidate handling.
+    # Net effect: every external candidate kept external_discovery.py's
+    # metadata-only fit="moderate"/evidence_strength="moderate" defaults
+    # forever, which relevance.py's score_candidate() can never raise
+    # above ~0.42 — under min_relevance_score_to_investigate (0.5) — so no
+    # external candidate could ever clear the relevance gate. Same bounded
+    # input shape (one candidate + a truncated README excerpt) as
+    # hq-evolution-investigate — same timeout class.
+    #
+    # timeout here only budgets the Gemini leg itself (_gemini_generate's
+    # own urlopen) — the caller (router_client.py) separately budgets the
+    # WHOLE round trip including the input/output guardrail checks around
+    # it. Raised 300->400 alongside router_client.py's own timeout
+    # (2026-09-22): the guardrail model swap + Ollama serialization lock
+    # made genuine round trips land at 302-323s under load, past the old
+    # 300s on both sides — router_client gave up seconds before the router
+    # actually finished successfully (confirmed via call_log.jsonl).
+    "hq-evolution-external-fit": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 400, "thinking_level": "low"},
+    # 2026-09-26: the XO engineering-review gate (core/engineering/
+    # xo_review.py) for auto-generated version-bump PRs — an independent
+    # review pass, never the same model that generated the patch. Ports
+    # .claude/skills/xo/SKILL.md's Gatekeeper-mode rubric into a real
+    # model call so it runs unattended (a Claude Code Skill only runs
+    # inside an interactive session). Same timeout class as the other
+    # single-diff review call above.
+    "xo-engineering-review": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 300, "thinking_level": "low"},
     # HQ V1 Integration QA §28 fix: tools/health-osint/health_signal_curation.py
     # previously called core/llm/provider_chain.py directly, bypassing this
     # router entirely (the one confirmed Model Router bypass found in that
     # audit). Single-signal classification prompt, same bounded shape as
     # hq-evolution-investigate — same timeout class.
-    "health-signal-curation": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 60},
+    "health-signal-curation": {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 60, "thinking_level": "low"},
     # Ready Room workbench (Life Admin + Task Decomposition), tier-0 target
     # for intelligence.adhd.task_decomposition.TaskDecomposer._model_router.
     # Do NOT have this route call decompose_task() itself — that function
@@ -322,7 +355,7 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # an interactive UI/Telegram call, not a background synthesis job) —
     # so it belongs on the fast, uncontended cloud tier instead of fighting
     # local jobs for the one CPU inference slot.
-    "adhd-decompose":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 30},
+    "adhd-decompose":        {"model": MODEL_GEMINI, "provider": "gemini", "api_key_env": "GEMINI_API_KEY", "timeout": 30, "thinking_level": "low"},
 }
 
 # System prompt for adhd-decompose — intentionally duplicated from (not
@@ -342,6 +375,25 @@ _ADHD_DECOMPOSE_SYSTEM_PROMPT = (
     "Respond with ONLY the micro-action, nothing else. No preamble, no explanation."
 )
 
+# Mission 4: opt-in only (appended when the caller sent a `posture` field at
+# all — see _handle_adhd_decompose) so this never changes behaviour for
+# intelligence/adhd/task_decomposition.py's TaskDecomposer._model_router,
+# which calls this same endpoint with a bare {"task": ...} body and treats
+# whatever string comes back as a literal micro-action — a "CLARIFY: ..."
+# response would silently corrupt that caller's output with no way for it
+# to recognise the prefix. Ready Room's route always sends `posture`
+# (getReadyRoomContext never returns undefined), so this only ever fires
+# for Ready Room's own UI, which knows how to render the prefix.
+_ADHD_DECOMPOSE_CLARIFY_SUFFIX = (
+    "\n\nIf the task description is too vague or ambiguous to identify any "
+    "concrete action (e.g. \"sort out the specialist thing\") — not merely "
+    "big, but genuinely unclear what it refers to — respond with exactly "
+    "\"CLARIFY: \" followed by ONE short, specific question that would "
+    "unblock you. Only use this for genuine ambiguity, not for tasks that "
+    "are simply large or vague-but-actionable. Otherwise respond with ONLY "
+    "the micro-action as above."
+)
+
 _ADHD_DECOMPOSE_SMALLER_SUFFIX = (
     "\n\nThe person tried the first action above and it still feels too big. "
     "Propose an even smaller sub-step of that SAME action — something "
@@ -355,6 +407,63 @@ _ADHD_DECOMPOSE_ANOTHER_SUFFIX = (
     "goal — not a bigger plan, not the same action reworded. Respond with "
     "ONLY the alternative action, nothing else."
 )
+
+# Mission 4 (Executive Function & Regulation): appended only for
+# PROTECT/RECOVER posture (Ready Room's own ReadyRoomPosture, read
+# server-side and passed through untouched — this endpoint never derives
+# or validates it, matching this router's existing thin-proxy contracts
+# elsewhere). Gives the model permission to suggest regulation/rest as a
+# legitimate answer instead of always forcing an executable step, per
+# mission spec §7/§14 ("regulation/recovery may be more useful than
+# execution"). Still respects Captain choice — the UI always offers "I'd
+# still like to try something small" alongside it.
+_ADHD_DECOMPOSE_LOW_CAPACITY_SUFFIX = (
+    "\n\nImportant context: the person's current capacity/regulation state "
+    "is constrained right now (posture: {posture}). If, given that, doing "
+    "literally anything on this task right now doesn't seem like the right "
+    "call — e.g. it needs energy or focus they may not have — you may "
+    "instead respond with exactly \"REGULATE: \" followed by one short, "
+    "warm, non-clinical sentence suggesting rest or a pause is a reasonable "
+    "choice right now. Only use this when it's genuinely a better answer "
+    "than a tiny action would be — most tasks still have SOME 5-15 minute "
+    "step that's fine even on a constrained day, so don't reach for this by "
+    "default."
+)
+
+_LOW_CAPACITY_POSTURES = {"PROTECT", "RECOVER", "RESET"}
+
+# do_POST's generic dispatch table: POST path -> TASK_POLICY key. Every
+# TASK_POLICY entry except "adhd-decompose" (its own handler, different
+# request/response shape — see _handle_adhd_decompose) must have a route
+# here, or a client calling that task_type 404s silently forever (see
+# "hq-evolution-external-fit"'s own TASK_POLICY comment for the real
+# incident this caused). tests/test_model_router_route_contract.py
+# enforces this invariant against router_client.py's actual call sites —
+# update both together.
+TASK_ROUTES: dict[str, str] = {
+    "/api/model/classify-capture":     "classify-capture",
+    "/api/model/summarise-note":       "summarise-note",
+    "/api/model/classify-document":    "classify-document",
+    "/api/model/summarise-document":   "summarise-document",
+    "/api/model/intelligence-brief":   "intelligence-brief",
+    "/api/model/intelligence-signals": "intelligence-signals",
+    "/api/model/xo-response":          "xo-response",
+    "/api/model/embed":                "embed",
+    "/api/model/escalate":             "escalate",
+    "/api/model/fallback-complex":     "fallback-complex",
+    "/api/model/engineering-review":   "engineering-review",
+    "/api/model/captain-insight-synthesis": "captain-insight-synthesis",
+    "/api/model/captain-reasoning-synthesis": "captain-reasoning-synthesis",
+    "/api/model/billing-report":        "billing-report",
+    "/api/model/self-improvement-analyse": "self-improvement-analyse",
+    "/api/model/self-improvement-critique": "self-improvement-critique",
+    "/api/model/self-improvement-mission": "self-improvement-mission",
+    "/api/model/hq-evolution-investigate": "hq-evolution-investigate",
+    "/api/model/hq-evolution-evaluate-outcome": "hq-evolution-evaluate-outcome",
+    "/api/model/hq-evolution-external-fit": "hq-evolution-external-fit",
+    "/api/model/health-signal-curation": "health-signal-curation",
+    "/api/model/xo-engineering-review": "xo-engineering-review",
+}
 
 # Escalation triggers — checked against PROMPT ONLY (not response) for classify-capture.
 # Narrow and intent-based: matches things the Captain is actually asking to do,
@@ -409,13 +518,29 @@ def _ollama_embed(model: str, input_text: str, keep_alive: str, timeout: int) ->
         return json.loads(resp.read().decode())
 
 
-def _gemini_generate(model: str, prompt: str, timeout: int, api_key_env: str = "GEMINI_API_KEY") -> dict[str, Any]:
-    """POST /v1beta/models/{model}:generateContent. Returns parsed response dict."""
+def _gemini_generate(
+    model: str, prompt: str, timeout: int, api_key_env: str = "GEMINI_API_KEY", thinking_level: str | None = None,
+) -> dict[str, Any]:
+    """POST /v1beta/models/{model}:generateContent. Returns parsed response dict.
+
+    2026-09-26: every Gemini-routed task_type left `generationConfig`
+    unset, so `gemini-flash-latest` (currently resolving to Gemini 3.8
+    Flash) applied its default `thinking_level: "medium"` to every call.
+    Confirmed live via call_log.jsonl: hq-evolution-external-fit calls
+    with ~1400 prompt tokens and ~80 output tokens (candidatesTokenCount)
+    were taking 220-300s each — a ratio only explained by large amounts
+    of invisible thinking-token generation the router never asked for or
+    logged. `thinking_level` is `TASK_POLICY`'s per-task lever for this;
+    None (the default) omits `generationConfig` entirely, preserving
+    exact prior behaviour for any Gemini task_type that doesn't set it."""
     api_key = os.environ.get(api_key_env, "").strip()
     if not api_key:
         raise RuntimeError(f"{api_key_env} is not set. Add it to .env before using this Gemini-backed route.")
     url = f"{_GEMINI_BASE}/models/{model}:generateContent"
-    payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode()
+    body: dict[str, Any] = {"contents": [{"parts": [{"text": prompt}]}]}
+    if thinking_level:
+        body["generationConfig"] = {"thinkingConfig": {"thinking_level": thinking_level}}
+    payload = json.dumps(body).encode()
     req = urllib.request.Request(
         url, data=payload,
         headers={"Content-Type": "application/json", "X-goog-api-key": api_key},
@@ -448,6 +573,20 @@ def _ollama_tags() -> dict[str, Any]:
 # multiple requests' _log_call() concurrently — without it, interleaved
 # writes from different threads could corrupt a JSON line.
 _LOG_LOCK = threading.Lock()
+
+# Serializes every local-Ollama-bound call this process makes — both the
+# direct _ollama_generate()/_ollama_embed() dispatch AND the llmsec worker
+# subprocess the guardrails gate spawns (core/security/llm_guardrails.py,
+# secure_outbound_prompt/check_output_rail — itself a separate process
+# hitting Ollama's /v1 endpoint, not routed through _ollama_generate).
+# ThreadingHTTPServer means two concurrent requests can otherwise both
+# start CPU-only Ollama inference at once on this GPU-less VM; 2026-09-22
+# investigation measured two such jobs fighting for the same cores
+# (498%/437% CPU each) and pushing guardrail check latency past 240s.
+# Holding this only around the actual Ollama-bound call (not the whole
+# request) still lets unrelated work — e.g. a Gemini network round-trip —
+# proceed concurrently; it just stops two LOCAL inferences overlapping.
+_OLLAMA_LOCK = threading.Lock()
 
 
 def _log_call(entry: dict[str, Any]) -> None:
@@ -583,25 +722,36 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             # `except Exception` below, on a blocked prompt or an
             # unreachable guardrails venv — either way, nothing reaches
             # Gemini until the prompt has been checked and redacted.
-            safe_prompt, _redaction = secure_outbound_prompt(prompt)
-            raw = _gemini_generate(model, safe_prompt, timeout, policy.get("api_key_env", "GEMINI_API_KEY"))
+            with _OLLAMA_LOCK:
+                safe_prompt, _redaction = secure_outbound_prompt(prompt)
+            raw = _gemini_generate(
+                model, safe_prompt, timeout, policy.get("api_key_env", "GEMINI_API_KEY"),
+                policy.get("thinking_level"),
+            )
             candidates = raw.get("candidates", [])
             parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
             response_text = "".join(p.get("text", "") for p in parts).strip()
-            check_output_rail(response_text)
+            with _OLLAMA_LOCK:
+                check_output_rail(response_text)
             embeddings = None
             usage = raw.get("usageMetadata", {})
             token_info = {
                 "prompt_eval_count": usage.get("promptTokenCount"),
                 "eval_count": usage.get("candidatesTokenCount"),
+                # 2026-09-26: thinking tokens are billed/timed but were
+                # previously invisible in this log — see
+                # _gemini_generate()'s own docstring for why that mattered.
+                "thoughts_token_count": usage.get("thoughtsTokenCount"),
             }
         elif task_type == "embed":
-            raw = _ollama_embed(model, prompt, keep_alive, timeout)
+            with _OLLAMA_LOCK:
+                raw = _ollama_embed(model, prompt, keep_alive, timeout)
             response_text = ""
             embeddings = raw.get("embeddings", raw.get("embedding", []))
             token_info = {"prompt_eval_count": raw.get("prompt_eval_count")}
         else:
-            raw = _ollama_generate(model, prompt, keep_alive, timeout, policy.get("num_predict"))
+            with _OLLAMA_LOCK:
+                raw = _ollama_generate(model, prompt, keep_alive, timeout, policy.get("num_predict"))
             response_text = raw.get("response", "").strip()
             embeddings = None
             token_info = {
@@ -624,7 +774,8 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
                 needs_esc, reason = _check_escalation_needed(prompt, response_text)
                 if needs_esc:
                     esc_model, esc_keep_alive, esc_timeout = MODEL_LARGE, "15m", 300
-                    esc_raw = _ollama_generate(esc_model, prompt, esc_keep_alive, esc_timeout)
+                    with _OLLAMA_LOCK:
+                        esc_raw = _ollama_generate(esc_model, prompt, esc_keep_alive, esc_timeout)
                     response_text = esc_raw.get("response", "").strip()
                     model = esc_model
                     keep_alive = esc_keep_alive
@@ -768,29 +919,7 @@ class RouterHandler(BaseHTTPRequestHandler):
             self._handle_adhd_decompose()
             return
 
-        route_map = {
-            "/api/model/classify-capture":     "classify-capture",
-            "/api/model/summarise-note":       "summarise-note",
-            "/api/model/classify-document":    "classify-document",
-            "/api/model/summarise-document":   "summarise-document",
-            "/api/model/intelligence-brief":   "intelligence-brief",
-            "/api/model/intelligence-signals": "intelligence-signals",
-            "/api/model/xo-response":          "xo-response",
-            "/api/model/embed":                "embed",
-            "/api/model/escalate":             "escalate",
-            "/api/model/fallback-complex":     "fallback-complex",
-            "/api/model/engineering-review":   "engineering-review",
-            "/api/model/captain-insight-synthesis": "captain-insight-synthesis",
-            "/api/model/captain-reasoning-synthesis": "captain-reasoning-synthesis",
-            "/api/model/billing-report":        "billing-report",
-            "/api/model/self-improvement-analyse": "self-improvement-analyse",
-            "/api/model/self-improvement-critique": "self-improvement-critique",
-            "/api/model/self-improvement-mission": "self-improvement-mission",
-            "/api/model/hq-evolution-investigate": "hq-evolution-investigate",
-            "/api/model/hq-evolution-evaluate-outcome": "hq-evolution-evaluate-outcome",
-            "/api/model/health-signal-curation": "health-signal-curation",
-        }
-        task_type = route_map.get(path)
+        task_type = TASK_ROUTES.get(path)
         if task_type is None:
             self._send_json(404, {"error": f"unknown route: {path}"})
             return
@@ -810,6 +939,14 @@ class RouterHandler(BaseHTTPRequestHandler):
         this mirrors TaskDecomposer._model_router's existing contract
         (task_decomposition.py) rather than the {"prompt"}/{"response"}
         convention used everywhere else in this router.
+
+        Mission 4: optional `posture` (Ready Room's ReadyRoomPosture)
+        conditions the prompt only — the response stays the same single
+        string field. It may come back prefixed "CLARIFY: " (ambiguous
+        task — model wants one clarifying question) or "REGULATE: "
+        (PROTECT/RECOVER/RESET only — model judges rest is a better answer
+        than an action). Callers that don't check for these prefixes just
+        treat them as the micro-action text, which degrades acceptably.
         """
         body = self._read_body()
         task_text = (body.get("task") or "").strip()[:2000]
@@ -818,11 +955,22 @@ class RouterHandler(BaseHTTPRequestHandler):
             return
         mode = body.get("mode") or "first"
         previous_action = (body.get("previous_action") or "").strip()[:500]
+        # Mission 4: Ready Room's own ReadyRoomPosture, passed through
+        # as-is (this endpoint doesn't re-derive it, same boundary as the
+        # rest of this router's proxy handlers). Presence of the key (not
+        # just its value) is also the opt-in signal for CLARIFY — see
+        # _ADHD_DECOMPOSE_CLARIFY_SUFFIX.
+        is_ready_room_caller = "posture" in body
+        posture = (body.get("posture") or "").strip().upper()[:20]
         prompt = f"{_ADHD_DECOMPOSE_SYSTEM_PROMPT}\n\nTask: {task_text}"
         if mode == "smaller" and previous_action:
             prompt += f"\n\nFirst action given: {previous_action}{_ADHD_DECOMPOSE_SMALLER_SUFFIX}"
         elif mode == "another" and previous_action:
             prompt += f"\n\nFirst action given: {previous_action}{_ADHD_DECOMPOSE_ANOTHER_SUFFIX}"
+        if is_ready_room_caller:
+            prompt += _ADHD_DECOMPOSE_CLARIFY_SUFFIX
+        if posture in _LOW_CAPACITY_POSTURES:
+            prompt += _ADHD_DECOMPOSE_LOW_CAPACITY_SUFFIX.format(posture=posture)
         result = _run_task("adhd-decompose", prompt, body)
         if not result.get("success"):
             self._send_json(502, {"action": None, "error": result.get("error")})

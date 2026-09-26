@@ -106,6 +106,39 @@ export function deriveCommandPosture(inputs: CommandPostureInputs): CommandPostu
 // LifeOS." Every source here is something genuinely awaiting a TJR
 // decision, never a raw backlog/queue count (mission §7).
 
+/** Mirrors core/coordination/attention_state.py's AttentionItem.to_dict()
+ * shape verbatim (Mission 1 Round 2, USS-TJR-MSN-1) — the field this
+ * module reads from /api/number-one-brief's additive `attention_items`.
+ * Only NEEDS_NOW and DECISION_REQUIRED reach Needs You; BLOCKED/
+ * IMPORTANT_NOT_IMMEDIATE/CAN_WAIT stay in Number One's own advisory
+ * surface (mission-workbench's NumberOneCoordination.tsx) — Needs You is
+ * for things genuinely requiring the Captain now, not Number One's full
+ * work queue (mission §7's "no raw backlog counts" rule). */
+export type NumberOneAttentionCategory =
+  | 'needs_now' | 'important_not_immediate' | 'can_wait' | 'blocked' | 'decision_required';
+
+export interface NumberOneAttentionItem {
+  id: string;
+  category: NumberOneAttentionCategory;
+  priority: number;
+  title: string;
+  reason: string;
+  /** "number_one" (mission_id ref) or "personal_task" (personal_tasks.id
+   * ref) — see attention_state.py's AttentionItem.source and
+   * personal_task_attention_adapter.py:148. Mission 6B §8.4: used to route
+   * a personal-task item to Ready Room's execution surface instead of the
+   * mission-review surface a mission_id ref belongs on. */
+  source: string;
+  ref: string | null;
+  generated_at: string;
+  /** Mission 2 (Capacity & Attention Engine) — set only when capacity
+   * actually changed this item's category (e.g. "DEFERRED — Red capacity:
+   * P0 only today"). null/absent means capacity made no difference to
+   * this item. Structured reason, not a re-derived explanation (mission
+   * §22: prefer concise reason codes over verbose AI text). */
+  capacity_adjusted_reason?: string | null;
+}
+
 export interface NeedsYouBuildInputs {
   emergency: { worstTier: 'emergency_warning' | 'watch_and_act' | null; count: number; worstHeadline: string | null } | null;
   briefingError: boolean;
@@ -118,11 +151,24 @@ export interface NeedsYouBuildInputs {
   oldestCapturePending: string | null;
   evolutionPendingCount: number | null;
   evolutionHighestValueTitle: string | null;
+  /** MSN-0345's real, governed engineering-approvals count (lib/decisions.ts's
+   *  fetchEngineeringDecisions()) — same source MobileAlertDrawer already
+   *  surfaces on mobile. Links to /decisions, the real approve/reject page
+   *  (deliberately kept off this page itself — Captain's Chair's own inline
+   *  approve/reject actions were removed 2026-08-22, see (app)/engineering-
+   *  queue/page.tsx's retirement comment). */
+  engineeringApprovalsCount: number | null;
+  oldestEngineeringApproval: string | null;
   /** Genuine HQ intervention required (mission scenario F) — only ATTENTION
    *  posture reaches here; DEGRADED never generates a Needs You item. */
   hqPosture: 'NORMAL' | 'DEGRADED' | 'ATTENTION' | 'UNKNOWN' | null;
   hqAttentionItems: Array<{ title: string; detail: string }>;
   criticalAlerts: Array<{ id: string; title: string; detail: string; href: string }>;
+  /** Number One's canonical attention_items (Mission 1 Round 2) — optional/
+   *  null/[] when the brief hasn't loaded yet, errored, or a caller
+   *  predates this field; never blocks the rest of Needs You (same
+   *  degrade-gracefully discipline as every other field here). */
+  numberOneAttentionItems?: NumberOneAttentionItem[] | null;
 }
 
 export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] {
@@ -142,7 +188,7 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
       id: 'interrupt', kind: 'time_critical',
       title: `${inputs.interruptNow} item${inputs.interruptNow === 1 ? '' : 's'} flagged to interrupt now`,
       detail: 'The Attention Engine flagged this as needing you right now.',
-      href: '/captains-brief-workbench', actionLabel: 'Review',
+      href: '/briefs', actionLabel: 'Review',
     });
   }
 
@@ -192,6 +238,15 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
     });
   }
 
+  if ((inputs.engineeringApprovalsCount ?? 0) > 0) {
+    items.push({
+      id: 'engineering-approvals', kind: 'approval',
+      title: inputs.oldestEngineeringApproval ?? 'Engineering handoffs awaiting approval',
+      detail: `${inputs.engineeringApprovalsCount} handoff${inputs.engineeringApprovalsCount === 1 ? '' : 's'} awaiting your approve/reject decision.`,
+      href: '/decisions', actionLabel: 'Review',
+    });
+  }
+
   if ((inputs.evolutionPendingCount ?? 0) > 0) {
     items.push({
       id: 'hq-evolution', kind: 'review',
@@ -205,6 +260,40 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
     items.push({
       id: `alert-${alert.id}`, kind: 'time_critical',
       title: alert.title, detail: alert.detail, href: alert.href, actionLabel: 'Review',
+    });
+  }
+
+  // Number One's canonical attention_items (Mission 1 Round 2): only the
+  // two categories that mean "the Captain needs to act now" reach Needs
+  // You. Everything else Number One tracks (blocked/important-not-
+  // immediate/can-wait) stays visible in its own advisory surface
+  // (mission-workbench) rather than flooding this curated list.
+  for (const item of (inputs.numberOneAttentionItems ?? [])) {
+    if (item.category !== 'needs_now' && item.category !== 'decision_required') continue;
+    // Mission 6B §8.4 (Hub -> Ready Room continuity): a needs_now item
+    // whose source is a personal_task is an execution act, not a mission
+    // decision — route it straight to Ready Room's task view instead of
+    // the mission-review surface. decision_required always stays on
+    // mission-workbench regardless of source: that's a decision, not
+    // something to "do" (brief's own §8.4 carve-out).
+    const isPersonalTaskExecution = item.source === 'personal_task' && item.category === 'needs_now';
+    const href = !item.ref
+      ? '/mission-workbench'
+      : isPersonalTaskExecution
+        ? `/ready-room?task=${encodeURIComponent(item.ref)}`
+        : `/mission-workbench?mission=${encodeURIComponent(item.ref)}`;
+    items.push({
+      id: `number-one-${item.id}`,
+      kind: item.category === 'decision_required' ? 'blocker' : 'time_critical',
+      title: item.title,
+      detail: item.capacity_adjusted_reason || item.reason || 'Number One flagged this for your attention.',
+      href,
+      actionLabel: isPersonalTaskExecution ? 'Do this' : 'Review',
+      // Mission 7 item 2: same task, straight into Unstick Me instead of
+      // the plain Do view — Captain's choice, not an auto-classification.
+      helpMeStartHref: isPersonalTaskExecution && item.ref
+        ? `/ready-room?domain=unstick&task=${encodeURIComponent(item.ref)}`
+        : undefined,
     });
   }
 

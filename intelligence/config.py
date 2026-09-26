@@ -20,21 +20,32 @@ ENV_FILE = REPO_ROOT / ".env"
 # canonical env-loading primitive instead of this module's own copy.
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-from core.platform.configuration_service import load_dotenv_files
+from core.platform.configuration_service import get_shared_config, load_dotenv_files
 
 load_dotenv_files([ENV_FILE])
 
 # ─── Supabase ─────────────────────────────────────────────────────────────────
+# 2026-09-26: SUPABASE_URL/SUPABASE_KEY/GEMINI_API_KEY now sourced from the
+# shared SUOC config base (core/platform/configuration_service.py) rather
+# than each reading os.environ directly — this module was one of the exact
+# duplicates that service's docstring names. Names/values/types unchanged
+# for the many `from intelligence.config import SUPABASE_URL/SUPABASE_KEY/
+# GEMINI_API_KEY` callers (settings_store.py, follow_through_engine.py,
+# persistence/intelligence_store.py, governance/llm_cost_governance.py,
+# ingestion/phase_a_enrichment.py, brief/llm_provider.py,
+# adhd/task_decomposition.py, adhd/task_nudge_scheduler.py) — this is a
+# read-order change only, not a behavior change.
+_shared = get_shared_config()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+SUPABASE_URL = _shared.supabase_url
+SUPABASE_KEY = _shared.supabase_service_role_key
 
 # ─── LLM Providers ───────────────────────────────────────────────────────────
 # Provider preference order:
 # 1. Mistral Research Agent (Endeavour Research Scout)
 # 2. Gemini 2.5 Flash  3. Mistral Small  4. Ollama qwen3:8b  5. Rule-based
 
-GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_KEY    = _shared.gemini_api_key
 MISTRAL_API_KEY   = os.getenv("MISTRAL_API_KEY", "")
 OLLAMA_BASE_URL   = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL      = os.getenv("OLLAMA_INTELLIGENCE_MODEL", "qwen3:8b")

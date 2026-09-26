@@ -7,7 +7,9 @@
 // out of scope for v1 — see migration 0199's header comment).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { WorkbenchShell, Button, Select } from '@/components/ui';
+import { ShoppingCart, Receipt, Heart } from 'lucide-react';
+import { WorkbenchShell, Button, Card, Select } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
 import {
   fetchShoppingList,
   createShoppingListItem,
@@ -21,6 +23,13 @@ import {
   type NewShoppingListItemInput,
   type ShoppingListResult,
 } from '@/lib/shoppingList';
+import {
+  fetchSavedViews,
+  createSavedView as createSavedViewApi,
+  deleteSavedView as deleteSavedViewApi,
+  selectSavedView as selectSavedViewApi,
+  type SavedShoppingView,
+} from '@/lib/shoppingListViews';
 import { ItemFormModal } from './_components/ItemFormModal';
 import { ItemRow } from './_components/ItemRow';
 
@@ -36,6 +45,14 @@ export default function ShoppingListWorkbench() {
   const [statusFilter, setStatusFilter] = useState(ALL);
   const [recipientFilter, setRecipientFilter] = useState(ALL);
   const [occasionFilter, setOccasionFilter] = useState(ALL);
+  // Server-backed (migration 0223 / /api/shopping-list/views) — no longer
+  // localStorage. `savedViewsUnavailable` surfaces a real backend failure
+  // honestly (control disabled + labelled) rather than silently behaving
+  // like there are simply no saved views yet.
+  const [savedViews, setSavedViews] = useState<SavedShoppingView[]>([]);
+  const [savedViewsUnavailable, setSavedViewsUnavailable] = useState(false);
+  const [selectedViewId, setSelectedViewId] = useState('');
+  const [viewName, setViewName] = useState('');
 
   const dragIndexRef = useRef<number | null>(null);
 
@@ -45,9 +62,65 @@ export default function ShoppingListWorkbench() {
     setLoading(false);
   }
 
+  async function loadSavedViews() {
+    const result = await fetchSavedViews();
+    if (!result.ok) {
+      setSavedViewsUnavailable(true);
+      setSavedViews([]);
+      return;
+    }
+    setSavedViewsUnavailable(false);
+    const views = result.data ?? [];
+    setSavedViews(views);
+    // Reload-safe selection: the server's own is_default flag decides what
+    // applies on load, never a client-only remembered choice.
+    const defaultView = views.find((v) => v.is_default);
+    if (defaultView) {
+      setSelectedViewId(defaultView.id);
+      applyView(defaultView);
+    }
+  }
+
   useEffect(() => {
     load();
+    loadSavedViews();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function saveView() {
+    const name = viewName.trim();
+    if (!name) return;
+    const result = await createSavedViewApi({
+      name,
+      filters: { category: categoryFilter, status: statusFilter, recipient: recipientFilter, occasion: occasionFilter },
+    });
+    if (!result.ok) return; // error already logged by shoppingListViews.ts; control stays usable
+    setViewName('');
+    await loadSavedViews();
+  }
+
+  function applyView(view: SavedShoppingView) {
+    const f = view.filters ?? {};
+    setCategoryFilter(f.category ?? ALL);
+    setStatusFilter(f.status ?? ALL);
+    setRecipientFilter(f.recipient ?? ALL);
+    setOccasionFilter(f.occasion ?? ALL);
+  }
+
+  async function handleSelectView(id: string) {
+    setSelectedViewId(id);
+    if (!id) return;
+    const view = savedViews.find((v) => v.id === id);
+    if (view) applyView(view);
+    await selectSavedViewApi(id); // persists is_default server-side for reload-safety
+  }
+
+  async function handleDeleteView(id: string) {
+    if (!id) return;
+    await deleteSavedViewApi(id);
+    if (selectedViewId === id) setSelectedViewId('');
+    await loadSavedViews();
+  }
 
   const categories = useMemo(() => uniqueSorted(items.map((i) => i.category)), [items]);
   const recipients = useMemo(() => uniqueSorted(items.map((i) => i.recipient).filter(Boolean) as string[]), [items]);
@@ -64,6 +137,23 @@ export default function ShoppingListWorkbench() {
   }, [items, categoryFilter, statusFilter, recipientFilter, occasionFilter]);
 
   const subtotals = useMemo(() => subtotalsByCurrency(filtered), [filtered]);
+
+  // Real, derived-from-fetched-data stats for the summary row — no field
+  // here is fabricated: purchasedSubtotals/wishlistedCount are the same
+  // `items` this page already loads, just filtered by status.
+  const purchasedSubtotals = useMemo(
+    () => subtotalsByCurrency(items.filter((i) => i.status === 'purchased')),
+    [items],
+  );
+  const wishlistedCount = useMemo(() => items.filter((i) => i.status === 'wishlist').length, [items]);
+
+  // WP2: latest write across the loaded rows themselves (updated_at), so
+  // the summary counts carry a real observed time rather than "page load
+  // time" — the two can genuinely differ if the list hasn't changed today.
+  const latestUpdatedAt = useMemo(
+    () => items.reduce<string | null>((latest, i) => (!latest || i.updated_at > latest ? i.updated_at : latest), null),
+    [items],
+  );
 
   async function handleSave(input: NewShoppingListItemInput): Promise<ShoppingListResult> {
     const result = editing
@@ -115,54 +205,117 @@ export default function ShoppingListWorkbench() {
       tagline="Everything worth buying, in one place — for you or for someone else. Nothing tracked here is a bill or a subscription."
       back={{ href: '/workbenches', label: 'Workbenches' }}
       right={<Button size="sm" variant="primary" onClick={() => { setEditing(null); setModalOpen(true); }}>Add item</Button>}
+      mode="command"
     >
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap gap-2">
-          <Select aria-label="Filter by category" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-            <option value={ALL}>All categories</option>
-            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-          </Select>
-          <Select aria-label="Filter by status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value={ALL}>All statuses</option>
-            {STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-          </Select>
-          <Select aria-label="Filter by recipient" value={recipientFilter} onChange={(e) => setRecipientFilter(e.target.value)}>
-            <option value={ALL}>Everyone</option>
-            {recipients.map((r) => <option key={r} value={r}>{r}</option>)}
-          </Select>
-          <Select aria-label="Filter by occasion" value={occasionFilter} onChange={(e) => setOccasionFilter(e.target.value)}>
-            <option value={ALL}>All occasions</option>
-            {occasions.map((o) => <option key={o} value={o}>{o}</option>)}
-          </Select>
+      <div className="risk-reference-surface risk-reference-focus flex flex-col gap-4">
+        <div className="risk-reference-kicker">Focus / utility · scan, decide, act</div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Card className="flex items-center gap-3 p-4">
+            <ShoppingCart className="h-5 w-5 shrink-0 text-wb-sage-deep" aria-hidden />
+            <div>
+              <div className="text-[13px] font-semibold text-wb-ink">{items.length} item{items.length === 1 ? '' : 's'}</div>
+              <div className="text-[11px] text-wb-ink2">
+                {subtotals.length > 0
+                  ? subtotals.map((s) => `${s.currency} ${s.total.toFixed(2)}`).join(' · ')
+                  : 'No cost recorded yet'}
+              </div>
+            </div>
+          </Card>
+          <Card className="flex items-center gap-3 p-4">
+            <Receipt className="h-5 w-5 shrink-0 text-state-ok-on" aria-hidden />
+            <div>
+              <div className="text-[13px] font-semibold text-wb-ink">
+                {items.filter((i) => i.status === 'purchased').length} purchased
+              </div>
+              <div className="text-[11px] text-wb-ink2">
+                {purchasedSubtotals.length > 0
+                  ? purchasedSubtotals.map((s) => `${s.currency} ${s.total.toFixed(2)}`).join(' · ')
+                  : 'Nothing purchased yet'}
+              </div>
+            </div>
+          </Card>
+          <Card className="flex items-center gap-3 p-4">
+            <Heart className="h-5 w-5 shrink-0 text-wb-sand-deep" aria-hidden />
+            <div>
+              <div className="text-[13px] font-semibold text-wb-ink">{wishlistedCount} wishlisted</div>
+              <div className="text-[11px] text-wb-ink2">Not yet saving or purchased</div>
+            </div>
+          </Card>
         </div>
-
-        {subtotals.length > 0 && (
-          <p className="text-[12px] text-wb-ink2">
-            {subtotals.map((s) => `${s.currency}: $${s.total.toFixed(2)} across ${s.count} item${s.count === 1 ? '' : 's'}`).join(' · ')}
-          </p>
+        {!loading && (
+          <EvidenceMeta
+            source="Shopping list (Supabase shopping_list_items)"
+            observedAt={latestUpdatedAt}
+            state={items.length === 0 ? 'empty' : undefined}
+          />
         )}
 
-        {loading ? (
-          <p className="text-[13px] text-wb-ink2">Loading…</p>
-        ) : filtered.length === 0 ? (
-          <p className="text-[13px] text-wb-ink2">Nothing here yet. Add an item to get started.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {filtered.map((item, index) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                draggable={!isFiltered}
-                onDragStart={() => { dragIndexRef.current = index; }}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handleDrop(index)}
-                onEdit={() => { setEditing(item); setModalOpen(true); }}
-                onMarkPurchased={() => handleMarkPurchased(item.id)}
-                onDelete={() => handleDelete(item.id)}
-              />
-            ))}
+        <Card>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap gap-2">
+              <Select aria-label="Filter by category" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                <option value={ALL}>All categories</option>
+                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </Select>
+              <Select aria-label="Filter by status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value={ALL}>All statuses</option>
+                {STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </Select>
+              <Select aria-label="Filter by recipient" value={recipientFilter} onChange={(e) => setRecipientFilter(e.target.value)}>
+                <option value={ALL}>Everyone</option>
+                {recipients.map((r) => <option key={r} value={r}>{r}</option>)}
+              </Select>
+              <Select aria-label="Filter by occasion" value={occasionFilter} onChange={(e) => setOccasionFilter(e.target.value)}>
+                <option value={ALL}>All occasions</option>
+                {occasions.map((o) => <option key={o} value={o}>{o}</option>)}
+              </Select>
+              <div className="flex flex-wrap items-center gap-2 border-l border-wb-line pl-2">
+                {savedViewsUnavailable ? (
+                  <span className="text-[11px] text-state-crit-on">Saved views unavailable — backend unreachable.</span>
+                ) : (
+                  <>
+                    <select
+                      aria-label="Saved shopping view"
+                      value={selectedViewId}
+                      onChange={(e) => handleSelectView(e.target.value)}
+                      className="rounded border border-wb-line bg-wb-surface px-2 py-1.5 text-xs text-wb-ink"
+                    >
+                      <option value="">{savedViews.length === 0 ? 'No saved views yet' : 'Saved views'}</option>
+                      {savedViews.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                    </select>
+                    {selectedViewId && (
+                      <Button size="sm" variant="secondary" onClick={() => handleDeleteView(selectedViewId)}>Delete view</Button>
+                    )}
+                  </>
+                )}
+                <input aria-label="Saved view name" value={viewName} onChange={(e) => setViewName(e.target.value)} placeholder="Name this view" className="w-28 rounded border border-wb-line bg-wb-surface px-2 py-1.5 text-xs" />
+                <Button size="sm" variant="secondary" onClick={saveView} disabled={!viewName.trim() || savedViewsUnavailable}>Save view</Button>
+              </div>
+            </div>
+
+            {loading ? (
+              <p className="text-[13px] text-wb-ink2">Loading…</p>
+            ) : filtered.length === 0 ? (
+              <p className="text-[13px] text-wb-ink2">Nothing here yet. Add an item to get started.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {filtered.map((item, index) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    draggable={!isFiltered}
+                    onDragStart={() => { dragIndexRef.current = index; }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleDrop(index)}
+                    onEdit={() => { setEditing(item); setModalOpen(true); }}
+                    onMarkPurchased={() => handleMarkPurchased(item.id)}
+                    onDelete={() => handleDelete(item.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </Card>
       </div>
 
       <ItemFormModal

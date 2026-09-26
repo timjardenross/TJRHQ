@@ -39,6 +39,7 @@ from opportunity_store import (
 )
 from policy import PolicyEngine
 from relevance import RelevanceGate
+from sources import github as sources_github
 
 DEFAULT_EVOLUTION_CONFIG = {
     "min_relevance_score_to_investigate": 0.5,
@@ -425,13 +426,13 @@ class TestInternalDiscovery(unittest.TestCase):
 class TestExternalDiscovery(unittest.TestCase):
     def test_network_failure_degrades_to_empty_list_not_exception(self):
         topics = [{"id": "t1", "class": "capability", "github_query": "q", "why_relevant": "because"}]
-        with patch("external_discovery.urllib.request.urlopen", side_effect=urllib.error.URLError("no network")):
+        with patch("sources.common.urllib.request.urlopen", side_effect=urllib.error.URLError("no network")):
             candidates = external_discovery.discover(topics, DEFAULT_EVOLUTION_CONFIG)
         self.assertEqual(candidates, [])
 
     def test_topic_without_why_relevant_is_skipped_without_a_request(self):
         topics = [{"id": "t1", "class": "capability", "github_query": "q"}]  # no why_relevant
-        with patch("external_discovery.urllib.request.urlopen") as mocked:
+        with patch("sources.common.urllib.request.urlopen") as mocked:
             candidates = external_discovery.discover(topics, DEFAULT_EVOLUTION_CONFIG)
         mocked.assert_not_called()
         self.assertEqual(candidates, [])
@@ -459,7 +460,7 @@ class TestExternalDiscovery(unittest.TestCase):
             for i in range(50)
         ]
         config = {**DEFAULT_EVOLUTION_CONFIG, "max_external_candidates_per_search": 5, "max_external_candidates_per_cycle": 5}
-        with patch("external_discovery.urllib.request.urlopen", return_value=FakeResponse({"items": many_items})):
+        with patch("sources.common.urllib.request.urlopen", return_value=FakeResponse({"items": many_items})):
             candidates = external_discovery.discover([topic], config)
         self.assertEqual(len(candidates), 5)
 
@@ -467,7 +468,7 @@ class TestExternalDiscovery(unittest.TestCase):
         topic = {"id": "t1", "class": "capability", "why_relevant": "because"}
         repo = {"full_name": "org/repo", "html_url": "https://github.com/org/repo", "description": "d",
                 "license": None, "stargazers_count": 5, "archived": True}
-        candidate = external_discovery._repo_to_candidate(repo, topic, "2026-09-06T00:00:00Z")
+        candidate = sources_github.repo_to_candidate(repo, topic, "2026-09-06T00:00:00Z")
         self.assertEqual(candidate["complexity"], "high")
         self.assertEqual(candidate["cost_impact"], "unknown")  # section 11: never fabricate cost data
 
@@ -540,6 +541,13 @@ class TestEvolutionOrchestrator(unittest.TestCase):
         import evolution_orchestrator
         orch = evolution_orchestrator.EvolutionOrchestrator(REPO_ROOT, self.tmpdir)
         orch._load_watchlist = list  # never hit the real network in this test
+        orch._collect_dependency_releases = lambda *a, **k: []  # never hit the real network in this test
+        # Force the deterministic honest_fallback_investigation() path instead
+        # of a live call to router.investigate_opportunity() — these tests
+        # exercise dedup/eligibility/lifecycle logic, not model output, and a
+        # real model-router happening to be reachable on this host must not
+        # make them depend on it (or its 300s per-call timeout).
+        orch.router.health_check = lambda: False
         return orch
 
     def test_dry_run_never_writes_anything(self):

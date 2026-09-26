@@ -12,7 +12,7 @@ Authority: MSN-0060B-LEARNING-LOOP-IMPLEMENTATION.md Phase B1A
 import logging
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import pytest
@@ -48,7 +48,10 @@ def mock_supabase_client():
     """Mock Supabase client for testing."""
     client = Mock()
     client.insert = Mock(return_value=Mock(data=None))
-    client.select = Mock(return_value=Mock(data=[]))
+    # CommanderSupabaseClient's real read method is get(query) -> list[dict],
+    # not select(table, filter_=...) -> Mock(data=...) (that method doesn't
+    # exist on the real client at all).
+    client.get = Mock(return_value=[])
     client.query = Mock(return_value=[])
     return client
 
@@ -97,27 +100,26 @@ class TestDecisionRecording:
         assert decision.decision_maker == "U12345678"
         assert decision.id.startswith("DEC-REC-")
 
-        # Verify Supabase insert was called
-        mock_supabase_client.insert.assert_called_once_with(
-            "decision_records",
-            pytest.approx(
-                {
-                    "id": decision.id,
-                    "mission_id": "MSN-0055B",
-                    "recommendation_id": "REC-20260610-150000",
-                    "recommendation_text": "Recommended Option A",
-                    "human_decision": "Accepted",
-                    "decision_maker": "U12345678",
-                    "decision_reason": "",
-                    "captured_timestamp": pytest.approx(
-                        decision.captured_timestamp,
-                        abs=timedelta(seconds=1)
-                    ),
-                    "metadata": None,
-                },
-                exclude_keys=["id", "decision_timestamp", "captured_timestamp"],
-            )
-        )
+        # Verify Supabase insert was called. pytest.approx() has no
+        # exclude_keys kwarg (that was never a real pytest API) — compare
+        # the dict directly, popping the two fields (decision_timestamp,
+        # captured_timestamp) whose exact value this test isn't asserting.
+        mock_supabase_client.insert.assert_called_once()
+        insert_table, insert_data = mock_supabase_client.insert.call_args.args
+        insert_data = dict(insert_data)
+        insert_data.pop("decision_timestamp", None)
+        insert_data.pop("captured_timestamp", None)
+        assert insert_table == "decision_records"
+        assert insert_data == {
+            "id": decision.id,
+            "mission_id": "MSN-0055B",
+            "recommendation_id": "REC-20260610-150000",
+            "recommendation_text": "Recommended Option A",
+            "human_decision": "Accepted",
+            "decision_maker": "U12345678",
+            "decision_reason": "",
+            "metadata": None,
+        }
 
     def test_record_decision_with_reason(self, learning_loop_service):
         """Test: Record decision with explanation."""
@@ -338,23 +340,22 @@ class TestDecisionRetrieval:
             decision_maker="U12345678",
         )
 
-        # Mock the select response
-        mock_supabase_client.select.return_value = Mock(
-            data=[
-                {
-                    "id": decision.id,
-                    "mission_id": decision.mission_id,
-                    "recommendation_id": decision.recommendation_id,
-                    "recommendation_text": decision.recommendation_text,
-                    "human_decision": decision.human_decision,
-                    "decision_maker": decision.decision_maker,
-                    "decision_reason": decision.decision_reason,
-                    "decision_timestamp": decision.decision_timestamp,
-                    "captured_timestamp": decision.captured_timestamp,
-                    "metadata": decision.metadata,
-                }
-            ]
-        )
+        # Mock the get() response — a plain list of row dicts, matching
+        # CommanderSupabaseClient.get()'s real return type.
+        mock_supabase_client.get.return_value = [
+            {
+                "id": decision.id,
+                "mission_id": decision.mission_id,
+                "recommendation_id": decision.recommendation_id,
+                "recommendation_text": decision.recommendation_text,
+                "human_decision": decision.human_decision,
+                "decision_maker": decision.decision_maker,
+                "decision_reason": decision.decision_reason,
+                "decision_timestamp": decision.decision_timestamp,
+                "captured_timestamp": decision.captured_timestamp,
+                "metadata": decision.metadata,
+            }
+        ]
 
         # Now retrieve it
         retrieved = learning_loop_service.get_decision(decision.id)
@@ -367,35 +368,33 @@ class TestDecisionRetrieval:
         B1A Requirement: Get decisions for mission
         Test: Retrieve all decisions for a mission
         """
-        # Mock the select response
-        mock_supabase_client.select.return_value = Mock(
-            data=[
-                {
-                    "id": "DEC-REC-20260610-150000",
-                    "mission_id": "MSN-0055B",
-                    "recommendation_id": "REC-20260610-150000",
-                    "recommendation_text": "Recommended Option A",
-                    "human_decision": "Accepted",
-                    "decision_maker": "U12345678",
-                    "decision_reason": "Aligned with strategy",
-                    "decision_timestamp": "2026-06-10T15:00:00",
-                    "captured_timestamp": "2026-06-10T15:00:01",
-                    "metadata": None,
-                },
-                {
-                    "id": "DEC-REC-20260610-150100",
-                    "mission_id": "MSN-0055B",
-                    "recommendation_id": "REC-20260610-150100",
-                    "recommendation_text": "Recommended Option B",
-                    "human_decision": "Rejected",
-                    "decision_maker": "U12345678",
-                    "decision_reason": "Budget too high",
-                    "decision_timestamp": "2026-06-10T15:01:00",
-                    "captured_timestamp": "2026-06-10T15:01:01",
-                    "metadata": None,
-                },
-            ]
-        )
+        # Mock the get() response — a plain list of row dicts.
+        mock_supabase_client.get.return_value = [
+            {
+                "id": "DEC-REC-20260610-150000",
+                "mission_id": "MSN-0055B",
+                "recommendation_id": "REC-20260610-150000",
+                "recommendation_text": "Recommended Option A",
+                "human_decision": "Accepted",
+                "decision_maker": "U12345678",
+                "decision_reason": "Aligned with strategy",
+                "decision_timestamp": "2026-06-10T15:00:00",
+                "captured_timestamp": "2026-06-10T15:00:01",
+                "metadata": None,
+            },
+            {
+                "id": "DEC-REC-20260610-150100",
+                "mission_id": "MSN-0055B",
+                "recommendation_id": "REC-20260610-150100",
+                "recommendation_text": "Recommended Option B",
+                "human_decision": "Rejected",
+                "decision_maker": "U12345678",
+                "decision_reason": "Budget too high",
+                "decision_timestamp": "2026-06-10T15:01:00",
+                "captured_timestamp": "2026-06-10T15:01:01",
+                "metadata": None,
+            },
+        ]
 
         decisions = learning_loop_service.get_decisions_for_mission("MSN-0055B")
         assert len(decisions) == 2

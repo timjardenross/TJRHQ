@@ -1,6 +1,7 @@
 'use client';
 
 import { WorkbenchShell } from '@/components/ui';
+import Link from 'next/link';
 import { TodaysBriefPanel } from '@/components/TodaysBriefPanel';
 import { useAlerts } from '@/lib/useAlerts';
 import {
@@ -16,18 +17,24 @@ import {
   useReminders,
   useAttentionCounts,
   useEvolutionSignal,
+  useEngineeringApprovals,
   useNotebookReadyCount,
+  useNumberOneAttentionItems,
+  useRemember,
 } from '@/lib/captainsChairData';
 import { deriveCommandStatus, sortNeedsYou } from '@/lib/captainsChairSynthesis';
 import { deriveCommandPosture, buildNeedsYouItems, deriveIntelligenceHeadline } from '@/lib/commandState';
 import { CommandStatus } from './_components/CommandStatus';
 import { NeedsYou } from './_components/NeedsYou';
+import { Remember } from './_components/Remember';
 import { Intelligence } from './_components/Intelligence';
 import { Capacity } from './_components/Capacity';
 import { SystemStatus } from './_components/SystemStatus';
 import { HqEvolution } from './_components/HqEvolution';
 import { Ahead } from './_components/Ahead';
 import { CaptainsLog } from './_components/CaptainsLog';
+import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { WhatNeedsMeNow } from '@/components/WhatNeedsMeNow';
 
 // Command-Experience vNext (Phase 2, 2026-09-06) — re-anchors this page
 // around the mission's target information architecture: TODAY -> NEEDS YOU
@@ -71,6 +78,9 @@ export default function CaptainsChairWorkbench() {
   const { tasks: reminders, loading: remindersLoading } = useReminders();
   const { readyCount: notebookReadyCount } = useNotebookReadyCount();
   const { pendingCount: evolutionPendingCount, highestValueTitle: evolutionHighestValueTitle } = useEvolutionSignal();
+  const { count: engineeringApprovalsCount, oldestTitle: oldestEngineeringApproval } = useEngineeringApprovals();
+  const { items: numberOneAttentionItems } = useNumberOneAttentionItems();
+  const { data: rememberData, error: rememberError } = useRemember();
 
   const commandStatusLoading = humanSystemsLoading || opRiskLoading || briefingLoading || emergencyLoading || hqStatusLoading;
   const hasCheckinToday = humanSystems?.has_checkin_today ?? false;
@@ -107,9 +117,12 @@ export default function CaptainsChairWorkbench() {
     oldestCapturePending: attention.oldestCapturePending,
     evolutionPendingCount,
     evolutionHighestValueTitle,
+    engineeringApprovalsCount,
+    oldestEngineeringApproval,
     hqPosture: hqStatus?.posture ?? null,
     hqAttentionItems: hqStatus?.attentionItems ?? [],
     criticalAlerts: liveAlerts.filter((a) => a.severity === 'critical').map((a) => ({ id: a.id, title: a.title, detail: a.detail, href: a.href })),
+    numberOneAttentionItems,
   });
   const sortedNeedsYou = sortNeedsYou(needsYouItems);
   const needsYouErrors = [...attentionErrors, ...(emergencyError ? ['Emergency alerts'] : []), ...(hqStatusError ? ['System status'] : [])];
@@ -123,6 +136,15 @@ export default function CaptainsChairWorkbench() {
     humanSystemsPosture: humanSystems?.posture ?? 'UNKNOWN',
     meaningfulCommitmentsToday: calendarStatus === 'ok' ? calendarEvents.length : 0,
   });
+
+  // ── Capacity-adaptive discretionary work (Mission 2, Capacity &
+  // Attention Engine, §17): reuses the SAME commandPosture the headline
+  // already derives -- no new capacity computation, no independent rule.
+  // PROTECT/RECOVER (Amber/Red-equivalent posture) collapses discretionary
+  // "worth considering" content per the capacity contract's own Amber
+  // ("suppress low-value opportunities") / Red ("avoid optional
+  // opportunities") rules -- never hides it entirely (mission §15).
+  const reduceDiscretionaryWork = commandPosture.posture === 'PROTECT' || commandPosture.posture === 'RECOVER';
 
   // ── Intelligence: one canonical headline ────────────────────────────────
   const intelligenceHeadline = deriveIntelligenceHeadline({
@@ -147,7 +169,7 @@ export default function CaptainsChairWorkbench() {
       tone: capacityTone,
       href: '/human-systems-workbench',
     },
-    { label: 'Interrupts', value: briefingLoading ? '…' : briefingError ? 'Unknown' : `${briefingStats?.interruptNow ?? 0}`, tone: briefingError ? 'unknown' as const : (briefingStats?.interruptNow ?? 0) > 0 ? 'crit' as const : 'ok' as const, href: '/captains-brief-workbench' },
+    { label: 'Interrupts', value: briefingLoading ? '…' : briefingError ? 'Unknown' : `${briefingStats?.interruptNow ?? 0}`, tone: briefingError ? 'unknown' as const : (briefingStats?.interruptNow ?? 0) > 0 ? 'crit' as const : 'ok' as const, href: '/briefs' },
     { label: 'Alerts', value: emergencyLoading ? '…' : emergencyError ? 'Unknown' : emergency?.count ? `${emergency.count} Active` : 'Clear', tone: emergencyError ? 'unknown' as const : emergency?.worstTier === 'emergency_warning' ? 'crit' as const : emergency?.worstTier === 'watch_and_act' ? 'warn' as const : 'ok' as const, href: '/emergency-alert-hub-workbench' },
     { label: 'HQ', value: hqStatusLoading ? '…' : hqStatusError ? 'Unknown' : (hqStatus?.posture ?? 'Unknown'), tone: hqStatusError ? 'unknown' as const : hqStatus?.posture === 'ATTENTION' ? 'crit' as const : hqStatus?.posture === 'NORMAL' ? 'ok' as const : hqStatus?.posture === 'DEGRADED' ? 'warn' as const : 'unknown' as const, href: '/agent-status-workbench' },
     { label: 'Risk', value: opRiskLoading ? '…' : opRiskError ? 'Unknown' : (opRisk?.overallRisk ?? 'No data'), tone: opRiskError ? ('unknown' as const) : opRisk?.overallRisk ? (RISK_STATE_TONE[opRisk.overallRisk] ?? 'unknown') : 'unknown', href: '/intelligence-workbench' },
@@ -160,11 +182,17 @@ export default function CaptainsChairWorkbench() {
       tagline="USS TJR · Captain's Chair · Today, Needs You, intelligence, ahead, capacity, evolution, status"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       wide
+      mode="command"
     >
       <div className="space-y-4">
+        <DataAvailabilityNotice sources={needsYouErrors} />
         <CommandStatus posture={commandPosture} status={commandStatus} loading={commandStatusLoading} signals={signalChips} />
 
+        <WhatNeedsMeNow items={sortedNeedsYou} loading={attentionLoading} errors={needsYouErrors} />
+
         <NeedsYou items={sortedNeedsYou} loading={attentionLoading} errors={needsYouErrors} />
+
+        <Remember data={rememberData} error={rememberError} />
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Intelligence headline={intelligenceHeadline} loading={opRiskLoading || briefingLoading || emergencyLoading} />
@@ -182,7 +210,7 @@ export default function CaptainsChairWorkbench() {
           remindersLoading={remindersLoading}
         />
 
-        <HqEvolution pendingCount={evolutionPendingCount} highestValueTitle={evolutionHighestValueTitle} />
+        <HqEvolution pendingCount={evolutionPendingCount} highestValueTitle={evolutionHighestValueTitle} reduced={reduceDiscretionaryWork} />
 
         <SystemStatus data={hqStatus} loading={hqStatusLoading} error={hqStatusError} />
 

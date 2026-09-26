@@ -3,6 +3,7 @@ import { createSupabaseServerClient, requireSession } from '@/lib/supabase-serve
 import { decideDocument, VALID_DECISIONS } from '@/lib/knowledgeLibraryDecide';
 import type { ReviewDecision } from '@/lib/types';
 import { errorDetail } from '@/lib/errorDetail';
+import { logActionHistory } from '@/lib/actionHistoryServer';
 
 // MSN-0331 — Knowledge Review Backlog Activation. 795 documents sitting
 // at awaiting_review one-at-a-time was the real throughput bottleneck
@@ -37,14 +38,17 @@ export async function POST(request: NextRequest) {
 
   const ids = Array.isArray(body.ids) ? body.ids.filter((v): v is string => typeof v === 'string' && v.trim().length > 0) : [];
   if (ids.length === 0) {
+    await logActionHistory({ action: 'knowledge_library.document_batch_decide', outcome: 'failed', workbench: 'knowledge-library', details: { reason: 'ids_required' } });
     return NextResponse.json({ error: 'ids (non-empty array of document IDs) is required' }, { status: 400 });
   }
   if (ids.length > MAX_BATCH) {
+    await logActionHistory({ action: 'knowledge_library.document_batch_decide', outcome: 'failed', workbench: 'knowledge-library', details: { reason: 'batch_too_large', requested: ids.length } });
     return NextResponse.json({ error: `Batch too large — max ${MAX_BATCH} documents per call, got ${ids.length}` }, { status: 400 });
   }
 
   const decision = body.decision as ReviewDecision;
   if (!VALID_DECISIONS.includes(decision)) {
+    await logActionHistory({ action: 'knowledge_library.document_batch_decide', outcome: 'failed', workbench: 'knowledge-library', details: { reason: 'invalid_decision' } });
     return NextResponse.json({ error: 'Invalid decision', valid_decisions: VALID_DECISIONS }, { status: 400 });
   }
   const reason = typeof body.reason === 'string' ? body.reason.trim() : null;
@@ -67,6 +71,17 @@ export async function POST(request: NextRequest) {
       failed.push({ id, error: 'exception', detail: errorDetail(err) });
     }
   }
+
+  // One summary event for the batch action itself (the Captain's single
+  // trigger), keyed on decision + counts rather than one row per document —
+  // decideDocument() already exists per-id via the single-document route
+  // for that granularity; this event is the batch boundary's own record.
+  await logActionHistory({
+    action: 'knowledge_library.document_batch_decide',
+    outcome: failed.length === 0 ? 'success' : succeeded.length === 0 ? 'failed' : 'success',
+    workbench: 'knowledge-library',
+    details: { decision, requested: ids.length, succeeded: succeeded.length, failed: failed.length },
+  });
 
   return NextResponse.json({
     decision,

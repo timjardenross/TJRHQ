@@ -72,6 +72,22 @@ DISPATCH_LOG_NAME = "mission_dispatch_log.jsonl"
 # never succeed (e.g. consistently malformed input) doesn't retry forever,
 # burning a Mistral call every 15 minutes; it instead surfaces as needing a
 # human via the existing "Dispatch attempt failed" UI (OpportunityDetail.tsx).
+#
+# 2026-09-26: found a second instance of the exact same bug, one layer up.
+# "success" meant "batch_coding.py coded it without crashing" — which is
+# true whether or not a PR ever opened. Before the XO-review-gate PR
+# (core/engineering/xo_review.py), 7 real missions coded successfully but
+# got no PR (new-files-only guard refused their existing-file edits) —
+# every one permanently marked "succeeded" here, so even after that gate
+# shipped and could open a PR for the version-bump ones among them, none
+# would ever be retried; they're stuck as artifact-only forever. Same fix
+# shape as 2026-09-07's: only "success AND a PR actually opened" is
+# permanent. "Coded but no PR" gets its own bounded retry budget
+# (MAX_DISPATCH_ATTEMPTS, same constant, same reasoning) — a few more
+# chances for a capability change like the gate to help, then gives up
+# with the same explicit "needs manual attention" framing as a real
+# failure, so it doesn't re-code (and re-bill Mistral) forever for a
+# Mission that will never qualify for the narrow auto-PR path.
 MAX_DISPATCH_ATTEMPTS = 3
 
 
@@ -90,17 +106,19 @@ def fetch_approved_missions(limit: int = 25) -> list[dict[str, Any]]:
         return []
 
 
-def _dispatch_history(data_root: Path) -> tuple[set[str], dict[str, int]]:
-    """(mission_ids ever successfully dispatched, consecutive-failure counts
-    since each mission's last success). A success clears that mission's
-    failure streak, so a Mission that failed twice and then succeeded is
-    just "succeeded" — only an unbroken run of failures counts toward
-    MAX_DISPATCH_ATTEMPTS."""
+def _dispatch_history(data_root: Path) -> tuple[set[str], dict[str, int], dict[str, int]]:
+    """(mission_ids permanently done — succeeded WITH a real PR opened,
+    consecutive "coded but no PR" counts, consecutive-failure counts).
+    Both counters reset to zero the moment a mission finally succeeds
+    with a PR (moves to the permanent set) — only an unbroken run since
+    the last PR-bearing success (or ever, if none) counts toward either
+    budget."""
     log_path = data_root / "review" / DISPATCH_LOG_NAME
-    succeeded: set[str] = set()
+    succeeded_with_pr: set[str] = set()
+    no_pr_attempts: dict[str, int] = {}
     failures: dict[str, int] = {}
     if not log_path.exists():
-        return succeeded, failures
+        return succeeded_with_pr, no_pr_attempts, failures
     try:
         with open(log_path) as f:
             for line in f:
@@ -110,31 +128,40 @@ def _dispatch_history(data_root: Path) -> tuple[set[str], dict[str, int]]:
                     if not mid:
                         continue
                     if rec.get("success"):
-                        succeeded.add(mid)
-                        failures.pop(mid, None)
+                        if rec.get("pr_opened"):
+                            succeeded_with_pr.add(mid)
+                            no_pr_attempts.pop(mid, None)
+                            failures.pop(mid, None)
+                        else:
+                            no_pr_attempts[mid] = no_pr_attempts.get(mid, 0) + 1
+                            failures.pop(mid, None)
                     else:
                         failures[mid] = failures.get(mid, 0) + 1
     except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.warning(f"Failed to read {log_path}: {exc}")
-        return set(), {}
-    return succeeded, failures
+        return set(), {}, {}
+    return succeeded_with_pr, no_pr_attempts, failures
 
 
 def load_dispatched_ids(data_root: Path) -> set[str]:
-    """Mission IDs this cycle should skip: ever succeeded, or has now
-    failed MAX_DISPATCH_ATTEMPTS times in a row (see module comment)."""
-    succeeded, failures = _dispatch_history(data_root)
-    exhausted = {mid for mid, n in failures.items() if n >= MAX_DISPATCH_ATTEMPTS}
-    return succeeded | exhausted
+    """Mission IDs this cycle should skip: ever succeeded WITH a real PR
+    opened, or has now exhausted its retry budget for either "coded but
+    no PR" or genuine failures (see module comment and _dispatch_history's
+    own docstring)."""
+    succeeded_with_pr, no_pr_attempts, failures = _dispatch_history(data_root)
+    exhausted_no_pr = {mid for mid, n in no_pr_attempts.items() if n >= MAX_DISPATCH_ATTEMPTS}
+    exhausted_failures = {mid for mid, n in failures.items() if n >= MAX_DISPATCH_ATTEMPTS}
+    return succeeded_with_pr | exhausted_no_pr | exhausted_failures
 
 
-def record_dispatch(data_root: Path, mission_id: str, success: bool, message: str) -> None:
+def record_dispatch(data_root: Path, mission_id: str, success: bool, message: str, pr_opened: bool = False) -> None:
     log_path = data_root / "review" / DISPATCH_LOG_NAME
     log_path.parent.mkdir(parents=True, exist_ok=True)
     record = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "mission_id": mission_id,
         "success": success,
+        "pr_opened": pr_opened,
         "message": message,
     }
     with open(log_path, "a") as f:
@@ -152,6 +179,19 @@ def write_handoff_file(repo_root: Path, mission: dict[str, Any]) -> Path:
     handoffs_dir = repo_root / "Missions" / "Engineering-Handoffs"
     handoffs_dir.mkdir(parents=True, exist_ok=True)
     handoff_path = handoffs_dir / f"{handoff_id}.md"
+
+    # 2026-09-26 (HQ Consolidation Audit): a retried mission_id (up to
+    # MAX_DISPATCH_ATTEMPTS times, per run_cycle()) used to write a new
+    # timestamped file on every attempt instead of replacing the previous
+    # one — not just disk growth, engineering_handoff_reader.py's
+    # load_engineering_handoffs() globs every ENG-HANDOFF-*.md file with no
+    # dedup by mission_id, so each stale retry file surfaced as its own
+    # separate (duplicate) mission entry wherever that reader feeds into.
+    # Only ever one real handoff should exist per mission_id at a time —
+    # remove any prior attempt's file for this exact mission_id before
+    # writing the new one.
+    for stale in handoffs_dir.glob(f"ENG-HANDOFF-{mission_id}-*.md"):
+        stale.unlink(missing_ok=True)
 
     title = mission.get("title") or mission_id
     description = mission.get("description") or "(no description recorded)"
@@ -206,6 +246,7 @@ def dispatch_one(repo_root: Path, mission: dict[str, Any]) -> dict[str, Any]:
     pr_url = out.get("pr_url") or ""
     return {
         "success": True,
+        "pr_opened": bool(pr_url),
         "message": (
             f"Draft PR opened for review: {pr_url}" if pr_url
             else f"Handoff coded (artifact: {out.get('artifact')}) but no PR opened "
@@ -216,7 +257,7 @@ def dispatch_one(repo_root: Path, mission: dict[str, Any]) -> dict[str, Any]:
 
 def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: int = 25) -> dict[str, Any]:
     dispatched_before = load_dispatched_ids(data_root)
-    _, failures_before = _dispatch_history(data_root)
+    _, no_pr_attempts_before, failures_before = _dispatch_history(data_root)
     missions = fetch_approved_missions(limit=limit)
     to_dispatch = [m for m in missions if m.get("mission_id") not in dispatched_before]
 
@@ -234,6 +275,7 @@ def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: in
 
         outcome = dispatch_one(repo_root, mission)
         message = outcome.get("message") or outcome.get("error", "")
+        pr_opened = outcome.get("pr_opened", False)
         if not outcome["success"]:
             attempts = failures_before.get(mission_id, 0) + 1
             if attempts >= MAX_DISPATCH_ATTEMPTS:
@@ -246,7 +288,20 @@ def run_cycle(repo_root: Path, data_root: Path, dry_run: bool = False, limit: in
                     f"this Mission needs manual attention, it will not be "
                     f"retried automatically again)"
                 )
-        record_dispatch(data_root, mission_id, outcome["success"], message)
+        elif not pr_opened:
+            # Coded fine, but still no PR — same "giving up" framing once
+            # the no-PR retry budget (not the failure one) is exhausted, so
+            # a Mission that will never qualify for the auto-PR path stops
+            # re-coding (and re-billing Mistral) forever, same reasoning as
+            # the failure branch above.
+            attempts = no_pr_attempts_before.get(mission_id, 0) + 1
+            if attempts >= MAX_DISPATCH_ATTEMPTS:
+                message = (
+                    f"{message} (giving up after {attempts} attempts to open a PR — "
+                    f"this Mission needs manual attention, it will not be "
+                    f"retried automatically again)"
+                )
+        record_dispatch(data_root, mission_id, outcome["success"], message, pr_opened=pr_opened)
         if outcome["success"]:
             results["dispatched"] += 1
             log.info(f"{mission_id}: {message}")

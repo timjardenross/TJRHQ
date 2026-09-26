@@ -76,6 +76,11 @@ const config: Config = {
           'sage-deep': 'var(--wb-sage-deep)',
           navy:     'var(--wb-navy)',
           gold:     'var(--wb-gold)',
+          // Endeavour 27 (USS-TJR-MSN-0394) — Sand Warm Accent, fills/
+          // borders/decorative only (same rule as gold above); '-deep' is
+          // the text-safe variant on the read-mode light surface.
+          sand:     'var(--wb-sand)',
+          'sand-deep': 'var(--wb-sand-deep)',
           ok:       'var(--wb-ok)',
           warn:     'var(--wb-warn)',
           crit:     'var(--wb-crit)',
@@ -94,12 +99,14 @@ const config: Config = {
         // ── Department colours (mission spec) ──────────────────────────
         // DEFAULT/soft: vivid, for bg fills (bars, icons, pills)
         // on: darker shade, readable as text on the light #dce8f4 background
-        command:     { DEFAULT: '#FFB81C', soft: '#FFD700', on: '#7A4D00' }, // Command Gold
-        engineering: { DEFAULT: '#FF9800', soft: '#FFA726', on: '#8A3C00' }, // Engineering Orange
-        operations:  { DEFAULT: '#F44336', soft: '#FF6E63', on: '#B71C1C' }, // Operations Red
-        medical:     { DEFAULT: '#0099FF', soft: '#4FC3F7', on: '#005299' }, // Medical Blue
-        science:     { DEFAULT: '#CC88FF', soft: '#D9A6FF', on: '#5B2AAA' }, // Science Purple
-        status:      { DEFAULT: '#1B5E20', soft: '#81C784', on: '#1B5E20' }, // Status Green (legacy — see `state` below). DEFAULT re-shaded Phase 1F (was #4CAF50, failed both 3:1 UI-component and 4.5:1 text contrast — reused the already-validated `on` value since `text-status` is used directly as body text throughout the app, not just via `-on`)
+        // Compatibility names retained for old consumers. They now point at
+        // Endeavour semantics instead of restoring rainbow workbench identity.
+        command:     { DEFAULT: 'var(--wb-sand)', soft: 'var(--wb-sand)', on: 'var(--wb-sand-deep)' },
+        engineering: { DEFAULT: 'var(--wb-sage)', soft: 'var(--wb-sage)', on: 'var(--wb-sage-deep)' },
+        operations:  { DEFAULT: 'var(--wb-crit)', soft: 'var(--wb-crit)', on: 'var(--wb-crit-on)' },
+        medical:     { DEFAULT: 'var(--wb-sage)', soft: 'var(--wb-sage)', on: 'var(--wb-sage-deep)' },
+        science:     { DEFAULT: 'var(--wb-sage)', soft: 'var(--wb-sage)', on: 'var(--wb-sage-deep)' },
+        status:      { DEFAULT: 'var(--wb-ok)', soft: 'var(--wb-ok)', on: 'var(--wb-ok-on)' },
 
         // ── Operational state colours (MSN-0315 Phase 1A) ──────────────
         // Independent of department identity colour — per the ratified rule
@@ -110,6 +117,18 @@ const config: Config = {
         // Values below are contrast-validated (>=3:1 DEFAULT, >=4.5:1 "on")
         // against all three live backgrounds; see
         // lcars-portal/docs/design-tokens/PHASE-1A-CONTRAST-MATRIX.md.
+        // That validation predates the 5-theme adaptive system (2026-09-05)
+        // and doesn't hold against it: these values are deliberately
+        // theme-invariant (same architecture as wb-ok/wb-warn/wb-crit in
+        // globals.css — status colour communicates status, not atmosphere),
+        // and "on" fails badly as bare text against the midnight theme
+        // specifically (Mission 7 §3.9: 1.4-2.3:1) — no single flat colour
+        // can pass 4.5:1 against both a near-white and a near-black theme
+        // background at once, so this isn't fixable by picking a better
+        // hex. "on" is >=3:1-safe (the DEFAULT/non-text-UI bar) in every
+        // theme, never guaranteed >=4.5:1 as bare text in every theme — see
+        // stateToneClasses()'s own doc comment (lib/departments.ts) for the
+        // mandatory pairing rule this requires of every consumer.
         state: {
           ok:      { DEFAULT: '#278A44', soft: '#cfe8d5', on: '#1B5E20' }, // Healthy / Operational
           warn:    { DEFAULT: '#9C5D10', soft: '#f0ddc4', on: '#7A4610' }, // Warning / Attention Required
@@ -130,24 +149,24 @@ const config: Config = {
         },
 
         // ── LCARS chrome / backgrounds — LCARS light palette ──────────
-        space: '#dce8f4',      // light blue-grey (body)
-        panel: '#eaf1f8',      // lighter panel / card surface
-        'panel-2': '#ccd8ec',  // slightly deeper panel variant
-        edge: '#8aadc4',       // border / separator
+        space: 'var(--legacy-space)',
+        panel: 'var(--legacy-panel)',
+        'panel-2': 'var(--legacy-panel-2)',
+        edge: 'var(--legacy-edge)',
         lcars: {
-          amber: '#FF9966',
-          peach: '#FFCC99',
-          lilac: '#6644CC',    // darkened lilac — readable on light bg
-          ice: '#1A6EA8',      // darkened ice — readable on light bg
-          text: '#0d1f33',     // dark navy text
-          muted: '#3a5a78',    // strengthened blue-grey muted
+          amber: 'var(--wb-sand)',
+          peach: 'var(--wb-sand)',
+          lilac: 'var(--wb-sage-deep)',
+          ice: 'var(--wb-sage)',
+          text: 'var(--legacy-text)',
+          muted: 'var(--legacy-muted)',
           // Chrome tokens for LCARSPanel + departments.ts toneClasses() —
           // promoted from inline hexes (design-audit finding, gate 48).
-          'chrome-border': '#d9e1f0',
-          'chrome-border-soft': '#eef1f8',
-          'chrome-muted': '#61718c',
-          'chrome-text': '#18223a',
-          'chrome-accent': '#243b7a',
+          'chrome-border': 'var(--legacy-edge)',
+          'chrome-border-soft': 'var(--wb-line)',
+          'chrome-muted': 'var(--legacy-muted)',
+          'chrome-text': 'var(--legacy-text)',
+          'chrome-accent': 'var(--legacy-accent)',
         }
       },
       fontFamily: {

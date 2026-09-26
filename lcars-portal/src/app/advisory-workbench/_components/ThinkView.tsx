@@ -32,6 +32,7 @@ export function ThinkView({
   investigationType,
   investigationReason,
   prefill,
+  advisorId,
 }: {
   investigationType?: string;
   investigationReason?: string;
@@ -39,6 +40,11 @@ export function ThinkView({
    * investigation deep link — bumping `prefill.nonce` re-applies `text`
    * even if it's identical to the current input. */
   prefill?: { text: string; nonce: number } | null;
+  /** Mission 6B: a Hub deep link (?advisor=number_one) — auto-expands the
+   * Advanced disclosure straight to that advisor instead of requiring the
+   * Captain to know it's hidden behind "Advanced — talk to an advisor
+   * directly" first. */
+  advisorId?: string;
 }) {
   const [input, setInput] = useState(investigationReason ?? '');
   const [loading, setLoading] = useState(false);
@@ -48,7 +54,7 @@ export function ThinkView({
   const [showLog, setShowLog] = useState(false);
   const [showPullApart, setShowPullApart] = useState(false);
   const [openGroup, setOpenGroup] = useState<ReasoningGroup | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(!!advisorId);
   const [recommendations, setRecommendations] = useState<RecommendationPackage | null>(null);
   const [investigation, setInvestigation] = useState<InvestigationRunResult | null>(null);
   const [challenge, setChallenge] = useState<AdvisoryResult | null>(null);
@@ -210,7 +216,7 @@ export function ThinkView({
         </button>
         {showAdvanced && (
           <div className="pt-2">
-            <ConsultView />
+            <ConsultView initialAdvisorId={advisorId} />
           </div>
         )}
       </div>

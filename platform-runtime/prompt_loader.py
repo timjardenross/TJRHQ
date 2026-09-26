@@ -10,7 +10,8 @@ def read_markdown(relative_path: str) -> str:
     file_path = BASE_DIR / relative_path
 
     if not file_path.exists():
-        return f"[Missing file: {relative_path}]"
+        log.error("[prompt_loader] missing context file: %s (resolved: %s)", relative_path, file_path)
+        raise FileNotFoundError(f"prompt_loader: missing context file: {relative_path}")
 
     return file_path.read_text(encoding="utf-8")
 

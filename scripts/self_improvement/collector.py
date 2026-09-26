@@ -24,31 +24,51 @@ from typing import Any
 log = logging.getLogger("collector")
 
 # Directories that are large, irrelevant to source analysis, and expensive
-# to walk — excluding them is what keeps find/grep here inside their 10s
-# timeouts. Found via a real ad-hoc run on the production VM where
+# to walk — excluding them is what keeps find/grep here inside their
+# timeout. Found via a real ad-hoc run on the production VM where
 # _count_python_files() and _find_todos() both timed out walking the full
 # tree (node_modules, .venv, .git history, .next build output) before
-# reaching a single real source file.
-_WALK_EXCLUDED_DIRS = (".git", "node_modules", ".venv", "venv", "__pycache__", ".next")
+# reaching a single real source file. 2026-09-22: still timing out at 10s
+# even with these exclusions — root cause was 8 full-repo copies under
+# .claude/worktrees/agent-* (each duplicating the entire source tree)
+# multiplying the walk; added that exclusion and gave the timeout headroom
+# (see _FIND_GREP_TIMEOUT_S below).
+_WALK_EXCLUDED_DIRS = (".git", "node_modules", ".venv", "venv", "__pycache__", ".next", ".claude/worktrees")
+
+# See _WALK_EXCLUDED_DIRS comment above for why 10s wasn't enough.
+_FIND_GREP_TIMEOUT_S = 30
 
 
 def _find_prune_args() -> list[str]:
     """`find` arguments that prune _WALK_EXCLUDED_DIRS (at any depth)
-    before descending into them. Caller appends the real `-name`/`-type`
-    filter plus a trailing `-print` (required once `-prune` is combined
-    with `-o`, since find no longer prints by default)."""
+    before descending into them, plus any dir whose name contains "venv"
+    (case-insensitive) so non-canonically-named venvs like
+    core/voice/chatterbox-venv or platform-runtime/.venv-docling are
+    pruned too, not just the exact ".venv"/"venv" names. Caller appends
+    the real `-name`/`-type` filter plus a trailing `-print` (required
+    once `-prune` is combined with `-o`, since find no longer prints by
+    default)."""
     args: list[str] = ["("]
     for i, d in enumerate(_WALK_EXCLUDED_DIRS):
         if i:
             args.append("-o")
         args += ["-path", f"*/{d}"]
+    args += ["-o", "-ipath", "*venv*"]
     args += [")", "-prune", "-o"]
     return args
 
 
 def _grep_exclude_args() -> list[str]:
-    """`grep -r` arguments that skip _WALK_EXCLUDED_DIRS entirely."""
-    return [f"--exclude-dir={d}" for d in _WALK_EXCLUDED_DIRS]
+    """`grep -r` arguments that skip _WALK_EXCLUDED_DIRS entirely, plus any
+    dir whose name contains "venv" (glob, matches grep's --exclude-dir
+    semantics) — same non-canonical-venv gap as _find_prune_args().
+
+    --exclude-dir matches a bare directory *name* during recursion, not a
+    multi-segment path — so a ".claude/worktrees" entry in
+    _WALK_EXCLUDED_DIRS (needed as a full path for find's -path) is passed
+    here as just its basename, "worktrees"."""
+    names = [d.rsplit("/", 1)[-1] for d in _WALK_EXCLUDED_DIRS]
+    return [f"--exclude-dir={d}" for d in names] + ["--exclude-dir=*venv*"]
 
 
 class RepositoryState:
@@ -108,7 +128,7 @@ class RepositoryState:
         """Check if working tree has uncommitted changes."""
         try:
             result = subprocess.run(
-                ["git", "-C", str(self.repo_root), "status", "--porcelain"],
+                ["git", "-C", str(self.repo_root), "--no-optional-locks", "status", "--porcelain"],
                 capture_output=True, text=True, timeout=5, check=False
             )
             return bool(result.stdout.strip()) if result.returncode == 0 else None
@@ -120,7 +140,7 @@ class RepositoryState:
         """Get list of uncommitted files."""
         try:
             result = subprocess.run(
-                ["git", "-C", str(self.repo_root), "status", "--porcelain"],
+                ["git", "-C", str(self.repo_root), "--no-optional-locks", "status", "--porcelain"],
                 capture_output=True, text=True, timeout=5, check=False
             )
             if result.returncode != 0:
@@ -168,7 +188,7 @@ class FileSystemAudit:
         try:
             result = subprocess.run(
                 ["find", str(self.repo_root)] + _find_prune_args() + ["-name", "*.py", "-type", "f", "-print"],
-                capture_output=True, text=True, timeout=10, check=False
+                capture_output=True, text=True, timeout=_FIND_GREP_TIMEOUT_S, check=False
             )
             return len(result.stdout.strip().splitlines()) if result.returncode == 0 else 0
         except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/network/parse failure) must not kill the whole collection run
@@ -188,7 +208,7 @@ class FileSystemAudit:
             result = subprocess.run(
                 ["find", str(self.repo_root)] + _find_prune_args()
                 + ["(", "-name", "test_*.py", "-o", "-name", "*_test.py", ")", "-type", "f", "-print"],
-                capture_output=True, text=True, timeout=10, check=False
+                capture_output=True, text=True, timeout=_FIND_GREP_TIMEOUT_S, check=False
             )
             if result.returncode != 0:
                 return []
@@ -212,12 +232,21 @@ class FileSystemAudit:
         findings. Count + a small recency sample is enough signal for
         "is documentation stale/sprawling" without the noise.
         """
-        docs = []
-        for pattern in ["*.md", "docs/**/*.md", "**/*.md"]:
-            for f in self.repo_root.glob(pattern):
-                if f.is_file() and "archive/" not in str(f.relative_to(self.repo_root)):
-                    docs.append(f)
-        docs = list(set(docs))  # dedup
+        try:
+            result = subprocess.run(
+                ["find", str(self.repo_root)] + _find_prune_args()
+                + ["-name", "*.md", "-type", "f", "-print"],
+                capture_output=True, text=True, timeout=_FIND_GREP_TIMEOUT_S, check=False
+            )
+            if result.returncode != 0:
+                return {"count": 0, "most_recent": []}
+            docs = [
+                Path(p) for p in result.stdout.strip().splitlines()
+                if p and "archive/" not in str(Path(p).relative_to(self.repo_root))
+            ]
+        except Exception as exc:  # noqa: BLE001 - best-effort evidence gathering for an automated audit; a single environment quirk (subprocess/parse failure) must not kill the whole collection run
+            log.warning(f"Failed to find doc files: {exc}")
+            return {"count": 0, "most_recent": []}
         docs.sort(key=lambda f: f.stat().st_mtime, reverse=True)
         return {
             "count": len(docs),
@@ -348,7 +377,7 @@ class CodeAnalysis:
             for pattern, label in patterns:
                 result = subprocess.run(
                     ["grep", "-r", pattern, str(self.repo_root), "--include=*.py"] + _grep_exclude_args(),
-                    capture_output=True, text=True, timeout=10, check=False
+                    capture_output=True, text=True, timeout=_FIND_GREP_TIMEOUT_S, check=False
                 )
                 if result.returncode == 0 and result.stdout:
                     todos[label] = result.stdout.strip().split('\n')[:10]  # limit to 10
@@ -363,7 +392,7 @@ class CodeAnalysis:
         try:
             result = subprocess.run(
                 ["grep", "-r", "^import .*#.*unused", str(self.repo_root), "--include=*.py"] + _grep_exclude_args(),
-                capture_output=True, text=True, timeout=10, check=False
+                capture_output=True, text=True, timeout=_FIND_GREP_TIMEOUT_S, check=False
             )
             if result.returncode == 0 and result.stdout:
                 return result.stdout.strip().split('\n')[:5]
@@ -383,7 +412,7 @@ class CodeAnalysis:
             try:
                 result = subprocess.run(
                     ["grep", "-r", "-E", pattern, str(self.repo_root), "--include=*.py"] + _grep_exclude_args(),
-                    capture_output=True, text=True, timeout=10, check=False
+                    capture_output=True, text=True, timeout=_FIND_GREP_TIMEOUT_S, check=False
                 )
                 if result.returncode == 0 and result.stdout:
                     # Limit to a few examples

@@ -10,7 +10,7 @@ import { SHIP } from '@/lib/mockData';
 export const metadata: Metadata = {
   title: 'USS TJR Command Centre',
   description:
-    "Private LCARS command centre for USS TJR — Captain's Chair, missions, intelligence, and recovery operations.",
+    "Private TJR HQ command centre for Endeavour 27 — missions, intelligence, and recovery operations.",
   robots: {
     index: false,
     follow: false,
@@ -49,6 +49,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           stardate={computeStardate()}
           pageTitle="USS TJR — Starship Endeavour"
         />
+        <aside
+          data-route-family="legacy-compatibility"
+          className="mt-3 rounded-md border border-[#b7c5dc] bg-white px-3 py-2 text-xs text-[#61718c]"
+          role="note"
+        >
+          Compatibility route: this older command-centre surface is retained for bookmarks only. Use the linked Endeavour 27 workbench destination for current workflows.
+        </aside>
         <div className="mt-4 flex flex-1 flex-col gap-4 lg:flex-row">
           <LCARSNav />
           <main className="flex-1">{children}</main>
@@ -61,7 +68,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </span>
           <div className="flex items-center gap-4">
             <span className="uppercase tracking-[0.2em]">
-              LCARS Portal · ROS-001 v1.1
+              TJR HQ · Endeavour 27
             </span>
             <SignOutButton />
           </div>

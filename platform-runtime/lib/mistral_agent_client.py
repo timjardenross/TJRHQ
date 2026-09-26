@@ -76,13 +76,22 @@ def check_startup_health() -> dict:
     else:
         log.info("[mistral-health] MISTRAL_API_KEY configured")
 
+    # Several agent names are deliberate aliases sharing one env var
+    # (decomposition/challenge -> MISTRAL_RESEARCH_AGENT_ID, summary ->
+    # MISTRAL_BRIEFING_AGENT_ID — see _ENV_MAP above), so they always read
+    # the same agent id by design. Duplicate detection must compare across
+    # distinct env vars, not every alias name, or a correctly-configured
+    # setup always self-flags as "duplicated".
+    seen_env_vars: set[str] = set()
     seen: dict[str, str] = {}
     for agent_name, (id_var, ver_var, ver_default) in _ENV_MAP.items():
         agent_id = os.getenv(id_var, "").strip()
         if agent_id:
             report["agents"][agent_name] = {"status": "configured", "id": agent_id[:12] + "..."}
             log.info("[mistral-health] agent=%-16s status=configured id=%s...", agent_name, agent_id[:12])
-            if agent_id in seen:
+            if id_var in seen_env_vars:
+                pass  # known alias of an already-processed env var, not a duplicate
+            elif agent_id in seen:
                 log.warning(
                     "[mistral-health] DUPLICATE agent ID: %s and %s share the same agent ID %s...",
                     seen[agent_id], agent_name, agent_id[:12],
@@ -90,6 +99,7 @@ def check_startup_health() -> dict:
                 report["duplicated"].append((seen[agent_id], agent_name, agent_id))
             else:
                 seen[agent_id] = agent_name
+            seen_env_vars.add(id_var)
         else:
             report["agents"][agent_name] = {"status": "missing"}
             report["missing"].append(agent_name)

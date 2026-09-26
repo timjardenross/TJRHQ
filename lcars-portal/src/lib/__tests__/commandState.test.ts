@@ -6,7 +6,9 @@ import {
   type CommandPostureInputs,
   type NeedsYouBuildInputs,
   type IntelligenceHeadlineInputs,
+  type NumberOneAttentionItem,
 } from '../commandState';
+import { sortNeedsYou } from '../captainsChairSynthesis';
 
 // ── deriveCommandPosture ─────────────────────────────────────────────────────
 
@@ -184,6 +186,8 @@ function baseNeedsYouInputs(overrides: Partial<NeedsYouBuildInputs> = {}): Needs
     oldestCapturePending: null,
     evolutionPendingCount: null,
     evolutionHighestValueTitle: null,
+    engineeringApprovalsCount: null,
+    oldestEngineeringApproval: null,
     hqPosture: 'NORMAL',
     hqAttentionItems: [],
     criticalAlerts: [],
@@ -570,5 +574,135 @@ describe('deriveIntelligenceHeadline', () => {
       const result = deriveIntelligenceHeadline(baseHeadlineInputs({ operationalRisk: 'RED', briefingWarningsCount: 4 }));
       expect(result.headline).toBe('ELEVATED EXTERNAL CONDITIONS');
     });
+  });
+});
+
+// ── Mission 1 Round 2 (USS-TJR-MSN-1): Number One attention_items merge ─────
+//
+// core/coordination/attention_state.py normalizes NumberOne's brief into
+// this same category vocabulary; core/coordination/test_attention_state.py
+// proves the Python side is lossless and correctly ordered. These tests
+// prove the TS side of the same contract: only NEEDS_NOW/DECISION_REQUIRED
+// reach Needs You (mission-workbench keeps the rest), and the two
+// languages agree on relative ordering between those two categories
+// (KIND_PRIORITY's pre-existing time_critical=1 < blocker=2, which
+// attention_state.py's _CATEGORY_PRIORITY deliberately mirrors).
+
+function numberOneItem(overrides: Partial<NumberOneAttentionItem> = {}): NumberOneAttentionItem {
+  return {
+    id: 'number_one:priority:MSN-TEST',
+    category: 'needs_now',
+    priority: 0,
+    title: 'Test mission',
+    reason: 'Because it is a test',
+    source: 'number_one',
+    ref: 'MSN-TEST',
+    generated_at: '2026-09-19T00:00:00',
+    ...overrides,
+  };
+}
+
+describe('buildNeedsYouItems — Number One attention_items (Mission 1 Round 2)', () => {
+  it('surfaces a needs_now item as kind time_critical', () => {
+    const items = buildNeedsYouItems(baseNeedsYouInputs({
+      numberOneAttentionItems: [numberOneItem({ category: 'needs_now' })],
+    }));
+    expect(items).toHaveLength(1);
+    expect(items[0].kind).toBe('time_critical');
+  });
+
+  it('surfaces a decision_required item as kind blocker', () => {
+    const items = buildNeedsYouItems(baseNeedsYouInputs({
+      numberOneAttentionItems: [numberOneItem({ category: 'decision_required', id: 'number_one:escalation:MSN-TEST:X' })],
+    }));
+    expect(items).toHaveLength(1);
+    expect(items[0].kind).toBe('blocker');
+  });
+
+  it.each(['blocked', 'important_not_immediate', 'can_wait'] as const)(
+    'does not surface a %s item -- stays in Number One\'s own advisory surface',
+    (category) => {
+      const items = buildNeedsYouItems(baseNeedsYouInputs({
+        numberOneAttentionItems: [numberOneItem({ category })],
+      }));
+      expect(items).toEqual([]);
+    },
+  );
+
+  it('is unaffected when numberOneAttentionItems is null (brief not loaded / errored)', () => {
+    const items = buildNeedsYouItems(baseNeedsYouInputs({ numberOneAttentionItems: null }));
+    expect(items).toEqual([]);
+  });
+
+  it('is unaffected when numberOneAttentionItems is omitted entirely (caller predates this field)', () => {
+    const items = buildNeedsYouItems(baseNeedsYouInputs());
+    expect(items).toEqual([]);
+  });
+
+  it('links to mission-workbench with the mission id when ref is present', () => {
+    const items = buildNeedsYouItems(baseNeedsYouInputs({
+      numberOneAttentionItems: [numberOneItem({ ref: 'MSN-0042' })],
+    }));
+    expect(items[0].href).toBe('/mission-workbench?mission=MSN-0042');
+  });
+
+  it('links to plain mission-workbench when ref is null (e.g. a non-mission-scoped item)', () => {
+    const items = buildNeedsYouItems(baseNeedsYouInputs({
+      numberOneAttentionItems: [numberOneItem({ ref: null })],
+    }));
+    expect(items[0].href).toBe('/mission-workbench');
+  });
+
+  it('falls back to a generic detail when reason is empty', () => {
+    const items = buildNeedsYouItems(baseNeedsYouInputs({
+      numberOneAttentionItems: [numberOneItem({ reason: '' })],
+    }));
+    expect(items[0].detail).toBe('Number One flagged this for your attention.');
+  });
+
+  // The central Round 2 acceptance check (mission §11): a needs_now item
+  // and a decision_required item from the SAME underlying Number One brief
+  // must sort in the same relative order commandState.ts's own
+  // sortNeedsYou() would apply via KIND_PRIORITY, matching
+  // core/coordination/test_attention_state.py's
+  // test_needs_now_sorts_ahead_of_decision_required on the Python side --
+  // proving the two languages agree, not just that each is internally
+  // consistent.
+  it('sorts a needs_now item ahead of a decision_required item, matching attention_state.py\'s ranking', () => {
+    const items = buildNeedsYouItems(baseNeedsYouInputs({
+      numberOneAttentionItems: [
+        numberOneItem({ id: 'a', category: 'decision_required', title: 'The decision one' }),
+        numberOneItem({ id: 'b', category: 'needs_now', title: 'The needs-now one' }),
+      ],
+    }));
+    const sorted = sortNeedsYou(items);
+    expect(sorted.map((i) => i.title)).toEqual(['The needs-now one', 'The decision one']);
+  });
+});
+
+// ── Mission 2 (Capacity & Attention Engine): capacity_adjusted_reason ───────
+describe('buildNeedsYouItems — capacity_adjusted_reason (Mission 2)', () => {
+  it('prefers capacity_adjusted_reason over reason when both are present', () => {
+    const items = buildNeedsYouItems(baseNeedsYouInputs({
+      numberOneAttentionItems: [numberOneItem({
+        reason: 'Because it is a test',
+        capacity_adjusted_reason: 'DEFERRED — Red capacity: P0 only today',
+      })],
+    }));
+    expect(items[0].detail).toBe('DEFERRED — Red capacity: P0 only today');
+  });
+
+  it('falls back to reason when capacity_adjusted_reason is null (capacity made no difference)', () => {
+    const items = buildNeedsYouItems(baseNeedsYouInputs({
+      numberOneAttentionItems: [numberOneItem({ reason: 'Because it is a test', capacity_adjusted_reason: null })],
+    }));
+    expect(items[0].detail).toBe('Because it is a test');
+  });
+
+  it('falls back to reason when capacity_adjusted_reason is absent entirely (older brief shape)', () => {
+    const items = buildNeedsYouItems(baseNeedsYouInputs({
+      numberOneAttentionItems: [numberOneItem({ reason: 'Because it is a test' })],
+    }));
+    expect(items[0].detail).toBe('Because it is a test');
   });
 });

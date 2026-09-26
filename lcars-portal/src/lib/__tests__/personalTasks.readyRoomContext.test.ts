@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   rankToday,
+  pickUpItems,
   capacityLimitForPosture,
   buildStatusSentence,
   type PersonalTask,
@@ -90,6 +91,27 @@ describe('rankToday — pinned tasks always survive a shrinking cap (brief §13/
     const many = Array.from({ length: 20 }, (_, i) => task({ id: `t${i}`, urgency: 5 }));
     const result = rankToday(many, { capacityLimit: capacityLimitForPosture('ENGAGE') });
     expect(result.length).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('Mission 3/4 convergence — Ready Room treats capture-originated tasks identically (mission4 §11, no duplicate engine)', () => {
+  it('ranks a task created via the Mission 3 capture->task bridge (source_capture_id set) exactly like a manually-created one', () => {
+    const captured = task({ id: 'from-capture', source_capture_id: 'cap-123', urgency: 5 });
+    const manual = task({ id: 'manual', urgency: 1 });
+    const result = rankToday([captured, manual], { capacityLimit: 3 });
+    // Same ordering rules apply regardless of origin -- rankToday has no
+    // source_capture_id branch, so this is a structural guarantee, not a
+    // coincidence: Ready Room never re-derives "is this from a capture"
+    // and never treats it as a different kind of task.
+    expect(result.map((t) => t.id)).toEqual(['from-capture', 'manual']);
+  });
+
+  it('surfaces a paused, capture-originated task in "pick up where you left off" the same as any other', () => {
+    const paused = task({
+      id: 'paused-from-capture', source_capture_id: 'cap-456',
+      work_state: 'paused', restart_cue: 'Called the specialist, waiting on their callback.',
+    });
+    expect(pickUpItems([paused]).map((t) => t.id)).toEqual(['paused-from-capture']);
   });
 });
 

@@ -10,24 +10,30 @@
 // primary navigation.
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
+import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
+import { WhatNeedsMeNow } from '@/components/WhatNeedsMeNow';
 import type { ApprovalStatus, BriefListItem } from '@/lib/briefsShared';
 import { buildMorningIntelligenceView, isToday } from '@/lib/briefsShared';
+import type { DomainsDocument } from '@/lib/domainsShared';
+import { DomainsView } from './_components/DomainsView';
 
-type Tab = 'latest' | 'timeline' | 'explore';
+type Tab = 'latest' | 'domains' | 'timeline' | 'explore';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'latest', label: 'Latest' },
+  { key: 'domains', label: 'Domains' },
   { key: 'timeline', label: 'Timeline' },
   { key: 'explore', label: 'Explore' },
 ];
 
 const STATUS_LABEL: Record<ApprovalStatus, string> = {
-  IN_REVIEW: 'In Review (legacy)',
-  QA_PASSED: 'Awaiting Publish (legacy)',
+  IN_REVIEW: 'In Review',
+  QA_PASSED: 'Awaiting Publish',
   PUBLISHED: 'Published',
 };
 
@@ -42,7 +48,16 @@ function monthLabel(dateStr: string): string {
 
 function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
   return (
-    <div className="flex gap-2" role="tablist" aria-label="Briefs views">
+    // Endeavour 27 Stream E: 4 tabs at 375px overflowed with no wrap/scroll
+    // fallback -- same class of defect DomainToggle.tsx's own 2026-08-09 P0
+    // fix addressed (see that file's comment). Matches its established
+    // flex-nowrap + overflow-x-auto + snap pattern rather than inventing a
+    // new one -- a deliberate horizontal scroll, not an accidental clip.
+    <div
+      className="flex flex-nowrap gap-2 overflow-x-auto [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory"
+      role="tablist"
+      aria-label="Briefs views"
+    >
       {TABS.map((t) => (
         <button
           key={t.key}
@@ -50,7 +65,7 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
           role="tab"
           aria-selected={active === t.key}
           onClick={() => onChange(t.key)}
-          className={`rounded-full border px-4 py-1.5 text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+          className={`shrink-0 snap-start rounded-full border px-4 py-1.5 text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
             active === t.key
               ? 'border-wb-sage-deep bg-wb-sage-deep text-white'
               : 'border-wb-line text-wb-ink2 hover:bg-wb-bg'
@@ -88,6 +103,7 @@ function LatestView({ latest, loading }: { latest: BriefListItem | null; loading
         <span className="text-[13px] text-wb-ink2">{new Date(label).toLocaleString()}</span>
         <RiskPill value={latest.overall_risk} />
       </div>
+      <EvidenceMeta source="HQ brief pipeline" observedAt={latest.coverage?.latest_included_at ?? label} />
 
       {view.coverageDegraded && view.coverageNote && (
         <p className="mb-4 rounded-md border border-wb-crit/30 bg-wb-crit/10 p-2.5 text-[12.5px] text-wb-crit-on">
@@ -146,7 +162,7 @@ function LatestView({ latest, loading }: { latest: BriefListItem | null; loading
         </p>
       )}
 
-      <Link href={`/briefs/${encodeURIComponent(latest.brief_id)}`} className="text-[13px] text-wb-sage-deep underline">
+      <Link href={`/briefs/${encodeURIComponent(latest.brief_id)}`} className="text-[13px] text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
         Read full brief →
       </Link>
     </Card>
@@ -220,6 +236,7 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
         <div className="flex flex-wrap gap-2.5">
           <input
             type="search"
+            aria-label="Search briefs"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search briefs…"
@@ -242,7 +259,7 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
           <Collapsible.Trigger asChild>
             <button
               type="button"
-              className="rounded-md border border-wb-line px-3 py-1.5 text-[13px] text-wb-ink2 hover:bg-wb-bg"
+              className="rounded-md border border-wb-line px-3 py-1.5 text-[13px] text-wb-ink2 hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
             >
               {showAdvanced ? 'Hide' : 'Show'} advanced filters
             </button>
@@ -259,7 +276,7 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
                     type="button"
                     onClick={() => setStatusFilter(s)}
                     aria-pressed={statusFilter === s}
-                    className={`rounded-full border px-3 py-1 text-[12px] ${
+                    className={`rounded-full border px-3 py-1 text-[12px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
                       statusFilter === s ? 'border-wb-sage-deep bg-wb-sage-deep text-white' : 'border-wb-line text-wb-ink2'
                     }`}
                   >
@@ -314,6 +331,11 @@ export default function BriefsPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('latest');
 
+  const [domainsDoc, setDomainsDoc] = useState<DomainsDocument | null>(null);
+  const [domainsLoading, setDomainsLoading] = useState(false);
+  const [domainsError, setDomainsError] = useState<string | null>(null);
+  const domainsFetchedRef = useRef(false);
+
   useAbortEffect((signal, alive) => {
     fetch('/api/briefs', { signal })
       .then(async (r) => {
@@ -325,6 +347,29 @@ export default function BriefsPage() {
       .finally(() => { if (alive()) setLoading(false); });
   }, []);
 
+  // Lazy-loaded on first visit to the Domains tab — this hits
+  // context_service.py's live assembly (event-bus poll + latest-brief
+  // read) on every call, so it shouldn't fire just for loading Latest/
+  // Timeline/Explore.
+  useAbortEffect((signal, alive) => {
+    if (tab !== 'domains' || domainsFetchedRef.current) return;
+    domainsFetchedRef.current = true;
+    setDomainsLoading(true);
+    fetch('/api/briefs/domains', { signal })
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d?.error || 'Failed to load domains');
+        if (alive()) { setDomainsDoc(d); setDomainsError(null); }
+      })
+      .catch((e) => {
+        if (alive() && !(e instanceof Error && e.name === 'AbortError')) {
+          setDomainsError(e instanceof Error ? e.message : 'Failed to load domains');
+          domainsFetchedRef.current = false;
+        }
+      })
+      .finally(() => { if (alive()) setDomainsLoading(false); });
+  }, [tab]);
+
   const latest = briefs[0] ?? null; // API already orders generated_at desc
 
   return (
@@ -334,14 +379,26 @@ export default function BriefsPage() {
       tagline="USS TJR · HQ's canonical daily synthesis of the intelligence picture — one assessment, multiple delivery formats"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       tabs={<TabBar active={tab} onChange={setTab} />}
+      mode="command"
     >
-      {error && (
-        <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>
-      )}
+      <div className="read-reference-surface">
+        <div className="read-reference-kicker">Read mode · canonical intelligence record</div>
+        {error && <DataAvailabilityNotice sources={[`Briefs: ${error}`]} className="mb-4" />}
+        {domainsError && <DataAvailabilityNotice sources={[`Brief domains: ${domainsError}`]} className="mb-4" />}
+        <div className="mb-4">
+          <WhatNeedsMeNow
+            items={latest ? [{ id: latest.brief_id, title: 'Latest intelligence brief is ready to review', detail: latest.coverage ? `${latest.coverage.completed ?? 0}/${latest.coverage.expected ?? 0} sources complete.` : undefined, href: `/briefs/${encodeURIComponent(latest.brief_id)}`, actionLabel: 'Read brief' }] : []}
+            loading={loading}
+            errors={error ? [`Briefs: ${error}`] : []}
+            emptyLabel="No brief requires your attention yet."
+          />
+        </div>
 
-      {tab === 'latest' && <LatestView latest={latest} loading={loading} />}
-      {tab === 'timeline' && <TimelineView briefs={briefs} loading={loading} />}
-      {tab === 'explore' && <ExploreView briefs={briefs} loading={loading} />}
+        {tab === 'latest' && <LatestView latest={latest} loading={loading} />}
+        {tab === 'domains' && <DomainsView doc={domainsDoc} loading={domainsLoading} error={domainsError} />}
+        {tab === 'timeline' && <TimelineView briefs={briefs} loading={loading} />}
+        {tab === 'explore' && <ExploreView briefs={briefs} loading={loading} />}
+      </div>
     </WorkbenchShell>
   );
 }

@@ -66,54 +66,75 @@ class TestGeminiQuotaAware:
         log.info("✓ After 1 call: calls=1, can_use=False (budget exhausted)")
 
     def test_daily_quota_exhaustion_detection(self):
-        """Test: Daily quota exhaustion returns immediately (no retry)."""
+        """Test: Daily quota exhaustion returns immediately (no retry).
+
+        Provider chain is Mistral -> Ollama -> Gemini (M-20260612-MISTRAL-AGENT-
+        RESEARCH-WORKFLOW put Mistral first and pushed Gemini to last), so for
+        Gemini to be attempted at all here, Mistral and Ollama both have to
+        fail first — Gemini can no longer "fall back to Ollama" since Ollama
+        is earlier in the chain, not later. The thing this test actually
+        verifies (quota_exhausted causes exactly one call, no retry) still
+        holds regardless of chain position.
+        """
         log.info("\n=== TEST: Daily Quota Exhaustion Detection ===")
 
-        # Mock Gemini to return quota exhausted (429 with large retry_delay)
-        with patch("research_delegator.call_gemini_2_5_flash_lite_research") as mock_gemini:
-            mock_gemini.return_value = ResearchOutcome(
-                status="quota_exhausted",
-                provider="gemini-3.5-flash-lite",
-                error_message="Gemini daily quota exhausted (retry_delay=86400s). No fallback retry.",
-                fallback_reason="gemini_quota_exhausted"
-            )
+        with patch("research_delegator.call_mistral_research") as mock_mistral:
+            mock_mistral.return_value = ResearchOutcome(status="failed", provider="mistral_agent", error_message="not configured")
 
-            # Mock Ollama to succeed
             with patch("research_delegator.call_ollama_research") as mock_ollama:
-                mock_ollama.return_value = ResearchOutcome(
-                    status="success",
-                    provider="ollama",
-                    findings="Ollama fallback response"
-                )
+                mock_ollama.return_value = ResearchOutcome(status="failed", provider="ollama", error_message="model not available")
 
-                # Delegate task
-                result = delegate_research_task(
-                    task_description="Test research task",
-                    mission_id="MSN-TEST-002"
-                )
+                with patch("research_delegator.call_gemini_2_5_flash_lite_research") as mock_gemini:
+                    mock_gemini.return_value = ResearchOutcome(
+                        status="quota_exhausted",
+                        provider="gemini-3.5-flash-lite",
+                        error_message="Gemini daily quota exhausted (retry_delay=86400s). No fallback retry.",
+                        fallback_reason="gemini_quota_exhausted"
+                    )
 
-                # Verify: Gemini was attempted (returned quota_exhausted)
-                assert "gemini-3.5-flash-lite" in result.provider_attempted
-                log.info("✓ Gemini was attempted")
+                    result = delegate_research_task(
+                        task_description="Test research task",
+                        mission_id="MSN-TEST-002"
+                    )
 
-                # Verify: Fallback to Ollama occurred
-                assert result.provider == "ollama"
-                assert result.status == "success"
-                log.info("✓ Fallback to Ollama successful")
+                    # Verify: Gemini was attempted (returned quota_exhausted)
+                    assert "gemini-3.5-flash-lite" in result.provider_attempted
+                    log.info("✓ Gemini was attempted")
 
-                # Verify: Gemini not retried (quota_exhausted → immediate fallback)
-                assert mock_gemini.call_count == 1  # Only called once, no retry
-                log.info("✓ Gemini not retried (quota_exhausted detected)")
+                    # Verify: Gemini not retried (quota_exhausted → no retry)
+                    assert mock_gemini.call_count == 1  # Only called once, no retry
+                    log.info("✓ Gemini not retried (quota_exhausted detected)")
+
+                    # Verify: no provider left after Gemini (last in chain) also
+                    # exhausted its quota — overall delegation fails cleanly.
+                    assert result.status == "error"
+                    assert result.provider == "none"
+                    log.info("✓ All providers exhausted, no crash, clean error result")
 
     def test_mission_budget_prevents_second_gemini_call(self):
         """Test: Per-mission budget prevents 2nd Gemini call within same mission."""
         log.info("\n=== TEST: Mission Budget Prevents 2nd Gemini Call ===")
 
         mission_id = "MSN-TEST-003"
-        provider_health = ProviderHealth()
+        # Deliberately a fresh ProviderHealth per sub-test below, not shared:
+        # the per-mission Gemini quota this test verifies is keyed by
+        # mission_id in a module-level dict (_mission_gemini_quotas),
+        # independent of any ProviderHealth instance, so it persists across
+        # both calls regardless. ProviderHealth's circuit breaker has no
+        # concept of scope beyond "unavailable forever within this
+        # instance" — sharing one across sub-tests would mean Ollama
+        # failing in sub-test 1 (needed so Gemini gets reached at all,
+        # since chain order is Mistral -> Ollama -> Gemini) permanently
+        # excludes Ollama from sub-test 2 too, which isn't what either
+        # sub-test is trying to verify.
 
-        # First task: Gemini succeeds
-        with patch("research_delegator.call_gemini_2_5_flash_lite_research") as mock_gemini:
+        # First task: Mistral+Ollama fail (chain order: Mistral -> Ollama ->
+        # Gemini), Gemini succeeds as last resort.
+        with patch("research_delegator.call_mistral_research") as mock_mistral, \
+             patch("research_delegator.call_ollama_research") as mock_ollama, \
+             patch("research_delegator.call_gemini_2_5_flash_lite_research") as mock_gemini:
+            mock_mistral.return_value = ResearchOutcome(status="failed", provider="mistral_agent", error_message="not configured")
+            mock_ollama.return_value = ResearchOutcome(status="failed", provider="ollama", error_message="model not available")
             mock_gemini.return_value = ResearchOutcome(
                 status="success",
                 provider="gemini-3.5-flash-lite",
@@ -123,7 +144,7 @@ class TestGeminiQuotaAware:
             result1 = delegate_research_task(
                 task_description="First task",
                 mission_id=mission_id,
-                provider_health=provider_health
+                provider_health=ProviderHealth()
             )
 
             assert result1.status == "success"
@@ -136,8 +157,12 @@ class TestGeminiQuotaAware:
             assert quota.can_use_gemini() == False
             log.info("✓ Mission quota exhausted: calls=1, can_use=False")
 
-        # Second task: Gemini should be skipped (quota exhausted)
-        with patch("research_delegator.call_gemini_2_5_flash_lite_research") as mock_gemini:
+        # Second task: Mistral fails again, Ollama succeeds this time. Gemini
+        # must be skipped (quota exhausted) before it's ever reached, so
+        # Ollama becomes the provider actually used.
+        with patch("research_delegator.call_mistral_research") as mock_mistral, \
+             patch("research_delegator.call_gemini_2_5_flash_lite_research") as mock_gemini:
+            mock_mistral.return_value = ResearchOutcome(status="failed", provider="mistral_agent", error_message="not configured")
             mock_gemini.return_value = ResearchOutcome(
                 status="error",
                 provider="gemini-3.5-flash-lite",
@@ -154,7 +179,7 @@ class TestGeminiQuotaAware:
                 result2 = delegate_research_task(
                     task_description="Second task",
                     mission_id=mission_id,
-                    provider_health=provider_health
+                    provider_health=ProviderHealth()
                 )
 
                 # Verify: Gemini skipped (not in attempted list)
@@ -166,8 +191,8 @@ class TestGeminiQuotaAware:
                 assert result2.status == "success"
                 log.info("✓ Ollama used for second task")
 
-                # Verify: Gemini.call_count still 0 (never called for task 2)
-                # Note: mock_gemini is a new patch, so call_count is 0
+                # Verify: Gemini never called for task 2 (quota-skipped)
+                assert mock_gemini.call_count == 0
                 log.info("✓ Gemini not called for second task")
 
     def test_circuit_breaker_with_quota_aware_skipping(self):
@@ -176,6 +201,16 @@ class TestGeminiQuotaAware:
 
         mission_id = "MSN-TEST-004"
         provider_health = ProviderHealth()
+        # Chain order is Mistral -> Ollama -> Gemini, so for Gemini to be
+        # reached at all, both earlier providers must be unavailable.
+        # Pre-seeding them as already-unavailable (a real scenario: both
+        # already failed earlier in this mission, a prior task hit them) is
+        # cleaner than mocking them to fail here — it exercises the same
+        # circuit-breaker skip logic without a fragile chained failure mock,
+        # and avoids needing to mock call_mistral_research at all (never
+        # reached).
+        provider_health.mark_unavailable("mistral_agent", "test_setup")
+        provider_health.mark_unavailable("ollama", "test_setup")
 
         # Task 1: Gemini hits daily quota
         with patch("research_delegator.call_gemini_2_5_flash_lite_research") as mock_gemini:
@@ -186,23 +221,23 @@ class TestGeminiQuotaAware:
                 fallback_reason="gemini_quota_exhausted"
             )
 
-            with patch("research_delegator.call_ollama_research") as mock_ollama:
-                mock_ollama.return_value = ResearchOutcome(
-                    status="success",
-                    provider="ollama",
-                    findings="Task 1 findings (Ollama)"
-                )
+            result1 = delegate_research_task(
+                task_description="Task 1",
+                mission_id=mission_id,
+                provider_health=provider_health
+            )
 
-                result1 = delegate_research_task(
-                    task_description="Task 1",
-                    mission_id=mission_id,
-                    provider_health=provider_health
-                )
+            # Nothing left after Gemini (last in chain) also fails.
+            assert result1.status == "error"
+            assert result1.provider == "none"
+            # Verify Gemini was marked unavailable
+            assert not provider_health.is_available("gemini-3.5-flash-lite")
+            log.info("✓ Task 1: Gemini quota exhausted, marked unavailable")
 
-                assert result1.provider == "ollama"
-                # Verify Gemini was marked unavailable
-                assert not provider_health.is_available("gemini-3.5-flash-lite")
-                log.info("✓ Task 1: Gemini quota exhausted, Ollama used, Gemini marked unavailable")
+        # Ollama "recovers" between tasks (a real prior failure clearing) —
+        # this test only cares about Gemini's circuit-breaker persistence,
+        # not Ollama's.
+        provider_health.mark_available("ollama")
 
         # Task 2: Gemini should be skipped (marked unavailable by circuit breaker)
         with patch("research_delegator.call_gemini_2_5_flash_lite_research") as mock_gemini:
@@ -278,14 +313,14 @@ class TestGeminiQuotaAware:
             )
 
         with (
-            patch("research_delegator.call_gemini_2_5_flash_lite_research", side_effect=mock_gemini_with_quota),
+            patch("research_delegator.call_mistral_research") as mock_mistral,
             patch("research_delegator.call_ollama_research") as mock_ollama,
+            patch("research_delegator.call_gemini_2_5_flash_lite_research", side_effect=mock_gemini_with_quota),
         ):
-            mock_ollama.return_value = ResearchOutcome(
-                status="success",
-                provider="ollama",
-                findings="Ollama fallback"
-            )
+            # Chain order is Mistral -> Ollama -> Gemini; both earlier
+            # providers must fail for Gemini (last) to be reached at all.
+            mock_mistral.return_value = ResearchOutcome(status="failed", provider="mistral_agent", error_message="not configured")
+            mock_ollama.return_value = ResearchOutcome(status="failed", provider="ollama", error_message="model not available")
 
             result = delegate_research_task(task_description="Test no retries")
 
@@ -293,9 +328,10 @@ class TestGeminiQuotaAware:
             assert call_count["gemini"] == 1
             log.info("✓ Gemini called exactly 1 time (no retries on daily quota)")
 
-            # Verify: Ollama fallback used
-            assert result.provider == "ollama"
-            log.info("✓ Ollama fallback successful")
+            # Verify: nothing left after Gemini also fails — clean error.
+            assert result.status == "error"
+            assert result.provider == "none"
+            log.info("✓ All providers exhausted, no crash, clean error result")
 
 
 def run_tests():

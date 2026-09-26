@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
@@ -15,16 +15,45 @@ export default function LoginPage() {
   const [error, setError]     = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    // Belt-and-braces cleanup only — see the `method="post"` on both <form>
+    // elements below for the actual fix. Without an explicit method, a form
+    // whose onSubmit handler never attaches (a JS hydration failure) falls
+    // back to the browser's native default, which is GET: the browser then
+    // submits email+password as a URL query string, exposing them to
+    // history, screenshots, referrers, and server/proxy access logs before
+    // this effect ever runs. `method="post"` makes that fallback path safe
+    // (a failed POST, not a credential-bearing GET) even when JS never
+    // loads. Confirmed live 2026-09-21: a concurrent build-lock collision
+    // broke hydration mid-login and reproduced exactly this GET fallback.
+    if (typeof window !== 'undefined' && (window.location.search.includes('email=') || window.location.search.includes('password='))) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   async function handlePassword(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim() || !password) return;
+    // Browser password managers can populate controlled inputs without
+    // dispatching React's change event. Read the submitted form as the source
+    // of truth so a visibly completed form cannot remain inert.
+    const form = e.currentTarget as HTMLFormElement;
+    const formData = new FormData(form);
+    const submittedEmail = String(formData.get('email') ?? email).trim();
+    const submittedPassword = String(formData.get('password') ?? password);
+    if (!submittedEmail || !submittedPassword) return;
     setLoading(true);
     setError(null);
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    let error: { message: string } | null = null;
+    try {
+      const result = await Promise.race([
+        supabase.auth.signInWithPassword({ email: submittedEmail, password: submittedPassword }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 12_000)),
+      ]);
+      ({ error } = result);
+    } catch {
+      error = { message: 'Authentication service did not respond. Check HQ Status or try again.' };
+    }
     setLoading(false);
     if (error) {
       setError(error.message);
@@ -70,18 +99,19 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-wb-bg px-4 font-sans antialiased">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-md">
 
         {/* Header */}
         <div className="mb-6 flex items-center gap-3">
-          <div className="h-8 w-2 rounded-sm bg-wb-sage-deep" aria-hidden="true" />
+          <div className="h-12 w-1 rounded-full bg-wb-sage-deep shadow-[0_0_18px_rgba(126,220,190,0.35)]" aria-hidden="true" />
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-wb-ink2">
-              USS TJR · NCC-170239
+              TJR HQ · ENDEAVOUR 27
             </p>
-            <h1 className="font-serif text-xl text-wb-ink">
-              LCARS Portal
+            <h1 className="font-serif text-2xl text-wb-ink">
+              Command access
             </h1>
+            <p className="mt-1 text-[12px] text-wb-ink2">A calmer mind. A stronger you. A brighter tomorrow.</p>
           </div>
         </div>
 
@@ -113,15 +143,25 @@ export default function LoginPage() {
 
           {/* Password form */}
           {mode === 'password' && (
-            <form onSubmit={handlePassword} aria-label="Password authentication">
+            <form onSubmit={handlePassword} method="post" action="#" aria-label="Password authentication">
               <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-wb-ink2">
                 Authentication required
               </p>
               <h2 className="mb-4 font-serif text-lg text-wb-ink">
-                Captain Access
+                Enter the command centre
               </h2>
               <div className="flex flex-col gap-3">
+                {/* Mission 7 §31 accessibility pass: neither input had a
+                    label of any kind — relying on placeholder text alone,
+                    which disappears once typing starts and isn't reliably
+                    announced as a label by screen readers. The Magic Link
+                    form just below already uses the correct sr-only
+                    <label>+id pattern for the same email field; mirrored
+                    here rather than left inconsistent within one file. */}
+                <label htmlFor="password-form-email" className="sr-only">Email address</label>
                 <input
+                  id="password-form-email"
+                  name="email"
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
@@ -131,7 +171,10 @@ export default function LoginPage() {
                   required
                   disabled={loading}
                 />
+                <label htmlFor="password-form-password" className="sr-only">Password</label>
                 <input
+                  id="password-form-password"
+                  name="password"
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
@@ -143,14 +186,14 @@ export default function LoginPage() {
                 />
                 <button
                   type="submit"
-                  disabled={loading || !email.trim() || !password}
+                  disabled={loading}
                   className="w-full rounded-md bg-wb-sage-deep px-4 py-2 text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   aria-busy={loading}
                 >
                   {loading ? 'Authenticating…' : 'Access Bridge'}
                 </button>
                 {error && (
-                  <p role="alert" className="text-xs text-state-crit-on">{error}</p>
+                  <p role="alert" className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-xs text-state-crit-on">{error}</p>
                 )}
               </div>
             </form>
@@ -158,12 +201,12 @@ export default function LoginPage() {
 
           {/* Magic link form */}
           {mode === 'magic' && !sent && (
-            <form onSubmit={handleMagicLink} aria-label="Magic link authentication">
+            <form onSubmit={handleMagicLink} method="post" action="#" aria-label="Magic link authentication">
               <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-wb-ink2">
                 Authentication required
               </p>
               <h2 className="mb-4 font-serif text-lg text-wb-ink">
-                Captain Access
+                Enter the command centre
               </h2>
               <p className="mb-4 text-sm text-wb-ink2">
                 Enter your email to receive a one-time access link.
@@ -195,7 +238,7 @@ export default function LoginPage() {
                   {loading ? 'Sending…' : 'Send Access Link'}
                 </button>
                 {error && (
-                  <p id="login-error" role="alert" className="text-xs text-state-crit-on">{error}</p>
+                  <p id="login-error" role="alert" className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-xs text-state-crit-on">{error}</p>
                 )}
               </div>
             </form>
@@ -207,7 +250,7 @@ export default function LoginPage() {
               <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full border border-state-ok bg-state-ok/10" aria-hidden="true">
                 <span className="text-xl text-state-ok-on">✓</span>
               </div>
-              <h2 className="mb-2 font-serif text-lg text-state-ok-on">Link sent</h2>
+              <h2 className="mb-2 inline-block rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 font-serif text-lg text-state-ok-on">Link sent</h2>
               <p className="text-sm text-wb-ink2">
                 Check <span className="text-wb-sage-deep">{email}</span> for your access link. It expires in 1 hour.
               </p>

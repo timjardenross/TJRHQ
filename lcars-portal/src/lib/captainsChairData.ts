@@ -13,6 +13,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import type { StateTone } from '@/lib/types';
 import type { SystemPostureBand } from '@/app/human-systems-workbench/_components/types';
 import type { AssessedContext } from '@/app/api/human-systems/assessed-context';
+import type { NumberOneAttentionItem } from '@/lib/commandState';
 
 // ── Situation strip tone/label maps ──────────────────────────────────────────
 
@@ -227,6 +228,10 @@ export interface HqStatusSummary {
   summary: string;
   needsAttentionCount: number;
   attentionItems: Array<{ title: string; detail: string }>;
+  /** WP2: real fetchedAt from /api/agent-status-workbench/overview — was
+   * computed server-side (route.ts) but previously dropped on the floor
+   * here, so no caller could show when this posture was actually assessed. */
+  observedAt: string | null;
 }
 
 export function useHqStatusSummary(): { data: HqStatusSummary | null; loading: boolean; error: string | null } {
@@ -247,6 +252,7 @@ export function useHqStatusSummary(): { data: HqStatusSummary | null; loading: b
           summary: body?.captainSummary?.summary ?? body?.headline ?? 'HQ status unknown',
           needsAttentionCount: body?.needsAttentionCount ?? 0,
           attentionItems: Array.isArray(body?.attentionItems) ? body.attentionItems : [],
+          observedAt: typeof body?.fetchedAt === 'string' ? body.fetchedAt : null,
         });
         setError(null);
       } catch (e) {
@@ -539,6 +545,39 @@ export function useEvolutionSignal(): { pendingCount: number | null; highestValu
   return { pendingCount, highestValueTitle, error };
 }
 
+/** Engineering handoffs genuinely awaiting the Captain's approve/reject
+ * decision — the real, governed source MSN-0345 built (lib/decisions.ts's
+ * fetchEngineeringDecisions()), same data MobileAlertDrawer already
+ * surfaces on mobile. Desktop had no equivalent: Needs You never included
+ * it, so the count was invisible unless the Captain guessed the URL. Not
+ * fetchDecisionsInbox() itself — this only needs the engineering count for
+ * a Needs You entry, not the full merged/sorted inbox shape. */
+export function useEngineeringApprovals(): { count: number; oldestTitle: string | null; error: string | null } {
+  const [count, setCount] = useState(0);
+  const [oldestTitle, setOldestTitle] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    import('@/lib/decisions')
+      .then(({ fetchEngineeringDecisions }) => fetchEngineeringDecisions())
+      .then((items) => {
+        if (cancelled) return;
+        setCount(items.length);
+        // Already sorted highest-priorityRank-first by the caller's own
+        // convention elsewhere (decisions.ts's fetchDecisionsInbox) — here
+        // we call the unsorted per-source fetch directly, so sort locally
+        // rather than assume an order this function doesn't guarantee.
+        const sorted = [...items].sort((a, b) => b.priorityRank - a.priorityRank);
+        setOldestTitle(sorted[0]?.title ?? null);
+      })
+      .catch((e) => { if (!cancelled) { console.error('[captainsChairData] Engineering approvals fetch failed:', e); setError('Engineering approvals'); } });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { count, oldestTitle, error };
+}
+
 /** Minimal slice of the old NotebookCard's fetch — just the ready-for-
  * routing count. Full detail is one click away, in Captain's Chair's
  * Notebook sub-page. */
@@ -562,4 +601,78 @@ export function useNotebookReadyCount(): { readyCount: number | null; error: str
   }, []);
 
   return { readyCount, error };
+}
+
+/** Number One's canonical attention_items (Mission 1 Round 2,
+ * USS-TJR-MSN-1) — feeds commandState.ts's buildNeedsYouItems() so Chair
+ * and Hub both surface NumberOne-derived NEEDS_NOW/DECISION_REQUIRED items
+ * instead of Needs You having no connection to mission/coordination data
+ * at all. Same route Number One's mission-workbench card already uses
+ * (api/number-one-brief -> context_service.py's /brief/number-one) — no
+ * second fetch path, no second computation. Degrades to null (not an
+ * error surfaced to the Captain) on any failure, same discipline as this
+ * file's other hooks — Needs You must never block on this being reachable. */
+export function useNumberOneAttentionItems(): { items: NumberOneAttentionItem[] | null; error: string | null } {
+  const [items, setItems] = useState<NumberOneAttentionItem[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/number-one-brief')
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((body) => {
+        if (cancelled) return;
+        setItems(Array.isArray(body?.attention_items) ? body.attention_items : []);
+      })
+      .catch((e) => { if (!cancelled) { console.error('[captainsChairData] Number One attention items failed:', e); setError('Number One'); } });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { items, error };
+}
+
+// ── Remember (Mission 3, Capture/Remember/Follow-Through) ──────────────────
+// Thin fetch wrapper over context_service.py's GET /remember, same shape/
+// pattern as useNumberOneAttentionItems() above. This hook does NOT decide
+// what belongs in Remember — that determination (Personal Task Attention
+// Adapter + unresolved-capture query, both capacity-aware) is entirely
+// backend-owned. A consuming surface (Chair, and later Hub) renders this
+// verbatim rather than re-deriving it.
+
+export interface RememberUnresolvedCapture {
+  id: string;
+  title: string;
+  captured_at: string | null;
+  classification: string | null;
+  actionable: string | null;
+  reason: string;
+}
+
+export interface RememberData {
+  capacity_status: string | null;
+  resurfacing_tasks: NumberOneAttentionItem[];
+  unresolved_captures: RememberUnresolvedCapture[];
+}
+
+export function useRemember(): { data: RememberData | null; error: string | null } {
+  const [data, setData] = useState<RememberData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/remember')
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((body) => {
+        if (cancelled) return;
+        setData({
+          capacity_status: body?.capacity_status ?? null,
+          resurfacing_tasks: Array.isArray(body?.resurfacing_tasks) ? body.resurfacing_tasks : [],
+          unresolved_captures: Array.isArray(body?.unresolved_captures) ? body.unresolved_captures : [],
+        });
+      })
+      .catch((e) => { if (!cancelled) { console.error('[captainsChairData] Remember fetch failed:', e); setError('Remember'); } });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { data, error };
 }

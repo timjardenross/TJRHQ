@@ -3,14 +3,18 @@ Tests — Sprint D / Learning Loop
 
 Covers:
   - mission_knowledge_store: heading mismatch fix (Future Guidance + Lesson fallback)
-  - mission_knowledge_store: get_decision_quality_stats
+  - mission_knowledge_store: get_decision_quality_stats (outcome_records-backed,
+    Mission 5 evidence-engine reconciliation)
+  - mission_knowledge_store: get_historical_outcome_score (outcome_records-backed;
+    honest "no mission_type mapping" fallback)
+  - mission_knowledge_store: get_similar_closed_missions outcome/has_pattern lookup
+    (outcome_records-backed)
   - lesson_capture: next_lesson_id, _format_lesson_block, capture_lesson (mock FS)
   - lesson_capture: backfill_lessons_to_supabase (mock Supabase)
 """
 
 from __future__ import annotations
 
-import json
 import re
 import sys
 import tempfile
@@ -144,76 +148,176 @@ Keep implementation missions narrow and evidence-based
 
 
 # ---------------------------------------------------------------------------
-# mission_knowledge_store: get_decision_quality_stats
+# mission_knowledge_store: get_decision_quality_stats (outcome_records-backed)
 # ---------------------------------------------------------------------------
 
 class TestDecisionQualityStats(unittest.TestCase):
-    """WP-6: get_decision_quality_stats reads decision-outcomes.jsonl correctly."""
+    """WP-6 / Mission 5: get_decision_quality_stats reads outcome_records
+    (source_type='decision') via _fetch_outcome_rows, not the old (never
+    populated) knowledge/decision-outcomes.jsonl file."""
 
-    def _make_jsonl(self, records: list[dict], path: Path) -> None:
-        with open(path, "w") as f:
-            f.writelines(json.dumps(r) + "\n" for r in records)
+    def _rows(self, ratings: dict[str, int]) -> list[dict]:
+        return [
+            {"source_type": "decision", "source_id": did, "confidence": conf}
+            for did, conf in ratings.items()
+        ]
 
-    def test_empty_file_returns_zero(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            empty = Path(tmp) / "decision-outcomes.jsonl"
-            self._make_jsonl([], empty)
-            import mission_knowledge_store as store
-            with patch.object(store, "_DECISION_OUTCOMES_FILE", empty):
-                result = store.get_decision_quality_stats()
+    def test_no_data_returns_zero(self):
+        """Offline/empty outcome_records -- same honest empty result the
+        never-populated jsonl file always produced."""
+        import mission_knowledge_store as store
+        with patch.object(store, "_fetch_outcome_rows", return_value=[]):
+            result = store.get_decision_quality_stats()
         self.assertEqual(result["count"], 0)
         self.assertIsNone(result["average"])
         self.assertFalse(result["g008_ready"])
+        self.assertEqual(result["by_decision"], {})
 
     def test_ratings_counted_correctly(self):
-        records = [
-            {"decision_id": "D-031", "outcome_quality": 4},
-            {"decision_id": "D-032", "outcome_quality": 5},
-            {"decision_id": "D-033", "outcome_quality": 3},
-        ]
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "decision-outcomes.jsonl"
-            self._make_jsonl(records, path)
-            import mission_knowledge_store as store
-            with patch.object(store, "_DECISION_OUTCOMES_FILE", path):
-                result = store.get_decision_quality_stats()
+        rows = self._rows({"D-031": 4, "D-032": 5, "D-033": 3})
+        import mission_knowledge_store as store
+        with patch.object(store, "_fetch_outcome_rows", return_value=rows):
+            result = store.get_decision_quality_stats()
         self.assertEqual(result["count"], 3)
         self.assertAlmostEqual(result["average"], 4.0, places=1)
 
-    def test_latest_rating_wins_per_decision(self):
-        records = [
-            {"decision_id": "D-031", "outcome_quality": 2},
-            {"decision_id": "D-031", "outcome_quality": 4},  # updated rating
+    def test_rows_missing_confidence_are_excluded(self):
+        """A decision closed without a confidence rating (confidence=None)
+        must not silently count as 0 or skew the average."""
+        rows = [
+            {"source_type": "decision", "source_id": "D-031", "confidence": 4},
+            {"source_type": "decision", "source_id": "D-034", "confidence": None},
         ]
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "decision-outcomes.jsonl"
-            self._make_jsonl(records, path)
-            import mission_knowledge_store as store
-            with patch.object(store, "_DECISION_OUTCOMES_FILE", path):
-                result = store.get_decision_quality_stats()
-        # Should be 1 unique decision, latest quality = 4
+        import mission_knowledge_store as store
+        with patch.object(store, "_fetch_outcome_rows", return_value=rows):
+            result = store.get_decision_quality_stats()
         self.assertEqual(result["count"], 1)
-        self.assertEqual(result["by_decision"]["D-031"], 4)
+        self.assertEqual(result["by_decision"], {"D-031": 4})
+
+    def test_defensive_dedup_by_source_id(self):
+        """outcome_records' UNIQUE(source_type, source_id) constraint should
+        prevent duplicate rows for one decision, but the defensive dedup
+        keeps behaviour correct even if that is ever bypassed."""
+        rows = [
+            {"source_type": "decision", "source_id": "D-031", "confidence": 2},
+            {"source_type": "decision", "source_id": "D-031", "confidence": 4},
+        ]
+        import mission_knowledge_store as store
+        with patch.object(store, "_fetch_outcome_rows", return_value=rows):
+            result = store.get_decision_quality_stats()
+        self.assertEqual(result["count"], 1)
+        self.assertIn(result["by_decision"]["D-031"], (2, 4))
 
     def test_g008_not_ready_below_threshold(self):
-        records = [{"decision_id": f"D-{i:03d}", "outcome_quality": 3} for i in range(1, 9)]
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "decision-outcomes.jsonl"
-            self._make_jsonl(records, path)
-            import mission_knowledge_store as store
-            with patch.object(store, "_DECISION_OUTCOMES_FILE", path):
-                result = store.get_decision_quality_stats()
+        rows = self._rows({f"D-{i:03d}": 3 for i in range(1, 9)})
+        import mission_knowledge_store as store
+        with patch.object(store, "_fetch_outcome_rows", return_value=rows):
+            result = store.get_decision_quality_stats()
         self.assertFalse(result["g008_ready"])
 
     def test_g008_ready_at_threshold(self):
-        records = [{"decision_id": f"D-{i:03d}", "outcome_quality": 4} for i in range(1, 11)]
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "decision-outcomes.jsonl"
-            self._make_jsonl(records, path)
-            import mission_knowledge_store as store
-            with patch.object(store, "_DECISION_OUTCOMES_FILE", path):
-                result = store.get_decision_quality_stats()
+        rows = self._rows({f"D-{i:03d}": 4 for i in range(1, 11)})
+        import mission_knowledge_store as store
+        with patch.object(store, "_fetch_outcome_rows", return_value=rows):
+            result = store.get_decision_quality_stats()
         self.assertTrue(result["g008_ready"])
+
+
+# ---------------------------------------------------------------------------
+# mission_knowledge_store: get_historical_outcome_score (outcome_records-backed)
+# ---------------------------------------------------------------------------
+
+class TestHistoricalOutcomeScore(unittest.TestCase):
+    """Mission 5: get_historical_outcome_score reads outcome_records
+    (source_type='mission') instead of the never-populated
+    knowledge/mission-outcomes.jsonl file. Confirms the honest "not enough
+    evidence" fallback for the documented mission_id -> mission_type mapping
+    gap (see _mission_type_for_outcome_row)."""
+
+    def test_no_data_returns_none(self):
+        import mission_knowledge_store as store
+        with patch.object(store, "_fetch_outcome_rows", return_value=[]):
+            score, n = store.get_historical_outcome_score("OSS gap closure")
+        self.assertIsNone(score)
+        self.assertEqual(n, 0)
+
+    def test_real_rows_still_return_no_evidence_without_a_type_mapping(self):
+        """Even with real, well-formed outcome_records rows for missions,
+        this must return (None, 0) for any mission_type until a genuine
+        mission_id -> mission_type mapping exists -- there is nothing to
+        honestly attribute these rows to a specific type with today."""
+        rows = [
+            {"source_type": "mission", "source_id": f"M-{i}", "outcome_status": "worked"}
+            for i in range(5)
+        ]
+        import mission_knowledge_store as store
+        with patch.object(store, "_fetch_outcome_rows", return_value=rows):
+            score, n = store.get_historical_outcome_score("OSS gap closure")
+        self.assertIsNone(score)
+        self.assertEqual(n, 0)
+
+    def test_supabase_failure_degrades_to_no_evidence(self):
+        """_fetch_outcome_rows already degrades network/schema failures to
+        [] -- confirm the public function never raises through that."""
+        import mission_knowledge_store as store
+        with patch.object(store, "_get_supabase_raw_client", return_value=None):
+            score, n = store.get_historical_outcome_score("Anything")
+        self.assertIsNone(score)
+        self.assertEqual(n, 0)
+
+
+# ---------------------------------------------------------------------------
+# mission_knowledge_store: get_similar_closed_missions outcome lookup
+# (outcome_records-backed)
+# ---------------------------------------------------------------------------
+
+class TestSimilarClosedMissionsOutcomeLookup(unittest.TestCase):
+    """Mission 5: get_similar_closed_missions() joins knowledge/missions/*
+    knowledge records to outcome_records by source_id == mission_id (a clean,
+    exact join -- unlike get_historical_outcome_score's mission_type problem)."""
+
+    def _write_record(self, tmp: Path, mission_id: str, title: str, outcome_preview: str) -> None:
+        (tmp / f"{mission_id}-knowledge-record.md").write_text(
+            f"| Mission ID | {mission_id} |\n| Title | {title} |\n"
+            f"## Outcome\n{outcome_preview}\n",
+            encoding="utf-8",
+        )
+
+    def test_outcome_score_and_has_pattern_from_outcome_records(self):
+        import mission_knowledge_store as store
+        with tempfile.TemporaryDirectory() as tmp:
+            missions_dir = Path(tmp)
+            self._write_record(
+                missions_dir, "M-100", "Adaptive Support Rollout",
+                "Adaptive support rollout completed successfully",
+            )
+            rows = [{
+                "source_type": "mission", "source_id": "M-100",
+                "outcome_status": "worked", "reusable_insight": "reuse this pattern",
+                "lesson_id": None,
+            }]
+            with patch.object(store, "_KNOWLEDGE_MISSIONS_DIR", missions_dir), \
+                 patch.object(store, "_fetch_outcome_rows", return_value=rows):
+                matches = store.get_similar_closed_missions("adaptive support rollout")
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0].mission_id, "M-100")
+        self.assertEqual(matches[0].outcome_score, 1.0)  # worked -> 1.0
+        self.assertTrue(matches[0].has_pattern)
+
+    def test_missing_outcome_record_falls_back_to_neutral_defaults(self):
+        import mission_knowledge_store as store
+        with tempfile.TemporaryDirectory() as tmp:
+            missions_dir = Path(tmp)
+            self._write_record(
+                missions_dir, "M-200", "Adaptive Support Rollout",
+                "Adaptive support rollout completed successfully",
+            )
+            with patch.object(store, "_KNOWLEDGE_MISSIONS_DIR", missions_dir), \
+                 patch.object(store, "_fetch_outcome_rows", return_value=[]):
+                matches = store.get_similar_closed_missions("adaptive support rollout")
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0].outcome_score, 0.5)
+        self.assertFalse(matches[0].has_pattern)
 
 
 # ---------------------------------------------------------------------------

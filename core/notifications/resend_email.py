@@ -45,10 +45,36 @@ _API_KEY = os.environ.get("RESEND_API_KEY", "")
 _DEFAULT_FROM = os.environ.get("RESEND_FROM", "Emergency Alert Hub <onboarding@resend.dev>")
 
 
+def _running_under_tests() -> bool:
+    r"""True only while pytest is actually executing a test
+    (PYTEST_CURRENT_TEST is pytest's own documented signal, set only for
+    the duration of each test).
+
+    2026-09-19: originally also matched "unittest" in sys.modules (python -m
+    unittest, the other way this repo's tests are run), on the assumption
+    that no production module imports unittest itself. That assumption was
+    wrong: platform-runtime/.venv's logfire_api package unconditionally does
+    `from unittest.mock import patch` at import time, so unittest ends up in
+    sys.modules in every live process too — this silently blocked every real
+    Resend send from 2026-09-19 to 2026-09-25 (confirmed live: emergency
+    alert summaries and Captain's brief emails all failed with this warning
+    while RESEND_API_KEY/RESEND_FROM were correctly configured). Dropped the
+    sys.modules check; PYTEST_CURRENT_TEST alone still catches the actual
+    incident this guard was added for (intelligence/workflow/service.py's
+    publish_brief() -> notify_published() -> send_email(), exercised by
+    tests/test_intelligence_workflow.py / tests/test_telstra_poc.py)."""
+    return bool(os.environ.get("PYTEST_CURRENT_TEST"))
+
+
 def send_email(to: str, subject: str, html: str, from_addr: str | None = None, timeout: int = 15) -> bool:
     """Send one email via Resend. Returns True on success, False on any
-    failure (missing key, transport error, non-2xx response) — never
-    raises."""
+    failure (missing key, transport error, non-2xx response, or running
+    under a test runner — see _running_under_tests) — never raises."""
+    if _running_under_tests() and os.environ.get("RESEND_EMAIL_ALLOW_IN_TESTS", "").strip().lower() not in ("1", "true", "yes"):
+        log.warning("[resend-email] running under a test runner — refusing to send a real email "
+                    "(set RESEND_EMAIL_ALLOW_IN_TESTS=1 to override for a deliberate live-send test)")
+        return False
+
     if not _API_KEY:
         log.warning("[resend-email] RESEND_API_KEY not configured — email not sent")
         return False

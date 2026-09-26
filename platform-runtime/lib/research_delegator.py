@@ -583,9 +583,13 @@ def delegate_research_task(
     MSN-[GEMINI-QUOTA-AWARE-ROUTING]: Quota-aware routing prevents repeated
     Gemini quota exhaustion retries and 34-second waits that degrade research.
 
-    Provider chain (in order, quota-aware):
-      1. Gemini 3.5 Flash Lite (primary - if quota available AND not exhausted)
-      2. qwen3:8b via Ollama (fallback - local, free, no quota limits)
+    Provider chain (in order, quota-aware) — M-20260612-MISTRAL-AGENT-RESEARCH-WORKFLOW
+    reordered this to put Mistral first; this docstring previously still
+    described the pre-Mistral 2-provider order, which had silently drifted
+    from the `providers` list below:
+      1. Mistral Research Agent (primary)
+      2. qwen3:8b via Ollama (local fallback, free, no quota limits)
+      3. Gemini 3.5 Flash Lite (secondary fallback - if quota available AND not exhausted)
 
     Quota Budgeting (per-mission):
     - Max GEMINI_MAX_CALLS_PER_MISSION (default=1) per mission

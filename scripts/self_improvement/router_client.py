@@ -276,7 +276,14 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
                 headers={"Content-Type": "application/json"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=300) as resp:  # nosec B310 - url built from self.base_url, a fixed local model-router constant, not user input - reviewed 2026-09-12
+            # 600s: matches TASK_POLICY["self-improvement-analyse"]'s own
+            # timeout in core/model-router/app.py (keep both in sync). Was
+            # 300s → bumped to 400s on 2026-09-22 after guardrail model swap +
+            # Ollama lock pushed real completion past 300s. Bumped again to
+            # 600s on 2026-09-26: last successful self-improvement-analyse call
+            # logged at 472,707ms (call_log.jsonl 2026-09-25T21:09:57) — 400s
+            # client timeout fires before the router finishes, same pattern.
+            with urllib.request.urlopen(req, timeout=600) as resp:  # nosec B310 - url built from self.base_url, a fixed local model-router constant, not user input - reviewed 2026-09-12
                 response_data = json.loads(resp.read().decode())
 
             duration_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
@@ -295,6 +302,37 @@ OUTPUT FORMAT (REQUIRED - ONLY OUTPUT THIS, NOTHING ELSE):
 
             return response_data
 
+        except urllib.error.HTTPError as exc:
+            # HTTPError is a URLError subclass raised whenever the router
+            # responds with a non-2xx status (e.g. the 500 it sends for
+            # `{"success": False, ...}` results - see app.py's do_POST).
+            # str(exc) on it is just "HTTP Error 500: Internal Server
+            # Error" - the generic reason phrase, not the router's actual
+            # "error" field, which is sitting unread in the response body.
+            # Caught separately from URLError below (which never has a
+            # response to read) so the real failure reason - a missing
+            # GEMINI_API_KEY, a guardrails block, an upstream Gemini error,
+            # etc. - reaches the log instead of this one indistinguishable
+            # line for every possible 500.
+            duration_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
+            detail = exc.reason
+            try:
+                body = exc.read().decode()
+                parsed = json.loads(body)
+                if isinstance(parsed, dict) and parsed.get("error"):
+                    detail = parsed["error"]
+                elif body:
+                    detail = body
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                pass
+            log.error(f"{task_type} HTTP {exc.code}: {detail}")
+            self._log_call(task_type, None, duration_ms, error=str(detail))
+            return {
+                "success": False,
+                "error": str(detail),
+                "task_type": task_type,
+                "duration_ms": duration_ms,
+            }
         except urllib.error.URLError as exc:
             duration_ms = int((datetime.now(timezone.utc) - t0).total_seconds() * 1000)
             log.error(f"{task_type} network error: {exc}")

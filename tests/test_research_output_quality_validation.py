@@ -39,24 +39,30 @@ class TestResearchOutputQualityValidation:
         log.info("\n" + "="*80)
 
     def test_consolidation_timeout_increased(self):
-        """Verify: Consolidation timeout increased from 30s to 60s."""
+        """Verify: Consolidation timeout increased from 30s to 60s.
+
+        _consolidate_findings() (MSN-RECOMMENDATION-FIX #4) later moved from
+        a direct call_gemini_2_5_flash_lite_research(...) call to
+        _call_stage("consolidate", "summary", ..., timeout_sec=60,
+        mission_id=...) — a Mistral-first wrapper with Gemini as legacy
+        fallback (M-20260612-MISTRAL-AGENT-RESEARCH-WORKFLOW). The 60s
+        timeout this test guards is still there; the original substring
+        check ("timeout_sec=60)" with the closing paren immediately after)
+        broke when the mission_id= kwarg was added after it.
+        """
         log.info("TEST: Consolidation Timeout Increased")
 
-        # Read the source file
         source_file = Path(__file__).parent.parent / "core" / "coordination" / "research_orchestration.py"
         with open(source_file) as f:
             content = f.read()
 
-        # Verify timeout_sec=60 exists
-        assert "timeout_sec=60)" in content, "Consolidation timeout not increased to 60s"
+        assert "timeout_sec=60" in content, "Consolidation timeout not increased to 60s"
 
-        # Verify old timeout_sec=30 for consolidation is gone (allowing other 30s timeouts)
-        # Count occurrences - should have consolidation at 60s and other tasks at various
         lines = content.split("\n")
         consolidation_60s_found = False
         for i, line in enumerate(lines):
             if "timeout_sec=60" in line and i > 500 and (  # After consolidation section starts
-                "consolidation" in lines[max(0, i-5):i+5].__str__()
+                "consolidat" in lines[max(0, i-5):i+5].__str__().lower()
             ):
                 consolidation_60s_found = True
                 break
@@ -93,32 +99,49 @@ class TestResearchOutputQualityValidation:
         log.info("✅ PASSED: Fallback confidence increased to 0.8")
 
     def test_consolidation_called_directly(self):
-        """Verify: Consolidation called directly with timeout_sec=60."""
+        """Verify: Consolidation called directly with timeout_sec=60, bypassing
+        the per-mission Gemini quota (delegate_research_task's mission_id
+        budgeting — see test_gemini_quota_aware.py) entirely.
+
+        The call site moved from a bare call_gemini_2_5_flash_lite_research(...)
+        to _call_stage("consolidate", "summary", ..., timeout_sec=60,
+        mission_id=...) (see test_consolidation_timeout_increased), which
+        internally routes to call_legacy_research_routing() — never
+        delegate_research_task() — so mission_id here is passed through
+        for Mistral's own logging only, not quota enforcement. The
+        regression this test actually guards against (consolidation
+        silently starting to count against the mission's Gemini budget)
+        still can't happen; the function-name string this test searched
+        for was just stale.
+        """
         log.info("TEST: Consolidation Called Directly (No Mission Budget Impact)")
 
         source_file = Path(__file__).parent.parent / "core" / "coordination" / "research_orchestration.py"
         with open(source_file) as f:
             content = f.read()
 
-        # Verify consolidation is called with timeout_sec=60 directly
-        # (not via delegate_research_task with mission_id parameter)
         lines = content.split("\n")
         consolidation_call_found = False
         consolidation_with_60s = False
 
         for i, line in enumerate(lines):
-            # Find consolidation calls with proper timeout
-            if "call_gemini_2_5_flash_lite_research" in line and "consolidation" in line.lower():
+            # Find the consolidation stage call with proper timeout
+            if '_call_stage("consolidate"' in line:
                 consolidation_call_found = True
                 if "timeout_sec=60" in line:
                     consolidation_with_60s = True
                     log.info(f"  Found direct call at line {i+1}: {line.strip()}")
-                # Also check next line for timeout parameter
                 if i+1 < len(lines) and "timeout_sec=60" in lines[i+1]:
                     consolidation_with_60s = True
 
         assert consolidation_call_found, "Consolidation call not found"
         assert consolidation_with_60s, "Consolidation timeout not set to 60s"
+        # And confirm _call_stage itself never routes through the
+        # mission-quota-budgeted delegate_research_task.
+        assert "def _call_stage" in content
+        call_stage_body = content[content.index("def _call_stage"):]
+        call_stage_body = call_stage_body[:call_stage_body.index("\n\n\n")]
+        assert "delegate_research_task" not in call_stage_body, "_call_stage must not route through the mission-quota-budgeted path"
         log.info("✅ PASSED: Consolidation called directly with 60s timeout (excludes from mission budget)")
 
     def test_no_regression_to_consolidation_fallback_message(self):

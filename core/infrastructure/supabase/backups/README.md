@@ -14,6 +14,12 @@ array from the JSON file.
 
 ## 2026-09-01-dead-tables-pre-drop.json
 
+**Retention: delete-eligible 2026-10-01.** Set 2026-09-26 (GitHub
+archive/delete audit, per LL-143 — quarantine without an expiry silently
+becomes permanent). If nothing has needed this snapshot by then, delete
+the file; if the date arrives and something's still using it, set a new
+date here rather than leaving it open-ended again.
+
 Snapshot taken before `0183_drop_retired_dead_tables.sql`. Covers 13
 tables identified as having zero live code readers/writers (see that
 migration's header comment for the evidence per table). Row counts at

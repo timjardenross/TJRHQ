@@ -65,6 +65,7 @@ const TABS: { key: TabKey; label: string }[] = [
 
 const TRENDS_HREF = '/human-systems-workbench/trends';
 const REPORT_HREF = '/human-systems-workbench/report';
+const WEIGHT_HREF = '/human-systems-workbench/weight';
 
 function Workbench() {
   const router = useRouter();
@@ -150,6 +151,16 @@ function Workbench() {
       >
         REPORT →
       </button>
+      {/* WEIGHT — same "real navigation, not a tab" treatment (Mission 7
+       *  deferred-register item 12, closed): the 30-day weight-trend view
+       *  ported here from the retired (app)/medical/log-weight page. */}
+      <button
+        type="button"
+        onClick={() => router.push(WEIGHT_HREF)}
+        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13px] font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
+      >
+        WEIGHT →
+      </button>
     </div>
   );
 
@@ -158,6 +169,7 @@ function Workbench() {
       tagline="USS TJR · A live view of how my body, nervous system, mind, environment and demands are interacting today · Evidence-informed, non-diagnostic"
       right={right}
       tabs={tabsRow}
+      mode="focus"
       back={{ href: '/workbenches', label: 'Workbenches' }}>
       {/* Human Systems redesign Phase 10 (2026-09-06): recovery-brief's real
           content has been consolidated into the NOW/PATTERNS tabs below
@@ -168,21 +180,24 @@ function Workbench() {
           recovery-brief itself is kept as a route (other callers still
           link to it), just not promoted from this page any more. */}
 
-      {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Human Systems…</div>}
+      <div className="focus-reference-surface">
+        <div className="focus-reference-kicker">Focus / insight · interpret before measuring</div>
+        {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Human Systems…</div>}
 
-      {data?.recovery && (
-        <>
-          {tab === 'now' && <NowView recovery={data.recovery} medical={data.medical} />}
-          {tab === 'what-helps' && <WhatHelpsView recovery={data.recovery} medical={data.medical} />}
-          {tab === 'patterns' && <PatternsView recovery={data.recovery} medical={data.medical} />}
-        </>
-      )}
+        {data?.recovery && (
+          <>
+            {tab === 'now' && <NowView recovery={data.recovery} medical={data.medical} />}
+            {tab === 'what-helps' && <WhatHelpsView recovery={data.recovery} medical={data.medical} />}
+            {tab === 'patterns' && <PatternsView recovery={data.recovery} medical={data.medical} />}
+          </>
+        )}
 
-      {loadError && !data?.recovery && (
-        <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4 text-[13px] text-wb-crit-on">
-          {loadError} The workbench stays read-only and safe; try again shortly.
-        </div>
-      )}
+        {loadError && !data?.recovery && (
+          <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4 text-[13px] text-wb-crit-on">
+            {loadError} The workbench stays read-only and safe; try again shortly.
+          </div>
+        )}
+      </div>
     </WorkbenchShell>
   );
 }

@@ -3,6 +3,8 @@
 // Phase B — Screens 4/5/6: RED Escalation + Stand-Down + Telegram deep-link target.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, RiskPill, WorkbenchShell } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
+import { ActionOutcome } from '@/components/ActionOutcome';
 import { runAction } from '../../_components/actions';
 
 const DIM_LABEL: Record<string, string> = {
@@ -15,6 +17,7 @@ const DIM_LABEL: Record<string, string> = {
 type Brief = {
   brief_id: string; overall_risk: string | null; executive_snapshot: string | null;
   bottom_line: string | null; signal_ids: string[] | null;
+  period_start: string | null; period_end: string | null;
 };
 type Signal = {
   event_id: string; raw_title: string; risk_rating: string | null; rank_score: number | null;
@@ -105,6 +108,7 @@ export default function Escalation({ params }: { params: { id: string } }) {
               <div className="text-[13px] opacity-90">{(brief.executive_snapshot ?? '').slice(0, 100) || 'Operational resilience incident'}</div>
             </div>
           </div>
+          <EvidenceMeta source="Technical intelligence escalation" observedAt={brief.period_end ?? undefined} confidence={signals.length ? `${signals.length} linked signal${signals.length === 1 ? '' : 's'}` : 'No linked signals'} />
 
           {dims && (
             <Card title={`10-dimension risk breakdown — ${top?.rank_score ?? '?'}/50 ${top?.risk_rating ?? ''}`}>
@@ -134,7 +138,7 @@ export default function Escalation({ params }: { params: { id: string } }) {
               </button>
             </div>
             {busy && <p className="mt-3 text-[12px] text-wb-ink2" aria-live="polite">Working: {busy}…</p>}
-            {msg && <p className="mt-3 text-[12px]" aria-live="polite">{msg}</p>}
+            <ActionOutcome message={msg} tone={msg?.startsWith('✓') ? 'success' : 'error'} />
           </Card>
 
           {/* Screen 5 — stand-down */}

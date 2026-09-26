@@ -80,6 +80,40 @@ def test_missing_confidence_treated_as_maximally_uncertain():
     assert score.risk_score == pytest.approx(80.0, abs=0.01)
 
 
+def test_missing_both_importance_and_confidence_is_unscored_not_zero_risk():
+    """The regression this test guards: an event published with neither
+    importance nor confidence (e.g. intelligence_store.py's
+    `intelligence.source.failed`, which calls `_publish_core_event` with no
+    importance/confidence kwarg) must read as "never scored", not as a
+    fabricated 0.0 "genuinely low risk" — 0.0 is indistinguishable from a
+    real low-risk verdict to every downstream consumer (warnings threshold,
+    domain posture rollup), so it would silently look safe."""
+    inputs = PriorityInputs(event_id="evt-unscored", domain="d", event_type="t", importance=None, confidence=None)
+    score = score_event(inputs)
+    assert score.risk_score is None
+    # total_score must still be a real, comparable float — this dataclass's
+    # ranking job is unaffected by risk being unscored.
+    assert isinstance(score.total_score, float)
+
+
+def test_missing_both_importance_and_confidence_explanation_says_unscored():
+    inputs = PriorityInputs(event_id="evt-unscored", domain="d", event_type="t", importance=None, confidence=None)
+    score = score_event(inputs)
+    assert "risk=unscored" in score.explanation
+
+
+def test_missing_importance_only_still_scores_real_risk():
+    """Confidence-absent-with-importance-present keeps its pre-existing
+    "maximally uncertain" semantics (test_missing_confidence_treated_as_
+    maximally_uncertain above) — this proves the inverse pairing
+    (importance absent, confidence present) is scored too, not swept into
+    the both-absent unscored branch."""
+    inputs = PriorityInputs(event_id="evt-x", domain="d", event_type="t", importance=None, confidence=90)
+    score = score_event(inputs)
+    assert score.risk_score is not None
+    assert score.risk_score == pytest.approx(0.0, abs=0.01)
+
+
 def test_dominant_value_dimension_is_the_highest_scored_one():
     inputs = _inputs_from_event(
         SUMMARISATION_PAIR[1],  # evt-sum-2

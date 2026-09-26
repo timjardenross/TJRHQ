@@ -11,15 +11,25 @@
  */
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Card } from '@/components/ui';
+import { OperationalStateBadge, type OperationalState } from '@/components/OperationalState';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
+import { OperationalConfidencePanel } from '@/components/OperationalConfidencePanel';
+import type { OperationalConfidence } from '@/lib/operationalConfidence';
 
 // HQ V1 Integration QA §22 (recovery propagation) fix: this tab previously
 // fetched once on mount only — a Captain with the Status tab open during an
 // incident would never see it flip back to NORMAL on recovery without
-// reloading the page. Matches JobsView.tsx's existing 30s polling interval
-// on this same workbench, rather than inventing a different cadence.
-const REFRESH_INTERVAL_MS = 30_000;
+// reloading the page. Matches JobsView.tsx's existing polling interval on
+// this same workbench, rather than inventing a different cadence.
+// 2026-09-20 (Supabase egress investigation): this poll, fanning out 6
+// Supabase queries per tick from every open browser tab regardless of
+// whether the tab was actually visible, was the single highest sustained
+// call-volume site found in the codebase. 30s -> 60s halves the volume;
+// pausing while the tab is hidden (see the interval below) removes most of
+// what's left for a tab left open in the background.
+const REFRESH_INTERVAL_MS = 60_000;
 
 type Posture = 'normal' | 'degraded' | 'attention' | 'unknown';
 type CapabilityTone = 'healthy' | 'degraded' | 'unavailable' | 'unknown';
@@ -53,6 +63,7 @@ interface StatusData {
     health: { healthy: number; delayed: number; failing: number };
   };
   jobsSummary: { scheduled: number; healthy: number; attention: number };
+  operationalConfidence: OperationalConfidence;
 }
 
 const POSTURE_GLYPH: Record<Posture, string> = {
@@ -69,6 +80,19 @@ const POSTURE_TEXT_CLASS: Record<Posture, string> = {
   unknown: 'text-wb-ink2',
 };
 
+// Mission 7 deferred-register item 14 (closed): state-*-on fails contrast
+// against the midnight theme — pair each -on text instance with the
+// already-passing border-state-* token (Phase 1A's own prescribed
+// mitigation for exactly this "colour alone" gap) rather than leaving it
+// as bare colour. A full contrast fix (shade revision) is still a Visual
+// Design Officer call, not decided here.
+const POSTURE_BORDER_CLASS: Record<Posture, string> = {
+  normal: 'border-state-ok/50 bg-state-ok/10',
+  degraded: 'border-state-warn/50 bg-state-warn/10',
+  attention: 'border-state-crit/50 bg-state-crit/10',
+  unknown: 'border-wb-line bg-transparent',
+};
+
 const TONE_GLYPH: Record<CapabilityTone, string> = {
   healthy: '✓',
   degraded: '⚠',
@@ -83,7 +107,25 @@ const TONE_DOT_CLASS: Record<CapabilityTone, string> = {
   unknown: 'bg-wb-line text-wb-ink2',
 };
 
+const CAPABILITY_RECOVERY: Record<string, { workbench: string; href: string; action: string }> = {
+  morning_intelligence: { workbench: 'Briefs', href: '/briefs', action: 'Read latest brief' },
+  emergency_monitoring: { workbench: 'Emergency Alerts', href: '/emergency-alert-hub-workbench', action: 'Check active alerts' },
+  technical_intelligence: { workbench: 'Technical OSINT', href: '/intelligence-workbench', action: 'Review intelligence' },
+  health_intelligence: { workbench: 'Health OSINT', href: '/health-osint', action: 'Review health evidence' },
+  hq_evolution: { workbench: 'HQ Evolution', href: '/self-improvement-findings', action: 'Review HQ evolution' },
+  weekly_review: { workbench: 'Weekly Review', href: '/weekly-review', action: 'Start weekly review' },
+  ready_room: { workbench: 'Ready Room', href: '/ready-room', action: 'Choose what to do next' },
+  human_systems: { workbench: 'Human Systems', href: '/human-systems-workbench', action: 'Check current capacity' },
+  platform_core: { workbench: 'HQ Status', href: '/agent-status-workbench', action: 'Review platform status' },
+  content_workbench: { workbench: 'Content Workbench', href: '/content-workbench', action: 'Review content queue' },
+};
+
 function CapabilityRow({ cap }: { cap: CapabilityResult }) {
+  const recovery = CAPABILITY_RECOVERY[cap.key] ?? {
+    workbench: 'HQ Status',
+    href: '/agent-status-workbench',
+    action: 'Review capability status',
+  };
   return (
     <li className="flex items-start gap-2.5 py-2" title={cap.reason}>
       <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${TONE_DOT_CLASS[cap.tone]}`} aria-hidden>
@@ -95,6 +137,7 @@ function CapabilityRow({ cap }: { cap: CapabilityResult }) {
           <span className="sr-only"> — {cap.tone}</span>
         </p>
         {cap.tone !== 'healthy' && <p className="mt-0.5 text-[12px] text-wb-ink2">{cap.reason}</p>}
+        {cap.tone !== 'healthy' && <p className="mt-1 text-[11px] text-wb-ink2">Affected workbench: <Link href={recovery.href} className="font-semibold text-wb-sage-deep hover:underline">{recovery.workbench}</Link> · <Link href={recovery.href} className="text-wb-sage-deep hover:underline">{recovery.action} →</Link></p>}
       </div>
     </li>
   );
@@ -128,7 +171,13 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
       }
     }
     load(true);
-    const intervalId = setInterval(() => load(false), REFRESH_INTERVAL_MS);
+    // Skip ticks while this tab is hidden/backgrounded — the leading cause
+    // of this endpoint's call volume was a tab left open and forgotten,
+    // not a tab someone is actually watching (2026-09-20 egress fix).
+    const intervalId = setInterval(() => {
+      if (document.hidden) return;
+      load(false);
+    }, REFRESH_INTERVAL_MS);
     return () => clearInterval(intervalId);
   }, []);
 
@@ -151,6 +200,13 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
   }
 
   const { posture, headline, narrative, capabilities } = data;
+  const operationalState: OperationalState = posture === 'normal'
+    ? 'nominal'
+    : posture === 'degraded'
+      ? 'degraded'
+      : posture === 'attention'
+        ? 'attention'
+        : 'unavailable';
   const materialCaps = capabilities.filter((c) => c.criticality === 'critical' || c.criticality === 'important');
   const supportingCaps = capabilities.filter((c) => c.criticality !== 'critical' && c.criticality !== 'important' && c.tone !== 'healthy');
 
@@ -158,9 +214,12 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
     <div className="flex flex-col gap-4">
       {/* Headline verdict */}
       <Card>
-        <p className={`text-[16px] font-semibold ${POSTURE_TEXT_CLASS[posture]}`}>
-          {POSTURE_GLYPH[posture]} {headline}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <OperationalStateBadge state={operationalState} />
+          <p className={`inline-block rounded border px-2 py-1 text-[16px] font-semibold ${POSTURE_TEXT_CLASS[posture]} ${POSTURE_BORDER_CLASS[posture]}`}>
+            {POSTURE_GLYPH[posture]} {headline}
+          </p>
+        </div>
 
         {narrative.impact && (
           <p className="mt-2 text-[13px] text-wb-ink">
@@ -181,7 +240,7 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
           </p>
         )}
 
-        <p className={`mt-3 text-[13px] font-medium ${narrative.actionRequired ? 'text-state-crit-on' : 'text-wb-ink2'}`}>
+        <p className={`mt-3 text-[13px] font-medium ${narrative.actionRequired ? 'inline-block rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-state-crit-on' : 'text-wb-ink2'}`}>
           {narrative.actionRequired ? '⚠ ' : ''}{narrative.actionNote}
         </p>
 
@@ -189,6 +248,8 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
           Updated {new Date(data.fetchedAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })} · covers all monitored capabilities, jobs, and governed sources.
         </p>
       </Card>
+
+      <OperationalConfidencePanel confidence={data.operationalConfidence} />
 
       {/* Capability list — progressive disclosure, calm when healthy */}
       <Card>

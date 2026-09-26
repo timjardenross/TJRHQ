@@ -16,13 +16,55 @@ Uses core/platform/notification_service.py's notify() -- the canonical
 sender per tools/check_notification_senders.py -- not a new one-off sender.
 """
 
+import json
+import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core.platform.notification_service import Severity, notify
+
+# 2026-09-21: Restart=on-failure + RestartSec=300 means a unit stuck failing
+# (e.g. an upstream API returning 402 all night) re-fires this OnFailure=
+# chain every ~5min -- 60+ pages over one sleep window, all saying the same
+# thing. There was no dedup at all. Cooldown is per-unit, not per-error-text,
+# so it stays dead simple: once a unit has paged, it goes quiet for
+# ALERT_COOLDOWN_SECONDS even if the failure reason changes underneath it.
+# That's an acceptable trade for "stop paging me all night" -- a second,
+# unrelated failure on the same unit within the window is rare, and it still
+# shows up in the journal either way.
+ALERT_COOLDOWN_SECONDS = int(os.environ.get("ALERT_COOLDOWN_SECONDS", str(2 * 60 * 60)))
+_STATE_PATH = Path("/opt/starship-endeavour/data/alert_state/last_alert.json")
+
+
+def _load_state() -> dict:
+    try:
+        return json.loads(_STATE_PATH.read_text())
+    except Exception:  # noqa: BLE001 - missing/corrupt state must never block alerting
+        return {}
+
+
+def _save_state(state: dict) -> None:
+    try:
+        _STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _STATE_PATH.write_text(json.dumps(state))
+    except Exception as exc:  # noqa: BLE001 - state persistence must never crash the OnFailure= chain
+        print(f"alert state save failed: {exc}", file=sys.stderr)
+
+
+def _cooldown_active(unit: str) -> bool:
+    state = _load_state()
+    last = state.get(unit)
+    return last is not None and (time.time() - last) < ALERT_COOLDOWN_SECONDS
+
+
+def _record_alert(unit: str) -> None:
+    state = _load_state()
+    state[unit] = time.time()
+    _save_state(state)
 
 
 def _tail_journal(unit: str, lines: int = 15) -> str:
@@ -68,6 +110,14 @@ def main() -> int:
         )
         return 0
 
+    if _cooldown_active(unit):
+        print(
+            f"alert suppressed: {unit} already paged within the last "
+            f"{ALERT_COOLDOWN_SECONDS}s cooldown -- not paging again",
+            file=sys.stderr,
+        )
+        return 0
+
     body = f"Unit: {unit}\n\nLast log lines:\n{tail}"
     result = notify(body, title="systemd unit failed", severity=Severity.CRITICAL)
     if not result.ok:
@@ -75,6 +125,7 @@ def main() -> int:
         # failure chain -- just make it visible in the journal.
         print(f"alert send failed: {result.error}", file=sys.stderr)
         return 0
+    _record_alert(unit)
     return 0
 
 

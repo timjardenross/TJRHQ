@@ -92,8 +92,11 @@ class TestEnrichment(unittest.TestCase):
         self.assertIsNotNone(dup_pa["cluster_similarity"])
 
     def test_empty(self):
+        # enrich_and_save() gained shadow_mode/selective_augmentation
+        # fields in its result dict since this assertion was written.
         self.assertEqual(enrich_and_save([], self.store),
-                         {"canonical": 0, "duplicate": 0, "failed": 0})
+                         {"canonical": 0, "duplicate": 0, "failed": 0,
+                          "shadow_mode": False, "selective_augmentation": False})
 
 
 if __name__ == "__main__":

@@ -13,6 +13,8 @@ Test Coverage:
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import logging
@@ -179,7 +181,7 @@ def test_priority_2b_logging_audit_trail():
     log.info(f"  Reasoning: {provider_quality[0][0]} leads by {gap:.1f} points")
     log.info("  Status: READY")
 
-    assert gap == 0.6
+    assert gap == pytest.approx(0.6)  # 4.4 - 3.8 has float imprecision
 
     log.info("\n✅ AUDIT TRAIL TEST PASSED")
     return True

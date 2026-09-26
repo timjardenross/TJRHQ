@@ -13,6 +13,14 @@ WorkingDirectory=/opt/starship-endeavour/core/model-router
 Environment="MODEL_ROUTER_PORT=8891"
 Environment="MODEL_ROUTER_HOST=127.0.0.1"
 Environment="OLLAMA_BASE_URL=http://localhost:11434"
+# Guardrails' gemma3:4b self-check (core/security/_llmsec_worker.py) is
+# CPU-only inference; under normal VM load a warm call still took 37-83s
+# live (2026-09-18, load avg ~9.5/8 cores). 120s (set that day) was STILL
+# too short — 2026-09-22 measured 73-172s live, so hq-evolution-external-fit
+# kept hard-500ing on every single candidate. Raised to 240s to match the
+# new code default in core/security/llm_guardrails.py (that file's the one
+# this env var feeds — keep both in sync).
+Environment="LLM_GUARDRAILS_TIMEOUT_S=240"
 # 2026-09-12 (USS-TJR-MSN-0371 Stream 3): repo was drifted from live (was
 # slack-bot/.env, a file that doesn't exist; live had already been
 # corrected to platform-runtime/.env). Reconciled, then cut over to

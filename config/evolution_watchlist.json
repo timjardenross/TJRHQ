@@ -1,12 +1,17 @@
 {
-  "version": "2.0.0",
-  "last_updated": "2026-09-12",
-  "_comment": "HQ Evolution external-discovery watchlist (spec section 9/43). Each topic must answer 'why is this relevant to TJR HQ?' before being searched — no generic tech-trend scanning. `gap_hypothesis` is exactly that — a HYPOTHESIS, not a settled fact — validated against current repo evidence by state_validation.py before any external search happens (`validation`, when present; omitted where no honest deterministic check exists, which validates as 'unclear' and still proceeds cautiously). github_query uses GitHub's search-qualifiers syntax (https://docs.github.com/search-github/searching-on-github).",
+  "version": "2.1.0",
+  "last_updated": "2026-09-26",
+  "_comment": "HQ Evolution external-discovery watchlist (spec section 9/43). Each topic must answer 'why is this relevant to TJR HQ?' before being searched — no generic tech-trend scanning. `gap_hypothesis` is exactly that — a HYPOTHESIS, not a settled fact — validated against current repo evidence by state_validation.py before any external search happens (`validation`, when present; omitted where no honest deterministic check exists, which validates as 'unclear' and still proceeds cautiously). github_query uses GitHub's search-qualifiers syntax (https://docs.github.com/search-github/searching-on-github). Phase 2/3 (docs/self-improvement/HQ-EVOLUTION-SOURCE-EXPANSION.md) added a `queries` dict (source name -> query string) as the general schema; `github_query` remains a supported alias for `queries.github` for topics that don't need the others. arXiv queries must avoid literal quote characters (external_discovery.py's own `sources/arxiv.py` note: arXiv's edge currently 406s any query containing one) — use bare AND-joined terms instead of a quoted phrase.",
   "topics": [
     {
       "id": "model-routing",
       "class": "architecture",
       "github_query": "local llm model router topic:llm-router",
+      "queries": {
+        "github": "local llm model router topic:llm-router",
+        "arxiv": "ti:LLM AND ti:routing",
+        "hn": "llm router"
+      },
       "gap_hypothesis": "core/model-router remains a bespoke, single-service router with no evaluated open-source alternative.",
       "validation_question": "Does core/model-router/app.py (the bespoke router) still exist as the only routing implementation?",
       "why_relevant": "HQ already runs a bespoke Model Router that self-improvement's own router_client.py depends on. A more mature open-source router could reduce maintenance burden or improve routing quality for the same workload.",
@@ -25,6 +30,10 @@
       "id": "retrieval-evaluation",
       "class": "capability",
       "github_query": "RAG evaluation framework retrieval metrics",
+      "queries": {
+        "github": "RAG evaluation framework retrieval metrics",
+        "arxiv": "abs:RAG AND abs:evaluation"
+      },
       "gap_hypothesis": "Retrieval quality across findings/briefs/advisory is judged qualitatively, with no systematic evaluation harness.",
       "validation_question": "Does a retrieval-evaluation harness exist anywhere under core/ or tests/ yet?",
       "why_relevant": "deepeval's HallucinationMetric now provides a real evaluation harness for LLM-output quality (platform-runtime/lib/quality_scoring_service.py's score_output(), judge-model-backed via core/model-router since 2026-09-12), wired as a shadow-mode-only caller in build_learning_loop.py to prove it end-to-end. Narrows this gap; does not close it — score_output() only checks hallucination/faithfulness against supplied context, not retrieval quality itself (what gets fetched in the first place), and has exactly one caller so far, in shadow mode. No separate RAGAS/open-rag-eval integration needed for now.",
@@ -61,9 +70,14 @@
       "id": "mcp-integrations",
       "class": "capability",
       "github_query": "model context protocol server topic:mcp",
+      "queries": {
+        "github": "model context protocol server topic:mcp",
+        "mcp_registry": "mcp"
+      },
       "gap_hypothesis": "MCP integration effort and fit are tracked ad hoc, not evaluated against a standard checklist.",
       "validation_question": "Is there a documented MCP integration checklist or evaluation record anywhere in the repo?",
-      "why_relevant": "HQ already integrates several MCP servers; new MCP servers may close a specific integration gap (e.g. a data source Technical OSINT currently polls by hand) rather than being adopted for novelty."
+      "why_relevant": "HQ already integrates several MCP servers; new MCP servers may close a specific integration gap (e.g. a data source Technical OSINT currently polls by hand) rather than being adopted for novelty.",
+      "validation": {"check_type": "file_exists_resolves", "paths": ["specialists/knowledge-packs/MCP-Integration-Checklist.md"]}
     },
     {
       "id": "task-decomposition",
@@ -78,9 +92,15 @@
       "id": "local-inference",
       "class": "cost_optimisation",
       "github_query": "local llm inference server efficient quantized",
+      "queries": {
+        "github": "local llm inference server efficient quantized",
+        "hf": "quantized",
+        "hn": "local llm inference"
+      },
       "gap_hypothesis": "No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.",
       "validation_question": "Does a cost/quality tradeoff review for TASK_POLICY's cloud-routed task types exist anywhere in docs/?",
-      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost.",
+      "validation": {"check_type": "file_exists_resolves", "paths": ["docs/model-router-cost-quality-review.md"]}
     }
   ]
 }

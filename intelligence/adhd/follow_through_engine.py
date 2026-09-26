@@ -37,16 +37,48 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys as _sys
 import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from datetime import time as dt_time
+from pathlib import Path as _Path
 from typing import Any
 
 from intelligence.config import SUPABASE_KEY, SUPABASE_URL
+from intelligence.settings_store import (
+    follow_through_check_back_on_waiting_items,
+    follow_through_increase_as_deadline_approaches,
+    follow_through_reminder_style,
+)
+
+# Mission 3: reuse the one canonical raw-capacity_checkins-row -> Green/
+# Amber/Red/Unknown mapping (core/health/capacity_score.py's
+# capacity_zone_from_checkin(), already the mapping health_context_adapter.py
+# and the Human Systems Capacity Gate consume) instead of this engine's own
+# ad-hoc "orange"/"red" string handling. Deliberately NOT importing the
+# heavier health_context_adapter.build_health_context_live() here — that
+# pulls in a captains_log_entries round-trip + fallback chain this engine
+# doesn't need; capacity_score.py has zero heavy dependencies (stdlib only)
+# and is safe to import into this cron-driven process.
+_CAPACITY_SCORE_DIR = _Path(__file__).resolve().parents[2] / "core" / "health"
+if str(_CAPACITY_SCORE_DIR) not in _sys.path:
+    _sys.path.insert(0, str(_CAPACITY_SCORE_DIR))
+from capacity_score import capacity_zone_from_checkin
 
 log = logging.getLogger(__name__)
+
+# Settings page's reminderStyle -> this engine's per-task follow_through_mode
+# vocabulary. Only used as the DEFAULT for tasks with no explicit mode of
+# their own — an explicit per-task follow_through_mode always wins (Mission 1
+# precedence: per-task DB field -> Settings page default -> "normal").
+_REMINDER_STYLE_TO_MODE = {"once": "gentle", "normal": "normal", "persistent": "persistent"}
+
+
+def _default_follow_through_mode() -> str:
+    style = follow_through_reminder_style()
+    return _REMINDER_STYLE_TO_MODE.get(style, "normal")
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -237,7 +269,13 @@ def _fetch_candidates(now: datetime) -> list[dict]:
     return rows
 
 
-def _fetch_todays_capacity_state(now: datetime) -> str | None:
+def _fetch_todays_capacity_state(now: datetime) -> str:
+    """Returns the canonical "Green"/"Amber"/"Red"/"Unknown" status —
+    same raw capacity_checkins row this engine always queried, now run
+    through capacity_zone_from_checkin() (the single canonical mapper)
+    instead of this engine's own inline "orange"/"red" string handling.
+    No today check-in still means "Unknown" (never Green), matching
+    Mission 2's absence-must-not-imply-Green requirement exactly."""
     today_iso = _today(now).isoformat()
     query = (
         "capacity_checkins"
@@ -245,9 +283,9 @@ def _fetch_todays_capacity_state(now: datetime) -> str | None:
         "&order=captured_at.desc&limit=1"
     )
     rows, _ = _pg_get(query)
-    if not rows:
-        return None
-    return rows[0].get("capacity_state")
+    row = rows[0] if rows else None
+    _score, status = capacity_zone_from_checkin(row)
+    return status
 
 
 def _count_todays_surfaced(now: datetime) -> int:
@@ -306,7 +344,7 @@ def compute_initial_schedule(task: dict, now: datetime) -> tuple[datetime | None
     eligible immediately, a brand-new deadline item only if it's already
     within its first ladder checkpoint (or overdue).
     """
-    mode = task.get("follow_through_mode") or "normal"
+    mode = task.get("follow_through_mode") or _default_follow_through_mode()
     due = _parse_date(task.get("due_date"))
     today = _today(now)
 
@@ -349,7 +387,7 @@ def compute_initial_schedule(task: dict, now: datetime) -> tuple[datetime | None
 
 def compute_next_review_after_send(task: dict, now: datetime, new_nudge_count: int) -> datetime | None:
     """Post-send scheduling for the NEXT occurrence (or None to stop)."""
-    mode = task.get("follow_through_mode") or "normal"
+    mode = task.get("follow_through_mode") or _default_follow_through_mode()
     due = _parse_date(task.get("due_date"))
 
     if mode == "gentle":
@@ -378,6 +416,10 @@ def compute_next_review_after_send(task: dict, now: datetime, new_nudge_count: i
 def _tone_for_candidate(task: dict, mode_tone: str) -> str:
     if (task.get("deferral_count") or 0) >= 3:
         return "crit"
+    if mode_tone in ("warn", "crit") and follow_through_increase_as_deadline_approaches() is False:
+        # Settings page's "increase reminders as deadline approaches" toggle,
+        # off: keep deadline-ladder tone flat instead of escalating (Mission 1).
+        return "neutral"
     return mode_tone
 
 
@@ -389,7 +431,12 @@ def _assemble_eligible_candidates(raw_rows: list[dict], now: datetime) -> list[d
     had a next_review_at <= now (from the query) are eligible outright —
     the query already did that filtering."""
     eligible: list[dict] = []
+    skip_waiting = follow_through_check_back_on_waiting_items() is False
     for task in raw_rows:
+        if skip_waiting and task.get("follow_through_mode") == "waiting":
+            # Settings page's "check back on waiting items" toggle, off:
+            # suppress waiting-mode follow-ups entirely (Mission 1).
+            continue
         nra_raw = task.get("next_review_at")
         if nra_raw:
             # Already has a scheduled review time that's <= now (per query).
@@ -412,15 +459,36 @@ def _assemble_eligible_candidates(raw_rows: list[dict], now: datetime) -> list[d
     return eligible
 
 
-def _apply_capacity_gate(candidates: list[dict], capacity_state: str | None, now: datetime) -> list[dict]:
-    if capacity_state != "red":
+def _apply_capacity_gate(candidates: list[dict], capacity_status: str, now: datetime) -> list[dict]:
+    """Green: fully unrestricted. Amber: trims only the lowest-urgency
+    "gentle" mode items not due soon. Red: also trims "normal" mode items
+    (unchanged from before this fix).
+
+    Unknown capacity (no check-in today) is treated as Amber, never as
+    Green (Mission 2, Capacity & Attention Engine: "absence of capacity
+    data must not automatically imply Green") -- no signal should never
+    read as full confidence to send every nudge unrestricted, but it also
+    shouldn't over-restrict to Red's stricter cut on a guess. Amber is
+    the safe, explainable middle ground.
+
+    `capacity_status` is the canonical "Green"/"Amber"/"Red"/"Unknown"
+    string (Mission 3: sourced from capacity_zone_from_checkin(), the
+    same mapper every other capacity-status consumer in the platform
+    uses -- this function no longer interprets the raw capacity_checkins
+    "green"/"orange"/"red" strings itself). Behaviour is unchanged from
+    before this mapping fix: raw orange/None both landed in this
+    function's "restrict to gentle only" branch, exactly what
+    Amber/Unknown do here; raw red and Green/canonical-Red are identical.
+    """
+    if capacity_status not in ("Amber", "Red", "Unknown"):
         return candidates
+    modes_to_trim = ("gentle", "normal") if capacity_status == "Red" else ("gentle",)
     today = _today(now)
     kept = []
     for task in candidates:
         mode = task.get("follow_through_mode")
         due = _parse_date(task.get("due_date"))
-        if mode in ("gentle", "normal") and (due is None or (due - today).days > 1):
+        if mode in modes_to_trim and (due is None or (due - today).days > 1):
             continue
         kept.append(task)
     return kept

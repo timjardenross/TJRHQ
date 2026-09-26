@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for health_synthesis.py — /health-brief command.
+"""Tests for health_synthesis.py's data/formatting helpers.
 
 Rewritten 2026-08-11 (Fleet Engineering Review backlog item) — the
 previous version tested a much richer module: DailyLogStats/EventStats
@@ -7,19 +7,23 @@ dataclasses, run_weekly_synthesis() with Supabase persistence
 (_supabase_upsert), health_events integration, a Health-Summary.md
 write step, and an LLM-with-rule-based-fallback split modeled as two
 named functions. None of that exists in commands/health_synthesis.py
-anymore — it was deliberately simplified (see the module's own
-docstring: "Public API: handle_health_brief(user_id, client)") to a
-read-only fetch -> _summarise() -> optional _llm_synthesis() -> DM
-flow, reading from analytics_health_daily instead of health_daily_logs
-+ health_events, with no persistence step at all. This is not a
-regression to undo — it's tested here as today's actual behavior.
+anymore — it was deliberately simplified to a read-only fetch ->
+_summarise() -> optional _llm_synthesis() flow, reading from
+analytics_health_daily instead of health_daily_logs + health_events,
+with no persistence step at all. This is not a regression to undo —
+it's tested here as today's actual behavior.
+
+2026-09-26: Slack fully decommissioned — the module's
+`handle_health_brief()` Slack-DM entry point was removed (its
+TestHandleHealthBrief coverage removed with it); this file now only
+exercises the Slack-independent helpers below.
 
 The old privacy-boundary tests checked that a written supporting_data
 payload excluded clinical fields; there is no write path anymore, so
 the equivalent guarantee tested here is that _summarise() only ever
 reads named fields from each row (nervous_system_state/energy/
 sleep_hours/mood/posture) — an arbitrary/clinical key on a row can
-never reach the outbound DM text, verified directly below.
+never reach the outbound text, verified directly below.
 
 Run: platform-runtime/.venv/bin/python -m pytest platform-runtime/test_health_synthesis.py -v
 """
@@ -27,14 +31,13 @@ Run: platform-runtime/.venv/bin/python -m pytest platform-runtime/test_health_sy
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from commands.health_synthesis import (
     _fetch_recent_logs,
     _summarise,
-    handle_health_brief,
 )
 
 # ── _summarise(): no data ───────────────────────────────────────────────────────
@@ -135,61 +138,6 @@ class TestFetchRecentLogs(unittest.TestCase):
         mock_db.is_enabled.return_value = True
         mock_db.raw_client.table.side_effect = RuntimeError("db down")
         self.assertEqual(_fetch_recent_logs(mock_db), [])
-
-
-# ── handle_health_brief(): end to end ───────────────────────────────────────────
-
-class TestHandleHealthBrief(unittest.TestCase):
-    def test_no_supabase_sends_no_data_brief_not_crash(self):
-        mock_client = MagicMock()
-        with patch("commands.health_synthesis._make_supabase", return_value=None), \
-             patch("commands.health_synthesis._llm_synthesis", return_value=None):
-            handle_health_brief("U1", mock_client)
-
-        mock_client.chat_postMessage.assert_called_once()
-        call_text = str(mock_client.chat_postMessage.call_args)
-        self.assertIn("No check-in data", call_text)
-
-    def test_llm_unavailable_falls_back_to_raw_summary(self):
-        mock_db = MagicMock()
-        mock_db.is_enabled.return_value = True
-        mock_client = MagicMock()
-
-        rows = [{"nervous_system_state": "calm", "energy": "high"}]
-        with patch("commands.health_synthesis._make_supabase", return_value=mock_db), \
-             patch("commands.health_synthesis._fetch_recent_logs", return_value=rows), \
-             patch("commands.health_synthesis._llm_synthesis", return_value=None):
-            handle_health_brief("U2", mock_client)
-
-        call_text = str(mock_client.chat_postMessage.call_args)
-        self.assertIn("Weekly Health Brief", call_text)
-        self.assertNotIn("Medical Officer Interpretation", call_text)
-
-    def test_llm_available_appends_interpretation(self):
-        mock_db = MagicMock()
-        mock_db.is_enabled.return_value = True
-        mock_client = MagicMock()
-
-        rows = [{"nervous_system_state": "calm"}]
-        with patch("commands.health_synthesis._make_supabase", return_value=mock_db), \
-             patch("commands.health_synthesis._fetch_recent_logs", return_value=rows), \
-             patch("commands.health_synthesis._llm_synthesis", return_value="Looking steady this week."):
-            handle_health_brief("U3", mock_client)
-
-        call_text = str(mock_client.chat_postMessage.call_args)
-        self.assertIn("Medical Officer Interpretation", call_text)
-        self.assertIn("Looking steady this week.", call_text)
-
-    def test_dm_failure_does_not_raise(self):
-        mock_db = MagicMock()
-        mock_db.is_enabled.return_value = True
-        mock_client = MagicMock()
-        mock_client.chat_postMessage.side_effect = RuntimeError("slack down")
-
-        with patch("commands.health_synthesis._make_supabase", return_value=mock_db), \
-             patch("commands.health_synthesis._fetch_recent_logs", return_value=[]), \
-             patch("commands.health_synthesis._llm_synthesis", return_value=None):
-            handle_health_brief("U4", mock_client)  # must not raise
 
 
 if __name__ == "__main__":

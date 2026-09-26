@@ -1,16 +1,72 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Input, Select } from '@/components/ui';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 import {
   attendBucket, createTask, fetchTasks, getReadyRoomContext, rankToday, pickUpItems,
   buildStatusSentence, deferNotToday, CATEGORIES,
-  type PersonalTask, type TaskCategory, type FollowThroughMode, type ReadyRoomContext,
+  type PersonalTask, type TaskCategory, type FollowThroughMode, type ReadyRoomContext, type ReadyRoomPosture,
 } from '@/lib/personalTasks';
 import { FOLLOW_THROUGH_MODES, autoSwitchModeOnDueDate } from './followThroughMode';
 import { TaskRow } from './TaskRow';
 import { ActiveTaskView } from './ActiveTaskView';
+import { SupportFeedbackPrompt } from './SupportFeedback';
+
+/** Mission 4 overload sequence (spec §16/§17): "too much" must REDUCE
+ * cognitive demand, not produce more information. Reuses rankToday's own
+ * ordering (already the single source of "what matters most") capped to
+ * one — no second prioritisation engine — and offers regulation as an
+ * equally valid exit, never just a smaller task list. Purely client-side,
+ * ephemeral (no new persistence): leaving the page or clicking "Back to
+ * full view" forgets it. */
+function OverloadView({
+  onlyTask, onStart, onExit, posture,
+}: {
+  onlyTask: PersonalTask | null;
+  onStart: (task: PersonalTask) => void;
+  onExit: () => void;
+  /** Mission 5: this whole view IS the rr_overload_reduction intervention
+   *  being offered — feeding posture through lets the feedback event carry
+   *  the same context_snapshot every other ready_room event does. */
+  posture: ReadyRoomPosture;
+}) {
+  return (
+    <div className="flex flex-col gap-4 rounded-md border border-wb-line bg-wb-surface p-4">
+      <p className="text-[13px] text-wb-ink">
+        That&apos;s okay. Everything else is being protected — you don&apos;t need to look at it right now.
+      </p>
+      {onlyTask ? (
+        <div className="rounded-md bg-wb-sage/10 p-3">
+          <p className="text-[11px] uppercase tracking-wide text-wb-sage-deep">One thing, if you want it</p>
+          <p className="mt-1 text-[14px] text-wb-ink">{onlyTask.title}</p>
+          <Button size="sm" className="mt-2" onClick={() => onStart(onlyTask)}>Start this</Button>
+        </div>
+      ) : (
+        <p className="text-[13px] text-wb-ink2">Nothing urgent needs you at all right now.</p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <a
+          href="/human-systems-workbench?domain=recovery"
+          className="inline-flex items-center rounded-md border border-wb-line bg-wb-bg px-3 py-1.5 text-[13px] text-wb-ink hover:bg-wb-surface-raised"
+        >
+          Take a break instead
+        </a>
+        <Button size="sm" variant="ghost" onClick={onExit}>Back to full view</Button>
+      </div>
+      {/* Mission 5 — Evidence & Adaptive Support (spec §12/§30). Reaching
+          this view at all is the overload-reduction intervention being
+          offered, so it's a natural, non-fatiguing attach point — it
+          doesn't fire on every "This feels like too much" tap, only once
+          this view is actually showing. */}
+      <SupportFeedbackPrompt
+        interventionId="rr_overload_reduction"
+        posture={posture}
+        label="Did reducing the list to one thing help?"
+      />
+    </div>
+  );
+}
 
 /** Title-first capture (spec §9) — no forced urgency/importance/source
  * decisions. Category/due/follow-through sit behind "Add details ▾". */
@@ -132,7 +188,23 @@ function CollapsedSection({
 
 type LoadState = 'loading' | 'clear' | 'unavailable';
 
-export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number; onLoaded: (tasks: PersonalTask[]) => void }) {
+export function TodayStream({
+  refreshSignal,
+  onLoaded,
+  onExecutingChange,
+  initialTaskId,
+}: {
+  refreshSignal: number;
+  onLoaded: (tasks: PersonalTask[]) => void;
+  /** Mission 4: reports whether ActiveTaskView is showing, so the page
+   * shell can drop into minimal/nav-free mode. */
+  onExecutingChange?: (executing: boolean) => void;
+  /** Mission 6B §8.4 (Hub -> Ready Room continuity): a Needs You item's
+   * ?task= deep link. Auto-opens that task's ActiveTaskView on first load
+   * only — a later background refresh must never re-force it open after
+   * the Captain has navigated away from it (e.g. paused it deliberately). */
+  initialTaskId?: string | null;
+}) {
   const [openTasks, setOpenTasks] = useState<PersonalTask[]>([]);
   const [doneTasks, setDoneTasks] = useState<PersonalTask[]>([]);
   const [state, setState] = useState<LoadState>('loading');
@@ -142,12 +214,14 @@ export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number
   const [activeTask, setActiveTask] = useState<PersonalTask | null>(null);
   const [internalRefresh, setInternalRefresh] = useState(0);
   const [doneOpen, setDoneOpen] = useState(false);
+  const [overloaded, setOverloaded] = useState(false);
   // HQ V1 Integration QA §21 fix: surfaces a genuine Google Tasks sync
   // failure in-page, distinct from "no tasks" — the backend already makes
   // this distinction (google-tasks/sync/route.ts), Ready Room's own page
   // previously didn't show it. 'ok'/'unknown' render nothing (no wall of
   // green); only a confirmed 'failed' shows a caveat.
   const [syncStatus, setSyncStatus] = useState<'ok' | 'failed' | 'unknown'>('unknown');
+  const consumedInitialTaskId = useRef(false);
 
   useAbortEffect((signal, alive) => {
     fetch('/api/ready-room/sync-status', { signal })
@@ -184,6 +258,20 @@ export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number
     else if (doneTasks.find((t) => t.id === activeTask.id)) setActiveTask(null);
   }, [openTasks, doneTasks, activeTask]);
 
+  useEffect(() => { onExecutingChange?.(!!activeTask); }, [activeTask, onExecutingChange]);
+
+  // Mission 6B §8.4 — one-shot: open the deep-linked task as soon as it
+  // shows up in openTasks, then never again (consumedInitialTaskId), so
+  // Not Today / Pause afterwards doesn't get overridden by a later refresh.
+  useEffect(() => {
+    if (!initialTaskId || consumedInitialTaskId.current) return;
+    const target = openTasks.find((t) => t.id === initialTaskId);
+    if (target) {
+      consumedInitialTaskId.current = true;
+      setActiveTask(target);
+    }
+  }, [initialTaskId, openTasks]);
+
   const refresh = () => setInternalRefresh((n) => n + 1);
 
   if (state === 'unavailable') {
@@ -205,6 +293,7 @@ export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number
         onDone={() => { setActiveTask(null); refresh(); }}
         onPaused={() => { setActiveTask(null); refresh(); }}
         onBack={() => setActiveTask(null)}
+        onOverload={() => { setActiveTask(null); setOverloaded(true); }}
       />
     );
   }
@@ -221,11 +310,32 @@ export function TodayStream({ refreshSignal, onLoaded }: { refreshSignal: number
     todayCount: today.length, waitingCount: waiting.length, capacityLow, hasCheckinToday: context.hasCheckinToday,
   });
 
+  if (overloaded) {
+    const onlyTask = pickUp[0] ?? today[0] ?? null;
+    return (
+      <OverloadView
+        onlyTask={onlyTask}
+        onStart={(t) => { setOverloaded(false); setActiveTask(t); }}
+        onExit={() => setOverloaded(false)}
+        posture={context.posture}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <p className="rounded-md border border-wb-line bg-wb-surface px-4 py-3 text-[13px] text-wb-ink">
-        {statusSentence}
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-wb-line bg-wb-surface px-4 py-3">
+        <p className="text-[13px] text-wb-ink">{statusSentence}</p>
+        {(today.length > 0 || radar.length > 0) && (
+          <button
+            type="button"
+            onClick={() => setOverloaded(true)}
+            className="shrink-0 text-[12px] text-wb-ink2 underline-offset-2 hover:underline"
+          >
+            This feels like too much
+          </button>
+        )}
+      </div>
       {syncStatus === 'failed' && (
         <p className="rounded-md border border-wb-warn/40 bg-wb-warn/10 px-4 py-2 text-[12px] text-wb-warn-on">
           Google Tasks sync is currently failing — tasks added or completed on your phone may not appear here yet.

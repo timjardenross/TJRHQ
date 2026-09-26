@@ -1,77 +1,170 @@
 version: 2
 
+# CI performance mission, Phase B (2026-09-19): all 12 entries below used to
+# default to the same weekly instant (no explicit day/time), which is what
+# produced a real observed fan-out of ~12 simultaneous Dependabot PRs during
+# Phase A's discovery — each spawning a full Python CI run, every one of
+# which took 45-65min from pure runner-queue congestion (not workflow
+# logic). See knowledge/missions/CI-PERFORMANCE-MERGE-LATENCY-20260919-
+# knowledge-record.md's root cause #4 for the measured evidence.
+#
+# Two independent mitigations, same dependency-update coverage:
+# - Staggered across 3 weekday/time slots (max ~4 entries can now fire at
+#   once instead of all 12) via explicit `schedule.day`/`time`.
+# - `groups:` on every entry consolidates that entry's own updates into a
+#   single PR instead of one PR per package, cutting simultaneous PR/CI-run
+#   count further whenever more than one dependency updates in the same
+#   window.
+# No change to what gets scanned/updated, no change to open-pull-requests-
+# limit — only when and how many PRs a given week's updates land as.
+
 updates:
-  # --- Python (pip) ecosystems: one entry per directory with a requirements.txt ---
+  # --- Slot A: Mondays 03:00 UTC ---
   - package-ecosystem: "pip"
     directory: "/core/infrastructure/mac-collector"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Etc/UTC"
     open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns: ["*"]
 
   - package-ecosystem: "pip"
     directory: "/core/infrastructure/vm-processing"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Etc/UTC"
     open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns: ["*"]
 
   - package-ecosystem: "pip"
     directory: "/core/infrastructure/vm-transfer"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Etc/UTC"
     open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns: ["*"]
 
   - package-ecosystem: "pip"
     directory: "/platform-runtime"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Etc/UTC"
     open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns: ["*"]
 
+  # --- Slot B: Wednesdays 03:00 UTC ---
   - package-ecosystem: "pip"
     directory: "/scripts/self_improvement"
     schedule:
       interval: "weekly"
+      day: "wednesday"
+      time: "03:00"
+      timezone: "Etc/UTC"
     open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns: ["*"]
 
   - package-ecosystem: "pip"
     directory: "/services/revs-content-agents"
     schedule:
       interval: "weekly"
+      day: "wednesday"
+      time: "03:00"
+      timezone: "Etc/UTC"
     open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns: ["*"]
 
   - package-ecosystem: "pip"
     directory: "/telegram-bots/capacitybot"
     schedule:
       interval: "weekly"
+      day: "wednesday"
+      time: "03:00"
+      timezone: "Etc/UTC"
     open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns: ["*"]
 
   - package-ecosystem: "pip"
     directory: "/telegram-bots/revs"
     schedule:
       interval: "weekly"
+      day: "wednesday"
+      time: "03:00"
+      timezone: "Etc/UTC"
     open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns: ["*"]
 
+  # --- Slot C: Fridays 03:00 UTC ---
   - package-ecosystem: "pip"
     directory: "/telegram-bots/xo"
     schedule:
       interval: "weekly"
+      day: "friday"
+      time: "03:00"
+      timezone: "Etc/UTC"
     open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns: ["*"]
 
   - package-ecosystem: "pip"
     directory: "/tools/supabase"
     schedule:
       interval: "weekly"
+      day: "friday"
+      time: "03:00"
+      timezone: "Etc/UTC"
     open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns: ["*"]
 
-  # --- JavaScript/TypeScript (npm) ---
+  # --- JavaScript/TypeScript (npm) — Slot C, offset 1h to avoid piling on
+  # top of the pip entries in the same slot ---
   - package-ecosystem: "npm"
     directory: "/lcars-portal"
     schedule:
       interval: "weekly"
+      day: "friday"
+      time: "04:00"
+      timezone: "Etc/UTC"
     open-pull-requests-limit: 10
+    groups:
+      npm-dependencies:
+        patterns: ["*"]
 
-  # --- Keep the workflow actions themselves up to date ---
+  # --- Keep the workflow actions themselves up to date — Slot C, offset 2h ---
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "friday"
+      time: "05:00"
+      timezone: "Etc/UTC"
     open-pull-requests-limit: 5
+    groups:
+      actions-dependencies:
+        patterns: ["*"]

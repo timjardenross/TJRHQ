@@ -9,6 +9,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Card, Badge, Button, Select } from '@/components/ui';
+import { EvidenceMeta } from '@/components/EvidenceMeta';
+import { DataAvailabilityNotice } from '@/components/DataAvailabilityNotice';
+import { CollapsibleSection } from '@/app/human-systems-workbench/_components/CollapsibleSection';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { EVIDENCE_CONTRIBUTION_LABEL, IGNORE_REASONS, type EvidenceItem } from './shared';
 
@@ -45,6 +48,7 @@ function ChangeCard({ item }: { item: EvidenceItem }) {
         <span className="font-medium text-wb-sage-deep">{whatChanged}.</span>{' '}
         {item.summary || 'No summary available yet.'}
       </p>
+      <EvidenceMeta source={item.source_name} observedAt={item.collected_at} />
       <p className="text-[11.5px] italic text-wb-ink2">
         You need to: {item.actionable_recommendation || 'Nothing — this is informational.'}
       </p>
@@ -98,9 +102,7 @@ export function TodayView() {
 
   if (loading && !data) return <p className="text-sm text-wb-ink2">Loading…</p>;
   if (error && !data) return (
-    <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
-      {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline">Check pipeline health →</Link>
-    </p>
+    <DataAvailabilityNotice sources={[`Health OSINT: ${error}`]} />
   );
   if (!data) return null;
 
@@ -109,9 +111,7 @@ export function TodayView() {
   return (
     <div className="space-y-6">
       {error && (
-        <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">
-          {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline">Check pipeline health →</Link>
-        </p>
+        <DataAvailabilityNotice sources={[`Health OSINT: ${error}`]} />
       )}
 
       <div>
@@ -157,7 +157,7 @@ export function TodayView() {
         {data.emerging_count > 0 ? (
           <>
             {data.emerging_count} finding{data.emerging_count === 1 ? ' is' : 's are'} being watched. Evidence not yet strong enough to change what HQ thinks.{' '}
-            <Link href="/health-osint?tab=my-evidence" className="text-wb-sage-deep hover:underline">View emerging →</Link>
+            <Link href="/health-osint?tab=my-evidence" className="text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">View emerging →</Link>
           </>
         ) : (
           <>Nothing currently in the watch list.</>
@@ -166,7 +166,7 @@ export function TodayView() {
 
       {/* NEEDS YOUR REVIEW — curation folded in, ambiguous-only subset. */}
       {data.needs_review.length > 0 && (
-        <Card title="Needs Your Review">
+        <CollapsibleSection title={`Needs Your Review · ${data.needs_review.length}`} defaultOpen={false}>
           <p className="mb-3 text-[11.5px] text-wb-ink2">
             The system is not confident these are relevant — everything else it already handled automatically.
           </p>
@@ -220,10 +220,10 @@ export function TodayView() {
           </div>
           {data.needs_review_total_pending > data.needs_review.length && (
             <p className="mt-3 text-[11px] text-wb-ink2">
-              <Link href="/health-osint-curation" className="text-wb-sage-deep hover:underline">See the full queue →</Link>
+              <Link href="/health-osint-curation" className="text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">See the full queue →</Link>
             </p>
           )}
-        </Card>
+        </CollapsibleSection>
       )}
     </div>
   );

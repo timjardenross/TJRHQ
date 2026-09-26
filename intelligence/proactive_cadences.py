@@ -30,9 +30,10 @@ was never migrated in the 2026-08-23 pass above — a gap, not a deliberate skip
 Supabase query + brief-generation helpers aren't Slack-specific, so job_appointment_prep()
 below reuses them directly and delivers over Telegram via _tg_notify(). The module's
 Slack-coupled entry points (check_upcoming_appointments, handle_health_prep, _post())
-are untouched and still live via platform-runtime/proactive_scheduler.py + app.py,
-which have not themselves been decommissioned yet — this migration only adds the
-canonical-scheduler path alongside them.
+were removed 2026-09-26 (Slack fully decommissioned, Captain confirmed) — the
+platform-runtime/proactive_scheduler.py + app.py this docstring used to say they were
+"still live" through no longer exist in this repo, confirming they were already dead
+before removal.
 """
 
 from __future__ import annotations
@@ -243,8 +244,12 @@ def _generate_ko_monthly_brief() -> str:
 
 def _get_idea_missions() -> list[dict]:
     try:
-        sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))
-        from tools.supabase.client import CommanderSupabaseClient
+        # 2026-09-26: was `sys.path.insert(0, str(_REPO_ROOT / "slack-bot"))`
+        # — that directory no longer exists (Slack fully decommissioned,
+        # Captain confirmed). Aligned to the same tools/supabase import
+        # pattern _check_health_logged_today() below already uses.
+        sys.path.insert(0, str(_REPO_ROOT / "tools" / "supabase"))
+        from client import CommanderSupabaseClient
         c = CommanderSupabaseClient()
         if not c.is_enabled():
             return []
@@ -703,13 +708,11 @@ def register_jobs(scheduler, tz) -> None:
     )
 
     # Telegram delivery jobs
-    scheduler.add_job(
-        job_lifecycle_recommendations,
-        CronTrigger(hour=8, minute=15, timezone=tz),
-        id="lifecycle_recommendations",
-        name="Lifecycle Pending Actions (MSN-0066)",
-        replace_existing=True,
-    )
+    # lifecycle_recommendations retired 2026-09-26 (Captain-directed): daily
+    # approval-queue digest no longer needed. Was firing on 2 stale
+    # ENG-HANDOFF records (PR #83/#84, closed-not-merged since 2026-09-09)
+    # that never got marked resolved after close — build_pending_actions()
+    # doesn't re-check PR state. Function left in place, just unregistered.
     # fortnightly_idea_review disabled: no dedup/ack, re-nags the same
     # Idea-status missions verbatim every cycle with no resolution path.
     scheduler.add_job(
@@ -733,20 +736,15 @@ def register_jobs(scheduler, tz) -> None:
         name="Forgotten Decisions & ADR Alert",
         replace_existing=True,
     )
-    scheduler.add_job(
-        job_decision_review,
-        CronTrigger(day_of_week="fri", hour=16, minute=0, timezone=tz),
-        id="decision_review",
-        name="Friday Decision Review",
-        replace_existing=True,
-    )
-    scheduler.add_job(
-        job_weekly_review,
-        CronTrigger(day_of_week="fri", hour=16, minute=30, timezone=tz),
-        id="weekly_review",
-        name="Friday Weekly Review",
-        replace_existing=True,
-    )
+    # decision_review retired 2026-09-26 (Captain-directed): no longer
+    # needed. _get_pending_decisions() had no dedup/ack (same disease as
+    # fortnightly_idea_review above) — 14 never-closed decision files from
+    # 2026-09-12 (~5 duplicate "Slack vs Voice Core" proposals fired in 15
+    # min under USS-TJR-MSN-0010A) kept re-nagging every Friday. Function
+    # left in place, just unregistered — re-add scheduler.add_job() to revive.
+    # weekly_review retired 2026-09-26 (Captain-directed): no longer needed.
+    # job_weekly_review() and weeklyReview.ts/alerts.ts untouched — just
+    # unregistered here.
     # shakedown_digest retired 2026-08-27 (Captain-directed): the shakedown
     # concept (core/health/shakedown_logger.py) was a 7-day operational
     # burn-in tracker starting 2026-06-15 (mission M-20260615), never

@@ -5,13 +5,43 @@
 # in core/model-router/app.py and the mistralai cloud client modules listed
 # in docs/decisions/ADR-llm-application-security-baseline.md.
 #
-# Checking model: this platform's OWN local Ollama model (gemma3:4b — the
-# router's fast classifier/XO-chat model, MODEL_MID in app.py), reached via
+# Checking model: this platform's OWN local Ollama model, reached via
 # Ollama's OpenAI-compatible /v1 endpoint (native support since Ollama
 # 0.1.26+). No new model is installed or hosted for this — per the mission
 # brief's "no new model to host" constraint. NeMo Guardrails 0.24.0 has a
 # built-in "ollama" engine (nemoguardrails/llm/frameworks/default.py) that
 # talks to this endpoint directly; no langchain dependency required.
+#
+# 2026-09-22: switched from gemma3:4b to qwen2.5-coder:7b. gemma3:4b is a
+# multimodal checkpoint — Ollama's llama-server loads a vision projector
+# (--mmproj) alongside the text weights even for this pure-text self-check,
+# and on this CPU-only VM (no GPU, confirmed via `ollama ps` size_vram=0)
+# that made a single check_input/check_output call measure 73-241s live,
+# blowing LLM_GUARDRAILS_TIMEOUT_S on a majority of calls. Every other
+# installed qwen3.5/gemma4 model also carries "vision" and/or "thinking"
+# (chain-of-thought before the final answer, unbounded token generation on
+# a trivial yes/no classification) per `ollama show <model>`'s capabilities
+# list — qwen2.5-coder:7b was the only installed model with neither.
+#
+# 2026-09-26: switched again, qwen2.5-coder:7b -> qwen2.5:1.5b-instruct.
+# HQ Evolution enrichment's real call_log.jsonl showed a full
+# hq-evolution-external-fit dispatch (input rail + Gemini call + output
+# rail) taking 220-300s; isolating just the input rail
+# (GenerationOptions(rails={"input": True, "output": False, "dialog":
+# False, "retrieval": False}), same call _llmsec_worker.py's _run_rail
+# makes) measured 45-100s on qwen2.5-coder:7b alone — the guardrails
+# check, not Gemini's own latency (a Gemini thinking_level fix landed the
+# same day and made no measurable difference, confirming this). The same
+# isolated benchmark against qwen2.5:1.5b-instruct measured 11-18s for
+# both input and output rails, live-verified still correctly blocking a
+# DAN-style jailbreak prompt and a credential-leak output while allowing
+# benign content — real jailbreak/PII detection quality was not otherwise
+# re-verified beyond those two cases, and is expected to be weaker at
+# 1.5B than 7B; that tradeoff was made explicitly, not accidentally. This
+# does technically add a new locally-hosted model (~1GB), which the
+# original USS-TJR-MSN-0366 mission brief's "no new model to host"
+# constraint would have avoided — a direct, explicit call to prioritise
+# HQ Evolution cycle latency over that constraint, not an oversight.
 #
 # base_url below is the default OLLAMA_BASE_URL (http://localhost:11434).
 # core/security/llm_guardrails.py rewrites parameters.base_url from the real
@@ -20,12 +50,20 @@
 models:
   - type: main
     engine: ollama
-    model: gemma3:4b
+    model: qwen2.5:1.5b-instruct
     parameters:
       base_url: http://localhost:11434/v1
       # Ollama's OpenAI-compat endpoint doesn't check this, but the
       # underlying OpenAI-compatible client requires a non-empty string.
       api_key: "ollama-local-no-key-required"  # pragma: allowlist secret
+      # System-wide OLLAMA_KEEP_ALIVE=0 (see ollama.service.d/keep-alive-
+      # zero.conf) unloads every model right after each request, so back-
+      # to-back check_input/check_output calls each cold-load the checking
+      # model. This extra field passes straight through nemoguardrails'
+      # OpenAI-compat client into the request body, and Ollama's /v1
+      # endpoint does honor it (verified live: model stays loaded across
+      # calls) — still worth keeping even on a smaller model.
+      keep_alive: "5m"
 
 rails:
   input:

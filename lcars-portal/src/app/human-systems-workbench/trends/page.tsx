@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { WorkbenchShell, Card } from '@/components/ui';
 import { useAbortEffect } from '@/hooks/useAbortEffect';
 import { Sparkline } from '../_components/Sparkline';
+import { TREND_CAPACITY } from '../_components/trendScoring';
 import {
   STIMULATION_STATE_TREND_LABEL,
   PAIN_STATE_LABEL,
@@ -50,7 +51,10 @@ import type { TrendDayRow } from '@/app/api/human-systems/trends/route';
 // every lookup. Found and fixed 2026-08-27.
 const TREND_ENERGY: Record<string, number> = { high: 90, moderate: 60, low: 25 };
 const TREND_NS: Record<string, number> = { calm: 90, activated: 55, dysregulated: 20 };
-const TREND_CAPACITY: Record<string, number> = { green: 85, orange: 55, red: 20 };
+// TREND_CAPACITY now lives in ../_components/trendScoring.ts — a page.tsx
+// file can't export a non-page value (Next.js page-export validation, hit
+// while wiring up CapacityTrendCard.tsx), but that card still needs to
+// share this exact map with this page rather than recompute it.
 const TREND_REGULATION: Record<string, number> = { settled: 90, manageable: 90, activated: 55, overloaded: 20 };
 
 // The remaining fields have no canonical platform score (compute_recovery_
