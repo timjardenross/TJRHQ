@@ -120,6 +120,26 @@ class TestWriteHandoffFile(unittest.TestCase):
         path = mission_dispatch.write_handoff_file(self.tmpdir, mission)
         self.assertIn("no description recorded", path.read_text())
 
+    def test_retry_for_same_mission_replaces_prior_file_not_duplicates_it(self):
+        mission = make_mission()
+        handoffs_dir = self.tmpdir / "Missions" / "Engineering-Handoffs"
+        first = mission_dispatch.write_handoff_file(self.tmpdir, mission)
+        second = mission_dispatch.write_handoff_file(self.tmpdir, mission)
+        matches = list(handoffs_dir.glob(f"ENG-HANDOFF-{mission['mission_id']}-*.md"))
+        self.assertEqual(len(matches), 1, "a retry for the same mission_id must not leave a stale duplicate file behind")
+        self.assertTrue(second.exists())
+        self.assertFalse(first.exists() and first != second)
+
+    def test_retry_for_different_mission_does_not_touch_other_missions_files(self):
+        mission_a = make_mission(mission_id="MSN-AAA")
+        mission_b = make_mission(mission_id="MSN-BBB")
+        handoffs_dir = self.tmpdir / "Missions" / "Engineering-Handoffs"
+        path_a = mission_dispatch.write_handoff_file(self.tmpdir, mission_a)
+        mission_dispatch.write_handoff_file(self.tmpdir, mission_b)
+        mission_dispatch.write_handoff_file(self.tmpdir, mission_b)
+        self.assertTrue(path_a.exists(), "a retry for a different mission_id must not remove another mission's file")
+        self.assertEqual(len(list(handoffs_dir.glob("ENG-HANDOFF-MSN-BBB-*.md"))), 1)
+
 
 class TestRunCycle(unittest.TestCase):
     def setUp(self):

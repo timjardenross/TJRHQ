@@ -153,6 +153,19 @@ def write_handoff_file(repo_root: Path, mission: dict[str, Any]) -> Path:
     handoffs_dir.mkdir(parents=True, exist_ok=True)
     handoff_path = handoffs_dir / f"{handoff_id}.md"
 
+    # 2026-09-26 (HQ Consolidation Audit): a retried mission_id (up to
+    # MAX_DISPATCH_ATTEMPTS times, per run_cycle()) used to write a new
+    # timestamped file on every attempt instead of replacing the previous
+    # one — not just disk growth, engineering_handoff_reader.py's
+    # load_engineering_handoffs() globs every ENG-HANDOFF-*.md file with no
+    # dedup by mission_id, so each stale retry file surfaced as its own
+    # separate (duplicate) mission entry wherever that reader feeds into.
+    # Only ever one real handoff should exist per mission_id at a time —
+    # remove any prior attempt's file for this exact mission_id before
+    # writing the new one.
+    for stale in handoffs_dir.glob(f"ENG-HANDOFF-{mission_id}-*.md"):
+        stale.unlink(missing_ok=True)
+
     title = mission.get("title") or mission_id
     description = mission.get("description") or "(no description recorded)"
 
