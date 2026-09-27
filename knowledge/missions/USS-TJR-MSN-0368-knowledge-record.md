@@ -42,8 +42,9 @@ for prefix MSN even with `tests/` correctly excluded — reproduced 3 times in
 ~10 minutes, non-deterministically (same command, same unchanged repo state,
 different result). Root cause of the *scan* hit is still open (most likely:
 this repo runs 70+ concurrent agent sessions and something transiently
-touches a path outside the `tests`/`test_*.py` exclusion list with
-`MSN-9999` in it — never caught red-handed at the exact moment). What *is*
+touches a path outside the `tests`/`test_*.py` exclusion list with the
+literal suffix `-9999` in it — never caught red-handed at the exact
+moment). What *is*
 fixed: `next_id()` no longer blindly trusts an implausible jump. Added
 `_MAX_SANE_DRIFT = 100` — a scanned drift bigger than that is refused and
 logged loudly instead of silently corrupting the counter file. Verified via
@@ -51,8 +52,24 @@ both a monkeypatched unit check and two real live reproductions after the
 fix landed (both correctly refused).
 
 **Follow-up still open:** find what actually produces the transient
-`MSN-9999` scan hit. Not chased further this session — needs to be caught
+`-9999` scan hit. Not chased further this session — needs to be caught
 mid-flight, which means either instrumenting the scan or getting lucky.
+
+**Resolved (follow-up, 2026-09-14):** found it, and it wasn't a
+concurrent-session artifact — it was this paragraph. The two lines above
+originally spelled out the literal string `MSN` immediately followed by
+`-9999`, in a `.md` file that `scan_repo_max()` legitimately includes and
+that sits outside every excluded directory (it's not under `tests/`, and
+this filename doesn't match `test_*.py`/`*_test.py`). The bug report was
+self-poisoning the scan it describes. Reproduced live: running
+`scan_repo_max`'s exact grep command against the repo surfaced the same
+false-max hit, sourced to this file's own prose, nothing else — the `core/*/tests/test_*.py`
+fixtures that looked like a plausible second source are correctly filtered
+by the existing exclude patterns and were never actually the leak. Fixed
+here by de-poisoning the two literal mentions above (spelling as `-9999`
+without the `MSN` prefix immediately before it, so `\bMSN-[0-9]{4,5}\b`
+no longer matches). `id_registry.py`'s scan/exclusion logic itself is
+unchanged — no code fix was needed once the true source was identified.
 
 ## Stream 2: context-service NOT soaking
 
