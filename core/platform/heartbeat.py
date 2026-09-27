@@ -110,6 +110,45 @@ def record_heartbeat(
         return False
 
 
+def record_heartbeats(rows: list[dict[str, Any]], timeout: int = 10) -> bool:
+    """Record several run attempts in one POST (a JSON array insert) — for a
+    job that runs many domains per tick (e.g. the emergency-alert hub's ~15
+    sources every 15 min), one request instead of one per domain. Each row
+    takes record_heartbeat()'s keyword arguments. Never raises."""
+    if not rows:
+        return True
+    if not _URL or not _KEY:
+        log.warning("record_heartbeats: SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY not set — %d heartbeat(s) dropped", len(rows))
+        return False
+    payload = [
+        {
+            "domain_key": row["domain_key"],
+            "status": row.get("status") if row.get("status") in ("ok", "failed", "skipped") else "failed",
+            "detail": row.get("detail"),
+            "error_message": row.get("error_message"),
+            "latency_ms": row.get("latency_ms"),
+        }
+        for row in rows
+    ]
+    req = urllib.request.Request(
+        f"{_URL.rstrip('/')}/rest/v1/domain_heartbeats",
+        data=json.dumps(payload).encode("utf-8"),
+        method="POST",
+        headers={
+            "apikey": _KEY,
+            "Authorization": f"Bearer {_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
+            return True
+    except (urllib.error.HTTPError, urllib.error.URLError, OSError) as exc:
+        log.warning("record_heartbeats(%d rows) write failed: %s", len(rows), exc)
+        return False
+
+
 def record_heartbeat_ok(domain_key: str, detail: str | None = None, latency_ms: int | None = None) -> bool:
     """Convenience wrapper for the common case."""
     return record_heartbeat(domain_key, status="ok", detail=detail, latency_ms=latency_ms)
