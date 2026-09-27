@@ -1,4 +1,4 @@
-"""recompute_signal_scores writes score changes in bulk (migration 0224),
+"""recompute_signal_scores writes score changes in bulk (migration 0225),
 not one PATCH per row — the per-row version was ~31k requests a night."""
 
 import sys

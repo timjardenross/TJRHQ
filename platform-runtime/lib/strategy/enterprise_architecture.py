@@ -166,7 +166,7 @@ def register_arch_entity(
         c = _client()
         if c is not None:
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .like("owner", f"{ARCH_ENTITY_OWNER_PREFIX}%")
                 .ilike("statement", f"%{name[:40]}%")
@@ -211,7 +211,7 @@ def list_arch_entities(
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{ARCH_ENTITY_OWNER_PREFIX}%")
             .order("created_at", desc=True)

@@ -484,7 +484,7 @@ def review_knowledge(ctx: Any) -> list[ImprovementOpportunity]:
 
         if completed:
             # Count lesson-learned decisions logged by knowledge officer
-            res_lessons = c.raw_client.table("decisions").select(
+            res_lessons = c.raw_client.table("command_memory_records").select(
                 "id,owner"
             ).like("owner", "knowledge:%").order("created_at", desc=True).limit(20).execute()
 
@@ -510,7 +510,7 @@ def review_knowledge(ctx: Any) -> list[ImprovementOpportunity]:
                 ))
 
         # Check for decisions with very thin rationale (< 40 characters)
-        res_decisions = c.raw_client.table("decisions").select(
+        res_decisions = c.raw_client.table("command_memory_records").select(
             "id,statement,rationale"
         ).order("created_at", desc=True).limit(20).execute()
 

@@ -195,7 +195,7 @@ def _store_opportunity(opp: CrossDomainOpportunity) -> None:
             c = CommanderSupabaseClient()
             if c.is_enabled() and c.raw_client:
                 res = (
-                    c.raw_client.table("decisions")
+                    c.raw_client.table("command_memory_records")
                     .select("id")
                     .eq("owner", CROSS_DOMAIN_OWNER)
                     .ilike("statement", f"%{opp.title[:40]}%")

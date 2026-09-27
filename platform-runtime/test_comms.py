@@ -498,18 +498,5 @@ class TestLeadershipProducts(unittest.TestCase):
         self.assertIn("Leadership Themes", t)
 
 
-class TestOpportunitiesDecisionSource(unittest.TestCase):
-    def test_decisions_source_reads_learning_loop_rows_only(self):
-        """Command Memory's owner-keyed state rows share `decisions` since
-        migration 0226 — they must not surface as leadership-lesson posts."""
-        from unittest.mock import MagicMock
-        client = MagicMock()
-        with patch.object(opp, "_client", return_value=client):
-            opp.gather_opportunities(publishable_only=False)
-        decisions_calls = [c for c in client.raw_client.table.call_args_list if c.args == ("decisions",)]
-        self.assertEqual(len(decisions_calls), 1)
-        client.raw_client.table.return_value.select.return_value.is_.assert_any_call("owner", "null")
-
-
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -272,7 +272,7 @@ def log_decision_to_command_memory(
         "updated_by": owner,
     }
 
-    success = client.insert("decisions", record)
+    success = client.insert("command_memory_records", record)
     if success:
         log.info(f"[command-memory] Decision {decision_id} logged to Command Memory")
         return decision_id
@@ -339,9 +339,13 @@ def get_active_decisions() -> list[dict[str, Any]]:
     """
     client = get_client()
     results = client.select(
-        "decisions",
+        "command_memory_records",
         columns="id,statement,owner,created_at",
-        filters={"status": "eq.Active"},
+        # Excludes the ~45 EXEC-002A..EXEC-007 key-value writers, which
+        # share this table under owner-prefixed keys (initiative:,
+        # dep_link:, capability:, ...) rather than real Command Memory
+        # decisions.
+        filters={"status": "eq.Active", "owner": "not.like.*:*"},
         limit=5,
     )
     if results:
@@ -496,12 +500,15 @@ def search_memory(query: str) -> dict[str, list[dict]]:
         limit=5,
     )
 
-    # SQL ILIKE search on decisions.statement
+    # SQL ILIKE search on command_memory_records.statement
     decisions = client.select(
-        "decisions",
+        "command_memory_records",
         columns="id,statement",
         filters={
             "or": f"(statement.ilike.%{query}%,rationale.ilike.%{query}%)",
+            # Excludes owner-prefixed key-value rows (initiative:,
+            # dep_link:, ...) from the ~45 EXEC-002A..EXEC-007 writers.
+            "owner": "not.like.*:*",
         },
         limit=5,
     )

@@ -45,9 +45,6 @@ async function fetchRecentDecisions(db: any) {
   const { data } = await db
     .from('decisions')
     .select('decision_type, reasoning, outcome, timestamp')
-    // Learning-loop rows only — Command Memory's owner-keyed state rows share
-    // this table since migration 0226.
-    .is('owner', null)
     .order('timestamp', { ascending: false })
     .limit(10);
   return data ?? [];

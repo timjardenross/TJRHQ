@@ -347,7 +347,7 @@ class SignalScoreRecomputer:
         self.stats["signals_rank_recomputed"] = len(ranked)
 
     def _bulk_update_scores(self, updates, label, chunk_size=500):
-        """Write score changes via bulk_update_signal_scores (migration 0224):
+        """Write score changes via bulk_update_signal_scores (migration 0225):
         one RPC per chunk instead of one PATCH per row — the per-row version
         was ~31k requests a night, half the project's API/log volume."""
         for i in range(0, len(updates), chunk_size):

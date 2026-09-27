@@ -175,7 +175,7 @@ def register_investment(
         c = _client()
         if c is not None:
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .like("owner", f"{INVESTMENT_OWNER_PREFIX}%")
                 .ilike("statement", f"%{name[:40]}%")
@@ -219,7 +219,7 @@ def update_investment(investment_id: str, **fields: Any) -> bool:
             return False
         owner_key = f"{INVESTMENT_OWNER_PREFIX}{investment_id}"
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale")
             .eq("owner", owner_key)
             .limit(1)
@@ -234,7 +234,7 @@ def update_investment(investment_id: str, **fields: Any) -> bool:
         for k, v in fields.items():
             if hasattr(inv, k):
                 setattr(inv, k, v)
-        c.raw_client.table("decisions").update({"rationale": _build_rationale(inv)}).eq("id", rows[0]["id"]).execute()
+        c.raw_client.table("command_memory_records").update({"rationale": _build_rationale(inv)}).eq("id", rows[0]["id"]).execute()
         return True
     except Exception as exc:  # noqa: BLE001 - best-effort step, already logged (update_investment failed)
         log.debug("[investment_governance] update_investment failed: %s", exc)
@@ -247,7 +247,7 @@ def get_investment(investment_id: str) -> Investment | None:
         if c is None:
             return None
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner")
             .eq("owner", f"{INVESTMENT_OWNER_PREFIX}{investment_id}")
             .limit(1)
@@ -278,7 +278,7 @@ def list_investments(
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{INVESTMENT_OWNER_PREFIX}%")
             .order("created_at", desc=True)

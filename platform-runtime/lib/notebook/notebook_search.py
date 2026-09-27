@@ -171,7 +171,7 @@ def search(
     # decisions
     results.sources_searched.append("decisions")
     rows = _search_table(
-        "decisions", "id", "statement", "rationale", tokens, supabase_client,
+        "command_memory_records", "id", "statement", "rationale", tokens, supabase_client,
         status_filter=("status", ["Superseded"]),
     )
     results.total_searched += len(rows)
@@ -245,7 +245,7 @@ def search(
     # command_memory (decisions with owner prefix pattern used by command_memory_integration)
     results.sources_searched.append("command_memory")
     try:
-        cm_rows = supabase_client.table("decisions").select(
+        cm_rows = supabase_client.table("command_memory_records").select(
             "id, statement, rationale, owner"
         ).like("owner", "command_memory%").limit(50).execute().data or []
         results.total_searched += len(cm_rows)

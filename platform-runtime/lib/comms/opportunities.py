@@ -218,11 +218,7 @@ def gather_opportunities(*, limit_per_source: int = 25, publishable_only: bool =
         log.debug("[lib.comms.opportunities] best-effort step failed, continuing: %s", _exc)
     # Decisions → leadership lessons.
     try:
-        # owner is null = learning-loop rows only; Command Memory's owner-keyed
-        # state rows share this table since migration 0226.
-        rows = (c.raw_client.table("decisions").select("id,decision_type,reasoning,outcome,outcome_quality")
-                .is_("owner", "null").limit(limit_per_source).execute()).data or []
-        for r in rows:
+        for r in _q(c, "decisions", "id,decision_type,reasoning,outcome,outcome_quality", limit_per_source):
             add("decision", r.get("id"), r.get("decision_type"),
                 f"{r.get('reasoning','')} {r.get('outcome','')}", quality=r.get("outcome_quality"))
     except Exception as _exc:  # noqa: BLE001 - best-effort decisions source, already logged
