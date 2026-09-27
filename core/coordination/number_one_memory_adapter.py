@@ -176,24 +176,12 @@ class NumberOneMemoryAdapter:
         )
 
     def persist_brief(self, brief: dict[str, Any]) -> bool:
-        if self.supabase is None:
-            return False
-        try:
-            payload = {
-                "id": brief.get("brief_id") or f"NUM1-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
-                "mission_id": brief.get("mission_id") or "",
-                "summary": brief.get("summary") or "",
-                "recommendations": brief.get("recommendations") or [],
-                "confidence": float(brief.get("confidence") or 0.0),
-                "query_hash": _compute_query_hash(brief.get("summary", "") + str(brief.get("mission_id", ""))),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "source": "number-one",
-            }
-            result = self.supabase.insert("number_one_memory", payload)
-            return bool(result.ok)
-        except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
-            log.warning("[number-one-memory] persist failed: %s", exc)
-            return False
+        """No-op: there is no `number_one_memory` table (no migration ever
+        created one, and nothing reads it), so every insert 404'd (~280/day,
+        Supabase usage review 2026-09-27). Kept as a stub so callers stay
+        non-blocking; restore the write alongside a migration if brief
+        history is ever needed."""
+        return False
 
     def _build_queries(self, missions: list[dict[str, Any]], routing_results: dict[str, Any]) -> list[tuple[str, str]]:
         queries: list[tuple[str, str]] = []
