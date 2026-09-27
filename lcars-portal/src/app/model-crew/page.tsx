@@ -118,8 +118,19 @@ export default function ModelCrewPage() {
 
   useEffect(() => {
     void refresh();
-    const interval = setInterval(() => void refresh(), 30_000);
-    return () => { clearInterval(interval); refreshControllerRef.current?.abort(); };
+    // Skip polls while the tab is hidden; refresh on return.
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') void refresh();
+    }, 30_000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+      refreshControllerRef.current?.abort();
+    };
   }, [refresh]);
 
   const reachable = status?.ollama_reachable ?? false;
