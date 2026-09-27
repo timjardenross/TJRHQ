@@ -322,7 +322,8 @@ def get_active_missions() -> list[dict[str, Any]]:
     client = get_client()
     results = client.select(
         "missions",
-        columns="id,title,owner,created_at",
+        # missions has no `owner` column (400'd ~285/day) — created_by is the closest.
+        columns="id,title,created_by,created_at",
         filters={"status": "eq.Active"},
     )
     if results:

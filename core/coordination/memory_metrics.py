@@ -48,14 +48,22 @@ def log_memory_metric(
     try:
         from tools.supabase.client import log_memory_event
 
+        # commander_memory_events has no event_type/action/outcome/memory_type/
+        # details columns and requires memory_text — sending those as top-level
+        # keys 400'd every write (~560/day, Supabase usage review 2026-09-27).
+        # Metric fields live in metadata; _flatten_metric_event() reads them back.
         payload = {
-            "event_type": "memory_metric",
+            "memory_text": f"memory_metric:{action}:{outcome}" if outcome else f"memory_metric:{action}",
             "source": source,
-            "action": action,
-            "outcome": outcome,
-            "memory_type": memory_type,
             "confidence": confidence,
-            "details": details or {},
+            "tags": ["memory_metric", action],
+            "metadata": {
+                "event_type": "memory_metric",
+                "action": action,
+                "outcome": outcome,
+                "memory_type": memory_type,
+                "details": details or {},
+            },
             "created_at": now_iso(),
         }
         result = log_memory_event(payload)
@@ -63,6 +71,15 @@ def log_memory_metric(
     except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.debug("[memory-metrics] non-blocking metric write failed: %s", exc)
         return False
+
+
+def _flatten_metric_event(event: dict[str, Any]) -> dict[str, Any]:
+    """Lift metric fields out of a commander_memory_events row's metadata so
+    rows written by log_memory_metric() read the same as flat event dicts."""
+    metadata = event.get("metadata")
+    if not isinstance(metadata, dict):
+        return event
+    return {**metadata, **{key: value for key, value in event.items() if value is not None and key != "metadata"}}
 
 
 def _match_event(event: dict[str, Any], *, action: str | None = None, outcome: str | None = None) -> bool:
@@ -155,7 +172,8 @@ def summarize_memory_metrics(events: list[dict[str, Any]], window_days: int = 7)
     if not events:
         return {"found": False, "window_days": window_days, "reason": "no_data"}
 
-    metrics = [event for event in events if str(event.get("event_type") or "") == "memory_metric"]
+    flattened = [_flatten_metric_event(event) for event in events]
+    metrics = [event for event in flattened if str(event.get("event_type") or "") == "memory_metric"]
     if not metrics:
         return {"found": False, "window_days": window_days, "reason": "no_metrics"}
     current_window = _window_metrics(metrics, window_days=window_days)

@@ -37,7 +37,11 @@ from safety import locale_resources
 log = logging.getLogger("revs-bot.scheduler")
 
 _TICK_SECONDS = 60
-_SAFETY_SCAN_SECONDS = 120
+# Both jobs in _safety_scan act on due times set at least a day ahead (24h
+# crisis re-contact, 48h+ setback reflection), so a 2-min poll bought
+# nothing but ~1.4k Supabase requests/day. 10 min: a re-contact lands at
+# most 10 min past its 24h mark (Captain-approved, usage review 2026-09-27).
+_SAFETY_SCAN_SECONDS = 600
 _WEEKDAY_INDEX = {"Monday": 0, "Tuesday": 1, "Wednesday": 2, "Thursday": 3, "Friday": 4, "Saturday": 5, "Sunday": 6}
 
 

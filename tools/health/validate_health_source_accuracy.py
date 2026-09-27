@@ -89,12 +89,26 @@ SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 from supabase import create_client
 
 
+def _parse_ts(value) -> datetime:
+    """PostgREST timestamptz string -> aware datetime (min() if missing), so
+    prefetched validated_at compares the way the old `gt` filter did."""
+    if not value:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
 class HealthSourceValidator:
     def __init__(self, dry_run=False):
         self.dry_run = dry_run
         self.supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
         self.validated_count = 0
         self.errors = 0
+        # Filled by _prefetch() in run(): every per-source read below is
+        # answered from these instead of 4-5 queries per source (~362
+        # sources, ~1.4k Supabase requests per run — usage review 2026-09-27).
+        # None = not prefetched; the methods then query per source as before.
+        self._bulk: dict | None = None
 
     def validate_signal_accuracy(self, signal: dict, source_type: str):
         if source_type == "health_agency":
@@ -108,7 +122,41 @@ class HealthSourceValidator:
             return False
         return None
 
+    def _fetch_all(self, build_query, page_size: int = 1000) -> list:
+        rows: list = []
+        offset = 0
+        while True:
+            page = build_query().range(offset, offset + page_size - 1).execute().data or []
+            rows.extend(page)
+            if len(page) < page_size:
+                return rows
+            offset += page_size
+
+    def _prefetch(self, days: int = 30) -> None:
+        """Load everything run() needs in three paged reads."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        self._bulk = {
+            "days": days,
+            "validations": self._fetch_all(lambda: self.supabase.table("health_signal_validation")
+                                           .select("signal_id, source_id, is_accurate, validated_at")),
+            "recent_signals": self._fetch_all(lambda: self.supabase.table("health_signals")
+                                              .select("signal_id, source_id, study_design, sample_size, signal_type, "
+                                                      "fda_flagged, frequency_reported, severity, collected_at")
+                                              .gt("collected_at", cutoff)),
+            "scored_signals": self._fetch_all(lambda: self.supabase.table("health_signals")
+                                              .select("source_id, methodology_quality_score")
+                                              .eq("suppressed", False)
+                                              .not_.is_("methodology_quality_score", "null")),
+        }
+
+    def _bulk_rows(self, key: str, source_id) -> list:
+        return [r for r in self._bulk[key] if r["source_id"] == source_id]
+
     def get_unvalidated_signals_for_source(self, source_id: str, days: int = 30) -> list:
+        if self._bulk is not None and days == self._bulk["days"]:
+            validated_ids = {r["signal_id"] for r in self._bulk_rows("validations", source_id)}
+            return [{k: v for k, v in s.items() if k != "source_id"}
+                    for s in self._bulk_rows("recent_signals", source_id) if s["signal_id"] not in validated_ids]
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
         already = (
             self.supabase.table("health_signal_validation")
@@ -137,6 +185,14 @@ class HealthSourceValidator:
                 logger.error(f"Save validation failed for {signal_id}: {e}")
                 self.errors += 1
                 return
+        if self._bulk is not None:
+            # Keep the prefetched view in step with what the per-source
+            # queries would now see, so recompute_source_scores() still counts
+            # validations saved earlier in this same run.
+            self._bulk["validations"].append({
+                "signal_id": signal_id, "source_id": source_id, "is_accurate": is_accurate,
+                "validated_at": datetime.now(timezone.utc).isoformat(),
+            })
         self.validated_count += 1
 
     def recompute_avg_methodology_quality(self, source_id, min_signals: int = 3):
@@ -182,14 +238,17 @@ class HealthSourceValidator:
 
         Returns (avg_quality, n) or None if fewer than min_signals available.
         """
-        rows = (
-            self.supabase.table("health_signals")
-            .select("methodology_quality_score")
-            .eq("source_id", source_id)
-            .eq("suppressed", False)
-            .not_.is_("methodology_quality_score", "null")
-            .execute().data or []
-        )
+        if self._bulk is not None:
+            rows = self._bulk_rows("scored_signals", source_id)
+        else:
+            rows = (
+                self.supabase.table("health_signals")
+                .select("methodology_quality_score")
+                .eq("source_id", source_id)
+                .eq("suppressed", False)
+                .not_.is_("methodology_quality_score", "null")
+                .execute().data or []
+            )
         if len(rows) < min_signals:
             return None
         scores = [r["methodology_quality_score"] for r in rows]
@@ -222,13 +281,16 @@ class HealthSourceValidator:
         below the first block, or already at/above the value this block
         count would produce).
         """
-        resp = (
-            self.supabase.table("health_signal_validation")
-            .select("is_accurate", count="exact")
-            .eq("source_id", source_id).eq("is_accurate", True)
-            .execute()
-        )
-        accurate_count = resp.count or 0
+        if self._bulk is not None:
+            accurate_count = sum(1 for r in self._bulk_rows("validations", source_id) if r["is_accurate"] is True)
+        else:
+            resp = (
+                self.supabase.table("health_signal_validation")
+                .select("is_accurate", count="exact")
+                .eq("source_id", source_id).eq("is_accurate", True)
+                .execute()
+            )
+            accurate_count = resp.count or 0
         blocks = accurate_count // self._REPUTATION_BLOCK
         if blocks <= 0:
             return None
@@ -240,12 +302,17 @@ class HealthSourceValidator:
     def recompute_source_scores(self, source_id, auto_registered: bool = False, current_reputation: float | None = None):
         update = {}
 
-        validation_rows = (
-            self.supabase.table("health_signal_validation")
-            .select("is_accurate").eq("source_id", source_id)
-            .gt("validated_at", (datetime.now(timezone.utc) - timedelta(days=30)).isoformat())
-            .execute().data or []
-        )
+        since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        if self._bulk is not None:
+            validation_rows = [r for r in self._bulk_rows("validations", source_id)
+                               if _parse_ts(r.get("validated_at")) > _parse_ts(since)]
+        else:
+            validation_rows = (
+                self.supabase.table("health_signal_validation")
+                .select("is_accurate").eq("source_id", source_id)
+                .gt("validated_at", since)
+                .execute().data or []
+            )
         if len(validation_rows) >= 10:
             accurate = sum(1 for r in validation_rows if r["is_accurate"] is True)
             inaccurate = sum(1 for r in validation_rows if r["is_accurate"] is False)
@@ -286,6 +353,7 @@ class HealthSourceValidator:
         logger.info(f"Starting health source validation{' (DRY RUN)' if self.dry_run else ''}")
         sources = self.supabase.table("health_source_registry").select("source_id, source_name, source_type, auto_registered, publisher_reputation").execute().data or []
         logger.info(f"Checking {len(sources)} sources")
+        self._prefetch()
 
         for source in sources:
             signals = self.get_unvalidated_signals_for_source(source["source_id"])

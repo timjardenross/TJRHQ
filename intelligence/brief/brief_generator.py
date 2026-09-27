@@ -114,22 +114,11 @@ class BriefGenerator:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            # Skip if already persisted by hash (previous run, same source)
-            if store.event_hash_exists(event.dedup_hash):
-                continue
-
-            # Cross-run canonical URL dedup — same article from different source in prior run
-            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
-                continue
-
-            # Fallback: no canonical URL — dedup by normalised title + publication date
-            if not event.canonical_url and event.published_at:
-                from intelligence.classification.deduplicator import _normalise
-                date_str = event.published_at.strftime("%Y-%m-%d")
-                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
-                    continue
-
             classified.append(event)
+
+        # Cross-run dedup (hash, then canonical URL from another source, then
+        # title+date when there's no URL) in batched lookups, not 1-2 GETs per item.
+        classified = store.filter_unpersisted_events(classified)
 
         events_evaluated = len(classified)
         log.info("Classified %d new events", events_evaluated)

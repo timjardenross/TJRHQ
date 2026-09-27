@@ -28,7 +28,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
 import alert_silences
-from heartbeat import _KEY, _URL, record_heartbeat, supabase_get
+from heartbeat import _KEY, _URL, record_heartbeats, supabase_get
+from heartbeat import record_heartbeat as _record_heartbeat
 
 from core.notifications.resend_email import send_email
 from intelligence.ingestion.emergency_alert_adapters import (
@@ -132,6 +133,40 @@ def _expire_stale(source_key: str, run_started_at: str) -> int:
     return len(existing)
 
 
+def _expire_stale_many(source_keys: list[str], run_started_at: str) -> dict[str, int]:
+    """_expire_stale() for every source run_all() upserted this tick, in one
+    read + one PATCH instead of a read (+ PATCH) per source — the per-source
+    version was ~1.4k requests/day. All sources in a run_all() share one
+    run_started_at, so the "not touched by this run" rule is unchanged.
+    Returns expired counts per source_key."""
+    if not source_keys:
+        return {}
+    try:
+        existing = supabase_get(
+            f"alerts?source_key=in.({','.join(source_keys)})&is_active=eq.true"
+            f"&last_seen_at=lt.{urllib.parse.quote(run_started_at, safe='')}&select=id,source_key"
+        )
+    except Exception as exc:  # noqa: BLE001 - best-effort stale-alerts read, already logged; caller treats {} as 'nothing expired this run'
+        log.warning("[emergency-alerts] failed to read stale alerts for %d source(s): %s", len(source_keys), exc)
+        return {}
+    if not existing:
+        return {}
+    ids = ",".join(row["id"] for row in existing)
+    try:
+        _supabase_request(
+            "PATCH",
+            f"alerts?id=in.({ids})",
+            body={"is_active": False, "status": "expired"},
+        )
+    except Exception as exc:  # noqa: BLE001 - best-effort expire-stale-alerts write, already logged
+        log.warning("[emergency-alerts] failed to expire %d stale alert(s): %s", len(existing), exc)
+        return {}
+    counts: dict[str, int] = {}
+    for row in existing:
+        counts[row["source_key"]] = counts.get(row["source_key"], 0) + 1
+    return counts
+
+
 def _send_emergency_warning_emails(source_key: str) -> int:
     """Email (Resend, core/notifications/resend_email.py) for every
     currently-active severity='emergency_warning' alert on this source that
@@ -193,13 +228,27 @@ def _send_emergency_warning_emails(source_key: str) -> int:
     return sent
 
 
-def run_source(source_key: str) -> dict:
+def run_source(source_key: str, run_started_at: str | None = None, heartbeats: list[dict] | None = None) -> dict:
     """Run one source's adapter end to end. Never raises — failure is
     captured in the returned dict and recorded as a failed heartbeat, same
-    fail-isolated contract as every adapter in intelligence/scheduler.py."""
+    fail-isolated contract as every adapter in intelligence/scheduler.py.
+
+    Standalone (the defaults) it does everything itself. run_all() passes a
+    shared run_started_at and a `heartbeats` list: heartbeats are collected
+    for one batched write, and stale-alert expiry is left to run_all()'s
+    single _expire_stale_many() pass (the result carries "pending_expiry").
+    Emergency-warning emails always stay here, per source, so a warning is
+    never held back waiting for later sources to finish."""
     adapter, domain_key = _ADAPTERS[source_key]
-    run_started_at = datetime.now(timezone.utc).isoformat()
+    batched = heartbeats is not None
+    run_started_at = run_started_at or datetime.now(timezone.utc).isoformat()
     t0 = time.monotonic()
+
+    def record_heartbeat(domain_key, **fields):
+        if batched:
+            heartbeats.append({"domain_key": domain_key, **fields})
+        else:
+            _record_heartbeat(domain_key, **fields)
 
     try:
         alerts = adapter.fetch()
@@ -235,8 +284,15 @@ def run_source(source_key: str) -> dict:
         log.warning("[emergency-alerts] %s: upsert failed: %s", source_key, exc)
         return {"source_key": source_key, "error": str(exc), "count": len(rows)}
 
-    expired = _expire_stale(source_key, run_started_at)
-    emails_sent = _send_emergency_warning_emails(source_key)
+    expired = 0 if batched else _expire_stale(source_key, run_started_at)
+    # Only look for unsent emergency warnings when this run's feed actually
+    # carries an active one. Every unsent row the query could return is an
+    # active emergency_warning for this source, and a still-active alert is
+    # re-upserted on every run — so this still retries failed sends and
+    # picks up alerts whose silence has expired, without a GET per source
+    # per run (~1.4k/day) when there are none (the overwhelmingly common case).
+    has_active_warning = any(r["severity"] == "emergency_warning" and r["is_active"] for r in rows)
+    emails_sent = _send_emergency_warning_emails(source_key) if has_active_warning else 0
 
     # Surfaced in the heartbeat detail (visible on the workbench's Source
     # Health panel and the Agent/Job dashboard) so a source starting to leak
@@ -244,20 +300,51 @@ def run_source(source_key: str) -> dict:
     # spotting it in the UI — shows up on every run instead of needing a
     # manual audit each time.
     unknown_count = sum(1 for a in alerts if a.severity == "unknown")
-    detail = f"{len(rows)} alert(s), {unknown_count} unknown severity, {expired} expired"
-    if emails_sent:
-        detail += f", {emails_sent} emergency email(s) sent"
-
     latency_ms = int((time.monotonic() - t0) * 1000)
-    record_heartbeat(domain_key, status="ok", detail=detail, latency_ms=latency_ms)
-    return {"source_key": source_key, "count": len(rows), "unknown_severity": unknown_count, "expired": expired, "emails_sent": emails_sent}
+    if batched:
+        # run_all() fills in detail once its single expiry pass has the count.
+        heartbeats.append({
+            "domain_key": domain_key, "status": "ok", "latency_ms": latency_ms,
+            "_counts": (len(rows), unknown_count, emails_sent),
+        })
+    else:
+        record_heartbeat(domain_key, status="ok", detail=_ok_detail(len(rows), unknown_count, expired, emails_sent), latency_ms=latency_ms)
+    return {
+        "source_key": source_key, "count": len(rows), "unknown_severity": unknown_count,
+        "expired": expired, "emails_sent": emails_sent, "pending_expiry": batched,
+    }
 
 
 def run_all() -> dict:
+    """Every source in one tick, sharing a run_started_at: stale-alert expiry
+    runs once across all upserted sources and heartbeats go out in one POST
+    (was ~4 requests per source per 15-min tick)."""
+    run_started_at = datetime.now(timezone.utc).isoformat()
+    heartbeats: list[dict] = []
     results = {}
     for source_key in _ADAPTERS:
-        results[source_key] = run_source(source_key)
+        results[source_key] = run_source(source_key, run_started_at=run_started_at, heartbeats=heartbeats)
+
+    pending = [key for key, result in results.items() if result.pop("pending_expiry", False)]
+    expired = _expire_stale_many(pending, run_started_at)
+    for key in pending:
+        results[key]["expired"] = expired.get(key, 0)
+    expired_by_domain = {_ADAPTERS[key][1]: expired.get(key, 0) for key in pending}
+    for hb in heartbeats:
+        counts = hb.pop("_counts", None)
+        if counts is not None:
+            n_rows, unknown_count, emails_sent = counts
+            hb["detail"] = _ok_detail(n_rows, unknown_count, expired_by_domain.get(hb["domain_key"], 0), emails_sent)
+
+    record_heartbeats(heartbeats)
     return results
+
+
+def _ok_detail(n_rows: int, unknown_count: int, expired: int, emails_sent: int) -> str:
+    detail = f"{n_rows} alert(s), {unknown_count} unknown severity, {expired} expired"
+    if emails_sent:
+        detail += f", {emails_sent} emergency email(s) sent"
+    return detail
 
 
 if __name__ == "__main__":

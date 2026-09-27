@@ -231,6 +231,31 @@ class MemoryMetricsSummaryTests(unittest.TestCase):
         self.assertEqual(thresholds["high_fallback_rate"], 20.0)
         self.assertIn("Low hit rate", " ".join(alerts))
 
+    def test_log_memory_metric_writes_real_commander_memory_columns(self):
+        from core.coordination import memory_metrics
+
+        with patch("tools.supabase.client.log_memory_event", return_value=MagicMock(ok=True)) as write:
+            self.assertTrue(memory_metrics.log_memory_metric(source="number_one", action="memory_lookup", outcome="hit"))
+        payload = write.call_args.args[0]
+        self.assertEqual(payload["memory_text"], "memory_metric:memory_lookup:hit")
+        self.assertEqual(
+            set(payload) - {"memory_text", "source", "confidence", "tags", "metadata", "created_at"}, set()
+        )
+        self.assertEqual(payload["metadata"]["action"], "memory_lookup")
+
+    def test_summary_reads_metric_fields_from_metadata_rows(self):
+        now = datetime.now(timezone.utc).isoformat()
+        rows = [
+            {"memory_text": "memory_metric:memory_lookup:hit", "created_at": now, "channel_id": None,
+             "metadata": {"event_type": "memory_metric", "action": "memory_lookup", "outcome": "hit"}},
+            {"memory_text": "memory_metric:memory_lookup:miss", "created_at": now,
+             "metadata": {"event_type": "memory_metric", "action": "memory_lookup", "outcome": "miss"}},
+            {"memory_text": "Build request: x", "created_at": now, "metadata": {"title": "x"}},
+        ]
+        summary = summarize_memory_metrics(rows, window_days=7)
+        self.assertTrue(summary["found"])
+        self.assertEqual(summary["hit_rate"], 50.0)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main(verbosity=2)
