@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 sys.modules.setdefault("supabase", types.SimpleNamespace(create_client=lambda *a, **k: MagicMock()))
 
-from tools.intelligence import recompute_signal_scores as rss  # noqa: E402
+from tools.intelligence import recompute_signal_scores as rss
 
 
 def _recomputer():

@@ -39,8 +39,8 @@ def test_filters_known_hashes_and_urls_in_two_requests():
 
 
 def test_long_batches_are_chunked_under_url_limit():
-    events = [_ev("%064x" % i) for i in range(400)]
-    get, calls = _fake_get({"dedup_hash": {"%064x" % 399}})
+    events = [_ev(f"{i:064x}") for i in range(400)]
+    get, calls = _fake_get({"dedup_hash": {f"{399:064x}"}})
     with patch.object(store, "_get", side_effect=get):
         fresh = store.filter_unpersisted_events(events)
     assert len(fresh) == 399
