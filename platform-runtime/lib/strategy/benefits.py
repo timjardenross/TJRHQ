@@ -188,7 +188,7 @@ def register_benefit(
         c = _client()
         if c is not None:
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .like("owner", f"{BENEFIT_OWNER_PREFIX}%")
                 .ilike("statement", f"%{title[:40]}%")
@@ -240,7 +240,7 @@ def update_benefit(benefit_id: str, **fields: Any) -> bool:
 
         owner_key = f"{BENEFIT_OWNER_PREFIX}{benefit_id}"
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale")
             .eq("owner", owner_key)
             .limit(1)
@@ -261,7 +261,7 @@ def update_benefit(benefit_id: str, **fields: Any) -> bool:
                 v = v if isinstance(v, BenefitType) else BenefitType(str(v))
             setattr(b, k, v)
 
-        c.raw_client.table("decisions").update({"rationale": _build_rationale(b)}).eq("id", rows[0]["id"]).execute()
+        c.raw_client.table("command_memory_records").update({"rationale": _build_rationale(b)}).eq("id", rows[0]["id"]).execute()
         return True
 
     except Exception as exc:  # noqa: BLE001 - best-effort benefit update, already logged
@@ -275,7 +275,7 @@ def get_benefit(benefit_id: str) -> Benefit | None:
         if c is None:
             return None
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner")
             .eq("owner", f"{BENEFIT_OWNER_PREFIX}{benefit_id}")
             .limit(1)
@@ -295,7 +295,7 @@ def list_benefits(initiative_id: str | None = None, limit: int = 100) -> list[Be
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{BENEFIT_OWNER_PREFIX}%")
             .order("created_at", desc=True)

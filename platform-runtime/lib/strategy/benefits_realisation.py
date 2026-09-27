@@ -192,7 +192,7 @@ def advance_benefit_lifecycle(
 
             if c is not None:
                 res = (
-                    c.raw_client.table("decisions")
+                    c.raw_client.table("command_memory_records")
                     .select("id")
                     .eq("owner", owner_key)
                     .limit(1)
@@ -200,7 +200,7 @@ def advance_benefit_lifecycle(
                 )
                 rows = list(res.data or [])
                 if rows:
-                    c.raw_client.table("decisions").update({
+                    c.raw_client.table("command_memory_records").update({
                         "statement": f"{_BENEFIT_RL_STATEMENT} {benefit_id}: {new_status.value}",
                         "rationale": _build_rationale(existing_rec),
                     }).eq("id", rows[0]["id"]).execute()
@@ -235,7 +235,7 @@ def get_benefit_lifecycle(benefit_id: str) -> BenefitRealisationRecord | None:
         if c is None:
             return None
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner")
             .eq("owner", f"{BENEFIT_RL_OWNER_PREFIX}{benefit_id}")
             .limit(1)
@@ -258,7 +258,7 @@ def list_benefit_lifecycles(
         if c is None:
             return []
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("statement,rationale,owner,created_at")
             .like("owner", f"{BENEFIT_RL_OWNER_PREFIX}%")
             .order("created_at", desc=True)

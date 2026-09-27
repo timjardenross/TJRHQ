@@ -288,7 +288,11 @@ def recall(memory_type: MemoryType, **filters: Any) -> list[dict[str, Any]]:
         if memory_type == MemoryType.WORKING:
             return _recall_working()
         if memory_type == MemoryType.COMMAND:
-            return _recall_table("decisions", filters, order_col="created_at")
+            # public.decisions was dropped and recreated outside the
+            # migration system 2026 (id uuid, mission_id, decision_type,
+            # outcome, timestamp, ...) — order_col must match its real
+            # column name; created_at doesn't exist on this shape.
+            return _recall_table("decisions", filters, order_col="timestamp")
         if memory_type == MemoryType.KNOWLEDGE:
             rows = _recall_table("knowledge_documents", filters, order_col="created_at")
             # MSN-0333: this is a general-listing recall, not a

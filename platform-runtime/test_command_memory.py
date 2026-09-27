@@ -132,7 +132,7 @@ class TestWriteFunctions(unittest.TestCase):
         self.assertIsNotNone(decision_id)
         self.assertTrue(decision_id.startswith("DEC-"))
         table, record = fake.insert.call_args[0]
-        self.assertEqual(table, "decisions")
+        self.assertEqual(table, "command_memory_records")
         self.assertEqual(record["statement"], "We will ship the MVP")
         self.assertEqual(record["status"], "Active")
 

@@ -151,7 +151,7 @@ def register_follow_up(
         if c.is_enabled() and c.raw_client:
             owner = f"{_FOLLOWUP_OWNER_PREFIX}{follow_up_id}"
             existing = (
-                c.raw_client.table("decisions")
+                c.raw_client.table("command_memory_records")
                 .select("id")
                 .ilike("statement", f"%[OFFICER FOLLOWUP] {mission_id}: {officer}%")
                 .eq("status", "active")
@@ -159,7 +159,7 @@ def register_follow_up(
                 .execute()
             )
             if not list(existing.data or []):
-                c.raw_client.table("decisions").insert({
+                c.raw_client.table("command_memory_records").insert({
                     "owner": owner,
                     "statement": f"[OFFICER FOLLOWUP] {mission_id}: {officer}",
                     "rationale": _build_rationale(fu),
@@ -183,7 +183,7 @@ def check_follow_ups() -> list[FollowUp]:
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("owner,statement,rationale")
             .ilike("owner", f"{_FOLLOWUP_OWNER_PREFIX}%")
             .neq("status", "resolved")
@@ -207,7 +207,7 @@ def resolve_follow_up(follow_up_id: str) -> None:
         if not (c.is_enabled() and c.raw_client):
             return
         owner = f"{_FOLLOWUP_OWNER_PREFIX}{follow_up_id}"
-        c.raw_client.table("decisions").update({"status": "resolved"}).eq("owner", owner).execute()
+        c.raw_client.table("command_memory_records").update({"status": "resolved"}).eq("owner", owner).execute()
         log.info("[officer_followups] Resolved follow-up %s", follow_up_id)
     except Exception as exc:  # noqa: BLE001 - best-effort follow-up resolve, already logged
         log.debug("[officer_followups] Resolve failed %s: %s", follow_up_id, exc)
@@ -223,7 +223,7 @@ def list_officer_follow_ups(officer: str) -> list[FollowUp]:
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("owner,statement,rationale")
             .ilike("owner", f"{_FOLLOWUP_OWNER_PREFIX}%")
             .ilike("rationale", f"%OFFICER: {officer}%")

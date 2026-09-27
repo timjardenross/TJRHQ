@@ -66,9 +66,12 @@ export async function GET() {
     let recentDecisions: unknown[] = [];
     try {
       const { data: dec } = await supabase
-        .from('decisions')
-        .select('id, title, status, created_at')
+        .from('command_memory_records')
+        .select('id, statement, status, created_at')
         .not('status', 'in', '("Closed","Resolved","Archived")')
+        // Excludes owner-prefixed key-value rows (initiative:, dep_link:,
+        // ...) from the ~45 EXEC-002A..EXEC-007 writers sharing this table.
+        .not('owner', 'like', '%:%')
         .order('created_at', { ascending: false })
         .limit(10);
       recentDecisions = dec ?? [];

@@ -196,7 +196,7 @@ def _create_improvement(note: dict[str, Any], supabase_client: Any) -> tuple[str
     }
 
     try:
-        supabase_client.table("decisions").insert(record).execute()
+        supabase_client.table("command_memory_records").insert(record).execute()
         log.info("[notebook-executor] Improvement %s created from note %s", dec_id, note["id"])
         return dec_id, "decisions"
     except Exception as exc:  # noqa: BLE001 - best-effort improvement insert, already logged
