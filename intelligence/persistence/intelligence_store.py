@@ -759,8 +759,8 @@ def get_source_reliability_scores() -> list[dict]:
 
 # ─── Source Health ────────────────────────────────────────────────────────────
 
-def save_source_health(health: SourceHealth) -> None:
-    _post("intelligence_source_health", {
+def _source_health_row(health: SourceHealth) -> dict:
+    return {
         "source_id": health.source_id,
         "checked_at": health.checked_at.isoformat(),
         "status": health.status,
@@ -770,7 +770,44 @@ def save_source_health(health: SourceHealth) -> None:
         "http_status": health.http_status,
         "content_valid": health.content_valid,
         "content_validity_reason": health.content_validity_reason,
-    })
+    }
+
+
+def save_source_health_batch(healths: list[SourceHealth]) -> None:
+    """save_source_health() for a whole collection run: one array insert
+    (return=minimal) instead of one POST per source that also downloaded the
+    inserted row (~770 requests/day, usage review 2026-09-27). Failed sources
+    still each publish their intelligence.source.failed core event."""
+    if not healths:
+        return
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        log.warning("Supabase not configured — skipping persist for intelligence_source_health")
+    else:
+        headers = _headers()
+        headers["Prefer"] = "return=minimal"
+        req = urllib.request.Request(
+            f"{SUPABASE_URL}/rest/v1/intelligence_source_health",
+            data=json.dumps([_source_health_row(h) for h in healths]).encode(),
+            headers=headers, method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15):  # nosec B310 - url is built from SUPABASE_URL env var, always https - reviewed 2026-09-12
+                pass
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")
+            log.error("Supabase insert failed (intelligence_source_health x%d): HTTP %s: %s", len(healths), exc.code, detail)
+        except Exception as exc:  # noqa: BLE001 - generic Supabase insert wrapper — failure is logged; source-health persistence is non-blocking for collection
+            log.error("Supabase insert failed (intelligence_source_health x%d): %s", len(healths), exc)
+    for health in healths:
+        _publish_source_failure(health)
+
+
+def save_source_health(health: SourceHealth) -> None:
+    _post("intelligence_source_health", _source_health_row(health))
+    _publish_source_failure(health)
+
+
+def _publish_source_failure(health: SourceHealth) -> None:
     if health.status == "failed":
         _publish_core_event(
             "intelligence.source.failed",

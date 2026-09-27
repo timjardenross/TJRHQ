@@ -34,6 +34,7 @@ Integration:
 """
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -96,6 +97,8 @@ except ImportError:
 
 try:
     sys.path.insert(0, str(_REPO_ROOT / "core" / "intelligence"))
+    from intelligence_reporter import _REPORTS as _INTELLIGENCE_REPORTS
+    from intelligence_reporter import _persist_readiness_snapshot_if_available
     from intelligence_reporter import run_all_reports as _run_intelligence_reports
     from readiness_history import (
         persist_readiness_snapshot as _persist_readiness,  # noqa: F401 - availability probe, only ImportError matters
@@ -115,6 +118,22 @@ try:
     _HANDOFF_INGESTION_AVAILABLE = True
 except ImportError:
     _HANDOFF_INGESTION_AVAILABLE = False
+
+
+_INTELLIGENCE_REPORT_INTERVAL_SECONDS = int(os.environ.get("NUMBER_ONE_INTELLIGENCE_INTERVAL_SECONDS", "3600"))
+
+
+def _intelligence_reports_fresh() -> bool:
+    """True when every report file in outputs/ was written within the interval."""
+    now = time.time()
+    for name in _INTELLIGENCE_REPORTS:
+        path = _REPO_ROOT / "outputs" / f"{name}.json"
+        try:
+            if now - path.stat().st_mtime >= _INTELLIGENCE_REPORT_INTERVAL_SECONDS:
+                return False
+        except OSError:
+            return False
+    return True
 
 
 def _fetch_command_memory_mission_ids() -> set[str]:
@@ -723,10 +742,22 @@ class NumberOneExporter:
         return success
 
     def export_intelligence(self) -> bool:
-        """Run all intelligence reports (WP10) and persist readiness history (WP5)."""
+        """Run all intelligence reports (WP10) and persist readiness history (WP5).
+
+        The reports are built from daily-grain data (90 days of captain's log,
+        full mission lists) but this runs every export cycle — every 300s under
+        number-one-exporter.service — so they were rebuilt ~288x/day, ~3k
+        Supabase requests/day for identical output (usage review 2026-09-27).
+        Rebuild at most once per _INTELLIGENCE_REPORT_INTERVAL_SECONDS, judged
+        by the report files' own mtimes so it holds in --watch mode and for
+        one-shot invocations alike. The readiness snapshot still persists every
+        cycle (it's cheap and already idempotent per day)."""
         if not _INTELLIGENCE_AVAILABLE:
             return True  # non-blocking
         try:
+            if _intelligence_reports_fresh():
+                _persist_readiness_snapshot_if_available()
+                return True
             _run_intelligence_reports(dry_run=False, persist_readiness=True)
             return True
         except Exception as e:  # noqa: BLE001 - already logged (print); intelligence reporting is explicitly non-blocking/advisory

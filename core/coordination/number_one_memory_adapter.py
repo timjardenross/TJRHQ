@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -17,6 +19,13 @@ from core.coordination.advisory_memory_formatter import format_memory_block
 from core.coordination.memory_metrics import log_memory_metric
 
 log = logging.getLogger(__name__)
+
+# _retrieve_from_supabase()'s table reads take no filter from query_text —
+# every call returns the same rows — yet run on each Number One brief (every
+# export cycle, ~288x/day, ~1.4k Supabase requests/day across 5 tables).
+# Cache per query_type in-process; the advisory context is fine an hour stale.
+_TABLE_CACHE_TTL_SECONDS = int(os.environ.get("NUMBER_ONE_MEMORY_CACHE_SECONDS", "3600"))
+_table_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
 
 try:
     from core.coordination.mission_registry_memory_adapter import (
@@ -204,6 +213,17 @@ class NumberOneMemoryAdapter:
         sb = getattr(self.supabase, "raw_client", None)
         if sb is None:
             return self._retrieve_from_files(query_type, query_text)
+        cached = _table_cache.get(query_type)
+        if cached and time.monotonic() - cached[0] < _TABLE_CACHE_TTL_SECONDS:
+            return [dict(row) for row in cached[1]]
+        rows = self._query_supabase_table(sb, query_type, query_text)
+        if rows is None:
+            return self._retrieve_from_files(query_type, query_text)
+        _table_cache[query_type] = (time.monotonic(), rows)
+        return [dict(row) for row in rows]
+
+    def _query_supabase_table(self, sb: Any, query_type: str, query_text: str) -> list[dict[str, Any]] | None:
+        """Uncached table read; None on failure (caller falls back to files)."""
         try:
             _compute_query_hash(query_text)
             if query_type == "research_memory":
@@ -235,7 +255,7 @@ class NumberOneMemoryAdapter:
             return []
         except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
             log.warning("[number-one-memory] Supabase retrieval failed: %s", exc)
-            return self._retrieve_from_files(query_type, query_text)
+            return None
 
     def _retrieve_from_files(self, query_type: str, query_text: str) -> list[dict[str, Any]]:
         text = query_text.lower()

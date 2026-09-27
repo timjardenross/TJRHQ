@@ -633,16 +633,21 @@ def job_pending_research_sweep() -> None:
         if not _db.enabled():
             _shakedown_log("pending_research_sweep", "skipped", "inbox DB disabled")
             return
-        unprocessed = (
+        # One read for both passes (was two every 5 min, ~576 requests/day,
+        # almost always both empty). Pass 2 only re-queries when this read
+        # came back full, so a large backlog can't starve research items.
+        _SWEEP_LIMIT = 50
+        pending = (
             _db._client.table("captured_items")
-            .select("id, title")
-            .eq("processing_status", "pending")
+            .select("*")
+            .or_("processing_status.eq.pending,research_status.eq.pending")
             .order("captured_at", desc=False)
-            .limit(10)
+            .limit(_SWEEP_LIMIT)
             .execute()
-        )
+        ).data or []
+        unprocessed = [r for r in pending if r.get("processing_status") == "pending"][:10]
         pass1_ids: set = set()
-        for item in (unprocessed.data or []):
+        for item in unprocessed:
             try:
                 log.info("[proactive] Orchestrating unprocessed item: %s",
                          item.get("title", item["id"])[:60])
@@ -650,15 +655,18 @@ def job_pending_research_sweep() -> None:
                 process_captured_item(item["id"])
             except Exception as exc:  # noqa: BLE001 - per-item orchestration failure inside a loop — one bad captured item must not abort the sweep; already logged
                 log.error("[proactive] Orchestration failed for %s: %s", item["id"], exc)
-        queued = (
-            _db._client.table("captured_items")
-            .select("*")
-            .eq("research_status", "pending")
-            .order("captured_at", desc=False)
-            .limit(5)
-            .execute()
-        )
-        research_items = [r for r in (queued.data or []) if r["id"] not in pass1_ids]
+        if len(pending) < _SWEEP_LIMIT:
+            queued = [r for r in pending if r.get("research_status") == "pending"][:5]
+        else:
+            queued = (
+                _db._client.table("captured_items")
+                .select("*")
+                .eq("research_status", "pending")
+                .order("captured_at", desc=False)
+                .limit(5)
+                .execute()
+            ).data or []
+        research_items = [r for r in queued if r["id"] not in pass1_ids]
         for item in research_items:
             try:
                 _run_research(item["id"], item)
