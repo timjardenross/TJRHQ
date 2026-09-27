@@ -814,6 +814,65 @@ def event_canonical_url_exists(canonical_url: str) -> bool:
     return len(rows) > 0
 
 
+def _in_filter_value(values: list[str]) -> str:
+    """PostgREST `in.(...)` operand: each value double-quoted (so commas/
+    parens in URLs are literal), then the whole thing URL-encoded."""
+    import urllib.parse
+    quoted = ",".join('"' + v.replace("\\", "\\\\").replace('"', '\\"') + '"' for v in values)
+    return urllib.parse.quote(f"({quoted})", safe="")
+
+
+def _existing_values(column: str, values: list[str], max_query_chars: int = 6000) -> set[str]:
+    """Which of `values` already exist in intelligence_events.<column>, in as
+    few GETs as fit under a safe URL length. A failed chunk counts as "none
+    exist" — the same fail-open the per-item checks had (and save_event's
+    on_conflict=dedup_hash upsert still backstops hash duplicates)."""
+    found: set[str] = set()
+    chunk: list[str] = []
+    for value in dict.fromkeys(values):
+        chunk.append(value)
+        if len(_in_filter_value(chunk)) > max_query_chars and len(chunk) > 1:
+            chunk.pop()
+            found.update(_existing_chunk(column, chunk))
+            chunk = [value]
+    if chunk:
+        found.update(_existing_chunk(column, chunk))
+    return found
+
+
+def _existing_chunk(column: str, chunk: list[str]) -> set[str]:
+    rows = _get(f"intelligence_events?select={column}&{column}=in.{_in_filter_value(chunk)}")
+    return {r[column] for r in rows if r.get(column)}
+
+
+def filter_unpersisted_events(events: list) -> list:
+    """Drop events already persisted by a previous run (same dedup_hash, or
+    same canonical_url from another source; title+date when there's no URL).
+
+    Replaces calling event_hash_exists()/event_canonical_url_exists() per
+    event — 1-2 GETs per collected item, ~10k requests/day and the largest
+    remaining source of Supabase API/log volume (usage review 2026-09-27) —
+    with batched `in.(...)` lookups that select only the key column.
+    Callers still do their own in-run dedup first; order is preserved."""
+    if not events:
+        return events
+    known_hashes = _existing_values("dedup_hash", [e.dedup_hash for e in events if e.dedup_hash])
+    known_urls = _existing_values("canonical_url", [e.canonical_url for e in events if e.canonical_url])
+    fresh = []
+    for event in events:
+        if event.dedup_hash in known_hashes:
+            continue
+        if event.canonical_url and event.canonical_url in known_urls:
+            continue
+        if not event.canonical_url and event.published_at:
+            from intelligence.classification.deduplicator import _normalise
+            date_str = event.published_at.strftime("%Y-%m-%d")
+            if event_title_date_exists(_normalise(event.raw_title), date_str):
+                continue
+        fresh.append(event)
+    return fresh
+
+
 def event_title_date_exists(normalised_title: str, date_str: str) -> bool:
     """Fallback cross-run dedup when canonical_url is null — match on title+date."""
     import urllib.parse

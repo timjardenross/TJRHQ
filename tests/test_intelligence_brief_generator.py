@@ -62,9 +62,7 @@ class TestLLMFailureDegradation(unittest.TestCase):
     def _patch_store(self):
         """Return a mock that satisfies all store.* calls in brief_generator."""
         mock_store = MagicMock()
-        mock_store.event_hash_exists.return_value = False
-        mock_store.event_canonical_url_exists.return_value = False
-        mock_store.event_title_date_exists.return_value = False
+        mock_store.filter_unpersisted_events.side_effect = lambda events: events
         mock_store.save_event.return_value = "uuid-1"
         mock_store.save_brief.return_value = "brief-uuid-1"
         # Briefs canonical uplift: generate() also asks for the prior brief
@@ -176,9 +174,7 @@ class TestCrossDomainIntegration(unittest.TestCase):
 
     def _patch_store(self):
         mock_store = MagicMock()
-        mock_store.event_hash_exists.return_value = False
-        mock_store.event_canonical_url_exists.return_value = False
-        mock_store.event_title_date_exists.return_value = False
+        mock_store.filter_unpersisted_events.side_effect = lambda events: events
         mock_store.save_event.return_value = "uuid-1"
         mock_store.save_brief.return_value = "brief-uuid-1"
         mock_store.load_latest_brief.return_value = None

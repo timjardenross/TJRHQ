@@ -803,7 +803,6 @@ def _daily_collection_job() -> None:
     from datetime import datetime, timedelta, timezone
 
     from intelligence.classification.classifier import classify
-    from intelligence.classification.deduplicator import _normalise
     from intelligence.classification.filter import apply_filter
     from intelligence.ingestion.collection_engine import collect_all
     from intelligence.persistence import intelligence_store as store
@@ -844,17 +843,10 @@ def _daily_collection_job() -> None:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            if store.event_hash_exists(event.dedup_hash):
-                continue
-            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
-                continue
-            if not event.canonical_url and event.published_at:
-                date_str = event.published_at.strftime("%Y-%m-%d")
-                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
-                    continue
-
             classified.append(event)
 
+        # Cross-run dedup in batched lookups (not 1-2 GETs per item).
+        classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
 
@@ -1111,7 +1103,6 @@ def _priority_tiered_collection_job() -> None:
         from datetime import datetime, timedelta, timezone
 
         from intelligence.classification.classifier import classify
-        from intelligence.classification.deduplicator import _normalise
         from intelligence.classification.filter import apply_filter
         from intelligence.ingestion.collection_engine import collect_all
         from intelligence.persistence import intelligence_store as store
@@ -1143,17 +1134,10 @@ def _priority_tiered_collection_job() -> None:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            if store.event_hash_exists(event.dedup_hash):
-                continue
-            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
-                continue
-            if not event.canonical_url and event.published_at:
-                date_str = event.published_at.strftime("%Y-%m-%d")
-                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
-                    continue
-
             classified.append(event)
 
+        # Cross-run dedup in batched lookups (not 1-2 GETs per item).
+        classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
 
@@ -1262,7 +1246,6 @@ def _intraday_status_collection_job() -> None:
         from datetime import datetime, timedelta, timezone
 
         from intelligence.classification.classifier import classify
-        from intelligence.classification.deduplicator import _normalise
         from intelligence.classification.filter import apply_filter
         from intelligence.ingestion.collection_engine import collect_all
         from intelligence.persistence import intelligence_store as store
@@ -1301,17 +1284,10 @@ def _intraday_status_collection_job() -> None:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            if store.event_hash_exists(event.dedup_hash):
-                continue
-            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
-                continue
-            if not event.canonical_url and event.published_at:
-                date_str = event.published_at.strftime("%Y-%m-%d")
-                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
-                    continue
-
             classified.append(event)
 
+        # Cross-run dedup in batched lookups (not 1-2 GETs per item).
+        classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
 
@@ -1359,7 +1335,6 @@ def _intraday_media_collection_job() -> None:
         from datetime import datetime, timedelta, timezone
 
         from intelligence.classification.classifier import classify
-        from intelligence.classification.deduplicator import _normalise
         from intelligence.classification.filter import apply_filter
         from intelligence.ingestion.collection_engine import collect_all
         from intelligence.persistence import intelligence_store as store
@@ -1388,17 +1363,10 @@ def _intraday_media_collection_job() -> None:
             if event.canonical_url:
                 dedup_urls_seen.add(event.canonical_url)
 
-            if store.event_hash_exists(event.dedup_hash):
-                continue
-            if event.canonical_url and store.event_canonical_url_exists(event.canonical_url):
-                continue
-            if not event.canonical_url and event.published_at:
-                date_str = event.published_at.strftime("%Y-%m-%d")
-                if store.event_title_date_exists(_normalise(event.raw_title), date_str):
-                    continue
-
             classified.append(event)
 
+        # Cross-run dedup in batched lookups (not 1-2 GETs per item).
+        classified = store.filter_unpersisted_events(classified)
         apply_filter(classified)
         ranked = rank(classified, period_start=datetime.now(timezone.utc) - timedelta(days=1))
 
