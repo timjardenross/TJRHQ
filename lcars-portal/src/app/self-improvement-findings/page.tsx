@@ -45,18 +45,26 @@ const LIFECYCLE_STAGES: Array<{ key: Opportunity['lifecycle_state']; label: stri
 
 // Which tab actually shows each lifecycle state — mirrors the filters each
 // tab already applies (see `proposed`/`investigating`/`watching`/`learned`/
-// `rejected`/`improving`/`discoveredOnly` useMemo's below). Lets the
+// `rejected`/`historical`/`discoveredOnly` useMemo's below). Lets the
 // lifecycle strip's stage tiles jump straight there instead of being a
 // dead-end count display.
+//
+// 2026-09-27: approved/implementing/verifying/resolved_before_research were
+// previously mapped to 'improve', but ImproveTab only ever renders `proposed`
+// — these four states actually render in LearnedTab's `historical` list
+// (a collapsed <details> under "Historical decisions / changes"). Fixed
+// after the Captain reported clicking the "Implementing" tile showed
+// nothing — confirmed live: 7 real implementing-state opportunities existed,
+// the tile just pointed at an empty tab.
 const LIFECYCLE_STAGE_TAB: Record<Opportunity['lifecycle_state'], TabKey> = {
   discovered: 'discover',
   proposed: 'discover',
   investigating: 'investigate',
   watching: 'investigate',
-  approved: 'improve',
-  implementing: 'improve',
-  verifying: 'improve',
-  resolved_before_research: 'improve',
+  approved: 'learned',
+  implementing: 'learned',
+  verifying: 'learned',
+  resolved_before_research: 'learned',
   learned: 'learned',
   rejected: 'rejected',
 };
@@ -915,7 +923,11 @@ function LearnedTab({
       </div>
 
       {historical.length > 0 && (
-        <details>
+        // 2026-09-27: open by default — the lifecycle strip's Approved/
+        // Implementing/Verifying/Resolved-before-research tiles now route
+        // here (LIFECYCLE_STAGE_TAB above), and landing on a collapsed
+        // <details> looked identical to the tile being a dead end.
+        <details open>
           <summary className="cursor-pointer text-xs uppercase text-wb-ink2 tracking-wider font-semibold">
             Historical decisions / changes ({historical.length})
           </summary>
