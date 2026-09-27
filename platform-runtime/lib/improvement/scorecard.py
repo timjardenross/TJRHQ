@@ -309,7 +309,7 @@ def get_scorecard(mission_id: str) -> ImprovementScorecard | None:
         return None
 
     try:
-        res = c.raw_client.table("decisions").select(
+        res = c.raw_client.table("command_memory_records").select(
             "statement,rationale,created_at"
         ).like("owner", f"{_OWNER_PREFIX}{mission_id}").execute()
 
@@ -395,7 +395,7 @@ def get_outcomes_report(limit: int = 20) -> list[dict[str, Any]]:
     if c is None:
         return []
     try:
-        res = c.raw_client.table("decisions").select(
+        res = c.raw_client.table("command_memory_records").select(
             "statement,rationale,owner,created_at"
         ).like("statement", f"{_COMPLETED_PREFIX}%").order(
             "created_at", desc=True

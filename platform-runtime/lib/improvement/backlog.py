@@ -145,7 +145,7 @@ def add_to_backlog(opp: Any) -> bool:
             c = CommanderSupabaseClient()
             if c.is_enabled() and c.raw_client:
                 statement_prefix = f"{_BACKLOG_PREFIX} {officer}: {action[:40]}"
-                res = c.raw_client.table("decisions").select("id").like(
+                res = c.raw_client.table("command_memory_records").select("id").like(
                     "statement", f"{statement_prefix}%"
                 ).like("owner", f"{_OWNER_ACTIVE_PREFIX}%").limit(1).execute()
                 if res.data:
@@ -193,7 +193,7 @@ def get_backlog(limit: int = 50) -> list[BacklogItem]:
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,statement,rationale,owner,created_at")
             .like("owner", f"{_OWNER_ACTIVE_PREFIX}%")
             .order("created_at", desc=False)
@@ -225,7 +225,7 @@ def get_backlog_count() -> int:
             return 0
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id", count="exact")
             .like("owner", f"{_OWNER_ACTIVE_PREFIX}%")
             .execute()
@@ -259,7 +259,7 @@ def mark_backlog_item_processed(decision_id: str, mission_id: str | None = None)
 
         # Fetch current owner to derive done owner
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("id,owner,rationale")
             .eq("id", decision_id)
             .limit(1)
@@ -280,7 +280,7 @@ def mark_backlog_item_processed(decision_id: str, mission_id: str | None = None)
         if mission_id:
             new_rationale += f" | MISSION: {mission_id}"
 
-        c.raw_client.table("decisions").update(
+        c.raw_client.table("command_memory_records").update(
             {"owner": done_owner, "rationale": new_rationale}
         ).eq("id", decision_id).execute()
 

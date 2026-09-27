@@ -259,15 +259,15 @@ def _persist_synthesis(synthesis: XOSynthesis) -> None:
             f"OFFICERS_ACTIVE: {sum(1 for s in synthesis.officer_statuses if s.is_active)}"
         )
 
-        existing = c.raw_client.table("decisions").select("id").eq("owner", owner).limit(1).execute()
+        existing = c.raw_client.table("command_memory_records").select("id").eq("owner", owner).limit(1).execute()
         if list(existing.data or []):
-            c.raw_client.table("decisions").update({
+            c.raw_client.table("command_memory_records").update({
                 "statement": statement,
                 "rationale": rationale,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }).eq("owner", owner).execute()
         else:
-            c.raw_client.table("decisions").insert({
+            c.raw_client.table("command_memory_records").insert({
                 "owner": owner,
                 "statement": statement,
                 "rationale": rationale,

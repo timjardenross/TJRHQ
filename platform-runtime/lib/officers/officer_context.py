@@ -109,7 +109,7 @@ def _fetch_decisions_for_prefix(prefix: str, limit: int = _MEMORY_DECISION_LIMIT
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("owner,statement,rationale,status,updated_at")
             .ilike("owner", f"{prefix}%")
             .neq("status", "resolved")
@@ -132,7 +132,7 @@ def _fetch_active_missions_for_officer(officer: str, limit: int = _MISSION_LIMIT
             return []
 
         res = (
-            c.raw_client.table("decisions")
+            c.raw_client.table("command_memory_records")
             .select("owner,statement,rationale")
             .ilike("owner", "officer_assign:%")
             .ilike("rationale", f"%OFFICER: {officer}%")

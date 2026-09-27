@@ -136,7 +136,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
 
     # 1. Decision rationale coverage — sample recent decisions
     try:
-        res = rc.table("decisions").select("rationale").order(
+        res = rc.table("command_memory_records").select("rationale").order(
             "created_at", desc=True
         ).limit(200).execute()
         rows = list(res.data or [])
@@ -156,7 +156,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
         completed = [m for m in missions if str(m.get("status") or "").lower() in _COMPLETED_STATUSES]
         if completed:
             # A mission has "captured outcome" if a lesson candidate references it
-            lres = rc.table("decisions").select("statement").like(
+            lres = rc.table("command_memory_records").select("statement").like(
                 "owner", "lesson_candidate:%"
             ).limit(500).execute()
             lesson_refs = " ".join(str(r.get("statement") or "") for r in (lres.data or []))
@@ -170,7 +170,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
 
     # 3. Investigation outcome coverage — closed investigations with OUTCOME recorded
     try:
-        ires = rc.table("decisions").select("rationale").like(
+        ires = rc.table("command_memory_records").select("rationale").like(
             "owner", "investigation:%"
         ).limit(200).execute()
         invs = list(ires.data or [])
@@ -189,7 +189,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
     # 4. ADR coverage — architecture_records vs architecture-flagged decisions
     try:
         adr_count = _count(rc, "architecture_records")
-        arch_decisions = _count(rc, "decisions", ilike=("statement", "%architecture%"))
+        arch_decisions = _count(rc, "command_memory_records", ilike=("statement", "%architecture%"))
         if arch_decisions > 0:
             score.adr_coverage = _safe_ratio(adr_count, arch_decisions)
         elif adr_count > 0:
@@ -201,9 +201,9 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
 
     # 5. Knowledge reuse rate — lesson reuse events vs lessons
     try:
-        reuse_count = _count(rc, "decisions", like=("owner", "lesson_reuse:%"))
+        reuse_count = _count(rc, "command_memory_records", like=("owner", "lesson_reuse:%"))
         lesson_count = _count(rc, "lessons_learned")
-        cand_count = _count(rc, "decisions", like=("owner", "lesson_candidate:%"))
+        cand_count = _count(rc, "command_memory_records", like=("owner", "lesson_candidate:%"))
         denom = max(lesson_count + cand_count, 1)
         score.knowledge_reuse_rate = _safe_ratio(reuse_count, denom)
     except Exception as exc:  # noqa: BLE001 - best-effort dimension scorer, recorded in score.notes
@@ -222,7 +222,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
             log.debug("[lib.learning.knowledge_quality] best-effort step failed, continuing: %s", _exc)
         recent_candidates = 0
         try:
-            cr = rc.table("decisions").select("id", count="exact").like(
+            cr = rc.table("command_memory_records").select("id", count="exact").like(
                 "owner", "lesson_candidate:%"
             ).gte("created_at", cutoff).execute()
             recent_candidates = int(getattr(cr, "count", None) or 0)
@@ -238,7 +238,7 @@ def compute_knowledge_quality() -> KnowledgeQualityScore:
     #    scattered as un-promoted candidates. health = promoted / (promoted+pending)
     try:
         promoted = _count(rc, "lessons_learned")
-        pending = _count(rc, "decisions", like=("owner", "lesson_candidate:%"))
+        pending = _count(rc, "command_memory_records", like=("owner", "lesson_candidate:%"))
         total = promoted + pending
         if total > 0:
             score.knowledge_fragmentation_health = _safe_ratio(promoted, total)

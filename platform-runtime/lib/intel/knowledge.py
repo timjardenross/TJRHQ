@@ -58,7 +58,7 @@ def _first_text(row: dict, fields: list[str]) -> str:
 # (table, kind, text fields, select) — reuse existing Command Memory tables.
 _SOURCES = [
     ("missions", "mission", ["title", "description"], "title, description"),
-    ("decisions", "decision", ["statement", "rationale"], "statement, rationale"),
+    ("command_memory_records", "decision", ["statement", "rationale"], "statement, rationale"),
     ("architecture_records", "ADR", ["title", "decision_summary", "problem_statement"], "title, decision_summary, problem_statement"),
     ("capabilities", "capability", ["name", "purpose"], "name, purpose"),
     ("lessons_learned", "lesson", ["title", "lesson", "content", "summary", "description", "text"], "*"),
