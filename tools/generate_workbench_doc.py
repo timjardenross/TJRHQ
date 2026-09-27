@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Generate docs/LIVE-WORKBENCHES.md from the TypeScript registry."""
-from pathlib import Path
 import re
+from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
 source = (root / 'lcars-portal/src/lib/workbenches.ts').read_text().split('export const LIVE_WORKBENCHES', 1)[1].split('\n];', 1)[0]
-rows = re.findall(r"href: '([^']+)',\s+title: '([^']+)'(?:,|\n).*?description: '([^']*)'", source, re.S)
+rows = re.findall(r"href: '([^']+)',\s+title: '([^']+)'(?:,|\n).*?description: '([^']*)'", source, re.DOTALL)
 rows = [(href, title, desc.replace("\\'", "'")) for href, title, desc in rows]
 out = [
     '# Live Workbenches — Master List', '',
