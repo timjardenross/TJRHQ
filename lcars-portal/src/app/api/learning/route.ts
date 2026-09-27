@@ -56,7 +56,8 @@ export async function GET() {
         .limit(1000),
       supabase.from('lessons_learned').select('lesson_id').limit(1000),
       supabase.from('missions').select('id,mission_id,status,updated_at,created_at').eq('status', 'Closed').limit(500),
-      supabase.from('decisions').select('id,updated_at,created_at').limit(500),
+      // owner null = learning-loop decisions, not Command Memory state rows (migration 0226).
+      supabase.from('decisions').select('id,updated_at,created_at').is('owner', null).limit(500),
     ]);
 
     const outcomes = outRes.data ?? [];
