@@ -58,6 +58,17 @@ SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 from supabase import create_client
 
 RISK_SCORES = {"HIGH": 1.0, "MEDIUM": 0.6, "LOW": 0.3}
+
+
+def _same_score(stored, computed) -> bool:
+    """Stored numeric comes back from PostgREST as int/float/str; treat it as
+    unchanged if it matches the freshly computed value to 1e-6."""
+    if stored is None or computed is None:
+        return stored is None and computed is None
+    try:
+        return abs(float(stored) - float(computed)) < 1e-6
+    except (TypeError, ValueError):
+        return False
 RELEVANCE_SCORES = {"high": 1.0, "medium": 0.6, "low": 0.3}
 
 
@@ -240,7 +251,8 @@ class SignalScoreRecomputer:
         events = self._fetch_all(lambda: (
             self.supabase.table("intelligence_events")
             .select("event_id, source_id, risk_rating, operational_relevance, banking_relevance, "
-                    "cps230_relevance, intelligence_source_registry(reliability_tier)")
+                    "cps230_relevance, osint_confidence_level, criticality_score, "
+                    "intelligence_source_registry(reliability_tier)")
             .eq("suppressed", False)
         ))
         logger.info(f"Confidence/criticality recompute: {len(events)} events")
@@ -262,20 +274,14 @@ class SignalScoreRecomputer:
                 e.get("risk_rating"), e.get("operational_relevance"),
                 e.get("banking_relevance"), e.get("cps230_relevance"),
             )
+            if (e.get("osint_confidence_level") == osint_confidence_level
+                    and _same_score(e.get("criticality_score"), criticality)):
+                continue
             updates.append({"event_id": e["event_id"], "osint_confidence_level": osint_confidence_level, "criticality_score": criticality})
 
+        logger.info(f"Confidence/criticality: {len(updates)} of {len(events)} changed")
         if not self.dry_run:
-            for i in range(0, len(updates), 200):
-                chunk = updates[i:i + 200]
-                for row in chunk:
-                    try:
-                        self.supabase.table("intelligence_events").update(
-                            {"osint_confidence_level": row["osint_confidence_level"], "criticality_score": row["criticality_score"]}
-                        ).eq("event_id", row["event_id"]).execute()
-                    except Exception as e:  # noqa: BLE001 - per-row update inside a batch loop — one bad row must not abort the run; already logged + counted in self.stats['errors']
-                        logger.error(f"Confidence/criticality update failed for {row['event_id']}: {e}")
-                        self.stats["errors"] += 1
-                logger.info(f"  ...{min(i + 200, len(updates))}/{len(updates)} updated")
+            self._bulk_update_scores(updates, "Confidence/criticality")
 
         self.stats["signals_confidence_recomputed"] = len(updates)
 
@@ -290,7 +296,7 @@ class SignalScoreRecomputer:
             .select("event_id, source_id, raw_title, raw_summary, canonical_url, published_at, collected_at, "
                     "dedup_hash, event_type, geography, sector, operational_relevance, customer_impact, "
                     "banking_relevance, cps230_relevance, dependency_risk, confidence, suppressed, "
-                    "suppression_reason, intelligence_source_registry(source_name, priority_rank, "
+                    "suppression_reason, rank_score, intelligence_source_registry(source_name, priority_rank, "
                     "confidence_weight, category)")
             .eq("suppressed", False)
         ))
@@ -328,19 +334,30 @@ class SignalScoreRecomputer:
         ranked = rank(classified)
         logger.info(f"Rank recompute: {len(ranked)} events scored")
 
+        current = {r["event_id"]: r.get("rank_score") for r in rows}
+        updates = [
+            {"event_id": ev.event_id, "rank_score": ev.rank_score}
+            for ev in ranked
+            if not _same_score(current.get(ev.event_id), ev.rank_score)
+        ]
+        logger.info(f"Rank score: {len(updates)} of {len(ranked)} changed")
         if not self.dry_run:
-            for i, ev in enumerate(ranked):
-                try:
-                    self.supabase.table("intelligence_events").update(
-                        {"rank_score": ev.rank_score}
-                    ).eq("event_id", ev.event_id).execute()
-                except Exception as e:  # noqa: BLE001 - per-event rank_score update inside a batch loop — one bad event must not abort the run; already logged + counted in self.stats['errors']
-                    logger.error(f"rank_score update failed for {ev.event_id}: {e}")
-                    self.stats["errors"] += 1
-                if (i + 1) % 500 == 0:
-                    logger.info(f"  ...{i + 1}/{len(ranked)} rank_scores written")
+            self._bulk_update_scores(updates, "rank_score")
 
         self.stats["signals_rank_recomputed"] = len(ranked)
+
+    def _bulk_update_scores(self, updates, label, chunk_size=500):
+        """Write score changes via bulk_update_signal_scores (migration 0224):
+        one RPC per chunk instead of one PATCH per row — the per-row version
+        was ~31k requests a night, half the project's API/log volume."""
+        for i in range(0, len(updates), chunk_size):
+            chunk = updates[i:i + chunk_size]
+            try:
+                self.supabase.rpc("bulk_update_signal_scores", {"p_rows": chunk}).execute()
+            except Exception as e:  # noqa: BLE001 - per-chunk write inside a batch loop — one bad chunk must not abort the run; already logged + counted in self.stats['errors']
+                logger.error(f"{label} bulk update failed for chunk {i}: {e}")
+                self.stats["errors"] += 1
+            logger.info(f"  ...{min(i + chunk_size, len(updates))}/{len(updates)} {label} written")
 
     # ─── Source reliability snapshots ──────────────────────────────────
 
