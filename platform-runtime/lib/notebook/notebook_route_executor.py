@@ -25,6 +25,7 @@ Public API:
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -86,16 +87,15 @@ def _create_mission(note: dict[str, Any], supabase_client: Any) -> tuple[str | N
         note.get("raw_content"),
     ]))
 
+    # Live missions schema: mission_id (id is a generated uuid), a required repo,
+    # no owner/updated_by columns; timestamps default to now().
     record: dict[str, Any] = {
-        "id":           mid,
+        "mission_id":   mid,
         "title":        title,
         "created_by":   "notebook",
-        "owner":        "notebook",
         "status":       "Idea",
         "description":  description[:2000],
-        "created_at":   _now(),
-        "updated_at":   _now(),
-        "updated_by":   "notebook",
+        "repo":         os.environ.get("MISSIONS_DEFAULT_REPO", "timjardenross/TJRHQ"),
     }
 
     try:

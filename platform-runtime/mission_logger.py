@@ -143,22 +143,19 @@ def _supabase_insert_mission(
     domain: str,
     status: str,
 ) -> None:
-    """Insert or upsert a mission row into the Supabase missions table."""
+    """Insert the mission row into the Supabase missions table (best-effort).
+
+    Delegates to command_memory_integration.save_mission_to_command_memory(),
+    which maps onto the live missions schema (mission_id/repo, a valid status)
+    and ignores duplicates — so the Command Memory save that runs right after
+    this is a harmless no-op. The old payload (id, domain) matched no columns
+    and was rejected every time. `domain` has no column and is not stored.
+    """
     try:
-        sys.path.insert(0, str(_BASE_DIR / "tools" / "supabase"))
-        from client import CommanderSupabaseClient
-        client = CommanderSupabaseClient()
-        if not client.is_enabled():
-            return
-        payload = {
-            "id": mission_id,
-            "title": title,
-            "domain": domain,
-            "status": status,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
-        client.insert("missions", payload)
+        from command_memory_integration import save_mission_to_command_memory
+        save_mission_to_command_memory(
+            mission_id=mission_id, title=title, created_by="commander", status=status,
+        )
     except Exception as exc:  # noqa: BLE001 - supabase mission insert, best-effort, already logged
         log.debug("[mission-logger] Supabase mission insert failed: %s", exc)
 
