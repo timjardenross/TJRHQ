@@ -10,6 +10,7 @@ Queries Supabase for:
 """
 
 import logging
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 
 from intelligence.persistence import intelligence_store
@@ -28,7 +29,9 @@ def source_fidelity_report(days: int = 30) -> dict:
     - degraded_sources: sources with parse errors
     - signal_to_noise: overall ratio (events / items collected)
     """
-    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    # Percent-encoded for use in query strings: isoformat() ends in "+00:00" and a
+    # raw '+' decodes to a space, which PostgREST rejects with a 400.
+    since = urllib.parse.quote((datetime.now(timezone.utc) - timedelta(days=days)).isoformat(), safe="")
 
     # Query 1: Items collected per source (last 30 days)
     log.info("Fetching source collection stats (last %d days)...", days)

@@ -68,7 +68,7 @@ class ExecutionResult:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat() + "Z"
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _slug(text: str, maxlen: int = 60) -> str:

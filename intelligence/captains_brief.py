@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import urllib.parse
 import urllib.request
 from collections import Counter
 from datetime import datetime, timedelta, timezone
@@ -297,7 +298,7 @@ def _get_new_signals_since(since_iso: str) -> list[dict]:
     the same as a query that succeeded and found zero signals."""
     rows = _sb_request(
         "intelligence_events",
-        f"collected_at=gte.{since_iso}&suppressed=eq.false&signal_status=neq.DUPLICATE"
+        f"collected_at=gte.{urllib.parse.quote(since_iso, safe='')}&suppressed=eq.false&signal_status=neq.DUPLICATE"
         f"&rank_score=gte.50"
         f"&raw_title=not.ilike.CVE-*"
         f"&or=(raw_summary.is.null,raw_summary.not.ilike.*CVSSv3*)"

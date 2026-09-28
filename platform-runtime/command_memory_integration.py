@@ -220,10 +220,10 @@ def save_mission_to_command_memory(
         "id": mission_id,
         "title": title,
         "created_by": created_by,
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "status": status,
         "owner": owner,
-        "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
         "updated_by": created_by,
     }
     if description is not None:
@@ -264,11 +264,11 @@ def log_decision_to_command_memory(
         "statement": statement,
         "rationale": rationale,
         "created_by": owner,
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "owner": owner,
         "status": "Active",
         "alternatives": None,
-        "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
         "updated_by": owner,
     }
 
@@ -301,7 +301,7 @@ def update_mission_status_in_command_memory(
     client = get_client()
     updates = {
         "status": new_status,
-        "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
         "updated_by": user_id,
     }
 
@@ -449,12 +449,12 @@ def create_mission_from_officer(
         "id": mission_id,
         "title": title,
         "created_by": f"officer:{officer}",
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "Idea",
         "owner": recommended_owner or f"officer:{officer}",
         "description": description,
         "priority": priority,
-        "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
         "updated_by": f"officer:{officer}",
     }
 

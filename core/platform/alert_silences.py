@@ -44,6 +44,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -88,7 +89,11 @@ def list_active_silences(at: datetime | None = None) -> list[dict[str, Any]]:
     a best-effort notification path (see emergency_alerts.py's usage)
     should wrap this in their own try/except rather than have it swallow
     errors silently here."""
-    now = (at or datetime.now(timezone.utc)).isoformat()
+    # Percent-encode: isoformat() ends in "+00:00", and a raw '+' in a query
+    # string decodes to a space -> PostgREST 400 ("invalid input syntax for
+    # type timestamp with time zone"), which every caller then degraded to
+    # "no active silences" — so a silence never applied.
+    now = urllib.parse.quote((at or datetime.now(timezone.utc)).isoformat(), safe="")
     return supabase_get(
         f"alert_silences?starts_at=lte.{now}&ends_at=gte.{now}"
         "&select=id,reason,starts_at,ends_at,match_jurisdiction,match_alert_type,match_severity,match_source_key"
