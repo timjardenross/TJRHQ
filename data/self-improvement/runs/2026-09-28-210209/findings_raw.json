@@ -1,0 +1,81 @@
+{
+  "findings": [
+    {
+      "category": "observability_gap",
+      "title": "Model router call log file is missing",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "Model router call log file does not exist at configured path /opt/starship-endeavour/core/model-router/call_log.jsonl",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure the model router service creates and writes to call_log.jsonl, and verify write permissions for logging directory."
+      },
+      "expected_benefit": "Restores visibility into model router query history, token metrics, latency, and error diagnostics."
+    },
+    {
+      "category": "performance_gap",
+      "title": "High model router average latency",
+      "evidence": [
+        {
+          "type": "timing_data",
+          "observation": "Recent average latency reported by model router is 60,746 ms (~60.7 seconds)",
+          "location": "model_router_audit.router_status.recent_avg_ms"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "high",
+      "proposed_action": {
+        "type": "monitor",
+        "description": "Investigate routing bottlenecks, warm-up times, and keep_alive configurations for high-latency models like mistral-small3.2:24b or external API calls."
+      },
+      "expected_benefit": "Reduces inference latency and prevents downstream execution timeouts."
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 logic and placeholder anomalies query",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Hardcoded empty list with TODO to query quality_anomalies table",
+          "location": "platform-runtime/lib/quality_forecasting_helpers.py"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Multiple TODO comments marking pending Phase 5 authorization and decision_to_memory integration",
+          "location": "platform-runtime/commands/research_commands.py"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Implement the Supabase authorization check, decision_to_memory integration, and database query for quality anomalies."
+      },
+      "expected_benefit": "Completes planned functionality and replaces empty stub returns with real operational telemetry."
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct LLM API invocations bypassing model router",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct calls to call_gemini and call_mistral bypassing the centralized model router",
+          "location": "intelligence/emergency_alert_processor.py"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Refactor emergency alert processing to route requests through model router endpoints rather than direct vendor API helper calls."
+      },
+      "expected_benefit": "Ensures centralized auditing, policy enforcement, rate limiting, and fallback behavior."
+    }
+  ]
+}
