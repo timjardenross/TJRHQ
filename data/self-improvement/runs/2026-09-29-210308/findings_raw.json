@@ -1,0 +1,63 @@
+{
+  "findings": [
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 logic and queries in platform runtime commands",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "TODO marker indicating unqueried quality_anomalies table",
+          "location": "platform-runtime/lib/quality_forecasting.py"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Multiple TODO comments marking missing Phase 5 authorization checks, memory integration, and core implementation",
+          "location": "platform-runtime/commands/research.py"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Implement authorization checking via Supabase, memory integration, and anomaly querying in research commands"
+      },
+      "expected_benefit": "Eliminates incomplete placeholder logic and connects research operations to authorization and memory storage"
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct external LLM provider calls bypassing model router",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct calls to call_gemini and call_mistral with environment variable API keys",
+          "location": "intelligence/emergency_alert.py"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Route emergency alert LLM requests through the centralized model router endpoint"
+      },
+      "expected_benefit": "Ensures centralized observability, rate limiting, and fallback control for emergency alert summarization"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Model router call log file is absent",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "call_log_exists is false and call_log_size_mb is null for configured router log /opt/starship-endeavour/core/model-router/call_log.jsonl",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "monitor",
+        "description": "Ensure the model router creates and writes invocation metrics to call_log.jsonl"
+      },
+      "expected_benefit": "Restores visibility into model usage, latency tracking, and routing errors across tasks"
+    }
+  ]
+}
