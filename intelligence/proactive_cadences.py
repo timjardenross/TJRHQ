@@ -179,34 +179,69 @@ def _get_decisions_overdue_outcome(limit: int = 8) -> list[dict]:
     return overdue[:limit]
 
 
+_DIGEST_MAX_LESSONS = 30
+
+
+def _lesson_section(entry: str, name: str) -> str:
+    """First non-blank line under an entry's `### <name>` heading, or ""."""
+    import re as _re
+    match = _re.search(
+        rf"^### {_re.escape(name)}[ \t]*\n(?:[ \t]*\n)*[ \t]*(\S.*)$",
+        entry, _re.MULTILINE,
+    )
+    return match.group(1).strip() if match else ""
+
+
 def _generate_lessons_digest() -> str:
+    # Register entries (written by platform-runtime/lesson_capture.py and
+    # core/knowledge/lesson_capture.py) are `## LL-NNN` followed by
+    # `### Title` / `### Date` / optional `### Mission` sections. This used to
+    # look for inline `Mission:` / `Outcome:` lines no writer produces, so
+    # every line read "unknown: see record", and it treated an entry as recent
+    # if a `YYYY-MM` string appeared anywhere in its body.
     import re as _re
     lessons_path = _REPO_ROOT / "knowledge" / "Lessons-Learned.md"
     if not lessons_path.exists():
         return ""
     content = lessons_path.read_text(encoding="utf-8", errors="replace")
-    entries = _re.split(r"(?=^## LL-\d+)", content, flags=_re.MULTILINE)
-    if len(entries) <= 1:
+    entries = [
+        e for e in _re.split(r"(?=^## LL-\d+)", content, flags=_re.MULTILINE)
+        if e.startswith("## LL-")
+    ]
+    if not entries:
         return ""
     today = _today()
-    last_month = today.replace(day=1) - timedelta(days=1)
-    month_pattern = last_month.strftime("%Y-%m")
-    this_month_pattern = today.strftime("%Y-%m")
-    recent = [e for e in entries if month_pattern in e or this_month_pattern in e]
-    all_entries = [e for e in entries if e.strip().startswith("## LL-")]
+    period_start = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+    recent = []
+    for entry in entries:
+        try:
+            entry_date = date.fromisoformat(_lesson_section(entry, "Date")[:10])
+        except ValueError:
+            continue
+        if period_start <= entry_date <= today:
+            recent.append((entry_date, int(entry[6:].split(None, 1)[0]), entry))
+    recent.sort()
     lines = [f"Monthly Lessons Digest — {today.strftime('%B %Y')}", ""]
     if recent:
-        lines.append(f"{len(recent)} lesson(s) this period:")
-        for entry in recent:
-            id_match = _re.search(r"## (LL-\d+)", entry)
-            mission_match = _re.search(r"Mission:\s*(.+)", entry)
-            outcome_match = _re.search(r"Outcome:\s*(.+)", entry)
-            eid = id_match.group(1) if id_match else "?"
-            mission = mission_match.group(1).strip()[:60] if mission_match else "unknown"
-            outcome = outcome_match.group(1).strip()[:80] if outcome_match else "see record"
-            lines.append(f"  • {eid} — {mission}: {outcome}")
+        lines.append(
+            f"{len(recent)} lesson(s) recorded since "
+            f"{period_start.strftime('%-d %B %Y')}:"
+        )
+        for entry_date, _, entry in recent[:_DIGEST_MAX_LESSONS]:
+            eid = _re.match(r"## (LL-\d+)", entry).group(1)
+            title = _lesson_section(entry, "Title") or "(untitled)"
+            if len(title) > 100:
+                title = title[:99].rstrip() + "…"
+            mission = _lesson_section(entry, "Mission")
+            suffix = f" [{mission[:40]}]" if mission else ""
+            lines.append(f"  • {eid} ({entry_date.isoformat()}) — {title}{suffix}")
+        if len(recent) > _DIGEST_MAX_LESSONS:
+            lines.append(
+                f"  …and {len(recent) - _DIGEST_MAX_LESSONS} more — "
+                "see knowledge/Lessons-Learned.md"
+            )
     else:
-        lines.append(f"No new lessons recorded this period. {len(all_entries)} total in register.")
+        lines.append(f"No new lessons recorded this period. {len(entries)} total in register.")
         lines.append("Use 'close mission [ID] outcome: ...' when closing missions.")
     return "\n".join(lines)
 

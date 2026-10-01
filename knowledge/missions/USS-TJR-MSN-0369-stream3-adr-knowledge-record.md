@@ -6,6 +6,7 @@
 | Title | Real Backlog Closeout (Bandit/Ruff/ADR/Dependabot) — Stream 3 only |
 | Scope | ADR formalization / governance docs only, no code changes |
 | Date | 2026-09-12 |
+| Lesson | LL-169 |
 | Branch | msn-0369-stream3-adr-filing |
 | Follows | USS-TJR-MSN-0368 Stream 7 (filed ADR-020, ADR-027; identified the ~9-number real-citation scope) |
 

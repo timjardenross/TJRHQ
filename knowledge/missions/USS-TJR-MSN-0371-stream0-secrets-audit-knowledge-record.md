@@ -5,6 +5,7 @@
 | Mission ID | USS-TJR-MSN-0371 |
 | Title | Retire .env as a production secret source — Stream 0 (audit) |
 | Date | 2026-09-12 |
+| Lesson | LL-178 |
 | Status | Stream 0 only. Streams 1-6 NOT started — audit findings require the brief's own scope to be revised before Stream 1 can safely begin. |
 
 ## Headline finding: the mission brief's service inventory is stale

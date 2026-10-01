@@ -5,6 +5,7 @@
 | Mission ID | USS-TJR-MSN-0378 |
 | Title | Living Memory Across the Ship — Stream 2 (XO conversational turn memory) |
 | Date | 2026-09-14 |
+| Lesson | LL-193 |
 | Source | TJR HQ Capability Brief (2026-09-14), Play B. Cross-refs MEM-1 (rank 1/25), XO-1 (rank 3/25) |
 | Commits | `616222b4b` (feature), `fe46d86f8` (docstring drift fix, filed under this mission but independent of Stream 2 itself) |
 

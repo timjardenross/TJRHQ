@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0369 — Real Backlog Closeout (Bandit/Ruff/ADR/Dependabot) — Closing Record
 
+**Lesson:** LL-166
+
 Mission source: USS-TJR-MSN-0365 (Stream D/pre-commit) + USS-TJR-MSN-0368 (Streams 7/9/10) left four items explicitly open. This mission closed them for real.
 
 ## Stream 1 — Bandit triage

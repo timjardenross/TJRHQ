@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0370 — ADR Citation Sweep (follow-up to MSN-0369)
 
+**Lesson:** LL-169
+
 ## Mission
 
 MSN-0369 Stream 3 filed 9 canonical ADRs (ADR-003/004/013/020/022/024/027/030/031)

@@ -5,6 +5,7 @@
 | Mission ID | USS-TJR-MSN-0368 |
 | Title | Stage 2B: Existing-Capability Fixes & Validation |
 | Date | 2026-09-12 |
+| Lesson | LL-165 |
 | Follows | USS-TJR-MSN-0365 (Stage 1) |
 | Branch | msn-0368-stage-2b-existing-capability-fixes |
 

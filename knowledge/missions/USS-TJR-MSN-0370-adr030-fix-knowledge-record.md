@@ -7,7 +7,7 @@
 | Follows | USS-TJR-MSN-0369 (filed ADR-030 as "Reconstructed — medium confidence (partially unimplemented)", flagged this exact mismatch as an open gap rather than fixing it) |
 | Branch | msn-0370-adr030-fix |
 | Date | 2026-09-12 |
-
+| Lesson | LL-171 |
 ## The mismatch, as handed off
 
 `platform-runtime/test_build_router_alignment.py::TestEngineeringHandoffRouterMeta::test_handoff_includes_mission_id`

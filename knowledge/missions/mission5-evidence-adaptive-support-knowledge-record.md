@@ -1,5 +1,7 @@
 # Mission 5 — Evidence & Adaptive Support — Knowledge Record
 
+**Lesson:** LL-199
+
 | Field | Value |
 |---|---|
 | Mission | USS-TJR-MSN-0392 (working title: Mission 5 — Evidence & Adaptive Support) |

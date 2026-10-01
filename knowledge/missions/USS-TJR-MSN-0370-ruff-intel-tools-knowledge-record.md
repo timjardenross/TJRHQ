@@ -6,6 +6,7 @@
 | Title | Ruff manual-judgment triage, intelligence/ + tools/ (follow-up to MSN-0369) |
 | Scope | `intelligence/` and `tools/` directories only — `core/`, `platform-runtime/`, `telegram-bots/` worked in parallel by other agents/worktrees |
 | Date | 2026-09-12 |
+| Lesson | LL-174, LL-175 |
 | Branch | `msn-0370-ruff-intel-tools` |
 | Follows | USS-TJR-MSN-0369 (ruff autofix pass — mechanical fixes only) |
 

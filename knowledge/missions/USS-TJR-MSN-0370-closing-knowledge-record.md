@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0370 — Follow-up Closeout (Ruff full triage, ADR-030 fix, ADR citations, Supabase #157) — Closing Record
 
+**Lesson:** LL-172
+
 Source: follow-up items explicitly flagged at USS-TJR-MSN-0369's close. All addressed this pass except Vercel-blocked lcars-portal deps, held per user instruction.
 
 ## Ruff full triage (4 parallel directory-scoped streams)

@@ -9,6 +9,8 @@ baseline_main_sha: efcf33a91
 
 # Endeavour 27 — Visual System Convergence
 
+**Lesson:** LL-200
+
 Replaced HQ's 5-theme adaptive palette (Archive/Command/Midnight/Horizon/Sanctuary) with one
 fixed dark Command/Focus identity plus a contextual light Read surface, and applied the
 resulting Command/Focus/Read classification to all 20 `LIVE_WORKBENCHES`. Full phase-by-phase

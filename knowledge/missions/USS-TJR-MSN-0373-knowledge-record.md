@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0373 — Fix bandit CI gate severity mismatch — Knowledge Record
 
+**Lesson:** LL-181
+
 Priority P1 (broken CI gate on every push to `main`). Source: user-reported investigation
 request, already diagnosed at a high level — this mission verified the diagnosis against real
 CI history and a real local reproduction, then fixed it and confirmed the fix against a real

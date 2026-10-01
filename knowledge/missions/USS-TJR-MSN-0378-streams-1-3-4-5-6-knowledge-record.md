@@ -5,6 +5,7 @@
 | Mission ID | USS-TJR-MSN-0378 |
 | Title | Living Memory Across the Ship — consolidation arc (Streams 1, 3, 4, 5, 6) |
 | Date | 2026-09-14 |
+| Lesson | LL-194 |
 | Source | TJR HQ Capability Brief (2026-09-14), Play B. Cross-refs MEM-1 (rank 1/25), XO-1 (rank 3/25) |
 | Related | [Stream 2 record](USS-TJR-MSN-0378-stream2-knowledge-record.md) (filed separately — standalone/independent per mission's Reporting instruction) |
 | Commits | `b6c1a1702` (Stream 3), `bc0d2d752` (Stream 4 partial), `a3e369626` (remember() write-path fix), `572737c15` (Stream 5), `d5ebe9823` (registry) |

@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0369 Stream 1: Bandit Triage — Knowledge Record
 
+**Lesson:** LL-167
+
 **Date:** 2026-09-12
 **Branch:** `msn-0369-stream1-bandit-triage`
 **Status:** Complete — not merged to main (per instructions), branch pushed to origin.

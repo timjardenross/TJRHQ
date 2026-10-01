@@ -5,6 +5,7 @@
 | Mission ID | USS-TJR-MSN-0377 |
 | Title | Self-improvement cycle-artifact commit path silently refusing since LL-149 |
 | Date | 2026-09-13 |
+| Lesson | LL-188 |
 | Status | **DONE** — root cause confirmed structurally, fixed at the deployment layer, alerting added |
 
 ## Pre-flight was right: the fix, not the mechanism, was broken

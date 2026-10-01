@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0374 Stream 2: pip-audit pre-commit + CI gate — Knowledge Record
 
+**Lesson:** LL-183
+
 **Date:** 2026-09-13
 **Branch:** `msn-0374-stream2-pip-audit`
 **Status:** Complete — gate wired, advisory/report-only on this first landing (per mission scope). Not merged to main; branch pushed to origin, PR opened.
