@@ -130,7 +130,7 @@ def _update_mission_validated(mission_id: str, benefit_realised: str) -> None:
 
         c.raw_client.table("missions").update({
             "status": "completed",
-            "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
             "notes": f"[VALIDATED] {benefit_realised}",
         }).eq("id", mission_id).execute()
 

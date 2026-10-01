@@ -187,7 +187,7 @@ class TestCommandMemoryStatusDefault:
 
         inserted = {}
 
-        def fake_insert(table, record):
+        def fake_insert(table, record, **kwargs):
             inserted.update(record)
             return True
 
@@ -204,7 +204,11 @@ class TestCommandMemoryStatusDefault:
 
         assert inserted.get("status") == "Idea"
 
-    def test_planned_status_passed_through(self):
+    def test_planned_status_is_saved_as_idea(self):
+        # "Planned" is a Slack/registry status, not in the live missions lifecycle
+        # (missions_status_check) — passing it through would be rejected every
+        # time. lifecycle_status_map.py puts Planned and Idea in the same CAPTURE
+        # stage, so it is saved as Idea rather than failing the whole write.
         from command_memory_integration import (
             CommandMemoryClient,
             save_mission_to_command_memory,
@@ -212,7 +216,7 @@ class TestCommandMemoryStatusDefault:
 
         inserted = {}
 
-        def fake_insert(table, record):
+        def fake_insert(table, record, **kwargs):
             inserted.update(record)
             return True
 
@@ -228,7 +232,7 @@ class TestCommandMemoryStatusDefault:
                 status="Planned",
             )
 
-        assert inserted.get("status") == "Planned"
+        assert inserted.get("status") == "Idea"
 
 
 class TestNoBatchWorkerImports:

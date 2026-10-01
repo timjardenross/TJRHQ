@@ -7,6 +7,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -137,7 +138,11 @@ class TestListActiveSilences:
         (path,), _ = mock_get.call_args
         assert "starts_at=lte." in path
         assert "ends_at=gte." in path
-        assert "2026-09-01T12:00:00" in path
+        # The timestamp is percent-encoded (a raw "+00:00" would decode to a space
+        # and PostgREST would 400), so assert on what the server decodes it to.
+        params = parse_qs(urlparse(path).query)
+        assert params["starts_at"] == ["lte.2026-09-01T12:00:00+00:00"]
+        assert params["ends_at"] == ["gte.2026-09-01T12:00:00+00:00"]
 
     def test_defaults_to_now(self):
         with patch.object(alert_silences, "supabase_get", return_value=[]) as mock_get:

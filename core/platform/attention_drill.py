@@ -31,13 +31,14 @@ Deliberately NOT wired into `continuous_attention_evaluation` (the real
 synthetic data. This is a separate, deliberately-invoked path. It also does
 not call `core.platform.event_bus.publish_event()` — the drill event is
 constructed in-memory only and never written to `core_events`. Its
-`mark_event_status()` call inside `dispatch_interrupt_now()` (fired only
-after a successful notify()) targets a `drill-*` event_id, which isn't a
-valid `core_events.event_id` UUID — confirmed live 2026-08-22: this makes
-the UPDATE 400 on a Postgres type-cast error rather than matching zero rows,
-but `mark_event_status()` catches that itself and logs a non-blocking
-warning (event_bus.py's own contract: "never raises"), so it does not affect
-this drill's own pass/fail result.
+`mark_event_status()` and `record_dispatch_message_id()` calls inside
+`dispatch_interrupt_now()` (fired only after a successful notify()) target a
+`drill-*` event_id, which isn't a valid `core_events.event_id` UUID. They used
+to send an UPDATE that 400'd on the Postgres type cast (confirmed live
+2026-08-22; the failure was caught and logged, and also recorded a failed
+event-bus heartbeat). event_bus.py now recognises a non-UUID id as never
+persisted and skips the request, returning False as before — so the drill's
+own pass/fail result is unaffected.
 
 Usage:
   python -m core.platform.attention_drill              Full drill: classify + real Telegram dispatch

@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import timezone
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +30,21 @@ if str(_REPO_ROOT) not in sys.path:
 import id_registry
 
 log = logging.getLogger(__name__)
+
+# The live `missions` table (created outside the migration system) is stricter
+# than these writers used to assume: `mission_id` is required and unique (`id`
+# is a generated uuid), `repo` is required with no default, `status` is limited
+# by CHECK missions_status_check and `priority` by CHECK to P0-P3, and there is
+# no `owner` or `updated_by` column. Writes that ignored this were rejected
+# with a 400 every time.
+LIVE_MISSION_STATUSES = frozenset({
+    "Idea", "Designed", "Approved for Engineering", "Implemented", "Tested",
+    "Awaiting Number One Review", "Validated", "Awaiting XO Approval",
+    "Awaiting Captain Approval", "Approved", "Closed", "Blocked", "Archived",
+    "Requires Rework",
+})
+LIVE_MISSION_PRIORITIES = frozenset({"P0", "P1", "P2", "P3"})
+MISSIONS_DEFAULT_REPO = os.environ.get("MISSIONS_DEFAULT_REPO", "timjardenross/TJRHQ")
 
 
 class CommandMemoryClient:
@@ -109,41 +124,52 @@ class CommandMemoryClient:
             log.error(f"[command-memory] Request failed ({method} {path}): {e}")
             return None
 
-    def insert(self, table: str, record: dict[str, Any]) -> bool:
+    def insert(self, table: str, record: dict[str, Any], *, on_conflict: str | None = None) -> bool:
         """Insert a single record into Command Memory table.
 
         Uses ``Prefer: return=representation`` so PostgREST echoes the inserted
         row back — without it Supabase returns an empty body and a successful
         write is indistinguishable from a failure.
+
+        ``on_conflict`` names a unique column (e.g. ``mission_id``): a row that
+        already exists is then left as it is and counts as success, so saving
+        the same record twice is harmless rather than a 409.
         """
         if not self._initialized:
             return False
 
-        result = self.request(
-            "POST",
-            f"/rest/v1/{table}",
-            record,
-            extra_headers={"Prefer": "return=representation"},
-        )
+        path = f"/rest/v1/{table}"
+        prefer = "return=representation"
+        if on_conflict:
+            path += f"?on_conflict={on_conflict}"
+            prefer = "resolution=ignore-duplicates," + prefer
+        result = self.request("POST", path, record, extra_headers={"Prefer": prefer})
+        if on_conflict and result is not None:
+            # PostgREST answers an ignored duplicate with an empty list.
+            log.info(f"[command-memory] Inserted into {table}: {record.get('id') or record.get(on_conflict, 'unknown')}")
+            return True
         if result:
             log.info(f"[command-memory] Inserted into {table}: {record.get('id', 'unknown')}")
             return True
         log.warning(f"[command-memory] Insert into {table} failed (non-blocking)")
         return False
 
-    def update(self, table: str, record_id: str, updates: dict[str, Any]) -> bool:
+    def update(self, table: str, record_id: str, updates: dict[str, Any], *, key: str = "id") -> bool:
         """Update a record in Command Memory table.
 
         Returns True only if a matching row was updated. ``return=representation``
         makes PostgREST echo the affected rows, so an update against a missing id
         returns an empty list and is correctly reported as a failure.
+
+        ``key`` is the column matched against ``record_id`` — ``mission_id`` for
+        missions, whose ``id`` is a generated uuid.
         """
         if not self._initialized:
             return False
 
         import urllib.parse
 
-        path = f"/rest/v1/{table}?id=eq.{urllib.parse.quote(record_id)}"
+        path = f"/rest/v1/{table}?{key}=eq.{urllib.parse.quote(record_id, safe='')}"
         result = self.request(
             "PATCH",
             path,
@@ -203,33 +229,37 @@ def save_mission_to_command_memory(
         mission_id: Unique mission identifier (M-YYYYMMDD-HHMMSS or DEC-REC-…)
         title: Mission title
         created_by: Slack user ID of mission creator
-        owner: Mission owner (defaults to creator)
+        owner: Accepted for compatibility with existing callers; the missions
+               table has no owner column, so it is not stored.
         description: LLM-generated structured capture body (optional)
-        status: D-008 lifecycle status (Draft|Planned|Active|Blocked|Review|Completed).
-                Defaults to "Idea" (dormant capture state) to preserve existing
-                callers.  Engineering handoffs should pass "Planned".
+        status: A status from the live missions lifecycle (LIVE_MISSION_STATUSES).
+                Defaults to "Idea" (dormant capture state). An unrecognised
+                status is stored as "Idea" rather than failing the whole write.
 
     Returns:
-        True if write succeeded, False otherwise (non-blocking failure).
+        True if the mission is saved (or already was), False otherwise
+        (non-blocking failure).
     """
-    if owner is None:
-        owner = created_by
+    if status not in LIVE_MISSION_STATUSES:
+        log.warning(
+            "[command-memory] Mission %s: status %r is not in the live lifecycle; saving as 'Idea'",
+            mission_id, status,
+        )
+        status = "Idea"
 
     client = get_client()
     record = {
-        "id": mission_id,
+        "mission_id": mission_id,
         "title": title,
         "created_by": created_by,
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
         "status": status,
-        "owner": owner,
-        "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
-        "updated_by": created_by,
+        "repo": MISSIONS_DEFAULT_REPO,
     }
     if description is not None:
         record["description"] = description
 
-    success = client.insert("missions", record)
+    # on_conflict: mission_logger.py may already have inserted this mission.
+    success = client.insert("missions", record, on_conflict="mission_id")
     if success:
         log.info(f"[command-memory] Mission {mission_id} saved to Command Memory (status={status})")
     else:
@@ -264,11 +294,11 @@ def log_decision_to_command_memory(
         "statement": statement,
         "rationale": rationale,
         "created_by": owner,
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "owner": owner,
         "status": "Active",
         "alternatives": None,
-        "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
         "updated_by": owner,
     }
 
@@ -290,22 +320,31 @@ def update_mission_status_in_command_memory(
 
     Args:
         mission_id: Mission ID to update
-        new_status: New status (Draft|Planned|Active|Blocked|Review|Completed)
-        user_id: Slack user ID making the update
+        new_status: New status — one of LIVE_MISSION_STATUSES
+        user_id: Slack user ID making the update (the missions table has no
+                 updated_by column, so it is only logged)
 
     Returns:
         True if update succeeded, False otherwise (non-blocking failure).
     """
     from datetime import datetime
 
+    if new_status not in LIVE_MISSION_STATUSES:
+        # The live CHECK constraint would reject it; don't send a request that
+        # can only 400.
+        log.warning(
+            "[command-memory] Mission %s: status %r is not in the live lifecycle %s; not updated (by %s)",
+            mission_id, new_status, sorted(LIVE_MISSION_STATUSES), user_id,
+        )
+        return False
+
     client = get_client()
     updates = {
         "status": new_status,
-        "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
-        "updated_by": user_id,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    success = client.update("missions", mission_id, updates)
+    success = client.update("missions", mission_id, updates, key="mission_id")
     if success:
         log.info(f"[command-memory] Mission {mission_id} status updated to {new_status}")
     else:
@@ -446,19 +485,20 @@ def create_mission_from_officer(
 
     client = get_client()
     record = {
-        "id": mission_id,
+        "mission_id": mission_id,
         "title": title,
         "created_by": f"officer:{officer}",
-        "created_at": datetime.now(timezone.utc).isoformat() + "Z",
         "status": "Idea",
-        "owner": recommended_owner or f"officer:{officer}",
-        "description": description,
-        "priority": priority,
-        "updated_at": datetime.now(timezone.utc).isoformat() + "Z",
-        "updated_by": f"officer:{officer}",
+        "description": description,  # includes the Recommended Owner line
+        "repo": MISSIONS_DEFAULT_REPO,
     }
+    # missions.priority only allows P0-P3; the docstring's P4/P5 would be rejected.
+    if priority in LIVE_MISSION_PRIORITIES:
+        record["priority"] = priority
+    else:
+        log.warning("[command-memory] Mission %s: priority %r is not P0-P3; omitted", mission_id, priority)
 
-    success = client.insert("missions", record)
+    success = client.insert("missions", record, on_conflict="mission_id")
     if success:
         log.info(
             "[command-memory] Officer '%s' created mission %s (priority=%s, approval=%s)",

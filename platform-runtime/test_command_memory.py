@@ -106,21 +106,45 @@ class TestWriteFunctions(unittest.TestCase):
         with patch.object(cmi, "get_client", return_value=fake):
             ok = cmi.save_mission_to_command_memory("M-X", "Test Mission", "U001")
         self.assertTrue(ok)
-        table, record = fake.insert.call_args[0]
+        (table, record), kwargs = fake.insert.call_args
         self.assertEqual(table, "missions")
-        self.assertEqual(record["id"], "M-X")
+        # Live missions schema: mission_id (id is a generated uuid), a required
+        # repo, no owner/updated_by columns; duplicates are ignored on mission_id.
+        self.assertEqual(record["mission_id"], "M-X")
+        self.assertNotIn("id", record)
         self.assertEqual(record["title"], "Test Mission")
         self.assertEqual(record["status"], "Idea")  # M-20260614: /mission-capture persists as Idea (Gap 1 closure)
-        self.assertEqual(record["owner"], "U001")  # defaults to creator
         self.assertEqual(record["created_by"], "U001")
+        self.assertEqual(record["repo"], cmi.MISSIONS_DEFAULT_REPO)
+        self.assertEqual(kwargs, {"on_conflict": "mission_id"})
+        for absent in ("owner", "updated_by", "created_at", "updated_at"):
+            self.assertNotIn(absent, record)
 
-    def test_save_mission_owner_override(self):
+    def test_save_mission_owner_is_accepted_but_not_stored(self):
         fake = MagicMock()
         fake.insert.return_value = True
         with patch.object(cmi, "get_client", return_value=fake):
-            cmi.save_mission_to_command_memory("M-X", "T", "U001", owner="U999")
+            ok = cmi.save_mission_to_command_memory("M-X", "T", "U001", owner="U999")
+        self.assertTrue(ok)
         _, record = fake.insert.call_args[0]
-        self.assertEqual(record["owner"], "U999")
+        self.assertNotIn("owner", record)
+        self.assertEqual(record["created_by"], "U001")
+
+    def test_save_mission_unknown_status_falls_back_to_idea(self):
+        fake = MagicMock()
+        fake.insert.return_value = True
+        with patch.object(cmi, "get_client", return_value=fake):
+            cmi.save_mission_to_command_memory("M-X", "T", "U001", status="Planned")
+        _, record = fake.insert.call_args[0]
+        self.assertEqual(record["status"], "Idea")
+
+    def test_save_mission_keeps_a_valid_status(self):
+        fake = MagicMock()
+        fake.insert.return_value = True
+        with patch.object(cmi, "get_client", return_value=fake):
+            cmi.save_mission_to_command_memory("M-X", "T", "U001", status="Approved for Engineering")
+        _, record = fake.insert.call_args[0]
+        self.assertEqual(record["status"], "Approved for Engineering")
 
     def test_log_decision_returns_generated_id(self):
         fake = MagicMock()
@@ -148,13 +172,27 @@ class TestWriteFunctions(unittest.TestCase):
         fake = MagicMock()
         fake.update.return_value = True
         with patch.object(cmi, "get_client", return_value=fake):
-            ok = cmi.update_mission_status_in_command_memory("M-X", "Active", "U001")
+            ok = cmi.update_mission_status_in_command_memory("M-X", "Blocked", "U001")
         self.assertTrue(ok)
         table, record_id, updates = fake.update.call_args[0]
         self.assertEqual(table, "missions")
         self.assertEqual(record_id, "M-X")
-        self.assertEqual(updates["status"], "Active")
-        self.assertEqual(updates["updated_by"], "U001")
+        self.assertEqual(updates["status"], "Blocked")
+        self.assertNotIn("updated_by", updates)  # no such column on missions
+
+    def test_update_mission_status_matches_on_mission_id(self):
+        fake = MagicMock()
+        fake.update.return_value = True
+        with patch.object(cmi, "get_client", return_value=fake):
+            cmi.update_mission_status_in_command_memory("M-X", "Closed", "U001")
+        self.assertEqual(fake.update.call_args.kwargs, {"key": "mission_id"})
+
+    def test_update_mission_status_rejects_status_outside_live_lifecycle(self):
+        fake = MagicMock()
+        with patch.object(cmi, "get_client", return_value=fake):
+            ok = cmi.update_mission_status_in_command_memory("M-X", "Active", "U001")
+        self.assertFalse(ok)
+        fake.update.assert_not_called()  # the CHECK constraint would 400 it
 
 
 # ===========================================================================
