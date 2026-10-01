@@ -111,3 +111,32 @@ async def notify_captain(
     except Exception:
         log.exception("[escalate] failed to notify Captain for user %s", user_id)
         return False
+
+
+async def notify_captain_system(summary: str) -> bool:
+    """Generic ops alert, same transport as notify_captain (raw Telegram
+    HTTP via XO's bot identity) but not tied to a specific user/trigger —
+    for 'the bot itself can't see straight' conditions like the safety
+    scan being unable to read the database. Best-effort, same contract:
+    logs and returns False on any failure, never raises."""
+    if not config.XO_ESCALATION_BOT_TOKEN or not config.XO_ESCALATION_CHAT_ID:
+        log.error("[escalate] XO_ESCALATION_BOT_TOKEN/CHAT_ID not available — system alert NOT sent: %s", summary)
+        return False
+
+    now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    text = f"⚠️ <b>REVS system alert</b>\n\n<b>When:</b> {now}\n\n{html.escape(summary)}"
+
+    url = _TELEGRAM_API.format(token=config.XO_ESCALATION_BOT_TOKEN)
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                url,
+                json={"chat_id": config.XO_ESCALATION_CHAT_ID, "text": text, "parse_mode": "HTML"},
+            )
+        if resp.status_code != 200:
+            log.error("[escalate] Telegram API returned %s for system alert: %s", resp.status_code, resp.text[:300])
+            return False
+        return True
+    except Exception:
+        log.exception("[escalate] failed to send system alert")
+        return False
