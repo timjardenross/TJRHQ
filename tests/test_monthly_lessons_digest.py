@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from intelligence import proactive_cadences  # noqa: E402
+from intelligence import proactive_cadences
 
 REGISTER = """# Lessons Learned
 
