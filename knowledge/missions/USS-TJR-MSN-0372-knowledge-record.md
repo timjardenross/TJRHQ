@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0372 — "Check Existing State First" Guardrails — Knowledge Record
 
+**Lesson:** LL-180
+
 Priority P2. Source: this session's own repeated finding — the same failure mode (a new
 mission adds something without checking whether it already exists) had been caught twice in
 verified, code-level evidence (SOURCES duplicate rows breaking a 163-row upsert batch;

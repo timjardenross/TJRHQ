@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0375 — Postgres-Native Durable-Execution Pilot (pgqueuer) — Knowledge Record
 
+**Lesson:** LL-187
+
 **Priority:** P2 pilot | **Source:** `knowledge/OSS-Capability-Search-2026-09-12.md` §5/§8 | **Status:** PILOT DELIVERED; ROLLOUT IN PROGRESS (2026-09-13) — see Rollout Update below
 
 ## Rollout Update (2026-09-13)

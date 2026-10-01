@@ -5,6 +5,7 @@
 | Mission ID | USS-TJR-MSN-0388 |
 | Title | Predictive Capacity Guardian — critical-slowing-down early warning for capacity |
 | Date | 2026-09-14 |
+| Lesson | LL-195 |
 | Priority | P1 |
 | Source | TJR HQ Capability Brief (2026-09-14), Capability Play A. Cross-references **CAP-1 (rank 5/25)** and CAP-2 (rank 8/25) in that brief's Top 25. The Capability Brief is not an in-repo artifact — it is held by the Captain; this record is the in-repo counterpart to its CAP-1 entry. |
 | Status | **STOPPED AT STREAM 0 KILL-GATE** — Streams 1, 2 and 3 deliberately not implemented |

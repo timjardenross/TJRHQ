@@ -4,6 +4,7 @@
 |---|---|
 | Title | Split serial `pre-commit` job into parallel gates, fixed detect-secrets' own runtime cause, added fail-closed merge gate |
 | Date | 2026-09-19 |
+| Lesson | LL-196 |
 | Priority | P1 |
 | Branch/PR | `ci-performance-merge-latency`, PR #264 (merged `5a8d793e2`, 2026-09-19T05:37:25Z) |
 | Status | **Phase A COMPLETE** — see Closure section at the end of this record |

@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0374 — OSS Capability Search Closures (Storybook a11y, pip-audit, deepteam, log4brains, garak handoff) — Closing Record
 
+**Lesson:** LL-186
+
 Mission source: `knowledge/OSS-Capability-Search-2026-09-12.md`, §8 "Recommended Sequence → Now" — five items flagged as near-zero-risk, independently-landable closures from a same-day 9-agent GitHub OSINT capability search. Pre-flight found the source doc's own framing already stale on two items (Storybook a11y addon already installed — the real gap was CI enforcement, not the addon; gitleaks already present, nothing to do there) and one item genuinely inexecutable from a sandbox as originally assumed (garak against the live router) — see below, that assumption turned out to be wrong mid-mission.
 
 ## Stream 1 — Storybook a11y CI enforcement

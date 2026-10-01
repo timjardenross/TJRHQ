@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0374 — Stream 5: garak_gate.py VM Handoff
 
+**Lesson:** LL-186
+
 Date: 2026-09-13
 Scope: Stream 5 ONLY of USS-TJR-MSN-0374 — this is a documentation-only
 handoff, not an execution of `core/quality/garak_gate.py`. Explicitly out of

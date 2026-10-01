@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0369 — Stream 4: Dependabot PR Triage
 
+**Lesson:** LL-170
+
 Date: 2026-09-12
 Scope: Stream 4 ONLY of "Real Backlog Closeout (Bandit/Ruff/ADR/Dependabot)" — triage every currently-open Dependabot PR on `timjardenross/TJRHQ` to merged-and-verified-green or closed/deferred with a specific reason. Zero left undecided.
 

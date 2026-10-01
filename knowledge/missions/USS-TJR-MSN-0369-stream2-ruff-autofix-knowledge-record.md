@@ -1,5 +1,7 @@
 # USS-TJR-MSN-0369 Stream 2: Ruff Auto-Fix — Knowledge Record
 
+**Lesson:** LL-168
+
 **Date:** 2026-09-12
 **Branch:** `msn-0369-stream2-ruff-autofix`
 **Status:** Complete — not merged to main (per mission brief; lands as its own

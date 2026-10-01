@@ -7,6 +7,7 @@
 | Follows | USS-TJR-MSN-0369 (ruff autofix pass) |
 | Branch | `msn-0370-ruff-platformruntime` |
 | Date | 2026-09-12 |
+| Lesson | LL-174, LL-176 |
 | Scope | `platform-runtime/` only — `core/`, `intelligence/`+`tools/`, `telegram-bots/`+misc handled by concurrent sessions in separate worktrees |
 
 ## Outcome
