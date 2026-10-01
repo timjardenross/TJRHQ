@@ -32,6 +32,7 @@ import onboarding
 import weekly
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from copy_bank import crisis_recontact
+from escalate import notify_captain_system
 from safety import locale_resources
 
 log = logging.getLogger("revs-bot.scheduler")
@@ -43,6 +44,34 @@ _TICK_SECONDS = 60
 # most 10 min past its 24h mark (Captain-approved, usage review 2026-09-27).
 _SAFETY_SCAN_SECONDS = 600
 _WEEKDAY_INDEX = {"Monday": 0, "Tuesday": 1, "Wednesday": 2, "Thursday": 3, "Friday": 4, "Saturday": 5, "Sunday": 6}
+
+# 2026-10-02: db.due_recontacts()/db.due_setback_reflections() used to be
+# called with no exception handling at all — a Supabase outage killed the
+# whole _safety_scan job before it even started, silently, inside
+# apscheduler (no alert, no retry, no visible symptom). That's the one job
+# in this file that can't fail quietly: a missed 24h crisis re-contact has
+# no other backstop. Each read below is now wrapped, and a failure sends a
+# Telegram alert to the Captain via notify_captain_system — debounced to
+# once per cooldown window (module-level, in-memory; a bot restart resets
+# it, which just means one extra alert, not a missed one) so an extended
+# outage doesn't spam a message every 10 minutes.
+_ALERT_COOLDOWN_SECONDS = 3600
+_last_db_alert_at: dict[str, dt.datetime] = {}
+
+
+async def _alert_db_unavailable(job: str, exc: Exception) -> None:
+    now = dt.datetime.now(dt.timezone.utc)
+    last = _last_db_alert_at.get(job)
+    if last and (now - last).total_seconds() < _ALERT_COOLDOWN_SECONDS:
+        return
+    log.exception("[scheduler] %s could not read Supabase", job)
+    ok = await notify_captain_system(
+        f"REVS {job} could not read the database ({type(exc).__name__}: {exc}). "
+        "Scheduled sends / crisis re-contacts in this job are not running "
+        "until this clears."
+    )
+    if ok:
+        _last_db_alert_at[job] = now
 
 
 def _now_hhmm() -> str:
@@ -63,7 +92,12 @@ async def _tick(bot, client) -> None:
     today = now.date()
     weekday = _weekday_name(today)
 
-    users = db.list_active_users(client)
+    try:
+        users = db.list_active_users(client)
+    except Exception as exc:  # noqa: BLE001 - any read failure here must alert, not raise; see _alert_db_unavailable
+        await _alert_db_unavailable("tick", exc)
+        return
+
     for user in users:
         if user.get("quiet_until") and user["quiet_until"] > now.isoformat():
             continue
@@ -99,7 +133,13 @@ async def _safety_scan(bot, client) -> None:
     now = dt.datetime.now(dt.timezone.utc)
 
     # §5.4c — 24h crisis re-contact, one message, no demand.
-    for event in db.due_recontacts(client):
+    try:
+        recontacts = db.due_recontacts(client)
+    except Exception as exc:  # noqa: BLE001 - any read failure here must alert, not raise; see _alert_db_unavailable
+        await _alert_db_unavailable("safety_scan(recontacts)", exc)
+        recontacts = []
+
+    for event in recontacts:
         try:
             user = db.get_user(client, event["user_id"])
             if not user:
@@ -111,7 +151,13 @@ async def _safety_scan(bot, client) -> None:
             log.exception("[scheduler] recontact failed for event %s", event.get("id"))
 
     # §4.3 — delayed setback reflection, gated on the last two check-ins.
-    for setback in db.due_setback_reflections(client):
+    try:
+        reflections = db.due_setback_reflections(client)
+    except Exception as exc:  # noqa: BLE001 - any read failure here must alert, not raise; see _alert_db_unavailable
+        await _alert_db_unavailable("safety_scan(setback_reflections)", exc)
+        reflections = []
+
+    for setback in reflections:
         try:
             user = db.get_user(client, setback["user_id"])
             if not user:
@@ -134,7 +180,11 @@ async def _daily_scan(bot, client) -> None:
     """Once-a-day checks: §5.5 silence, §5.6 periodic PEM re-screen,
     §3.1 three-skipped-reviews offer."""
     now = dt.datetime.now(dt.timezone.utc)
-    users = db.list_active_users(client)
+    try:
+        users = db.list_active_users(client)
+    except Exception as exc:  # noqa: BLE001 - any read failure here must alert, not raise; see _alert_db_unavailable
+        await _alert_db_unavailable("daily_scan", exc)
+        return
 
     for user in users:
         last_seen = user.get("last_seen_at")
