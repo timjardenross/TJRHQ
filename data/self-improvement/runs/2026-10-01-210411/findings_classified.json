@@ -1,0 +1,79 @@
+{
+  "findings": [
+    {
+      "category": "placeholder_code",
+      "title": "Phase 5 TODO placeholders in research commands",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "TODO placeholders deferred to Phase 5 for Supabase authorization checking and decision_to_memory integration",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/commands/research_<URL>"
+        },
+        {
+          "type": "code_reference",
+          "observation": "TODO placeholder querying quality_anomalies table left unimplemented as empty list",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/lib/quality_forecasting_<URL>"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Implement the missing Phase 5 Supabase authorization checks and query integration in quality forecasting and research commands"
+      },
+      "expected_benefit": "Completes core operational security and quality forecasting logic",
+      "finding_id": "FND-001",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: conclusive; Confidence: 0.95; Risk: medium; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Model router call log missing",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "Router call log file does not exist at /opt/starship-endeavour/core/model-router/call_log.jsonl (call_log_exists: false)",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure the model router creates and writes routing latency and execution records to call_log.jsonl"
+      },
+      "expected_benefit": "Restores visibility into model routing metrics, latencies, and failure audits",
+      "finding_id": "FND-002",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: conclusive; Confidence: 0.90; Risk: medium; Automation: needs_signoff; Category reason: Changes to running services require verification"
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct external provider API calls bypassing model router",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct invocation of call_gemini and call_mistral using raw API keys instead of going through model router",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert_<URL>"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Route emergency alert LLM queries through the centralized model router endpoint"
+      },
+      "expected_benefit": "Centralizes model routing policies, keep-alive handling, fallback mechanisms, and audit logging",
+      "finding_id": "FND-003",
+      "evidence_strength": "strong",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: router_bypass; Evidence strength: strong; Confidence: 0.85; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need conclusive); Category reason: Router bypasses must be corrected by design review"
+    }
+  ],
+  "errors": []
+}
