@@ -134,21 +134,70 @@ _EU_ARTICLE_RE = re.compile(r"^\s*Article\s+(\d{1,3}[a-z]?)\s*$")
 _EU_STRUCTURE_RE = re.compile(r"^\s*(CHAPTER|TITLE|Section|SECTION)\s+[IVXLC0-9]+\b")
 _EU_END_RE = re.compile(r"^\s*This Regulation shall be binding in its entirety", re.IGNORECASE)
 _EU_NOISE_RE = re.compile(r"^\s*(L \d+/\d+|EN\s*$|Official Journal of the European Union|\d{1,2}\.\d{1,2}\.\d{4}\s*$)")
+_EU_PAGE_HEADER_RE = re.compile(r"Official Journal of the European Union")
+# A footnote opens with a citation ("Regulation (EU)…", "OJ L 295…"), never a quoted term:
+# definitions read "(34) ‘public authority’ means…".
+_EU_FOOTNOTE_START_RE = re.compile(r"^\s*\((\d{1,3})\)\s+(?=[A-Z])")
+# An inline footnote marker: "(31)" straight after a word, not at the start of a line.
+# After a digit a space is required, so "Article 33(1)" never matches but "May 2021 (30)" does.
+_EU_INLINE_REF_RE = re.compile(r"(?:(?<=[A-Za-z.,;:’)\]])\s?|(?<=\d)\s)\((\d{1,3})\)(?=[\s,.;:)]|$)")
+
+
+_EU_XREF_WORDS = frozenset({"point", "points", "paragraph", "paragraphs", "subparagraph", "subparagraphs",
+                            "article", "articles", "and", "or", "to", "of", "in"})
+
+
+def _is_cross_reference(line: str, start: int) -> bool:
+    """True when "(34)" is a cross-reference ("points (34) to (36)"), not a footnote marker."""
+    before = line[:start].split()
+    return bool(before) and before[-1].lower().strip(",") in _EU_XREF_WORDS
 
 
 def parse_eu(text: str, framework_id: str) -> list[dict]:
-    """EU regulation layout (e.g. DORA): one clause per ``Article N``, the line after
-    it as the heading. Recitals before Article 1 and the closing formula are skipped;
-    CHAPTER / Section lines and their all-caps titles are structure, not text."""
+    """EU Official Journal layout (e.g. DORA): one clause per ``Article N``, the line after
+    it as the heading. Skips recitals before Article 1, the closing formula, CHAPTER /
+    Section lines and all-caps titles, OJ page headers, and footnotes.
+
+    Footnotes are numbered across the whole document, but recitals and definitions also
+    start lines with "(1)", "(2)"…, so a line only opens a footnote block when its number is
+    the next footnote already *referenced* inline (markers like "Council (31)", accepted
+    only in strict sequence). The block runs to the next page header. Inline markers are
+    removed from article text.
+    """
     clauses: list[dict] = []
     current: dict | None = None
     want_heading = False
-    for line in text.splitlines():
+    next_ref = 1        # next inline marker expected (strict sequence)
+    next_block = 1      # next footnote block expected; must already be referenced
+    in_footnote = False
+    for raw in text.splitlines():
+        line = raw.replace("\f", "")
         stripped = line.strip()
-        if not stripped or _NOISE_RE.match(line) or _EU_NOISE_RE.match(line):
+        if not stripped:
+            continue
+        if _EU_PAGE_HEADER_RE.search(line):
+            in_footnote = False
+            continue
+        fn = _EU_FOOTNOTE_START_RE.match(line)
+        if fn and int(fn.group(1)) == next_block and next_block < next_ref:
+            in_footnote = True
+            next_block += 1
+            continue
+        if in_footnote:
+            continue
+        if _NOISE_RE.match(line) or _EU_NOISE_RE.match(line):
             continue
         if _EU_END_RE.match(line):
             break
+        # Consume inline markers in sequence (also in recitals, to keep the count right).
+        while True:
+            m = next((m for m in _EU_INLINE_REF_RE.finditer(line)
+                      if int(m.group(1)) == next_ref and not _is_cross_reference(line, m.start())), None)
+            if m is None:
+                break
+            line = line[:m.start()] + line[m.end():]
+            next_ref += 1
+        stripped = line.strip()
         art = _EU_ARTICLE_RE.match(line)
         if art:
             if current:
@@ -162,11 +211,16 @@ def parse_eu(text: str, framework_id: str) -> list[dict]:
             continue  # recitals and preamble
         if _EU_STRUCTURE_RE.match(line) or (stripped.isupper() and len(stripped) < 120):
             continue
+        indent = len(line) - len(line.lstrip())
         if want_heading:
             current["heading"] = stripped
             want_heading = False
             continue
-        current["text"] = f"{current['text']} {stripped}".strip()
+        if not current["text"] and indent >= 20:
+            current["heading"] += " " + stripped  # headings are centred; a wrapped one continues here
+            continue
+        sep = "" if current["text"].endswith("-") else " "
+        current["text"] = f"{current['text']}{sep}{' '.join(stripped.split())}".strip()
     if current:
         clauses.append(current)
     return [c for c in clauses if c["text"]]

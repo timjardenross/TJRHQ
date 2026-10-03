@@ -102,6 +102,12 @@ def score_case(case: dict, run, model_calls: int, corpus: Corpus) -> list[str]:
         unknown = [m.clause_id for m in mappings if m.clause_id and corpus.clause(m.clause_id) is None]
         if unknown:
             fails.append(f"unknown clause IDs reached the output: {unknown}")
+    if exp.get("framework_consistent"):
+        crossed = [f"{m.framework_id}:{m.clause_id}" for m in mappings
+                   if m.clause_id and corpus.clause(m.clause_id)
+                   and corpus.clause(m.clause_id).framework_id != m.framework_id]
+        if crossed:
+            fails.append(f"clause IDs cited under the wrong framework: {crossed}")
     if "max_confidence" in exp:
         ceiling = _CONF_ORDER[exp["max_confidence"]]
         over = [f"{m.framework_id}:{m.confidence.value}" for m in mappings

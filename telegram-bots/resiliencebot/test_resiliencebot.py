@@ -118,7 +118,8 @@ def test_coverage_text_from_real_corpus():
     text = cv.coverage_text(load_corpus().coverage())
     assert "BCBS-d516: heading only 7" in text
     assert "APRA-CPS-230: verbatim 60" in text
-    assert "EU-DORA: metadata only" in text
+    assert "EU-DORA: verbatim 64" in text
+    assert "ISO-22301-2019: metadata only" in text
 
 
 # ── handlers (fake Telegram objects) ──────────────────────────────────────────

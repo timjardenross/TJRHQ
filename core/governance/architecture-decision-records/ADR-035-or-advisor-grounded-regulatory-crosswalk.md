@@ -208,8 +208,8 @@ the build.
   heartbeats silently 409. Frameworks with no feed (EU, US, ISO) aren't
   watched, and `/coverage` says so.
 * Open items:
-  1. ~~Ingest CPS 230~~ — done 2026-10-03: 60 paragraphs, verbatim, from APRA's PDF (SHA-256 in
-     the corpus file). Next: DORA, then BCBS d516 text.
+  1. ~~Ingest CPS 230 and DORA~~. Done 2026-10-03: CPS 230 (60 paragraphs) from APRA's PDF and
+     DORA (64 articles) from EUR-Lex, both verbatim, with source digests in the corpus files. Next: the BCBS d516 text.
   2. Apply migration 0228 on Supabase so the change-scan heartbeat lands.
      Add feeds for the unwatched issuers (EU, US) if those frameworks matter.
   3. Golden-crosswalk evals and guardrail red-team evals against a real

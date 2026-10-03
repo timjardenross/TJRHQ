@@ -562,3 +562,42 @@ def test_parse_apra_strips_footnotes_furniture_and_joins_hyphen_wraps():
     assert clauses[1]["text"] == "An entity must notify within 72 hours of an APRA-regulated event."
     assert clauses[2]["heading"] == "Testing and review"
     assert "Footnote" not in " ".join(c["text"] for c in clauses)
+
+
+def test_real_dora_ingest_is_complete_and_clean():
+    fw = load_corpus().framework("EU-DORA")
+    assert [c.ref for c in fw.clauses] == [f"Article {n}" for n in range(1, 65)]
+    assert all(c.heading for c in fw.clauses)
+    text = " ".join(c.text for c in fw.clauses)
+    for furniture in ("L 333/", "Whereas", "HAVE ADOPTED"):
+        assert furniture not in text
+    definitions = fw.clauses[2]
+    assert definitions.heading == "Definitions"
+    assert len(re.findall(r"\(\d{1,2}\)\s+‘", definitions.text)) == 65
+    assert "points (34) to (36)" in definitions.text  # cross-reference, not a footnote marker
+    assert fw.clauses[22].heading.endswith("and electronic money institutions")  # wrapped heading (Art 23)
+
+
+EU_FOOTNOTE_SAMPLE = """\\
+(1) A recital citing the Council (1), which is skipped.
+     (1) OJ C 1, 1.1.2021, p. 1.
+L 333/2          EN                Official Journal of the European Union            27.12.2022
+                                   Article 1
+                     Operational or security incidents concerning credit
+                          institutions and payment institutions
+     1. Entities as referred to in Article 2(1), points (2) to (3), and the Council (2) shall comply.
+     (2) ‘ICT risk’ means a definition that must be kept.
+     (2) Regulation (EU) 2019/1 of the Council (OJ L 1, 1.1.2019, p. 1).
+27.12.2022       EN                Official Journal of the European Union            L 333/3
+     2. Second paragraph.
+"""
+
+
+def test_parse_eu_footnotes_cross_references_and_wrapped_headings():
+    [art] = parse_eu(EU_FOOTNOTE_SAMPLE, "EUX")
+    assert art["heading"] == ("Operational or security incidents concerning credit "
+                              "institutions and payment institutions")
+    assert "points (2) to (3), and the Council shall comply." in art["text"]
+    assert "(2) ‘ICT risk’ means a definition that must be kept." in art["text"]
+    assert "OJ L 1" not in art["text"] and "Official Journal" not in art["text"]
+    assert art["text"].endswith("2. Second paragraph.")

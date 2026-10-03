@@ -18,6 +18,7 @@ official document, with the file's SHA-256 recorded. What's held today:
 | Framework | Held |
 |---|---|
 | APRA-CPS-230 | All 60 paragraphs, verbatim, from APRA's July 2023 "clean" PDF (effective 1 July 2025). Footnotes are excluded |
+| EU-DORA | All 64 articles, verbatim, from the EUR-Lex PDF (OJ L 333, 27.12.2022). Recitals and footnotes are excluded; Article 3 holds all 65 definitions |
 | BCBS-d516 | 7 principle headings (`heading_only`), so confidence is capped at MEDIUM |
 | All others | Metadata only. Every mapping is "reference not confirmed" until ingested |
 
@@ -41,7 +42,9 @@ git diff knowledge/regulatory-corpus/apra-cps-230.json
 Styles: `apra` (numbered paragraphs, e.g. CPS 230 / CPS 234), `bcbs` (`Principle N:`) and `eu`
 (`Article N`, e.g. DORA). Add a parser in `lib/resilience/ingest.py` for other layouts (OCC sections).
 The `apra` parser strips page headers and footers, footnote blocks and their inline markers, and
-joins hyphen line-wraps.
+joins hyphen line-wraps. The `eu` parser also strips Official Journal page headers and footnotes,
+but it keeps cross-references like "points (34) to (36)" and definitions like "(34) ‘term’ means…",
+which use the same "(N)" form. It also joins wrapped, centred article headings.
 
 The ingest records the source document's SHA-256 and timestamp under `ingestion`, so each
 clause can be traced back to the exact file it came from.

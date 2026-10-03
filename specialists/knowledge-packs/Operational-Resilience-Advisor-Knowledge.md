@@ -85,7 +85,7 @@ On Telegram: the Resilience Crosswalk bot (`telegram-bots/resiliencebot/`), with
 
 ## Roadmap
 
-- Ingest DORA (parser ready: `--style eu`) and the BCBS d516 text. CPS 230 is done: all 60 paragraphs, verbatim
+- Ingest the BCBS d516 text (headings only today). Done: CPS 230 (60 paragraphs) and DORA (64 articles), both verbatim
 - Change feeds for unwatched issuers (EU, US) if those frameworks matter
 - Run `python -m lib.resilience.cli eval` on the host (golden, red-team and screen cases in `lib/resilience/evals/cases.json`). Below 80% first-attempt validity, revisit model escalation (ADR-035 option C)
 - Add golden cases for each newly ingested framework, as was done for CPS 230 (`must_cite_any` paragraph ranges)
