@@ -29,15 +29,17 @@ This file is intentionally a short pointer, not a full contributor guide.
 ## Writing a new decision record (ADR)
 
 If you're about to write up an architectural decision, start from the MADR
-template at `docs/decisions/TEMPLATE-madr.md` (Markdown Architectural
-Decision Records format, adopted format-only under USS-TJR-MSN-0366 Stream
-10 — no new tool or dependency, just a target shape) instead of inventing
-a one-off structure. See
+template at `core/governance/architecture-decision-records/TEMPLATE-madr.md`
+(Markdown Architectural Decision Records format, adopted format-only under
+USS-TJR-MSN-0366 Stream 10 — no new tool or dependency, just a target
+shape; moved out of `docs/decisions/` during the ADR-registry
+consolidation) instead of inventing a one-off structure. File the new ADR
+alongside it in that same directory. See
 `docs/decisions/EXAMPLE-ADR-001-model-router-cloud-escalation-degrade-chain.md`
-for a filled-out real example, and `platform-runtime/adr_conflict_detector.py`
-for the (currently separate) tool that scans an older, plainer ADR shape
-elsewhere in the repo — consolidating the two is scoped to a later
-ADR-consolidation mission, not something to improvise now.
+for a filled-out real example (reference material, not a filed ADR), and
+`platform-runtime/adr_conflict_detector.py` for the tool that scans the
+filed-ADR directory and parses both the MADR shape and the older, plainer
+`Title:`/`Status:` shape.
 
 ## Working in this repo
 
@@ -64,8 +66,9 @@ careful" isn't enough, run the actual grep:
   but that's a safety net, not a substitute for checking first.
 - **ADR citations** — `core/governance/architecture-decision-records/` is the canonical
   filed-ADR directory. Check the number isn't already filed or reserved before citing or
-  writing a new one. (`docs/decisions/` holds the MADR *template* and worked example, not
-  the filed registry itself — don't confuse the two.)
+  writing a new one. The MADR template (`TEMPLATE-madr.md`) also lives in that directory.
+  (`docs/decisions/` only holds reference material — the worked MADR example and other
+  non-filed write-ups — not the filed registry itself; don't confuse the two.)
 - **Scheduled jobs (APScheduler)** — consolidation is in progress (USS-TJR-MSN-0368 Stream
   6); real count as of that stream is 2 live instances (`intelligence/scheduler.py`,
   `telegram-bots/revs/scheduler.py`). Ask before adding a new scheduler instance rather than

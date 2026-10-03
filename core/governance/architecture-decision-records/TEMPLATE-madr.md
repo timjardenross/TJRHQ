@@ -119,16 +119,19 @@ USS TJR usage notes (not part of upstream MADR — repo-specific):
   digits (ADR-001, ADR-002, …) to match the `ADR-\d{3}` pattern that
   platform-runtime/adr_conflict_detector.py already looks for in
   `core/governance/architecture-decision-records/` and
-  `knowledge/architecture/`. This directory (`docs/decisions/`) is not one
-  of that tool's scanned paths yet — this stream adopts the MADR *format*
-  only; wiring this directory into cross-reference/conflict detection is
-  in scope for the later ADR-consolidation mission, not this one.
+  `knowledge/architecture/`. This directory
+  (`core/governance/architecture-decision-records/`) is the canonical
+  filed-ADR registry and one of that tool's scanned paths, so a new ADR
+  filed here is picked up for cross-reference/conflict detection. (This
+  template moved here from `docs/decisions/` during the ADR-registry
+  consolidation; its `TEMPLATE-` name doesn't match `ADR-NNN`, so the
+  detector skips it.)
 - "supersedes ADR-NNN" / "conflicts with ADR-NNN" phrasing in the body
   (as in "More Information" above) is a convention the conflict detector
-  already parses via regex — keep using that exact phrasing so records
-  written now stay machine-readable once consolidation wires this
-  directory in.
+  parses via regex — keep using that exact phrasing so records stay
+  machine-readable.
 - See `docs/decisions/EXAMPLE-ADR-001-model-router-cloud-escalation-degrade-chain.md`
   for a filled-out real example (a decision already made in this repo,
-  written up retroactively in this format).
+  written up retroactively in this format; kept in `docs/decisions/` as
+  reference material, not a filed ADR).
 -->
