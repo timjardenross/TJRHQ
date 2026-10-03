@@ -1,7 +1,7 @@
 # Regulatory Crosswalk Framework
 
 **Owner:** Operational Resilience Advisor (USS-TJR-OR-001)
-**Status:** v0.1 — prompt-level (no grounded corpus yet)
+**Status:** v0.2 — grounded corpus in `knowledge/regulatory-corpus/` (text ingestion pending)
 **Purpose:** A repeatable method for mapping one operational resilience requirement
 across overlapping regulatory frameworks, with honest alignment and confidence ratings.
 
@@ -29,6 +29,10 @@ proceed with the defaults and list the assumptions at the top of the output.
 Cite a specific paragraph, principle, clause or section for every mapping. If the
 exact reference is not known with confidence, write **"reference not confirmed"** —
 never invent a number.
+
+When running through `lib/resilience/`, cite only the clause IDs in the supplied clause
+catalogue (drawn from `knowledge/regulatory-corpus/`). A framework with no clauses held
+there gets `clause_id: null`, which renders as "reference not confirmed".
 
 **Primary (Australia / APRA):**
 - APRA CPS 230 Operational Risk Management (effective 1 July 2025) and CPG 230 guidance

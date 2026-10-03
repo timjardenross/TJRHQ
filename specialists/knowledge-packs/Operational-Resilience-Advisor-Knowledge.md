@@ -1,7 +1,7 @@
 # Operational Resilience Advisor Knowledge Pack
 
 **Specialist:** Operational Resilience Advisor (USS-TJR-OR-001)
-**Version:** 0.1 — October 2026 (prompt-level; see Roadmap)
+**Version:** 0.2 — October 2026 (grounded corpus + validator; see below)
 
 Domains:
 - Operational resilience (APRA CPS 230 and international equivalents)
@@ -64,10 +64,24 @@ terminology accurately; explain jargon once. No padding, no generic compliance f
 | Review | Every output reviewed by the Captain before use |
 | Decision model? | No — research and drafting aid; the Captain exercises independent judgement |
 
-## Roadmap (beyond v0.1)
+## Grounded runtime (v0.2)
 
-- Grounded clause-level corpus + lookup tools so citations are validated, not recalled
-- Structured output schema with enforced alignment/confidence values
-- Audit log of crosswalks and review decisions
-- Regulatory change hook from `tools/intelligence/` (APRA, BIS sources already seeded)
-- Golden-crosswalk and guardrail red-team evals
+`platform-runtime/lib/resilience/` turns this pack's rules into code:
+
+| Rule here | Enforced by |
+|-----------|-------------|
+| Never invent references | `validator.py` rejects any `clause_id` not in `knowledge/regulatory-corpus/`; the model gets one repair attempt, then the output is withheld |
+| HIGH only on explicit language | HIGH is downgraded to MEDIUM unless the cited clause's text is held verbatim |
+| Every MEDIUM/LOW gets verified | The verification checklist is built in code from the mappings |
+| Data guardrails | `guardrails.py` screens input before it reaches any model |
+| Log outputs and review decisions | `audit.py`: an append-only JSONL run log plus accept/edit/reject reviews |
+
+Run it with `python -m lib.resilience.cli run "<request>"` from `platform-runtime/`. It runs
+through the platform's own model stack (`llm.try_generate_response`).
+
+## Roadmap
+
+- Ingest CPS 230 and BCBS d516 text from the official PDFs (see `knowledge/regulatory-corpus/README.md`)
+- Regulatory change hook from `tools/intelligence/` (APRA and BIS sources are already seeded)
+- Golden-crosswalk and guardrail red-team evals against a real model
+- Chat front-end (Telegram bot or LCARS workbench)

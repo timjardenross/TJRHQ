@@ -35,11 +35,15 @@ If a file is missing, say so and stop rather than improvising the method.
 
 ## The rule that matters most
 
-Citations are recalled from model memory at this stage — there is no grounded
-corpus yet. So: if you can't locate a paragraph/principle number with confidence,
-write **"reference not confirmed"** and put the row in the verification checklist.
-A crosswalk with honest gaps is useful; one with invented paragraph numbers is a
-liability the Captain would carry into a meeting.
+Before citing, check `knowledge/regulatory-corpus/` (or run
+`cd platform-runtime && python -m lib.resilience.cli coverage`). Cite a paragraph or
+principle number only if it's held there. Treat a `heading_only` clause as MEDIUM at
+most. For anything not held, write **"reference not confirmed"** and put the row in the
+verification checklist. A crosswalk with honest gaps is useful; one with invented
+paragraph numbers is a liability the Captain would carry into a meeting.
+
+For a validated, audit-logged crosswalk instead of an in-chat one, run
+`python -m lib.resilience.cli run "<request>"` from `platform-runtime/`.
 
 ## Boundaries with other skills
 
