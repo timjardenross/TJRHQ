@@ -30,6 +30,6 @@ gotrue<2.13.0
 python-dotenv==1.2.3
 # httpx<0.29 required: python-telegram-bot 20.7 passes `proxies` kwarg removed in httpx 0.26+
 httpx<0.29
-pyjwt>=2.14.0
+pyjwt>=2.15.1
 # edge-tts: Microsoft Edge neural TTS for XO voice replies — no API key required
 edge-tts>=7.2.8
