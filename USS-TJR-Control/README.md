@@ -36,6 +36,9 @@ history if any of that needs to be reconstructed.
 - **REVS** (`tg-revs.service`) — public check-in bot, no action capability.
 - **CapacityBot** (`tg-capacitybot.service`) — capacity check-ins
   (`capacity_checkins` table), no action capability.
+- **Resilience Crosswalk** (`tg-resiliencebot.service`) — Operational
+  Resilience Advisor crosswalks over `platform-runtime/lib/resilience`
+  (Captain-only allowlist), no action capability.
 
 None of these are Slack. Slack notification-sending and the Slack-only
 Chief Engineer / Engineering Dept bots were fully retired — see

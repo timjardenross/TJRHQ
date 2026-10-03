@@ -1,0 +1,110 @@
+{
+  "framework_id": "BCBS-d516",
+  "title": "Principles for Operational Resilience (BCBS d516)",
+  "issuer": "Basel Committee on Banking Supervision",
+  "jurisdiction": "INTL",
+  "role": "international",
+  "status": "in_force",
+  "effective_date": "2021-03-31",
+  "source_url": "https://www.bis.org/bcbs/publ/d516.htm",
+  "licence": "BIS copyright — store headings and short attributed excerpts only unless permission is confirmed",
+  "notes": "Seeded with principle headings only (no verbatim text). Confidence for these clauses is capped at MEDIUM until text is ingested.",
+  "ingestion": {
+    "method": "manual-index",
+    "source_sha256": null,
+    "ingested_at": null
+  },
+  "clauses": [
+    {
+      "clause_id": "BCBS-d516-P1",
+      "ref": "Principle 1",
+      "heading": "Governance",
+      "text": "",
+      "text_status": "heading_only",
+      "tags": [
+        "governance",
+        "board",
+        "senior management",
+        "oversight"
+      ]
+    },
+    {
+      "clause_id": "BCBS-d516-P2",
+      "ref": "Principle 2",
+      "heading": "Operational risk management",
+      "text": "",
+      "text_status": "heading_only",
+      "tags": [
+        "operational risk",
+        "risk management",
+        "controls"
+      ]
+    },
+    {
+      "clause_id": "BCBS-d516-P3",
+      "ref": "Principle 3",
+      "heading": "Business continuity planning and testing",
+      "text": "",
+      "text_status": "heading_only",
+      "tags": [
+        "business continuity",
+        "bcp",
+        "testing",
+        "scenario",
+        "severe but plausible"
+      ]
+    },
+    {
+      "clause_id": "BCBS-d516-P4",
+      "ref": "Principle 4",
+      "heading": "Mapping of interconnections and interdependencies",
+      "text": "",
+      "text_status": "heading_only",
+      "tags": [
+        "mapping",
+        "interdependencies",
+        "critical operations",
+        "dependency"
+      ]
+    },
+    {
+      "clause_id": "BCBS-d516-P5",
+      "ref": "Principle 5",
+      "heading": "Third-party dependency management",
+      "text": "",
+      "text_status": "heading_only",
+      "tags": [
+        "third party",
+        "service provider",
+        "outsourcing",
+        "dependency"
+      ]
+    },
+    {
+      "clause_id": "BCBS-d516-P6",
+      "ref": "Principle 6",
+      "heading": "Incident management",
+      "text": "",
+      "text_status": "heading_only",
+      "tags": [
+        "incident",
+        "response",
+        "recovery",
+        "root cause"
+      ]
+    },
+    {
+      "clause_id": "BCBS-d516-P7",
+      "ref": "Principle 7",
+      "heading": "Resilient information and communication technology (ICT) including cyber security",
+      "text": "",
+      "text_status": "heading_only",
+      "tags": [
+        "ict",
+        "technology",
+        "cyber",
+        "information security"
+      ]
+    }
+  ]
+}

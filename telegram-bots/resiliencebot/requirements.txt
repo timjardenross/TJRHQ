@@ -1,0 +1,6 @@
+python-telegram-bot==22.8
+python-dotenv==1.2.3
+# lib/resilience (platform-runtime) schema/validation — same pins as
+# platform-runtime/requirements.txt so the two never resolve differently.
+pydantic==2.13.4
+pydantic_core==2.46.4

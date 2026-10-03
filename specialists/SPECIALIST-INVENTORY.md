@@ -4,7 +4,7 @@
 
 **Primary Purpose:** Enable rapid specialist identification and routing for new Starfleet Command missions.
 
-**Last Updated:** June 7, 2026
+**Last Updated:** October 3, 2026
 
 ---
 
@@ -157,6 +157,21 @@ Future specialists with defined charters and knowledge packs but no core governa
 - **Runtime File:** `specialists/future-crew/Product-Designer.md`
 - **Status Note:** Product-focused design role
 
+### 13. Operational Resilience Advisor
+- **Registry ID:** USS-TJR-OR-001
+- **Department:** Operations Division
+- **Status:** Defined — runtime-loadable via `prompt_loader.SPECIALISTS["or_advisor"]` (no `core/crew/` governance folder yet)
+- **Maturity Level:** 2 (Defined)
+- **Reports To:** Captain TJR
+- **Mission:** Operational continuity under disruption (CPS 230 adapted for the platform) and regulatory framework crosswalks for the Captain's resilience practice
+- **Core Responsibilities:** Dependency and single-point-of-failure review, continuity risk, resilience lessons, CPS 230 ↔ BCBS / ISO 22301 / DORA / US guidance crosswalks
+- **Runtime File:** `specialists/core-crew/OR-Advisor.md`
+- **Knowledge Packs:** `specialists/knowledge-packs/Operational-Resilience-Advisor-Knowledge.md`, `specialists/knowledge-packs/Regulatory-Crosswalk-Framework.md`
+- **Claude Code Skill:** `.claude/skills/resilience-crosswalk/`
+- **Runtime:** `platform-runtime/lib/resilience/` (grounded pipeline), `telegram-bots/resiliencebot/` (Telegram front-end)
+- **Decision Authority:** Advisory only
+- **Domain Ownership:** Operational resilience, business continuity, regulatory crosswalks
+
 ---
 
 ## Specialist Categorization by Domain
@@ -165,6 +180,7 @@ Future specialists with defined charters and knowledge packs but no core governa
 - Chief of Staff (Owner)
 - Knowledge Officer (Owner)
 - Operations Officer (Future)
+- Operational Resilience Advisor (Defined)
 
 ### Engineering Domain
 - Chief Engineer (Owner)
@@ -200,14 +216,16 @@ Future specialists with defined charters and knowledge packs but no core governa
 | Health, wellness, medical guidance | Medical Officer | Captain TJR |
 | Research, analysis, intelligence (when active) | Research Officer | Captain TJR |
 | Operations, planning, workflow optimization (when active) | Operations Officer | Chief of Staff |
+| Operational resilience, CPS 230, regulatory crosswalks | Operational Resilience Advisor | Captain TJR |
 
 ---
 
 ## Summary Statistics
 
-- **Total Specialists Defined:** 12
+- **Total Specialists Defined:** 13
 - **Active/Commissioned:** 7
 - **Planned/Future:** 5
+- **Defined, runtime-loadable (not commissioned):** 1 (Operational Resilience Advisor)
 - **Core Governance Folders:** 7
 - **Knowledge Packs Available:** 8+
 - **Departments:** Operations, Engineering, Experience, Health, Intelligence (future)

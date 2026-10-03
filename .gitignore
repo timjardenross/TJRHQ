@@ -184,3 +184,9 @@ intelligence/watchlist/_queue/*.jsonl
 
 # XO bot daily medication reminder — local per-VM confirmation state
 telegram-bots/xo/.medication_state.json
+
+# data/resilience-crosswalk/: the Operational Resilience Advisor's live audit
+# trail (lib/resilience/audit.py) — local runtime state that can hold the
+# Captain's work queries, so it stays out of git like the self-improvement
+# review logs above.
+data/resilience-crosswalk/

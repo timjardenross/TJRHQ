@@ -1,0 +1,18 @@
+{
+  "framework_id": "APRA-CPS-230",
+  "title": "Prudential Standard CPS 230 Operational Risk Management",
+  "issuer": "APRA",
+  "jurisdiction": "AU",
+  "role": "primary",
+  "status": "in_force",
+  "effective_date": "2025-07-01",
+  "source_url": "https://www.apra.gov.au/operational-risk-management",
+  "licence": "Commonwealth legislative instrument — check Federal Register of Legislation licence (typically CC BY 4.0) before storing verbatim text",
+  "notes": "Primary framework. Ingest paragraph text from the official PDF with lib.resilience.ingest.",
+  "ingestion": {
+    "method": "pending",
+    "source_sha256": null,
+    "ingested_at": null
+  },
+  "clauses": []
+}

@@ -136,6 +136,14 @@ SPECIALISTS = {
         "charter": "specialists/core-crew/Visual-Design-Officer.md",
         "knowledge": [],
     },
+    "or_advisor": {
+        "title": "Operational Resilience Advisor",
+        "charter": "specialists/core-crew/OR-Advisor.md",
+        "knowledge": [
+            "specialists/knowledge-packs/Operational-Resilience-Advisor-Knowledge.md",
+            "specialists/knowledge-packs/Regulatory-Crosswalk-Framework.md",
+        ],
+    },
 }
 
 

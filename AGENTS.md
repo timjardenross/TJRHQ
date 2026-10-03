@@ -19,6 +19,9 @@ This file is intentionally a short pointer, not a full contributor guide.
   a named list of AI-generated-slop patterns (generic layouts, contrast failures, token
   improvisation, mobile breakage) and returns a severity-ranked punch list. It doesn't edit
   files or design new UI.
+- **`resilience-crosswalk/`** — the Operational Resilience Advisor (USS-TJR-OR-001) in
+  crosswalk mode: maps a resilience requirement across CPS 230, BCBS, ISO 22301, DORA and
+  US guidance. Loads the same charter and knowledge packs as `prompt_loader.SPECIALISTS["or_advisor"]`.
 - **`chief-engineer-workspace/`** and **`xo-workspace/`** — eval and benchmark iterations for
   the `chief-engineer` and `xo` skills (benchmark configs, scoring, and sample review
   transcripts used to tune those personas over time).

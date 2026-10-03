@@ -1,0 +1,18 @@
+{
+  "framework_id": "APRA-CPS-234",
+  "title": "Prudential Standard CPS 234 Information Security",
+  "issuer": "APRA",
+  "jurisdiction": "AU",
+  "role": "primary",
+  "status": "in_force",
+  "effective_date": "2019-07-01",
+  "source_url": "https://www.apra.gov.au/information-security",
+  "licence": "Commonwealth legislative instrument — check licence before storing verbatim text",
+  "notes": "",
+  "ingestion": {
+    "method": "pending",
+    "source_sha256": null,
+    "ingested_at": null
+  },
+  "clauses": []
+}
