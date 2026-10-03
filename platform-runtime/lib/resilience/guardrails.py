@@ -17,13 +17,13 @@ _TFN_RE = re.compile(r"\b\d{3}[ -]?\d{3}[ -]?\d{3}\b")
 _BSB_ACCOUNT_RE = re.compile(r"\b\d{3}-\d{3}\s+\d{6,10}\b")
 
 _PROHIBITED_REQUESTS = (
-    (re.compile(r"\b(draft|write|prepare)\b.{0,40}\b(response|reply|letter)\b.{0,30}\b(apra|regulator|supervisor|examiner)\b", re.I),
+    (re.compile(r"\b(draft|write|prepare)\b.{0,40}\b(response|reply|letter)\b.{0,30}\b(apra|regulator|supervisor|examiner)\b", re.IGNORECASE),
      "drafting a formal response to a regulator"),
-    (re.compile(r"\b(remediation plan|action plan)\b.{0,40}\b(finding|mra|mria|supervisory)\b", re.I),
+    (re.compile(r"\b(remediation plan|action plan)\b.{0,40}\b(finding|mra|mria|supervisory)\b", re.IGNORECASE),
      "drafting a remediation plan for a supervisory finding"),
-    (re.compile(r"\b(legal advice|legal opinion|is (this|it) legal)\b", re.I),
+    (re.compile(r"\b(legal advice|legal opinion|is (this|it) legal)\b", re.IGNORECASE),
      "legal advice or a legal opinion"),
-    (re.compile(r"\b(draft|write|state|prepare)\b.{0,30}\bofficial position\b", re.I),
+    (re.compile(r"\b(draft|write|state|prepare)\b.{0,30}\bofficial position\b", re.IGNORECASE),
      "stating an entity's official position"),
 )
 

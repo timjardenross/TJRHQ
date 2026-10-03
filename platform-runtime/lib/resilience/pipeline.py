@@ -155,7 +155,7 @@ def build_user_prompt(query: str, intake: dict, assumptions: list[str], catalogu
     )
 
 
-_JSON_BLOCK_RE = re.compile(r"\{.*\}", re.S)
+_JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
 
 
 def parse_draft(raw: str) -> CrosswalkDraft:

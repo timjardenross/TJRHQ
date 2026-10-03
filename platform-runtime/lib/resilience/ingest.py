@@ -28,9 +28,9 @@ from pathlib import Path
 from .corpus import DEFAULT_CORPUS_DIR
 
 _APRA_PARA_RE = re.compile(r"^\s*(\d{1,3})\.\s+(\S.*)$")
-_BCBS_PRINCIPLE_RE = re.compile(r"^\s*Principle\s+(\d{1,2})\s*[:.]\s*(.*)$", re.I)
+_BCBS_PRINCIPLE_RE = re.compile(r"^\s*Principle\s+(\d{1,2})\s*[:.]\s*(.*)$", re.IGNORECASE)
 _HEADING_RE = re.compile(r"^\s*([A-Z][A-Za-z ,&/'()-]{3,80})\s*$")
-_NOISE_RE = re.compile(r"^\s*(\d+\s*$|page \d+|cps \d+ - \d+|\f)", re.I)
+_NOISE_RE = re.compile(r"^\s*(\d+\s*$|page \d+|cps \d+ - \d+|\f)", re.IGNORECASE)
 
 
 def parse_apra(text: str, framework_id: str) -> list[dict]:

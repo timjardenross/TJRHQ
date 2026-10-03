@@ -15,11 +15,12 @@ from collections import Counter
 from .corpus import Clause, Corpus
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
-_STOPWORDS = frozenset(
-    "a an and are as at be by for from has have in is it its of on or that the this to "
-    "what which with across all does each framework frameworks require requirement "
-    "requirements map mapping between against compare".split()
-)
+_STOPWORDS = frozenset({
+    "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "has", "have", "in", "is",
+    "it", "its", "of", "on", "or", "that", "the", "this", "to", "what", "which", "with",
+    "across", "all", "does", "each", "framework", "frameworks", "require", "requirement",
+    "requirements", "map", "mapping", "between", "against", "compare",
+})
 
 HEADING_WEIGHT = 3.0
 TAG_WEIGHT = 2.0

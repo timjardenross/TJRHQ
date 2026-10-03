@@ -17,14 +17,14 @@ for p in (str(REPO_ROOT), str(RUNTIME_DIR)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.resilience import audit  # noqa: E402
-from lib.resilience.corpus import load_corpus  # noqa: E402
-from lib.resilience.guardrails import screen_input  # noqa: E402
-from lib.resilience.ingest import ingest, parse_apra, parse_bcbs  # noqa: E402
-from lib.resilience.pipeline import Intake, parse_draft, run_crosswalk  # noqa: E402
-from lib.resilience.retrieval import search  # noqa: E402
-from lib.resilience.schema import Confidence  # noqa: E402
-from lib.resilience.validator import build_verification, validate  # noqa: E402
+from lib.resilience import audit
+from lib.resilience.corpus import load_corpus
+from lib.resilience.guardrails import screen_input
+from lib.resilience.ingest import ingest, parse_apra, parse_bcbs
+from lib.resilience.pipeline import Intake, parse_draft, run_crosswalk
+from lib.resilience.retrieval import search
+from lib.resilience.schema import Confidence
+from lib.resilience.validator import build_verification, validate
 
 
 def _fw(fid, clauses, licence="test"):
