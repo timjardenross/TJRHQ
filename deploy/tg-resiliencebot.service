@@ -1,0 +1,14 @@
+[Unit]
+Description=Resilience Crosswalk Bot (Operational Resilience Advisor) Telegram bot
+After=network.target model-router.service
+
+[Service]
+WorkingDirectory=/opt/starship-endeavour
+# Secrets via the per-bot Infisical wrapper: root secrets + /bots/resiliencebot
+# folder override (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID for this bot).
+ExecStart=/opt/starship-endeavour/platform-runtime/run-with-infisical-bot.sh resiliencebot -- /opt/starship-endeavour/telegram-bots/resiliencebot/.venv/bin/python -m telegram_bots.resiliencebot.app
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -106,6 +106,18 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: "pip"
+    directory: "/telegram-bots/resiliencebot"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "03:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: "pip"
     directory: "/telegram-bots/revs"
     schedule:
       interval: "weekly"

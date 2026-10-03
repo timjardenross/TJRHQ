@@ -107,6 +107,10 @@ jobs:
               - 'telegram-bots/capacitybot/**'
             telegram_recovery_officer:
               - 'telegram-bots/recovery_officer/**'
+            telegram_resiliencebot:
+              - 'telegram-bots/resiliencebot/**'
+              - 'platform-runtime/lib/resilience/**'
+              - 'knowledge/regulatory-corpus/**'
             telegram_revs:
               - 'telegram-bots/revs/**'
             telegram_wellness_officer:
@@ -183,6 +187,11 @@ jobs:
                   "name": "telegram-bots-recovery_officer",
                   "dir": "telegram-bots/recovery_officer",
                   "req": "",
+              },
+              "telegram_resiliencebot": {
+                  "name": "telegram-bots-resiliencebot",
+                  "dir": "telegram-bots/resiliencebot",
+                  "req": "telegram-bots/resiliencebot/requirements.txt",
               },
               "telegram_revs": {
                   "name": "telegram-bots-revs",

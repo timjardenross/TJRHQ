@@ -79,9 +79,12 @@ terminology accurately; explain jargon once. No padding, no generic compliance f
 Run it with `python -m lib.resilience.cli run "<request>"` from `platform-runtime/`. It runs
 through the platform's own model stack (`llm.try_generate_response`).
 
+On Telegram: the Resilience Crosswalk bot (`telegram-bots/resiliencebot/`), with
+`/crosswalk`, `/coverage` and `/pending`, plus review buttons that write to the same audit log.
+
 ## Roadmap
 
 - Ingest CPS 230 and BCBS d516 text from the official PDFs (see `knowledge/regulatory-corpus/README.md`)
 - Regulatory change hook from `tools/intelligence/` (APRA and BIS sources are already seeded)
 - Golden-crosswalk and guardrail red-team evals against a real model
-- Chat front-end (Telegram bot or LCARS workbench)
+- LCARS workbench view of crosswalks and the review queue

@@ -168,6 +168,7 @@ Future specialists with defined charters and knowledge packs but no core governa
 - **Runtime File:** `specialists/core-crew/OR-Advisor.md`
 - **Knowledge Packs:** `specialists/knowledge-packs/Operational-Resilience-Advisor-Knowledge.md`, `specialists/knowledge-packs/Regulatory-Crosswalk-Framework.md`
 - **Claude Code Skill:** `.claude/skills/resilience-crosswalk/`
+- **Runtime:** `platform-runtime/lib/resilience/` (grounded pipeline), `telegram-bots/resiliencebot/` (Telegram front-end)
 - **Decision Authority:** Advisory only
 - **Domain Ownership:** Operational resilience, business continuity, regulatory crosswalks
 
