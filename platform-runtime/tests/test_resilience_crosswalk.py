@@ -21,7 +21,7 @@ for p in (str(REPO_ROOT), str(RUNTIME_DIR)):
 from lib.resilience import audit, change_flags, evaluate
 from lib.resilience.corpus import load_corpus
 from lib.resilience.guardrails import screen_input
-from lib.resilience.ingest import ingest, parse_apra, parse_bcbs
+from lib.resilience.ingest import ingest, parse_apra, parse_bcbs, parse_eu
 from lib.resilience.pipeline import Intake, parse_draft, run_crosswalk
 from lib.resilience.retrieval import search
 from lib.resilience.schema import Confidence
@@ -488,3 +488,34 @@ def test_evals_report_unreachable_model(tmp_path):
     report = evaluate.run_evals(lambda p, s: (False, "router down"), report_dir=tmp_path, persona="")
     assert report["summary"]["llm_unavailable"] > 0
     assert "Model Router" in report["summary"]["verdict"]
+
+
+EU_SAMPLE = """\
+(1) Recital text that must be skipped.
+HAVE ADOPTED THIS REGULATION:
+CHAPTER I
+GENERAL PROVISIONS
+Article 1
+Subject matter
+1. This Regulation lays down uniform requirements
+concerning the security of network and information systems.
+L 333/30
+EN
+Official Journal of the European Union
+27.12.2022
+Article 11a
+Response and recovery
+1. Financial entities shall put in place a policy.
+This Regulation shall be binding in its entirety and directly applicable in all Member States.
+"""
+
+
+def test_parse_eu_articles_headings_and_noise():
+    clauses = parse_eu(EU_SAMPLE, "EUX")
+    assert [c["clause_id"] for c in clauses] == ["EUX-art-1", "EUX-art-11a"]
+    assert clauses[0]["heading"] == "Subject matter"
+    assert clauses[0]["text"] == ("1. This Regulation lays down uniform requirements concerning the "
+                                  "security of network and information systems.")
+    assert clauses[1]["heading"] == "Response and recovery"
+    assert "binding in its entirety" not in clauses[1]["text"]
+    assert "Recital" not in " ".join(c["text"] for c in clauses)

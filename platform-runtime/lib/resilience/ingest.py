@@ -10,6 +10,7 @@ Styles:
 - ``apra``  — numbered paragraphs (``34.  An APRA-regulated entity must ...``); the most
   recent un-numbered heading line is kept as the paragraph's heading.
 - ``bcbs``  — ``Principle N:`` blocks.
+- ``eu``    — EU regulations (``Article N`` + heading line), e.g. DORA.
 
 Licence guard: frameworks whose ``licence`` is ``proprietary`` (paid ISO standards) are
 refused unless ``--licensed`` is passed, so paid text isn't committed by accident.
@@ -84,7 +85,49 @@ def parse_bcbs(text: str, framework_id: str) -> list[dict]:
     return clauses
 
 
-PARSERS = {"apra": parse_apra, "bcbs": parse_bcbs}
+_EU_ARTICLE_RE = re.compile(r"^\s*Article\s+(\d{1,3}[a-z]?)\s*$")
+_EU_STRUCTURE_RE = re.compile(r"^\s*(CHAPTER|TITLE|Section|SECTION)\s+[IVXLC0-9]+\b")
+_EU_END_RE = re.compile(r"^\s*This Regulation shall be binding in its entirety", re.IGNORECASE)
+_EU_NOISE_RE = re.compile(r"^\s*(L \d+/\d+|EN\s*$|Official Journal of the European Union|\d{1,2}\.\d{1,2}\.\d{4}\s*$)")
+
+
+def parse_eu(text: str, framework_id: str) -> list[dict]:
+    """EU regulation layout (e.g. DORA): one clause per ``Article N``, the line after
+    it as the heading. Recitals before Article 1 and the closing formula are skipped;
+    CHAPTER / Section lines and their all-caps titles are structure, not text."""
+    clauses: list[dict] = []
+    current: dict | None = None
+    want_heading = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or _NOISE_RE.match(line) or _EU_NOISE_RE.match(line):
+            continue
+        if _EU_END_RE.match(line):
+            break
+        art = _EU_ARTICLE_RE.match(line)
+        if art:
+            if current:
+                clauses.append(current)
+            n = art.group(1)
+            current = {"clause_id": f"{framework_id}-art-{n}", "ref": f"Article {n}", "heading": "",
+                       "text": "", "text_status": "verbatim", "tags": []}
+            want_heading = True
+            continue
+        if current is None:
+            continue  # recitals and preamble
+        if _EU_STRUCTURE_RE.match(line) or (stripped.isupper() and len(stripped) < 120):
+            continue
+        if want_heading:
+            current["heading"] = stripped
+            want_heading = False
+            continue
+        current["text"] = f"{current['text']} {stripped}".strip()
+    if current:
+        clauses.append(current)
+    return [c for c in clauses if c["text"]]
+
+
+PARSERS = {"apra": parse_apra, "bcbs": parse_bcbs, "eu": parse_eu}
 
 
 def _framework_path(framework_id: str, corpus_dir: Path) -> Path:
