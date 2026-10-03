@@ -190,3 +190,8 @@ telegram-bots/xo/.medication_state.json
 # Captain's work queries, so it stays out of git like the self-improvement
 # review logs above.
 data/resilience-crosswalk/
+
+# reports/resilience-evals/: per-run scratch logs from lib/resilience/evaluate.py.
+# The <timestamp>.json summary reports stay committable as evidence (like
+# reports/deepteam/); the run's own audit log is noise.
+reports/resilience-evals/*-audit.jsonl

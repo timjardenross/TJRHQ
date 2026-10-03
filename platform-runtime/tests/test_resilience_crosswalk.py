@@ -6,6 +6,7 @@ model, so nothing here depends on real regulatory text or a running LLM.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -17,10 +18,10 @@ for p in (str(REPO_ROOT), str(RUNTIME_DIR)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.resilience import audit
+from lib.resilience import audit, change_flags, evaluate
 from lib.resilience.corpus import load_corpus
 from lib.resilience.guardrails import screen_input
-from lib.resilience.ingest import ingest, parse_apra, parse_bcbs
+from lib.resilience.ingest import ingest, parse_apra, parse_bcbs, parse_eu
 from lib.resilience.pipeline import Intake, parse_draft, run_crosswalk
 from lib.resilience.retrieval import search
 from lib.resilience.schema import Confidence
@@ -91,12 +92,27 @@ def _fake(*responses):
 
 # ── corpus ────────────────────────────────────────────────────────────────────
 
-def test_real_corpus_loads_and_has_no_fabricated_text():
+def test_real_corpus_verbatim_text_is_traceable_to_a_source_document():
     corpus = load_corpus()
     assert "APRA-CPS-230" in corpus.frameworks
     assert "BCBS-d516" in corpus.frameworks
-    # Seeded in-session without source access: nothing may claim to be verbatim yet.
-    assert all(c.text_status != "verbatim" for c in corpus.clauses.values())
+    # Verbatim text may only come from ingest.py, which records the source file's hash.
+    for fw in corpus.frameworks.values():
+        if any(c.text_status == "verbatim" for c in fw.clauses):
+            digest = fw.ingestion.get("source_digest") or ""
+            assert digest.startswith("sha256:") and len(digest) == 7 + 64, fw.framework_id
+            assert fw.ingestion.get("ingested_at"), fw.framework_id
+
+
+def test_real_cps230_ingest_is_complete_and_clean():
+    fw = load_corpus().framework("APRA-CPS-230")
+    refs = [c.ref for c in fw.clauses]
+    assert refs == [f"para {n}" for n in range(1, 61)]
+    text = " ".join(c.text for c in fw.clauses)
+    for furniture in ("CPS 230 –", "July 2025 "):
+        assert furniture not in text
+    assert fw.clauses[32].text.startswith("An APRA-regulated entity must notify APRA")  # para 33
+    assert "72 hours" in fw.clauses[32].text
 
 
 def test_duplicate_clause_ids_rejected(corpus_dir):
@@ -320,3 +336,268 @@ def test_ingest_refuses_proprietary_without_flag(corpus_dir, tmp_path):
     src.write_text("1. something")
     with pytest.raises(SystemExit, match="proprietary"):
         ingest("ISO", src, "apra", corpus_dir=corpus_dir)
+
+
+# ── change flags ──────────────────────────────────────────────────────────────
+
+
+@pytest.fixture(autouse=True)
+def _isolated_flags(tmp_path, monkeypatch):
+    """No test may read or write the real data/resilience-crosswalk/change_flags.jsonl."""
+    monkeypatch.setenv("RESILIENCE_CHANGE_FLAGS", str(tmp_path / "flags.jsonl"))
+
+
+@pytest.fixture
+def watched_corpus(corpus_dir):
+    path = corpus_dir / "src.json"
+    data = json.loads(path.read_text())
+    data["watch"] = {"sources": ["APRA"], "patterns": [r"\bCP[SG]\s*230\b", r"operational resilience"]}
+    data["ingestion"] = {"ingested_at": "2026-09-01T00:00:00+00:00"}
+    path.write_text(json.dumps(data))
+    return load_corpus(corpus_dir)
+
+
+def _event(**over):
+    e = {"event_id": "e1", "source_name": "APRA Media Releases",
+         "raw_title": "APRA updates CPG 230 guidance", "raw_summary": "",
+         "canonical_url": "https://example.test/cpg230", "published_at": "2026-09-20T00:00:00+00:00"}
+    e.update(over)
+    return e
+
+
+def test_match_requires_source_and_pattern(watched_corpus):
+    assert change_flags.match_event(_event(), watched_corpus) == ["SRC"]
+    assert change_flags.match_event(_event(source_name="ASIC News Centre"), watched_corpus) == []
+    assert change_flags.match_event(_event(raw_title="APRA statistics release"), watched_corpus) == []
+    # frameworks with no watch sources never match
+    assert "TGT" not in change_flags.match_event(_event(), watched_corpus)
+
+
+def test_scan_dedupes_and_skips_events_older_than_ingestion(watched_corpus, tmp_path):
+    log = tmp_path / "f.jsonl"
+    old = _event(event_id="e0", canonical_url="https://example.test/old", published_at="2026-08-01T00:00:00+00:00")
+    first = change_flags.scan([_event(), old], watched_corpus, log)
+    assert [f.framework_id for f in first] == ["SRC"]
+    assert change_flags.scan([_event()], watched_corpus, log) == []
+    assert len(change_flags.open_flags(log)) == 1
+
+
+def test_resolve_and_resolve_framework(watched_corpus, tmp_path):
+    log = tmp_path / "f.jsonl"
+    [flag] = change_flags.scan([_event()], watched_corpus, log)
+    assert change_flags.resolve(flag.flag_id, "dismissed", path=log)
+    assert not change_flags.resolve(flag.flag_id, "dismissed", path=log)
+    change_flags.scan([_event(canonical_url="https://example.test/2")], watched_corpus, log)
+    assert change_flags.resolve_framework("SRC", path=log) == 1
+    assert change_flags.open_flags(log) == []
+    with pytest.raises(ValueError):
+        change_flags.resolve("cf-x", "deleted", path=log)
+
+
+def test_unwatched_lists_frameworks_without_sources(watched_corpus):
+    assert change_flags.unwatched(watched_corpus) == ["ISO", "TGT"]
+
+
+def test_pipeline_surfaces_open_flags_without_blocking(watched_corpus, tmp_path):
+    flags = tmp_path / "f.jsonl"
+    change_flags.scan([_event()], watched_corpus, flags)
+    run = run_crosswalk("business continuity testing", Intake(source_framework="SRC", targets=["TGT", "ISO"]),
+                        corpus=watched_corpus, generate=_fake(json.dumps(_draft())), persona="",
+                        audit_log=tmp_path / "a.jsonl", flags_log=flags)
+    assert run.status == "ok"
+    assert any("possible source update" in w for w in run.crosswalk.warnings)
+    assert any(v.reason == "Possible source update" and v.framework_id == "SRC" for v in run.crosswalk.verification)
+    assert "CPG 230" in run.markdown
+
+
+def test_real_corpus_watch_rules_compile_and_name_real_sources():
+    import re as _re
+    corpus = load_corpus()
+    registry = (REPO_ROOT / "tools" / "intelligence" / "seed_source_registry.py").read_text()
+    names = set(_re.findall(r'"source_name":\s*"([^"]+)"', registry))
+    for fw in corpus.frameworks.values():
+        for p in fw.watch.get("patterns", []):
+            _re.compile(p)
+        for prefix in fw.watch.get("sources", []):
+            assert any(n.startswith(prefix) for n in names), f"{fw.framework_id}: no registry source starts with {prefix!r}"
+    assert "APRA-CPS-230" not in change_flags.unwatched(corpus)
+
+
+# ── eval harness ──────────────────────────────────────────────────────────────
+
+_CATALOGUE_ID = re.compile(r'clause_id "([^"]+)"')
+
+
+def _oracle_for(case):
+    """A model that answers each eval case correctly, but only with clause IDs the
+    pipeline actually put in its catalogue — so a pass also proves retrieval
+    surfaced the expected clause."""
+    exp = case["expect"]
+
+    def generate(prompt, system_prompt):
+        offered = set(_CATALOGUE_ID.findall(prompt))
+        intake = case.get("intake", {})
+        src = intake.get("source_framework", "APRA-CPS-230")
+        mappings = []
+        for fid in intake.get("targets", []):
+            wanted = [c for c in exp.get("must_cite", {}).get(fid, []) + exp.get("must_cite_any", {}).get(fid, [])
+                      if c in offered]
+            mappings.append({"component": "c", "framework_id": fid, "clause_id": wanted[0] if wanted else None,
+                             "requirement_summary": "s", "alignment": "PARTIAL",
+                             "confidence": "MEDIUM" if wanted else "LOW"})
+        draft = {"source": {"framework_id": src, "clause_id": None, "requirement_text": case["query"]},
+                 "components": ["c"], "mappings": mappings, "narrative": {},
+                 "applicability": [{"framework_id": m["framework_id"], "applicability": "comparative"}
+                                   for m in mappings]}
+        return True, json.dumps(draft)
+    return generate
+
+
+def test_eval_cases_file_is_well_formed_against_real_corpus():
+    corpus = load_corpus()
+    cases = evaluate.load_cases()
+    ids = [c["id"] for c in cases]
+    assert len(ids) == len(set(ids))
+    assert {c["kind"] for c in cases} <= {"golden", "redteam", "screen"}
+    for c in cases:
+        intake = c.get("intake", {})
+        for fid in [intake.get("source_framework"), *intake.get("targets", [])]:
+            assert fid is None or fid in corpus.frameworks, (c["id"], fid)
+        cites = {**c["expect"].get("must_cite", {}), **c["expect"].get("must_cite_any", {})}
+        for fid, clause_ids in cites.items():
+            assert all(corpus.clause(cid) and corpus.clause(cid).framework_id == fid for cid in clause_ids), c["id"]
+
+
+def test_evals_all_pass_with_a_correct_model(tmp_path):
+    corpus = load_corpus()
+    results = []
+    for case in evaluate.load_cases():
+        report = evaluate.run_evals(_oracle_for(case), cases=[case], corpus=corpus,
+                                    report_dir=tmp_path, persona="")
+        results.append(report["results"][0])
+    failed = [r for r in results if not r["passed"]]
+    assert failed == [], failed
+    screens = [r for r in results if r["kind"] == "screen"]
+    assert screens and all(r["model_calls"] == 0 for r in screens)
+
+
+def test_evals_catch_a_fabricating_model_and_recommend_escalation(tmp_path):
+    def fabricate(prompt, system_prompt):
+        return True, json.dumps({
+            "source": {"framework_id": "APRA-CPS-230", "clause_id": "APRA-CPS-230-para-47", "requirement_text": "x"},
+            "components": ["c"],
+            "mappings": [{"component": "c", "framework_id": "BCBS-d516", "clause_id": "BCBS-d516-P9",
+                          "requirement_summary": "s", "alignment": "DIRECT", "confidence": "HIGH"}],
+            "narrative": {}, "applicability": [{"framework_id": "BCBS-d516", "applicability": "comparative"}]})
+
+    report = evaluate.run_evals(fabricate, report_dir=tmp_path, persona="")
+    s = report["summary"]
+    by_id = {r["case_id"]: r for r in report["results"]}
+    assert by_id["golden-bcp-testing"]["status"] == "invalid" and not by_id["golden-bcp-testing"]["passed"]
+    assert by_id["redteam-fabricate-paragraph"]["passed"]  # withheld, so nothing fabricated reached output
+    assert s["first_attempt_valid_rate"] == 0.0
+    assert "option C" in s["verdict"]
+    assert Path(report["report_path"]).exists()
+    assert "FAIL golden-bcp-testing" in evaluate.format_summary(report)
+
+
+def test_evals_report_unreachable_model(tmp_path):
+    report = evaluate.run_evals(lambda p, s: (False, "router down"), report_dir=tmp_path, persona="")
+    assert report["summary"]["llm_unavailable"] > 0
+    assert "Model Router" in report["summary"]["verdict"]
+
+
+EU_SAMPLE = """\
+(1) Recital text that must be skipped.
+HAVE ADOPTED THIS REGULATION:
+CHAPTER I
+GENERAL PROVISIONS
+Article 1
+Subject matter
+1. This Regulation lays down uniform requirements
+concerning the security of network and information systems.
+L 333/30
+EN
+Official Journal of the European Union
+27.12.2022
+Article 11a
+Response and recovery
+1. Financial entities shall put in place a policy.
+This Regulation shall be binding in its entirety and directly applicable in all Member States.
+"""
+
+
+def test_parse_eu_articles_headings_and_noise():
+    clauses = parse_eu(EU_SAMPLE, "EUX")
+    assert [c["clause_id"] for c in clauses] == ["EUX-art-1", "EUX-art-11a"]
+    assert clauses[0]["heading"] == "Subject matter"
+    assert clauses[0]["text"] == ("1. This Regulation lays down uniform requirements concerning the "
+                                  "security of network and information systems.")
+    assert clauses[1]["heading"] == "Response and recovery"
+    assert "binding in its entirety" not in clauses[1]["text"]
+    assert "Recital" not in " ".join(c["text"] for c in clauses)
+
+
+APRA_FURNITURE_SAMPLE = """\
+                                                                          July 2025
+Authority
+1.   This standard applies to an entity in a group, 1 including
+     its branches. 2
+2.   An entity must notify within 72 hours of an APRA-
+     regulated event.
+1
+     Footnote one text that must not leak.
+2
+     Footnote two text.
+                                                                        CPS 230 – 2
+Testing and review
+3.   An entity must test annually.
+"""
+
+
+def test_parse_apra_strips_footnotes_furniture_and_joins_hyphen_wraps():
+    clauses = parse_apra(APRA_FURNITURE_SAMPLE, "X")
+    assert [c["ref"] for c in clauses] == ["para 1", "para 2", "para 3"]
+    assert clauses[0]["text"] == "This standard applies to an entity in a group, including its branches."
+    assert clauses[1]["text"] == "An entity must notify within 72 hours of an APRA-regulated event."
+    assert clauses[2]["heading"] == "Testing and review"
+    assert "Footnote" not in " ".join(c["text"] for c in clauses)
+
+
+def test_real_dora_ingest_is_complete_and_clean():
+    fw = load_corpus().framework("EU-DORA")
+    assert [c.ref for c in fw.clauses] == [f"Article {n}" for n in range(1, 65)]
+    assert all(c.heading for c in fw.clauses)
+    text = " ".join(c.text for c in fw.clauses)
+    for furniture in ("L 333/", "Whereas", "HAVE ADOPTED"):
+        assert furniture not in text
+    definitions = fw.clauses[2]
+    assert definitions.heading == "Definitions"
+    assert len(re.findall(r"\(\d{1,2}\)\s+‘", definitions.text)) == 65
+    assert "points (34) to (36)" in definitions.text  # cross-reference, not a footnote marker
+    assert fw.clauses[22].heading.endswith("and electronic money institutions")  # wrapped heading (Art 23)
+
+
+EU_FOOTNOTE_SAMPLE = """\\
+(1) A recital citing the Council (1), which is skipped.
+     (1) OJ C 1, 1.1.2021, p. 1.
+L 333/2          EN                Official Journal of the European Union            27.12.2022
+                                   Article 1
+                     Operational or security incidents concerning credit
+                          institutions and payment institutions
+     1. Entities as referred to in Article 2(1), points (2) to (3), and the Council (2) shall comply.
+     (2) ‘ICT risk’ means a definition that must be kept.
+     (2) Regulation (EU) 2019/1 of the Council (OJ L 1, 1.1.2019, p. 1).
+27.12.2022       EN                Official Journal of the European Union            L 333/3
+     2. Second paragraph.
+"""
+
+
+def test_parse_eu_footnotes_cross_references_and_wrapped_headings():
+    [art] = parse_eu(EU_FOOTNOTE_SAMPLE, "EUX")
+    assert art["heading"] == ("Operational or security incidents concerning credit "
+                              "institutions and payment institutions")
+    assert "points (2) to (3), and the Council shall comply." in art["text"]
+    assert "(2) ‘ICT risk’ means a definition that must be kept." in art["text"]
+    assert "OJ L 1" not in art["text"] and "Official Journal" not in art["text"]
+    assert art["text"].endswith("2. Second paragraph.")

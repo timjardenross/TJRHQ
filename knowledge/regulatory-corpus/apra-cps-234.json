@@ -11,8 +11,17 @@
   "notes": "",
   "ingestion": {
     "method": "pending",
-    "source_sha256": null,
+    "source_digest": null,
     "ingested_at": null
+  },
+  "watch": {
+    "sources": [
+      "APRA"
+    ],
+    "patterns": [
+      "\\bCP[SG]\\s*234\\b",
+      "information security"
+    ]
   },
   "clauses": []
 }

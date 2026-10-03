@@ -11,8 +11,17 @@
   "notes": "",
   "ingestion": {
     "method": "pending",
-    "source_sha256": null,
+    "source_digest": null,
     "ingested_at": null
+  },
+  "watch": {
+    "sources": [
+      "BIS"
+    ],
+    "patterns": [
+      "\\bd515\\b",
+      "operational risk"
+    ]
   },
   "clauses": []
 }

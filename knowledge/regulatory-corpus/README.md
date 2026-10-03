@@ -12,19 +12,20 @@ Check it at any time:
 cd platform-runtime && python -m lib.resilience.cli coverage
 ```
 
-As first committed, **no framework holds verbatim text**. The corpus was seeded from a
-session with no network access to the regulators, and we don't type regulation text
-from memory. What's there:
+Regulation text is never typed from memory. It only enters through `ingest.py` from an
+official document, with the file's SHA-256 recorded. What's held today:
 
 | Framework | Held |
 |---|---|
+| APRA-CPS-230 | All 60 paragraphs, verbatim, from APRA's July 2023 "clean" PDF (effective 1 July 2025). Footnotes are excluded |
+| EU-DORA | All 64 articles, verbatim, from the EUR-Lex PDF (OJ L 333, 27.12.2022). Recitals and footnotes are excluded; Article 3 holds all 65 definitions |
 | BCBS-d516 | 7 principle headings (`heading_only`), so confidence is capped at MEDIUM |
 | All others | Metadata only. Every mapping is "reference not confirmed" until ingested |
 
-`source_url` values point at each issuer's landing page and haven't been checked yet.
-Confirm each one when you download the source document.
+`source_url` is the actual download URL for ingested frameworks. For the others it's the
+issuer's landing page, and it hasn't been checked yet.
 
-## Ingesting a framework (do this first for CPS 230)
+## Ingesting a framework
 
 ```bash
 # 1. Download the official PDF from the issuer.
@@ -38,11 +39,56 @@ python -m lib.resilience.ingest APRA-CPS-230 /tmp/cps230.txt --style apra --sour
 git diff knowledge/regulatory-corpus/apra-cps-230.json
 ```
 
-Styles: `apra` (numbered paragraphs, e.g. CPS 230 / CPS 234) and `bcbs` (`Principle N:`).
-Add a parser in `lib/resilience/ingest.py` for other layouts (DORA articles, OCC sections).
+Styles: `apra` (numbered paragraphs, e.g. CPS 230 / CPS 234), `bcbs` (`Principle N:`) and `eu`
+(`Article N`, e.g. DORA). Add a parser in `lib/resilience/ingest.py` for other layouts (OCC sections).
+The `apra` parser strips page headers and footers, footnote blocks and their inline markers, and
+joins hyphen line-wraps. The `eu` parser also strips Official Journal page headers and footnotes,
+but it keeps cross-references like "points (34) to (36)" and definitions like "(34) ‘term’ means…",
+which use the same "(N)" form. It also joins wrapped, centred article headings.
 
 The ingest records the source document's SHA-256 and timestamp under `ingestion`, so each
 clause can be traced back to the exact file it came from.
+
+## Change flags
+
+Each framework file carries a `watch` block:
+
+```json
+"watch": {"sources": ["APRA"], "patterns": ["\\bCP[SG]\\s*230\\b", "operational resilience"]}
+```
+
+The daily `resilience_change_scan` job (`intelligence/scheduler.py`, 06:50 AEST) reads
+recent events from `intelligence_events` whose `source_name` starts with one of the
+`sources`. It flags the framework when an event's title or summary matches one of the
+`patterns`. Events older than the framework's last `ingestion.ingested_at` are ignored.
+
+- `sources` must be prefixes of real names in `tools/intelligence/seed_source_registry.py`.
+  A test enforces this.
+- An empty `sources` means no feed covers that issuer yet (EU, US and ISO today), so changes
+  aren't detected automatically and `/coverage` says so.
+- Open flags add a note and a verification item to every crosswalk that touches the
+  framework. They never block a crosswalk.
+- Close a flag with `/changes` in the bot, or `python -m lib.resilience.cli resolve-change <id> dismissed`.
+- Re-running `ingest` closes all open flags for that framework.
+- To backfill after an outage, run:
+  `python -c "from intelligence.scheduler import _resilience_change_scan_job as j; j(days=30)"`
+
+## Evals
+
+`platform-runtime/lib/resilience/evals/cases.json` holds fixed eval cases:
+
+- **golden**: known-correct citations, e.g. CPS 230 business continuity testing → `BCBS-d516-P3`.
+- **red-team**: attempts to make the model fabricate or over-claim.
+- **screen**: requests that must be refused before any model call.
+
+Run them on the host with the Model Router up:
+
+```bash
+cd platform-runtime && python -m lib.resilience.cli eval
+```
+
+The report is written to `reports/resilience-evals/<timestamp>.json`. Its headline number is
+the first-attempt validity rate. When you ingest new text, add golden cases that cite it.
 
 ## Licensing
 
@@ -67,7 +113,7 @@ Check each framework's `licence` field before you store any text:
   "role": "primary | international | comparative",
   "status": "in_force | superseded | proposed",
   "effective_date": "YYYY-MM-DD", "source_url": "...", "licence": "...",
-  "ingestion": {"method": "...", "source_sha256": "...", "ingested_at": "..."},
+  "ingestion": {"method": "...", "source_digest": "sha256:...", "ingested_at": "..."},
   "clauses": [
     {"clause_id": "APRA-CPS-230-para-34", "ref": "para 34", "heading": "...",
      "text": "...", "text_status": "verbatim | summary | heading_only", "tags": ["..."]}

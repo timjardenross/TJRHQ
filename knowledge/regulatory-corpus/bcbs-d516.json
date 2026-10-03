@@ -11,8 +11,17 @@
   "notes": "Seeded with principle headings only (no verbatim text). Confidence for these clauses is capped at MEDIUM until text is ingested.",
   "ingestion": {
     "method": "manual-index",
-    "source_sha256": null,
+    "source_digest": null,
     "ingested_at": null
+  },
+  "watch": {
+    "sources": [
+      "BIS"
+    ],
+    "patterns": [
+      "\\bd516\\b",
+      "operational resilience"
+    ]
   },
   "clauses": [
     {
