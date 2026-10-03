@@ -87,5 +87,6 @@ On Telegram: the Resilience Crosswalk bot (`telegram-bots/resiliencebot/`), with
 
 - Ingest CPS 230 and BCBS d516 text from the official PDFs (see `knowledge/regulatory-corpus/README.md`)
 - Change feeds for unwatched issuers (EU, US) if those frameworks matter
-- Golden-crosswalk and guardrail red-team evals against a real model
+- Run `python -m lib.resilience.cli eval` on the host (golden, red-team and screen cases in `lib/resilience/evals/cases.json`). Below 80% first-attempt validity, revisit model escalation (ADR-035 option C)
+- Extend the golden cases with CPS 230 paragraph citations once that text is ingested
 - LCARS workbench view of crosswalks and the review queue

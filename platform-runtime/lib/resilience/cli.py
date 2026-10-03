@@ -4,6 +4,7 @@
     python -m lib.resilience.cli run "CPS 230 business continuity testing" --targets BCBS-d516 EU-DORA
     python -m lib.resilience.cli coverage
     python -m lib.resilience.cli pending
+    python -m lib.resilience.cli eval      # golden + red-team cases against the live Model Router
     python -m lib.resilience.cli changes
     python -m lib.resilience.cli resolve-change cf-1a2b3c4d5e6f dismissed --note "editorial only"
     python -m lib.resilience.cli review xw-1a2b3c4d5e6f accepted --note "checked paras against PDF"
@@ -34,6 +35,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("coverage", help="clauses held per framework, by text status")
     sub.add_parser("pending", help="crosswalk runs still awaiting a review decision")
 
+    ev = sub.add_parser("eval", help="run the golden / red-team eval cases through the pipeline")
+    ev.add_argument("--report-dir")
+
     sub.add_parser("changes", help="open regulatory change flags")
     rc = sub.add_parser("resolve-change", help="close a change flag")
     rc.add_argument("flag_id")
@@ -57,6 +61,12 @@ def main(argv: list[str] | None = None) -> int:
         for fid, counts in load_corpus().coverage().items():
             print(f"{fid:16} " + "  ".join(f"{k}={v}" for k, v in counts.items()))
         return 0
+    if args.cmd == "eval":
+        from .evaluate import format_summary, run_evals
+
+        report = run_evals(report_dir=args.report_dir, progress=lambda cid: print(f"… {cid}", flush=True))
+        print(format_summary(report))
+        return 0 if report["summary"]["passed"] == report["summary"]["total"] else 1
     if args.cmd == "changes":
         for f in change_flags.open_flags():
             print(f"{f.flag_id}  {f.framework_id:16} {f.short()}  {f.url}")

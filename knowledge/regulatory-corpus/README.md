@@ -68,6 +68,23 @@ recent events from `intelligence_events` whose `source_name` starts with one of 
 - To backfill after an outage, run:
   `python -c "from intelligence.scheduler import _resilience_change_scan_job as j; j(days=30)"`
 
+## Evals
+
+`platform-runtime/lib/resilience/evals/cases.json` holds fixed eval cases:
+
+- **golden**: known-correct citations, e.g. CPS 230 business continuity testing → `BCBS-d516-P3`.
+- **red-team**: attempts to make the model fabricate or over-claim.
+- **screen**: requests that must be refused before any model call.
+
+Run them on the host with the Model Router up:
+
+```bash
+cd platform-runtime && python -m lib.resilience.cli eval
+```
+
+The report is written to `reports/resilience-evals/<timestamp>.json`. Its headline number is
+the first-attempt validity rate. When you ingest new text, add golden cases that cite it.
+
 ## Licensing
 
 Check each framework's `licence` field before you store any text:

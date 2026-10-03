@@ -6,6 +6,7 @@ model, so nothing here depends on real regulatory text or a running LLM.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -17,7 +18,7 @@ for p in (str(REPO_ROOT), str(RUNTIME_DIR)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.resilience import audit, change_flags
+from lib.resilience import audit, change_flags, evaluate
 from lib.resilience.corpus import load_corpus
 from lib.resilience.guardrails import screen_input
 from lib.resilience.ingest import ingest, parse_apra, parse_bcbs
@@ -405,3 +406,85 @@ def test_real_corpus_watch_rules_compile_and_name_real_sources():
         for prefix in fw.watch.get("sources", []):
             assert any(n.startswith(prefix) for n in names), f"{fw.framework_id}: no registry source starts with {prefix!r}"
     assert "APRA-CPS-230" not in change_flags.unwatched(corpus)
+
+
+# ── eval harness ──────────────────────────────────────────────────────────────
+
+_CATALOGUE_ID = re.compile(r'clause_id "([^"]+)"')
+
+
+def _oracle_for(case):
+    """A model that answers each eval case correctly, but only with clause IDs the
+    pipeline actually put in its catalogue — so a pass also proves retrieval
+    surfaced the expected clause."""
+    exp = case["expect"]
+
+    def generate(prompt, system_prompt):
+        offered = set(_CATALOGUE_ID.findall(prompt))
+        intake = case.get("intake", {})
+        src = intake.get("source_framework", "APRA-CPS-230")
+        mappings = []
+        for fid in intake.get("targets", []):
+            wanted = [c for c in exp.get("must_cite", {}).get(fid, []) if c in offered]
+            mappings.append({"component": "c", "framework_id": fid, "clause_id": wanted[0] if wanted else None,
+                             "requirement_summary": "s", "alignment": "PARTIAL",
+                             "confidence": "MEDIUM" if wanted else "LOW"})
+        draft = {"source": {"framework_id": src, "clause_id": None, "requirement_text": case["query"]},
+                 "components": ["c"], "mappings": mappings, "narrative": {},
+                 "applicability": [{"framework_id": m["framework_id"], "applicability": "comparative"}
+                                   for m in mappings]}
+        return True, json.dumps(draft)
+    return generate
+
+
+def test_eval_cases_file_is_well_formed_against_real_corpus():
+    corpus = load_corpus()
+    cases = evaluate.load_cases()
+    ids = [c["id"] for c in cases]
+    assert len(ids) == len(set(ids))
+    assert {c["kind"] for c in cases} <= {"golden", "redteam", "screen"}
+    for c in cases:
+        intake = c.get("intake", {})
+        for fid in [intake.get("source_framework"), *intake.get("targets", [])]:
+            assert fid is None or fid in corpus.frameworks, (c["id"], fid)
+        for fid, clause_ids in c["expect"].get("must_cite", {}).items():
+            assert all(corpus.clause(cid) and corpus.clause(cid).framework_id == fid for cid in clause_ids), c["id"]
+
+
+def test_evals_all_pass_with_a_correct_model(tmp_path):
+    corpus = load_corpus()
+    results = []
+    for case in evaluate.load_cases():
+        report = evaluate.run_evals(_oracle_for(case), cases=[case], corpus=corpus,
+                                    report_dir=tmp_path, persona="")
+        results.append(report["results"][0])
+    failed = [r for r in results if not r["passed"]]
+    assert failed == [], failed
+    screens = [r for r in results if r["kind"] == "screen"]
+    assert screens and all(r["model_calls"] == 0 for r in screens)
+
+
+def test_evals_catch_a_fabricating_model_and_recommend_escalation(tmp_path):
+    def fabricate(prompt, system_prompt):
+        return True, json.dumps({
+            "source": {"framework_id": "APRA-CPS-230", "clause_id": "APRA-CPS-230-para-47", "requirement_text": "x"},
+            "components": ["c"],
+            "mappings": [{"component": "c", "framework_id": "BCBS-d516", "clause_id": "BCBS-d516-P9",
+                          "requirement_summary": "s", "alignment": "DIRECT", "confidence": "HIGH"}],
+            "narrative": {}, "applicability": [{"framework_id": "BCBS-d516", "applicability": "comparative"}]})
+
+    report = evaluate.run_evals(fabricate, report_dir=tmp_path, persona="")
+    s = report["summary"]
+    by_id = {r["case_id"]: r for r in report["results"]}
+    assert by_id["golden-bcp-testing"]["status"] == "invalid" and not by_id["golden-bcp-testing"]["passed"]
+    assert by_id["redteam-fabricate-paragraph"]["passed"]  # withheld, so nothing fabricated reached output
+    assert s["first_attempt_valid_rate"] == 0.0
+    assert "option C" in s["verdict"]
+    assert Path(report["report_path"]).exists()
+    assert "FAIL golden-bcp-testing" in evaluate.format_summary(report)
+
+
+def test_evals_report_unreachable_model(tmp_path):
+    report = evaluate.run_evals(lambda p, s: (False, "router down"), report_dir=tmp_path, persona="")
+    assert report["summary"]["llm_unavailable"] > 0
+    assert "Model Router" in report["summary"]["verdict"]
