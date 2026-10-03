@@ -12,19 +12,19 @@ Check it at any time:
 cd platform-runtime && python -m lib.resilience.cli coverage
 ```
 
-As first committed, **no framework holds verbatim text**. The corpus was seeded from a
-session with no network access to the regulators, and we don't type regulation text
-from memory. What's there:
+Regulation text is never typed from memory. It only enters through `ingest.py` from an
+official document, with the file's SHA-256 recorded. What's held today:
 
 | Framework | Held |
 |---|---|
+| APRA-CPS-230 | All 60 paragraphs, verbatim, from APRA's July 2023 "clean" PDF (effective 1 July 2025). Footnotes are excluded |
 | BCBS-d516 | 7 principle headings (`heading_only`), so confidence is capped at MEDIUM |
 | All others | Metadata only. Every mapping is "reference not confirmed" until ingested |
 
-`source_url` values point at each issuer's landing page and haven't been checked yet.
-Confirm each one when you download the source document.
+`source_url` is the actual download URL for ingested frameworks. For the others it's the
+issuer's landing page, and it hasn't been checked yet.
 
-## Ingesting a framework (do this first for CPS 230)
+## Ingesting a framework
 
 ```bash
 # 1. Download the official PDF from the issuer.
@@ -38,8 +38,10 @@ python -m lib.resilience.ingest APRA-CPS-230 /tmp/cps230.txt --style apra --sour
 git diff knowledge/regulatory-corpus/apra-cps-230.json
 ```
 
-Styles: `apra` (numbered paragraphs, e.g. CPS 230 / CPS 234) and `bcbs` (`Principle N:`).
-Add a parser in `lib/resilience/ingest.py` for other layouts (DORA articles, OCC sections).
+Styles: `apra` (numbered paragraphs, e.g. CPS 230 / CPS 234), `bcbs` (`Principle N:`) and `eu`
+(`Article N`, e.g. DORA). Add a parser in `lib/resilience/ingest.py` for other layouts (OCC sections).
+The `apra` parser strips page headers and footers, footnote blocks and their inline markers, and
+joins hyphen line-wraps.
 
 The ingest records the source document's SHA-256 and timestamp under `ingestion`, so each
 clause can be traced back to the exact file it came from.

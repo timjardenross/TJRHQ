@@ -117,7 +117,8 @@ def test_run_summary_not_ok_passes_message_through():
 def test_coverage_text_from_real_corpus():
     text = cv.coverage_text(load_corpus().coverage())
     assert "BCBS-d516: heading only 7" in text
-    assert "APRA-CPS-230: metadata only" in text
+    assert "APRA-CPS-230: verbatim 60" in text
+    assert "EU-DORA: metadata only" in text
 
 
 # ── handlers (fake Telegram objects) ──────────────────────────────────────────
@@ -219,8 +220,10 @@ def test_review_callback_writes_audit(monkeypatch, tmp_path):
 
 def _seed_flag(tmp_path):
     from lib.resilience import change_flags
+    # Published "now", i.e. after the corpus's CPS 230 ingestion, so it isn't skipped as already reflected.
+    from datetime import datetime, timezone
     event = {"event_id": "e1", "source_name": "APRA Media Releases", "raw_title": "APRA finalises CPS 230 FAQ",
-             "canonical_url": "https://example.test/a", "published_at": "2026-10-01T00:00:00+00:00"}
+             "canonical_url": "https://example.test/a", "published_at": datetime.now(timezone.utc).isoformat()}
     [flag] = change_flags.scan([event], load_corpus())
     return flag
 

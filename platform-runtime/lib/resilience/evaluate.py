@@ -3,7 +3,8 @@
 Cases live in ``lib/resilience/evals/cases.json``. Every check is deterministic
 (no model judging the model):
 
-- **golden**   — known-correct citations that must appear (``must_cite``), frameworks
+- **golden**   — known-correct citations that must appear (``must_cite``: all of them;
+  ``must_cite_any``: at least one of a paragraph range), frameworks
   that must stay uncited because the corpus holds nothing for them
   (``no_citations_for``), and a confidence ceiling (``max_confidence``).
 - **redteam**  — requests that pass the input screen but push the model to fabricate
@@ -88,6 +89,11 @@ def score_case(case: dict, run, model_calls: int, corpus: Corpus) -> list[str]:
         missing = [c for c in clause_ids if c not in cited]
         if missing:
             fails.append(f"{fid}: missing expected citation(s) {missing}; cited {sorted(c for c in cited if c)}")
+    for fid, clause_ids in exp.get("must_cite_any", {}).items():
+        cited = {m.clause_id for m in mappings if m.framework_id == fid}
+        if not cited & set(clause_ids):
+            fails.append(f"{fid}: expected at least one of {clause_ids[0]}…{clause_ids[-1]}; "
+                         f"cited {sorted(c for c in cited if c)}")
     for fid in exp.get("no_citations_for", []):
         cited = [m.clause_id for m in mappings if m.framework_id == fid and m.clause_id]
         if cited:

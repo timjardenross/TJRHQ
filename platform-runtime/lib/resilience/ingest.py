@@ -35,30 +35,73 @@ _HEADING_RE = re.compile(r"^\s*([A-Z][A-Za-z ,&/'()-]{3,80})\s*$")
 _NOISE_RE = re.compile(r"^\s*(\d+\s*$|page \d+|cps \d+ - \d+|\f)", re.IGNORECASE)
 
 
+_APRA_FOOTER_RE = re.compile(r"^\s*[A-Z]{2,4}\s*\d{3}\s*[–-]\s*\d+\s*$")
+_MONTH_HEADER_RE = re.compile(
+    r"^\s*(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\s*$")
+_FOOTNOTE_NUM_RE = re.compile(r"^\s*(\d{1,2})\s*$")
+_PRIVATE_USE_RE = re.compile("[\ue000-\uf8ff\u2022]")
+
+
+def _strip_footnote_ref(line: str, n: int) -> tuple[str, bool]:
+    """Remove the inline marker for footnote ``n`` (``Act. 1``, ``group, 2 it``)."""
+    new, count = re.subn(rf"(?<=[A-Za-z.,;:)’])\s+{n}(?=\s|$)", "", line, count=1)
+    return new, bool(count)
+
+
 def parse_apra(text: str, framework_id: str) -> list[dict]:
+    """APRA prudential standard layout: numbered paragraphs under sentence-case headings.
+
+    Handles the real-document furniture: page footers (``CPS 230 – 3``), month/year page
+    headers, footnote blocks (a bare sequential number at the page bottom, its text running
+    to the page footer) and their inline markers, and bullet glyphs. Paragraph numbers must
+    run in sequence, so a stray number in body text can't start a new clause.
+    """
     clauses: list[dict] = []
     heading = ""
     current: dict | None = None
     expected = 1
-    for line in text.splitlines():
-        if _NOISE_RE.match(line) or not line.strip():
+    next_footnote = 1      # next footnote block number expected at a page bottom
+    next_ref = 1           # next inline footnote marker expected in body text
+    in_footnote = False
+    for raw in text.splitlines():
+        line = _PRIVATE_USE_RE.sub(" ", raw).replace("\f", "")
+        if not line.strip():
             continue
+        if _APRA_FOOTER_RE.match(line):
+            in_footnote = False
+            continue
+        if _MONTH_HEADER_RE.match(line) or re.match(r"^\s*page \d+", line, re.IGNORECASE):
+            continue
+        fn = _FOOTNOTE_NUM_RE.match(line)
+        if fn and int(fn.group(1)) == next_footnote:
+            in_footnote = True
+            next_footnote += 1
+            continue
+        if in_footnote:
+            continue
+        line, stripped = _strip_footnote_ref(line, next_ref)
+        if stripped:
+            next_ref += 1
         para = _APRA_PARA_RE.match(line)
         if para and int(para.group(1)) == expected:
             if current:
                 clauses.append(current)
             n = para.group(1)
             current = {"clause_id": f"{framework_id}-para-{n}", "ref": f"para {n}",
-                       "heading": heading, "text": para.group(2).strip(),
+                       "heading": heading, "text": " ".join(para.group(2).split()),
                        "text_status": "verbatim", "tags": []}
             expected += 1
             continue
         head = _HEADING_RE.match(line)
-        if head and not line.rstrip().endswith((".", ";", ",")) and len(line.split()) <= 10:
+        # Headings sit at column 0; wrapped body lines are indented under their paragraph.
+        if (head and not line[:1].isspace() and not line.rstrip().endswith((".", ";", ",", "-"))
+                and len(line.split()) <= 10):
             heading = head.group(1).strip()
             continue
         if current:
-            current["text"] += " " + line.strip()
+            # A line ending in "-" wrapped a hyphenated word (APRA-\nregulated): join without a space.
+            sep = "" if current["text"].endswith("-") else " "
+            current["text"] += sep + " ".join(line.split())
     if current:
         clauses.append(current)
     return clauses

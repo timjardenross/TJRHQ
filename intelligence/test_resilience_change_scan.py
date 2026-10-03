@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -20,13 +21,15 @@ from intelligence.persistence import intelligence_store as store
 
 
 def _events():
+    # Published "now": after every corpus ingestion, so none are skipped as already reflected.
+    now = datetime.now(timezone.utc).isoformat()
     return [
         {"event_id": "e1", "source_name": "APRA Media Releases", "raw_title": "APRA finalises CPS 230 FAQ",
-         "raw_summary": "", "canonical_url": "https://example.test/a", "published_at": "2026-10-01T00:00:00+00:00"},
+         "raw_summary": "", "canonical_url": "https://example.test/a", "published_at": now},
         {"event_id": "e2", "source_name": "BIS Press Releases", "raw_title": "Basel Committee consults on operational resilience",
-         "raw_summary": "", "canonical_url": "https://example.test/b", "published_at": "2026-10-01T00:00:00+00:00"},
+         "raw_summary": "", "canonical_url": "https://example.test/b", "published_at": now},
         {"event_id": "e3", "source_name": "APRA Media Releases", "raw_title": "APRA publishes quarterly statistics",
-         "raw_summary": "", "canonical_url": "https://example.test/c", "published_at": "2026-10-01T00:00:00+00:00"},
+         "raw_summary": "", "canonical_url": "https://example.test/c", "published_at": now},
     ]
 
 

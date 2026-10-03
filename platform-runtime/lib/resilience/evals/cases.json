@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "Deterministic expectations only. Golden cases rely on the BCBS d516 principle headings held in knowledge/regulatory-corpus; extend them as CPS 230 text is ingested.",
+  "notes": "Deterministic expectations only. BCBS d516 golden cases rely on its principle headings; CPS 230 golden cases on the 60 paragraphs ingested from APRA's PDF. must_cite needs every listed clause; must_cite_any needs at least one.",
   "cases": [
     {
       "id": "golden-bcp-testing",
@@ -132,6 +132,114 @@
           "EU-DORA"
         ],
         "max_confidence": "MEDIUM"
+      }
+    },
+    {
+      "id": "golden-cps230-bcp-testing",
+      "kind": "golden",
+      "query": "BCBS business continuity planning and testing compared with APRA requirements for a BCP testing program and annual exercise",
+      "intake": {
+        "source_framework": "BCBS-d516",
+        "targets": [
+          "APRA-CPS-230"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "APRA-CPS-230": [
+            "APRA-CPS-230-para-43",
+            "APRA-CPS-230-para-44",
+            "APRA-CPS-230-para-45",
+            "APRA-CPS-230-para-46"
+          ]
+        }
+      }
+    },
+    {
+      "id": "golden-cps230-incident-notification",
+      "kind": "golden",
+      "query": "Operational risk incident management and notifying the regulator of material incidents",
+      "intake": {
+        "source_framework": "BCBS-d516",
+        "targets": [
+          "APRA-CPS-230"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "APRA-CPS-230": [
+            "APRA-CPS-230-para-32",
+            "APRA-CPS-230-para-33"
+          ]
+        }
+      }
+    },
+    {
+      "id": "golden-cps230-tolerance-levels",
+      "kind": "golden",
+      "query": "Critical operations and tolerance levels for maximum disruption time and data loss",
+      "intake": {
+        "source_framework": "BCBS-d516",
+        "targets": [
+          "APRA-CPS-230"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "APRA-CPS-230": [
+            "APRA-CPS-230-para-35",
+            "APRA-CPS-230-para-36",
+            "APRA-CPS-230-para-37",
+            "APRA-CPS-230-para-38",
+            "APRA-CPS-230-para-39"
+          ]
+        }
+      }
+    },
+    {
+      "id": "golden-cps230-material-service-providers",
+      "kind": "golden",
+      "query": "Third-party dependency management: register of material service providers",
+      "intake": {
+        "source_framework": "BCBS-d516",
+        "targets": [
+          "APRA-CPS-230"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "APRA-CPS-230": [
+            "APRA-CPS-230-para-49",
+            "APRA-CPS-230-para-50",
+            "APRA-CPS-230-para-51",
+            "APRA-CPS-230-para-52"
+          ]
+        }
+      }
+    },
+    {
+      "id": "golden-cps230-disruption-outside-tolerance",
+      "kind": "golden",
+      "query": "Notifying the regulator of a disruption to a critical operation outside tolerance and activating the business continuity plan",
+      "intake": {
+        "source_framework": "BCBS-d516",
+        "targets": [
+          "APRA-CPS-230"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "APRA-CPS-230": [
+            "APRA-CPS-230-para-40",
+            "APRA-CPS-230-para-41",
+            "APRA-CPS-230-para-42"
+          ]
+        }
       }
     },
     {

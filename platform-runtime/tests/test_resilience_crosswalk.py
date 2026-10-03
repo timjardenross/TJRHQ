@@ -92,12 +92,26 @@ def _fake(*responses):
 
 # ── corpus ────────────────────────────────────────────────────────────────────
 
-def test_real_corpus_loads_and_has_no_fabricated_text():
+def test_real_corpus_verbatim_text_is_traceable_to_a_source_document():
     corpus = load_corpus()
     assert "APRA-CPS-230" in corpus.frameworks
     assert "BCBS-d516" in corpus.frameworks
-    # Seeded in-session without source access: nothing may claim to be verbatim yet.
-    assert all(c.text_status != "verbatim" for c in corpus.clauses.values())
+    # Verbatim text may only come from ingest.py, which records the source file's hash.
+    for fw in corpus.frameworks.values():
+        if any(c.text_status == "verbatim" for c in fw.clauses):
+            assert len(fw.ingestion.get("source_sha256") or "") == 64, fw.framework_id
+            assert fw.ingestion.get("ingested_at"), fw.framework_id
+
+
+def test_real_cps230_ingest_is_complete_and_clean():
+    fw = load_corpus().framework("APRA-CPS-230")
+    refs = [c.ref for c in fw.clauses]
+    assert refs == [f"para {n}" for n in range(1, 61)]
+    text = " ".join(c.text for c in fw.clauses)
+    for furniture in ("CPS 230 –", "July 2025 "):
+        assert furniture not in text
+    assert fw.clauses[32].text.startswith("An APRA-regulated entity must notify APRA")  # para 33
+    assert "72 hours" in fw.clauses[32].text
 
 
 def test_duplicate_clause_ids_rejected(corpus_dir):
@@ -425,7 +439,8 @@ def _oracle_for(case):
         src = intake.get("source_framework", "APRA-CPS-230")
         mappings = []
         for fid in intake.get("targets", []):
-            wanted = [c for c in exp.get("must_cite", {}).get(fid, []) if c in offered]
+            wanted = [c for c in exp.get("must_cite", {}).get(fid, []) + exp.get("must_cite_any", {}).get(fid, [])
+                      if c in offered]
             mappings.append({"component": "c", "framework_id": fid, "clause_id": wanted[0] if wanted else None,
                              "requirement_summary": "s", "alignment": "PARTIAL",
                              "confidence": "MEDIUM" if wanted else "LOW"})
@@ -447,7 +462,8 @@ def test_eval_cases_file_is_well_formed_against_real_corpus():
         intake = c.get("intake", {})
         for fid in [intake.get("source_framework"), *intake.get("targets", [])]:
             assert fid is None or fid in corpus.frameworks, (c["id"], fid)
-        for fid, clause_ids in c["expect"].get("must_cite", {}).items():
+        cites = {**c["expect"].get("must_cite", {}), **c["expect"].get("must_cite_any", {})}
+        for fid, clause_ids in cites.items():
             assert all(corpus.clause(cid) and corpus.clause(cid).framework_id == fid for cid in clause_ids), c["id"]
 
 
@@ -519,3 +535,29 @@ def test_parse_eu_articles_headings_and_noise():
     assert clauses[1]["heading"] == "Response and recovery"
     assert "binding in its entirety" not in clauses[1]["text"]
     assert "Recital" not in " ".join(c["text"] for c in clauses)
+
+
+APRA_FURNITURE_SAMPLE = """\
+                                                                          July 2025
+Authority
+1.   This standard applies to an entity in a group, 1 including
+     its branches. 2
+2.   An entity must notify within 72 hours of an APRA-
+     regulated event.
+1
+     Footnote one text that must not leak.
+2
+     Footnote two text.
+                                                                        CPS 230 – 2
+Testing and review
+3.   An entity must test annually.
+"""
+
+
+def test_parse_apra_strips_footnotes_furniture_and_joins_hyphen_wraps():
+    clauses = parse_apra(APRA_FURNITURE_SAMPLE, "X")
+    assert [c["ref"] for c in clauses] == ["para 1", "para 2", "para 3"]
+    assert clauses[0]["text"] == "This standard applies to an entity in a group, including its branches."
+    assert clauses[1]["text"] == "An entity must notify within 72 hours of an APRA-regulated event."
+    assert clauses[2]["heading"] == "Testing and review"
+    assert "Footnote" not in " ".join(c["text"] for c in clauses)
