@@ -306,8 +306,7 @@ def _python_module_names(rel: str) -> list[str]:
     """Dotted names a .py file can be imported under. platform-runtime/ isn't
     a valid package name (hyphen), so its files are imported relative to it."""
     dotted = rel[:-3].replace("/", ".")
-    if dotted.endswith(".__init__"):
-        dotted = dotted[: -len(".__init__")]
+    dotted = dotted.removesuffix(".__init__")
     names = [dotted]
     if rel.startswith("platform-runtime/"):
         names.append(dotted[len("platform-runtime."):])
