@@ -11,7 +11,7 @@
   "notes": "Primary framework. 60 paragraphs ingested from the official APRA PDF (footnotes excluded).",
   "ingestion": {
     "method": "pdftotext+apra",
-    "source_sha256": "f296a7e0bead93df6d4ed0fcb242cb320501ccba18e014855516bd02656ecaec",
+    "source_digest": "sha256:f296a7e0bead93df6d4ed0fcb242cb320501ccba18e014855516bd02656ecaec",
     "ingested_at": "2026-10-03T04:51:15+00:00",
     "source_document": "Prudential Standard CPS 230 Operational Risk Management - clean.pdf (13 pages, APRA, created 2023-07-13)"
   },

@@ -99,7 +99,8 @@ def test_real_corpus_verbatim_text_is_traceable_to_a_source_document():
     # Verbatim text may only come from ingest.py, which records the source file's hash.
     for fw in corpus.frameworks.values():
         if any(c.text_status == "verbatim" for c in fw.clauses):
-            assert len(fw.ingestion.get("source_sha256") or "") == 64, fw.framework_id
+            digest = fw.ingestion.get("source_digest") or ""
+            assert digest.startswith("sha256:") and len(digest) == 7 + 64, fw.framework_id
             assert fw.ingestion.get("ingested_at"), fw.framework_id
 
 

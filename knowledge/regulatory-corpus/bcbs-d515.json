@@ -11,7 +11,7 @@
   "notes": "",
   "ingestion": {
     "method": "pending",
-    "source_sha256": null,
+    "source_digest": null,
     "ingested_at": null
   },
   "watch": {

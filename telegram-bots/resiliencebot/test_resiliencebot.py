@@ -219,9 +219,10 @@ def test_review_callback_writes_audit(monkeypatch, tmp_path):
 # ── change flags ──────────────────────────────────────────────────────────────
 
 def _seed_flag(tmp_path):
-    from lib.resilience import change_flags
     # Published "now", i.e. after the corpus's CPS 230 ingestion, so it isn't skipped as already reflected.
     from datetime import datetime, timezone
+
+    from lib.resilience import change_flags
     event = {"event_id": "e1", "source_name": "APRA Media Releases", "raw_title": "APRA finalises CPS 230 FAQ",
              "canonical_url": "https://example.test/a", "published_at": datetime.now(timezone.utc).isoformat()}
     [flag] = change_flags.scan([event], load_corpus())

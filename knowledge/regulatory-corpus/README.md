@@ -110,7 +110,7 @@ Check each framework's `licence` field before you store any text:
   "role": "primary | international | comparative",
   "status": "in_force | superseded | proposed",
   "effective_date": "YYYY-MM-DD", "source_url": "...", "licence": "...",
-  "ingestion": {"method": "...", "source_sha256": "...", "ingested_at": "..."},
+  "ingestion": {"method": "...", "source_digest": "sha256:...", "ingested_at": "..."},
   "clauses": [
     {"clause_id": "APRA-CPS-230-para-34", "ref": "para 34", "heading": "...",
      "text": "...", "text_status": "verbatim | summary | heading_only", "tags": ["..."]}

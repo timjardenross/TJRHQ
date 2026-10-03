@@ -12,6 +12,8 @@ Styles:
 - ``bcbs``  — ``Principle N:`` blocks.
 - ``eu``    — EU regulations (``Article N`` + heading line), e.g. DORA.
 
+Provenance: ``ingestion.source_digest`` records ``sha256:<hex>`` of the source file.
+
 Licence guard: frameworks whose ``licence`` is ``proprietary`` (paid ISO standards) are
 refused unless ``--licensed`` is passed, so paid text isn't committed by accident.
 """
@@ -209,7 +211,9 @@ def ingest(framework_id: str, text_path: Path, style: str, *, source_file: Path 
     data["clauses"] = merge_clauses(data.get("clauses", []), parsed)
     data["ingestion"] = {
         "method": f"pdftotext+{style}",
-        "source_sha256": hashlib.sha256(digest_source.read_bytes()).hexdigest(),
+        # "sha256:" prefix names the algorithm and keeps detect-secrets from reading a bare hex
+        # digest as a high-entropy secret (JSON can't carry an allowlist pragma).
+        "source_digest": "sha256:" + hashlib.sha256(digest_source.read_bytes()).hexdigest(),
         "ingested_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
