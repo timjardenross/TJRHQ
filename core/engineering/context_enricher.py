@@ -8,8 +8,10 @@ context with repo-grounded information:
   2. Relevant files found by keyword search against the mission title
   3. Structural API context / anti-patterns / recall from the local cortex_suite
      MCP server (types, signatures, learned pitfalls), when available
-  4. Git status output for missions whose title suggests untracked/uncommitted work
-  5. Anti-hallucination framing when no real context is found
+  4. Dependents and tests: who imports the files whose contents were injected,
+     so a single-shot provider doesn't rename/break callers it can't see
+  5. Git status output for missions whose title suggests untracked/uncommitted work
+  6. Anti-hallucination framing when no real context is found
 
 All enrichment is read-only. No files are modified.
 """
@@ -108,6 +110,15 @@ def enrich(ctx: MissionContext) -> str:
                 _section(
                     "CURRENT FILE CONTENTS (verbatim — copy context from here)",
                     contents,
+                )
+            )
+
+        dependents = _dependents_context(relevant_files[:_MAX_CONTENT_FILES])
+        if dependents:
+            sections.append(
+                _section(
+                    "DEPENDENTS AND TESTS (who imports the files above — keep them working)",
+                    dependents,
                 )
             )
     else:
@@ -268,6 +279,147 @@ def _load_file_contents(rel_paths: list[str]) -> str:
             header += " — TRUNCATED, partial content; do not edit lines beyond what is shown"
         out.append(f"{header}\n{snippet.rstrip()}\n")
     return "\n".join(out).strip()
+
+
+# ─── Dependents and tests (fact-forcing) ──────────────────────────────────────
+#
+# Single-shot providers can't grep for themselves, so a change to a file shown
+# above is otherwise written blind to whoever imports it — the classic way an
+# AI patch renames a function and breaks three callers. This gathers those
+# facts deterministically up front (the "gateguard" idea from the ECC agent
+# pack, github.com/affaan-m/ECC, done here as pre-gathered context rather than
+# a deny-then-retry hook). Read-only, bounded, never raises.
+
+_DEPENDENT_SEARCH_ROOTS = [
+    "core", "platform-runtime", "platform_runtime", "tools", "scripts", "services",
+    "intelligence", "telegram-bots", "telegram_bots", "tests", "lcars-portal/src",
+]
+_DEPENDENT_EXTENSIONS = {".py", ".js", ".ts", ".tsx", ".jsx", ".mjs"}
+_DEPENDENT_SKIP_DIRS = {"__pycache__", "archive", "quarantine", "node_modules", ".next"}
+_MAX_DEPENDENTS_PER_FILE = 12
+_MAX_DEPENDENTS_CHARS = 3000
+
+_IMPORT_LINE = re.compile(r"^\s*(?:from\s+\S+\s+import\b|import\b|.*\brequire\(|.*\bfrom\s+['\"])")
+
+
+def _python_module_names(rel: str) -> list[str]:
+    """Dotted names a .py file can be imported under. platform-runtime/ isn't
+    a valid package name (hyphen), so its files are imported relative to it."""
+    dotted = rel[:-3].replace("/", ".")
+    dotted = dotted.removesuffix(".__init__")
+    names = [dotted]
+    if rel.startswith("platform-runtime/"):
+        names.append(dotted[len("platform-runtime."):])
+    return names
+
+
+def _is_import_of(line: str, target_rel: str, importer_rel: str) -> bool:
+    target = Path(target_rel)
+    stem = target.stem
+    if target.suffix == ".py":
+        for name in _python_module_names(target_rel):
+            if re.search(rf"(?<![\w.]){re.escape(name)}(?![\w])", line):
+                return True
+            # `from core.engineering import xo_review`
+            pkg, _, mod = name.rpartition(".")
+            if pkg and re.search(rf"from\s+{re.escape(pkg)}\s+import\b.*\b{re.escape(mod)}\b", line):
+                return True
+        # Relative imports only resolve within the same package directory.
+        if Path(importer_rel).parent == target.parent:
+            return bool(
+                re.search(rf"from\s+\.{re.escape(stem)}\b", line)
+                or re.search(rf"from\s+\.\s+import\b.*\b{re.escape(stem)}\b", line)
+            )
+        return False
+    # JS/TS: match the module specifier's last path segment.
+    return bool(re.search(rf"['\"][^'\"]*/{re.escape(stem)}(?:\.[jt]sx?)?['\"]", line))
+
+
+def _find_dependents(target_rels: list[str]) -> dict[str, list[str]]:
+    """Map each target file to `path:line: import-line` entries that import it."""
+    found: dict[str, list[str]] = {rel: [] for rel in target_rels}
+    if not target_rels:
+        return found
+    for root_rel in _DEPENDENT_SEARCH_ROOTS:
+        root = _REPO_ROOT / root_rel
+        if not root.exists():
+            continue
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [
+                d for d in dirnames
+                if d not in _DEPENDENT_SKIP_DIRS
+                and not d.startswith(".venv") and "venv" not in d.lower()
+            ]
+            for filename in filenames:
+                path = Path(dirpath) / filename
+                if path.suffix not in _DEPENDENT_EXTENSIONS:
+                    continue
+                rel = str(path.relative_to(_REPO_ROOT))
+                if all(rel == t or len(found[t]) >= _MAX_DEPENDENTS_PER_FILE for t in target_rels):
+                    continue
+                try:
+                    if path.stat().st_size > _MAX_GREP_BYTES:
+                        continue
+                    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+                except Exception:  # noqa: BLE001,S112 - best-effort enrichment; one unreadable file must not stop the scan
+                    continue
+                for lineno, line in enumerate(lines, 1):
+                    if not _IMPORT_LINE.match(line):
+                        continue
+                    for target in target_rels:
+                        if rel == target or len(found[target]) >= _MAX_DEPENDENTS_PER_FILE:
+                            continue
+                        if _is_import_of(line, target, rel):
+                            entry = f"{rel}:{lineno}: {line.strip()[:160]}"
+                            if not any(e.startswith(f"{rel}:") for e in found[target]):
+                                found[target].append(entry)
+    return found
+
+
+def _is_test_path(rel: str) -> bool:
+    name = Path(rel).name
+    return (
+        "/tests/" in f"/{rel}" or name.startswith("test_")
+        or name.endswith(("_test.py", ".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx"))
+    )
+
+
+def _dependents_context(target_rels: list[str]) -> str:
+    """Render the dependents/tests facts for the files whose contents were
+    injected. Returns "" when no code files are among them."""
+    code_targets = [r for r in target_rels if Path(r).suffix in _DEPENDENT_EXTENSIONS]
+    if not code_targets:
+        return ""
+    try:
+        found = _find_dependents(code_targets)
+    except Exception as exc:  # noqa: BLE001 - enrichment is a supplement; a scan bug must not break prompt building, and the cause is logged
+        log.warning("[enricher] dependents scan failed: %s", exc)
+        return ""
+
+    out: list[str] = []
+    for target in code_targets:
+        entries = found.get(target, [])
+        tests = [e for e in entries if _is_test_path(e.split(":", 1)[0])]
+        callers = [e for e in entries if e not in tests]
+        out.append(f"### {target}")
+        if callers:
+            out.append("Imported by (a rename or signature change breaks these):")
+            out.extend(f"  {e}" for e in callers)
+        else:
+            out.append("Imported by: no importers found in the scanned roots.")
+        if tests:
+            out.append("Tests that import it (keep them passing; extend them for new behaviour):")
+            out.extend(f"  {e}" for e in tests)
+        else:
+            out.append("Tests: none found — if you change behaviour, add a test under tests/.")
+        if len(entries) >= _MAX_DEPENDENTS_PER_FILE:
+            out.append(f"  (capped at {_MAX_DEPENDENTS_PER_FILE}; there may be more)")
+        out.append("")
+
+    text = "\n".join(out).strip()
+    if len(text) > _MAX_DEPENDENTS_CHARS:
+        text = text[:_MAX_DEPENDENTS_CHARS].rstrip() + "\n... (truncated)"
+    return text
 
 
 def _extract_keywords(title: str) -> list[str]:

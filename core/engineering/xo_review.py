@@ -60,9 +60,73 @@ Output ONLY valid JSON, no markdown, no explanation outside the JSON, in this ex
 """
 
 
+# Diff-scoped review checklists, appended AFTER the verbatim rubric above (so
+# the rubric itself stays in sync with the skill). Adapted from the MIT-licensed
+# ECC agent pack (github.com/affaan-m/ECC — agents/python-reviewer.md,
+# agents/typescript-reviewer.md, agents/silent-failure-hunter.md), cut down to
+# what a reviewer can verify from a diff alone (no tool runs) and to defects,
+# not style — a style nit is not a reason to hold. Selected by the file
+# extensions the diff touches; the silent-failure list always applies.
+_SILENT_FAILURE_CHECKLIST = """SILENT FAILURES (all languages):
+- Empty catch / `except: pass` / `except Exception: pass`, or errors converted to None, [], {} or a default with no log line.
+- A fallback that hides a real failure (returns success-shaped data after an error). This repo's accepted pattern is a broad catch that LOGS the cause and carries a `# noqa: BLE001 - <reason>` justification; a broad catch without both is a finding.
+- Lost error context: re-raising a generic error without `from exc`, or logging without the exception.
+- Network, file, subprocess or DB calls added without a timeout or error handling.
+- Safety gates that fail OPEN (treating "could not check" the same as "checked and fine")."""
+
+_PYTHON_CHECKLIST = """PYTHON:
+- Injection: f-strings/concatenation in SQL; subprocess with shell=True or user input; eval/exec; yaml.load without SafeLoader; pickle of untrusted data.
+- Path traversal: user- or model-controlled paths joined without normalising and checking they stay inside the intended root.
+- Hardcoded secrets, tokens or credentials.
+- Mutable default arguments; resources opened without `with`.
+- A public name renamed/removed or a signature changed while callers elsewhere still use the old form.
+- Imports of modules, functions or attributes that the diff doesn't show existing (hallucinated APIs)."""
+
+_TYPESCRIPT_CHECKLIST = """TYPESCRIPT / JAVASCRIPT:
+- XSS: untrusted data into innerHTML / dangerouslySetInnerHTML; eval / new Function.
+- Unhandled promises: async calls without await or .catch; `array.forEach(async ...)`.
+- JSON.parse on external input without try/catch; `any`, `as` casts or `!` assertions that silence a real type error.
+- Secrets or server-only env vars exposed to client components.
+- React: hooks with missing dependencies, direct state mutation."""
+
+_PY_EXTS = (".py",)
+_TS_EXTS = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+
+
+def _diff_paths(diff: str) -> list[str]:
+    """Repo-relative paths a unified diff touches (from its +++/--- headers)."""
+    paths: list[str] = []
+    for line in diff.splitlines():
+        if line.startswith(("+++ ", "--- ")):
+            path = line[4:].strip()
+            if path == "/dev/null":
+                continue
+            if path[:2] in ("a/", "b/"):
+                path = path[2:]
+            if path not in paths:
+                paths.append(path)
+    return paths
+
+
+def _checklists_for_diff(diff: str) -> str:
+    paths = _diff_paths(diff)
+    blocks = [_SILENT_FAILURE_CHECKLIST]
+    if any(p.endswith(_PY_EXTS) for p in paths):
+        blocks.append(_PYTHON_CHECKLIST)
+    if any(p.endswith(_TS_EXTS) for p in paths):
+        blocks.append(_TYPESCRIPT_CHECKLIST)
+    return (
+        "DEFECT CHECKLISTS — check the diff against each item below and report every "
+        "concrete hit (file + what) in SPOT_CHECK_FINDINGS. A confirmed security or "
+        "silent-failure hit is grounds for hold. Do not report an item you cannot "
+        "point to in the diff.\n\n" + "\n\n".join(blocks) + "\n"
+    )
+
+
 def _build_review_prompt(*, diff: str, mission_title: str, mission_summary: str) -> str:
     return (
         f"{_XO_GATEKEEPER_RUBRIC}\n"
+        f"{_checklists_for_diff(diff)}\n"
         f"MISSION TITLE: {mission_title}\n"
         f"MISSION SUMMARY: {mission_summary}\n\n"
         f"DIFF UNDER REVIEW:\n```diff\n{diff[:8000]}\n```\n"
