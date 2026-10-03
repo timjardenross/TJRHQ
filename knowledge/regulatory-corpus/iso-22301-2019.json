@@ -14,5 +14,10 @@
     "source_sha256": null,
     "ingested_at": null
   },
+  "watch": {
+    "sources": [],
+    "patterns": [],
+    "note": "No intelligence source in tools/intelligence/seed_source_registry.py covers this issuer yet — changes are not detected automatically."
+  },
   "clauses": []
 }

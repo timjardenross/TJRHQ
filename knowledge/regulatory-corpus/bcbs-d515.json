@@ -14,5 +14,14 @@
     "source_sha256": null,
     "ingested_at": null
   },
+  "watch": {
+    "sources": [
+      "BIS"
+    ],
+    "patterns": [
+      "\\bd515\\b",
+      "operational risk"
+    ]
+  },
   "clauses": []
 }

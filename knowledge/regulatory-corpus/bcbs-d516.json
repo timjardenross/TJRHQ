@@ -14,6 +14,15 @@
     "source_sha256": null,
     "ingested_at": null
   },
+  "watch": {
+    "sources": [
+      "BIS"
+    ],
+    "patterns": [
+      "\\bd516\\b",
+      "operational resilience"
+    ]
+  },
   "clauses": [
     {
       "clause_id": "BCBS-d516-P1",

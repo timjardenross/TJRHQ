@@ -25,6 +25,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import change_flags
 from .corpus import DEFAULT_CORPUS_DIR
 
 _APRA_PARA_RE = re.compile(r"^\s*(\d{1,3})\.\s+(\S.*)$")
@@ -140,7 +141,10 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     n = ingest(args.framework_id, args.text_file, args.style, source_file=args.source_file,
                licensed=args.licensed, corpus_dir=args.corpus_dir)
+    closed = change_flags.resolve_framework(args.framework_id, note=f"re-ingested from {args.text_file.name}")
     print(f"ingested {n} clauses into {args.framework_id} — review the diff before committing")
+    if closed:
+        print(f"closed {closed} open change flag(s) for {args.framework_id}")
     return 0
 
 

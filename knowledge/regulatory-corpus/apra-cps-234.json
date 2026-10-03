@@ -14,5 +14,14 @@
     "source_sha256": null,
     "ingested_at": null
   },
+  "watch": {
+    "sources": [
+      "APRA"
+    ],
+    "patterns": [
+      "\\bCP[SG]\\s*234\\b",
+      "information security"
+    ]
+  },
   "clauses": []
 }

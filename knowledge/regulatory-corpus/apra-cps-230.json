@@ -14,5 +14,18 @@
     "source_sha256": null,
     "ingested_at": null
   },
+  "watch": {
+    "sources": [
+      "APRA"
+    ],
+    "patterns": [
+      "\\bCP[SG]\\s*230\\b",
+      "operational risk management",
+      "operational resilience",
+      "business continuity",
+      "material service provider",
+      "critical operations?"
+    ]
+  },
   "clauses": []
 }

@@ -10,6 +10,7 @@ Commands:
     /crosswalk <request>   start a crosswalk (or send the request as the next message)
     /coverage              what the corpus actually holds, per framework
     /pending               crosswalks still awaiting your review
+    /changes               open regulatory change flags (dismiss / mark re-ingested)
     /help
 
 Run:  python -m telegram_bots.resiliencebot.app
@@ -49,7 +50,7 @@ for _p in (str(_REPO_ROOT), str(_REPO_ROOT / "platform-runtime")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from lib.resilience import audit
+from lib.resilience import audit, change_flags
 from lib.resilience.corpus import load_corpus
 from lib.resilience.pipeline import Intake, run_crosswalk
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -89,7 +90,8 @@ HELP_TEXT = (
     "/crosswalk <request> — map a requirement across frameworks\n"
     "   e.g. /crosswalk CPS 230 business continuity testing\n"
     "/coverage — what the corpus holds per framework\n"
-    "/pending — crosswalks awaiting your review\n\n"
+    "/pending — crosswalks awaiting your review\n"
+    "/changes — new APRA/BIS publications that may affect stored clauses\n\n"
     "Every output is a draft for your review. No customer data, no confidential "
     "material, no regulator responses or legal advice."
 )
@@ -124,7 +126,32 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def cmd_coverage(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(cv.coverage_text(load_corpus().coverage()))
+    corpus = load_corpus()
+    counts: dict[str, int] = {}
+    for flag in change_flags.open_flags():
+        counts[flag.framework_id] = counts.get(flag.framework_id, 0) + 1
+    await update.message.reply_text(cv.coverage_text(corpus.coverage(), counts, change_flags.unwatched(corpus)))
+
+
+async def cmd_changes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    flags = change_flags.open_flags()
+    if not flags:
+        await update.message.reply_text("No open change flags — no new APRA/BIS publications matched the corpus.")
+        return
+    await update.message.reply_text(f"{len(flags)} open change flag(s); showing the latest {min(len(flags), 5)}:")
+    for flag in flags[-5:]:
+        await update.message.reply_text(cv.flag_text(flag), reply_markup=_markup(cv.flag_keyboard(flag.flag_id)))
+
+
+async def handle_flag_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    cb = cv.parse_callback(query.data)
+    if cb.kind != "flag":
+        return
+    closed = change_flags.resolve(cb.run_id, cb.decision)
+    note = f"Flag {cb.decision}." if closed else "Flag was already closed."
+    await query.edit_message_text(f"{query.message.text}\n\n{note}")
 
 
 async def cmd_pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -205,8 +232,10 @@ def main() -> None:
     app.add_handler(CommandHandler("crosswalk", cmd_crosswalk))
     app.add_handler(CommandHandler("coverage", cmd_coverage))
     app.add_handler(CommandHandler("pending", cmd_pending))
+    app.add_handler(CommandHandler("changes", cmd_changes))
     app.add_handler(CallbackQueryHandler(handle_intake_callback, pattern=r"^xw\|"))
     app.add_handler(CallbackQueryHandler(handle_review_callback, pattern=r"^rv\|"))
+    app.add_handler(CallbackQueryHandler(handle_flag_callback, pattern=r"^cf\|"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     log.info("Resilience Crosswalk bot online")
     app.run_polling(allowed_updates=Update.ALL_TYPES)

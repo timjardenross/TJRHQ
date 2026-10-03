@@ -44,6 +44,30 @@ Add a parser in `lib/resilience/ingest.py` for other layouts (DORA articles, OCC
 The ingest records the source document's SHA-256 and timestamp under `ingestion`, so each
 clause can be traced back to the exact file it came from.
 
+## Change flags
+
+Each framework file carries a `watch` block:
+
+```json
+"watch": {"sources": ["APRA"], "patterns": ["\\bCP[SG]\\s*230\\b", "operational resilience"]}
+```
+
+The daily `resilience_change_scan` job (`intelligence/scheduler.py`, 06:50 AEST) reads
+recent events from `intelligence_events` whose `source_name` starts with one of the
+`sources`. It flags the framework when an event's title or summary matches one of the
+`patterns`. Events older than the framework's last `ingestion.ingested_at` are ignored.
+
+- `sources` must be prefixes of real names in `tools/intelligence/seed_source_registry.py`.
+  A test enforces this.
+- An empty `sources` means no feed covers that issuer yet (EU, US and ISO today), so changes
+  aren't detected automatically and `/coverage` says so.
+- Open flags add a note and a verification item to every crosswalk that touches the
+  framework. They never block a crosswalk.
+- Close a flag with `/changes` in the bot, or `python -m lib.resilience.cli resolve-change <id> dismissed`.
+- Re-running `ingest` closes all open flags for that framework.
+- To backfill after an outage, run:
+  `python -c "from intelligence.scheduler import _resilience_change_scan_job as j; j(days=30)"`
+
 ## Licensing
 
 Check each framework's `licence` field before you store any text:

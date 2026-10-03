@@ -17,7 +17,7 @@ for p in (str(REPO_ROOT), str(RUNTIME_DIR)):
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from lib.resilience import audit
+from lib.resilience import audit, change_flags
 from lib.resilience.corpus import load_corpus
 from lib.resilience.guardrails import screen_input
 from lib.resilience.ingest import ingest, parse_apra, parse_bcbs
@@ -320,3 +320,88 @@ def test_ingest_refuses_proprietary_without_flag(corpus_dir, tmp_path):
     src.write_text("1. something")
     with pytest.raises(SystemExit, match="proprietary"):
         ingest("ISO", src, "apra", corpus_dir=corpus_dir)
+
+
+# ── change flags ──────────────────────────────────────────────────────────────
+
+
+@pytest.fixture(autouse=True)
+def _isolated_flags(tmp_path, monkeypatch):
+    """No test may read or write the real data/resilience-crosswalk/change_flags.jsonl."""
+    monkeypatch.setenv("RESILIENCE_CHANGE_FLAGS", str(tmp_path / "flags.jsonl"))
+
+
+@pytest.fixture
+def watched_corpus(corpus_dir):
+    path = corpus_dir / "src.json"
+    data = json.loads(path.read_text())
+    data["watch"] = {"sources": ["APRA"], "patterns": [r"\bCP[SG]\s*230\b", r"operational resilience"]}
+    data["ingestion"] = {"ingested_at": "2026-09-01T00:00:00+00:00"}
+    path.write_text(json.dumps(data))
+    return load_corpus(corpus_dir)
+
+
+def _event(**over):
+    e = {"event_id": "e1", "source_name": "APRA Media Releases",
+         "raw_title": "APRA updates CPG 230 guidance", "raw_summary": "",
+         "canonical_url": "https://example.test/cpg230", "published_at": "2026-09-20T00:00:00+00:00"}
+    e.update(over)
+    return e
+
+
+def test_match_requires_source_and_pattern(watched_corpus):
+    assert change_flags.match_event(_event(), watched_corpus) == ["SRC"]
+    assert change_flags.match_event(_event(source_name="ASIC News Centre"), watched_corpus) == []
+    assert change_flags.match_event(_event(raw_title="APRA statistics release"), watched_corpus) == []
+    # frameworks with no watch sources never match
+    assert "TGT" not in change_flags.match_event(_event(), watched_corpus)
+
+
+def test_scan_dedupes_and_skips_events_older_than_ingestion(watched_corpus, tmp_path):
+    log = tmp_path / "f.jsonl"
+    old = _event(event_id="e0", canonical_url="https://example.test/old", published_at="2026-08-01T00:00:00+00:00")
+    first = change_flags.scan([_event(), old], watched_corpus, log)
+    assert [f.framework_id for f in first] == ["SRC"]
+    assert change_flags.scan([_event()], watched_corpus, log) == []
+    assert len(change_flags.open_flags(log)) == 1
+
+
+def test_resolve_and_resolve_framework(watched_corpus, tmp_path):
+    log = tmp_path / "f.jsonl"
+    [flag] = change_flags.scan([_event()], watched_corpus, log)
+    assert change_flags.resolve(flag.flag_id, "dismissed", path=log)
+    assert not change_flags.resolve(flag.flag_id, "dismissed", path=log)
+    change_flags.scan([_event(canonical_url="https://example.test/2")], watched_corpus, log)
+    assert change_flags.resolve_framework("SRC", path=log) == 1
+    assert change_flags.open_flags(log) == []
+    with pytest.raises(ValueError):
+        change_flags.resolve("cf-x", "deleted", path=log)
+
+
+def test_unwatched_lists_frameworks_without_sources(watched_corpus):
+    assert change_flags.unwatched(watched_corpus) == ["ISO", "TGT"]
+
+
+def test_pipeline_surfaces_open_flags_without_blocking(watched_corpus, tmp_path):
+    flags = tmp_path / "f.jsonl"
+    change_flags.scan([_event()], watched_corpus, flags)
+    run = run_crosswalk("business continuity testing", Intake(source_framework="SRC", targets=["TGT", "ISO"]),
+                        corpus=watched_corpus, generate=_fake(json.dumps(_draft())), persona="",
+                        audit_log=tmp_path / "a.jsonl", flags_log=flags)
+    assert run.status == "ok"
+    assert any("possible source update" in w for w in run.crosswalk.warnings)
+    assert any(v.reason == "Possible source update" and v.framework_id == "SRC" for v in run.crosswalk.verification)
+    assert "CPG 230" in run.markdown
+
+
+def test_real_corpus_watch_rules_compile_and_name_real_sources():
+    import re as _re
+    corpus = load_corpus()
+    registry = (REPO_ROOT / "tools" / "intelligence" / "seed_source_registry.py").read_text()
+    names = set(_re.findall(r'"source_name":\s*"([^"]+)"', registry))
+    for fw in corpus.frameworks.values():
+        for p in fw.watch.get("patterns", []):
+            _re.compile(p)
+        for prefix in fw.watch.get("sources", []):
+            assert any(n.startswith(prefix) for n in names), f"{fw.framework_id}: no registry source starts with {prefix!r}"
+    assert "APRA-CPS-230" not in change_flags.unwatched(corpus)

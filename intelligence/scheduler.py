@@ -298,6 +298,15 @@ def _start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # ── Operational Resilience Advisor: regulatory change flags ─────────────────
+    # 06:50 AEST daily — after collection (06:00); 06:45 already has two jobs.
+    scheduler.add_job(
+        _resilience_change_scan_job,
+        CronTrigger(hour=6, minute=50, timezone=tz),
+        id="resilience_change_scan",
+        replace_existing=True,
+    )
+
     # ── HEALTH_OSINT_IMPLEMENTATION.md Phase 4: weekly auto-fetch ───────────────
     # Sunday 02:00 — pulls FDA/CDC/ClinicalTrials.gov/bioRxiv/WHO/NIH into
     # health_signals (suppressed), then immediately auto-curates (2026-08-22
@@ -1738,6 +1747,43 @@ def _source_fidelity_audit_job() -> None:
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Source fidelity audit job failed: %s", exc)
         _record_heartbeat("source_fidelity_audit", "failed", error_message=str(exc))
+
+
+def _resilience_change_scan_job(days: int = 7) -> None:
+    """Regulatory change flags for the Operational Resilience Advisor's corpus.
+
+    Runs at 06:50 AEST daily (after the 06:00 collection). Reads recent events
+    from the sources each corpus framework watches (knowledge/regulatory-corpus/
+    *.json "watch" rules — today APRA and BIS) and records a change flag for any
+    new publication that may affect stored clause text. Flags are surfaced in
+    every crosswalk touching that framework and via the Resilience Crosswalk
+    bot's /changes. A 7-day lookback means a missed day is caught next run;
+    flags are deduplicated, so the overlap is harmless.
+    """
+    log.info("Resilience change scan triggered")
+    try:
+        from datetime import datetime, timedelta, timezone
+
+        from intelligence.persistence import intelligence_store as store
+
+        runtime_dir = os.path.join(_REPO_ROOT, "platform-runtime")
+        if runtime_dir not in sys.path:
+            sys.path.insert(0, runtime_dir)
+        from lib.resilience import change_flags
+        from lib.resilience.corpus import load_corpus
+
+        corpus = load_corpus()
+        prefixes = sorted({s for fw in corpus.frameworks.values() for s in fw.watch.get("sources", [])})
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        events = store.load_events_by_source_prefixes(prefixes, since)
+        new = change_flags.scan(events, corpus)
+        open_count = len(change_flags.open_flags())
+        log.info("Resilience change scan: %d events checked, %d new flags, %d open", len(events), len(new), open_count)
+        _record_heartbeat("resilience_change_scan", "ok",
+                          detail=f"events={len(events)} new_flags={len(new)} open={open_count}")
+    except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
+        log.error("Resilience change scan failed: %s", exc)
+        _record_heartbeat("resilience_change_scan", "failed", error_message=str(exc))
 
 
 def _episodic_memory_decay_job() -> None:

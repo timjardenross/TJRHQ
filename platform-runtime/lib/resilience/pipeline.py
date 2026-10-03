@@ -24,12 +24,12 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from . import audit
+from . import audit, change_flags
 from .corpus import REPO_ROOT, Corpus, load_corpus
 from .guardrails import screen_input
 from .render import render_markdown
 from .retrieval import search
-from .schema import Crosswalk, CrosswalkDraft
+from .schema import Crosswalk, CrosswalkDraft, VerificationItem
 from .validator import finalise, validate
 
 log = logging.getLogger(__name__)
@@ -165,11 +165,27 @@ def parse_draft(raw: str) -> CrosswalkDraft:
     return CrosswalkDraft.model_validate_json(match.group())
 
 
+def _apply_change_flags(xw: Crosswalk, frameworks: list[str], flags_log: Path | None) -> None:
+    """Surface open regulatory change flags for the frameworks in this crosswalk.
+
+    Advisory only: a possible source update never blocks a crosswalk, it adds a
+    validator note and a verification item per flag so the Captain checks it.
+    """
+    for flag in change_flags.open_flags(flags_log, frameworks):
+        xw.warnings.append(f"{flag.framework_id}: possible source update since ingestion — {flag.short()}")
+        xw.verification.append(VerificationItem(
+            framework_id=flag.framework_id, clause_id=None, reason="Possible source update",
+            check=f"Check whether {flag.short()} changes any mapped requirement"
+                  + (f": {flag.url}" if flag.url else ""),
+        ))
+
+
 def run_crosswalk(query: str, intake: Intake | None = None, *,
                   corpus: Corpus | None = None,
                   generate: GenerateFn | None = None,
                   persona: str | None = None,
-                  audit_log: Path | None = None) -> CrosswalkRun:
+                  audit_log: Path | None = None,
+                  flags_log: Path | None = None) -> CrosswalkRun:
     run_id = audit.new_run_id()
     corpus = corpus or load_corpus()
     intake = intake or Intake()
@@ -225,6 +241,7 @@ def run_crosswalk(query: str, intake: Intake | None = None, *,
             result = validate(draft, corpus)
             if result.ok:
                 xw = finalise(draft, corpus, result)
+                _apply_change_flags(xw, frameworks, flags_log)
                 run = CrosswalkRun(run_id=run_id, status="ok", crosswalk=xw, attempts=attempts,
                                    markdown=render_markdown(xw, corpus, run_id))
                 audit.record_run({**base_record, "intake": resolved, "status": "ok",

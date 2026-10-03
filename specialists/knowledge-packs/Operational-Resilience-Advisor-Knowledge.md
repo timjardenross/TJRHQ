@@ -75,16 +75,17 @@ terminology accurately; explain jargon once. No padding, no generic compliance f
 | Every MEDIUM/LOW gets verified | The verification checklist is built in code from the mappings |
 | Data guardrails | `guardrails.py` screens input before it reaches any model |
 | Log outputs and review decisions | `audit.py`: an append-only JSONL run log plus accept/edit/reject reviews |
+| Staying current | `change_flags.py`: a daily scan of APRA/BIS intelligence events flags frameworks a new publication may affect. Open flags appear in every crosswalk that touches the framework |
 
 Run it with `python -m lib.resilience.cli run "<request>"` from `platform-runtime/`. It runs
 through the platform's own model stack (`llm.try_generate_response`).
 
 On Telegram: the Resilience Crosswalk bot (`telegram-bots/resiliencebot/`), with
-`/crosswalk`, `/coverage` and `/pending`, plus review buttons that write to the same audit log.
+`/crosswalk`, `/coverage`, `/pending` and `/changes`, plus review buttons that write to the same audit log.
 
 ## Roadmap
 
 - Ingest CPS 230 and BCBS d516 text from the official PDFs (see `knowledge/regulatory-corpus/README.md`)
-- Regulatory change hook from `tools/intelligence/` (APRA and BIS sources are already seeded)
+- Change feeds for unwatched issuers (EU, US) if those frameworks matter
 - Golden-crosswalk and guardrail red-team evals against a real model
 - LCARS workbench view of crosswalks and the review queue

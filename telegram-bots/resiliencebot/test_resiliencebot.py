@@ -213,3 +213,56 @@ def test_review_callback_writes_audit(monkeypatch, tmp_path):
     assert record == {**record, "type": "review", "run_id": "xw-000000000001", "decision": "accepted"}
     assert audit.read_log(log)[0]["decision"] == "accepted"
     assert "Review recorded: accepted" in query.edits[0]
+
+
+# ── change flags ──────────────────────────────────────────────────────────────
+
+def _seed_flag(tmp_path):
+    from lib.resilience import change_flags
+    event = {"event_id": "e1", "source_name": "APRA Media Releases", "raw_title": "APRA finalises CPS 230 FAQ",
+             "canonical_url": "https://example.test/a", "published_at": "2026-10-01T00:00:00+00:00"}
+    [flag] = change_flags.scan([event], load_corpus())
+    return flag
+
+
+def test_flag_callback_parsing_and_keyboard_limits():
+    cb = cv.parse_callback("cf|cf-0123456789ab|r")
+    assert (cb.kind, cb.run_id, cb.decision) == ("flag", "cf-0123456789ab", "reingested")
+    assert cv.parse_callback("cf|nope|d").kind == "unknown"
+    assert all(len(d.encode()) <= 64 for row in cv.flag_keyboard("cf-0123456789ab") for _, d in row)
+
+
+def test_coverage_marks_flagged_and_unwatched():
+    text = cv.coverage_text({"APRA-CPS-230": {"verbatim": 0}, "EU-DORA": {"verbatim": 0}},
+                            {"APRA-CPS-230": 2}, ["EU-DORA"])
+    assert "APRA-CPS-230: metadata only  ⚠ 2 possible update(s)" in text
+    assert "No change feed for: EU-DORA." in text
+
+
+def test_changes_command_lists_flags_and_dismiss_closes(tmp_path):
+    flag = _seed_flag(tmp_path)
+    msg = _Msg()
+    _run(app.cmd_changes(SimpleNamespace(message=msg), _ctx()))
+    assert "1 open change flag" in msg.replies[0][0]
+    assert "APRA finalises CPS 230 FAQ" in msg.replies[1][0] and msg.replies[1][1] is not None
+
+    query = _Query(f"cf|{flag.flag_id}|d", _Msg("⚠ flag"))
+    _run(app.handle_flag_callback(SimpleNamespace(callback_query=query), _ctx()))
+    assert "Flag dismissed." in query.edits[0]
+    again = _Query(f"cf|{flag.flag_id}|d", _Msg("⚠ flag"))
+    _run(app.handle_flag_callback(SimpleNamespace(callback_query=again), _ctx()))
+    assert "already closed" in again.edits[0]
+
+
+def test_changes_command_when_empty():
+    msg = _Msg()
+    _run(app.cmd_changes(SimpleNamespace(message=msg), _ctx()))
+    assert msg.replies[0][0].startswith("No open change flags")
+
+
+def test_coverage_command_shows_flag_marker(tmp_path):
+    _seed_flag(tmp_path)
+    msg = _Msg()
+    _run(app.cmd_coverage(SimpleNamespace(message=msg), _ctx()))
+    assert "⚠ 1 possible update(s)" in msg.replies[0][0]
+    assert "No change feed for: EU-DORA, ISO-22301-2019, OCC-2020-94." in msg.replies[0][0]

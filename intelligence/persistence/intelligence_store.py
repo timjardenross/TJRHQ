@@ -1298,6 +1298,36 @@ def load_recent_events(days: int = 14, limit: int = 200) -> list[dict]:
     return rows[:limit]
 
 
+def load_events_by_source_prefixes(prefixes: list[str], since_iso: str, limit: int = 500) -> list[dict]:
+    """Recent events from sources whose name starts with any of ``prefixes``
+    (case-insensitive), newest first — including suppressed ones.
+
+    Used by the Operational Resilience Advisor's regulatory change scan
+    (platform-runtime/lib/resilience/change_flags.py): a new APRA or BIS
+    publication matters to the crosswalk corpus even when the brief pipeline
+    suppressed it as low operational relevance, so this deliberately does not
+    apply load_recent_events()'s suppressed/duplicate filters or rank decay.
+    Raises on a fetch failure (via _get_strict) so the caller can tell
+    "nothing new" from "could not check".
+    """
+    import re
+    import urllib.parse
+
+    clean = [re.sub(r"[^A-Za-z0-9 ]", "", p).strip() for p in prefixes]
+    clean = [p for p in clean if p]
+    if not clean:
+        return []
+    ors = ",".join(f"source_name.ilike.{urllib.parse.quote(p)}*" for p in clean)
+    return _get_strict(
+        "intelligence_events"
+        "?select=event_id,source_name,raw_title,raw_summary,canonical_url,published_at,collected_at"
+        f"&or=({ors})"
+        f"&collected_at=gte.{urllib.parse.quote(since_iso, safe='')}"
+        "&order=collected_at.desc"
+        f"&limit={int(limit)}"
+    )
+
+
 # ─── Briefs ───────────────────────────────────────────────────────────────────
 
 def save_brief(brief: ResilienceBrief) -> str | None:
