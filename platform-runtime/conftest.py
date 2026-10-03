@@ -19,7 +19,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-import id_registry  # noqa: E402
+import id_registry
 
 
 @pytest.fixture(autouse=True)
