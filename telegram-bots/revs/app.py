@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 
 # Every sibling module in this package (commands.py, db.py, daily.py, …)
@@ -52,6 +53,31 @@ from telegram.ext import (
 import config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+
+
+# httpx logs every request at INFO with the full URL, which for python-telegram-bot
+# means https://api.telegram.org/bot<TOKEN>/... (token in plaintext in syslog/journal).
+# Silence it, and add a belt-and-braces redacting filter on every root handler.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+_TG_TOKEN_RE = re.compile(r"bot\d{6,12}:[A-Za-z0-9_-]{30,}")
+
+
+class _RedactTelegramToken(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            msg = record.getMessage()
+        except (TypeError, ValueError):
+            return True
+        if "bot" in msg and _TG_TOKEN_RE.search(msg):
+            record.msg = _TG_TOKEN_RE.sub("bot<REDACTED>", msg)
+            record.args = ()
+        return True
+
+
+for _h in logging.getLogger().handlers:
+    _h.addFilter(_RedactTelegramToken())
 log = logging.getLogger("revs-bot")
 
 _CLIENT = None  # set in main(); module-level so handler closures can reach it

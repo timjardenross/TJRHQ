@@ -44,6 +44,7 @@ logging.basicConfig(
 log = logging.getLogger("resiliencebot")
 # httpx logs full request URLs at INFO, which include the bot token.
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 for _p in (str(_REPO_ROOT), str(_REPO_ROOT / "platform-runtime")):
     if _p not in sys.path:
