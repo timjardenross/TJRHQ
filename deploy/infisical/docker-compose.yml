@@ -1,0 +1,104 @@
+# Self-hosted Infisical for USS TJR secret management.
+#
+# Public routing: joins the existing `coolify` docker network so Coolify's
+# Traefik (providers.docker, exposedbydefault=false) auto-discovers this
+# container via labels and issues its own Let's Encrypt cert - no Coolify
+# dashboard/API action needed, no changes to the live Caddyfile.
+# 127.0.0.1:8446 stays published too, for local/SSH-tunnel admin access.
+#
+# Reconstructed 2026-10-04 from the original authoring session transcript
+# (Write + Edit tool calls, 2026-09-04) and cross-checked against the running
+# containers (docker inspect). All secrets are referenced by name only; supply
+# them in a chmod 600 .env next to this file (see README.md / .env.example).
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - infisical-pg
+    environment:
+      POSTGRES_USER: infisical
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: infisical
+    volumes:
+      - infisical-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U infisical"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - infisical-redis-svc
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - infisical-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  infisical:
+    image: infisical/infisical:latest-postgres
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      # 8080 is taken on this host (Coolify's Traefik admin port) - use 8446.
+      - "127.0.0.1:8446:8080"
+    networks:
+      - default
+      - coolify
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "coolify"
+      traefik.http.routers.infisical.rule: "Host(`${INFISICAL_DOMAIN}`)"
+      traefik.http.routers.infisical.entrypoints: "https"
+      traefik.http.routers.infisical.tls: "true"
+      traefik.http.routers.infisical.tls.certresolver: "letsencrypt"
+      traefik.http.services.infisical.loadbalancer.server.port: "8080"
+    environment:
+      # --- core, required ---
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      AUTH_SECRET: ${AUTH_SECRET}
+      SITE_URL: ${SITE_URL}
+      NODE_ENV: production
+
+      # Unique aliases (not "db"/"redis") - the app container also sits on the
+      # shared `coolify` network for Traefik, which already has its own
+      # "redis" container; the plain name collided and cross-connected to it.
+      DB_CONNECTION_URI: postgres://infisical:${POSTGRES_PASSWORD}@infisical-pg:5432/infisical
+      REDIS_URL: redis://:${REDIS_PASSWORD}@infisical-redis-svc:6379
+
+      # --- outbound mail (invites, password resets). optional but recommended ---
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:-}
+
+      # lock down signup once the first admin account exists
+      DISABLE_SIGNUP: ${DISABLE_SIGNUP:-true}
+    volumes:
+      - infisical-uploads:/app/backend/uploads
+
+networks:
+  coolify:
+    external: true
+
+volumes:
+  infisical-db:
+  infisical-redis:
+  infisical-uploads:
