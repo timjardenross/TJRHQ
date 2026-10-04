@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
 import sys
 
 # Every sibling module in this package (commands.py, db.py, daily.py, …)
@@ -29,6 +28,8 @@ import sys
 # unit), which puts only the repo root on sys.path. Insert this directory
 # before any sibling import below runs, so both invocation styles work.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Shared helper lives one level up (telegram-bots/log_redaction.py).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import commands
 import crisis_layer2
@@ -38,6 +39,7 @@ import onboarding
 import safety
 import scheduler
 import weekly
+from log_redaction import install_token_redaction
 from scoped_supabase import build_scoped_client
 from telegram import Update
 from telegram.ext import (
@@ -61,23 +63,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
-_TG_TOKEN_RE = re.compile(r"bot\d{6,12}:[A-Za-z0-9_-]{30,}")
-
-
-class _RedactTelegramToken(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        try:
-            msg = record.getMessage()
-        except (TypeError, ValueError):
-            return True
-        if "bot" in msg and _TG_TOKEN_RE.search(msg):
-            record.msg = _TG_TOKEN_RE.sub("bot<REDACTED>", msg)
-            record.args = ()
-        return True
-
-
-for _h in logging.getLogger().handlers:
-    _h.addFilter(_RedactTelegramToken())
+install_token_redaction()
 log = logging.getLogger("revs-bot")
 
 _CLIENT = None  # set in main(); module-level so handler closures can reach it
