@@ -213,8 +213,8 @@ the build.
      Done 2026-10-04, second batch: CPG 230 (62), CPS 234 (36), BCBS d516 and d515 principle statements
      (7 + 12, statements only under the BIS excerpt terms), PRA SS1/21 (86) and SoP 1/21 (22), FCA SYSC 15A
      (45 provisions from PS21/3), NIST CSF 2.0 Core (134) and OCC 2020-94 (42 practices). ISO 22301 stays
-     metadata-only: the document supplied was ISO's marketing brochure, not the standard. Still to confirm:
-     the Bank of England and FCA reuse terms for the verbatim text held.
+     metadata-only: the document supplied was ISO's marketing brochure, not the standard. Storing the
+     Bank of England and FCA text verbatim was confirmed as permitted by the Captain (2026-10-04).
   2. Apply migration 0228 on Supabase so the change-scan heartbeat lands.
      Add feeds for the unwatched issuers (EU, UK PRA/FCA, US, NIST) if those frameworks matter.
   3. Golden-crosswalk evals and guardrail red-team evals against a real

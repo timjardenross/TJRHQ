@@ -7,7 +7,7 @@
   "status": "in_force",
   "effective_date": "2022-03-31",
   "source_url": "https://www.fca.org.uk/publication/policy/ps21-3-operational-resilience.pdf",
-  "licence": "© Financial Conduct Authority 2021. Text reproduced verbatim with attribution (Source: FCA PS21/3, Appendix 1, instrument FCA 2021/14). Confirm the FCA's reuse terms cover your intended use. The live Handbook may have been amended since.",
+  "licence": "© Financial Conduct Authority 2021. Text reproduced verbatim with attribution (Source: FCA PS21/3, Appendix 1, instrument FCA 2021/14). Verbatim storage confirmed as permitted by the Captain (2026-10-04). The live Handbook may have been amended since.",
   "notes": "Comparative (UK). The 45 provisions of SYSC 15A (29 rules, 16 guidance; tagged 'rule'/'guidance') from Appendix 1 of PS21/3. The policy statement's feedback chapters and transitional provisions (SYSC TP 10) are not ingested. Check the live FCA Handbook for later amendments.",
   "ingestion": {
     "method": "pdftotext+fca",

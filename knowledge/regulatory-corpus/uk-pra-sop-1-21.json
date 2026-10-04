@@ -7,7 +7,7 @@
   "status": "in_force",
   "effective_date": "2022-03-31",
   "source_url": "https://www.bankofengland.co.uk/prudential-regulation/publication/2021/march/operational-resilience-sop",
-  "licence": "© Bank of England 2021. Text reproduced verbatim with attribution (Source: PRA, SoP 1/21, November 2024 update). Confirm the Bank of England's reuse terms cover your intended use.",
+  "licence": "© Bank of England 2021. Text reproduced verbatim with attribution (Source: PRA, SoP 1/21, November 2024 update). Verbatim storage confirmed as permitted by the Captain (2026-10-04).",
   "notes": "Comparative (UK). All 22 paragraphs of chapters 1-5 ingested from the PRA PDF; footnotes excluded.",
   "ingestion": {
     "method": "pdftotext+pra",

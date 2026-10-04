@@ -87,7 +87,7 @@ On Telegram: the Resilience Crosswalk bot (`telegram-bots/resiliencebot/`), with
 
 - Corpus (October 2026): 11 frameworks, 570 verbatim clauses. CPS 230, CPG 230, CPS 234, BCBS d516/d515
   statements, DORA, PRA SS1/21 and SoP 1/21, FCA SYSC 15A, NIST CSF 2.0 Core and OCC 2020-94. ISO 22301 is
-  metadata only (proprietary). Next: confirm the Bank of England and FCA reuse terms, and the BCI Good
+  metadata only (proprietary). Next: the BCI Good
   Practice Guidelines if a licensed copy is available
 - Change feeds for unwatched issuers (EU, US) if those frameworks matter
 - Run `python -m lib.resilience.cli eval` on the host (golden, red-team and screen cases in `lib/resilience/evals/cases.json`). Below 80% first-attempt validity, revisit model escalation (ADR-035 option C)

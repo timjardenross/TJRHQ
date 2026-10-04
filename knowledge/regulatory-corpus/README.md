@@ -23,9 +23,9 @@ official document, with the file's SHA-256 recorded. What's held today:
 | BCBS-d516 | The 7 principle statements, verbatim. Explanatory paragraphs aren't stored (BIS allows brief attributed excerpts) |
 | BCBS-d515 | The 12 PSMOR principle statements, verbatim, on the same basis |
 | EU-DORA | All 64 articles, verbatim, from the EUR-Lex PDF (OJ L 333, 27.12.2022). Recitals and footnotes are excluded; Article 3 holds all 65 definitions |
-| UK-PRA-SS1-21 | All 86 paragraphs (chapters 1-9), verbatim, from the March 2022 PDF. © Bank of England: reuse terms to confirm |
-| UK-PRA-SOP-1-21 | All 22 paragraphs (chapters 1-5), verbatim, from the November 2024 update. © Bank of England: reuse terms to confirm |
-| UK-FCA-SYSC-15A | The 45 SYSC 15A provisions (29 rules, 16 guidance, tagged) from PS21/3 Appendix 1. © FCA: reuse terms to confirm; check the live Handbook for later amendments |
+| UK-PRA-SS1-21 | All 86 paragraphs (chapters 1-9), verbatim, from the March 2022 PDF. © Bank of England, storage confirmed |
+| UK-PRA-SOP-1-21 | All 22 paragraphs (chapters 1-5), verbatim, from the November 2024 update. © Bank of England, storage confirmed |
+| UK-FCA-SYSC-15A | The 45 SYSC 15A provisions (29 rules, 16 guidance, tagged) from PS21/3 Appendix 1. © FCA, storage confirmed; check the live Handbook for later amendments |
 | NIST-CSF-2.0 | The CSF 2.0 Core: 6 Functions, 22 Categories, 106 Subcategories by official ID (`NIST-CSF-2.0-GV.SC-01`). US government work |
 | OCC-2020-94 | The 42 lettered sound practices in sections 1-7 (revised June 2026). Appendix A's cyber table and the glossary aren't held |
 | ISO-22301-2019 | Metadata only. ISO text is proprietary, and every mapping is "reference not confirmed" |
@@ -119,7 +119,7 @@ Check each framework's `licence` field before you store any text:
 - **BIS / BCBS** documents are BIS copyright ("brief excerpts may be reproduced… provided the
   source is stated"). Store principle statements only, with attribution.
 - **Bank of England (PRA)** and **FCA** documents are their copyright. Text is held with
-  attribution; confirm their reuse terms cover your use before relying on it outside this repo.
+  attribution; storing it here was confirmed as permitted (2026-10-04).
 - **APRA practice guides (CPG)** are CC BY 3.0 AU: reuse with attribution.
 - **EU legislation** can be reused with attribution.
 - **US federal guidance** (OCC, NIST) is public domain.
