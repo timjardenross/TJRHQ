@@ -209,9 +209,14 @@ the build.
   watched, and `/coverage` says so.
 * Open items:
   1. ~~Ingest CPS 230 and DORA~~. Done 2026-10-03: CPS 230 (60 paragraphs) from APRA's PDF and
-     DORA (64 articles) from EUR-Lex, both verbatim, with source digests in the corpus files. Next: the BCBS d516 text.
+     DORA (64 articles) from EUR-Lex, both verbatim, with source digests in the corpus files.
+     Done 2026-10-04, second batch: CPG 230 (62), CPS 234 (36), BCBS d516 and d515 principle statements
+     (7 + 12, statements only under the BIS excerpt terms), PRA SS1/21 (86) and SoP 1/21 (22), FCA SYSC 15A
+     (45 provisions from PS21/3), NIST CSF 2.0 Core (134) and OCC 2020-94 (42 practices). ISO 22301 stays
+     metadata-only: the document supplied was ISO's marketing brochure, not the standard. Still to confirm:
+     the Bank of England and FCA reuse terms for the verbatim text held.
   2. Apply migration 0228 on Supabase so the change-scan heartbeat lands.
-     Add feeds for the unwatched issuers (EU, US) if those frameworks matter.
+     Add feeds for the unwatched issuers (EU, UK PRA/FCA, US, NIST) if those frameworks matter.
   3. Golden-crosswalk evals and guardrail red-team evals against a real
      model.
   4. A possible model-escalation decision (revisit option C) once real text

@@ -8,16 +8,354 @@
   "effective_date": "2020-10-30",
   "source_url": "https://www.occ.gov/news-issuances/bulletins/2020/bulletin-2020-94.html",
   "licence": "US federal government work — public domain",
-  "notes": "",
+  "notes": "Comparative (US). The 42 lettered sound practices across sections 1-7 ingested; section introductions, footnotes, Appendix A (cyber practices table) and Appendix B (glossary) are not held.",
   "ingestion": {
-    "method": "pending",
-    "source_digest": null,
-    "ingested_at": null
+    "method": "pdftotext+occ",
+    "source_digest": "sha256:2bdb2268ee5d72309319b84265274d050d0f35156bdc41cc9f3d945e50a8cd17",
+    "ingested_at": "2026-10-04T00:18:41+00:00",
+    "source_document": "Sound Practices to Strengthen Operational Resilience (attachment to OCC Bulletin 2020-94), revised June 2026, 14 pages"
   },
   "watch": {
     "sources": [],
     "patterns": [],
     "note": "No intelligence source in tools/intelligence/seed_source_registry.py covers this issuer yet — changes are not detected automatically."
   },
-  "clauses": []
+  "clauses": [
+    {
+      "clause_id": "OCC-2020-94-s1-a",
+      "ref": "section 1(a)",
+      "heading": "Governance",
+      "text": "The firm’s board of directors approves and periodically reviews its risk appetite for weathering disruption from operational risks, at the enterprise level and for the firm’s critical operations and core business lines. In setting the firm’s risk appetite, the board of directors articulates the firm’s tolerance for disruption considering its risk profile and the capabilities of its supporting operational environment (“tolerance for disruption”).",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s1-b",
+      "ref": "section 1(b)",
+      "heading": "Governance",
+      "text": "The firm’s board of directors works with senior management to confirm that operational resilience practices are led and staffed by individuals with relevant expertise, approve appropriate budgets and resources, and promote a culture of effective risk management.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s1-c",
+      "ref": "section 1(c)",
+      "heading": "Governance",
+      "text": "The firm’s board of directors oversees the firm’s management of operational risk in its business line operations, its independent operational risk management function, and its independent internal (or external) audit function. Senior management is accountable for ensuring that each of these areas adheres to the firm’s tolerance for disruption.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s1-d",
+      "ref": "section 1(d)",
+      "heading": "Governance",
+      "text": "Senior management is accountable for maintaining a detailed, accurate, and regularly updated overview of the firm’s organizational and legal structure that identifies the critical operations and core business lines of the firm and its material entities.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s1-e",
+      "ref": "section 1(e)",
+      "heading": "Governance",
+      "text": "Senior management is accountable for developing, implementing, and managing effective and resilient information systems and controls, as appropriate, to maintain critical operations and core business lines consistent with the firm’s tolerance for disruption.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s1-f",
+      "ref": "section 1(f)",
+      "heading": "Governance",
+      "text": "The internal (or external) audit function is responsible for independently assessing the design and ongoing effectiveness of the firm’s operational resilience efforts.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s2-a",
+      "ref": "section 2(a)",
+      "heading": "Operational Risk Management",
+      "text": "The firm’s senior management oversees the implementation of operational risk management processes, systems, and controls to identify and contain the scope of a disruption, mitigate its effects, and resolve the disruption consistent with the firm’s tolerance for disruption.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s2-b",
+      "ref": "section 2(b)",
+      "heading": "Operational Risk Management",
+      "text": "The firm’s business line operations management identifies and mitigates operational risk exposures in alignment with the firm’s tolerance for disruption.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s2-c",
+      "ref": "section 2(c)",
+      "heading": "Operational Risk Management",
+      "text": "The firm’s operational risk management function assesses the critical operations and core business lines of the firm and its material entities. It determines the extent of exposure to various operational risks the firm faces or forecasts and the firm’s ability to recover from a disruption.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s2-d",
+      "ref": "section 2(d)",
+      "heading": "Operational Risk Management",
+      "text": "The firm’s operational risk management function regularly reviews, tests, and updates internal controls relevant to the firm’s critical operations and core business lines including those performed by third parties.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s2-e",
+      "ref": "section 2(e)",
+      "heading": "Operational Risk Management",
+      "text": "The firm’s operational risk management function implements and maintains risk identification and assessment approaches that adequately capture business processes and their associated operational risks, including technology and third-party risks.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s2-f",
+      "ref": "section 2(f)",
+      "heading": "Operational Risk Management",
+      "text": "The firm’s independent internal (or external) audit function provides a review and challenge of the firm’s operational risk management function and assesses whether it is appropriately operating within the firm’s tolerance for disruption.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s2-g",
+      "ref": "section 2(g)",
+      "heading": "Operational Risk Management",
+      "text": "The firm’s operational risk management function works closely with its business continuity management and recovery or resolution planning functions with respect to operational resilience efforts.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s3-a",
+      "ref": "section 3(a)",
+      "heading": "Business Continuity Management",
+      "text": "The firm’s business continuity management incorporates business impact analysis, testing, training, and awareness programs, as well as communication and crisis management policies.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s3-b",
+      "ref": "section 3(b)",
+      "heading": "Business Continuity Management",
+      "text": "The firm periodically reviews its business continuity plan to ensure contingency strategies remain consistent with current operations, risks and threats, its tolerance for disruption, and recovery priorities. For a firm that performs payment, clearing, and settlement activities in critical financial markets, contingency strategies align with existing guidance.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s3-c",
+      "ref": "section 3(c)",
+      "heading": "Business Continuity Management",
+      "text": "The firm tests business continuity plans, reviews the execution of tests, and improves plans by incorporating lessons learned. Business continuity tests and exercises incorporate dependencies of critical operations and core business lines on third parties. When possible, the firm participates in disaster recovery and business continuity testing with third parties associated with critical operations and core business lines.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s3-d",
+      "ref": "section 3(d)",
+      "heading": "Business Continuity Management",
+      "text": "The firm confirms that functional testing procedures for assessing the ability of a firm’s IT systems to deliver minimum service capacity to critical operations and core business lines are consistent with the firm’s business continuity objectives. The firm’s business continuity management considers and incorporates scenarios in which service capacity and business continuity objectives cannot be met.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s3-e",
+      "ref": "section 3(e)",
+      "heading": "Business Continuity Management",
+      "text": "The firm identifies and manages the availability of personnel who are essential to the execution of the firm’s critical operations and core business lines. The firm has (an) alternate site(s) that has sufficient resources (including personnel), technology capabilities, and functionality to execute the firm’s critical operations and core business lines in the event of a disruption. The alternate site(s) is (are) located at a sufficient geographical distance from the primary site and has (have) a distinct risk profile.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s3-f",
+      "ref": "section 3(f)",
+      "heading": "Business Continuity Management",
+      "text": "The firm's business continuity management includes remote-access contingencies that allow personnel to continue delivering the firm’s critical operations and core business lines through a disruption. The management of contingencies prioritize critical operations and core business lines and provide personnel adequate connectivity, communication, and collaboration tools, essential technology resources, and access to network systems. These contingencies incorporate transitioning personnel back to normal operations following the resolution of a disruption.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s3-g",
+      "ref": "section 3(g)",
+      "heading": "Business Continuity Management",
+      "text": "The firm trains essential personnel who have responsibility for executing critical operations and core business lines to perform back-up roles should a disruption occur. The firm implements an operational resilience training and awareness program to evaluate the effectiveness of personnel-related business continuity arrangements and the program is improved as shortcomings are identified.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s3-h",
+      "ref": "section 3(h)",
+      "heading": "Business Continuity Management",
+      "text": "The firm’s recovery or resolution planning, if applicable, is integrated into its governance and operating processes and is part of business-as-usual activities, including firm-wide risk management processes. In the context of operational resilience, recovery or resolution planning is understood as complementary to, and linked with, existing risk management and business continuity management processes.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s3-i",
+      "ref": "section 3(i)",
+      "heading": "Business Continuity Management",
+      "text": "The firm leverages information contained in its recovery or resolution plans, where applicable, to identify options to respond to a wide range of severe but plausible internal and external stress scenarios. The firm similarly leverages the identification of interconnections and interdependencies among critical operations and core business lines affiliates, subsidiaries, and third parties.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s4-a",
+      "ref": "section 4(a)",
+      "heading": "Third-Party Risk Management",
+      "text": "The firm identifies and analyzes third-party risk of critical operations and core business lines. It prioritizes third-party dependencies that are most significant to the firm and understands, manages, and mitigates its risks.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s4-b",
+      "ref": "section 4(b)",
+      "heading": "Third-Party Risk Management",
+      "text": "The firm establishes relationships with third parties through formal agreements. The firm’s manages and monitors the performance of third parties against its service requirements and its tolerance for disruption.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s4-c",
+      "ref": "section 4(c)",
+      "heading": "Third-Party Risk Management",
+      "text": "The firm periodically reviews reports of systems and controls and summaries of test results or other equivalent assessments of third parties. It establishes processes and benchmarks for monitoring a third party’s ability to continue to deliver services during disruptions.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s4-d",
+      "ref": "section 4(d)",
+      "heading": "Third-Party Risk Management",
+      "text": "The firm verifies that third parties have sound risk management practices and controls in place that serve to identify and mitigate hazards to operations and are consistent with the firm’s tolerance for disruption.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s4-e",
+      "ref": "section 4(e)",
+      "heading": "Third-Party Risk Management",
+      "text": "The firm addresses key third-party concerns to the extent that these concerns affect the firm’s operational resilience (e.g., through due diligence, contract negotiations, ongoing monitoring, and termination of contracts).",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s4-f",
+      "ref": "section 4(f)",
+      "heading": "Third-Party Risk Management",
+      "text": "The firm identifies risks of third parties that provide it with public and critical infrastructure services, such as energy and telecommunications. The firm has processes to manage disruptions of these services and updates these processes as appropriate to stay within its tolerance for disruption.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s4-g",
+      "ref": "section 4(g)",
+      "heading": "Third-Party Risk Management",
+      "text": "The firm identifies other third parties that may be available to assist in the event its current third parties are unable to continue delivering services. The firm assesses the substitutability of third parties that provide services supporting the firm’s critical operations and core business lines including the possibility of bringing a service back in-house.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s5-a",
+      "ref": "section 5(a)",
+      "heading": "Scenario Analysis",
+      "text": "Operational risks identified by the firm’s operational risk management function, independent internal (or external) audit function, business continuity management, and recovery or resolution planning activities should be incorporated, as applicable, into severe but plausible scenarios affecting the firm’s critical operations and core business lines. The firm designs the scenarios so that they may be used to test the firm’s tolerance for disruption.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s5-b",
+      "ref": "section 5(b)",
+      "heading": "Scenario Analysis",
+      "text": "The firm maintains a robust governance framework and independent review function to oversee the integrity and consistency of the scenario development process.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s5-c",
+      "ref": "section 5(c)",
+      "heading": "Scenario Analysis",
+      "text": "In designing scenarios, the firm leverages both the mapped interconnections and interdependencies of its critical operations and core business lines including its third-party risks, set forth in its recovery or resolution plans, as well as relevant business impact analyses.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s5-d",
+      "ref": "section 5(d)",
+      "heading": "Scenario Analysis",
+      "text": "The firm uses scenario analysis to back-test against past instances of severe disruptions that have arisen from various disruptions. The results of back-testing are used to refine scenarios and increase their effectiveness for future.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s5-e",
+      "ref": "section 5(e)",
+      "heading": "Scenario Analysis",
+      "text": "The firm identifies potential risk transmission channels, concentrations, and vulnerabilities by analyzing the interconnections and interdependencies within and across its critical operations and core business lines considering third-party risks. The information that is obtained from these analyses informs the firm’s tolerance for disruption.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s6-a",
+      "ref": "section 6(a)",
+      "heading": "Secure and Resilient Information System Management",
+      "text": "Information systems, including elements that depend on third parties, supporting the firm’s critical operations and core business lines are subject to robust risk identification, protection, detection, and response and recovery programs that are regularly tested. Information systems incorporate appropriate situational awareness and provide management with relevant information on a timely basis.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s6-b",
+      "ref": "section 6(b)",
+      "heading": "Secure and Resilient Information System Management",
+      "text": "The firm routinely applies and evaluates the effectiveness of processes and controls to protect the confidentiality, integrity, availability, and overall security of the firm’s data and information systems.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s6-c",
+      "ref": "section 6(c)",
+      "heading": "Secure and Resilient Information System Management",
+      "text": "The firm establishes controls to safeguard the integrity and availability of critical data against the impact of destructive malware, including ransomware, or other similar threats. Recovery from such incidents may include use of protocols for secure, immutable, off-line storage of critical data.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s6-d",
+      "ref": "section 6(d)",
+      "heading": "Secure and Resilient Information System Management",
+      "text": "The firm reviews information systems and controls on a regular basis against common industry standards and best practices. The firm also regularly reviews and updates its systems and controls for security against evolving threats including cyber threats and emerging or new technologies.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s6-e",
+      "ref": "section 6(e)",
+      "heading": "Secure and Resilient Information System Management",
+      "text": "The firm may benefit from use of a standardized tool that is aligned with common industry standards and best practices to assess its cybersecurity preparedness as described in Appendix A.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s7-a",
+      "ref": "section 7(a)",
+      "heading": "Surveillance and Reporting",
+      "text": "The firm identifies and monitors ongoing exposure to operational risk relative to its risk appetite and tolerance for disruption. The firm establishes and maintains appropriate communication and coordination procedures to inform all relevant areas of the firm’s ongoing exposures.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s7-b",
+      "ref": "section 7(b)",
+      "heading": "Surveillance and Reporting",
+      "text": "The firm detects in a timely manner anomalous activity that could lead to a disruption affecting the firm’s critical operations and core business lines, and it assesses the potential impact of the activity together with the effectiveness of protective measures.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "OCC-2020-94-s7-c",
+      "ref": "section 7(c)",
+      "heading": "Surveillance and Reporting",
+      "text": "The firm conducts continuous surveillance and reporting to senior management and the board of directors that provides sufficient data and information for timely and appropriate decisions regarding measures to respond to a disruption.",
+      "text_status": "verbatim",
+      "tags": []
+    }
+  ]
 }

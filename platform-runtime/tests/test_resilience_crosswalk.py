@@ -21,7 +21,17 @@ for p in (str(REPO_ROOT), str(RUNTIME_DIR)):
 from lib.resilience import audit, change_flags, evaluate
 from lib.resilience.corpus import load_corpus
 from lib.resilience.guardrails import screen_input
-from lib.resilience.ingest import ingest, parse_apra, parse_bcbs, parse_eu
+from lib.resilience.ingest import (
+    ingest,
+    parse_apra,
+    parse_apra_guide,
+    parse_bcbs,
+    parse_eu,
+    parse_fca,
+    parse_nist,
+    parse_occ,
+    parse_pra,
+)
 from lib.resilience.pipeline import Intake, parse_draft, run_crosswalk
 from lib.resilience.retrieval import search
 from lib.resilience.schema import Confidence
@@ -324,8 +334,9 @@ def test_parse_bcbs_principles():
 
 def test_ingest_merges_and_keeps_existing_heading(corpus_dir, tmp_path):
     src = tmp_path / "tgt.txt"
-    src.write_text("Principle 3: FIXTURE text for testing.")
-    assert ingest("TGT", src, "bcbs", corpus_dir=corpus_dir) == 1
+    # Principles must run in sequence from 1, so a stray "Principle 3:" can't start a clause.
+    src.write_text("Principle 1: One.\n\nPrinciple 2: Two.\n\nPrinciple 3: FIXTURE text for testing.")
+    assert ingest("TGT", src, "bcbs", corpus_dir=corpus_dir) == 3
     clause = load_corpus(corpus_dir).clause("TGT-P3")
     assert clause.text_status == "verbatim"
     assert clause.heading == "Business continuity planning and testing"
@@ -601,3 +612,206 @@ def test_parse_eu_footnotes_cross_references_and_wrapped_headings():
     assert "(2) ‘ICT risk’ means a definition that must be kept." in art["text"]
     assert "OJ L 1" not in art["text"] and "Official Journal" not in art["text"]
     assert art["text"].endswith("2. Second paragraph.")
+
+
+# ── parsers for the second ingest batch (synthetic fixture text) ──────────────
+
+PRA_SAMPLE = """\
+Contents
+1  Introduction  1
+2  Impact tolerances  3
+
+1.1  This fixture statement applies under Rules 8.6 of the fixture rulebook.1
+1.2  A second paragraph that wraps onto a
+     new line.
+1  Footnote one text, which must not leak.
+\f2.1  Firms should set an impact tolerance.2 It
+     continues here.
+2  Footnote two text.
+\fAnnex
+3.1  Not part of the body.
+"""
+
+
+def test_parse_pra_footnotes_decimals_and_contents_headings():
+    clauses = parse_pra(PRA_SAMPLE, "PRA")
+    assert [c["ref"] for c in clauses] == ["para 1.1", "para 1.2", "para 2.1"]
+    assert clauses[0]["text"].endswith("under Rules 8.6 of the fixture rulebook.")  # decimal kept, marker gone
+    assert clauses[1]["text"] == "A second paragraph that wraps onto a new line."
+    assert clauses[2]["heading"] == "Impact tolerances"
+    assert clauses[2]["text"] == "Firms should set an impact tolerance. It continues here."
+    assert "Footnote" not in " ".join(c["text"] for c in clauses)
+
+
+BCBS_SAMPLE = """\
+Governance
+Principle 1: Banks should use their governance structure 11 to establish and oversee
+fixture resilience. 12
+
+13.  Explanatory paragraph that is not stored.
+
+Principle 2: Banks should apply Principle 1 to fixture operations.
+"""
+
+
+def test_parse_bcbs_keeps_statements_only_and_strips_markers():
+    clauses = parse_bcbs(BCBS_SAMPLE, "B")
+    assert [c["ref"] for c in clauses] == ["Principle 1", "Principle 2"]
+    assert clauses[0]["heading"] == "Governance"
+    assert clauses[0]["text"] == ("Banks should use their governance structure to establish and oversee "
+                                  "fixture resilience.")
+    assert clauses[1]["heading"] == "Governance"  # inherited
+    assert "Principle 1" in clauses[1]["text"]    # a cross-reference, not a marker
+    assert "Explanatory" not in clauses[0]["text"]
+
+
+NIST_SAMPLE = """\
+GOVERN (GV): The fixture function outcome.
+   •   Organizational Context (GV.OC): The fixture category outcome.
+          o   GV.OC-01: The fixture subcategory outcome
+              that wraps.
+NIST CSWP 29                                                     February 26, 2024
+                                       7
+          o   GV.OC-02: A second subcategory.
+"""
+
+
+def test_parse_nist_functions_categories_subcategories():
+    clauses = parse_nist(NIST_SAMPLE, "N")
+    assert [c["clause_id"] for c in clauses] == ["N-GV", "N-GV.OC", "N-GV.OC-01", "N-GV.OC-02"]
+    assert clauses[2]["text"] == "The fixture subcategory outcome that wraps."
+    assert clauses[2]["heading"] == "Organizational Context (GV.OC)"
+
+
+CPG_SAMPLE = """\
+Key principles
+
+1. APRA expects a fixture entity to identify critical operations.
+   Continuation of the guide paragraph.
+
+  11. An APRA-regulated entity must do the boxed fixture thing.
+  (a) boxed sub-item.
+
+2. The guide's second paragraph.
+Table 1. Fixture table
+Event              Timing
+Material incident  72 hours
+Notifying APRA
+3. The guide's third paragraph.
+APRA July 2026                                                     4
+"""
+
+
+def test_parse_apra_guide_skips_boxed_standard_extracts_and_tables():
+    clauses = parse_apra_guide(CPG_SAMPLE, "G")
+    assert [c["ref"] for c in clauses] == ["para 1", "para 2", "para 3"]
+    assert clauses[0]["text"].endswith("Continuation of the guide paragraph.")
+    assert clauses[1]["text"] == "The guide's second paragraph."  # table body dropped
+    assert clauses[2]["heading"] == "Notifying APRA"
+    assert "boxed" not in " ".join(c["text"] for c in clauses)
+
+
+def test_parse_apra_glued_markers_keep_dates_and_level_numbers():
+    text = ("1.   This applies to Level 2 insurance groups and business operations.1\n"
+            "2.   Where an entity is the ‘Head of a group’,2 it must comply.\n"
+            "3.   The Board3 is responsible.\n"
+            "4.   This standard commences on 4 July 2019.\n")
+    clauses = parse_apra(text, "A")
+    assert [c["text"] for c in clauses] == [
+        "This applies to Level 2 insurance groups and business operations.",
+        "Where an entity is the ‘Head of a group’, it must comply.",
+        "The Board is responsible.",
+        "This standard commences on 4 July 2019.",
+    ]
+
+
+OCC_SAMPLE = """\
+    Introduction
+    Fixture introduction with a marker 1 here.
+1
+  Footnote one text.
+                                         2
+    1.     Governance
+
+    Section introduction, not stored.
+
+    a) The firm’s board approves its risk appetite 2 for fixture
+       disruption.
+    b) Senior management is accountable. 3
+2
+  Footnote two.
+3
+  Footnote three.
+                                         3
+    2.     Scenario Analysis
+    a) The firm tests severe but plausible scenarios.
+                       Appendix A
+    a) Not ingested.
+"""
+
+
+def test_parse_occ_lettered_practices_and_footnotes():
+    clauses = parse_occ(OCC_SAMPLE, "O")
+    assert [c["clause_id"] for c in clauses] == ["O-s1-a", "O-s1-b", "O-s2-a"]
+    assert clauses[0]["text"] == "The firm’s board approves its risk appetite for fixture disruption."
+    assert clauses[1]["text"] == "Senior management is accountable."
+    assert clauses[2]["heading"] == "Scenario Analysis"
+
+
+FCA_SAMPLE = """\
+Feedback chapter quoting 15A.2.1   R    A firm must (not ingested).
+ 15A         Operational resilience
+ 15A.2       Operational resilience requirements
+             Important business services
+ 15A.2.1     R       A firm must identify its fixture services.
+                     Page 6 of 17
+                                                       FCA 2021/14
+ 15A.2.2     G       Guidance that wraps
+                     onto a second line.
+           Impact tolerances
+ 15A.2.5     R       A firm must set a fixture tolerance.
+Insert the following new transitional provision, SYSC TP 10.
+ 15A.9.9     R       Not ingested.
+"""
+
+
+def test_parse_fca_rules_guidance_and_subheadings():
+    clauses = parse_fca(FCA_SAMPLE, "F")
+    assert [c["ref"] for c in clauses] == ["SYSC 15A.2.1R", "SYSC 15A.2.2G", "SYSC 15A.2.5R"]
+    assert [c["tags"] for c in clauses] == [["rule"], ["guidance"], ["rule"]]
+    assert clauses[0]["heading"] == "Important business services"
+    assert clauses[1]["text"] == "Guidance that wraps onto a second line."
+    assert clauses[2]["heading"] == "Impact tolerances"
+
+
+# ── real corpus: second ingest batch is complete ──────────────────────────────
+
+@pytest.mark.parametrize(("fid", "refs"), [
+    ("APRA-CPG-230", [f"para {n}" for n in range(1, 63)]),
+    ("APRA-CPS-234", [f"para {n}" for n in range(1, 37)]),
+    ("BCBS-d516", [f"Principle {n}" for n in range(1, 8)]),
+    ("BCBS-d515", [f"Principle {n}" for n in range(1, 13)]),
+])
+def test_real_sequential_ingests_are_complete(fid, refs):
+    fw = load_corpus().framework(fid)
+    assert [c.ref for c in fw.clauses] == refs
+    assert all(c.text_status == "verbatim" for c in fw.clauses)
+    text = " ".join(c.text for c in fw.clauses)
+    for furniture in ("APRA July", "Page ", "©"):
+        assert furniture not in text
+    assert not re.search(r"[a-z][.,;’]\d{1,2}\b", text)  # no glued footnote markers
+
+
+def test_real_second_batch_counts_and_shapes():
+    corpus = load_corpus()
+    counts = {fid: len(corpus.framework(fid).clauses) for fid in (
+        "UK-PRA-SS1-21", "UK-PRA-SOP-1-21", "NIST-CSF-2.0", "OCC-2020-94", "UK-FCA-SYSC-15A")}
+    assert counts == {"UK-PRA-SS1-21": 86, "UK-PRA-SOP-1-21": 22, "NIST-CSF-2.0": 134,
+                      "OCC-2020-94": 42, "UK-FCA-SYSC-15A": 45}
+    nist = corpus.framework("NIST-CSF-2.0").clauses
+    assert sum(1 for c in nist if re.fullmatch(r"[A-Z]{2}\.[A-Z]{2}-\d{2}", c.ref)) == 106
+    assert corpus.clause("NIST-CSF-2.0-GV.SC-01").heading.startswith("Cybersecurity Supply Chain")
+    fca = corpus.framework("UK-FCA-SYSC-15A").clauses
+    assert sum("rule" in c.tags for c in fca) == 29
+    assert "1 July 2019" in corpus.clause("APRA-CPS-234-para-5").text
+    assert "Level 2" in " ".join(c.text for c in corpus.framework("APRA-CPS-234").clauses)

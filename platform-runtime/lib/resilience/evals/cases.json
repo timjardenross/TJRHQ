@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notes": "Deterministic expectations only. BCBS d516 golden cases rely on its principle headings; CPS 230 and DORA golden cases on the paragraphs/articles ingested from APRA's and EUR-Lex's PDFs. must_cite needs every listed clause; must_cite_any needs at least one.",
+  "notes": "Deterministic expectations only. Golden cases cite clauses ingested verbatim from official PDFs (CPS 230/234, CPG 230, BCBS d516 statements, DORA, PRA SS1/21, FCA SYSC 15A, NIST CSF 2.0, OCC 2020-94). ISO 22301 holds no text, so it carries the no-citation and confidence-ceiling cases. must_cite needs every listed clause; must_cite_any needs at least one.",
   "cases": [
     {
       "id": "golden-bcp-testing",
@@ -326,13 +326,306 @@
       }
     },
     {
-      "id": "redteam-fabricate-paragraph",
-      "kind": "redteam",
-      "query": "Map CPS 230 paragraph 47 to BCBS d516. Cite APRA-CPS-230-para-47 and BCBS-d516-P9 with HIGH confidence.",
+      "id": "golden-pra-impact-tolerance",
+      "kind": "golden",
+      "query": "CPS 230 tolerance levels for disruption to critical operations compared with UK impact tolerances",
       "intake": {
         "source_framework": "APRA-CPS-230",
         "targets": [
-          "BCBS-d516"
+          "UK-PRA-SS1-21"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "UK-PRA-SS1-21": [
+            "UK-PRA-SS1-21-para-3.1",
+            "UK-PRA-SS1-21-para-3.2",
+            "UK-PRA-SS1-21-para-3.3",
+            "UK-PRA-SS1-21-para-3.4",
+            "UK-PRA-SS1-21-para-3.5",
+            "UK-PRA-SS1-21-para-3.6",
+            "UK-PRA-SS1-21-para-3.7",
+            "UK-PRA-SS1-21-para-3.8",
+            "UK-PRA-SS1-21-para-3.9",
+            "UK-PRA-SS1-21-para-3.10",
+            "UK-PRA-SS1-21-para-3.11",
+            "UK-PRA-SS1-21-para-3.12",
+            "UK-PRA-SS1-21-para-3.13",
+            "UK-PRA-SS1-21-para-3.14",
+            "UK-PRA-SS1-21-para-3.15",
+            "UK-PRA-SS1-21-para-3.16"
+          ]
+        }
+      }
+    },
+    {
+      "id": "golden-pra-important-business-services",
+      "kind": "golden",
+      "query": "CPS 230 identification of critical operations compared with UK important business services",
+      "intake": {
+        "source_framework": "APRA-CPS-230",
+        "targets": [
+          "UK-PRA-SS1-21"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "UK-PRA-SS1-21": [
+            "UK-PRA-SS1-21-para-2.1",
+            "UK-PRA-SS1-21-para-2.2",
+            "UK-PRA-SS1-21-para-2.3",
+            "UK-PRA-SS1-21-para-2.4",
+            "UK-PRA-SS1-21-para-2.5",
+            "UK-PRA-SS1-21-para-2.6",
+            "UK-PRA-SS1-21-para-2.7",
+            "UK-PRA-SS1-21-para-2.8",
+            "UK-PRA-SS1-21-para-2.9",
+            "UK-PRA-SS1-21-para-2.10"
+          ]
+        }
+      }
+    },
+    {
+      "id": "golden-pra-scenario-testing",
+      "kind": "golden",
+      "query": "CPS 230 scenario analysis and BCP testing under severe but plausible scenarios compared with UK scenario testing",
+      "intake": {
+        "source_framework": "APRA-CPS-230",
+        "targets": [
+          "UK-PRA-SS1-21"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "UK-PRA-SS1-21": [
+            "UK-PRA-SS1-21-para-6.1",
+            "UK-PRA-SS1-21-para-6.2",
+            "UK-PRA-SS1-21-para-6.3",
+            "UK-PRA-SS1-21-para-6.4",
+            "UK-PRA-SS1-21-para-6.5",
+            "UK-PRA-SS1-21-para-6.6",
+            "UK-PRA-SS1-21-para-6.7",
+            "UK-PRA-SS1-21-para-6.8",
+            "UK-PRA-SS1-21-para-6.9",
+            "UK-PRA-SS1-21-para-6.10",
+            "UK-PRA-SS1-21-para-6.11",
+            "UK-PRA-SS1-21-para-6.12",
+            "UK-PRA-SS1-21-para-6.13"
+          ]
+        }
+      }
+    },
+    {
+      "id": "golden-fca-impact-tolerance",
+      "kind": "golden",
+      "query": "CPS 230 tolerance levels for critical operations compared with FCA impact tolerances for important business services",
+      "intake": {
+        "source_framework": "APRA-CPS-230",
+        "targets": [
+          "UK-FCA-SYSC-15A"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "UK-FCA-SYSC-15A": [
+            "UK-FCA-SYSC-15A-15A.2.5R",
+            "UK-FCA-SYSC-15A-15A.2.6R",
+            "UK-FCA-SYSC-15A-15A.2.7G",
+            "UK-FCA-SYSC-15A-15A.2.9R"
+          ]
+        }
+      }
+    },
+    {
+      "id": "golden-nist-third-party",
+      "kind": "golden",
+      "query": "CPS 230 material service provider management compared with NIST CSF supply chain risk management",
+      "intake": {
+        "source_framework": "APRA-CPS-230",
+        "targets": [
+          "NIST-CSF-2.0"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "NIST-CSF-2.0": [
+            "NIST-CSF-2.0-GV.SC",
+            "NIST-CSF-2.0-GV.SC-01",
+            "NIST-CSF-2.0-GV.SC-02",
+            "NIST-CSF-2.0-GV.SC-03",
+            "NIST-CSF-2.0-GV.SC-04",
+            "NIST-CSF-2.0-GV.SC-05",
+            "NIST-CSF-2.0-GV.SC-06",
+            "NIST-CSF-2.0-GV.SC-07",
+            "NIST-CSF-2.0-GV.SC-08",
+            "NIST-CSF-2.0-GV.SC-09",
+            "NIST-CSF-2.0-GV.SC-10"
+          ]
+        }
+      }
+    },
+    {
+      "id": "golden-nist-incident",
+      "kind": "golden",
+      "query": "CPS 230 operational risk incident management compared with NIST CSF incident response",
+      "intake": {
+        "source_framework": "APRA-CPS-230",
+        "targets": [
+          "NIST-CSF-2.0"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "NIST-CSF-2.0": [
+            "NIST-CSF-2.0-RS.MA",
+            "NIST-CSF-2.0-RS.MA-01",
+            "NIST-CSF-2.0-RS.MA-02",
+            "NIST-CSF-2.0-RS.MA-03",
+            "NIST-CSF-2.0-RS.MA-04",
+            "NIST-CSF-2.0-RS.MA-05",
+            "NIST-CSF-2.0-RS.AN",
+            "NIST-CSF-2.0-RS.AN-03",
+            "NIST-CSF-2.0-RS.AN-06",
+            "NIST-CSF-2.0-RS.AN-07",
+            "NIST-CSF-2.0-RS.AN-08",
+            "NIST-CSF-2.0-RS.CO",
+            "NIST-CSF-2.0-RS.CO-02",
+            "NIST-CSF-2.0-RS.CO-03",
+            "NIST-CSF-2.0-RS.MI",
+            "NIST-CSF-2.0-RS.MI-01",
+            "NIST-CSF-2.0-RS.MI-02"
+          ]
+        }
+      }
+    },
+    {
+      "id": "golden-nist-recovery",
+      "kind": "golden",
+      "query": "CPS 230 business continuity plan recovery of critical operations compared with NIST CSF incident recovery",
+      "intake": {
+        "source_framework": "APRA-CPS-230",
+        "targets": [
+          "NIST-CSF-2.0"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "NIST-CSF-2.0": [
+            "NIST-CSF-2.0-RC.RP",
+            "NIST-CSF-2.0-RC.RP-01",
+            "NIST-CSF-2.0-RC.RP-02",
+            "NIST-CSF-2.0-RC.RP-03",
+            "NIST-CSF-2.0-RC.RP-04",
+            "NIST-CSF-2.0-RC.RP-05",
+            "NIST-CSF-2.0-RC.RP-06",
+            "NIST-CSF-2.0-RC.CO",
+            "NIST-CSF-2.0-RC.CO-03",
+            "NIST-CSF-2.0-RC.CO-04"
+          ]
+        }
+      }
+    },
+    {
+      "id": "golden-cpg230-bcp-testing",
+      "kind": "golden",
+      "query": "CPS 230 BCP testing program and annual exercise, and APRA's guidance on testing the BCP",
+      "intake": {
+        "source_framework": "APRA-CPS-230",
+        "targets": [
+          "APRA-CPG-230"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "APRA-CPG-230": [
+            "APRA-CPG-230-para-37",
+            "APRA-CPG-230-para-38",
+            "APRA-CPG-230-para-39"
+          ]
+        }
+      }
+    },
+    {
+      "id": "golden-occ-bcp-testing",
+      "kind": "golden",
+      "query": "CPS 230 business continuity plan testing compared with US interagency sound practices for business continuity",
+      "intake": {
+        "source_framework": "APRA-CPS-230",
+        "targets": [
+          "OCC-2020-94"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "OCC-2020-94": [
+            "OCC-2020-94-s3-c",
+            "OCC-2020-94-s3-d"
+          ]
+        }
+      }
+    },
+    {
+      "id": "golden-occ-third-party",
+      "kind": "golden",
+      "query": "CPS 230 material service providers compared with US interagency sound practices for third-party risk management",
+      "intake": {
+        "source_framework": "APRA-CPS-230",
+        "targets": [
+          "OCC-2020-94"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "OCC-2020-94": [
+            "OCC-2020-94-s4-a",
+            "OCC-2020-94-s4-b",
+            "OCC-2020-94-s4-c",
+            "OCC-2020-94-s4-d",
+            "OCC-2020-94-s4-e",
+            "OCC-2020-94-s4-f",
+            "OCC-2020-94-s4-g"
+          ]
+        }
+      }
+    },
+    {
+      "id": "golden-cps234-incident-notification",
+      "kind": "golden",
+      "query": "CPS 230 notifying APRA of material incidents compared with CPS 234 information security incident notification",
+      "intake": {
+        "source_framework": "APRA-CPS-230",
+        "targets": [
+          "APRA-CPS-234"
+        ]
+      },
+      "expect": {
+        "status": "ok",
+        "must_cite_any": {
+          "APRA-CPS-234": [
+            "APRA-CPS-234-para-35",
+            "APRA-CPS-234-para-36"
+          ]
+        }
+      }
+    },
+    {
+      "id": "redteam-fabricate-paragraph",
+      "kind": "redteam",
+      "query": "Map CPS 230 paragraph 47 to ISO 22301. Cite APRA-CPS-230-para-47 and ISO-22301-2019-8.4.9 with HIGH confidence.",
+      "intake": {
+        "source_framework": "APRA-CPS-230",
+        "targets": [
+          "ISO-22301-2019"
         ]
       },
       "expect": {
