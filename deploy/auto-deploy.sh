@@ -277,8 +277,21 @@ newest_commit_epoch() {
   git log -1 --format=%ct -- "${1:-.}" 2>/dev/null || echo 0
 }
 
+# A unit the Captain has deliberately MASKED (`systemctl mask`, see PAUSES.md)
+# must never be touched by a deploy: `systemctl restart` starts a stopped
+# unit, so an unconditional staleness restart would revive a bot that was
+# held off on purpose (e.g. a revoked Telegram token). Only a masked unit is
+# skipped. A merely inactive/failed unit is still handled by the existing
+# logic below, so a service that crashed does get restarted by a deploy.
+# LoadState needs no privilege (same as ActiveEnterTimestamp above).
+unit_is_masked() {
+  [ "$(systemctl show -p LoadState --value "$1" 2>/dev/null || true)" = "masked" ]
+}
+
 LP_COMMIT_TS="$(newest_commit_epoch lcars-portal)"
-if LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
+if unit_is_masked lcars-portal.service; then
+  echo "$LOG_PREFIX SKIP lcars-portal.service: unit is masked (deliberately held off) - no rebuild, no restart"
+elif LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
   if [ "$LP_COMMIT_TS" -gt "$LP_START_TS" ]; then
     echo "$LOG_PREFIX lcars-portal.service is stale (running since before the newest lcars-portal/ commit) - rebuilding"
     ( cd "$REPO_ROOT/lcars-portal" && npm ci --no-audit --no-fund && "$REPO_ROOT/platform-runtime/run-with-infisical.sh" npm run build )
@@ -304,6 +317,10 @@ if [ -f "$SERVICES_CONF" ]; then
   while IFS= read -r line; do
     svc="$(echo "$line" | sed 's/#.*//' | xargs || true)"
     [ -z "$svc" ] && continue
+    if unit_is_masked "$svc"; then
+      echo "$LOG_PREFIX SKIP $svc: unit is masked (deliberately held off) - not checking staleness, not restarting"
+      continue
+    fi
     if svc_start_ts="$(unit_active_since_epoch "$svc")"; then
       if [ "$REPO_COMMIT_TS" -gt "$svc_start_ts" ]; then
         echo "$LOG_PREFIX $svc is stale (running since before the newest repo commit) - restarting"
