@@ -7,7 +7,7 @@
 # This file went stale when that happened (still described the deleted
 # xo-bot/ layout) until corrected 2026-07-12 to match the live unit.
 Description=Starship XO Telegram bot (new architecture)
-After=network.target
+After=network.target docker.service
 
 [Service]
 WorkingDirectory=/opt/starship-endeavour

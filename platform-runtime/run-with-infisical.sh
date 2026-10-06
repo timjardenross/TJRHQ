@@ -47,10 +47,12 @@ source "$AUTH_FILE"
 # --token to that env var name internally; env is still readable via
 # /proc/<pid>/environ, but that requires root/same-UID, matching every
 # other secret already exposed that way on this host.
-export INFISICAL_TOKEN="$(infisical login --method=universal-auth \
-  --client-id="$INFISICAL_UA_CLIENT_ID" \
-  --client-secret="$INFISICAL_UA_CLIENT_SECRET" \
-  --domain="$DOMAIN" --plain --silent)"
+# Shared readiness wait + strict login (see lib-infisical.sh for why): a failed
+# login must stop here, not hand `infisical run` an empty token.
+# shellcheck disable=SC1091
+source "$(dirname "$0")/lib-infisical.sh"
+infisical_wait_ready
+infisical_login
 
 exec infisical run \
   --domain="$DOMAIN" \
