@@ -5,6 +5,8 @@ import sys
 import types
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 sys.modules.setdefault("supabase", types.SimpleNamespace(create_client=lambda *a, **k: MagicMock()))
 
 from tools.intelligence import recompute_signal_scores as rss
@@ -83,8 +85,8 @@ class _FakeQuery:
         self.cols = cols
         return self
 
-    def insert(self, rows):
-        self.op, self.payload = "insert", rows
+    def insert(self, rows, returning=None):
+        self.op, self.payload, self.returning = "insert", rows, returning
         return self
 
     def update(self, row):
@@ -120,8 +122,10 @@ class _FakeQuery:
         self.db.log.append({"table": self.table, "op": self.op, "cols": self.cols, "query": self})
         if self.op == "insert":
             rows = self.payload if isinstance(self.payload, list) else [self.payload]
+            if self.table == "validation_job_runs":
+                rows = [{**r, "run_id": "run-1"} for r in rows]
             self.db.tables.setdefault(self.table, []).extend(rows)
-            return _Resp(rows)
+            return _Resp([] if self.returning == "minimal" else rows)  # PostgREST: return=minimal sends no body
         if self.op == "update":
             return _Resp([])
         rows = [r for r in self.db.tables.get(self.table, []) if all(f(r) for f in self.filters)]
@@ -339,3 +343,44 @@ def test_run_reports_calls_and_response_bytes_per_phase_in_the_final_stats():
                                if e["collected_at"] > _iso(rss.WINDOW_DAYS)], separators=(",", ":"), default=str))
     assert rank_bytes == expected  # byte count is len() of the compact JSON the pass actually received
     assert stats["response_bytes_total"] == sum(p["response_bytes"] for p in stats["by_phase"].values())
+
+
+def _inserts(db, table):
+    return [c["query"] for c in db.log if c["table"] == table and c["op"] == "insert"]
+
+
+def test_inserts_whose_response_is_unused_ask_for_return_minimal():
+    # two events sharing >= 2 title words -> a corroboration pair; one escalating event -> a history row
+    events = [_ev(1, 1, title="outage northern region telecom", rank_score=90, osint_confidence_level="HIGH", criticality_score=0.9),
+              _ev(2, 1, title="telecom outage region report")]
+    db = _FakeDB(intelligence_events=events, signal_corroboration=[], signal_escalation_history=[],
+                 intelligence_source_registry=[{"source_id": "src0", "reliability_score": 0.9, "reliability_tier": "TIER_1",
+                                                "accuracy_ratio": 1, "false_positive_rate": 0, "accuracy_sample_size": 5, "active": True}],
+                 source_reliability_snapshot=[], validation_job_runs=[])
+    r = _recomputer_on(db)
+    with patch("intelligence.ranking.ranker._load_srs_scores"):
+        r.run()
+
+    for table in ("signal_corroboration", "source_reliability_snapshot", "signal_escalation_history"):
+        queries = _inserts(db, table)
+        assert queries, f"expected an insert into {table}"
+        assert all(q.returning == "minimal" for q in queries), table
+    # validation_job_runs keeps the default representation: run_id is read back from the response
+    (run_insert,) = _inserts(db, "validation_job_runs")
+    assert run_insert.returning is None
+    assert db.tables["validation_job_runs"][0]["run_id"] == "run-1"
+
+
+def test_window_days_zero_or_negative_is_rejected_not_a_full_sweep():
+    import argparse
+    for bad in ("0", "-3", "abc"):
+        with patch.object(sys, "argv", ["recompute_signal_scores.py", "--window-days", bad]), \
+             patch.object(rss, "SignalScoreRecomputer") as cls, pytest.raises(SystemExit) as exc:
+            rss.main()
+        assert exc.value.code == 2, bad
+        cls.assert_not_called()
+    assert rss._positive_int("21") == 21
+    with pytest.raises(argparse.ArgumentTypeError):
+        rss._positive_int("0")
+    with patch.object(rss, "create_client", return_value=MagicMock()), pytest.raises(ValueError):
+        rss.SignalScoreRecomputer(window_days=0)

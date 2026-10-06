@@ -159,6 +159,8 @@ class SignalScoreRecomputer:
         self.dry_run = dry_run
         self.backfill = backfill
         self.limit = limit
+        if window_days is not None and window_days <= 0:
+            raise ValueError(f"window_days must be > 0 (got {window_days}); use full=True for a full sweep")
         sunday = _is_full_sweep_day()
         # None = no window (full sweep): explicit --full, --backfill, or Sunday UTC.
         self.window_days = None if (full or backfill or sunday) else window_days
@@ -310,7 +312,7 @@ class SignalScoreRecomputer:
             for i in range(0, len(to_insert), 500):
                 chunk = to_insert[i:i + 500]
                 try:
-                    self._exec(self.supabase.table("signal_corroboration").insert(chunk))
+                    self._exec(self.supabase.table("signal_corroboration").insert(chunk, returning="minimal"))
                 except Exception as e:  # noqa: BLE001 - per-chunk insert inside a batch loop — one bad chunk must not abort the run; already logged + counted in self.stats['errors']
                     logger.error(f"Corroboration insert failed for chunk {i}: {e}")
                     self.stats["errors"] += 1
@@ -478,7 +480,7 @@ class SignalScoreRecomputer:
         logger.info(f"Snapshotting {len(rows)} sources")
         if not self.dry_run and rows:
             try:
-                self._exec(self.supabase.table("source_reliability_snapshot").insert(rows))
+                self._exec(self.supabase.table("source_reliability_snapshot").insert(rows, returning="minimal"))
             except Exception as e:  # noqa: BLE001 - best-effort snapshot insert, already logged + counted in self.stats['errors']
                 logger.error(f"Snapshot insert failed: {e}")
                 self.stats["errors"] += 1
@@ -533,7 +535,7 @@ class SignalScoreRecomputer:
                         "confidence": confidence, "escalation_decision": decision,
                         "reason": f"Auto-computed: confidence={confidence}, impact={impact}",
                         "escalated_by": "system",
-                    }))
+                    }, returning="minimal"))
                 except Exception as ex:  # noqa: BLE001 - per-event escalation-log write inside a batch loop — one bad event must not abort the run; already logged + counted in self.stats['errors']
                     logger.error(f"Escalation log failed for {e['event_id']}: {ex}")
                     self.stats["errors"] += 1
@@ -550,6 +552,7 @@ class SignalScoreRecomputer:
         logger.info(f"Recompute mode: {f'windowed, last {self.window_days}d' if self.window_days else f'FULL sweep ({self.full_reason})'}")
         if not self.dry_run:
             try:
+                # default return=representation on purpose: run_id is read back below.
                 run_row = self._exec(self.supabase.table("validation_job_runs").insert(
                     {"started_at": started_at, "status": "running"}
                 )).data[0]
@@ -592,12 +595,23 @@ class SignalScoreRecomputer:
             raise
 
 
+def _positive_int(value):
+    """argparse type: --window-days 0 (or negative) must not silently turn into a full sweep."""
+    try:
+        n = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid int value: {value!r}") from None
+    if n <= 0:
+        raise argparse.ArgumentTypeError(f"must be a positive number of days (got {n}); use --full for a full sweep")
+    return n
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--backfill", action="store_true", help="widen corroboration scan to all history (one-time use)")
     parser.add_argument("--limit", type=int, default=None, help="cap events processed (testing)")
-    parser.add_argument("--window-days", type=int, default=WINDOW_DAYS,
+    parser.add_argument("--window-days", type=_positive_int, default=WINDOW_DAYS,
                         help=f"only recompute events collected in the last N days (default {WINDOW_DAYS}); "
                              "ignored on Sundays (UTC) and with --full")
     parser.add_argument("--full", action="store_true", help="no window: recompute all non-suppressed events")
