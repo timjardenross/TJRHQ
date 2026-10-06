@@ -28,6 +28,14 @@ Usage:
 --backfill widens the corroboration window to all non-suppressed history
 (one-time use). Without it, corroboration only scans the last 3 days —
 that's the steady-state daily mode.
+
+The rank pass is windowed the same way: without --backfill it only reloads
+and rescores events collected in the last RANK_WINDOW_DAYS (14) days.
+ranker._recency_decay() is a constant 0.10 floor past 14 days, so older
+events change only through source-reliability drift, and re-reading the whole
+table every night (18k rows, ~35 min of CPU in the O(n^2) cross-source bonus)
+was the largest remaining Supabase read after the per-row-PATCH fix (#320).
+--backfill restores the full-history pass.
 """
 
 import argparse
@@ -56,6 +64,10 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 from supabase import create_client
+
+# ranker._recency_decay() bottoms out at a constant 0.10 once an event is more
+# than 14 days old, so the rank pass has no reason to reload older rows nightly.
+RANK_WINDOW_DAYS = 14
 
 RISK_SCORES = {"HIGH": 1.0, "MEDIUM": 0.6, "LOW": 0.3}
 
@@ -291,16 +303,29 @@ class SignalScoreRecomputer:
         from intelligence.models import ClassifiedEvent
         from intelligence.ranking.ranker import rank
 
-        rows = self._fetch_all(lambda: (
-            self.supabase.table("intelligence_events")
-            .select("event_id, source_id, raw_title, raw_summary, canonical_url, published_at, collected_at, "
-                    "dedup_hash, event_type, geography, sector, operational_relevance, customer_impact, "
-                    "banking_relevance, cps230_relevance, dependency_risk, confidence, suppressed, "
-                    "suppression_reason, rank_score, intelligence_source_registry(source_name, priority_rank, "
-                    "confidence_weight, category)")
-            .eq("suppressed", False)
-        ))
-        logger.info(f"Rank score recompute: {len(rows)} events")
+        # raw_summary is not read by rank(), so it is not selected. Outside
+        # --backfill the read is limited to the recency-decay window.
+        rank_cutoff = None if self.backfill else (
+            datetime.now(timezone.utc) - timedelta(days=RANK_WINDOW_DAYS)
+        ).isoformat()
+
+        def build_rank_query():
+            q = (
+                self.supabase.table("intelligence_events")
+                .select("event_id, source_id, raw_title, canonical_url, published_at, collected_at, "
+                        "dedup_hash, event_type, geography, sector, operational_relevance, customer_impact, "
+                        "banking_relevance, cps230_relevance, dependency_risk, confidence, suppressed, "
+                        "suppression_reason, rank_score, intelligence_source_registry(source_name, priority_rank, "
+                        "confidence_weight, category)")
+                .eq("suppressed", False)
+            )
+            if rank_cutoff:
+                q = q.gte("collected_at", rank_cutoff)
+            return q
+
+        rows = self._fetch_all(build_rank_query)
+        logger.info(f"Rank score recompute: {len(rows)} events "
+                    f"({'full history' if self.backfill else f'last {RANK_WINDOW_DAYS}d'})")
 
         classified = []
         for r in rows:
@@ -312,7 +337,7 @@ class SignalScoreRecomputer:
                     source_priority=src.get("priority_rank", 5),
                     source_confidence_weight=src.get("confidence_weight", 0.5),
                     source_category=src.get("category", "unknown"),
-                    raw_title=r.get("raw_title") or "", raw_summary=r.get("raw_summary"),
+                    raw_title=r.get("raw_title") or "", raw_summary=None,
                     canonical_url=r.get("canonical_url"),
                     published_at=datetime.fromisoformat(r["published_at"].replace("Z", "+00:00")) if r.get("published_at") else None,
                     collected_at=datetime.fromisoformat(r["collected_at"].replace("Z", "+00:00")) if r.get("collected_at") else datetime.now(timezone.utc),

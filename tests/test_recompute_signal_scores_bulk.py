@@ -58,3 +58,71 @@ def test_bulk_update_chunk_failure_is_counted_not_raised():
     r.supabase.rpc.return_value.execute.side_effect = RuntimeError("boom")
     r._bulk_update_scores([{"event_id": "x", "rank_score": 1.0}] * 3, "rank_score", chunk_size=2)
     assert r.stats["errors"] == 2
+
+
+def _rank_row(i, collected_at="2026-10-05T00:00:00+00:00"):
+    return {
+        "event_id": f"00000000-0000-0000-0000-{i:012d}", "source_id": "s", "raw_title": f"t{i}",
+        "published_at": collected_at, "collected_at": collected_at, "dedup_hash": f"h{i}",
+        "operational_relevance": 0.5, "rank_score": 1.0, "intelligence_source_registry": {},
+    }
+
+
+def _run_rank_pass(r, rows=()):
+    """Run recompute_rank_scores with a stubbed ranker, returning the query builder mock
+    that _fetch_all was handed and the (event_id, score) pairs ranker saw."""
+    seen = {}
+
+    def fake_fetch_all(build_query):
+        seen["q"] = build_query()
+        return list(rows)
+
+    def fake_rank(events):
+        seen["event_ids"] = [e.event_id for e in events]
+        return [types.SimpleNamespace(event_id=e.event_id, rank_score=2.0) for e in events]
+
+    with patch.object(r, "_fetch_all", side_effect=fake_fetch_all), \
+         patch("intelligence.ranking.ranker.rank", side_effect=fake_rank):
+        r.recompute_rank_scores()
+    return seen
+
+
+def test_rank_pass_does_not_select_raw_summary_and_is_windowed_by_default():
+    r = _recomputer()
+    table = r.supabase.table.return_value
+    table.select.return_value.eq.return_value = table  # chain: select().eq() -> same mock
+    table.gte.return_value = table
+    _run_rank_pass(r, [_rank_row(1)])
+
+    selected = table.select.call_args.args[0]
+    assert "raw_summary" not in selected
+    assert "raw_title" in selected  # rank() needs the title for its cross-source bonus
+    (col, cutoff), _ = table.gte.call_args
+    assert col == "collected_at"
+    age = rss.datetime.now(rss.timezone.utc) - rss.datetime.fromisoformat(cutoff)
+    assert rss.timedelta(days=rss.RANK_WINDOW_DAYS) - rss.timedelta(minutes=1) < age < rss.timedelta(days=rss.RANK_WINDOW_DAYS, minutes=1)
+
+
+def test_rank_pass_backfill_reads_full_history():
+    r = _recomputer()
+    r.backfill = True
+    table = r.supabase.table.return_value
+    table.select.return_value.eq.return_value = table
+    _run_rank_pass(r, [_rank_row(1)])
+
+    table.gte.assert_not_called()
+    assert "raw_summary" not in table.select.call_args.args[0]
+
+
+def test_rank_pass_still_writes_changed_scores_in_bulk():
+    r = _recomputer()
+    table = r.supabase.table.return_value
+    table.select.return_value.eq.return_value = table
+    table.gte.return_value = table
+    seen = _run_rank_pass(r, [_rank_row(i) for i in range(3)])
+
+    assert len(seen["event_ids"]) == 3
+    assert r.stats["signals_rank_recomputed"] == 3
+    (name, payload), _ = r.supabase.rpc.call_args
+    assert name == "bulk_update_signal_scores"
+    assert len(payload["p_rows"]) == 3 and payload["p_rows"][0]["rank_score"] == 2.0
