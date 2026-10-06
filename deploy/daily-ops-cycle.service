@@ -1,7 +1,7 @@
 [Unit]
 Description=USS TJR Daily Operating Cycle — Executive Staff Orchestrator (EXEC-001..010A)
 Documentation=file:///opt/starship-endeavour/Missions/Active/USS-TJR-MSN-0390-officer-cycle-adoption.md
-After=network-online.target
+After=network-online.target docker.service
 Wants=network-online.target
 
 # USS-TJR-MSN-0210L/M convergence (2026-09-26): platform-runtime/lib/

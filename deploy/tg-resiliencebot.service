@@ -1,6 +1,6 @@
 [Unit]
 Description=Resilience Crosswalk Bot (Operational Resilience Advisor) Telegram bot
-After=network.target model-router.service
+After=network.target model-router.service docker.service
 
 [Service]
 WorkingDirectory=/opt/starship-endeavour

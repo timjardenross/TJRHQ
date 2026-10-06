@@ -7,7 +7,7 @@
 # public and must never share that trust boundary. See README.md's
 # "Why a standalone bot" section.
 Description=REVS Telegram bot (public check-in)
-After=network.target
+After=network.target docker.service
 
 [Service]
 WorkingDirectory=/opt/starship-endeavour
