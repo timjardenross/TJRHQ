@@ -1,7 +1,7 @@
 python-telegram-bot==22.8
-supabase==2.31.0
+supabase==2.32.0
 gotrue==2.12.4
-python-dotenv==1.2.3
+python-dotenv==1.2.4
 httpx<0.29
 # evidence_engine.py's personal causal-effect estimate (capacity_interventions
 # .personal_causal_effect*, migration 0202) — Bayesian structural time-series
