@@ -241,6 +241,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v7
+        id: setup-python
         with:
           python-version: "3.11"
 
@@ -296,12 +297,21 @@ jobs:
         uses: actions/cache@v6
         with:
           path: platform-runtime/.venv-llmsec
-          key: llmsec-venv-${{ hashFiles('core/security/requirements-llmsec.txt') }}
+          # python-version in the key (2026-10-08): "3.11" floats to the
+          # runner's newest patch release, and a venv's bin/python3 is a
+          # symlink into that exact hostedtoolcache path. When the runner
+          # moved to 3.11.17 the restored venv's interpreter link dangled and
+          # the provision step below died before any test ran.
+          key: llmsec-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('core/security/requirements-llmsec.txt') }}
 
       - name: Provision llmsec venv (Presidio + NeMo Guardrails)
         if: matrix.name == 'core'
         run: |
-          if [ ! -x platform-runtime/.venv-llmsec/bin/python3 ]; then
+          # Rebuild if the interpreter can't actually run, not just if the
+          # file is missing - a dangling symlink from a stale cache fails -x
+          # but still blocks `python3 -m venv` from recreating it in place.
+          if ! platform-runtime/.venv-llmsec/bin/python3 -c '' 2>/dev/null; then
+            rm -rf platform-runtime/.venv-llmsec
             python3 -m venv platform-runtime/.venv-llmsec
             platform-runtime/.venv-llmsec/bin/pip install --upgrade pip
             platform-runtime/.venv-llmsec/bin/pip install -r core/security/requirements-llmsec.txt
