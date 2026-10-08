@@ -7,12 +7,119 @@
   "status": "in_force",
   "effective_date": "2021-03-31",
   "source_url": "https://www.bis.org/bcbs/publ/d515.htm",
-  "licence": "BIS copyright — headings and short attributed excerpts only",
-  "notes": "",
+  "licence": "BIS copyright. 'Brief excerpts may be reproduced or translated provided the source is stated.' Only the principle statements are stored. Source: Basel Committee on Banking Supervision, Revisions to the PSMOR (d515), March 2021.",
+  "notes": "International. The 12 principle statements ingested verbatim (statements only; explanatory paragraphs not held, per the BIS excerpt terms).",
   "ingestion": {
-    "method": "pending",
-    "source_sha256": null,
-    "ingested_at": null
+    "method": "pdftotext+bcbs",
+    "source_digest": "sha256:72ca731a997a3b942e7b8f2a911b141ec6c234736ecaab1bab455b681723a4f9",
+    "ingested_at": "2026-10-04T00:19:09+00:00",
+    "source_document": "BCBS d515 'Revisions to the Principles for the Sound Management of Operational Risk', BIS, March 2021, 23 pages"
   },
-  "clauses": []
+  "watch": {
+    "sources": [
+      "BIS"
+    ],
+    "patterns": [
+      "\\bd515\\b",
+      "operational risk"
+    ]
+  },
+  "clauses": [
+    {
+      "clause_id": "BCBS-d515-P1",
+      "ref": "Principle 1",
+      "heading": "",
+      "text": "The board of directors should take the lead in establishing a strong risk management culture, implemented by senior management. The board of directors and senior management should establish a corporate culture guided by strong risk management, set standards and incentives for professional and responsible behaviour, and ensure that staff receives appropriate risk management and ethics training.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "BCBS-d515-P2",
+      "ref": "Principle 2",
+      "heading": "",
+      "text": "Banks should develop, implement and maintain an operational risk management framework that is fully integrated into the bank’s overall risk management processes. The ORMF adopted by an individual bank will depend on a range of factors, including the bank’s nature, size, complexity and risk profile.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "BCBS-d515-P3",
+      "ref": "Principle 3",
+      "heading": "Board of directors",
+      "text": "The board of directors should approve and periodically review the operational risk management framework, and ensure that senior management implements the policies, processes and systems of the operational risk management framework effectively at all decision levels.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "BCBS-d515-P4",
+      "ref": "Principle 4",
+      "heading": "Board of directors",
+      "text": "The board of directors should approve and periodically review a risk appetite and tolerance statement for operational risk that articulates the nature, types and levels of operational risk the bank is willing to assume.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "BCBS-d515-P5",
+      "ref": "Principle 5",
+      "heading": "Senior management",
+      "text": "Senior management should develop for approval by the board of directors a clear, effective and robust governance structure with well-defined, transparent and consistent lines of responsibility. Senior management is responsible for consistently implementing and maintaining throughout the organisation policies, processes and systems for managing operational risk in all of the bank’s material products, activities, processes and systems consistent with the bank’s risk appetite and tolerance statement.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "BCBS-d515-P6",
+      "ref": "Principle 6",
+      "heading": "Identification and assessment",
+      "text": "Senior management should ensure the comprehensive identification and assessment of the operational risk inherent in all material products, activities, processes and systems to make sure the inherent risks and incentives are well understood.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "BCBS-d515-P7",
+      "ref": "Principle 7",
+      "heading": "Identification and assessment",
+      "text": "Senior management should ensure that the bank’s change management process is comprehensive, appropriately resourced and adequately articulated between the relevant lines of defence.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "BCBS-d515-P8",
+      "ref": "Principle 8",
+      "heading": "Monitoring and reporting",
+      "text": "Senior management should implement a process to regularly monitor operational risk profiles and material operational exposures. Appropriate reporting mechanisms should be in place at the board of directors, senior management, and business unit levels to support proactive management of operational risk.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "BCBS-d515-P9",
+      "ref": "Principle 9",
+      "heading": "Control and mitigation",
+      "text": "Banks should have a strong control environment that utilises policies, processes and systems; appropriate internal controls; and appropriate risk mitigation and/or transfer strategies.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "BCBS-d515-P10",
+      "ref": "Principle 10",
+      "heading": "Information and communication technology",
+      "text": "Banks should implement a robust ICT risk management programme in alignment with their operational risk management framework.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "BCBS-d515-P11",
+      "ref": "Principle 11",
+      "heading": "Business continuity planning",
+      "text": "Banks should have business continuity plans in place to ensure their ability to operate on an ongoing basis and limit losses in the event of a severe business disruption. Business continuity plans should be linked to the bank’s operational risk management framework.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "BCBS-d515-P12",
+      "ref": "Principle 12",
+      "heading": "Role of disclosure",
+      "text": "A bank’s public disclosures should allow stakeholders to assess its approach to operational risk management and its operational risk exposure.",
+      "text_status": "verbatim",
+      "tags": []
+    }
+  ]
 }

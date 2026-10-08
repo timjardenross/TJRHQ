@@ -12,6 +12,7 @@ Callback data (Telegram caps it at 64 bytes):
     xw|run         run the crosswalk
     xw|x           cancel
     rv|<run_id>|<a|e|r>   record review: accepted / edited / rejected
+    cf|<flag_id>|<d|r>    change flag: dismissed / re-ingested
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ USES = (
 )
 DEFAULT_SOURCE = "APRA-CPS-230"
 REVIEW_CODES = {"a": "accepted", "e": "edited", "r": "rejected"}
+FLAG_CODES = {"d": "dismissed", "r": "reingested"}
 MAX_REQUEST_CHARS = 500
 TELEGRAM_TEXT_LIMIT = 4096
 
@@ -106,7 +108,8 @@ def review_keyboard(run_id: str) -> list[list[tuple[str, str]]]:
 
 @dataclass(frozen=True)
 class Callback:
-    kind: str  # toggle | source | use | run | cancel | review | unknown
+    kind: str  # toggle | source | use | run | cancel | review | flag | unknown
+    # run_id carries the flag_id for kind == "flag"
     index: int = -1
     run_id: str = ""
     decision: str = ""
@@ -120,6 +123,8 @@ def parse_callback(data: str) -> Callback:
         simple = {"src": "source", "use": "use", "run": "run", "x": "cancel"}
         if parts[1] in simple and len(parts) == 2:
             return Callback(simple[parts[1]])
+    if parts[0] == "cf" and len(parts) == 3 and parts[2] in FLAG_CODES and parts[1].startswith("cf-"):
+        return Callback("flag", run_id=parts[1], decision=FLAG_CODES[parts[2]])
     if parts[0] == "rv" and len(parts) == 3 and parts[2] in REVIEW_CODES and parts[1].startswith("xw-"):
         return Callback("review", run_id=parts[1], decision=REVIEW_CODES[parts[2]])
     return Callback("unknown")
@@ -151,10 +156,29 @@ def run_summary(run) -> str:
     return "\n".join(lines)[:TELEGRAM_TEXT_LIMIT]
 
 
-def coverage_text(coverage: dict[str, dict[str, int]]) -> str:
+def coverage_text(coverage: dict[str, dict[str, int]], open_flag_counts: dict[str, int] | None = None,
+                  unwatched: list[str] | None = None) -> str:
+    open_flag_counts = open_flag_counts or {}
     lines = ["CORPUS COVERAGE (clauses held)", ""]
     for fid, counts in coverage.items():
         held = ", ".join(f"{k.replace('_', ' ')} {v}" for k, v in counts.items() if v) or "metadata only"
-        lines.append(f"{fid}: {held}")
+        flags = open_flag_counts.get(fid, 0)
+        lines.append(f"{fid}: {held}" + (f"  ⚠ {flags} possible update(s) — /changes" if flags else ""))
     lines += ["", "Mappings to frameworks without verbatim text are capped below HIGH."]
+    if unwatched:
+        lines.append("No change feed for: " + ", ".join(unwatched) + ".")
     return "\n".join(lines)
+
+
+def flag_keyboard(flag_id: str) -> list[list[tuple[str, str]]]:
+    return [[("Dismiss", f"cf|{flag_id}|d"), ("Re-ingested", f"cf|{flag_id}|r")]]
+
+
+def flag_text(flag) -> str:
+    """One open change flag (``lib.resilience.change_flags.ChangeFlag``)."""
+    lines = [f"⚠ {flag.framework_id} — possible source update", "", flag.title or "(untitled)",
+             f"{flag.source_name} · {(flag.published_at or flag.flagged_at)[:10]}"]
+    if flag.url:
+        lines.append(flag.url)
+    lines += ["", "Dismiss if it doesn't change the stored text; mark re-ingested once you've re-run ingest."]
+    return "\n".join(lines)[:TELEGRAM_TEXT_LIMIT]

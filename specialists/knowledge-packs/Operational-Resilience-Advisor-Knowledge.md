@@ -75,16 +75,21 @@ terminology accurately; explain jargon once. No padding, no generic compliance f
 | Every MEDIUM/LOW gets verified | The verification checklist is built in code from the mappings |
 | Data guardrails | `guardrails.py` screens input before it reaches any model |
 | Log outputs and review decisions | `audit.py`: an append-only JSONL run log plus accept/edit/reject reviews |
+| Staying current | `change_flags.py`: a daily scan of APRA/BIS intelligence events flags frameworks a new publication may affect (CPS 230 news flags CPG 230 too). Open flags appear in every crosswalk that touches the framework. UK, US, EU and NIST frameworks have no feed yet |
 
 Run it with `python -m lib.resilience.cli run "<request>"` from `platform-runtime/`. It runs
 through the platform's own model stack (`llm.try_generate_response`).
 
 On Telegram: the Resilience Crosswalk bot (`telegram-bots/resiliencebot/`), with
-`/crosswalk`, `/coverage` and `/pending`, plus review buttons that write to the same audit log.
+`/crosswalk`, `/coverage`, `/pending` and `/changes`, plus review buttons that write to the same audit log.
 
 ## Roadmap
 
-- Ingest CPS 230 and BCBS d516 text from the official PDFs (see `knowledge/regulatory-corpus/README.md`)
-- Regulatory change hook from `tools/intelligence/` (APRA and BIS sources are already seeded)
-- Golden-crosswalk and guardrail red-team evals against a real model
+- Corpus (October 2026): 11 frameworks, 570 verbatim clauses. CPS 230, CPG 230, CPS 234, BCBS d516/d515
+  statements, DORA, PRA SS1/21 and SoP 1/21, FCA SYSC 15A, NIST CSF 2.0 Core and OCC 2020-94. ISO 22301 is
+  metadata only (proprietary). Next: the BCI Good
+  Practice Guidelines if a licensed copy is available
+- Change feeds for unwatched issuers (EU, US) if those frameworks matter
+- Run `python -m lib.resilience.cli eval` on the host (golden, red-team and screen cases in `lib/resilience/evals/cases.json`). Below 80% first-attempt validity, revisit model escalation (ADR-035 option C)
+- Add golden cases for each newly ingested framework, as was done for CPS 230 (`must_cite_any` paragraph ranges)
 - LCARS workbench view of crosswalks and the review queue

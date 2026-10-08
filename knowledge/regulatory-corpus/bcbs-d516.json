@@ -7,20 +7,30 @@
   "status": "in_force",
   "effective_date": "2021-03-31",
   "source_url": "https://www.bis.org/bcbs/publ/d516.htm",
-  "licence": "BIS copyright — store headings and short attributed excerpts only unless permission is confirmed",
-  "notes": "Seeded with principle headings only (no verbatim text). Confidence for these clauses is capped at MEDIUM until text is ingested.",
+  "licence": "BIS copyright. 'Brief excerpts may be reproduced or translated provided the source is stated.' Only the principle statements are stored. Source: Basel Committee on Banking Supervision, Principles for operational resilience (d516), March 2021.",
+  "notes": "International. The 7 principle statements ingested verbatim (statements only: the explanatory paragraphs under each principle are not held, per the BIS excerpt terms).",
   "ingestion": {
-    "method": "manual-index",
-    "source_sha256": null,
-    "ingested_at": null
+    "method": "pdftotext+bcbs",
+    "source_digest": "sha256:5c51372ce172c435836d0f8e2b3a7d74314dc161966549fdae65d2c19733dd38",
+    "ingested_at": "2026-10-04T00:19:09+00:00",
+    "source_document": "BCBS d516 'Principles for operational resilience', BIS, March 2021, 12 pages"
+  },
+  "watch": {
+    "sources": [
+      "BIS"
+    ],
+    "patterns": [
+      "\\bd516\\b",
+      "operational resilience"
+    ]
   },
   "clauses": [
     {
       "clause_id": "BCBS-d516-P1",
       "ref": "Principle 1",
       "heading": "Governance",
-      "text": "",
-      "text_status": "heading_only",
+      "text": "Banks should utilise their existing governance structure to establish, oversee and implement an effective operational resilience approach that enables them to respond and adapt to, as well as recover and learn from, disruptive events in order to minimise their impact on delivering critical operations through disruption.",
+      "text_status": "verbatim",
       "tags": [
         "governance",
         "board",
@@ -32,8 +42,8 @@
       "clause_id": "BCBS-d516-P2",
       "ref": "Principle 2",
       "heading": "Operational risk management",
-      "text": "",
-      "text_status": "heading_only",
+      "text": "Banks should leverage their respective functions for the management of operational risk to identify external and internal threats and potential failures in people, processes and systems on an ongoing",
+      "text_status": "verbatim",
       "tags": [
         "operational risk",
         "risk management",
@@ -44,8 +54,8 @@
       "clause_id": "BCBS-d516-P3",
       "ref": "Principle 3",
       "heading": "Business continuity planning and testing",
-      "text": "",
-      "text_status": "heading_only",
+      "text": "Banks should have business continuity plans in place and conduct business continuity exercises under a range of severe but plausible scenarios in order to test their ability to deliver critical operations through disruption.",
+      "text_status": "verbatim",
       "tags": [
         "business continuity",
         "bcp",
@@ -57,9 +67,9 @@
     {
       "clause_id": "BCBS-d516-P4",
       "ref": "Principle 4",
-      "heading": "Mapping of interconnections and interdependencies",
-      "text": "",
-      "text_status": "heading_only",
+      "heading": "Mapping interconnections and interdependencies",
+      "text": "Once a bank has identified its critical operations, the bank should map the internal and external interconnections and interdependencies that are necessary for the delivery of critical operations consistent with its approach to operational resilience.",
+      "text_status": "verbatim",
       "tags": [
         "mapping",
         "interdependencies",
@@ -71,8 +81,8 @@
       "clause_id": "BCBS-d516-P5",
       "ref": "Principle 5",
       "heading": "Third-party dependency management",
-      "text": "",
-      "text_status": "heading_only",
+      "text": "Banks should manage their dependencies on relationships, including those of, but not limited to, third parties or intragroup entities, for the delivery of critical operations.",
+      "text_status": "verbatim",
       "tags": [
         "third party",
         "service provider",
@@ -84,8 +94,8 @@
       "clause_id": "BCBS-d516-P6",
       "ref": "Principle 6",
       "heading": "Incident management",
-      "text": "",
-      "text_status": "heading_only",
+      "text": "Banks should develop and implement response and recovery plans to manage incidents that could disrupt the delivery of critical operations in line with the bank’s risk appetite and tolerance for disruption. Banks should continuously improve their incident response and recovery plans by incorporating the lessons learned from previous incidents.",
+      "text_status": "verbatim",
       "tags": [
         "incident",
         "response",
@@ -96,9 +106,9 @@
     {
       "clause_id": "BCBS-d516-P7",
       "ref": "Principle 7",
-      "heading": "Resilient information and communication technology (ICT) including cyber security",
-      "text": "",
-      "text_status": "heading_only",
+      "heading": "ICT including cyber security",
+      "text": "Banks should ensure resilient ICT including cyber security that is subject to protection, detection, response and recovery programmes that are regularly tested, incorporate appropriate situational awareness and convey relevant timely information for risk management and decision-making processes to fully support and facilitate the delivery of the bank’s critical operations.",
+      "text_status": "verbatim",
       "tags": [
         "ict",
         "technology",

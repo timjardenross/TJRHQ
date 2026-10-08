@@ -1,0 +1,526 @@
+{
+  "framework_id": "APRA-CPG-230",
+  "title": "Prudential Practice Guide CPG 230 Operational Risk Management",
+  "issuer": "APRA",
+  "jurisdiction": "AU",
+  "role": "primary",
+  "status": "in_force",
+  "effective_date": "2026-07-01",
+  "source_url": "https://www.apra.gov.au/operational-risk-management",
+  "licence": "© APRA, licensed under Creative Commons Attribution 3.0 Australia (CC BY 3.0 AU). Source: APRA, CPG 230 Operational Risk Management, July 2026.",
+  "notes": "Primary (AU) guidance. All 62 guide paragraphs ingested. Boxed CPS 230 extracts are skipped (CPS 230 is held separately) and Tables 1-5 are excluded. CPG text is guidance ('APRA expects', 'would'), not a requirement.",
+  "ingestion": {
+    "method": "pdftotext+apra-guide",
+    "source_digest": "sha256:0927f6eea402f5d89e735ff91bedf675c2e21cb3ce523969b8699d667f78fcac",
+    "ingested_at": "2026-10-04T00:19:59+00:00",
+    "source_document": "Prudential Practice Guide CPG 230 Operational Risk Management, APRA, July 2026, 24 pages"
+  },
+  "watch": {
+    "sources": [
+      "APRA"
+    ],
+    "patterns": [
+      "\\bCP[SG]\\s*230\\b",
+      "prudential practice guide",
+      "operational risk management"
+    ]
+  },
+  "clauses": [
+    {
+      "clause_id": "APRA-CPG-230-para-1",
+      "ref": "para 1",
+      "heading": "Key principles",
+      "text": "The aim of CPS 230 is to ensure that APRA-regulated entities (‘entities’) are resilient to operational risks and disruptions. Operational resilience is the outcome of prudent operational risk management: the ability to effectively manage and control operational risks; limit disruptions; and maintain critical operations through disruptions.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-2",
+      "ref": "para 2",
+      "heading": "Key principles",
+      "text": "APRA expects that, in implementing CPS 230, a prudent entity would start with the identification of its critical operations. An entity would: a) identify its critical operations (paragraph 35 of CPS 230 sets out the minimum list); b) set tolerance levels for disruption of these critical operations; and c) identify the processes and resources needed to deliver these critical operations, including material service providers.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-3",
+      "ref": "para 3",
+      "heading": "Key principles",
+      "text": "A prudent entity would then use this information as the starting point for an assessment of its operational risk profile.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-4",
+      "ref": "para 4",
+      "heading": "Risk management framework",
+      "text": "CPS 230 builds on the general risk management requirements in Prudential Standard CPS 220 Risk Management (CPS 220) and Prudential Standard SPS 220 Risk Management (SPS 220), with more specific requirements for the management of operational risks.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-5",
+      "ref": "para 5",
+      "heading": "Risk management framework",
+      "text": "Where an entity has identified material weaknesses in its operational risk management, APRA expects that the entity would keep APRA informed of the progress of the entity’s remediation.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-6",
+      "ref": "para 6",
+      "heading": "Risk management framework",
+      "text": "APRA’s prudential standards for ADIs and insurers require that operational risk capital reflects the operational risk profile of the entity. Generally, where there are material weaknesses in the management of operational risk, APRA expects an ADI or insurer would hold additional capital until remediation is complete. This may be through an overlay determined by senior management, required by the Board or applied by APRA.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-7",
+      "ref": "para 7",
+      "heading": "Allocate responsibility",
+      "text": "A prudent Board would have a clear understanding of who is responsible within the entity for each aspect of operational risk management, including business continuity and the management of service provider arrangements. It should have reasonable assurance that there are no gaps in responsibilities.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-8",
+      "ref": "para 8",
+      "heading": "Allocate responsibility",
+      "text": "Processes for delegation from, and reporting to, the Board and senior management should be clear and documented, including for the escalation of risks and issues.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-9",
+      "ref": "para 9",
+      "heading": "Oversee the risk profile",
+      "text": "The Board would typically: a) oversee updates to an entity’s operational risk profile and ensure risks outside of its appetite are addressed promptly; b) oversee the effectiveness of key internal controls; c) be kept informed of areas of any material weaknesses and major remediation efforts; d) understand the material operational risks that arise from new ventures; and e) ensure internal audit provides assurance and has appropriate capabilities for this task.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-10",
+      "ref": "para 10",
+      "heading": "Challenge and approve",
+      "text": "The Board, in approving the BCP and overall tolerances for the disruption of critical operations, would also ensure that the BCP aligns with its tolerances.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-11",
+      "ref": "para 11",
+      "heading": "Challenge and approve",
+      "text": "While the Board approves the service provider management policy, it may delegate approval of non-material changes.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-12",
+      "ref": "para 12",
+      "heading": "Senior management",
+      "text": "Senior managers play an important role in equipping Boards to make effective decisions. APRA expects that information provided to the Board is targeted and timely.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-13",
+      "ref": "para 13",
+      "heading": "Senior management",
+      "text": "Boards may delegate to senior management the ability to approve more granular policies, tolerance levels and plans which sit beneath, and align to, Board-approved documents.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-14",
+      "ref": "para 14",
+      "heading": "Notifying APRA",
+      "text": "Where CPS 230 requires notification to APRA (see Table 1), it is to be made electronically using the form on APRA’s web site.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-15",
+      "ref": "para 15",
+      "heading": "Identify critical operations",
+      "text": "APRA expects that, in identifying its critical operations, an entity would focus on outward-facing services to support depositors, policyholders, beneficiaries and other customers, as well as the broader financial system and its role therein.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-16",
+      "ref": "para 16",
+      "heading": "Identify critical operations",
+      "text": "In identifying critical operations, in addition to APRA’s minimum list (see CPS 230 paragraph 35), a prudent entity would consider business operations that, if disrupted beyond tolerance levels: a) would have a direct material adverse impact on depositors, policyholders, beneficiaries or other customers; b) would have an indirect material adverse impact on depositors, policyholders, beneficiaries or other customers, such as through significantly impacting the entity’s profitability, financial soundness, reputation or ability to comply with legal or regulatory requirements; or c) could impact the broader financial system or economy, including through flow-on effects or contagion.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-17",
+      "ref": "para 17",
+      "heading": "Identify critical operations",
+      "text": "APRA expects that ‘critical functions’ as determined by APRA under Prudential Standard CPS 900 Resolution Planning (CPS 900) would also be classified as critical operations.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-18",
+      "ref": "para 18",
+      "heading": "Identify critical operations",
+      "text": "APRA expects that where an entity determines that a business operation prescribed by APRA is not a critical operation, the reasons would be documented, approved by an Accountable person, and reviewed on at least an annual basis. It is not necessary to provide the documented reasoning to APRA, unless APRA specifically asks an entity to provide this information.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-19",
+      "ref": "para 19",
+      "heading": "Identify processes and resources needed to deliver critical operations",
+      "text": "Senior management should be satisfied that they have sufficient detail about the resources and processes needed to deliver critical operations. It is important to understand how critical operations are delivered during business-as-usual and maintained in a disruption.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-20",
+      "ref": "para 20",
+      "heading": "Identify processes and resources needed to deliver critical operations",
+      "text": "Prudent entities will incorporate documented processes into their broader operational risk management framework and ensure it is kept up to date. The more comprehensive the information, the better equipped entities will be to make decisions and take appropriate action.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-21",
+      "ref": "para 21",
+      "heading": "Maintain an operational risk profile",
+      "text": "A prudent entity would regularly update their risk profile to reflect changes in strategy, risk environment or business mix.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-22",
+      "ref": "para 22",
+      "heading": "Maintain an operational risk profile",
+      "text": "Risk profiles should also be informed by scenario analysis which test severe but plausible events. Scenario analysis helps entities to identify gaps or opportunities to improve their management of operational risk.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-23",
+      "ref": "para 23",
+      "heading": "Maintain effective controls (design, test, monitor)",
+      "text": "Entities should design, implement and embed effective internal controls. To the extent possible, controls should minimise the likelihood and impact of disruptions – particularly to critical operations. Testing would be conducted by staff and teams independent of those with operational responsibility for controls.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-24",
+      "ref": "para 24",
+      "heading": "Maintain effective controls (design, test, monitor)",
+      "text": "To monitor, review and test the effectiveness of controls, entities could consider: a) the use of consistent criteria across the entity; b) design and operating effectiveness; c) testing of controls for material risks more frequently than for less material risks; d) capturing of all controls, including those owned by related parties and service providers; e) having a mix of preventative, detective and corrective controls; f) having a mix of automated and manual controls; g) if recent issues and incidents are within appetite or controls need to be adjusted; h) recording the rationale for the control effectiveness assessment; and i) any recent changes in the environment or business strategies that could impact control effectiveness.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-25",
+      "ref": "para 25",
+      "heading": "Maintain effective controls (design, test, monitor)",
+      "text": "APRA expects that any gaps, weaknesses or failures in controls are identified, escalated and rectified in a timely manner.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-26",
+      "ref": "para 26",
+      "heading": "Manage and record incidents, remediate",
+      "text": "Entities would typically have mechanisms to manage all stages of an incident, whether occurring sequentially or concurrently.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-27",
+      "ref": "para 27",
+      "heading": "Manage and record incidents, remediate",
+      "text": "A prudent entity would identify the root cause of an incident and take steps to remediate. This lessens the chance of the incident recurring and helps to identify any common underlying weaknesses in other products, business areas, the control framework or risk culture.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-28",
+      "ref": "para 28",
+      "heading": "Manage and record incidents, remediate",
+      "text": "Effective management responses to control weaknesses often include tactical responses (temporary controls or monitoring), followed by strategic solutions (changes to processes, people or systems) to mitigate the risk over the long term.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-29",
+      "ref": "para 29",
+      "heading": "Manage and record incidents, remediate",
+      "text": "APRA expects that an entity would avoid extended delays or unwarranted extensions to targeted closure dates in addressing operational risk incidents. Incidents and near misses would be recorded in the entity’s operational risk information system and linked to controls to ensure that the risk profile accurately reflects any control weaknesses or gaps.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-30",
+      "ref": "para 30",
+      "heading": "Business continuity",
+      "text": "Business continuity is achieved through a combination of controls that reduce the likelihood and/or impact of a business disruption. This approach may include measures to minimise the immediate impact of a disruption; activate contingency arrangements; and facilitate the recovery of critical operations.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-31",
+      "ref": "para 31",
+      "heading": "Maintain a register of critical operations, set tolerance levels",
+      "text": "An entity’s register of critical operations would typically include: a) the name of the critical operation; b) a description of the critical operation; c) tolerance levels for disruptions; and d) the material service provider arrangements supporting the critical operation.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-32",
+      "ref": "para 32",
+      "heading": "Maintain a register of critical operations, set tolerance levels",
+      "text": "In setting and reviewing tolerance levels, a prudent entity would consider: a) the impact on its customers and other stakeholders of a disruption; b) the financial and reputational impact on the entity from a prolonged or material disruption; c) the financial and reputational impact on the broader financial system, including any flow-on effects or contagion; d) legal or regulatory requirements, including any tolerance levels set by APRA; and e) recovery objectives.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-33",
+      "ref": "para 33",
+      "heading": "Maintain a register of critical operations, set tolerance levels",
+      "text": "APRA expects that entities will reassess tolerance levels as they learn lessons from actual disruptions, testing, scenario analysis and evolution in industry practices.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-34",
+      "ref": "para 34",
+      "heading": "Maintain a BCP, be ready to activate it",
+      "text": "An entity’s BCP caters to all stages of disruption to critical operations: triggers and identification; initial actions (such as alternative arrangements); further actions; assessment; and communications.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-35",
+      "ref": "para 35",
+      "heading": "Maintain a BCP, be ready to activate it",
+      "text": "The use of contingency arrangements (where viable options exist) enables entities to respond quickly to a disruption when recovery plans do not operate as intended, including those of service providers and related parties.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-36",
+      "ref": "para 36",
+      "heading": "Maintain a BCP, be ready to activate it",
+      "text": "An entity may maintain one or more BCPs and would be able to enact these quickly when required. It is useful to clearly link the BCP and any other management plans that deal with incidents, including disaster recovery, liquidity management and information security incident management. Alignment with crisis management governance, triggers, actions and communication plans is important.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-37",
+      "ref": "para 37",
+      "heading": "Test the BCP",
+      "text": "Testing the BCP should highlight any deficiencies, build experience in managing a crisis and strengthen the plan. Systematic testing of BCPs and associated disaster recovery plans would typically occur over a multi-year cycle, during which all critical operations would be considered (for example, over a three-year cycle).",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-38",
+      "ref": "para 38",
+      "heading": "Test the BCP",
+      "text": "Test results and the execution of any findings such as remediation would be reported to and reviewed by the Board, with associated follow-up actions formally tracked and reported. Reports on BCP tests would typically include: a) the scope, including the critical operations included (and excluded) and the specific tolerance levels tested; b) what was demonstrated by the test, including whether tolerance levels were met; and c) any issues raised, root causes and required remediation, including timeframes and accountabilities for actions.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-39",
+      "ref": "para 39",
+      "heading": "Test the BCP",
+      "text": "Entities that rely on material service providers would seek to confirm that those providers also maintain robust BCP testing. Joint testing of arrangements with the service provider could be considered.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-40",
+      "ref": "para 40",
+      "heading": "Update the BCP",
+      "text": "An entity must review and update its BCP annually, and as soon as possible after a material change in the entity’s structure, business or risk profile, such as after a merger or acquisition or a major external shock.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-41",
+      "ref": "para 41",
+      "heading": "Update the BCP",
+      "text": "BCPs should be informed by results of testing, internal audit findings and lessons learned from actual business disruptions.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-42",
+      "ref": "para 42",
+      "heading": "Audit the BCP",
+      "text": "Internal audit is an important vehicle for assurance. The Board may consider seeking assurance through expert opinion or other means to complement internal audit.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-43",
+      "ref": "para 43",
+      "heading": "Audit the BCP",
+      "text": "An audit program would typically assess all aspects of business continuity capability over time. Additional assurance projects could be triggered by changes to services, processes, information assets, the business environment and stakeholder expectations.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-44",
+      "ref": "para 44",
+      "heading": "Maintain a service provider management policy",
+      "text": "Where an entity uses a service provider, the entity still owns and is responsible for managing its risk. The service provider management policy must set out how this is to be done.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-45",
+      "ref": "para 45",
+      "heading": "Maintain a service provider management policy",
+      "text": "In addition to those matters set out in CPS 230, a service provider management policy would usually include: a) roles and responsibilities of Accountable persons or equivalent; b) processes for the selection of and due diligence on service providers; c) methodology for the assessment of the materiality of service providers; d) on-boarding and exiting procedures; e) BCPs and alternative arrangement considerations (including where the service provider is unable to provide the service for an extended period of time); f) issues management and escalation procedures; g) processes for vetting key personnel of service providers; and h) oversight processes and practices to monitor the service providers, service level agreements and risks.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-46",
+      "ref": "para 46",
+      "heading": "Maintain a register of material service providers",
+      "text": "Material service providers are those on which the entity relies to undertake a critical operation or that expose it to material operational risk. Paragraph 49 of CPS 230 prescribes a minimum list of material service providers, which provides a starting point for entities developing their register of material service providers.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-47",
+      "ref": "para 47",
+      "heading": "Maintain a register of material service providers",
+      "text": "For the purposes of the register, CPS 230 does not intend to capture arm’s length transactions or intermediation unless they meet criteria under paragraph 48 of CPS 230. For example, the purchase of reinsurance or the intermediation of an insurance policy by a broker would not mean that the provider of the service would automatically be deemed a material service provider and need to be captured in the register. Rather, CPS 230 is intended to capture those arrangements where an entity relies on a service provider to undertake a critical operation, or the arrangement introduces material operational risk to the entity.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-48",
+      "ref": "para 48",
+      "heading": "Maintain a register of material service providers",
+      "text": "In developing its material service provider register, a prudent entity would: a) include a list of the entity’s material arrangements, and identify the responsible person for each arrangement within the entity; b) identify which critical operation(s) the material arrangement supports, and/or which material risk the arrangement connects to in the entity’s risk profile; and c) where the material arrangement is relied on to deliver a critical operation, take reasonable steps to list fourth parties involved in delivery of the critical operation.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-49",
+      "ref": "para 49",
+      "heading": "Maintain a register of material service providers",
+      "text": "APRA expects that where an entity decides not to classify a service provider prescribed by APRA as material, the reasons would be documented, approved by an Accountable person and reviewed on at least an annual basis. It is not necessary to provide the documented reasoning to APRA, unless APRA specifically requests an entity to provide this information.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-50",
+      "ref": "para 50",
+      "heading": "Manage risks associated with material service providers",
+      "text": "Entities should proactively manage the key risks associated with material arrangements. Entities’ BCPs would account for these key risks and have contingencies to limit disruption of critical operations. Entities would also look to satisfy themselves that their material service providers’ risk management practices and BCPs are similarly robust.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-51",
+      "ref": "para 51",
+      "heading": "Manage risks associated with material service providers",
+      "text": "A prudent entity would manage the operational risk associated with cohorts of service providers, where the aggregate impact is material, but each individual provider is not. This does not mean that each service provider in the cohort needs to be identified as a material service provider, but rather that the entity has additional processes and controls in place to satisfy itself that the operational risks of such cohorts are being monitored and managed.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-52",
+      "ref": "para 52",
+      "heading": "Maintain agreements for material arrangements",
+      "text": "CPS 230 requires entities to maintain formal agreements for material arrangements with material service providers. Not all arrangements with a material service provider will be material to support delivery of the critical operation or expose the entity to material operational risk.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-53",
+      "ref": "para 53",
+      "heading": "Monitor performance",
+      "text": "An entity would normally conduct periodic reviews of material arrangements with a service provider. This could include assessment of operational issues (including information security incidents and service disruptions); control effectiveness; information security capabilities and business continuity capabilities; strategic changes; and comparisons to other offerings in the market.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-54",
+      "ref": "para 54",
+      "heading": "Assess risk when engaging a new material service provider",
+      "text": "When selecting and assessing a prospective provider of material arrangements, an entity would typically consider the following against its risk appetite: a) business services and capabilities which must be retained in-house; b) country or region risk; c) supplier risk; d) concentration risk; and e) reputational risk.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-55",
+      "ref": "para 55",
+      "heading": "Assess risk when engaging a new material service provider",
+      "text": "A prudent entity would assess the risks of engaging a service provider in another jurisdiction to determine if it is within appetite. This would include consideration of: a) the ability to continue operations and meet core obligations following a loss of service; b) maintenance of information security; c) the ability to own and manage controls on its behalf; d) compliance with legislative and prudential requirements; and e) impediments, legal and technical, to APRA being able to fulfil its duties, including timely access to information in a usable form.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-56",
+      "ref": "para 56",
+      "heading": "Assess risk when engaging a new material service provider",
+      "text": "Where an entity proposes to outsource a critical operation, or part thereof, currently performed in-house, the proposed outsourcing is to be reviewed by internal audit before any final decision is made. A prudent entity would ensure its internal audit function has sufficient capability and capacity to undertake the required review.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-57",
+      "ref": "para 57",
+      "heading": "Managing arrangements with non-traditional service providers",
+      "text": "For the purposes of this guidance, APRA refers to the categories of exempt service providers in the Attachment to CPS 230 as non-traditional service providers (NTSPs). These categories are intended to capture service providers that are typically market-mandated or otherwise not engaged through standard procurement or contractual processes, and where arrangements often lack a formal agreement or use standardised terms that cannot be negotiated. Material arrangements with NTSPs are those on which the entity relies to undertake a critical operation or that expose it to material operational risk.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-58",
+      "ref": "para 58",
+      "heading": "Managing arrangements with non-traditional service providers",
+      "text": "APRA recognises that regulated entities cannot meet certain contractual obligations in CPS 230 when engaging with NTSPs. Paragraph 57 of CPS 230 outlines exemptions available for such arrangements. Regulated entities may only utilise the relief for material arrangements with service providers where: a) the arrangement is with a service provider that falls within the exempt non-traditional service provider categories in the Attachment to CPS 230; and b) the arrangement uses standardised terms or is not documented in a formal agreement .",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-59",
+      "ref": "para 59",
+      "heading": "Managing arrangements with non-traditional service providers",
+      "text": "For a material arrangement with a service provider that does not meet either of the above conditions, regulated entities may apply to APRA for a specific exemption under paragraph 58.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-60",
+      "ref": "para 60",
+      "heading": "Managing arrangements with non-traditional service providers",
+      "text": "APRA recognises that arrangements with service providers within the categories listed in the Attachment will not necessarily require exemption from all paragraphs within the scope of the exemption. Where practicable, regulated entities are expected to apply exemptions on a targeted basis, limited to those specific paragraphs that cannot reasonably be satisfied in the context of the arrangement.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-61",
+      "ref": "para 61",
+      "heading": "Managing arrangements with non-traditional service providers",
+      "text": "Regulated entities should take all reasonable steps to manage the operational risks of arrangements with NTSPs. APRA recognises that selection processes, due diligence and continuity planning may be less comprehensive when compared to arrangements with other service providers, given practical constraints. Where an NTSP is subject to regulatory oversight, APRA-regulated entities may take this into account in assessing the risk of the arrangement.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPG-230-para-62",
+      "ref": "para 62",
+      "heading": "Managing arrangements with non-traditional service providers",
+      "text": "APRA recognises that some NTSPs may be unable to provide regulated entities with certain documents and information due to legislative restrictions under the Security of Critical Infrastructure Act 2018 (Cth). In such cases, APRA expects regulated entities to obtain as much information as practicable from the non-traditional service provider and use publicly available information as appropriate.",
+      "text_status": "verbatim",
+      "tags": []
+    }
+  ]
+}
