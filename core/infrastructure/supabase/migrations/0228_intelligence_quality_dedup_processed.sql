@@ -14,10 +14,14 @@
 -- overview route's Deduplication stage now watches (live: 2026-10-05 had
 -- 195 TO_COLLECT rows, 2026-10-06 had 80, and the old check never saw them).
 --
--- Column appended at the end so CREATE OR REPLACE VIEW is legal; same
--- definer semantics and grants as 0187.
+-- Column appended at the end so CREATE OR REPLACE VIEW is legal. Grants
+-- carry over. security_invoker=true is restated explicitly: the live view
+-- has it (set out-of-band by fix_security_definer_views_and_search_path,
+-- 2026-09-14, not 0187's original definer semantics) and a replace without
+-- a WITH clause must not silently drop it.
 
-create or replace view intelligence_ingestion_quality_daily as
+create or replace view intelligence_ingestion_quality_daily
+with (security_invoker = true) as
 select
   date_trunc('day', collected_at) as day,
   count(*) as discovered,
