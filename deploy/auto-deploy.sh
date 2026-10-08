@@ -192,10 +192,20 @@ restore_self_improvement_stash() {
 # - including a new, not-yet-allowlisted file under
 # data/self-improvement/review/ that isn't one of the paths above, or any
 # genuine human WIP - still trips this guard exactly as before.
+#
+# 2026-10-08: core/mission-control/registry/mission-index.txt added for the
+# same reason. mission-registry-sync.timer (tools/sync_supabase_to_registry.py,
+# daily 06:45) rewrites this tracked file from Supabase and never commits
+# it, so from the first sync after any pull it dirtied the checkout and
+# would have ABORTed every cycle. Found live alongside the timer itself
+# having been stopped since 2026-10-06 - the VM sat 3 commits behind main.
+# If an incoming commit ever edits this file, `git merge --ff-only` still
+# refuses to overwrite the local copy and takes the loud abort path below.
 DIRTY_CHECK_EXCLUDES=(
   ':!.id-counters.json'
   ':!data/self-improvement/review'
   ':!Missions/Engineering-Handoffs'
+  ':!core/mission-control/registry/mission-index.txt'
 )
 if [ -n "$(git status --porcelain --untracked-files=no -- . "${DIRTY_CHECK_EXCLUDES[@]}")" ]; then
   # 2026-09-15's OnFailure= alert for this exact ABORT was disabled the
