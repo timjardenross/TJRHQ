@@ -262,6 +262,39 @@ else
 fi
 rm -rf "$tmp"
 
+echo "test: mission-registry-sync's rewritten mission-index.txt -> does NOT abort, pulls normally, local copy kept"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+(
+  cd "$tmp/clone"
+  mkdir -p core/mission-control/registry
+  echo "MSN-1 original" > core/mission-control/registry/mission-index.txt
+  git add -A
+  git commit --quiet -m "track mission index"
+  git push --quiet origin main
+)
+git clone --quiet -b main "$tmp/origin.git" "$tmp/pusher" >/dev/null 2>&1
+(
+  cd "$tmp/pusher"
+  git config user.email test@example.com
+  git config user.name Test
+  echo "two" > core_change.txt
+  git add -A
+  git commit --quiet -m "backend change"
+  git push --quiet origin HEAD 2>&1
+)
+echo "MSN-1 original
+MSN-2 synced from supabase" > "$tmp/clone/core/mission-control/registry/mission-index.txt"
+before_sha="$(git -C "$tmp/clone" rev-parse HEAD)"
+out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+after_sha="$(git -C "$tmp/clone" rev-parse HEAD)"
+if [ "$before_sha" != "$after_sha" ] && grep -q "systemctl restart context-service.service" "$log" \
+   && grep -q "MSN-2 synced" "$tmp/clone/core/mission-control/registry/mission-index.txt"; then
+  pass "rewritten mission-index.txt does not block the pull, and survives it"
+else
+  fail "mission-index.txt dirty (before=$before_sha after=$after_sha log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
 echo "test: diverged history -> ff-only merge fails, aborts without corrupting local branch"
 tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
 git clone --quiet -b main "$tmp/origin.git" "$tmp/pusher" >/dev/null 2>&1
