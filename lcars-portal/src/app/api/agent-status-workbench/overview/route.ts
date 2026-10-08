@@ -149,7 +149,10 @@ export async function GET() {
       stageHealth('discovery', 'Discovery', ['intelligence_collection', 'intraday_status_collection'], jobFailed, t?.discovered ?? null, t?.discovered ?? 0),
       stageHealth('parsing', 'Parsing', ['intelligence_collection', 'intraday_status_collection'], jobFailed, t?.discovered ?? null, t?.discovered ?? 0, true),
       stageHealth('relevance_gate', 'Relevance Gate', ['intelligence_suppression_audit'], jobFailed, (t?.not_relevant ?? 0) + (t?.low_confidence ?? 0) + (t?.relevant ?? 0), t?.discovered ?? 0),
-      stageHealth('deduplication', 'Deduplication', [], jobFailed, t?.deduplicated ?? null, t?.discovered ?? 0),
+      // dedup_processed (0228) = rows that went through dedup clustering at
+      // all; `deduplicated` only counts near-dup members, and zero of those
+      // is a normal day, not a stall. Falls back until 0228 is applied.
+      stageHealth('deduplication', 'Deduplication', [], jobFailed, t?.dedup_processed ?? t?.deduplicated ?? null, t?.discovered ?? 0),
       stageHealth('scoring', 'Scoring', ['evolved_captain_insight_generation'], jobFailed, (t?.relevant ?? 0) + (t?.not_relevant ?? 0) + (t?.low_confidence ?? 0), t?.discovered ?? 0),
       stageHealth('disposition', 'Disposition', [], jobFailed, (t?.escalate ?? 0) + (t?.brief ?? 0) + (t?.watch ?? 0) + (t?.reference ?? 0) + (t?.suppress ?? 0), t?.discovered ?? 0),
     ];

@@ -35,6 +35,7 @@ Usage:
     python3 tools/health-osint/health_signal_curation.py
     python3 tools/health-osint/health_signal_curation.py --dry-run
     python3 tools/health-osint/health_signal_curation.py --limit 20
+    python3 tools/health-osint/health_signal_curation.py --limit 100 --time-budget 780
 """
 
 from __future__ import annotations
@@ -45,6 +46,8 @@ import logging
 import os
 import re
 import sys
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -134,6 +137,18 @@ Respond with ONLY a JSON object:
  "population_fit": "<one short sentence>",
  "safety_relevance": true|false}
 """
+
+# Worst case for one _classify() is every provider timing out in turn:
+# model-router 20s + gemini 30s + mistral 30s + ollama 60s = 140s. Anything
+# past that means a call is hung beyond its own socket timeout — stop the
+# run rather than let one signal eat the scheduler's whole 900s window
+# (2026-09-19 and 2026-09-26 both timed out with zero signals applied).
+_CLASSIFY_DEADLINE_S = 150
+
+
+class ClassifyHung(RuntimeError):
+    pass
+
 
 _VALID_MISSION_RELEVANCE = {"RELEVANT", "LOW_CONFIDENCE", "NOT_RELEVANT"}
 _VALID_EVIDENCE_CONTRIBUTION = {
@@ -261,10 +276,24 @@ def _classify(signal: dict[str, Any]) -> dict[str, Any]:
     return _fallback_classification("all LLM providers unavailable")
 
 
+def _classify_with_deadline(signal: dict[str, Any], deadline_s: float) -> dict[str, Any]:
+    """_classify() in a daemon thread so a hung provider call can't block
+    past deadline_s. A daemon thread left running doesn't keep the process
+    alive at exit, so raising here lets main() finish and report."""
+    box: dict[str, Any] = {}
+    t = threading.Thread(target=lambda: box.setdefault("r", _classify(signal)), daemon=True)
+    t.start()
+    t.join(deadline_s)
+    if "r" not in box:
+        raise ClassifyHung(f"classification of signal {signal.get('signal_id')} exceeded {deadline_s:.0f}s")
+    return box["r"]
+
+
 class HealthSignalCurator:
-    def __init__(self, dry_run: bool = False, limit: int | None = None):
+    def __init__(self, dry_run: bool = False, limit: int | None = None, time_budget: float | None = None):
         self.dry_run = dry_run
         self.limit = limit
+        self.time_budget = time_budget
         self.supabase = None if dry_run else _client()
 
     @staticmethod
@@ -298,6 +327,14 @@ class HealthSignalCurator:
             )
             .eq("auto_ingested", True)
             .eq("auto_ingest_reviewed", False)
+            # Skip signals the model already ESCALATEd (mission_relevance is
+            # written on every real model answer). They're waiting on a
+            # human at /health-osint-curation; re-asking every week only
+            # re-escalates them, and with oldest-first ordering they'd
+            # gradually fill every --limit slot and starve new arrivals.
+            # The "all LLM providers unavailable" fallback leaves
+            # mission_relevance NULL, so those still get retried.
+            .is_("mission_relevance", "null")
             # Oldest-first — --limit's own help text ("the rest next run")
             # only holds if older pending rows aren't perpetually pushed
             # behind newer arrivals.
@@ -346,7 +383,7 @@ class HealthSignalCurator:
     def run(self) -> dict[str, Any]:
         if self.dry_run:
             log.info("[dry-run] would query health_signals for the pending auto-ingest queue")
-            return {"total": 0, "published": 0, "rejected": 0, "escalated": 0, "details": []}
+            return {"total": 0, "fetched": 0, "stopped_reason": None, "published": 0, "rejected": 0, "escalated": 0, "details": []}
 
         pending = self._pending()
         log.info("Curating %d pending signal(s)", len(pending))
@@ -359,9 +396,21 @@ class HealthSignalCurator:
 
         counts = {"PUBLISH": 0, "REJECT": 0, "ESCALATE": 0}
         details = []
-        for group in groups.values():
+        started = time.monotonic()
+        stopped_reason = None
+        for gi, group in enumerate(groups.values()):
+            elapsed = time.monotonic() - started
+            if self.time_budget is not None and elapsed + _CLASSIFY_DEADLINE_S > self.time_budget:
+                stopped_reason = (
+                    f"time budget {self.time_budget:.0f}s reached after {gi}/{len(groups)} group(s) "
+                    f"({elapsed:.0f}s elapsed) — rest stay pending for next run"
+                )
+                log.warning(stopped_reason)
+                break
             representative = group[0]
-            classification = _classify(representative)
+            t0 = time.monotonic()
+            classification = _classify_with_deadline(representative, _CLASSIFY_DEADLINE_S)
+            classify_s = time.monotonic() - t0
             decision = classification["decision"]
             reason = classification["reason"]
             if len(group) > 1:
@@ -381,10 +430,12 @@ class HealthSignalCurator:
                 })
 
             dup_note = f" (dup x{len(group)})" if len(group) > 1 else ""
-            log.info("[%s]%s %s — %s", decision, dup_note, (representative.get("title") or "")[:80], reason)
+            log.info("[%s]%s (%.1fs) %s — %s", decision, dup_note, classify_s, (representative.get("title") or "")[:80], reason)
 
         return {
-            "total": len(pending),
+            "total": len(details),
+            "fetched": len(pending),
+            "stopped_reason": stopped_reason,
             "published": counts["PUBLISH"],
             "rejected": counts["REJECT"],
             "escalated": counts["ESCALATE"],
@@ -396,14 +447,23 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Health OSINT auto-curation — LLM-judged publish/reject/escalate")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--limit", type=int, default=None, help="Only process this many pending signals (oldest-first review still applies to the rest next run)")
+    parser.add_argument("--time-budget", type=float, default=None, help="Stop starting new classifications once this many seconds have elapsed; exits 0 with partial counts")
     args = parser.parse_args()
 
-    curator = HealthSignalCurator(dry_run=args.dry_run, limit=args.limit)
-    result = curator.run()
-    log.info(
-        "Done: %d total — %d published, %d rejected, %d escalated to human review",
-        result["total"], result["published"], result["rejected"], result["escalated"],
+    curator = HealthSignalCurator(dry_run=args.dry_run, limit=args.limit, time_budget=args.time_budget)
+    try:
+        result = curator.run()
+    except ClassifyHung as exc:
+        log.error("Stopping: %s — LLM provider chain is hung; signals already applied this run are kept", exc)
+        sys.exit(2)
+    summary = (
+        f"Done: {result['total']} of {result['fetched']} curated — {result['published']} published, "
+        f"{result['rejected']} rejected, {result['escalated']} escalated to human review"
+        + (f" ({result['stopped_reason']})" if result["stopped_reason"] else "")
     )
+    log.info(summary)
+    # stdout too: the scheduler stores stdout[-500:] as the heartbeat detail.
+    print(summary)
 
 
 if __name__ == "__main__":
