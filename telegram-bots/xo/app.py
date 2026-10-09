@@ -106,6 +106,7 @@ log = logging.getLogger("xo-bot")
 # python-telegram-bot's polling/send calls means the bot token in plaintext
 # on every log line. WARNING still surfaces real failures, just not the URL.
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # ── Shared modules ────────────────────────────────────────────────────────────
 

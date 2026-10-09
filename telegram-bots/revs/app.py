@@ -28,6 +28,8 @@ import sys
 # unit), which puts only the repo root on sys.path. Insert this directory
 # before any sibling import below runs, so both invocation styles work.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Shared helper lives one level up (telegram-bots/log_redaction.py).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import commands
 import crisis_layer2
@@ -37,6 +39,7 @@ import onboarding
 import safety
 import scheduler
 import weekly
+from log_redaction import install_token_redaction
 from scoped_supabase import build_scoped_client
 from telegram import Update
 from telegram.ext import (
@@ -52,6 +55,15 @@ from telegram.ext import (
 import config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+
+
+# httpx logs every request at INFO with the full URL, which for python-telegram-bot
+# means https://api.telegram.org/bot<TOKEN>/... (token in plaintext in syslog/journal).
+# Silence it, and add a belt-and-braces redacting filter on every root handler.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+install_token_redaction()
 log = logging.getLogger("revs-bot")
 
 _CLIENT = None  # set in main(); module-level so handler closures can reach it

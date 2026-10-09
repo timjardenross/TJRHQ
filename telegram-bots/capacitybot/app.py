@@ -56,6 +56,7 @@ log = logging.getLogger("capacitybot")
 # python-telegram-bot's polling/send calls that means the bot token in
 # plaintext on every log line. WARNING still surfaces real failures.
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 # ── Shared modules ────────────────────────────────────────────────────────────
 
