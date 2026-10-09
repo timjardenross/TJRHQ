@@ -110,4 +110,4 @@ The portal needs a login, which was not available, so the page was not rendered.
 ## Follow-ups
 * `intelligence_events` (about 11k rows per 28 days, no retention) is the main remaining grower; set a
   retention window only if the database trends back above 80%.
-* The Contabo and Supabase work for the weekly line is in place; confirm the first real weekly report shows it.
+* The weekly line and migration 0230 are in place; confirm the first real weekly report shows the line.
