@@ -36,7 +36,10 @@ RCLONE=/usr/local/bin/rclone      # explicit: the apt rclone is too old for Driv
 RESTIC=/usr/bin/restic
 REPO_ROOT="${BACKUP_REPO_ROOT:-/opt/starship-endeavour}"
 INFISICAL_WRAPPER="$REPO_ROOT/platform-runtime/run-with-infisical.sh"
-export RESTIC_REPOSITORY="${RESTIC_REPOSITORY:-rclone:gdrive:starship-backups}"
+# gdrive2 uses our own Google OAuth client (the shared rclone client is rate-limited). With the
+# drive.file scope a client only sees files it created, so this is a NEW repository, not the old
+# rclone:gdrive:starship-backups one (left in place for 14 days after the switch).
+export RESTIC_REPOSITORY="${RESTIC_REPOSITORY:-rclone:gdrive2:starship-backups-v2}"
 export RESTIC_PASSWORD_FILE="${RESTIC_PASSWORD_FILE:-/root/.restic-pass}"
 export HOME="${HOME:-/root}"
 DRY="${DRY_RUN:-0}"
