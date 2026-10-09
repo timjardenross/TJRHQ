@@ -1259,6 +1259,10 @@ def generate_weekly_report() -> str:
     lines += _format_weekly_content_block(content_items)
     lines += _format_weekly_capacity_block(capacity_entries)
 
+    # USS-TJR-MSN-0412 Stream 4: the Free plan goes read-only at 500 MB.
+    from intelligence import db_size
+    lines += [db_size.format_line(db_size.fetch_size_mb()), ""]
+
     lines.append("🤖 <i>XO · Starship Endeavour</i>")
     return "\n".join(lines)
 
@@ -1401,6 +1405,10 @@ def send_brief(brief_type: str, **kwargs) -> bool:
         evidence_window_hours=evidence_window_hours, collection_caveat=collection_caveat,
     )
     if brief_type == "morning":
+        # USS-TJR-MSN-0412 Stream 4: once-a-day database size guard (warns at
+        # >= 450 MB, at most once per 24h; best-effort, never raises).
+        from intelligence import db_size
+        db_size.check_and_warn()
         try:
             _email_morning_brief(text)
         except Exception as exc:  # noqa: BLE001 - best-effort email delivery, already logged as non-blocking; Telegram is the real delivery/failure signal per this function's contract
