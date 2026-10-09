@@ -38,18 +38,16 @@ fi
 # shellcheck disable=SC1090
 source "$AUTH_FILE"
 
-export INFISICAL_TOKEN="$(infisical login --method=universal-auth \
-  --client-id="$INFISICAL_UA_CLIENT_ID" \
-  --client-secret="$INFISICAL_UA_CLIENT_SECRET" \
-  --domain="$DOMAIN" --plain --silent)"
-
+# shellcheck disable=SC1091
+source "$(dirname "$0")/lib-infisical.sh"
+# Fail loudly instead of running the bot with no secrets (see lib-infisical.sh):
+# the old `export X="$(...)"` and `source <(...)` forms swallowed every failure.
+infisical_wait_ready
+infisical_login
 set -a
-# shellcheck disable=SC1090
-source <(infisical export --domain="$DOMAIN" --projectId="$PROJECT_ID" \
-  --env="$ENVIRONMENT" --path=/ --format=dotenv)
-# shellcheck disable=SC1090
-source <(infisical export --domain="$DOMAIN" --projectId="$PROJECT_ID" \
-  --env="$ENVIRONMENT" --path="/bots/$BOT" --format=dotenv)
+infisical_source_path "/" "$PROJECT_ID" "$ENVIRONMENT"
+# The bot's own folder is what carries its TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID,
+# so an empty folder means a misconfigured bot, not "nothing to override".
+infisical_source_path "/bots/$BOT" "$PROJECT_ID" "$ENVIRONMENT" required
 set +a
-
 exec "$@"

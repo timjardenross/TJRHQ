@@ -6,7 +6,7 @@
 # Endpoints: POST /api/model/* — see core/model-router/app.py
 # Port: 8891 (localhost only)
 Description=Starship Endeavour Model Router (on-call Ollama crew)
-After=network.target ollama.service
+After=network.target ollama.service docker.service
 
 [Service]
 WorkingDirectory=/opt/starship-endeavour/core/model-router

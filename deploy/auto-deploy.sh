@@ -192,10 +192,20 @@ restore_self_improvement_stash() {
 # - including a new, not-yet-allowlisted file under
 # data/self-improvement/review/ that isn't one of the paths above, or any
 # genuine human WIP - still trips this guard exactly as before.
+#
+# 2026-10-08: core/mission-control/registry/mission-index.txt added for the
+# same reason. mission-registry-sync.timer (tools/sync_supabase_to_registry.py,
+# daily 06:45) rewrites this tracked file from Supabase and never commits
+# it, so from the first sync after any pull it dirtied the checkout and
+# would have ABORTed every cycle. Found live alongside the timer itself
+# having been stopped since 2026-10-06 - the VM sat 3 commits behind main.
+# If an incoming commit ever edits this file, `git merge --ff-only` still
+# refuses to overwrite the local copy and takes the loud abort path below.
 DIRTY_CHECK_EXCLUDES=(
   ':!.id-counters.json'
   ':!data/self-improvement/review'
   ':!Missions/Engineering-Handoffs'
+  ':!core/mission-control/registry/mission-index.txt'
 )
 if [ -n "$(git status --porcelain --untracked-files=no -- . "${DIRTY_CHECK_EXCLUDES[@]}")" ]; then
   # 2026-09-15's OnFailure= alert for this exact ABORT was disabled the
@@ -277,8 +287,21 @@ newest_commit_epoch() {
   git log -1 --format=%ct -- "${1:-.}" 2>/dev/null || echo 0
 }
 
+# A unit the Captain has deliberately MASKED (`systemctl mask`, see PAUSES.md)
+# must never be touched by a deploy: `systemctl restart` starts a stopped
+# unit, so an unconditional staleness restart would revive a bot that was
+# held off on purpose (e.g. a revoked Telegram token). Only a masked unit is
+# skipped. A merely inactive/failed unit is still handled by the existing
+# logic below, so a service that crashed does get restarted by a deploy.
+# LoadState needs no privilege (same as ActiveEnterTimestamp above).
+unit_is_masked() {
+  [ "$(systemctl show -p LoadState --value "$1" 2>/dev/null || true)" = "masked" ]
+}
+
 LP_COMMIT_TS="$(newest_commit_epoch lcars-portal)"
-if LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
+if unit_is_masked lcars-portal.service; then
+  echo "$LOG_PREFIX SKIP lcars-portal.service: unit is masked (deliberately held off) - no rebuild, no restart"
+elif LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
   if [ "$LP_COMMIT_TS" -gt "$LP_START_TS" ]; then
     echo "$LOG_PREFIX lcars-portal.service is stale (running since before the newest lcars-portal/ commit) - rebuilding"
     ( cd "$REPO_ROOT/lcars-portal" && npm ci --no-audit --no-fund && "$REPO_ROOT/platform-runtime/run-with-infisical.sh" npm run build )
@@ -304,6 +327,10 @@ if [ -f "$SERVICES_CONF" ]; then
   while IFS= read -r line; do
     svc="$(echo "$line" | sed 's/#.*//' | xargs || true)"
     [ -z "$svc" ] && continue
+    if unit_is_masked "$svc"; then
+      echo "$LOG_PREFIX SKIP $svc: unit is masked (deliberately held off) - not checking staleness, not restarting"
+      continue
+    fi
     if svc_start_ts="$(unit_active_since_epoch "$svc")"; then
       if [ "$REPO_COMMIT_TS" -gt "$svc_start_ts" ]; then
         echo "$LOG_PREFIX $svc is stale (running since before the newest repo commit) - restarting"

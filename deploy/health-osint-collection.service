@@ -1,6 +1,6 @@
 [Unit]
 Description=USS TJR Health OSINT Collection (PubMed + ClinicalTrials.gov + RSS) + Validation + Recompute
-After=network-online.target
+After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]

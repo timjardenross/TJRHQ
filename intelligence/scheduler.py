@@ -930,16 +930,30 @@ def _health_osint_weekly_fetch_job() -> None:
         # it. Oldest-first ordering (health_signal_curation.py fix, same
         # commit) means this drains the backlog gradually across subsequent
         # weekly runs rather than starving it behind new arrivals.
-        curation_result = subprocess.run(
-            [sys.executable, curation_script, "--limit", "100"],
-            capture_output=True, text=True, check=False, timeout=900,
-        )
-        if curation_result.returncode != 0:
-            log.error("Health OSINT auto-curation failed (exit %d): %s", curation_result.returncode, curation_result.stderr[-2000:])
-            _record_heartbeat("health_osint_auto_curation", "failed", error_message=curation_result.stderr[-500:])
-        else:
-            log.info("Health OSINT auto-curation: %s", curation_result.stdout[-2000:])
-            _record_heartbeat("health_osint_auto_curation", "ok", detail=curation_result.stdout[-500:])
+        #
+        # 2026-10-08: the 09-19 and 09-26 runs hit this 900s timeout, and the
+        # TimeoutExpired fell through to the outer except below, which wrote
+        # it as a health_osint_weekly_fetch failure — the fetch had already
+        # succeeded and heartbeated ok. HQ Status maps that key to the Health
+        # Discovery stage, so a supporting-job overrun read as Health
+        # Intelligence "unavailable". Curation now has its own try and only
+        # ever heartbeats its own key. --time-budget makes the script stop
+        # cleanly (exit 0, partial counts) before this hard timeout; the hard
+        # timeout stays as a backstop for a hung provider call.
+        try:
+            curation_result = subprocess.run(
+                [sys.executable, curation_script, "--limit", "100", "--time-budget", "780"],
+                capture_output=True, text=True, check=False, timeout=900,
+            )
+            if curation_result.returncode != 0:
+                log.error("Health OSINT auto-curation failed (exit %d): %s", curation_result.returncode, curation_result.stderr[-2000:])
+                _record_heartbeat("health_osint_auto_curation", "failed", error_message=curation_result.stderr[-500:])
+            else:
+                log.info("Health OSINT auto-curation: %s", curation_result.stdout[-2000:])
+                _record_heartbeat("health_osint_auto_curation", "ok", detail=curation_result.stdout[-500:])
+        except Exception as exc:  # noqa: BLE001 - curation is a supporting step after a fetch that already heartbeated ok; record against its own key only; already logged
+            log.error("Health OSINT auto-curation failed: %s", exc)
+            _record_heartbeat("health_osint_auto_curation", "failed", error_message=str(exc)[-500:])
     except Exception as exc:  # noqa: BLE001 - top-level scheduled-job boundary — a job must never crash the shared APScheduler process; already logged + heartbeat-recorded
         log.error("Health OSINT weekly fetch job failed: %s", exc)
         _record_heartbeat("health_osint_weekly_fetch", "failed", error_message=str(exc))

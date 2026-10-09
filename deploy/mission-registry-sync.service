@@ -18,7 +18,7 @@
 # its own independent daily trigger so it can never again go this long
 # without running, regardless of what happens to the Slack bot.
 Description=Starship mission registry sync (Supabase -> mission-index.txt, MSN-0145/ADR-024)
-After=network-online.target
+After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]

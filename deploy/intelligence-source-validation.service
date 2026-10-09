@@ -1,5 +1,5 @@
 [Unit]
-Description=USS TJR Daily Source Reliability Validation (SRS, migration 0092)
+Description=USS TJR Daily Source Reliability Validation (SRS, migration 0092) + Signal Score Recompute (migration 0095/0096)
 After=network-online.target
 Wants=network-online.target
 
@@ -7,6 +7,7 @@ Wants=network-online.target
 Type=oneshot
 WorkingDirectory=/opt/starship-endeavour
 ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/python tools/intelligence/validate_source_accuracy.py
+ExecStart=/opt/starship-endeavour/platform-runtime/.venv/bin/python tools/intelligence/recompute_signal_scores.py
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=intelligence-source-validation

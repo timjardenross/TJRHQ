@@ -2,7 +2,7 @@
 Description=LCARS Portal — Next.js Command Centre
 # Caddy (127.0.0.1:3200, see /etc/caddy/Caddyfile) is the real front door —
 # start after it so the very first requests after a reboot don't 502.
-After=network.target caddy.service
+After=network.target caddy.service docker.service
 
 [Service]
 Type=simple

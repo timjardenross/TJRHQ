@@ -121,6 +121,15 @@ echo "systemctl \$*" >> "\$CALL_LOG"
 # catching. auto-deploy.sh now calls unprefixed \`systemctl\` (this stub)
 # for the read and only "\$SYSTEMCTL" for the actual restart, so this one
 # stub must behave like a real systemctl for both call shapes.
+# \`show -p LoadState --value <unit>\`: "masked" for any unit listed in
+# \$MASKED_UNITS (space separated), "loaded" otherwise.
+if [ "\$1" = "show" ] && [ "\$3" = "LoadState" ]; then
+  for u in \$MASKED_UNITS; do
+    if [ "\$u" = "\${@: -1}" ]; then echo masked; exit 0; fi
+  done
+  echo loaded
+  exit 0
+fi
 if [ "\$1" = "show" ]; then
   echo "$FIXTURE_NOW"
   exit 0
@@ -138,7 +147,7 @@ run_script() {
   local call_log="$2"
   AUTO_DEPLOY_REPO_ROOT="$clone" \
   AUTO_DEPLOY_BRANCH="$(git -C "$clone" branch --show-current)" \
-  AUTO_DEPLOY_SERVICES_CONF="$clone/deploy/auto-deploy-services.conf" \
+  AUTO_DEPLOY_SERVICES_CONF="${SERVICES_CONF_OVERRIDE:-$clone/deploy/auto-deploy-services.conf}" \
   AUTO_DEPLOY_SYSTEMCTL="systemctl" \
   CALL_LOG="$call_log" \
   PATH="$3:$PATH" \
@@ -253,6 +262,39 @@ else
 fi
 rm -rf "$tmp"
 
+echo "test: mission-registry-sync's rewritten mission-index.txt -> does NOT abort, pulls normally, local copy kept"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+(
+  cd "$tmp/clone"
+  mkdir -p core/mission-control/registry
+  echo "MSN-1 original" > core/mission-control/registry/mission-index.txt
+  git add -A
+  git commit --quiet -m "track mission index"
+  git push --quiet origin main
+)
+git clone --quiet -b main "$tmp/origin.git" "$tmp/pusher" >/dev/null 2>&1
+(
+  cd "$tmp/pusher"
+  git config user.email test@example.com
+  git config user.name Test
+  echo "two" > core_change.txt
+  git add -A
+  git commit --quiet -m "backend change"
+  git push --quiet origin HEAD 2>&1
+)
+echo "MSN-1 original
+MSN-2 synced from supabase" > "$tmp/clone/core/mission-control/registry/mission-index.txt"
+before_sha="$(git -C "$tmp/clone" rev-parse HEAD)"
+out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+after_sha="$(git -C "$tmp/clone" rev-parse HEAD)"
+if [ "$before_sha" != "$after_sha" ] && grep -q "systemctl restart context-service.service" "$log" \
+   && grep -q "MSN-2 synced" "$tmp/clone/core/mission-control/registry/mission-index.txt"; then
+  pass "rewritten mission-index.txt does not block the pull, and survives it"
+else
+  fail "mission-index.txt dirty (before=$before_sha after=$after_sha log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
 echo "test: diverged history -> ff-only merge fails, aborts without corrupting local branch"
 tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
 git clone --quiet -b main "$tmp/origin.git" "$tmp/pusher" >/dev/null 2>&1
@@ -281,6 +323,74 @@ else
   else
     fail "diverged history abort (before=$before_sha after=$after_sha log=$(cat "$log") out=$out)"
   fi
+fi
+rm -rf "$tmp"
+
+
+# --- masked-unit skip (USS-TJR-MSN-0406) -----------------------------------
+# push_backend_change <origin> <tmp>: a non-lcars commit on origin, so the next run pulls and
+# every unit looks stale.
+push_change() {
+  local tmp="$1" path="${2:-core_change.txt}"
+  git clone --quiet -b main "$tmp/origin.git" "$tmp/pusher" >/dev/null 2>&1
+  (
+    cd "$tmp/pusher"
+    git config user.email test@example.com
+    git config user.name Test
+    mkdir -p "$(dirname "$path")"
+    echo "two" > "$path"
+    git add -A
+    git commit --quiet -m "change"
+    git push --quiet origin HEAD 2>&1
+  )
+}
+
+echo "test: a MASKED unit in the services list is skipped and logged; unmasked units are still restarted"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+printf 'tg-xo.service\ncontext-service.service\n' > "$tmp/services.conf"
+push_change "$tmp"
+out="$(SERVICES_CONF_OVERRIDE="$tmp/services.conf" MASKED_UNITS="tg-xo.service" run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && ! grep -q "restart tg-xo.service" "$log" && grep -q "systemctl restart context-service.service" "$log" \
+   && echo "$out" | grep -q "SKIP tg-xo.service: unit is masked"; then
+  pass "masked unit skipped (logged), unmasked unit restarted, exit 0"
+else
+  fail "masked skip (rc=$rc log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
+echo "test: a unit that is merely not masked (stopped/failed) is NOT skipped"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+printf 'tg-xo.service\ncontext-service.service\n' > "$tmp/services.conf"
+push_change "$tmp"
+out="$(SERVICES_CONF_OVERRIDE="$tmp/services.conf" MASKED_UNITS="" run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"
+if grep -q "systemctl restart tg-xo.service" "$log" && grep -q "systemctl restart context-service.service" "$log" && ! echo "$out" | grep -q "SKIP"; then
+  pass "only masked units are skipped; others restart as before"
+else
+  fail "unmasked restart (log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
+echo "test: one failing restart is logged and the loop keeps going (exit 0)"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+printf 'tg-xo.service\ncontext-service.service\n' > "$tmp/services.conf"
+push_change "$tmp"
+out="$(SERVICES_CONF_OVERRIDE="$tmp/services.conf" FAIL_SYSTEMCTL_FOR="tg-xo.service" run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -q "systemctl restart tg-xo.service" "$log" && grep -q "systemctl restart context-service.service" "$log" \
+   && echo "$out" | grep -q "WARNING: restart failed for tg-xo.service"; then
+  pass "failed restart logged as WARNING, next unit still restarted, exit 0"
+else
+  fail "restart failure continues (rc=$rc log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
+echo "test: masked lcars-portal is not rebuilt or restarted"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+push_change "$tmp" "lcars-portal/page.tsx"
+out="$(MASKED_UNITS="lcars-portal.service" run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && ! grep -q "npm" "$log" && ! grep -q "restart lcars-portal.service" "$log" && echo "$out" | grep -q "SKIP lcars-portal.service: unit is masked"; then
+  pass "masked lcars-portal: no build, no restart, logged"
+else
+  fail "masked lcars-portal (rc=$rc log=$(cat "$log") out=$out)"
 fi
 rm -rf "$tmp"
 

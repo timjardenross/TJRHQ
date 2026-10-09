@@ -1,0 +1,14 @@
+[Unit]
+Description=Nightly encrypted off-box backup at 02:40 Australia/Melbourne - USS-TJR-MSN-0412
+
+[Timer]
+# Explicit zone, as daily-ops-cycle.timer does, so a change to the VM's system timezone
+# cannot silently move the backup. Clear of memory-nightly-consolidation (02:17, system
+# local time) and the 03:00 hq-evolution jobs.
+OnCalendar=*-*-* 02:40:00 Australia/Melbourne
+# If the VM was off at 02:40, run once shortly after it boots.
+Persistent=true
+Unit=starship-backup.service
+
+[Install]
+WantedBy=timers.target
