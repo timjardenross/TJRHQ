@@ -11,6 +11,10 @@
 # containers (docker inspect). All secrets are referenced by name only; supply
 # them in a chmod 600 .env next to this file (see README.md / .env.example).
 
+# Project name = the prefix of the existing named volumes (infisical_infisical-db etc.). Without it the
+# project is named after whatever directory this runs from and would create NEW, empty volumes.
+name: infisical
+
 services:
   db:
     image: postgres:15-alpine
@@ -48,7 +52,10 @@ services:
       retries: 5
 
   infisical:
-    image: infisical/infisical:latest-postgres
+    # Pinned to the digest of the image running on 2026-10-09 (created 2025-08-08). `latest-postgres` is a
+    # moving tag: a plain `docker compose up` after a pull could start a newer Infisical against this data
+    # and run its migrations. To upgrade on purpose, change the digest.
+    image: infisical/infisical:latest-postgres@sha256:36438985877fb5ab99c76ee1a9c73611e44d8518b44a77304b5d4c05451f8c62
     restart: unless-stopped
     depends_on:
       db:
@@ -89,8 +96,8 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:-}
 
-      # lock down signup once the first admin account exists
-      DISABLE_SIGNUP: ${DISABLE_SIGNUP:-true}
+      # Default matches the running container (DISABLE_SIGNUP=false). Set true in .env to lock signup down.
+      DISABLE_SIGNUP: ${DISABLE_SIGNUP:-false}
     volumes:
       - infisical-uploads:/app/backend/uploads
 
