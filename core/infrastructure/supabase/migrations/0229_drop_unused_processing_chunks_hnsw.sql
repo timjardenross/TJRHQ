@@ -1,0 +1,25 @@
+-- 0229_drop_unused_processing_chunks_hnsw.sql
+-- USS-TJR-MSN-0412 Stream 4 (Supabase headroom). Database was 419 MB, 83.8% of
+-- the Free plan's 500 MB limit (2026-10-09).
+--
+-- idx_processing_chunks_embedding_hnsw is 69 MB and has never been used:
+--   * idx_scan = 0 and idx_tup_read = 0 since the stats reset on 2026-05-22
+--   * no function, view, materialized view, policy or trigger references
+--     processing_chunks, and no constraint depends on the index
+--   * no repo code runs a vector-similarity query on processing_chunks. The
+--     portal reads it by document_id only, the knowledge-library "decide"
+--     flow copies already-embedded rows into document_chunks, and the real
+--     similarity RPC (match_document_chunks) searches document_chunks.
+--
+-- Definition as it was live (pg_get_indexdef, 2026-10-09):
+--   CREATE INDEX idx_processing_chunks_embedding_hnsw ON public.processing_chunks
+--     USING hnsw (embedding vector_cosine_ops) WHERE (embedding IS NOT NULL)
+--
+-- ROLLBACK (rebuilds the 69 MB index; it is the original statement from
+-- 0042_document_processing_pipeline.sql):
+--   create index if not exists idx_processing_chunks_embedding_hnsw
+--     on processing_chunks
+--     using hnsw (embedding vector_cosine_ops)
+--     where embedding is not null;
+
+drop index if exists public.idx_processing_chunks_embedding_hnsw;
