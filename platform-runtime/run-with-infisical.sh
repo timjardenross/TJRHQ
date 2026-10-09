@@ -53,6 +53,7 @@ source "$AUTH_FILE"
 source "$(dirname "$0")/lib-infisical.sh"
 infisical_wait_ready
 infisical_login
+infisical_wait_secrets_ready "$PROJECT_ID" "$ENVIRONMENT"
 
 exec infisical run \
   --domain="$DOMAIN" \

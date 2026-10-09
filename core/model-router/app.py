@@ -596,16 +596,25 @@ def _log_call(entry: dict[str, Any]) -> None:
         log.warning("call log write failed: %s", exc)
 
 
-def _recent_calls(n: int = 20) -> list[dict[str, Any]]:
+def _recent_calls(n: int = 20, include_direct: bool = True) -> list[dict[str, Any]]:
+    """Newest-first call log entries.
+
+    Entries with "source": "direct" are local Ollama calls made by other programs
+    (core/llm/call_log.py, USS-TJR-MSN-0412 Stream 6). They are listed for visibility but
+    must not feed the router's own health numbers, so /health passes include_direct=False.
+    """
     if not _LOG_FILE.exists():
         return []
     lines = _LOG_FILE.read_text(encoding="utf-8").splitlines()
     out = []
     for ln in reversed(lines[-_LOG_LIMIT:]):
         try:
-            out.append(json.loads(ln))
+            entry = json.loads(ln)
         except json.JSONDecodeError:
-            pass
+            continue
+        if not include_direct and entry.get("source") == "direct":
+            continue
+        out.append(entry)
         if len(out) >= n:
             break
     return out
@@ -1003,7 +1012,7 @@ class RouterHandler(BaseHTTPRequestHandler):
                 "expires_at": m.get("expires_at"),
             })
         available = [m.get("name") for m in tags.get("models", [])]
-        calls = _recent_calls(5)
+        calls = _recent_calls(5, include_direct=False)
         avg_ms = None
         if calls:
             times = [c.get("duration_ms", 0) for c in calls if c.get("success")]

@@ -34,6 +34,7 @@ import time
 import urllib.request
 from dataclasses import dataclass
 
+from core.llm.call_log import log_direct_call
 from core.security.llm_guardrails import (
     BlockedByGuardrailsError,
     GuardrailsUnavailableError,
@@ -291,10 +292,25 @@ def call_ollama(
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with _llm_span("ollama", model), urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - base_url is a keyword param, but all callers source it from a fixed env-driven OLLAMA base URL constant, not end-user input - reviewed 2026-09-12
-        data = json.loads(resp.read())
+    started = time.monotonic()
+    prompt_len = len(system_prompt) + len(prompt)
+    try:
+        with _llm_span("ollama", model), urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310 - base_url is a keyword param, but all callers source it from a fixed env-driven OLLAMA base URL constant, not end-user input - reviewed 2026-09-12
+            data = json.loads(resp.read())
+    except Exception as exc:
+        log_direct_call(
+            model=model, duration_ms=int((time.monotonic() - started) * 1000), success=False,
+            prompt_len=prompt_len, error=type(exc).__name__, task_type="direct-ollama-generate",
+        )
+        raise
 
     text = (data.get("response") or "").strip()
+    log_direct_call(
+        model=model, duration_ms=int((time.monotonic() - started) * 1000), success=bool(text),
+        prompt_len=prompt_len, response_len=len(text),
+        prompt_eval_count=data.get("prompt_eval_count"), eval_count=data.get("eval_count"),
+        error=None if text else "empty response", task_type="direct-ollama-generate",
+    )
     if not text:
         raise RuntimeError("Ollama returned an empty response")
     return LLMCallResult(
