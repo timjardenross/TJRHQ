@@ -42,6 +42,25 @@ STATE_FILES=(
   "data/self-improvement/review/opportunity_id_counter.txt"
 )
 
+# Dirty paths this job neither commits nor lets block it. They are the same
+# paths auto-deploy.sh's DIRTY_CHECK_EXCLUDES already tolerates, and each has
+# an owner other than this job:
+#   - mission_dispatch_log.jsonl: rewritten every dispatch cycle by
+#     mission-engineering-dispatch; left uncommitted on purpose (high churn,
+#     one commit per cycle) and covered by the nightly off-box backup instead.
+#   - mission-index.txt: rewritten from Supabase by mission-registry-sync,
+#     never committed.
+#   - Missions/Engineering-Handoffs/: no job commits handoff edits or
+#     deletions; they are left for a human.
+# Before this list existed, any one of these being dirty made every run exit
+# "leaving for a human" (exit 0, so no alert) and the four STATE_FILES above
+# stopped reaching origin/main.
+TOLERATED_DIRTY=(
+  "data/self-improvement/review/mission_dispatch_log.jsonl"
+  "core/mission-control/registry/mission-index.txt"
+  "Missions/Engineering-Handoffs/"
+)
+
 cd "$REPO_ROOT"
 
 dirty_tracked="$(git status --porcelain --untracked-files=no)"
@@ -63,6 +82,11 @@ while IFS= read -r line; do
       break
     fi
   done
+  if [ "$match" = false ]; then
+    for tolerated in "${TOLERATED_DIRTY[@]}"; do
+      case "$path" in "$tolerated"*) match=true; break ;; esac
+    done
+  fi
   if [ "$match" = false ]; then
     only_allowlisted=false
     break
@@ -98,6 +122,12 @@ if [ -n "$dirty_tracked" ]; then
 fi
 if [ -n "$new_run_dirs" ]; then
   git add "$RUNS_DIR"
+fi
+# Only tolerated paths were dirty: nothing of ours to commit. Without this,
+# `git commit` below would fail under `set -e` and raise a failure alert.
+if git diff --cached --quiet; then
+  echo "$LOG_PREFIX only tolerated paths are dirty - nothing to commit."
+  exit 0
 fi
 git commit --quiet -m "chore(self-improvement): auto-sync tracked state files and new run dirs
 
