@@ -5,7 +5,7 @@ commands, never values. Everything secret lives in the Captain's password manage
 
 ## What the nightly backup contains
 
-A restic repository on Google Drive (`rclone:gdrive:starship-backups`), written by
+A restic repository on Google Drive (`rclone:gdrive2:starship-backups-v2`, our own OAuth client), written by
 `deploy/starship-backup.sh` at 02:40 Australia/Melbourne. Each snapshot (tag `starship-nightly`) holds:
 
 | Item | Where in a restored tree |
@@ -36,16 +36,17 @@ the rclone token, the restic password, Ollama models, Docker images.
 
 ## 1. Reach the repository
 
-On a machine with a browser: `rclone authorize "drive" "$(printf '{"scope":"drive.file"}' | base64)"`
-(the second argument is just the base64 of `{"scope":"drive.file"}`, which limits rclone to files it creates).
-On the target machine: `rclone config create gdrive drive scope drive.file token '<json>'`.
+You need the Google OAuth client ID and secret (in the Captain's password manager; never
+write them in a record). On a machine with a browser, run
+`rclone authorize "drive" "$(printf '{"client_id":"<id>","client_secret":"<secret>","scope":"drive.file"}' | base64 -w0)"`
+and keep the printed token JSON. On the target machine:
+`rclone config create gdrive2 drive client_id '<id>' client_secret '<secret>' scope drive.file token '<json>'`.
 
 **Caveat:** with the `drive.file` scope, rclone only sees files created by the *same OAuth client*.
-If the client ID is ever changed (for example from rclone's shared client to your own), the
-existing `starship-backups` folder is invisible to the new client. Plan a switch as: new
-client, new folder, `restic init`, one fresh backup, then retire the old folder.
+The repository was created with our own client, so only that client can open it. The older
+repository (`rclone:gdrive:starship-backups`, rclone's shared client) is kept until it is retired: not before 2026-10-24 (14 days after the switch), and only on the Captain's explicit yes.
 
-Check access: `restic -o rclone.program=$(command -v rclone) -r rclone:gdrive:starship-backups snapshots`.
+Check access: `restic -o rclone.program=$(command -v rclone) -r rclone:gdrive2:starship-backups-v2 snapshots`.
 
 ## 2. Restore the files
 
