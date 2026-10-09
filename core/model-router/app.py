@@ -68,9 +68,8 @@ log = logging.getLogger("model-router")
 # fails the cloud dispatch closed (see llm_guardrails.py's _FAIL_OPEN) rather
 # than silently sending an unredacted, unchecked prompt to Google/Mistral.
 # See docs/decisions/ADR-llm-application-security-baseline.md for the full
-# picture, including the routes this layer does NOT cover (glm-*:cloud via
-# Ollama — same _ollama_generate() code path as fully-local calls, not
-# interceptable at this layer without also touching every local call).
+# picture. glm-*:cloud (Ollama Cloud) is covered too since USS-TJR-MSN-0412
+# Stream 5: _run_task guards any model whose tag ends in ":cloud".
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from core.security.llm_guardrails import (
     check_output_rail,
@@ -687,6 +686,11 @@ def _resolve_cloud_escalation(task_type: str, policy: dict[str, Any]) -> tuple[d
     )
 
 
+def _is_cloud_model(model: str) -> bool:
+    """True for Ollama Cloud tags (e.g. glm-5.3:cloud), which are served off-host."""
+    return model.endswith(":cloud")
+
+
 def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, Any]:
     """Execute routing policy and return result dict."""
     policy = TASK_POLICY.get(task_type)
@@ -750,9 +754,20 @@ def _run_task(task_type: str, prompt: str, extra: dict[str, Any]) -> dict[str, A
             embeddings = raw.get("embeddings", raw.get("embedding", []))
             token_info = {"prompt_eval_count": raw.get("prompt_eval_count")}
         else:
+            # Ollama Cloud models (glm-*:cloud) leave the host through the local
+            # Ollama daemon, so they get the same gate as the Gemini branch:
+            # nothing goes to any cloud model unredacted (USS-TJR-MSN-0412
+            # Stream 5). Local models are unchanged.
+            outbound = prompt
+            if _is_cloud_model(model):
+                with _OLLAMA_LOCK:
+                    outbound, _redaction = secure_outbound_prompt(prompt)
             with _OLLAMA_LOCK:
-                raw = _ollama_generate(model, prompt, keep_alive, timeout, policy.get("num_predict"))
+                raw = _ollama_generate(model, outbound, keep_alive, timeout, policy.get("num_predict"))
             response_text = raw.get("response", "").strip()
+            if _is_cloud_model(model):
+                with _OLLAMA_LOCK:
+                    check_output_rail(response_text)
             embeddings = None
             token_info = {
                 "prompt_eval_count": raw.get("prompt_eval_count"),

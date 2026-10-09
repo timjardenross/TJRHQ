@@ -10,14 +10,37 @@ responsible for the try/except-and-fall-through provider chain, retry
 policy, and domain-specific system prompt / token-budget choices. This
 module owns none of that; it only owns "how do you actually talk to Gemini /
 Mistral / Ollama."
+
+Cloud egress is guarded (USS-TJR-MSN-0412 Stream 5). call_gemini and
+call_mistral run the same core.security.llm_guardrails checks the model
+router runs before it dispatches to Gemini — input rail (prompt injection),
+then Presidio PII/PHI redaction — and the output rail on the response, and
+they FAIL CLOSED like the router: an unavailable guard, a blocked prompt or
+response, or text too long to redact raises (GuardrailsUnavailableError /
+BlockedByGuardrailsError, both RuntimeError subclasses, so callers'
+existing fall-through to the next provider still works) and nothing is sent.
+call_ollama is local and unguarded by design. Cost: roughly 45-90s per call
+on this CPU-only host, because the NeMo rails run on the local Ollama.
 """
 
 from __future__ import annotations
 
 import contextlib
+import fcntl
 import json
+import os
+import tempfile
+import time
 import urllib.request
 from dataclasses import dataclass
+
+from core.security.llm_guardrails import (
+    BlockedByGuardrailsError,
+    GuardrailsUnavailableError,
+    check_input_rail,
+    check_output_rail,
+    redact_pii,
+)
 
 try:
     import sys as _sys
@@ -70,6 +93,80 @@ def _llm_span(provider: str, model: str, task_type: str = ""):
     )
 
 
+# --- cloud-egress guard (USS-TJR-MSN-0412 Stream 5) --------------------------
+
+# Presidio's spaCy model rejects text over 1,000,000 characters (error E088), and redaction
+# time grows with length (about 190s for 200,000 characters on this host, measured), so the
+# worker's own timeout would fire first. Refuse above this cap instead of chunking: an
+# entity split across a chunk boundary could escape redaction.
+_MAX_GUARDED_CHARS = int(os.environ.get("LLM_PROVIDER_CHAIN_MAX_GUARDED_CHARS", "150000"))
+
+# system_prompt and prompt are redacted in ONE Presidio call (each call starts a worker that
+# loads spaCy), joined by this marker. If redaction changes the marker, refuse to send.
+_PART_BOUNDARY = "\n\n<<<provider-chain-part-boundary-7f3a9c>>>\n\n"
+
+# The NeMo rails call the local CPU Ollama. The model router serializes its own guard calls with
+# an in-process lock; direct callers run in separate processes, so they serialize with a file
+# lock (otherwise concurrent guard runs thrash the CPU and time out, as in the Sept 15-19 incident).
+_GUARD_LOCK_WAIT_S = float(os.environ.get("LLM_PROVIDER_CHAIN_GUARD_LOCK_WAIT_S", "900"))
+
+
+def _guard_lock_path() -> str:
+    explicit = os.environ.get("LLM_PROVIDER_CHAIN_GUARD_LOCK")
+    if explicit:
+        return explicit
+    return "/run/llm-guardrails-provider-chain.lock" if os.access("/run", os.W_OK) else os.path.join(
+        tempfile.gettempdir(), "llm-guardrails-provider-chain.lock"
+    )
+
+
+@contextlib.contextmanager
+def _guard_lock():
+    """Exclusive inter-process lock around guard calls. Failing to get it within
+    _GUARD_LOCK_WAIT_S raises GuardrailsUnavailableError: fail closed, never skip the guard."""
+    fd = os.open(_guard_lock_path(), os.O_CREAT | os.O_RDWR, 0o600)
+    deadline = time.monotonic() + _GUARD_LOCK_WAIT_S
+    try:
+        while True:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise GuardrailsUnavailableError(
+                        f"guard busy: could not take the guard lock within {_GUARD_LOCK_WAIT_S:.0f}s"
+                    ) from None
+                time.sleep(0.5)
+        yield
+    finally:
+        os.close(fd)  # closing the descriptor releases the flock
+
+
+def _guard_outbound(system_prompt: str, prompt: str) -> tuple[str, str]:
+    """Input rail then redaction over everything that would leave this host. Returns the
+    (system_prompt, prompt) pair to send. Raises, so nothing is sent, if the text is too long,
+    the guard is unavailable or busy, the rail blocks, or redaction mangles the part boundary."""
+    total = len(system_prompt) + len(prompt)
+    if total > _MAX_GUARDED_CHARS:
+        raise BlockedByGuardrailsError(
+            f"prompt is {total} characters, over the {_MAX_GUARDED_CHARS}-character limit the "
+            "redaction guard can check; refusing to send it unredacted"
+        )
+    with _guard_lock():
+        check_input_rail(f"{system_prompt}\n\n{prompt}")
+        redacted = redact_pii(f"{system_prompt}{_PART_BOUNDARY}{prompt}").redacted_text
+    parts = redacted.split(_PART_BOUNDARY)
+    if len(parts) != 2:
+        raise BlockedByGuardrailsError("redaction altered the system/user prompt boundary; refusing to send")
+    return parts[0], parts[1]
+
+
+def _guard_inbound(text: str) -> None:
+    """Output rail on a cloud response. Raises (the text is then never returned) if blocked."""
+    with _guard_lock():
+        check_output_rail(text)
+
+
 def call_gemini(
     system_prompt: str,
     prompt: str,
@@ -81,6 +178,8 @@ def call_gemini(
 ) -> LLMCallResult:
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY not set")
+
+    system_prompt, prompt = _guard_outbound(system_prompt, prompt)
 
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -113,12 +212,14 @@ def call_gemini(
     if not candidates:
         raise RuntimeError("Gemini returned no candidates")
     usage = data.get("usageMetadata", {})
-    return LLMCallResult(
+    result = LLMCallResult(
         text=candidates[0]["content"]["parts"][0]["text"].strip(),
         model="gemini-3.5-flash-lite",
         input_tokens=usage.get("promptTokenCount"),
         output_tokens=usage.get("candidatesTokenCount"),
     )
+    _guard_inbound(result.text)
+    return result
 
 
 def call_mistral(
@@ -133,6 +234,8 @@ def call_mistral(
 ) -> LLMCallResult:
     if not api_key:
         raise RuntimeError("MISTRAL_API_KEY not set")
+
+    system_prompt, prompt = _guard_outbound(system_prompt, prompt)
 
     body = json.dumps({
         "model": model,
@@ -156,12 +259,14 @@ def call_mistral(
         data = json.loads(resp.read())
 
     usage = data.get("usage", {})
-    return LLMCallResult(
+    result = LLMCallResult(
         text=data["choices"][0]["message"]["content"].strip(),
         model=data.get("model") or model,
         input_tokens=usage.get("prompt_tokens"),
         output_tokens=usage.get("completion_tokens"),
     )
+    _guard_inbound(result.text)
+    return result
 
 
 def call_ollama(
