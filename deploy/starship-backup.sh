@@ -138,7 +138,10 @@ LIST="$STAGE/paths.txt"
 log "paths to back up: $(wc -l <"$LIST") entries"
 
 BACKUP_OK=1
-BK=("${RESTIC_CMD[@]}" backup --files-from "$LIST" --tag "$TAG" --exclude-caches)
+# --group-by host,tags: the path set changes every run (random staging dir, new .env files), so
+# the default host,paths grouping would give every snapshot its own group: no parent
+# snapshot for speed-up and, worse, retention would never prune anything.
+BK=("${RESTIC_CMD[@]}" backup --files-from "$LIST" --tag "$TAG" --group-by host,tags --exclude-caches)
 [ "$DRY" = "1" ] && BK+=(--dry-run)
 "${BK[@]}" 2>&1 | grep -vE 'NOTICE: gdrive: This remote uses rclone.s shared Google Drive client_id'
 rc=${PIPESTATUS[0]}   # must be read immediately after the pipeline: it is restic's own exit code
@@ -147,7 +150,7 @@ if [ "$rc" -ne 0 ]; then BACKUP_OK=0; fail "restic backup exited $rc"; fi
 # --- 5. retention (only after a good backup)
 log "5/5 retention"
 if [ "$BACKUP_OK" = "1" ]; then
-  FG=("${RESTIC_CMD[@]}" forget --tag "$TAG" --keep-daily 7 --keep-weekly 4 --keep-monthly 3)
+  FG=("${RESTIC_CMD[@]}" forget --tag "$TAG" --group-by host,tags --keep-daily 7 --keep-weekly 4 --keep-monthly 3)
   if [ "$DRY" = "1" ]; then FG+=(--dry-run); else FG+=(--prune); fi
   "${FG[@]}" 2>&1 | grep -vE 'NOTICE: gdrive: This remote uses rclone.s shared Google Drive client_id' | tail -15
   [ "${PIPESTATUS[0]}" -eq 0 ] || fail "restic forget/prune failed"
