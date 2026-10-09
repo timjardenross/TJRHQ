@@ -274,12 +274,16 @@ This enforces the Q4 rule: cloud calls only after redaction.
    - Use it in `provider_chain.call_ollama` and `platform-runtime/llm.py`
      first. Those two cover most of the 25+ direct callers.
 3. Increase sysstat retention: set `HISTORY=28` in `/etc/sysstat/sysstat`.
+   (Checked 2026-10-09: already `HISTORY=90`, so no change is needed.)
 4. During a busy period, run
    `timeout 3600 pidstat -u -l 15 | awk 'NR<4 || $8>=25'` and record the
    cause of the CPU bursts.
 
 **Done when:** a reboot is clean, local calls appear in the log, and the
 burst cause is named.
+
+The "0 errors" target counts the wrappers' "refusing to start" lines, not
+raw CLI errors: the readiness probe hides the CLI's stderr.
 
 ### Days 61–90: review only
 
@@ -294,6 +298,59 @@ burst cause is named.
   - time-sensitive reliance
   - "production-ready"
 
+## Follow-ups (recorded 2026-10-10)
+
+Recorded, not acted on unless a line says otherwise.
+
+**Before REVS moves or goes live**
+- Before `tg-revs` is ever unmasked: revoke the REVS Telegram token once
+  more and store the new one directly in Infisical (the current one passed
+  through a chat session). It stays masked until then.
+- Decide the `crisis_layer2` fallback: a guarded cloud call takes about
+  45-90 s (see `telegram-bots/revs/README.md`).
+
+**Secret-rotation batch (not urgent)**
+- Supabase database password and service key, GitHub token, Infisical
+  admin credential, the other Telegram bot tokens, and the Infisical Redis
+  password (it was printed into a tool output once during Stream 6
+  inspection; the Redis container publishes no port).
+- Names and counts only in any record. Never values.
+
+**Deploy and sync reliability (incident of 2026-10-09/10)**
+- What happened: four directories had been created as `root:deploy` mode
+  2755 on Oct 3, so `deploy` could not write into them. The fast-forward
+  failed half-way, left tracked and untracked files half-applied, and every
+  later tick aborted. While auto-deploy was wedged, the sync job committed
+  state files onto the stale local `main`, so local and origin diverged.
+  Fixed by hand on 2026-10-10: permissions corrected, the half-written
+  files removed after a byte-identical check, the three state commits
+  replayed onto `origin/main` and pushed.
+- Find what created those four directories as `root:deploy` 2755 on Oct 3
+  (a root session's umask, or a script) so it cannot recur. Report only.
+- `auto-deploy.sh` should clean up after a failed fast-forward: restore the
+  half-written tracked files and remove the half-written untracked ones
+  that match the target, so one permission error cannot wedge every later
+  deploy. Report only; no change yet.
+- Sync job: fetch and fast-forward before committing, skip with a warning
+  if it cannot (PR #361). Merge before it is installed.
+- Sync timer logged far fewer runs than its cadence implies; check whether
+  it was off for part of the period.
+
+**Backup and Supabase**
+- Alert when a service sees the Supabase restriction error body (the
+  Oct 2-5 `exceed_egress_quota` restriction went unnoticed for days).
+- Check the dump and test dumps against the Free-plan egress cap in the
+  Supabase dashboard (TO BE VERIFIED by the Captain).
+- Backup-freshness alert.
+- Use our own Google OAuth client for the restic remote.
+- Lengthen the restic password.
+- Roles-only export of the Supabase database.
+- Add `HEAD` to the git bundle.
+
+**Open**
+- An unexplained login on Oct 7 is still unresolved (details in
+  `/root/private-knowledge`, not here).
+
 ## Cost
 
 | Stream | Cost |
@@ -305,10 +362,12 @@ burst cause is named.
 
 - [ ] Portal sign-up is off, and all 3 accounts are confirmed as the
       Captain's.
-- [ ] No local-only commits remain. Everything was secret-scanned before
-      push.
-- [ ] Nightly encrypted off-box backups of Supabase, Infisical and the
-      VM-only state have run. The Infisical keys are held separately. One
+- [ ] No VM-only commits remain without an off-box copy (GitHub, or the
+      verified bundle in the restic backup). Everything was secret-scanned
+      before push.
+- [x] Nightly encrypted off-box backups of Supabase, Infisical and the
+      VM-only state have run (first unattended run OK 2026-10-10 02:40,
+      3 snapshots, nothing removed, no alert). The Infisical keys are held separately. One
       test restore of each database has passed.
 - [ ] SSH is key-only, with password and root-password login refused.
 - [ ] The Supabase database is at or below 75% of the Free limit, with a
