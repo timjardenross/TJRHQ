@@ -303,17 +303,15 @@ raw CLI errors: the readiness probe hides the CLI's stderr.
 Recorded, not acted on unless a line says otherwise.
 
 **Before REVS moves or goes live**
-- Before `tg-revs` is ever unmasked: revoke the REVS Telegram token once
-  more and store the new one directly in Infisical (the current one passed
-  through a chat session). It stays masked until then.
+- Re-issue the REVS Telegram token and store it directly in Infisical
+  before `tg-revs` is unmasked. It stays masked until then.
 - Decide the `crisis_layer2` fallback: a guarded cloud call takes about
   45-90 s (see `telegram-bots/revs/README.md`).
 
 **Secret-rotation batch (not urgent)**
-- Supabase database password and service key, GitHub token, Infisical
-  admin credential, the other Telegram bot tokens, and the Infisical Redis
-  password (it was printed into a tool output once during Stream 6
-  inspection; the Redis container publishes no port).
+- Credential names only: Supabase database password, Supabase service key,
+  GitHub token, Infisical admin credential, the other Telegram bot tokens,
+  Infisical Redis password.
 - Names and counts only in any record. Never values.
 
 **Deploy and sync reliability (incident of 2026-10-09/10)**
@@ -347,10 +345,6 @@ Recorded, not acted on unless a line says otherwise.
 - Roles-only export of the Supabase database.
 - Add `HEAD` to the git bundle.
 
-**Open**
-- An unexplained login on Oct 7 is still unresolved (details in
-  `/root/private-knowledge`, not here).
-
 ## Cost
 
 | Stream | Cost |
@@ -367,7 +361,12 @@ Recorded, not acted on unless a line says otherwise.
       before push.
 - [x] Nightly encrypted off-box backups of Supabase, Infisical and the
       VM-only state have run (first unattended run OK 2026-10-10 02:40,
-      3 snapshots, nothing removed, no alert). The Infisical keys are held separately. One
+      3 snapshots, nothing removed, no alert). Test restore of each
+      database passed on 2026-10-09 (Supabase and Infisical dumps, each
+      restored into a throwaway database container); recorded in the
+      private Stream 2 knowledge record. Not yet restore-tested: the
+      reduced Supabase dump (4 log tables without data, from 2026-10-10);
+      only its table of contents has been checked. The Infisical keys are held separately. One
       test restore of each database has passed.
 - [ ] SSH is key-only, with password and root-password login refused.
 - [ ] The Supabase database is at or below 75% of the Free limit, with a
