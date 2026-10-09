@@ -124,6 +124,7 @@ LIST="$STAGE/paths.txt"
     "$REPO_ROOT/outputs/delivery_ledger.txt" \
     "$REPO_ROOT/Missions/Engineering-Handoffs" \
     "$REPO_ROOT/.id-counters.json" \
+    "$REPO_ROOT/platform-runtime/.infisical-auth.env" \
     /etc/caddy \
     /root/private-knowledge \
     /var/spool/cron/crontabs \
