@@ -41,6 +41,9 @@ case "$1" in
     name="$(echo "$path" | sed 's#^/##; s#/#_#g')"; [ -z "$name" ] && name=root
     f="$FX/export_$name"
     [ "${EXPORT_FAIL_PATH:-}" = "$path" ] && exit 1
+    # EXPORT_FAILS=N: the first N exports fail (API up, secrets route not ready yet)
+    n=$(cat "$FX/export_calls" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$FX/export_calls"
+    [ "$n" -le "${EXPORT_FAILS:-0}" ] && { echo "failed to fetch secrets" >&2; exit 1; }
     cat "$f" ;;
   run) shift; while [ "$1" != "--" ]; do shift; done; shift; exec "$@" ;;
 esac
@@ -86,7 +89,7 @@ rm -rf "$tmp"
 echo "test: bot wrapper - root export fails -> fails, command not started"
 tmp="$(setup)"
 out="$(EXPORT_FAIL_PATH=/ run "$tmp" run-with-infisical-bot.sh xo -- probe)"; rc=$?
-if [ $rc -ne 0 ] && [ ! -e "$tmp/fx/probe.log" ] && echo "$out" | grep -q "export of / failed"; then
+if [ $rc -ne 0 ] && [ ! -e "$tmp/fx/probe.log" ] && echo "$out" | grep -qE "export of / failed|secrets not readable"; then
   pass "failed root export stops the wrapper (the old source <(...) bug)"
 else fail "root export failure (rc=$rc out=$out)"; fi
 rm -rf "$tmp"
@@ -138,6 +141,29 @@ if [ $rc -ne 0 ] && [ ! -e "$tmp/fx/probe.log" ] && ! grep -q "infisical run" "$
   pass "plain wrapper stops on a failed login"
 else fail "plain login failure (rc=$rc out=$out)"; fi
 rm -rf "$tmp"
+
+echo "test: secrets-readiness - status is up but the first 3 exports fail -> waits (backoff), then runs; no failure leaks"
+for w in run-with-infisical-bot.sh run-with-infisical.sh; do
+  tmp="$(setup)"
+  if [ "$w" = run-with-infisical-bot.sh ]; then args=(xo -- probe); else args=(probe); fi
+  out="$(EXPORT_FAILS=3 INFISICAL_READY_TIMEOUT=60 run "$tmp" "$w" "${args[@]}")"; rc=$?
+  if [ $rc -eq 0 ] && [ -s "$tmp/fx/probe.log" ] && ! echo "$out" | grep -q "refusing"; then
+    pass "$w waited through 3 failed exports, then started the command"
+  else fail "$w secrets wait (rc=$rc out=$out)"; fi
+  rm -rf "$tmp"
+done
+
+echo "test: secrets-readiness - exports never work -> non-zero after the timeout, command not started"
+for w in run-with-infisical-bot.sh run-with-infisical.sh; do
+  tmp="$(setup)"
+  if [ "$w" = run-with-infisical-bot.sh ]; then args=(xo -- probe); else args=(probe); fi
+  out="$(EXPORT_FAILS=999 INFISICAL_READY_TIMEOUT=2 run "$tmp" "$w" "${args[@]}")"; rc=$?
+  if [ $rc -ne 0 ] && [ ! -e "$tmp/fx/probe.log" ] && ! grep -q "infisical run" "$tmp/fx/calls.log" 2>/dev/null \
+     && echo "$out" | grep -q "secrets not readable.*after 2s"; then
+    pass "$w gives up loudly and never starts the command"
+  else fail "$w secrets timeout (rc=$rc out=$out)"; fi
+  rm -rf "$tmp"
+done
 
 echo
 echo "$PASS passed, $FAIL failed"

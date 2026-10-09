@@ -44,6 +44,7 @@ source "$(dirname "$0")/lib-infisical.sh"
 # the old `export X="$(...)"` and `source <(...)` forms swallowed every failure.
 infisical_wait_ready
 infisical_login
+infisical_wait_secrets_ready "$PROJECT_ID" "$ENVIRONMENT"
 set -a
 infisical_source_path "/" "$PROJECT_ID" "$ENVIRONMENT"
 # The bot's own folder is what carries its TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID,

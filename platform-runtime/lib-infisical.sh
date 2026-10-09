@@ -15,6 +15,7 @@
 # overridable (INFISICAL_READY_TIMEOUT / INFISICAL_READY_INTERVAL, seconds).
 infisical_wait_ready() {
   local timeout="${INFISICAL_READY_TIMEOUT:-120}" interval="${INFISICAL_READY_INTERVAL:-2}" waited=0
+  _INFISICAL_WAIT_STARTED="$SECONDS"   # one time budget for this and infisical_wait_secrets_ready
   until curl -fsS -m 3 -o /dev/null "${DOMAIN}/status" 2>/dev/null; do
     if [ "$waited" -ge "$timeout" ]; then
       echo "infisical: API at ${DOMAIN} not ready after ${timeout}s - refusing to start without secrets" >&2
@@ -23,6 +24,33 @@ infisical_wait_ready() {
     sleep "$interval"
     waited=$((waited + interval))
   done
+}
+
+# Block until a real secrets export works, or fail. Needs INFISICAL_TOKEN (call after
+# infisical_login). Added 2026-10-09 (USS-TJR-MSN-0412 Stream 6): after that day's reboot
+# the API answered /status within seconds but returned 404 for the secrets route for
+# ~12 minutes, so every unit passed infisical_wait_ready and then died in `infisical
+# run`/`export` ("failed to fetch secrets", 530 journal lines in one boot). Probing the
+# real operation closes that gap. Backoff: INFISICAL_READY_INTERVAL doubling up to
+# INFISICAL_READY_MAX_INTERVAL (default 15 s); shares the INFISICAL_READY_TIMEOUT budget
+# with infisical_wait_ready, but always makes at least one attempt.
+# usage: infisical_wait_secrets_ready <project-id> <env>
+infisical_wait_secrets_ready() {
+  local project="$1" env="$2"
+  local timeout="${INFISICAL_READY_TIMEOUT:-120}" interval="${INFISICAL_READY_INTERVAL:-2}"
+  local max_interval="${INFISICAL_READY_MAX_INTERVAL:-15}"
+  local started="${_INFISICAL_WAIT_STARTED:-$SECONDS}"
+  until infisical export --domain="$DOMAIN" --projectId="$project" --env="$env" \
+          --path=/ --format=dotenv >/dev/null 2>&1; do
+    if [ $((SECONDS - started)) -ge "$timeout" ]; then
+      echo "infisical: secrets not readable at ${DOMAIN} after ${timeout}s - refusing to start without secrets" >&2
+      return 1
+    fi
+    sleep "$interval"
+    interval=$((interval * 2))
+    if [ "$interval" -gt "$max_interval" ]; then interval="$max_interval"; fi
+  done
+  return 0
 }
 
 # Mint a machine-identity token and export it as INFISICAL_TOKEN. Fails (non-zero)
