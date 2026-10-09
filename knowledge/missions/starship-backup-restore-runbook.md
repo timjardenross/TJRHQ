@@ -12,6 +12,12 @@ A restic repository on Google Drive (`rclone:gdrive:starship-backups`), written 
 |---|---|
 | Supabase dump (`public`, `auth`, `storage`, `supabase_migrations`), custom format | `var/tmp/starship-backup.*/supabase.dump` |
 | `cron.job` rows (data-only SQL) | `.../supabase.dump.cron-job.sql` |
+
+The Supabase dump is taken every 3rd night (to save Supabase egress on the Free plan). On the other nights the
+last good dump is re-added from a VM cache, so every snapshot still contains one; its age is in the run log
+(`supabase dump skipped: cached dump is Nh old`). The DATA of four regenerable log tables
+(`domain_heartbeats`, `core_events`, `verification_state`, `intelligence_source_health`) is not in the dump;
+their definitions are. After a restore those tables start empty and refill from the running services.
 | Infisical Postgres dump, custom format | `.../infisical-db.dump` |
 | Infisical containers' definitions (`docker inspect`) | `.../infisical-containers-inspect.json` |
 | Git bundle of every local branch | `.../branches.bundle` (and a dated `starship-branches-*.bundle`) |

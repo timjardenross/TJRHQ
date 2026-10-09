@@ -3,7 +3,11 @@
 #
 # What it does
 #   1. Dumps the Supabase database (public, auth, storage, supabase_migrations,
-#      plus the cron.job rows).
+#      plus the cron.job rows). To save Supabase egress (Free plan cap 5 GB), the
+#      dump runs every SUPABASE_DUMP_EVERY_HOURS (default 72, i.e. every 3rd night),
+#      skips the DATA of the regenerable log tables (schema is kept), and the last
+#      good dump is cached on the VM and re-added to every nightly snapshot, so each
+#      snapshot is self-contained (restic de-duplicates the unchanged file).
 #   2. Dumps the Infisical Postgres and records the Infisical containers'
 #      definitions (docker inspect), which hold keys the compose files do not.
 #   3. Bundles every local git branch.
@@ -38,6 +42,17 @@ export HOME="${HOME:-/root}"
 DRY="${DRY_RUN:-0}"
 TAG=starship-nightly
 
+# Append-only operational logs that are pruned to 30 days by migration 0221 (and heartbeats by an
+# earlier job). Their rows are regenerable/low value, about 30% of the data; the table definitions
+# are still dumped. audit_events is deliberately NOT here (evidentiary).
+EXCLUDE_DATA_TABLES=(public.domain_heartbeats public.core_events public.verification_state public.intelligence_source_health)
+EXCLUDE_DATA_ARGS=()
+for t in "${EXCLUDE_DATA_TABLES[@]}"; do EXCLUDE_DATA_ARGS+=("--exclude-table-data=$t"); done
+
+CACHE_DIR="${BACKUP_CACHE_DIR:-/var/lib/starship-backup}"
+DUMP_EVERY_H="${SUPABASE_DUMP_EVERY_HOURS:-72}"
+DUMP_GRACE_H=1            # nights drift by seconds; due = age >= interval - grace
+
 redact() { sed -E 's#(postgres(ql)?://)[^[:space:]]+#\1<redacted>#g'; }
 
 # --- sub-mode: runs UNDER the Infisical wrapper so SUPABASE_DB_URL is in the
@@ -46,7 +61,7 @@ if [ "${1:-}" = "--supabase-dump" ]; then
   out="${2:?output path}"
   [ -n "${SUPABASE_DB_URL:-}" ] || { echo "SUPABASE_DB_URL is not set" >"$out.err"; exit 2; }
   docker run --rm --network host -e SUPABASE_DB_URL postgres:17 \
-    sh -c 'exec pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges --format=custom --schema=public --schema=auth --schema=storage --schema=supabase_migrations' \
+    sh -c 'exec pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges --format=custom --schema=public --schema=auth --schema=storage --schema=supabase_migrations "$@"' sh "${EXCLUDE_DATA_ARGS[@]}" \
     >"$out" 2>"$out.err"
   rc=$?
   # cron.job definitions (data only); best effort, never fails the dump.
@@ -75,17 +90,37 @@ log "start (dry_run=$DRY, stage=$STAGE)"
 "${RESTIC_CMD[@]}" cat config >/dev/null 2>&1 \
   || { log "cannot open the restic repository (Drive authorisation or password problem)"; exit 1; }
 
-# --- 1. Supabase
-log "1/5 supabase dump"
-if "$INFISICAL_WRAPPER" "$0" --supabase-dump "$STAGE/supabase.dump" >"$STAGE/supabase.wrapper.log" 2>&1; then
-  size=$(stat -c %s "$STAGE/supabase.dump" 2>/dev/null || echo 0)
-  toc=$(docker run -i --rm postgres:17 pg_restore --list <"$STAGE/supabase.dump" 2>/dev/null | wc -l)
-  log "supabase dump: $((size / 1048576)) MB, $toc table-of-contents entries"
-  { [ "$size" -ge 1048576 ] && [ "$toc" -ge 100 ]; } || fail "supabase dump is empty or unreadable ($size bytes, $toc entries)"
+# --- 1. Supabase (every DUMP_EVERY_H hours; otherwise re-use the cached dump, no Supabase egress)
+mkdir -p "$CACHE_DIR" && chmod 700 "$CACHE_DIR"
+CACHE_DUMP="$CACHE_DIR/supabase.dump"
+CACHE_CRON="$CACHE_DIR/supabase.dump.cron-job.sql"
+now=$(date +%s)
+cache_age_h=-1
+[ -s "$CACHE_DUMP" ] && cache_age_h=$(( (now - $(stat -c %Y "$CACHE_DUMP")) / 3600 ))
+if [ "${FORCE_SUPABASE_DUMP:-0}" = "1" ] || [ "$cache_age_h" -lt 0 ] || [ "$cache_age_h" -ge $((DUMP_EVERY_H - DUMP_GRACE_H)) ]; then
+  log "1/5 supabase dump (cached dump age: $([ "$cache_age_h" -lt 0 ] && echo none || echo "${cache_age_h}h"); data skipped for ${#EXCLUDE_DATA_TABLES[@]} log tables)"
+  if "$INFISICAL_WRAPPER" "$0" --supabase-dump "$STAGE/supabase.dump" >"$STAGE/supabase.wrapper.log" 2>&1; then
+    size=$(stat -c %s "$STAGE/supabase.dump" 2>/dev/null || echo 0)
+    toc=$(docker run -i --rm postgres:17 pg_restore --list <"$STAGE/supabase.dump" 2>/dev/null | wc -l)
+    log "supabase dump: $((size / 1048576)) MB, $toc table-of-contents entries"
+    if [ "$size" -ge 1048576 ] && [ "$toc" -ge 100 ]; then
+      cp "$STAGE/supabase.dump" "$CACHE_DUMP.tmp" && mv -f "$CACHE_DUMP.tmp" "$CACHE_DUMP"
+      [ -f "$STAGE/supabase.dump.cron-job.sql" ] && cp "$STAGE/supabase.dump.cron-job.sql" "$CACHE_CRON"
+    else
+      fail "supabase dump is empty or unreadable ($size bytes, $toc entries)"
+    fi
+  else
+    fail "supabase dump failed: $(head -c 300 "$STAGE/supabase.dump.err" 2>/dev/null | redact | tr '\n' ' ')"
+  fi
+  rm -f "$STAGE/supabase.wrapper.log"
 else
-  fail "supabase dump failed: $(head -c 300 "$STAGE/supabase.dump.err" 2>/dev/null | redact | tr '\n' ' ')"
+  log "1/5 supabase dump skipped: cached dump is ${cache_age_h}h old (next due at ${DUMP_EVERY_H}h); re-using it, no Supabase egress"
+  cp "$CACHE_DUMP" "$STAGE/supabase.dump"
+  [ -f "$CACHE_CRON" ] && cp "$CACHE_CRON" "$STAGE/supabase.dump.cron-job.sql"
 fi
-rm -f "$STAGE/supabase.wrapper.log"
+# A due-but-failed dump is already recorded by fail() above and retried the next night (the cache
+# stays old, so it stays due). Re-using the old cached dump meanwhile is not done: only a good dump is cached.
+[ -s "$STAGE/supabase.dump" ] || log "no supabase dump in this snapshot"
 
 # --- 2. Infisical
 log "2/5 infisical database and container definitions"
