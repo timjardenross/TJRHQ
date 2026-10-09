@@ -1,0 +1,13 @@
+[Unit]
+Description=Nightly encrypted off-box backup at 02:40 local time - USS-TJR-MSN-0412
+
+[Timer]
+# Local time (Australia/Melbourne on this VM). Clear of memory-nightly-consolidation
+# (02:17) and the 03:00 hq-evolution jobs.
+OnCalendar=*-*-* 02:40:00
+# If the VM was off at 02:40, run once shortly after it boots.
+Persistent=true
+Unit=starship-backup.service
+
+[Install]
+WantedBy=timers.target
