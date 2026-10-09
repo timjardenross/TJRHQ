@@ -17,7 +17,7 @@ pytz
 # via a real ResolutionImpossible + live TypeError reproduction, not just
 # reading changelogs. Re-verify from scratch (see knowledge record) before
 # ever bumping past 2.7.4 while python-telegram-bot 20.7's httpx pin stands.
-supabase==2.31.0
+supabase==2.32.0
 # Must stay <2.9.0 — see the supabase pin comment above; gotrue>=2.9.0 also
 # calls httpx.Client(proxy=...), which httpx<0.29 rejects. The previous
 # gotrue==2.12.4 pin (from Dependabot PR #132) was ALREADY broken: it
@@ -27,9 +27,9 @@ supabase==2.31.0
 # because `pip install -r requirements.txt` was never actually re-run
 # against this file after PR #132 merged. Fixed here as part of MSN-0370.
 gotrue<2.13.0
-python-dotenv==1.2.3
+python-dotenv==1.2.4
 # httpx<0.29 required: python-telegram-bot 20.7 passes `proxies` kwarg removed in httpx 0.26+
 httpx<0.29
-pyjwt>=2.14.0
+pyjwt>=2.15.1
 # edge-tts: Microsoft Edge neural TTS for XO voice replies — no API key required
 edge-tts>=7.2.8
