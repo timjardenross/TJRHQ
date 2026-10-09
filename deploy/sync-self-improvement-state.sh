@@ -116,6 +116,27 @@ if [ "$current_branch" != "$BRANCH" ]; then
   exit 1
 fi
 
+# 2026-10-10: bring local $BRANCH up to date with origin BEFORE committing.
+# While auto-deploy was wedged, local main fell 17 commits behind origin; this
+# job then committed state files onto that stale main, so local and origin
+# diverged and every later auto-deploy fast-forward aborted ("history
+# diverged"). Committing only on top of origin/$BRANCH makes that impossible:
+# if we cannot fast-forward (fetch failed, or local already has commits
+# origin lacks), skip the commit and say so - nothing is created that could
+# diverge. Exit 1 so the OnFailure alert fires, because a skipped sync means
+# something upstream of this job needs a human.
+if ! git fetch origin "$BRANCH" --quiet; then
+  echo "$LOG_PREFIX WARNING: could not fetch origin/$BRANCH - skipping commit so local history cannot diverge." >&2
+  exit 1
+fi
+if [ "$(git rev-list --count "HEAD..origin/$BRANCH")" -gt 0 ]; then
+  if ! git merge --ff-only "origin/$BRANCH" --quiet 2>/dev/null; then
+    echo "$LOG_PREFIX WARNING: local $BRANCH is behind origin/$BRANCH and cannot fast-forward (diverged, or incoming changes touch dirty files) - skipping commit, needs a human." >&2
+    exit 1
+  fi
+  echo "$LOG_PREFIX fast-forwarded local $BRANCH to origin/$BRANCH before committing."
+fi
+
 echo "$LOG_PREFIX auto-syncing known self-improvement state files"
 if [ -n "$dirty_tracked" ]; then
   git add "${STATE_FILES[@]}"
