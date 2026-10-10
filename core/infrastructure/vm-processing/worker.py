@@ -51,6 +51,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+import os
 import sys
 import time
 import urllib.parse
@@ -71,6 +73,16 @@ from supabase_client import SupabaseClient
 from config import load_config
 
 DEFAULT_CONFIG = _HERE / "config.yaml"
+DEFAULT_SCAN_MANIFEST = _HERE / "logs" / "scan_manifest.json"
+
+# scan() asks Supabase about a file only when it is new or changed locally. The manifest can drift from
+# the database (a row deleted by hand, a restore), so once per day it is rebuilt from one batched read.
+SCAN_FULL_SYNC_SECONDS = 24 * 3600
+# Above this many files to check in one scan, one batched read is cheaper than one request per file.
+SCAN_BATCH_THRESHOLD = 5
+SCAN_PAGE_SIZE = 1000  # PostgREST default max rows per response
+
+log = logging.getLogger(__name__)
 
 NON_TERMINAL_STATUSES = (
     "received", "extracted", "ocr_required", "ocr_complete",
@@ -150,8 +162,9 @@ class ProcessingWorker:
                  extract_fn=parsers.extract, run_ocr_fn=ocr_orchestrator.run_ocr,
                  chunk_fn=chunk_text, sleep_fn=time.sleep,
                  check_filename_fn=eligibility.check_filename,
-                 check_content_fn=eligibility.check_content):
+                 check_content_fn=eligibility.check_content, manifest_path=None):
         self.config = config
+        self.manifest_path = Path(manifest_path) if manifest_path else DEFAULT_SCAN_MANIFEST
         self.db = db
         self.model_router = model_router
         self.extract_fn = extract_fn
@@ -163,42 +176,122 @@ class ProcessingWorker:
 
     # -- scan -----------------------------------------------------------
 
+    def _load_manifest(self) -> dict:
+        """{"files": {source_path: [size, mtime_ns]}, "last_full_sync": epoch seconds}. Missing or
+        corrupt file means an empty manifest, which makes the next scan do a full sync."""
+        try:
+            data = json.loads(self.manifest_path.read_text())
+            files = {k: tuple(v) for k, v in data["files"].items()}
+            return {"files": files, "last_full_sync": float(data.get("last_full_sync", 0))}
+        except (OSError, ValueError, KeyError, TypeError):
+            return {"files": {}, "last_full_sync": 0.0}
+
+    def _save_manifest(self, manifest: dict) -> None:
+        try:
+            self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.manifest_path.with_name(self.manifest_path.name + ".tmp")
+            tmp.write_text(json.dumps({"files": {k: list(v) for k, v in manifest["files"].items()},
+                                       "last_full_sync": manifest["last_full_sync"]}))
+            os.replace(tmp, self.manifest_path)
+        except OSError as exc:
+            # Not fatal: without a manifest the next scan simply does a full sync again.
+            log.warning("scan manifest not saved (%s): %s", self.manifest_path, exc)
+
+    def _known_source_paths(self) -> tuple[set, int]:
+        """Every source_path already in processing_documents, read in pages (one request per
+        SCAN_PAGE_SIZE rows). Returns (paths, number of requests made)."""
+        known: set = set()
+        offset = requests = 0
+        while True:
+            rows = self.db.get(
+                f"processing_documents?select=source_path&order=id.asc&limit={SCAN_PAGE_SIZE}&offset={offset}")
+            requests += 1
+            known.update(r["source_path"] for r in rows)
+            if len(rows) < SCAN_PAGE_SIZE:
+                return known, requests
+            offset += SCAN_PAGE_SIZE
+
     def scan(self) -> dict:
-        """Walk <inbox_base>/received/<source>/** for files not yet tracked."""
+        """Walk <inbox_base>/received/<source>/** for files not yet tracked.
+
+        2026-10-10 (USS-TJR-MSN-0412): this used to ask Supabase about EVERY file on EVERY run (834
+        files x 144 runs/day = about 114 MB/day of egress, mostly response headers). A local manifest
+        of (size, mtime) now records files already known to the database, so a scan with nothing new
+        makes no Supabase request at all. Files that are new or changed locally are checked against
+        the database (per file, or one batched read when there are many), and once a day the
+        manifest is rebuilt from a batched read so it cannot drift."""
         received_root = self.config.inbox_base_path / "received"
         if not received_root.exists():
             return {"new": 0, "skipped": 0, "root_missing": True}
 
-        new_count = skipped_count = 0
+        manifest = self._load_manifest()
+        now = time.time()
+        full_sync = (now - manifest["last_full_sync"]) >= SCAN_FULL_SYNC_SECONDS
+        known: set | None = None
+        requests = 0
+        if full_sync:
+            known, pages = self._known_source_paths()
+            requests += pages
+            manifest["files"] = {k: v for k, v in manifest["files"].items() if k in known}
+            manifest["last_full_sync"] = now
+
+        seen: dict = {}
+        candidates = []
         for path in sorted(received_root.rglob("*")):
             if not path.is_file():
                 continue
-            rel = path.relative_to(received_root)
-            source_name = rel.parts[0] if len(rel.parts) > 1 else "unknown"
             # Resolve symlinks so source_path records the file's real
             # canonical location, not a staging symlink's own path.
-            source_path = str(path.resolve())
+            real = path.resolve()
+            st = real.stat()
+            sig = (st.st_size, st.st_mtime_ns)
+            seen[str(real)] = sig
+            candidates.append((path, str(real), sig))
 
-            existing = self.db.get_one(
-                f"processing_documents?source_path=eq.{_quote(source_path)}&select=id"
-            )
-            if existing:
-                skipped_count += 1
-                continue
+        to_check = [c for c in candidates if manifest["files"].get(c[1]) != c[2]]
+        if known is None and len(to_check) > SCAN_BATCH_THRESHOLD:
+            known, pages = self._known_source_paths()
+            requests += pages
 
-            self.db.insert("processing_documents", {
-                "source_name": source_name,
-                "source_path": source_path,
-                "filename": path.name,
-                "file_type": path.suffix.lower().lstrip("."),
-                "size_bytes": path.stat().st_size,
-                "status": "received",
-            })
-            _task_engine_create(source_path, source_name, path.name)
-            new_count += 1
+        new_count = skipped_count = 0
+        try:
+            for path, source_path, sig in candidates:
+                if manifest["files"].get(source_path) == sig:
+                    skipped_count += 1
+                    continue
+                if known is not None:
+                    exists = source_path in known
+                else:
+                    requests += 1
+                    exists = bool(self.db.get_one(
+                        f"processing_documents?source_path=eq.{_quote(source_path)}&select=id"))
+                if exists:
+                    skipped_count += 1
+                    manifest["files"][source_path] = sig
+                    continue
+
+                rel = path.relative_to(received_root)
+                source_name = rel.parts[0] if len(rel.parts) > 1 else "unknown"
+                self.db.insert("processing_documents", {
+                    "source_name": source_name,
+                    "source_path": source_path,
+                    "filename": path.name,
+                    "file_type": path.suffix.lower().lstrip("."),
+                    "size_bytes": path.stat().st_size,
+                    "status": "received",
+                })
+                manifest["files"][source_path] = sig
+                _task_engine_create(source_path, source_name, path.name)
+                new_count += 1
+        finally:
+            # Forget files that are gone, then save, even if an insert failed part-way: entries
+            # already confirmed stay valid and the rest are checked again next run.
+            manifest["files"] = {k: v for k, v in manifest["files"].items() if k in seen}
+            self._save_manifest(manifest)
+            self.last_scan_stats = {"files": len(candidates), "checked": len(to_check),
+                                    "read_requests": requests, "full_sync": full_sync}
+            log.info("scan: %s", self.last_scan_stats)
         return {"new": new_count, "skipped": skipped_count, "root_missing": False}
-
-    # -- batch processing -----------------------------------------------------------
 
     def process_batch(self, limit: int = 20) -> dict:
         status_filter = ",".join(NON_TERMINAL_STATUSES)
