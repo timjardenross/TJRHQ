@@ -198,18 +198,20 @@ class ProcessingWorker:
             log.warning("scan manifest not saved (%s): %s", self.manifest_path, exc)
 
     def _known_source_paths(self) -> tuple[set, int]:
-        """Every source_path already in processing_documents, read in pages (one request per
-        SCAN_PAGE_SIZE rows). Returns (paths, number of requests made)."""
+        """Every source_path already in processing_documents, read in pages. Paging continues until
+        a page comes back EMPTY and the offset advances by the rows actually returned, because the
+        server's max-rows setting may be below SCAN_PAGE_SIZE (a short page is not the last page).
+        Returns (paths, number of requests made)."""
         known: set = set()
         offset = requests = 0
         while True:
             rows = self.db.get(
                 f"processing_documents?select=source_path&order=id.asc&limit={SCAN_PAGE_SIZE}&offset={offset}")
             requests += 1
-            known.update(r["source_path"] for r in rows)
-            if len(rows) < SCAN_PAGE_SIZE:
+            if not rows:
                 return known, requests
-            offset += SCAN_PAGE_SIZE
+            known.update(r["source_path"] for r in rows)
+            offset += len(rows)
 
     def scan(self) -> dict:
         """Walk <inbox_base>/received/<source>/** for files not yet tracked.
@@ -243,7 +245,10 @@ class ProcessingWorker:
             # Resolve symlinks so source_path records the file's real
             # canonical location, not a staging symlink's own path.
             real = path.resolve()
-            st = real.stat()
+            try:
+                st = real.stat()
+            except OSError:
+                continue  # vanished (or became unreadable) mid-scan: picked up next run if it is still there
             sig = (st.st_size, st.st_mtime_ns)
             seen[str(real)] = sig
             candidates.append((path, str(real), sig))
@@ -277,7 +282,7 @@ class ProcessingWorker:
                     "source_path": source_path,
                     "filename": path.name,
                     "file_type": path.suffix.lower().lstrip("."),
-                    "size_bytes": path.stat().st_size,
+                    "size_bytes": sig[0],
                     "status": "received",
                 })
                 manifest["files"][source_path] = sig
@@ -292,6 +297,8 @@ class ProcessingWorker:
                                     "read_requests": requests, "full_sync": full_sync}
             log.info("scan: %s", self.last_scan_stats)
         return {"new": new_count, "skipped": skipped_count, "root_missing": False}
+
+    # -- batch processing -----------------------------------------------------------
 
     def process_batch(self, limit: int = 20) -> dict:
         status_filter = ",".join(NON_TERMINAL_STATUSES)

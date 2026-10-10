@@ -38,9 +38,10 @@ DOCUMENT_DEFAULTS = {
 
 
 class FakeSupabase:
-    def __init__(self):
+    def __init__(self, max_rows=None):
         self.tables = {"processing_documents": [], "processing_chunks": []}
         self._seq = 0
+        self.max_rows = max_rows  # like PostgREST's server-side max-rows: caps every response
         self.get_log = []  # every path passed to get(), so tests can count requests
 
     def get(self, path: str) -> list:
@@ -66,6 +67,8 @@ class FakeSupabase:
         limit = dict(params).get("limit")
         if limit:
             rows = rows[: int(limit)]
+        if self.max_rows is not None:
+            rows = rows[: self.max_rows]
 
         return [dict(r) for r in rows]
 

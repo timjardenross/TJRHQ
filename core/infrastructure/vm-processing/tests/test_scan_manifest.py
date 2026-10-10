@@ -44,7 +44,7 @@ def test_first_scan_uses_one_batched_read_not_one_per_file(tmp_path, monkeypatch
         _put(inbox, f"f{i}.txt")
     result = w.scan()
     assert result["new"] == 30
-    assert len(_reads(db)) == 1  # the batched source_path read
+    assert len(_reads(db)) == 1  # empty table: the first page is already empty
     assert "select=source_path" in _reads(db)[0]
 
 
@@ -59,7 +59,7 @@ def test_existing_rows_are_adopted_without_reinserting(tmp_path, monkeypatch):
     result = w.scan()
     assert result == {"new": 0, "skipped": 8, "root_missing": False}
     assert len(db.get("processing_documents?select=id")) == 8  # nothing duplicated
-    assert len([p for p in _reads(db) if "select=source_path" in p]) == 1
+    assert len([p for p in _reads(db) if "select=source_path" in p]) == 2  # 1 page of rows + 1 empty page
 
 
 def test_one_new_file_costs_one_request(tmp_path, monkeypatch):
@@ -102,7 +102,7 @@ def test_many_changed_files_use_one_batched_read(tmp_path, monkeypatch):
     db.get_log.clear()
 
     w.scan()
-    assert len(db.get_log) == 1 and "select=source_path" in db.get_log[0]
+    assert len(db.get_log) == 2 and all("select=source_path" in p for p in db.get_log)  # rows page + empty page
 
 
 def test_daily_full_sync_reinserts_a_row_deleted_in_the_database(tmp_path, monkeypatch):
@@ -133,8 +133,8 @@ def test_batched_read_pages_through_all_rows(tmp_path, monkeypatch):
     db.get_log.clear()
 
     assert w.scan()["new"] == 0
-    # 5 rows, page size 2 -> pages of 2, 2, 1 = 3 requests
-    assert len([p for p in db.get_log if "select=source_path" in p]) == 3
+    # 5 rows, page size 2 -> pages of 2, 2, 1, then one empty page = 4 requests
+    assert len([p for p in db.get_log if "select=source_path" in p]) == 4
 
 
 def test_corrupt_manifest_is_treated_as_empty(tmp_path, monkeypatch):
@@ -179,3 +179,49 @@ def test_old_behaviour_would_have_made_one_request_per_file(tmp_path, monkeypatc
     for _ in range(5):
         w.scan()
     assert len(db.get_log) == 0
+
+
+def test_server_max_rows_below_page_size_does_not_cause_reinserts(tmp_path, monkeypatch):
+    """If the project's max-rows is below SCAN_PAGE_SIZE every page is 'short'. Stopping at the first
+    short page would treat the unseen files as new and insert them again."""
+    monkeypatch.setattr(worker_module, "SCAN_PAGE_SIZE", 1000)
+    inbox, db, _, w = _make_worker(tmp_path, monkeypatch)
+    db.max_rows = 3  # server cap far below the requested page size
+    for i in range(10):
+        _put(inbox, f"f{i}.txt")
+    w.scan()
+    db.max_rows = None
+    assert len(db.get("processing_documents?select=id")) == 10  # all inserted once
+    (tmp_path / "scan_manifest.json").unlink()  # force a batched read again, with the cap back on
+    db.max_rows = 3
+    db.get_log.clear()
+
+    result = w.scan()
+    assert result == {"new": 0, "skipped": 10, "root_missing": False}
+    db.max_rows = None
+    assert len(db.get("processing_documents?select=id")) == 10  # nothing duplicated
+    pages = [p for p in db.get_log if "select=source_path" in p]
+    assert len(pages) == 5  # 3 + 3 + 3 + 1 rows, then one empty page
+    assert pages[-1].endswith("offset=10")  # offset advanced by rows returned, not by the page size
+
+
+def test_file_that_vanishes_mid_scan_is_skipped_not_fatal(tmp_path, monkeypatch):
+    inbox, db, _, w = _make_worker(tmp_path, monkeypatch)
+    keep = _put(inbox, "keep.txt")
+    gone = _put(inbox, "gone.txt")
+    cls = type(gone.resolve())
+    real_stat = cls.stat
+    calls = {"n": 0}
+
+    def flaky_stat(self, *a, **k):
+        if self.name == "gone.txt":
+            calls["n"] += 1
+            if calls["n"] >= 2:  # is_file() saw it; the scan's own stat() finds it gone
+                raise FileNotFoundError(2, "No such file or directory", str(self))
+        return real_stat(self, *a, **k)
+
+    monkeypatch.setattr(cls, "stat", flaky_stat)
+    result = w.scan()
+    assert result == {"new": 1, "skipped": 0, "root_missing": False}
+    rows = db.get("processing_documents?select=filename")
+    assert [r["filename"] for r in rows] == [keep.name]
