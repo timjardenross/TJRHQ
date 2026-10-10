@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import threading
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -11,6 +14,15 @@ log = logging.getLogger(__name__)
 
 DEFAULT_LOW_HIT_RATE_THRESHOLD = 40.0
 DEFAULT_HIGH_FALLBACK_RATE_THRESHOLD = 20.0
+
+# Identical metrics (same source/action/outcome/type/details) are written at most once per
+# window. Without this the context service wrote ~566 identical rows/day (Supabase DB-size
+# review 2026-10-10): every poll of /brief/number-one logged the same two metrics. Set
+# MEMORY_METRICS_DEDUPE_SECONDS=0 to restore one row per call.
+DEFAULT_DEDUPE_SECONDS = 3600.0
+_DEDUPE_MAX_KEYS = 1024
+_recent_writes: dict[str, float] = {}
+_recent_writes_lock = threading.Lock()
 
 
 def _env_float(name: str, default: float) -> float:
@@ -35,6 +47,32 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _dedupe_key(source: str, action: str, outcome: str, memory_type: str, details: dict[str, Any] | None) -> str:
+    return json.dumps([source, action, outcome, memory_type, details or {}], sort_keys=True, default=str)
+
+
+def _recently_written(key: str, window: float) -> bool:
+    """True if `key` was recorded less than `window` seconds ago (process-local)."""
+    if window <= 0:
+        return False
+    with _recent_writes_lock:
+        last = _recent_writes.get(key)
+        return last is not None and (time.monotonic() - last) < window
+
+
+def _remember_write(key: str, window: float) -> None:
+    if window <= 0:
+        return
+    now = time.monotonic()
+    with _recent_writes_lock:
+        if len(_recent_writes) >= _DEDUPE_MAX_KEYS:
+            for stale in [k for k, t in _recent_writes.items() if (now - t) >= window]:
+                del _recent_writes[stale]
+            if len(_recent_writes) >= _DEDUPE_MAX_KEYS:
+                _recent_writes.clear()
+        _recent_writes[key] = now
+
+
 def log_memory_metric(
     *,
     source: str,
@@ -44,9 +82,19 @@ def log_memory_metric(
     memory_type: str = "",
     details: dict[str, Any] | None = None,
 ) -> bool:
-    """Write a small advisory metric event to existing Commander memory storage."""
+    """Write a small advisory metric event to existing Commander memory storage.
+
+    An identical metric already written within MEMORY_METRICS_DEDUPE_SECONDS (default 3600)
+    by this process is coalesced: nothing is written and True is returned. A failed write is
+    not remembered, so it is retried on the next call.
+    """
     try:
         from tools.supabase.client import log_memory_event
+
+        window = _env_float("MEMORY_METRICS_DEDUPE_SECONDS", DEFAULT_DEDUPE_SECONDS)
+        key = _dedupe_key(source, action, outcome, memory_type, details)
+        if _recently_written(key, window):
+            return True
 
         # commander_memory_events has no event_type/action/outcome/memory_type/
         # details columns and requires memory_text — sending those as top-level
@@ -67,6 +115,8 @@ def log_memory_metric(
             "created_at": now_iso(),
         }
         result = log_memory_event(payload)
+        if result.ok:
+            _remember_write(key, window)
         return bool(result.ok)
     except Exception as exc:  # noqa: BLE001 - already logs the causing exception at this boundary; broad catch is deliberate so one failure mode can't silently escape
         log.debug("[memory-metrics] non-blocking metric write failed: %s", exc)
