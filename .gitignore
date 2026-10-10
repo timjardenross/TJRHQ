@@ -9,6 +9,12 @@
 .env.*
 !.env.example
 !.env*.example
+# Dot-less variants. lcars-portal/env.local (no leading dot) slipped past
+# every pattern above and sat tracked in this public repo from 2026-08-07.
+# Its key values were masked, but the gap was real. Next.js never loads a
+# dot-less env.local, so nothing reads these files at runtime anyway.
+env.local
+env.*.local
 
 # Python virtualenvs — any depth, any name
 .venv/
