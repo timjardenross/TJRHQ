@@ -12,6 +12,12 @@ const BOT_SECRET_ROUTE_ALLOWLIST = new Set<string>([
   '/api/google-tasks/sync',
 ]);
 
+// Native Health Bridge requests carry a bearer token and cannot use the
+// browser's cookie session. The route handler performs the complete token
+// verification and Captain authorization; this exemption is intentionally
+// limited to this exact path.
+const HEALTH_BRIDGE_ROUTE = '/api/integrations/health-bridge/ping';
+
 // Plain-JS constant-time compare, not Node's crypto.timingSafeEqual: this
 // file runs in the Edge Runtime (Next.js middleware), which doesn't support
 // Node built-ins — importing 'crypto' here type-checks fine but throws
@@ -35,6 +41,10 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_ROUTE_ALLOWLIST.has(pathname) || pathname.startsWith('/auth')) {
+    return NextResponse.next({ request });
+  }
+
+  if (pathname === HEALTH_BRIDGE_ROUTE) {
     return NextResponse.next({ request });
   }
 
