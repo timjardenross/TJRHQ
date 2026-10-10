@@ -38,17 +38,20 @@ DOCUMENT_DEFAULTS = {
 
 
 class FakeSupabase:
-    def __init__(self):
+    def __init__(self, max_rows=None):
         self.tables = {"processing_documents": [], "processing_chunks": []}
         self._seq = 0
+        self.max_rows = max_rows  # like PostgREST's server-side max-rows: caps every response
+        self.get_log = []  # every path passed to get(), so tests can count requests
 
     def get(self, path: str) -> list:
+        self.get_log.append(path)
         table, _, query = path.partition("?")
         rows = list(self.tables.get(table, []))
         params = urllib.parse.parse_qsl(query, keep_blank_values=True)
 
         for key, value in params:
-            if key in ("select", "limit", "order"):
+            if key in ("select", "limit", "order", "offset"):
                 continue
             rows = [r for r in rows if self._matches(r.get(key), value)]
 
@@ -58,9 +61,14 @@ class FakeSupabase:
             rows.sort(key=lambda r: (r.get(field) is None, r.get(field)),
                       reverse=(direction == "desc"))
 
+        offset = dict(params).get("offset")
+        if offset:
+            rows = rows[int(offset):]
         limit = dict(params).get("limit")
         if limit:
             rows = rows[: int(limit)]
+        if self.max_rows is not None:
+            rows = rows[: self.max_rows]
 
         return [dict(r) for r in rows]
 
