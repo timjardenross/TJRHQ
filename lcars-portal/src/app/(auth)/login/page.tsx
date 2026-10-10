@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [sent, setSent]       = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   useEffect(() => {
     // Belt-and-braces cleanup only — see the `method="post"` on both <form>
@@ -27,6 +28,27 @@ export default function LoginPage() {
     // loads. Confirmed live 2026-09-21: a concurrent build-lock collision
     // broke hydration mid-login and reproduced exactly this GET fallback.
     if (typeof window !== 'undefined' && (window.location.search.includes('email=') || window.location.search.includes('password='))) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Supabase email links land on the Site URL with their result in the
+    // hash, and middleware bounces that to /login with the hash intact.
+    // A recovery session has to go to the reset page (dropping it here is
+    // what made every re-click of a reset link show otp_expired); errors
+    // get a readable message instead of a silent sign-in form.
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    if (hash.get('type') === 'recovery' && hash.get('access_token')) {
+      window.location.replace(`/auth/reset-password${window.location.hash}`);
+      return;
+    }
+    if (hash.get('error_code') === 'otp_expired') {
+      setError('That email link has expired or was already used. Request a new one below.');
+    } else if (hash.get('error_description')) {
+      setError(hash.get('error_description'));
+    } else if (new URLSearchParams(window.location.search).get('error') === 'auth_failed') {
+      setError('Sign-in link could not be verified. Request a new one below.');
+    }
+    if (window.location.hash) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -90,11 +112,36 @@ export default function LoginPage() {
     else setSent(true);
   }
 
+  async function handleForgotPassword() {
+    const target = email.trim();
+    if (!target) {
+      setError('Enter your email above, then choose "Forgot password?".');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const supabase = createSupabaseBrowserClient();
+    // Through /auth/callback so the PKCE code is exchanged server-side and
+    // the session cookie exists before the reset page renders.
+    const { error } = await supabase.auth.resetPasswordForEmail(target, {
+      redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+    });
+    setLoading(false);
+    // Same confirmation whether or not the address has an account, so this
+    // form can't be used to probe which emails are registered.
+    if (error && error.status !== 400 && error.status !== 422) {
+      setError('Could not send a reset email right now. Try again shortly.');
+      return;
+    }
+    setResetSent(true);
+  }
+
   function switchMode(next: Mode) {
     setMode(next);
     setError(null);
     setPassword('');
     setSent(false);
+    setResetSent(false);
   }
 
   return (
@@ -192,6 +239,19 @@ export default function LoginPage() {
                 >
                   {loading ? 'Authenticating…' : 'Access Bridge'}
                 </button>
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={loading}
+                  className="self-start text-xs text-wb-ink2 underline underline-offset-2 hover:text-wb-ink disabled:opacity-40"
+                >
+                  Forgot password?
+                </button>
+                {resetSent && (
+                  <p role="status" className="rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-xs text-state-ok-on">
+                    If an account exists for that email, a reset link is on its way. It works once and expires in 1 hour.
+                  </p>
+                )}
                 {error && (
                   <p role="alert" className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-xs text-state-crit-on">{error}</p>
                 )}
