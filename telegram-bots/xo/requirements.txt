@@ -1,34 +1,26 @@
 python-telegram-bot==22.8
 apscheduler==3.11.3
-# python-telegram-bot 20.7's JobQueue silently disables itself (app.job_queue
-# is None) unless pytz imports — apscheduler 3.11 no longer pulls it in.
-# Required for the daily 07:00 medication reminder (medication_reminder.py).
+# Legacy: python-telegram-bot 20.7's JobQueue silently disabled itself (app.job_queue was None) unless
+# pytz imported, because apscheduler 3.11 stopped pulling it in. python-telegram-bot 22.8's JobQueue
+# works without pytz (verified 2026-10-10); the pin is kept as a harmless safety net.
+# The daily 07:00 medication reminder (medication_reminder.py) needs job_queue.
 pytz
-# USS-TJR-MSN-0370: bumped 2.3.4 -> 2.7.4, NOT the full Dependabot PR #157
-# target (2.31.0) — see scoped_supabase.py's module docstring and
-# knowledge/missions/USS-TJR-MSN-0370-supabase-investigation-knowledge-record.md.
-# 2.7.4 is the highest supabase-py release whose OWN declared dependency
-# bounds (postgrest<0.17.0) still keep postgrest below the version where it
-# started passing httpx's `proxy=` kwarg (added in httpx 0.26, needs
-# `gotrue<2.13.0` too, pinned below for the same reason) — required because
-# python-telegram-bot 20.7 hard-pins httpx~=0.25.2. supabase>=2.8.1 forces
-# postgrest>=0.17.0, which crashes under httpx<0.29 with
-# "Client.__init__() got an unexpected keyword argument 'proxy'"; verified
-# via a real ResolutionImpossible + live TypeError reproduction, not just
-# reading changelogs. Re-verify from scratch (see knowledge record) before
-# ever bumping past 2.7.4 while python-telegram-bot 20.7's httpx pin stands.
+# supabase-py 2.32.0 (Dependabot, merged 2026-10-09). It needs httpx>=0.26, which python-telegram-bot 22.x
+# allows (httpx>=0.27,<0.29); the older constraint (stay at supabase<=2.7.4 because python-telegram-bot
+# 20.7 pinned httpx~=0.25.2) no longer applies. History: USS-TJR-MSN-0370 knowledge record.
+# supabase-py 2.3.4 and 2.7.4 (tested) reject the new sb_secret_ /
+# sb_publishable_ API keys ("Invalid API key"); 2.31.0 and 2.32.0 (tested) accept them (USS-TJR-MSN-0412).
+# The exact release where acceptance began was not determined.
+# scoped_supabase.py needs supabase.lib.client_options.SyncClientOptions on 2.32.0 (it has the
+# `storage` field the sync client reads; the base ClientOptions does not).
 supabase==2.32.0
-# Must stay <2.9.0 — see the supabase pin comment above; gotrue>=2.9.0 also
-# calls httpx.Client(proxy=...), which httpx<0.29 rejects. The previous
-# gotrue==2.12.4 pin (from Dependabot PR #132) was ALREADY broken: it
-# conflicts with `httpx<0.29` (gotrue 2.12.4 requires httpx>=0.26) and pip
-# confirms ResolutionImpossible for that combination — the live xo-bot venv
-# was silently still running the pre-#132 gotrue==1.3.1 the whole time
-# because `pip install -r requirements.txt` was never actually re-run
-# against this file after PR #132 merged. Fixed here as part of MSN-0370.
+# Legacy pin. supabase 2.32.0 uses supabase-auth (pulled in by supabase itself) instead of gotrue, so
+# this line only installs an unused gotrue 2.12.x next to it. Left in place for now; safe to remove in a
+# later change (pip check is clean either way).
 gotrue<2.13.0
 python-dotenv==1.2.4
-# httpx<0.29 required: python-telegram-bot 20.7 passes `proxies` kwarg removed in httpx 0.26+
+# httpx<0.29: python-telegram-bot 22.x supports httpx>=0.27,<0.29 (the old 20.7 note about the
+# removed `proxies` kwarg no longer applies).
 httpx<0.29
 pyjwt>=2.15.1
 # edge-tts: Microsoft Edge neural TTS for XO voice replies — no API key required
