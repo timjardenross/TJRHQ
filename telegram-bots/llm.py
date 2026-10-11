@@ -4,6 +4,11 @@ Routing (MSN-0206):
     Tier 1 — Model Router  :8891/api/model/xo-response  (gemma4:12b local)
     Tier 2 — Ollama Cloud  glm-5.2 (controlled overflow, logged)
 
+    Callers can pass cloud_first=True to swap the order (cloud, then the
+    router as fallback). XO's chat reply does this: the local router's
+    xo-response averaged ~80 s on this CPU-only host against a 20 s client
+    timeout, so trying it first just added a 20 s wait to every reply.
+
 Configure via env vars in each bot's .env:
     MODEL_ROUTER_URL  — default http://127.0.0.1:8891
     OLLAMA_BASE_URL   — default https://ollama.com (cloud fallback only)
@@ -19,6 +24,7 @@ import logging
 import os
 import urllib.error
 import urllib.request
+from functools import partial
 
 log = logging.getLogger(__name__)
 
@@ -70,7 +76,7 @@ def _call_router(prompt: str, system_prompt: str | None = None) -> str | None:
         return None
 
 
-def _call_cloud(prompt: str, system_prompt: str | None = None) -> str | None:
+def _call_cloud(prompt: str, system_prompt: str | None = None, *, degraded: bool = True) -> str | None:
     """Call Ollama Cloud (glm-5.2) as controlled overflow. Returns text or None."""
     key = _cloud_api_key()
     if not key:
@@ -97,7 +103,10 @@ def _call_cloud(prompt: str, system_prompt: str | None = None) -> str | None:
             body = json.loads(resp.read())
         content = (body.get("message") or {}).get("content", "").strip()
         if content:
-            log.warning("[llm] degraded to cloud tier-2 (router unavailable)")
+            if degraded:
+                log.warning("[llm] degraded to cloud tier-2 (router unavailable)")
+            else:
+                log.info("[llm] cloud tier answered (cloud-first)")
             return content
         return None
     except Exception as exc:  # noqa: BLE001 - network/timeout/JSON-decode surface from external API call is unpredictable, already logged
@@ -105,14 +114,23 @@ def _call_cloud(prompt: str, system_prompt: str | None = None) -> str | None:
         return None
 
 
-def generate(prompt: str, system_prompt: str | None = None) -> str | None:
-    """Return text from Model Router (tier-1) or Ollama Cloud (tier-2). None if both fail."""
+def generate(prompt: str, system_prompt: str | None = None, *, cloud_first: bool = False) -> str | None:
+    """Return text from the Model Router and Ollama Cloud, tried in that order
+    (or cloud first when cloud_first=True). None if both fail."""
+    if cloud_first:
+        result = _call_cloud(prompt, system_prompt, degraded=False)
+        if result:
+            return result
+        log.warning("[llm] cloud tier failed - falling back to the local router")
+        return _call_router(prompt, system_prompt)
     result = _call_router(prompt, system_prompt)
     if result:
         return result
     return _call_cloud(prompt, system_prompt)
 
 
-async def generate_async(prompt: str, system_prompt: str | None = None) -> str | None:
+async def generate_async(
+    prompt: str, system_prompt: str | None = None, *, cloud_first: bool = False
+) -> str | None:
     """Non-blocking wrapper for use in async Telegram handlers."""
-    return await asyncio.to_thread(generate, prompt, system_prompt)
+    return await asyncio.to_thread(partial(generate, prompt, system_prompt, cloud_first=cloud_first))
