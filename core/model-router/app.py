@@ -203,7 +203,12 @@ TASK_POLICY: dict[str, dict[str, Any]] = {
     # room to actually finish the JSON object; watch for the same truncation
     # symptom if a doc still overruns this.
     "summarise-document":    {"model": MODEL_MID,   "keep_alive": "15m", "timeout": 300, "num_predict": 700},
-    "xo-response":           {"model": MODEL_MID,   "keep_alive": "10m", "timeout": 300},
+    # xo-response: its only caller (telegram_bots/llm.py) gives up after 20 s, but a 300 s server-side
+    # timeout kept the CPU-only local model generating for up to 5 minutes after the client left
+    # (2026-10-11: ~5 min at 400-770% CPU for a reply nobody was waiting for). 25 s = the client's
+    # 20 s plus a small margin; the Ollama request is closed at that point, which stops generation.
+    # num_predict bounds a chat reply so a slow decode cannot run on unchecked.
+    "xo-response":           {"model": MODEL_MID,   "keep_alive": "10m", "timeout": 25, "num_predict": 400},
     # 2026-08-23: moved from local MODEL_LARGE (mistral-small3.2:24b) to
     # Gemini — same reasoning as captain-insight-synthesis/
     # captain-reasoning-synthesis below, which were fixed for this exact
