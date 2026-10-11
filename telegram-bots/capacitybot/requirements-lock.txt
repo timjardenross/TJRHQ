@@ -1,0 +1,43 @@
+# Fully pinned environment of the capacitybot venv (Python 3.12), from `pip freeze` of the verified side-by-side venv
+# on 2026-10-11 (USS-TJR-MSN-0412). requirements.txt stays the human-edited intent file; this is the reproducible snapshot.
+# tfcausalimpact (see requirements.txt) is deliberately NOT installed here, matching the live venv: evidence_engine.py
+# is a separate CLI that logs an error and skips when it is missing.
+# Rebuild:  python3.12 -m venv venv && venv/bin/pip install -r requirements-lock.txt && venv/bin/pip check
+# Refresh after a deliberate dependency change: venv/bin/pip freeze --exclude-editable, review the diff, commit.
+annotated-types==0.8.0
+anyio==4.15.1
+APScheduler==3.11.3
+certifi==2026.7.22
+cffi==2.1.1
+cryptography==50.0.2
+deprecation==2.1.0
+gotrue==2.12.4
+h11==0.16.0
+h2==4.4.1
+hpack==4.2.0
+httpcore==1.0.9
+httpx==0.28.1
+hyperframe==6.1.0
+idna==3.20
+multidict==7.1.0
+packaging==26.3
+postgrest==2.32.0
+propcache==0.5.4
+pycparser==3.11
+pydantic==2.14.0
+pydantic_core==2.50.0
+Pygments==2.21.0
+PyJWT==2.15.1
+python-dotenv==1.2.4
+python-telegram-bot==22.8
+realtime==2.32.0
+storage3==2.32.0
+StrEnum==0.4.15
+supabase==2.32.0
+supabase-auth==2.32.0
+supabase-functions==2.32.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+tzlocal==5.4.4
+websockets==15.0.1
+yarl==1.25.1
