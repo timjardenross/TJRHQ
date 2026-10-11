@@ -42,7 +42,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import subprocess
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -105,7 +107,54 @@ def _venv_ready() -> bool:
     return _VENV_PYTHON.exists() and _WORKER.exists()
 
 
+# The NeMo rails (check_input / check_output) call the local Ollama through the worker subprocess, bypassing
+# core/llm/provider_chain.call_ollama, so those generations were invisible in the call log (they caused the
+# daily ~03:02 CPU burst). Log each one in the router's call_log shape with source "direct".
+_LLM_RAILS = {"check_input": ("guardrail-check-input", "prompt"), "check_output": ("guardrail-check-output", "response_text")}
+_RAIL_CONFIG = Path(__file__).resolve().parent / "guardrails" / "config" / "config.yml"
+
+
+def _rail_model() -> str:
+    try:
+        m = re.search(r"^\s*model:\s*(\S+)", _RAIL_CONFIG.read_text(), re.MULTILINE)
+        return m.group(1) if m else "unknown"
+    except OSError:
+        return "unknown"
+
+
+def _log_rail_call(command: str, payload: dict[str, Any], started: float, error: str | None) -> None:
+    """Best-effort: lengths only, never text. Must never affect the rail result."""
+    spec = _LLM_RAILS.get(command)
+    if spec is None:
+        return
+    try:
+        from core.llm.call_log import log_direct_call
+
+        task_type, field_name = spec
+        log_direct_call(
+            model=_rail_model(),
+            duration_ms=int((time.monotonic() - started) * 1000),
+            success=error is None,
+            prompt_len=len(str(payload.get(field_name, ""))),
+            error=error,
+            task_type=task_type,
+        )
+    except Exception as exc:  # noqa: BLE001 - observability only
+        log.debug("guardrail call log failed: %s", exc)
+
+
 def _invoke_worker(command: str, payload: dict[str, Any]) -> dict[str, Any]:
+    started = time.monotonic()
+    try:
+        result = _invoke_worker_inner(command, payload)
+    except Exception as exc:
+        _log_rail_call(command, payload, started, type(exc).__name__)
+        raise
+    _log_rail_call(command, payload, started, None)
+    return result
+
+
+def _invoke_worker_inner(command: str, payload: dict[str, Any]) -> dict[str, Any]:
     if not _venv_ready():
         raise GuardrailsUnavailableError(
             f"llmsec venv not found at {_VENV_PYTHON} — run: python3 -m venv "
