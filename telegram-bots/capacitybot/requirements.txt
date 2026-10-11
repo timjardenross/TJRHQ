@@ -3,6 +3,10 @@ supabase==2.32.0
 gotrue==2.12.4
 python-dotenv==1.2.4
 httpx<0.29
+# JobQueue (job_queue.run_once / run_daily in app.py: check-in reminders and reassessment nudges) needs
+# APScheduler. It was never declared here; it only worked because the old venv had it from an earlier install.
+# python-telegram-bot 22.8's JobQueue works without pytz (verified 2026-10-11).
+apscheduler==3.11.3
 # evidence_engine.py's personal causal-effect estimate (capacity_interventions
 # .personal_causal_effect*, migration 0202) — Bayesian structural time-series
 # fit over capacity_checkins history around an intervention's first use.
