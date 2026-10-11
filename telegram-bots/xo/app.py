@@ -1366,7 +1366,8 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         recent_turns = _get_recent_turns(db, update.effective_chat.id)
         _log_conversation_turn(db, update.effective_chat.id, "captain", text)
         await update.message.chat.send_action("typing")
-        reply = await generate_async(text, _xo_system_prompt(status, snap, missions, recent_turns))
+        # cloud_first: the local router's xo-response is far slower than its 20 s timeout on this host.
+        reply = await generate_async(text, _xo_system_prompt(status, snap, missions, recent_turns), cloud_first=True)
         if reply:
             _log_conversation_turn(db, update.effective_chat.id, "xo", reply)
             await update.message.reply_text(_escape(reply), parse_mode="MarkdownV2")
