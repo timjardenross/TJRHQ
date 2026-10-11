@@ -101,8 +101,10 @@ load_dotenv(_REPO_ROOT / ".env")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-OLLAMA_BASE  = os.environ.get("OLLAMA_BASE_URL", "https://ollama.com").rstrip("/")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "glm-5.2")
+# Cloud target. Not OLLAMA_BASE_URL / OLLAMA_MODEL: those are the platform-wide LOCAL Ollama settings
+# (localhost, a local model), which silently turned this call into a local CPU generation.
+OLLAMA_BASE  = os.environ.get("OLLAMA_CLOUD_BASE_URL", "https://ollama.com").rstrip("/")
+OLLAMA_MODEL = os.environ.get("OLLAMA_CLOUD_MODEL", "glm-5.2")
 OLLAMA_KEY   = os.environ.get("OLLAMA_API_KEY", "")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")

@@ -9,11 +9,14 @@ Routing (MSN-0206):
     xo-response averaged ~80 s on this CPU-only host against a 20 s client
     timeout, so trying it first just added a 20 s wait to every reply.
 
-Configure via env vars in each bot's .env:
-    MODEL_ROUTER_URL  — default http://127.0.0.1:8891
-    OLLAMA_BASE_URL   — default https://ollama.com (cloud fallback only)
-    OLLAMA_MODEL      — default glm-5.2
-    OLLAMA_API_KEY    — Ollama cloud API key (required for cloud tier)
+Configure via env vars:
+    MODEL_ROUTER_URL        — default http://127.0.0.1:8891
+    OLLAMA_CLOUD_BASE_URL   — default https://ollama.com (the cloud tier only)
+    OLLAMA_CLOUD_MODEL      — default glm-5.2
+    OLLAMA_API_KEY          — Ollama cloud API key (required for cloud tier)
+OLLAMA_BASE_URL / OLLAMA_MODEL are deliberately NOT read here: they are the
+platform-wide LOCAL Ollama settings (http://localhost:11434, a local model),
+and reading them made this "cloud" tier silently call the local CPU model.
 """
 
 from __future__ import annotations
@@ -40,11 +43,11 @@ def _router_url() -> str:
 
 
 def _cloud_base_url() -> str:
-    return os.getenv("OLLAMA_BASE_URL", _DEFAULT_CLOUD_URL).rstrip("/")
+    return os.getenv("OLLAMA_CLOUD_BASE_URL", _DEFAULT_CLOUD_URL).rstrip("/")
 
 
 def _cloud_model() -> str:
-    return os.getenv("OLLAMA_MODEL", _DEFAULT_MODEL)
+    return os.getenv("OLLAMA_CLOUD_MODEL", _DEFAULT_MODEL)
 
 
 def _cloud_api_key() -> str:
