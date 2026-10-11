@@ -17,6 +17,7 @@ const BOT_SECRET_ROUTE_ALLOWLIST = new Set<string>([
 // verification and Captain authorization; this exemption is intentionally
 // limited to this exact path.
 const HEALTH_BRIDGE_ROUTE = '/api/integrations/health-bridge/ping';
+const HEALTH_BRIDGE_VALIDATE_ROUTE = '/api/integrations/health-bridge/validate';
 
 // Plain-JS constant-time compare, not Node's crypto.timingSafeEqual: this
 // file runs in the Edge Runtime (Next.js middleware), which doesn't support
@@ -44,7 +45,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
-  if (pathname === HEALTH_BRIDGE_ROUTE) {
+  if (pathname === HEALTH_BRIDGE_ROUTE || pathname === HEALTH_BRIDGE_VALIDATE_ROUTE) {
     return NextResponse.next({ request });
   }
 

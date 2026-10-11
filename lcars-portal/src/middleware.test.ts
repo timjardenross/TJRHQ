@@ -26,6 +26,12 @@ describe('middleware authentication boundaries', () => {
     expect(createServerClientMock).not.toHaveBeenCalled();
   });
 
+  it('lets only the synthetic validation route reach its own bearer-auth handler', async () => {
+    const response = await middleware(new NextRequest('https://usstjros.vercel.app/api/integrations/health-bridge/validate'));
+    expect(response.status).toBe(200);
+    expect(createServerClientMock).not.toHaveBeenCalled();
+  });
+
   it('keeps browser redirect behavior for unrelated unauthenticated routes', async () => {
     const response = await middleware(new NextRequest('https://usstjros.vercel.app/api/wellness'));
     expect(response.status).toBe(307);
