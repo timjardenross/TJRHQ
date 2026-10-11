@@ -1,0 +1,58 @@
+{
+  "findings": [
+    {
+      "category": "observability_gap",
+      "title": "Model Router Call Log Missing",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "Model router is active but call_log_exists is false at configured path /opt/starship-endeavour/core/model-router/call_log.jsonl",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure the directory exists and the model router service has write permissions to record call logs."
+      },
+      "expected_benefit": "Restores audit logging and telemetry for model routing latency and failures."
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Phase 5 Research Command Placeholder Code",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Unimplemented Phase 5 authorization checking and integration stubs marked with TODO comments",
+          "location": "platform-runtime/commands/research_command.py"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Implement Phase 5 Supabase authorization checks and memory integration or track via backlog issues."
+      },
+      "expected_benefit": "Completes planned security and integration features for the research command."
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct LLM API Key Fallback Bypassing Model Router",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct invocation of call_gemini and call_mistral reading raw environment keys GEMINI_API_KEY and MISTRAL_API_KEY instead of routing through model router",
+          "location": "intelligence/emergency_alert.py"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Refactor emergency alert synthesis calls to route through the centralized model router port 8891."
+      },
+      "expected_benefit": "Enforces unified model routing, quota management, and fallback telemetry."
+    }
+  ]
+}
