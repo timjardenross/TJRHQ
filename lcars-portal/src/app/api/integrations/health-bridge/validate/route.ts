@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getSupabasePublicKey } from '@/lib/supabase-public-key';
 import {
   MAX_BODY_BYTES,
   canonicalJson,
@@ -21,8 +22,8 @@ export async function POST(request: Request): Promise<Response> {
   if (!captainUserId) return jsonResponse({ error: 'Forbidden' }, 403);
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseAnonKey) return jsonResponse({ error: 'Service unavailable' }, 503);
+  const supabasePublicKey = getSupabasePublicKey();
+  if (!supabaseUrl || !supabasePublicKey) return jsonResponse({ error: 'Service unavailable' }, 503);
 
   const declaredLength = Number(request.headers.get('content-length') ?? '0');
   if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
@@ -30,7 +31,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createClient(supabaseUrl, supabasePublicKey, {
       auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
     });
     let authResult: Awaited<ReturnType<typeof supabase.auth.getUser>>;

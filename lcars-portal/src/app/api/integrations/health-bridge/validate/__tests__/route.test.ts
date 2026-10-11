@@ -32,6 +32,7 @@ describe('POST /api/integrations/health-bridge/validate', () => {
     vi.clearAllMocks();
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'public-anon-key';
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
     process.env.HEALTH_BRIDGE_CAPTAIN_USER_ID = captainId;
     getUserMock.mockResolvedValue({ data: { user: { id: captainId } }, error: null });
     createClientMock.mockReturnValue({ auth: { getUser: getUserMock } });
@@ -93,6 +94,44 @@ describe('POST /api/integrations/health-bridge/validate', () => {
     const correctedBody = await corrected.json();
     expect(corrected.status).toBe(200);
     expect(correctedBody.payload_hash).not.toBe(firstBody.payload_hash);
+  });
+
+  describe('public key configuration', () => {
+    const clientKeyArg = () => createClientMock.mock.calls[0][1];
+
+    it('works with the publishable key only', async () => {
+      delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test_key';
+      const response = await POST(request(JSON.stringify(validPayload), 'Bearer valid'));
+      expect(response.status).toBe(200);
+      expect(clientKeyArg()).toBe('sb_publishable_test_key');
+    });
+
+    it('works with the legacy anon key only', async () => {
+      const response = await POST(request(JSON.stringify(validPayload), 'Bearer valid'));
+      expect(response.status).toBe(200);
+      expect(clientKeyArg()).toBe('public-anon-key');
+    });
+
+    it('prefers the publishable key when both are present', async () => {
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test_key';
+      const response = await POST(request(JSON.stringify(validPayload), 'Bearer valid'));
+      expect(response.status).toBe(200);
+      expect(clientKeyArg()).toBe('sb_publishable_test_key');
+    });
+
+    it.each([
+      ['neither key', undefined, undefined],
+      ['empty keys', '', '   '],
+    ])('fails closed with 503 for %s', async (_label, publishable, anon) => {
+      if (publishable === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+      else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = publishable;
+      if (anon === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = anon;
+      const response = await POST(request(JSON.stringify(validPayload), 'Bearer valid'));
+      expect(response.status).toBe(503);
+      expect(createClientMock).not.toHaveBeenCalled();
+    });
   });
 
   it('does not expose personal information, tokens, or service-role behavior', async () => {
