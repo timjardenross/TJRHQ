@@ -1339,19 +1339,26 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     "[cmd_message] debrief_engine not present on this deploy — "
                     "degrading to plain LLM reply, no debrief routing available"
                 )
+            debrief_result = None
             if de is not None:
-                debrief_result = await de.route_debrief_interaction(db, update.effective_chat.id, text)
-                if debrief_result["handled"]:
-                    await update.message.reply_text(debrief_result["reply"])
-                    # Voice reply — additive only; text reply already sent above.
-                    try:
-                        from core.voice.tts_edge import send_voice_reply
-                        await send_voice_reply(
-                            context.bot, update.effective_chat.id, debrief_result["reply"]
-                        )
-                    except Exception as exc:  # noqa: BLE001 - best-effort voice reply, must never fail since the text reply is already delivered
-                        log.debug("optional voice reply failed (text reply already delivered): %s", exc)
-                    return
+                try:
+                    debrief_result = await de.route_debrief_interaction(db, update.effective_chat.id, text)
+                except Exception as exc:  # an optional debrief feature must never block normal chat
+                    log.warning(
+                        "[cmd_message] debrief routing failed, falling back to the normal reply: %s",
+                        exc, exc_info=True,
+                    )
+            if debrief_result is not None and debrief_result["handled"]:
+                await update.message.reply_text(debrief_result["reply"])
+                # Voice reply — additive only; text reply already sent above.
+                try:
+                    from core.voice.tts_edge import send_voice_reply
+                    await send_voice_reply(
+                        context.bot, update.effective_chat.id, debrief_result["reply"]
+                    )
+                except Exception as exc:  # noqa: BLE001 - best-effort voice reply, must never fail since the text reply is already delivered
+                    log.debug("optional voice reply failed (text reply already delivered): %s", exc)
+                return
 
         status   = get_recovery_status(db)
         snap     = get_wellness_snapshot(db)
