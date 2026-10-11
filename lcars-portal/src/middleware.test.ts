@@ -16,6 +16,7 @@ describe('middleware authentication boundaries', () => {
     vi.clearAllMocks();
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'public-anon-key';
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
     getUserMock.mockResolvedValue({ data: { user: null }, error: null });
     createServerClientMock.mockReturnValue({ auth: { getUser: getUserMock } });
   });
@@ -37,5 +38,26 @@ describe('middleware authentication boundaries', () => {
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe('https://usstjros.vercel.app/login');
     expect(createServerClientMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('builds the auth client from the publishable key when only it is set', async () => {
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test_key';
+    await middleware(new NextRequest('https://usstjros.vercel.app/api/wellness'));
+    expect(createServerClientMock.mock.calls[0][1]).toBe('sb_publishable_test_key');
+  });
+
+  it('prefers the publishable key over the legacy anon key', async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test_key';
+    await middleware(new NextRequest('https://usstjros.vercel.app/api/wellness'));
+    expect(createServerClientMock.mock.calls[0][1]).toBe('sb_publishable_test_key');
+  });
+
+  it('fails closed to /login when no public key is configured', async () => {
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const response = await middleware(new NextRequest('https://usstjros.vercel.app/api/wellness'));
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toBe('https://usstjros.vercel.app/login');
+    expect(createServerClientMock).not.toHaveBeenCalled();
   });
 });

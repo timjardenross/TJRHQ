@@ -49,7 +49,7 @@ items below are the environment/config the deployed host must provide.
   `core/coordination/xo_advisory.py` — no extra env beyond the bot's own.
 
 ### Portal (`/api/advisory`)
-- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (build + runtime).
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (build + runtime; legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` accepted as a temporary fallback).
 - `USSTJROS_ROOT` — path to the repo so the route can locate
   `core/advisory/cli.py` (defaults try `cwd/..`, `cwd`; set explicitly if the
   portal is deployed apart from the Python repo).

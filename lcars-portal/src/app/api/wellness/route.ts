@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireSession } from '@/lib/supabase-server';
+import { getSupabasePublicKey } from '@/lib/supabase-public-key';
 
 /**
  * Resolve a capacity check-in's nervous-system state — the same mapping as
@@ -59,7 +60,7 @@ function narrativeText(raw: unknown): string | null {
 function getSupabase() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    getSupabasePublicKey()!,
   );
 }
 

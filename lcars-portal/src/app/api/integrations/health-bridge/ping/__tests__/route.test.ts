@@ -24,6 +24,7 @@ describe('GET /api/integrations/health-bridge/ping', () => {
     vi.clearAllMocks();
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'public-anon-key';
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
     process.env.HEALTH_BRIDGE_CAPTAIN_USER_ID = captainId;
     getUserMock.mockResolvedValue({ data: { user: { id: captainId, email: 'captain@example.com' } }, error: null });
     createClientMock.mockReturnValue({ auth: { getUser: getUserMock } });
@@ -89,5 +90,72 @@ describe('GET /api/integrations/health-bridge/ping', () => {
       expect.objectContaining({ auth: expect.objectContaining({ persistSession: false }) }),
     );
     expect(getUserMock).toHaveBeenCalledTimes(1);
+  });
+
+  describe('public key configuration', () => {
+    const clientKeyArg = () => createClientMock.mock.calls[0][1];
+
+    it('works with the publishable key only', async () => {
+      delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test_key';
+      const response = await GET(requestWithAuthorization('Bearer valid-token'));
+      expect(response.status).toBe(200);
+      expect(clientKeyArg()).toBe('sb_publishable_test_key');
+    });
+
+    it('works with the legacy anon key only', async () => {
+      const response = await GET(requestWithAuthorization('Bearer valid-token'));
+      expect(response.status).toBe(200);
+      expect(clientKeyArg()).toBe('public-anon-key');
+    });
+
+    it('prefers the publishable key when both are present', async () => {
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test_key';
+      await GET(requestWithAuthorization('Bearer valid-token'));
+      expect(clientKeyArg()).toBe('sb_publishable_test_key');
+    });
+
+    it.each([
+      ['neither key', undefined, undefined],
+      ['empty keys', '', '   '],
+    ])('fails closed with 503 for %s', async (_label, publishable, anon) => {
+      if (publishable === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+      else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = publishable;
+      if (anon === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = anon;
+      const response = await GET(requestWithAuthorization('Bearer valid-token'));
+      expect(response.status).toBe(503);
+      expect(createClientMock).not.toHaveBeenCalled();
+    });
+
+    it('still enforces Captain authorisation with the publishable key', async () => {
+      delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_test_key';
+      getUserMock.mockResolvedValueOnce({ data: { user: { id: 'other-user-id' } }, error: null });
+      const response = await GET(requestWithAuthorization('Bearer valid-token'));
+      expect(response.status).toBe(403);
+    });
+
+    it('never touches database tables, RPC or storage (auth.getUser only)', async () => {
+      const from = vi.fn();
+      const rpc = vi.fn();
+      const storage = vi.fn();
+      createClientMock.mockReturnValue({ auth: { getUser: getUserMock }, from, rpc, storage });
+      await GET(requestWithAuthorization('Bearer valid-token'));
+      expect(getUserMock).toHaveBeenCalledTimes(1);
+      expect(from).not.toHaveBeenCalled();
+      expect(rpc).not.toHaveBeenCalled();
+      expect(storage).not.toHaveBeenCalled();
+    });
+
+    it('does not use a secret or service-role key', async () => {
+      process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-should-not-be-used';
+      process.env.SUPABASE_SECRET_KEY = 'sb_secret_should-not-be-used';
+      await GET(requestWithAuthorization('Bearer valid-token'));
+      expect(createClientMock.mock.calls[0]).not.toContain('service-role-should-not-be-used');
+      expect(createClientMock.mock.calls[0]).not.toContain('sb_secret_should-not-be-used');
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+      delete process.env.SUPABASE_SECRET_KEY;
+    });
   });
 });

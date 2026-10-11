@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { PUBLIC_ROUTE_ALLOWLIST } from '@/lib/public-site';
+import { getSupabasePublicKey } from '@/lib/supabase-public-key';
 
 // Routes intended for server-to-server calls carrying X-Bot-Secret, not
 // interactive browsing. 2026-09-15 adversarial review: previously any
@@ -50,7 +51,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseAnonKey = getSupabasePublicKey();
 
   if (!supabaseUrl || !supabaseAnonKey) {
     const loginUrl = request.nextUrl.clone();

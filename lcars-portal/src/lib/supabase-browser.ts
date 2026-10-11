@@ -1,6 +1,7 @@
 'use client';
 
 import { createBrowserClient } from '@supabase/ssr';
+import { getSupabasePublicKey } from './supabase-public-key';
 
 // buildClient()'s body is the ORIGINAL, unmodified createSupabaseBrowserClient()
 // implementation from before this file cached anything — kept as its own
@@ -19,9 +20,9 @@ import { createBrowserClient } from '@supabase/ssr';
 // inference exactly.
 function buildClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = getSupabasePublicKey();
   if (!url || !key) {
-    console.warn('[supabase-browser] NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY not set — Supabase calls will fail.');
+    console.warn('[supabase-browser] NEXT_PUBLIC_SUPABASE_URL or a public Supabase key (NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY / legacy NEXT_PUBLIC_SUPABASE_ANON_KEY) not set — Supabase calls will fail.');
     // Return a non-functional placeholder client so pages don't crash at render.
     // All data fetches are in useEffect / event handlers, so this is safe.
     return createBrowserClient('http://localhost:54321', 'placeholder');
@@ -52,7 +53,8 @@ let cachedClient: ReturnType<typeof buildClient> | undefined;
 /**
  * Browser Supabase client.
  *
- * Requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.
+ * Requires NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+ * (or the legacy NEXT_PUBLIC_SUPABASE_ANON_KEY fallback).
  * Pages that call this must handle a null return (data calls happen in
  * effects/handlers, never at static render time).
  * (USS-TJR-MSN-0100 deployment-readiness.)
@@ -62,7 +64,7 @@ let cachedClient: ReturnType<typeof buildClient> | undefined;
  * navigation latency, not just tidiness.
  */
 export function createSupabaseBrowserClient() {
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+  if (process.env.NEXT_PUBLIC_SUPABASE_URL && getSupabasePublicKey()) {
     if (!cachedClient) cachedClient = buildClient();
     return cachedClient;
   }
