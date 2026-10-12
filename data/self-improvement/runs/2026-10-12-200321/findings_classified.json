@@ -1,0 +1,84 @@
+{
+  "findings": [
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 logic and query placeholders in platform runtime",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "TODO comment indicates unqueried anomalies table: recent_anomalies = [] # TODO: Query quality_anomalies table",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/lib/quality_forecasting_engine.py"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Multiple TODO comments for unimplemented Phase 5 authorization and decision integration",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/commands/research_command.py"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement the Supabase authorization checking, memory integration, and quality anomaly querying in platform-runtime"
+      },
+      "expected_benefit": "Eliminates empty stub implementations and brings quality forecasting and research command workflows to full functional readiness",
+      "finding_id": "FND-001",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: conclusive; Confidence: 0.95; Risk: medium; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Model router call log file missing",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "Model router is configured with log_file /opt/starship-endeavour/core/model-router/call_log.jsonl but call_log_exists is false",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure the model router directory exists and call logging is active to capture invocation metrics and latency data"
+      },
+      "expected_benefit": "Restores visibility into model router latency, call patterns, and failure tracking",
+      "finding_id": "FND-002",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: conclusive; Confidence: 0.90; Risk: low; Automation: needs_signoff; Category reason: Changes to running services require verification"
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct LLM API calls in emergency alert summary bypassing model router",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct invocation of call_gemini using GEMINI_API_KEY environment variable rather than delegating through model router",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert_summary.py"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Direct invocation of call_mistral using MISTRAL_API_KEY environment variable rather than delegating through model router",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert_summary.py"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Route emergency alert LLM requests through the centralized model router endpoint"
+      },
+      "expected_benefit": "Ensures consistent rate limiting, model governance, keep-alive tracking, and failover capabilities across the intelligence pipeline",
+      "finding_id": "FND-003",
+      "evidence_strength": "strong",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: router_bypass; Evidence strength: strong; Confidence: 0.85; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need conclusive); Category reason: Router bypasses must be corrected by design review"
+    }
+  ],
+  "errors": []
+}
