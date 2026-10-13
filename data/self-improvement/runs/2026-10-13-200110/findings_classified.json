@@ -1,0 +1,97 @@
+{
+  "findings": [
+    {
+      "category": "observability_gap",
+      "title": "Model Router Call Log Missing",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "Model router is reachable and active but call_log_exists is false and log file /opt/starship-endeavour/core/model-router/call_log.jsonl is not present",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure the model router service initializes and writes to its configured call_log.jsonl path for telemetry and observability."
+      },
+      "expected_benefit": "Restores visibility into model router latency, call volume, and failure metrics.",
+      "finding_id": "FND-001",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: conclusive; Confidence: 0.95; Risk: medium; Automation: needs_signoff; Category reason: Changes to running services require verification"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 Features in Research Commands",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Multiple Phase 5 TODO comments indicating incomplete authorization checking and memory integration",
+          "location": "platform-runtime/commands/research_command.py"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement Phase 5 Supabase authorization checks and memory integration or track under active backlog."
+      },
+      "expected_benefit": "Completes planned authorization and state persistence for research commands.",
+      "finding_id": "FND-002",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: conclusive; Confidence: 0.90; Risk: medium; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Anomaly Query in Quality Forecasting",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Hardcoded empty list with comment 'TODO: Query quality_anomalies table'",
+          "location": "platform-runtime/lib/quality_forecasting.py"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement Supabase query to populate recent_anomalies from quality_anomalies table."
+      },
+      "expected_benefit": "Enables actual anomaly data to feed into quality forecasting calculations.",
+      "finding_id": "FND-003",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: conclusive; Confidence: 0.90; Risk: low; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    },
+    {
+      "category": "router_bypass",
+      "title": "Hardcoded Direct LLM Provider Calls in Emergency Alerts",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct calls to call_gemini and call_mistral via environment API keys rather than querying model router endpoint",
+          "location": "intelligence/emergency_alert.py"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Route emergency alert LLM requests through the centralized model router."
+      },
+      "expected_benefit": "Ensures policy governance, unified logging, fallback management, and metrics tracking for emergency alerting.",
+      "finding_id": "FND-004",
+      "evidence_strength": "strong",
+      "automation_eligibility": "needs_more_evidence",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: router_bypass; Evidence strength: strong; Confidence: 0.85; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need conclusive); Category reason: Router bypasses must be corrected by design review"
+    }
+  ],
+  "errors": []
+}
