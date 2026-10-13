@@ -1,0 +1,1365 @@
+{
+  "framework_id": "NIST-CSF-2.0",
+  "title": "The NIST Cybersecurity Framework (CSF) 2.0 (NIST CSWP 29)",
+  "issuer": "NIST",
+  "jurisdiction": "US",
+  "role": "comparative",
+  "status": "in_force",
+  "effective_date": "2024-02-26",
+  "source_url": "https://nvlpubs.nist.gov/nistpubs/CSWP/NIST.CSWP.29.pdf",
+  "licence": "US federal government work (NIST) — not subject to copyright in the US. Attribution: NIST CSWP 29, February 2024.",
+  "notes": "Comparative (US). The CSF 2.0 Core: 6 Functions, 22 Categories and 106 Subcategories by official ID (e.g. NIST-CSF-2.0-GV.SC-01). Implementation examples and informative references are not part of CSWP 29 and are not held.",
+  "ingestion": {
+    "method": "pdftotext+nist",
+    "source_digest": "sha256:3c31f46fee98cac0c4323453e5109291a213b4de7fef8c058af9bf67f717433c",
+    "ingested_at": "2026-10-04T00:18:41+00:00",
+    "source_document": "NIST CSWP 29, The NIST Cybersecurity Framework (CSF) 2.0, February 26, 2024, 32 pages"
+  },
+  "watch": {
+    "sources": [],
+    "patterns": [],
+    "note": "The registry's NIST source is the NVD CVE feed, not CSF publications — CSF changes are not detected automatically."
+  },
+  "clauses": [
+    {
+      "clause_id": "NIST-CSF-2.0-GV",
+      "ref": "GV",
+      "heading": "Govern (GV)",
+      "text": "The organization’s cybersecurity risk management strategy, expectations, and policy are established, communicated, and monitored",
+      "text_status": "verbatim",
+      "tags": [
+        "function"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.OC",
+      "ref": "GV.OC",
+      "heading": "Organizational Context (GV.OC)",
+      "text": "The circumstances — mission, stakeholder expectations, dependencies, and legal, regulatory, and contractual requirements — surrounding the organization’s cybersecurity risk management decisions are understood",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.OC-01",
+      "ref": "GV.OC-01",
+      "heading": "Organizational Context (GV.OC)",
+      "text": "The organizational mission is understood and informs cybersecurity risk management",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.OC-02",
+      "ref": "GV.OC-02",
+      "heading": "Organizational Context (GV.OC)",
+      "text": "Internal and external stakeholders are understood, and their needs and expectations regarding cybersecurity risk management are understood and considered",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.OC-03",
+      "ref": "GV.OC-03",
+      "heading": "Organizational Context (GV.OC)",
+      "text": "Legal, regulatory, and contractual requirements regarding cybersecurity — including privacy and civil liberties obligations — are understood and managed",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.OC-04",
+      "ref": "GV.OC-04",
+      "heading": "Organizational Context (GV.OC)",
+      "text": "Critical objectives, capabilities, and services that external stakeholders depend on or expect from the organization are understood and communicated",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.OC-05",
+      "ref": "GV.OC-05",
+      "heading": "Organizational Context (GV.OC)",
+      "text": "Outcomes, capabilities, and services that the organization depends on are understood and communicated",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.RM",
+      "ref": "GV.RM",
+      "heading": "Risk Management Strategy (GV.RM)",
+      "text": "The organization’s priorities, constraints, risk tolerance and appetite statements, and assumptions are established, communicated, and used to support operational risk decisions",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.RM-01",
+      "ref": "GV.RM-01",
+      "heading": "Risk Management Strategy (GV.RM)",
+      "text": "Risk management objectives are established and agreed to by organizational stakeholders",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.RM-02",
+      "ref": "GV.RM-02",
+      "heading": "Risk Management Strategy (GV.RM)",
+      "text": "Risk appetite and risk tolerance statements are established, communicated, and maintained",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.RM-03",
+      "ref": "GV.RM-03",
+      "heading": "Risk Management Strategy (GV.RM)",
+      "text": "Cybersecurity risk management activities and outcomes are included in enterprise risk management processes",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.RM-04",
+      "ref": "GV.RM-04",
+      "heading": "Risk Management Strategy (GV.RM)",
+      "text": "Strategic direction that describes appropriate risk response options is established and communicated",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.RM-05",
+      "ref": "GV.RM-05",
+      "heading": "Risk Management Strategy (GV.RM)",
+      "text": "Lines of communication across the organization are established for cybersecurity risks, including risks from suppliers and other third parties",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.RM-06",
+      "ref": "GV.RM-06",
+      "heading": "Risk Management Strategy (GV.RM)",
+      "text": "A standardized method for calculating, documenting, categorizing, and prioritizing cybersecurity risks is established and communicated",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.RM-07",
+      "ref": "GV.RM-07",
+      "heading": "Risk Management Strategy (GV.RM)",
+      "text": "Strategic opportunities (i.e., positive risks) are characterized and are included in organizational cybersecurity risk discussions",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.RR",
+      "ref": "GV.RR",
+      "heading": "Roles, Responsibilities, and Authorities (GV.RR)",
+      "text": "Cybersecurity roles, responsibilities, and authorities to foster accountability, performance assessment, and continuous improvement are established and communicated",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.RR-01",
+      "ref": "GV.RR-01",
+      "heading": "Roles, Responsibilities, and Authorities (GV.RR)",
+      "text": "Organizational leadership is responsible and accountable for cybersecurity risk and fosters a culture that is risk-aware, ethical, and continually improving",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.RR-02",
+      "ref": "GV.RR-02",
+      "heading": "Roles, Responsibilities, and Authorities (GV.RR)",
+      "text": "Roles, responsibilities, and authorities related to cybersecurity risk management are established, communicated, understood, and enforced",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.RR-03",
+      "ref": "GV.RR-03",
+      "heading": "Roles, Responsibilities, and Authorities (GV.RR)",
+      "text": "Adequate resources are allocated commensurate with the cybersecurity risk strategy, roles, responsibilities, and policies",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.RR-04",
+      "ref": "GV.RR-04",
+      "heading": "Roles, Responsibilities, and Authorities (GV.RR)",
+      "text": "Cybersecurity is included in human resources practices",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.PO",
+      "ref": "GV.PO",
+      "heading": "Policy (GV.PO)",
+      "text": "Organizational cybersecurity policy is established, communicated, and enforced",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.PO-01",
+      "ref": "GV.PO-01",
+      "heading": "Policy (GV.PO)",
+      "text": "Policy for managing cybersecurity risks is established based on organizational context, cybersecurity strategy, and priorities and is communicated and enforced",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.PO-02",
+      "ref": "GV.PO-02",
+      "heading": "Policy (GV.PO)",
+      "text": "Policy for managing cybersecurity risks is reviewed, updated, communicated, and enforced to reflect changes in requirements, threats, technology, and organizational mission",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.OV",
+      "ref": "GV.OV",
+      "heading": "Oversight (GV.OV)",
+      "text": "Results of organization-wide cybersecurity risk management activities and performance are used to inform, improve, and adjust the risk management strategy",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.OV-01",
+      "ref": "GV.OV-01",
+      "heading": "Oversight (GV.OV)",
+      "text": "Cybersecurity risk management strategy outcomes are reviewed to inform and adjust strategy and direction",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.OV-02",
+      "ref": "GV.OV-02",
+      "heading": "Oversight (GV.OV)",
+      "text": "The cybersecurity risk management strategy is reviewed and adjusted to ensure coverage of organizational requirements and risks",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.OV-03",
+      "ref": "GV.OV-03",
+      "heading": "Oversight (GV.OV)",
+      "text": "Organizational cybersecurity risk management performance is evaluated and reviewed for adjustments needed",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.SC",
+      "ref": "GV.SC",
+      "heading": "Cybersecurity Supply Chain Risk Management (GV.SC)",
+      "text": "Cyber supply chain risk management processes are identified, established, managed, monitored, and improved by organizational stakeholders",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.SC-01",
+      "ref": "GV.SC-01",
+      "heading": "Cybersecurity Supply Chain Risk Management (GV.SC)",
+      "text": "A cybersecurity supply chain risk management program, strategy, objectives, policies, and processes are established and agreed to by organizational stakeholders",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.SC-02",
+      "ref": "GV.SC-02",
+      "heading": "Cybersecurity Supply Chain Risk Management (GV.SC)",
+      "text": "Cybersecurity roles and responsibilities for suppliers, customers, and partners are established, communicated, and coordinated internally and externally",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.SC-03",
+      "ref": "GV.SC-03",
+      "heading": "Cybersecurity Supply Chain Risk Management (GV.SC)",
+      "text": "Cybersecurity supply chain risk management is integrated into cybersecurity and enterprise risk management, risk assessment, and improvement processes",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.SC-04",
+      "ref": "GV.SC-04",
+      "heading": "Cybersecurity Supply Chain Risk Management (GV.SC)",
+      "text": "Suppliers are known and prioritized by criticality",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.SC-05",
+      "ref": "GV.SC-05",
+      "heading": "Cybersecurity Supply Chain Risk Management (GV.SC)",
+      "text": "Requirements to address cybersecurity risks in supply chains are established, prioritized, and integrated into contracts and other types of agreements with suppliers and other relevant third parties",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.SC-06",
+      "ref": "GV.SC-06",
+      "heading": "Cybersecurity Supply Chain Risk Management (GV.SC)",
+      "text": "Planning and due diligence are performed to reduce risks before entering into formal supplier or other third-party relationships",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.SC-07",
+      "ref": "GV.SC-07",
+      "heading": "Cybersecurity Supply Chain Risk Management (GV.SC)",
+      "text": "The risks posed by a supplier, their products and services, and other third parties are understood, recorded, prioritized, assessed, responded to, and monitored over the course of the relationship",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.SC-08",
+      "ref": "GV.SC-08",
+      "heading": "Cybersecurity Supply Chain Risk Management (GV.SC)",
+      "text": "Relevant suppliers and other third parties are included in incident planning, response, and recovery activities",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.SC-09",
+      "ref": "GV.SC-09",
+      "heading": "Cybersecurity Supply Chain Risk Management (GV.SC)",
+      "text": "Supply chain security practices are integrated into cybersecurity and enterprise risk management programs, and their performance is monitored throughout the technology product and service life cycle",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-GV.SC-10",
+      "ref": "GV.SC-10",
+      "heading": "Cybersecurity Supply Chain Risk Management (GV.SC)",
+      "text": "Cybersecurity supply chain risk management plans include provisions for activities that occur after the conclusion of a partnership or service agreement",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID",
+      "ref": "ID",
+      "heading": "Identify (ID)",
+      "text": "The organization’s current cybersecurity risks are understood",
+      "text_status": "verbatim",
+      "tags": [
+        "function"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.AM",
+      "ref": "ID.AM",
+      "heading": "Asset Management (ID.AM)",
+      "text": "Assets (e.g., data, hardware, software, systems, facilities, services, people) that enable the organization to achieve business purposes are identified and managed consistent with their relative importance to organizational objectives and the organization’s risk strategy",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.AM-01",
+      "ref": "ID.AM-01",
+      "heading": "Asset Management (ID.AM)",
+      "text": "Inventories of hardware managed by the organization are maintained",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.AM-02",
+      "ref": "ID.AM-02",
+      "heading": "Asset Management (ID.AM)",
+      "text": "Inventories of software, services, and systems managed by the organization are maintained",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.AM-03",
+      "ref": "ID.AM-03",
+      "heading": "Asset Management (ID.AM)",
+      "text": "Representations of the organization’s authorized network communication and internal and external network data flows are maintained",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.AM-04",
+      "ref": "ID.AM-04",
+      "heading": "Asset Management (ID.AM)",
+      "text": "Inventories of services provided by suppliers are maintained",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.AM-05",
+      "ref": "ID.AM-05",
+      "heading": "Asset Management (ID.AM)",
+      "text": "Assets are prioritized based on classification, criticality, resources, and impact on the mission",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.AM-07",
+      "ref": "ID.AM-07",
+      "heading": "Asset Management (ID.AM)",
+      "text": "Inventories of data and corresponding metadata for designated data types are maintained",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.AM-08",
+      "ref": "ID.AM-08",
+      "heading": "Asset Management (ID.AM)",
+      "text": "Systems, hardware, software, services, and data are managed throughout their life cycles",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.RA",
+      "ref": "ID.RA",
+      "heading": "Risk Assessment (ID.RA)",
+      "text": "The cybersecurity risk to the organization, assets, and individuals is understood by the organization",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.RA-01",
+      "ref": "ID.RA-01",
+      "heading": "Risk Assessment (ID.RA)",
+      "text": "Vulnerabilities in assets are identified, validated, and recorded",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.RA-02",
+      "ref": "ID.RA-02",
+      "heading": "Risk Assessment (ID.RA)",
+      "text": "Cyber threat intelligence is received from information sharing forums and sources",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.RA-03",
+      "ref": "ID.RA-03",
+      "heading": "Risk Assessment (ID.RA)",
+      "text": "Internal and external threats to the organization are identified and recorded",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.RA-04",
+      "ref": "ID.RA-04",
+      "heading": "Risk Assessment (ID.RA)",
+      "text": "Potential impacts and likelihoods of threats exploiting vulnerabilities are identified and recorded",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.RA-05",
+      "ref": "ID.RA-05",
+      "heading": "Risk Assessment (ID.RA)",
+      "text": "Threats, vulnerabilities, likelihoods, and impacts are used to understand inherent risk and inform risk response prioritization",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.RA-06",
+      "ref": "ID.RA-06",
+      "heading": "Risk Assessment (ID.RA)",
+      "text": "Risk responses are chosen, prioritized, planned, tracked, and communicated",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.RA-07",
+      "ref": "ID.RA-07",
+      "heading": "Risk Assessment (ID.RA)",
+      "text": "Changes and exceptions are managed, assessed for risk impact, recorded, and tracked",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.RA-08",
+      "ref": "ID.RA-08",
+      "heading": "Risk Assessment (ID.RA)",
+      "text": "Processes for receiving, analyzing, and responding to vulnerability disclosures are established",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.RA-09",
+      "ref": "ID.RA-09",
+      "heading": "Risk Assessment (ID.RA)",
+      "text": "The authenticity and integrity of hardware and software are assessed prior to acquisition and use",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.RA-10",
+      "ref": "ID.RA-10",
+      "heading": "Risk Assessment (ID.RA)",
+      "text": "Critical suppliers are assessed prior to acquisition",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.IM",
+      "ref": "ID.IM",
+      "heading": "Improvement (ID.IM)",
+      "text": "Improvements to organizational cybersecurity risk management processes, procedures and activities are identified across all CSF Functions",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.IM-01",
+      "ref": "ID.IM-01",
+      "heading": "Improvement (ID.IM)",
+      "text": "Improvements are identified from evaluations",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.IM-02",
+      "ref": "ID.IM-02",
+      "heading": "Improvement (ID.IM)",
+      "text": "Improvements are identified from security tests and exercises, including those done in coordination with suppliers and relevant third parties",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.IM-03",
+      "ref": "ID.IM-03",
+      "heading": "Improvement (ID.IM)",
+      "text": "Improvements are identified from execution of operational processes, procedures, and activities",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-ID.IM-04",
+      "ref": "ID.IM-04",
+      "heading": "Improvement (ID.IM)",
+      "text": "Incident response plans and other cybersecurity plans that affect operations are established, communicated, maintained, and improved",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR",
+      "ref": "PR",
+      "heading": "Protect (PR)",
+      "text": "Safeguards to manage the organization’s cybersecurity risks are used",
+      "text_status": "verbatim",
+      "tags": [
+        "function"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.AA",
+      "ref": "PR.AA",
+      "heading": "Identity Management, Authentication, and Access Control (PR.AA)",
+      "text": "Access to physical and logical assets is limited to authorized users, services, and hardware and managed commensurate with the assessed risk of unauthorized access",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.AA-01",
+      "ref": "PR.AA-01",
+      "heading": "Identity Management, Authentication, and Access Control (PR.AA)",
+      "text": "Identities and credentials for authorized users, services, and hardware are managed by the organization",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.AA-02",
+      "ref": "PR.AA-02",
+      "heading": "Identity Management, Authentication, and Access Control (PR.AA)",
+      "text": "Identities are proofed and bound to credentials based on the context of interactions",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.AA-03",
+      "ref": "PR.AA-03",
+      "heading": "Identity Management, Authentication, and Access Control (PR.AA)",
+      "text": "Users, services, and hardware are authenticated",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.AA-04",
+      "ref": "PR.AA-04",
+      "heading": "Identity Management, Authentication, and Access Control (PR.AA)",
+      "text": "Identity assertions are protected, conveyed, and verified",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.AA-05",
+      "ref": "PR.AA-05",
+      "heading": "Identity Management, Authentication, and Access Control (PR.AA)",
+      "text": "Access permissions, entitlements, and authorizations are defined in a policy, managed, enforced, and reviewed, and incorporate the principles of least privilege and separation of duties",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.AA-06",
+      "ref": "PR.AA-06",
+      "heading": "Identity Management, Authentication, and Access Control (PR.AA)",
+      "text": "Physical access to assets is managed, monitored, and enforced commensurate with risk",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.AT",
+      "ref": "PR.AT",
+      "heading": "Awareness and Training (PR.AT)",
+      "text": "The organization’s personnel are provided with cybersecurity awareness and training so that they can perform their cybersecurity-related tasks",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.AT-01",
+      "ref": "PR.AT-01",
+      "heading": "Awareness and Training (PR.AT)",
+      "text": "Personnel are provided with awareness and training so that they possess the knowledge and skills to perform general tasks with cybersecurity risks in mind",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.AT-02",
+      "ref": "PR.AT-02",
+      "heading": "Awareness and Training (PR.AT)",
+      "text": "Individuals in specialized roles are provided with awareness and training so that they possess the knowledge and skills to perform relevant tasks with cybersecurity risks in mind",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.DS",
+      "ref": "PR.DS",
+      "heading": "Data Security (PR.DS)",
+      "text": "Data are managed consistent with the organization’s risk strategy to protect the confidentiality, integrity, and availability of information",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.DS-01",
+      "ref": "PR.DS-01",
+      "heading": "Data Security (PR.DS)",
+      "text": "The confidentiality, integrity, and availability of data-at-rest are protected",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.DS-02",
+      "ref": "PR.DS-02",
+      "heading": "Data Security (PR.DS)",
+      "text": "The confidentiality, integrity, and availability of data-in-transit are protected",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.DS-10",
+      "ref": "PR.DS-10",
+      "heading": "Data Security (PR.DS)",
+      "text": "The confidentiality, integrity, and availability of data-in-use are protected",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.DS-11",
+      "ref": "PR.DS-11",
+      "heading": "Data Security (PR.DS)",
+      "text": "Backups of data are created, protected, maintained, and tested",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.PS",
+      "ref": "PR.PS",
+      "heading": "Platform Security (PR.PS)",
+      "text": "The hardware, software (e.g., firmware, operating systems, applications), and services of physical and virtual platforms are managed consistent with the organization’s risk strategy to protect their confidentiality, integrity, and availability",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.PS-01",
+      "ref": "PR.PS-01",
+      "heading": "Platform Security (PR.PS)",
+      "text": "Configuration management practices are established and applied",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.PS-02",
+      "ref": "PR.PS-02",
+      "heading": "Platform Security (PR.PS)",
+      "text": "Software is maintained, replaced, and removed commensurate with risk",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.PS-03",
+      "ref": "PR.PS-03",
+      "heading": "Platform Security (PR.PS)",
+      "text": "Hardware is maintained, replaced, and removed commensurate with risk",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.PS-04",
+      "ref": "PR.PS-04",
+      "heading": "Platform Security (PR.PS)",
+      "text": "Log records are generated and made available for continuous monitoring",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.PS-05",
+      "ref": "PR.PS-05",
+      "heading": "Platform Security (PR.PS)",
+      "text": "Installation and execution of unauthorized software are prevented",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.PS-06",
+      "ref": "PR.PS-06",
+      "heading": "Platform Security (PR.PS)",
+      "text": "Secure software development practices are integrated, and their performance is monitored throughout the software development life cycle",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.IR",
+      "ref": "PR.IR",
+      "heading": "Technology Infrastructure Resilience (PR.IR)",
+      "text": "Security architectures are managed with the organization’s risk strategy to protect asset confidentiality, integrity, and availability, and organizational resilience",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.IR-01",
+      "ref": "PR.IR-01",
+      "heading": "Technology Infrastructure Resilience (PR.IR)",
+      "text": "Networks and environments are protected from unauthorized logical access and usage",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.IR-02",
+      "ref": "PR.IR-02",
+      "heading": "Technology Infrastructure Resilience (PR.IR)",
+      "text": "The organization’s technology assets are protected from environmental threats",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.IR-03",
+      "ref": "PR.IR-03",
+      "heading": "Technology Infrastructure Resilience (PR.IR)",
+      "text": "Mechanisms are implemented to achieve resilience requirements in normal and adverse situations",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-PR.IR-04",
+      "ref": "PR.IR-04",
+      "heading": "Technology Infrastructure Resilience (PR.IR)",
+      "text": "Adequate resource capacity to ensure availability is maintained",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-DE",
+      "ref": "DE",
+      "heading": "Detect (DE)",
+      "text": "Possible cybersecurity attacks and compromises are found and analyzed",
+      "text_status": "verbatim",
+      "tags": [
+        "function"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-DE.CM",
+      "ref": "DE.CM",
+      "heading": "Continuous Monitoring (DE.CM)",
+      "text": "Assets are monitored to find anomalies, indicators of compromise, and other potentially adverse events",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-DE.CM-01",
+      "ref": "DE.CM-01",
+      "heading": "Continuous Monitoring (DE.CM)",
+      "text": "Networks and network services are monitored to find potentially adverse events",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-DE.CM-02",
+      "ref": "DE.CM-02",
+      "heading": "Continuous Monitoring (DE.CM)",
+      "text": "The physical environment is monitored to find potentially adverse events",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-DE.CM-03",
+      "ref": "DE.CM-03",
+      "heading": "Continuous Monitoring (DE.CM)",
+      "text": "Personnel activity and technology usage are monitored to find potentially adverse events",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-DE.CM-06",
+      "ref": "DE.CM-06",
+      "heading": "Continuous Monitoring (DE.CM)",
+      "text": "External service provider activities and services are monitored to find potentially adverse events",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-DE.CM-09",
+      "ref": "DE.CM-09",
+      "heading": "Continuous Monitoring (DE.CM)",
+      "text": "Computing hardware and software, runtime environments, and their data are monitored to find potentially adverse events",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-DE.AE",
+      "ref": "DE.AE",
+      "heading": "Adverse Event Analysis (DE.AE)",
+      "text": "Anomalies, indicators of compromise, and other potentially adverse events are analyzed to characterize the events and detect cybersecurity incidents",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-DE.AE-02",
+      "ref": "DE.AE-02",
+      "heading": "Adverse Event Analysis (DE.AE)",
+      "text": "Potentially adverse events are analyzed to better understand associated activities",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-DE.AE-03",
+      "ref": "DE.AE-03",
+      "heading": "Adverse Event Analysis (DE.AE)",
+      "text": "Information is correlated from multiple sources",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-DE.AE-04",
+      "ref": "DE.AE-04",
+      "heading": "Adverse Event Analysis (DE.AE)",
+      "text": "The estimated impact and scope of adverse events are understood",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-DE.AE-06",
+      "ref": "DE.AE-06",
+      "heading": "Adverse Event Analysis (DE.AE)",
+      "text": "Information on adverse events is provided to authorized staff and tools",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-DE.AE-07",
+      "ref": "DE.AE-07",
+      "heading": "Adverse Event Analysis (DE.AE)",
+      "text": "Cyber threat intelligence and other contextual information are integrated into the analysis",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-DE.AE-08",
+      "ref": "DE.AE-08",
+      "heading": "Adverse Event Analysis (DE.AE)",
+      "text": "Incidents are declared when adverse events meet the defined incident criteria",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS",
+      "ref": "RS",
+      "heading": "Respond (RS)",
+      "text": "Actions regarding a detected cybersecurity incident are taken",
+      "text_status": "verbatim",
+      "tags": [
+        "function"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.MA",
+      "ref": "RS.MA",
+      "heading": "Incident Management (RS.MA)",
+      "text": "Responses to detected cybersecurity incidents are managed",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.MA-01",
+      "ref": "RS.MA-01",
+      "heading": "Incident Management (RS.MA)",
+      "text": "The incident response plan is executed in coordination with relevant third parties once an incident is declared",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.MA-02",
+      "ref": "RS.MA-02",
+      "heading": "Incident Management (RS.MA)",
+      "text": "Incident reports are triaged and validated",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.MA-03",
+      "ref": "RS.MA-03",
+      "heading": "Incident Management (RS.MA)",
+      "text": "Incidents are categorized and prioritized",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.MA-04",
+      "ref": "RS.MA-04",
+      "heading": "Incident Management (RS.MA)",
+      "text": "Incidents are escalated or elevated as needed",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.MA-05",
+      "ref": "RS.MA-05",
+      "heading": "Incident Management (RS.MA)",
+      "text": "The criteria for initiating incident recovery are applied",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.AN",
+      "ref": "RS.AN",
+      "heading": "Incident Analysis (RS.AN)",
+      "text": "Investigations are conducted to ensure effective response and support forensics and recovery activities",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.AN-03",
+      "ref": "RS.AN-03",
+      "heading": "Incident Analysis (RS.AN)",
+      "text": "Analysis is performed to establish what has taken place during an incident and the root cause of the incident",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.AN-06",
+      "ref": "RS.AN-06",
+      "heading": "Incident Analysis (RS.AN)",
+      "text": "Actions performed during an investigation are recorded, and the records’ integrity and provenance are preserved",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.AN-07",
+      "ref": "RS.AN-07",
+      "heading": "Incident Analysis (RS.AN)",
+      "text": "Incident data and metadata are collected, and their integrity and provenance are preserved",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.AN-08",
+      "ref": "RS.AN-08",
+      "heading": "Incident Analysis (RS.AN)",
+      "text": "An incident’s magnitude is estimated and validated",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.CO",
+      "ref": "RS.CO",
+      "heading": "Incident Response Reporting and Communication (RS.CO)",
+      "text": "Response activities are coordinated with internal and external stakeholders as required by laws, regulations, or policies",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.CO-02",
+      "ref": "RS.CO-02",
+      "heading": "Incident Response Reporting and Communication (RS.CO)",
+      "text": "Internal and external stakeholders are notified of incidents",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.CO-03",
+      "ref": "RS.CO-03",
+      "heading": "Incident Response Reporting and Communication (RS.CO)",
+      "text": "Information is shared with designated internal and external stakeholders",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.MI",
+      "ref": "RS.MI",
+      "heading": "Incident Mitigation (RS.MI)",
+      "text": "Activities are performed to prevent expansion of an event and mitigate its effects",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.MI-01",
+      "ref": "RS.MI-01",
+      "heading": "Incident Mitigation (RS.MI)",
+      "text": "Incidents are contained",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RS.MI-02",
+      "ref": "RS.MI-02",
+      "heading": "Incident Mitigation (RS.MI)",
+      "text": "Incidents are eradicated",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RC",
+      "ref": "RC",
+      "heading": "Recover (RC)",
+      "text": "Assets and operations affected by a cybersecurity incident are restored",
+      "text_status": "verbatim",
+      "tags": [
+        "function"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RC.RP",
+      "ref": "RC.RP",
+      "heading": "Incident Recovery Plan Execution (RC.RP)",
+      "text": "Restoration activities are performed to ensure operational availability of systems and services affected by cybersecurity incidents",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RC.RP-01",
+      "ref": "RC.RP-01",
+      "heading": "Incident Recovery Plan Execution (RC.RP)",
+      "text": "The recovery portion of the incident response plan is executed once initiated from the incident response process",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RC.RP-02",
+      "ref": "RC.RP-02",
+      "heading": "Incident Recovery Plan Execution (RC.RP)",
+      "text": "Recovery actions are selected, scoped, prioritized, and performed",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RC.RP-03",
+      "ref": "RC.RP-03",
+      "heading": "Incident Recovery Plan Execution (RC.RP)",
+      "text": "The integrity of backups and other restoration assets is verified before using them for restoration",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RC.RP-04",
+      "ref": "RC.RP-04",
+      "heading": "Incident Recovery Plan Execution (RC.RP)",
+      "text": "Critical mission functions and cybersecurity risk management are considered to establish post-incident operational norms",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RC.RP-05",
+      "ref": "RC.RP-05",
+      "heading": "Incident Recovery Plan Execution (RC.RP)",
+      "text": "The integrity of restored assets is verified, systems and services are restored, and normal operating status is confirmed",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RC.RP-06",
+      "ref": "RC.RP-06",
+      "heading": "Incident Recovery Plan Execution (RC.RP)",
+      "text": "The end of incident recovery is declared based on criteria, and incident- related documentation is completed",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RC.CO",
+      "ref": "RC.CO",
+      "heading": "Incident Recovery Communication (RC.CO)",
+      "text": "Restoration activities are coordinated with internal and external parties",
+      "text_status": "verbatim",
+      "tags": [
+        "category"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RC.CO-03",
+      "ref": "RC.CO-03",
+      "heading": "Incident Recovery Communication (RC.CO)",
+      "text": "Recovery activities and progress in restoring operational capabilities are communicated to designated internal and external stakeholders",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    },
+    {
+      "clause_id": "NIST-CSF-2.0-RC.CO-04",
+      "ref": "RC.CO-04",
+      "heading": "Incident Recovery Communication (RC.CO)",
+      "text": "Public updates on incident recovery are shared using approved methods and messaging",
+      "text_status": "verbatim",
+      "tags": [
+        "subcategory"
+      ]
+    }
+  ]
+}

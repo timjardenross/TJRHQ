@@ -7,12 +7,311 @@
   "status": "in_force",
   "effective_date": "2019-07-01",
   "source_url": "https://www.apra.gov.au/information-security",
-  "licence": "Commonwealth legislative instrument — check licence before storing verbatim text",
-  "notes": "",
+  "licence": "Commonwealth legislative instrument published by APRA. Text reproduced verbatim with attribution (Source: APRA, Prudential Standard CPS 234 Information Security, July 2019). Confirm APRA's copyright notice covers your intended reuse.",
+  "notes": "Primary (AU). All 36 paragraphs ingested from the APRA PDF; footnotes excluded.",
   "ingestion": {
-    "method": "pending",
-    "source_sha256": null,
-    "ingested_at": null
+    "method": "pdftotext+apra",
+    "source_digest": "sha256:ddcef7b1f5780c26a7e79ecfb35ce41bee8b65f78a8cdb605c7508c2f604bee5",
+    "ingested_at": "2026-10-04T00:19:59+00:00",
+    "source_document": "Prudential Standard CPS 234 Information Security, APRA, July 2019, 8 pages"
   },
-  "clauses": []
+  "watch": {
+    "sources": [
+      "APRA"
+    ],
+    "patterns": [
+      "\\bCP[SG]\\s*234\\b",
+      "information security"
+    ]
+  },
+  "clauses": [
+    {
+      "clause_id": "APRA-CPS-234-para-1",
+      "ref": "para 1",
+      "heading": "Authority",
+      "text": "This Prudential Standard is made under: (a) section 11AF of the Banking Act 1959 (Banking Act); (b) section 32 of the Insurance Act 1973 (Insurance Act); (c) section 230A of the Life Insurance Act 1995 (Life Insurance Act); (d) section 92 of the Private Health Insurance (Prudential Supervision) Act 2015 (PHIPS Act); and (e) section 34C of the Superannuation Industry (Supervision) Act 1993 (SIS Act).",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-2",
+      "ref": "para 2",
+      "heading": "Application",
+      "text": "This Prudential Standard applies to all ‘APRA-regulated entities’ defined as: (a) authorised deposit-taking institutions (ADIs), including foreign ADIs, and non-operating holding companies authorised under the Banking Act (authorised banking NOHCs); (b) general insurers, including Category C insurers, non-operating holding companies authorised under the Insurance Act (authorised insurance NOHCs), and parent entities of Level 2 insurance groups; (c) life companies, including friendly societies, eligible foreign life insurance companies (EFLICs) and non-operating holding companies registered under the Life Insurance Act (registered life NOHCs); (d) private health insurers registered under the PHIPS Act; and (e) RSE licensees under the SIS Act in respect of their business operations.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-3",
+      "ref": "para 3",
+      "heading": "Application",
+      "text": "The obligations imposed by this Prudential Standard on, or in relation to, a foreign ADI, a Category C insurer or an EFLIC apply only in relation to the Australian branch operations of that entity.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-4",
+      "ref": "para 4",
+      "heading": "Application",
+      "text": "Where an APRA-regulated entity is the ‘Head of a group’, it must comply with a requirement of this Prudential Standard: (a) in its capacity as an APRA-regulated entity; (b) by ensuring that the requirement is applied appropriately throughout the group, including in relation to entities that are not APRA-regulated; and (c) on a group basis. In applying the requirements of this Prudential Standard on a group basis, references in paragraphs 13 to 36 to an ‘APRA-regulated entity’ are to be read as ‘Head of a group’ and references to ‘entity’ are to be read as ‘group’.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-5",
+      "ref": "para 5",
+      "heading": "Application",
+      "text": "This Prudential Standard commences on 1 July 2019, subject to paragraph 6.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-6",
+      "ref": "para 6",
+      "heading": "Application",
+      "text": "Where an APRA-regulated entity’s information assets are managed by a third party, the requirements in this Prudential Standard will apply in relation to those information assets from the earlier of the next renewal date of the contract with the third party or 1 July 2020.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-7",
+      "ref": "para 7",
+      "heading": "Interpretation",
+      "text": "Terms that are defined in Prudential Standard APS 001 Definitions (APS 001), Prudential Standard GPS 001 Definitions (GPS 001), Prudential Standard LPS 001 Definitions, Prudential Standard HPS 001 Definitions or Prudential Standard 3PS 001 Definitions appear in bold the first time they are used in this Prudential Standard.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-8",
+      "ref": "para 8",
+      "heading": "Interpretation",
+      "text": "In this Prudential Standard, unless the contrary intention appears, a reference to an Act, Regulation or Prudential Standard is a reference to the Act, Regulation or Prudential Standard as in force from time to time.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-9",
+      "ref": "para 9",
+      "heading": "Interpretation",
+      "text": "Where this Prudential Standard provides for APRA to exercise a power or discretion, the power or discretion is to be exercised in writing.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-10",
+      "ref": "para 10",
+      "heading": "Interpretation",
+      "text": "For the purposes of this Prudential Standard: ‘group’ means a Level 2 group or a Level 3 group, as relevant; ‘Head of a group’ means a Level 2 Head or Level 3 Head, as relevant; ‘Level 2 group’ means the entities that comprise: (a) Level 2 as defined in APS 001; or (b) a Level 2 insurance group as defined in GPS 001; ‘Level 2 Head’ means: (a) where an ADI that is a member of a Level 2 group is not a subsidiary of an authorised banking NOHC or another ADI, that ADI; (b) where an ADI that is a member of a Level 2 group is a subsidiary of an authorised banking NOHC, that authorised banking NOHC; or (c) the parent entity of a Level 2 insurance group as defined in GPS 001.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-11",
+      "ref": "para 11",
+      "heading": "Adjustments and exclusions",
+      "text": "APRA may adjust or exclude a specific prudential requirement in this Prudential Standard in relation to an APRA-regulated entity.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-12",
+      "ref": "para 12",
+      "heading": "Definitions",
+      "text": "The following definitions are used in this Prudential Standard: (a) availability refers to accessibility and usability when required; (b) confidentiality refers to access being restricted only to those authorised; (c) criticality refers to the potential impact of a loss of availability; (d) information asset means information and information technology, including software, hardware and data (both soft and hard copy); (e) information security means the preservation of an information asset’s confidentiality, integrity and availability; (f) information security capability means the totality of resources, skills and controls which provide the ability and capacity to maintain information security; (g) information security control means a prevention, detection or response measure to reduce the likelihood or impact of an information security incident; (h) information security incident means an actual or potential compromise of information security; (i) information security policy framework means the totality of policies, standards, guidelines and procedures pertaining to information security; (j) information security threat (threat) is a circumstance or event that has the potential to exploit an information security vulnerability; (k) information security vulnerability (vulnerability) is a weakness in an information asset or information security control that could be exploited to compromise information security; (l) integrity refers to completeness, accuracy and freedom from unauthorised change or usage; and (m) sensitivity means the potential impact of a loss of confidentiality or integrity.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-13",
+      "ref": "para 13",
+      "heading": "Roles and responsibilities",
+      "text": "The Board of an APRA-regulated entity (Board) is ultimately responsible for the information security of the entity. The Board must ensure that the entity maintains information security in a manner commensurate with the size and extent of threats to its information assets, and which enables the continued sound operation of the entity.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-14",
+      "ref": "para 14",
+      "heading": "Roles and responsibilities",
+      "text": "An APRA-regulated entity must clearly define the information security-related roles and responsibilities of the Board, senior management, governing bodies and individuals with responsibility for decision-making, approval, oversight, operations and other information security functions.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-15",
+      "ref": "para 15",
+      "heading": "Information security capability",
+      "text": "An APRA-regulated entity must maintain an information security capability commensurate with the size and extent of threats to its information assets, and which enables the continued sound operation of the entity.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-16",
+      "ref": "para 16",
+      "heading": "Information security capability",
+      "text": "Where information assets are managed by a related party or third party, the APRA-regulated entity must assess the information security capability of that party, commensurate with the potential consequences of an information security incident affecting those assets.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-17",
+      "ref": "para 17",
+      "heading": "Information security capability",
+      "text": "An APRA-regulated entity must actively maintain its information security capability with respect to changes in vulnerabilities and threats, including those resulting from changes to information assets or its business environment.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-18",
+      "ref": "para 18",
+      "heading": "Policy framework",
+      "text": "An APRA-regulated entity must maintain an information security policy framework commensurate with its exposures to vulnerabilities and threats.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-19",
+      "ref": "para 19",
+      "heading": "Policy framework",
+      "text": "An APRA-regulated entity’s information security policy framework must provide direction on the responsibilities of all parties who have an obligation to maintain information security.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-20",
+      "ref": "para 20",
+      "heading": "Information asset identification and classification",
+      "text": "An APRA-regulated entity must classify its information assets, including those managed by related parties and third parties, by criticality and sensitivity. This classification must reflect the degree to which an information security incident affecting an information asset has the potential to affect, financially or non-financially, the entity or the interests of depositors, policyholders, beneficiaries or other customers.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-21",
+      "ref": "para 21",
+      "heading": "Implementation of controls",
+      "text": "An APRA-regulated entity must have information security controls to protect its information assets, including those managed by related parties and third parties, that are implemented in a timely manner and that are commensurate with: (a) vulnerabilities and threats to the information assets; (b) the criticality and sensitivity of the information assets; (c) the stage at which the information assets are within their life-cycle; and (d) the potential consequences of an information security incident.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-22",
+      "ref": "para 22",
+      "heading": "Implementation of controls",
+      "text": "Where an APRA-regulated entity’s information assets are managed by a related party or third party, the APRA-regulated entity must evaluate the design of that party’s information security controls that protects the information assets of the APRA-regulated entity.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-23",
+      "ref": "para 23",
+      "heading": "Incident management",
+      "text": "An APRA-regulated entity must have robust mechanisms in place to detect and respond to information security incidents in a timely manner.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-24",
+      "ref": "para 24",
+      "heading": "Incident management",
+      "text": "An APRA-regulated entity must maintain plans to respond to information security incidents that the entity considers could plausibly occur (information security response plans).",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-25",
+      "ref": "para 25",
+      "heading": "Incident management",
+      "text": "An APRA-regulated entity’s information security response plans must include the mechanisms in place for: (a) managing all relevant stages of an incident, from detection to post-incident review; and (b) escalation and reporting of information security incidents to the Board, other governing bodies and individuals responsible for information security incident management and oversight, as appropriate.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-26",
+      "ref": "para 26",
+      "heading": "Incident management",
+      "text": "An APRA-regulated entity must annually review and test its information security response plans to ensure they remain effective and fit-for-purpose.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-27",
+      "ref": "para 27",
+      "heading": "Testing control effectiveness",
+      "text": "An APRA-regulated entity must test the effectiveness of its information security controls through a systematic testing program. The nature and frequency of the systematic testing must be commensurate with: (a) the rate at which the vulnerabilities and threats change; (b) the criticality and sensitivity of the information asset; (c) the consequences of an information security incident; (d) the risks associated with exposure to environments where the APRA-regulated entity is unable to enforce its information security policies; and (e) the materiality and frequency of change to information assets.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-28",
+      "ref": "para 28",
+      "heading": "Testing control effectiveness",
+      "text": "Where an APRA-regulated entity’s information assets are managed by a related party or a third party, and the APRA-regulated entity is reliant on that party’s information security control testing, the APRA-regulated entity must assess whether the nature and frequency of testing of controls in respect of those information assets is commensurate with paragraphs 27(a) to 27(e) of this Prudential Standard.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-29",
+      "ref": "para 29",
+      "heading": "Testing control effectiveness",
+      "text": "An APRA-regulated entity must escalate and report to the Board or senior management any testing results that identify information security control deficiencies that cannot be remediated in a timely manner.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-30",
+      "ref": "para 30",
+      "heading": "Testing control effectiveness",
+      "text": "An APRA-regulated entity must ensure that testing is conducted by appropriately skilled and functionally independent specialists.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-31",
+      "ref": "para 31",
+      "heading": "Testing control effectiveness",
+      "text": "An APRA-regulated entity must review the sufficiency of the testing program at least annually or when there is a material change to information assets or the business environment.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-32",
+      "ref": "para 32",
+      "heading": "Internal audit",
+      "text": "An APRA-regulated entity’s internal audit activities must include a review of the design and operating effectiveness of information security controls, including those maintained by related parties and third parties (information security control assurance).",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-33",
+      "ref": "para 33",
+      "heading": "Internal audit",
+      "text": "An APRA-regulated entity must ensure that the information security control assurance is provided by personnel appropriately skilled in providing such assurance.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-34",
+      "ref": "para 34",
+      "heading": "Internal audit",
+      "text": "An APRA-regulated entity’s internal audit function must assess the information security control assurance provided by a related party or third party where: (a) an information security incident affecting the information assets has the potential to materially affect, financially or non-financially, the entity or the interests of depositors, policyholders, beneficiaries or other customers; and (b) internal audit intends to rely on the information security control assurance provided by the related party or third party.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-35",
+      "ref": "para 35",
+      "heading": "APRA notification",
+      "text": "An APRA-regulated entity must notify APRA as soon as possible and, in any case, no later than 72 hours, after becoming aware of an information security incident that: (a) materially affected, or had the potential to materially affect, financially or non-financially, the entity or the interests of depositors, policyholders, beneficiaries or other customers; or (b) has been notified to other regulators, either in Australia or other jurisdictions.",
+      "text_status": "verbatim",
+      "tags": []
+    },
+    {
+      "clause_id": "APRA-CPS-234-para-36",
+      "ref": "para 36",
+      "heading": "APRA notification",
+      "text": "An APRA-regulated entity must notify APRA as soon as possible and, in any case, no later than 10 business days, after it becomes aware of a material information security control weakness which the entity expects it will not be able to remediate in a timely manner.",
+      "text_status": "verbatim",
+      "tags": []
+    }
+  ]
 }

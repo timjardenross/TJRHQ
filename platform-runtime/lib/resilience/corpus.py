@@ -56,6 +56,7 @@ class Framework:
     licence: str
     notes: str = ""
     ingestion: dict = field(default_factory=dict)
+    watch: dict = field(default_factory=dict)  # {"sources": [...], "patterns": [...]} — see change_flags.py
     clauses: list[Clause] = field(default_factory=list)
 
 
@@ -112,6 +113,7 @@ def _parse_framework(data: dict, source: Path) -> Framework:
         licence=data.get("licence", ""),
         notes=data.get("notes", ""),
         ingestion=data.get("ingestion", {}),
+        watch=data.get("watch", {}),
         clauses=clauses,
     )
 

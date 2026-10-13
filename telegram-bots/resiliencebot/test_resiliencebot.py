@@ -116,8 +116,12 @@ def test_run_summary_not_ok_passes_message_through():
 
 def test_coverage_text_from_real_corpus():
     text = cv.coverage_text(load_corpus().coverage())
-    assert "BCBS-d516: heading only 7" in text
-    assert "APRA-CPS-230: metadata only" in text
+    assert "BCBS-d516: verbatim 7" in text
+    assert "APRA-CPS-230: verbatim 60" in text
+    assert "APRA-CPG-230: verbatim 62" in text
+    assert "EU-DORA: verbatim 64" in text
+    assert "UK-PRA-SS1-21: verbatim 86" in text
+    assert "ISO-22301-2019: metadata only" in text
 
 
 # ── handlers (fake Telegram objects) ──────────────────────────────────────────
@@ -213,3 +217,62 @@ def test_review_callback_writes_audit(monkeypatch, tmp_path):
     assert record == {**record, "type": "review", "run_id": "xw-000000000001", "decision": "accepted"}
     assert audit.read_log(log)[0]["decision"] == "accepted"
     assert "Review recorded: accepted" in query.edits[0]
+
+
+# ── change flags ──────────────────────────────────────────────────────────────
+
+def _seed_flag(tmp_path):
+    # Published "now", i.e. after the corpus's CPS 230 ingestion, so it isn't skipped as already reflected.
+    from datetime import datetime, timezone
+
+    from lib.resilience import change_flags
+    event = {"event_id": "e1", "source_name": "APRA Media Releases", "raw_title": "APRA finalises CPS 230 FAQ",
+             "canonical_url": "https://example.test/a", "published_at": datetime.now(timezone.utc).isoformat()}
+    flags = change_flags.scan([event], load_corpus())
+    # "CPS 230" matches both CPS 230 and its practice guide CPG 230.
+    assert sorted(f.framework_id for f in flags) == ["APRA-CPG-230", "APRA-CPS-230"]
+    return next(f for f in flags if f.framework_id == "APRA-CPS-230")
+
+
+def test_flag_callback_parsing_and_keyboard_limits():
+    cb = cv.parse_callback("cf|cf-0123456789ab|r")
+    assert (cb.kind, cb.run_id, cb.decision) == ("flag", "cf-0123456789ab", "reingested")
+    assert cv.parse_callback("cf|nope|d").kind == "unknown"
+    assert all(len(d.encode()) <= 64 for row in cv.flag_keyboard("cf-0123456789ab") for _, d in row)
+
+
+def test_coverage_marks_flagged_and_unwatched():
+    text = cv.coverage_text({"APRA-CPS-230": {"verbatim": 0}, "EU-DORA": {"verbatim": 0}},
+                            {"APRA-CPS-230": 2}, ["EU-DORA"])
+    assert "APRA-CPS-230: metadata only  ⚠ 2 possible update(s)" in text
+    assert "No change feed for: EU-DORA." in text
+
+
+def test_changes_command_lists_flags_and_dismiss_closes(tmp_path):
+    flag = _seed_flag(tmp_path)
+    msg = _Msg()
+    _run(app.cmd_changes(SimpleNamespace(message=msg), _ctx()))
+    assert "2 open change flag" in msg.replies[0][0]
+    assert "APRA finalises CPS 230 FAQ" in msg.replies[1][0] and msg.replies[1][1] is not None
+
+    query = _Query(f"cf|{flag.flag_id}|d", _Msg("⚠ flag"))
+    _run(app.handle_flag_callback(SimpleNamespace(callback_query=query), _ctx()))
+    assert "Flag dismissed." in query.edits[0]
+    again = _Query(f"cf|{flag.flag_id}|d", _Msg("⚠ flag"))
+    _run(app.handle_flag_callback(SimpleNamespace(callback_query=again), _ctx()))
+    assert "already closed" in again.edits[0]
+
+
+def test_changes_command_when_empty():
+    msg = _Msg()
+    _run(app.cmd_changes(SimpleNamespace(message=msg), _ctx()))
+    assert msg.replies[0][0].startswith("No open change flags")
+
+
+def test_coverage_command_shows_flag_marker(tmp_path):
+    _seed_flag(tmp_path)
+    msg = _Msg()
+    _run(app.cmd_coverage(SimpleNamespace(message=msg), _ctx()))
+    assert "⚠ 1 possible update(s)" in msg.replies[0][0]
+    assert ("No change feed for: EU-DORA, ISO-22301-2019, NIST-CSF-2.0, OCC-2020-94, UK-FCA-SYSC-15A, "
+            "UK-PRA-SOP-1-21, UK-PRA-SS1-21.") in msg.replies[0][0]

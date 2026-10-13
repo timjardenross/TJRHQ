@@ -11,6 +11,7 @@ It takes no host or shell actions; XO stays the only bot that can.
 | `/crosswalk <request>` | Starts a crosswalk. Tap target frameworks, cycle the source and intended use, then **Run**. |
 | `/coverage` | Shows what `knowledge/regulatory-corpus/` actually holds for each framework. |
 | `/pending` | Lists crosswalks still waiting for your review, with review buttons. |
+| `/changes` | Lists new APRA/BIS publications that may affect stored clauses, with **Dismiss** and **Re-ingested** buttons. |
 | `/help` | Lists the commands. |
 
 The full four-part crosswalk arrives as a `.md` document, because Telegram doesn't
