@@ -31,6 +31,7 @@ core/platform/heartbeat.record_heartbeat('intelligence_collection', 'ok').
 """
 
 import argparse
+import html
 import json
 import logging
 import os
@@ -667,6 +668,9 @@ def _pregenerate_brief_audio(brief_type: str) -> None:
             return
         row = rows[0]
         clean_text = re.sub(r"<[^>]+>", " ", row["brief_text"])
+        # captains_brief escapes dynamic text (&lt; &amp; ...); the tags are gone, so restore the
+        # characters before the text is spoken.
+        clean_text = html.unescape(clean_text)
         clean_text = re.sub(r"\s+", " ", clean_text).strip()
 
         tts_url = os.environ.get("KOKORO_SERVICE_URL") or os.environ.get("TTS_SERVICE_URL", "")
