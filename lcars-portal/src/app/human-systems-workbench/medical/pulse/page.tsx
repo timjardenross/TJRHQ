@@ -63,7 +63,7 @@ export default function RecoveryPulsePage() {
       <div className="flex flex-col gap-4">
         <Card title="Manual pulse logging has been retired">
           <p className="text-sm leading-relaxed text-wb-ink2">
-            Capacity check-ins now happen via the XO Telegram bot — use{' '}
+            Capacity check-ins now happen via the CapacityBot Telegram bot — use{' '}
             <span className="font-semibold text-wb-ink">/capacity</span> for a quick check-in,{' '}
             <span className="font-semibold text-wb-ink">/deepcheck</span> to go deeper, or{' '}
             <span className="font-semibold text-wb-ink">/evening</span> for an evening reflection.
