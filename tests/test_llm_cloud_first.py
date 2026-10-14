@@ -55,5 +55,42 @@ class TierOrderTests(unittest.TestCase):
             self.assertEqual(llm.generate("p", cloud_first=True), "r")
 
 
+class CloudOffSwitchTests(unittest.TestCase):
+    def test_default_unset_leaves_cloud_enabled(self):
+        with patch.dict("os.environ", {}, clear=False):
+            import os
+            os.environ.pop("OLLAMA_CLOUD_DISABLED", None)
+            self.assertFalse(llm._cloud_disabled())
+
+    def test_switch_values(self):
+        for v in ("1", "true", "TRUE", "yes", "on", " On "):
+            with patch.dict("os.environ", {"OLLAMA_CLOUD_DISABLED": v}):
+                self.assertTrue(llm._cloud_disabled(), v)
+        for v in ("", "0", "false", "no", "off"):
+            with patch.dict("os.environ", {"OLLAMA_CLOUD_DISABLED": v}):
+                self.assertFalse(llm._cloud_disabled(), v)
+
+    def test_disabled_cloud_first_uses_router_only_and_never_calls_cloud(self):
+        with patch.dict("os.environ", {"OLLAMA_CLOUD_DISABLED": "1"}), \
+             patch.object(llm, "_call_router", return_value="r") as router, \
+             patch.object(llm, "_call_cloud", return_value="c") as cloud:
+            self.assertEqual(llm.generate("p", "sys", cloud_first=True), "r")
+        router.assert_called_once()
+        cloud.assert_not_called()
+
+    def test_disabled_default_order_does_not_fall_back_to_cloud(self):
+        with patch.dict("os.environ", {"OLLAMA_CLOUD_DISABLED": "1"}), \
+             patch.object(llm, "_call_router", return_value=None), \
+             patch.object(llm, "_call_cloud", return_value="c") as cloud:
+            self.assertIsNone(llm.generate("p"))
+        cloud.assert_not_called()
+
+    def test_disabled_blocks_the_network_call_itself(self):
+        with patch.dict("os.environ", {"OLLAMA_CLOUD_DISABLED": "1", "OLLAMA_API_KEY": "k"}), \
+             patch.object(llm.urllib.request, "urlopen") as urlopen:
+            self.assertIsNone(llm._call_cloud("p", "sys"))
+        urlopen.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
