@@ -2070,7 +2070,7 @@ async def cmd_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         except Exception as exc:  # noqa: BLE001 - best-effort telemetry heartbeat, must never fail the primary capture write
             log.debug("captured_items heartbeat record failed: %s", exc)
         await update.message.reply_text(
-            f"✅ <b>Note captured</b>\n<i>{_escape(content[:200])}</i>",
+            f"✅ <b>Note captured</b>\n<i>{_esc_html(content[:200])}</i>",
             parse_mode="HTML",
         )
         log.info("[note] captured %d chars", len(content))
