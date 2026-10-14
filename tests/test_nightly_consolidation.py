@@ -35,20 +35,25 @@ class TestDistill:
             result = await _distill("captain: hi\nxo: hi")
         assert result == []
 
-    async def test_returns_empty_list_on_invalid_json(self):
+    async def test_returns_none_on_invalid_json(self):
         with patch("telegram_bots.llm.generate_async", new=AsyncMock(return_value="not json")):
             result = await _distill("captain: hi")
-        assert result == []
+        assert result is None
 
-    async def test_returns_empty_list_on_llm_failure(self):
+    async def test_returns_none_on_llm_failure(self):
         with patch("telegram_bots.llm.generate_async", new=AsyncMock(side_effect=RuntimeError("boom"))):
             result = await _distill("captain: hi")
-        assert result == []
+        assert result is None
 
-    async def test_returns_empty_list_on_none_reply(self):
+    async def test_returns_none_on_none_reply(self):
         with patch("telegram_bots.llm.generate_async", new=AsyncMock(return_value=None)):
             result = await _distill("captain: hi")
-        assert result == []
+        assert result is None
+
+    async def test_returns_none_when_reply_is_json_but_not_a_list(self):
+        with patch("telegram_bots.llm.generate_async", new=AsyncMock(return_value='{"facts": []}')):
+            result = await _distill("captain: hi")
+        assert result is None
 
     async def test_returns_empty_list_for_empty_transcript(self):
         result = await _distill("")
@@ -112,6 +117,70 @@ class TestConsolidateConversationTurns:
         assert result["turns_read"] == 1
 
 
+class TestFailedDistillationDoesNotMarkTurnsConsolidated:
+    """A failed LLM call used to be indistinguishable from "nothing worth keeping", so the
+    turns were marked consolidated with no facts written and never retried."""
+
+    def _turns(self):
+        return [
+            {"id": "t1", "chat_id": 111, "role": "captain", "text": "hi", "created_at": "2026-09-14T08:00:00Z"},
+            {"id": "t2", "chat_id": 111, "role": "xo", "text": "hello", "created_at": "2026-09-14T08:00:05Z"},
+        ]
+
+    async def test_failed_call_leaves_turns_unconsolidated(self):
+        db = _fake_db_for_turns(self._turns())
+        with (
+            patch("scripts.memory.nightly_consolidation._distill", new=AsyncMock(return_value=None)),
+            patch("core.platform.unified_memory.remember") as mock_remember,
+        ):
+            result = await consolidate_conversation_turns(db)
+        db.table.return_value.update.assert_not_called()
+        mock_remember.assert_not_called()
+        assert result == {"turns_read": 2, "facts_written": 0, "chats_failed": 1}
+
+    async def test_failure_end_to_end_through_the_llm_call(self):
+        db = _fake_db_for_turns(self._turns())
+        with (
+            patch("telegram_bots.llm.generate_async", new=AsyncMock(side_effect=RuntimeError("router timeout"))),
+            patch("core.platform.unified_memory.remember") as mock_remember,
+        ):
+            result = await consolidate_conversation_turns(db)
+        db.table.return_value.update.assert_not_called()
+        mock_remember.assert_not_called()
+        assert result["chats_failed"] == 1
+
+    async def test_successful_empty_answer_still_marks_consolidated(self):
+        db = _fake_db_for_turns(self._turns())
+        with (
+            patch("scripts.memory.nightly_consolidation._distill", new=AsyncMock(return_value=[])),
+            patch("core.platform.unified_memory.remember") as mock_remember,
+        ):
+            result = await consolidate_conversation_turns(db)
+        db.table.return_value.update.assert_called_once()
+        mock_remember.assert_not_called()
+        assert result == {"turns_read": 2, "facts_written": 0}
+
+    async def test_one_failed_chat_does_not_block_another(self):
+        turns = self._turns() + [
+            {"id": "t3", "chat_id": 222, "role": "captain", "text": "plan", "created_at": "2026-09-14T09:00:00Z"},
+        ]
+        db = _fake_db_for_turns(turns)
+        replies = {"111": None, "222": ["fact for 222"]}
+
+        async def fake_distill(transcript: str):
+            return replies["222" if "plan" in transcript else "111"]
+
+        with (
+            patch("scripts.memory.nightly_consolidation._distill", new=fake_distill),
+            patch("core.platform.unified_memory.remember", return_value={"added": True}),
+        ):
+            result = await consolidate_conversation_turns(db)
+        assert result == {"turns_read": 3, "facts_written": 1, "chats_failed": 1}
+        # only the chat that succeeded was marked consolidated
+        db.table.return_value.update.assert_called_once()
+        db.table.return_value.update.return_value.in_.assert_called_once_with("id", ["t3"])
+
+
 def _fake_db_for_decisions(rows: list[dict]) -> MagicMock:
     db = MagicMock()
     select_chain = db.table.return_value.select.return_value.gte.return_value.order.return_value
@@ -138,3 +207,14 @@ class TestConsolidateCommandMemory:
         assert result == {"decisions_read": 1, "facts_written": 1}
         _, kwargs = mock_remember.call_args
         assert kwargs["metadata"] == {"workbench": "command-memory"}
+
+    async def test_failed_distillation_is_reported_not_a_clean_zero(self):
+        rows = [{"mission_id": "M", "decision_type": "scope", "reasoning": "r", "outcome": "o", "timestamp": "2026-09-14T09:00:00"}]
+        db = _fake_db_for_decisions(rows)
+        with (
+            patch("scripts.memory.nightly_consolidation._distill", new=AsyncMock(return_value=None)),
+            patch("core.platform.unified_memory.remember") as mock_remember,
+        ):
+            result = await consolidate_command_memory(db)
+        assert result == {"decisions_read": 1, "facts_written": 0, "distill_failed": True}
+        mock_remember.assert_not_called()
