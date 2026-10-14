@@ -121,8 +121,8 @@ const TREND_GROUPS: TrendGroup[] = [
     label: 'Load',
     blurb: 'What has been costing effort or asking more of the system than usual.',
     fields: [
-      { key: 'pain_score', label: 'Pain (0-10)', map: null },
-      { key: 'pain_state', label: 'Pain State', map: TREND_PAIN_STATE },
+      { key: 'pain_score', label: 'Pain (older 0–10 record)', map: null },
+      { key: 'pain_state', label: 'Pain vs usual', map: TREND_PAIN_STATE },
       { key: 'executive_function', label: 'Executive Function', map: TREND_EXEC_FN },
       { key: 'compensation_load', label: 'Compensation Load', map: TREND_COMPENSATION },
     ],

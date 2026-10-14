@@ -52,6 +52,8 @@ _HEALTH_LIB = _REPO_ROOT / "core" / "health"
 if str(_HEALTH_LIB) not in sys.path:
     sys.path.insert(0, str(_HEALTH_LIB))
 
+from pain_vocab import PAIN_STATE_LABELS  # noqa: E402 - core/health is put on sys.path just above
+
 SAFETY_FOOTER = (
     "\n\n---\n"
     "_This preparation brief is advisory only. It is not a substitute for "
@@ -102,12 +104,27 @@ def _get_health_summary_period(days: int = 7) -> dict:
         if not rows:
             return {}
         pain_scores  = [r["pain_score"] for r in rows if r.get("pain_score") is not None]
+        pain_state_counts: dict[str, int] = {}
+        try:
+            # Pain is now captured as "compared with your usual baseline"
+            # (capacity_checkins.pain_state); the 0-10 pain_score above is
+            # older history. Missing check-ins stay unknown — never zero.
+            for c in supabase_get(
+                f"capacity_checkins?checkin_type=eq.capacity&log_date=gte.{cutoff}"
+                f"&pain_state=not.is.null&select=pain_state"
+            ) or []:
+                st = c.get("pain_state")
+                if st:
+                    pain_state_counts[st] = pain_state_counts.get(st, 0) + 1
+        except Exception as exc:  # noqa: BLE001 - best-effort supplementary query; summary still renders without it
+            log.warning("[appt-prep] pain_state query failed: %s", exc)
         sleep_hours  = [r["sleep_hours"] for r in rows if r.get("sleep_hours") is not None]
         energies     = [r.get("energy", "") for r in rows if r.get("energy")]
         statuses     = [r.get("health_status", "") for r in rows if r.get("health_status")]
         cpap_hours   = [r["cpap_hours"] for r in rows if r.get("cpap_hours") is not None]
         return {
             "days_logged": len(rows),
+            "pain_state_counts": pain_state_counts,
             "avg_pain": round(sum(pain_scores) / len(pain_scores), 1) if pain_scores else None,
             "max_pain": max(pain_scores) if pain_scores else None,
             "avg_sleep": round(sum(sleep_hours) / len(sleep_hours), 1) if sleep_hours else None,
@@ -189,9 +206,13 @@ def _generate_prep_brief(appointment: dict, health_summary: dict, recent_events:
         lines.append(f"*Health Summary — Last {days} days logged:*")
         avg_pain = health_summary.get("avg_pain")
         max_pain = health_summary.get("max_pain")
+        state_counts = health_summary.get("pain_state_counts") or {}
+        if state_counts:
+            parts = [f"{state_counts[s]} {PAIN_STATE_LABELS[s].lower()}" for s in PAIN_STATE_LABELS if state_counts.get(s)]
+            lines.append(f"  • Pain compared with your usual baseline: {', '.join(parts)} (check-ins)")
         if avg_pain is not None:
             pain_trend = "elevated" if avg_pain >= 6 else ("moderate" if avg_pain >= 4 else "low")
-            lines.append(f"  • Pain: average {avg_pain}/10 (peak {max_pain}/10) — {pain_trend}")
+            lines.append(f"  • Pain (older 0-10 records): average {avg_pain}/10 (peak {max_pain}/10) — {pain_trend}")
         avg_sleep = health_summary.get("avg_sleep")
         if avg_sleep is not None:
             sleep_quality = "good" if avg_sleep >= 7 else ("fair" if avg_sleep >= 6 else "reduced")
@@ -254,7 +275,7 @@ def _derive_discussion_topics(health_summary: dict, recent_events: list, follow_
 
     avg_pain = health_summary.get("avg_pain") if health_summary else None
     if avg_pain is not None and avg_pain >= 5:
-        topics.append(f"Pain management — average {avg_pain}/10 over recent period")
+        topics.append(f"Pain management — average {avg_pain}/10 over recent period (older 0-10 records)")
 
     avg_sleep = health_summary.get("avg_sleep") if health_summary else None
     if avg_sleep is not None and avg_sleep < 6.5:

@@ -39,6 +39,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
 import { normalizeCapacityCode } from '@/lib/capacity-vocab';
+import { describePain } from '@/lib/pain-vocab';
 import { computeInterventionEffectiveness } from './intervention-effectiveness';
 import { fetchSensoryRegulation } from './sensory-regulation';
 import { computeStrategicPosture, type BurnoutWindowRow } from './strategic-posture';
@@ -389,9 +390,7 @@ function computeRecoveryConditions(
   const painState = latestCheckin?.pain_state ?? null;
   const painBand: Band = painState === 'low' ? 'good' : painState === 'baseline' ? 'good' :
     painState === 'elevated' ? 'moderate' : painState === 'high' ? 'limited' : 'unknown';
-  const painDetail = painState
-    ? `${{ low: 'Lower than usual', baseline: 'Around usual', elevated: 'Higher than usual', high: 'Much higher than usual' }[painState] ?? painState}${latestCheckin?.pain_score != null ? ` (${latestCheckin.pain_score}/10)` : ''}`
-    : 'Not recorded';
+  const painDetail = describePain(painState, latestCheckin?.pain_score) ?? 'Not recorded';
 
   const stim = latestCheckin?.stimulation_state ?? null;
   const sensoryBand: Band = stim === 'balanced' ? 'good' : (stim === 'low' || stim === 'high') ? 'moderate' : 'unknown';

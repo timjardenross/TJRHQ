@@ -155,7 +155,7 @@ export function CapacityTodayCard({ data }: { data: RecoveryPayload }) {
 
       <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <StateTile label="Stimulation" value={data.stimulation_state ? STIMULATION_LABEL[data.stimulation_state] ?? data.stimulation_state : null} />
-        <StateTile label="Pain" value={data.pain_state ? `${PAIN_LABEL[data.pain_state] ?? data.pain_state}${data.pain_score != null ? ` (${data.pain_score}/10)` : ''}` : null} />
+        <StateTile label="Pain" value={data.pain_state ? `${PAIN_LABEL[data.pain_state] ?? data.pain_state}${data.pain_score != null ? ` (older 0–10 record: ${data.pain_score}/10)` : ''}` : (data.pain_score != null ? `Older 0–10 record: ${data.pain_score}/10` : null)} />
         <StateTile label="Nervous System" value={data.latest_regulation_state ? REGULATION_LABEL[data.latest_regulation_state] ?? data.latest_regulation_state : null} />
         <StateTile label="Executive Function" value={data.executive_function ? EF_LABEL[data.executive_function] ?? data.executive_function : null} />
         <StateTile label="Masking / Compensation" value={data.compensation_load ? COMPENSATION_LABEL[data.compensation_load] ?? data.compensation_load : null} />
@@ -279,7 +279,7 @@ function contributingContextNotes(data: RecoveryPayload): { key: string; title: 
     notes.push({
       key: 'pain',
       title: 'Pain in Context',
-      text: `Pain is reading ${data.pain_state} relative to your own baseline today${data.pain_score != null ? ` (${data.pain_score}/10)` : ''}. This is one input among several, not a standalone stop/go signal.${efNote}${stimNote}`,
+      text: `Pain compared with your usual baseline today: ${PAIN_LABEL[data.pain_state] ?? data.pain_state}${data.pain_score != null ? ` (older 0–10 record: ${data.pain_score}/10)` : ''}. This is one input among several, not a standalone stop/go signal.${efNote}${stimNote}`,
     });
   }
 
