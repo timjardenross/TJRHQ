@@ -5,8 +5,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from intelligence.captains_brief import _format_capacity_block  # noqa: E402
-from platform_runtime.commands.health_appointment_prep import _generate_prep_brief  # noqa: E402
+from intelligence.captains_brief import _format_capacity_block
+from platform_runtime.commands.health_appointment_prep import (
+    _generate_prep_brief,
+)
 
 APPT = {"event_date": "2026-10-20", "title": "Review"}
 

@@ -52,7 +52,9 @@ _HEALTH_LIB = _REPO_ROOT / "core" / "health"
 if str(_HEALTH_LIB) not in sys.path:
     sys.path.insert(0, str(_HEALTH_LIB))
 
-from pain_vocab import PAIN_STATE_LABELS  # noqa: E402 - core/health is put on sys.path just above
+from pain_vocab import (
+    PAIN_STATE_LABELS,
+)
 
 SAFETY_FOOTER = (
     "\n\n---\n"

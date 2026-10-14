@@ -25,7 +25,7 @@ def pain_state_label(state: str | None) -> str | None:
     return PAIN_STATE_LABELS.get(str(state).strip().lower())
 
 
-def describe_pain(pain_state: str | None, pain_score: float | int | None = None) -> str | None:
+def describe_pain(pain_state: str | None, pain_score: float | None = None) -> str | None:
     """One display phrase for a reading, or None when nothing was recorded.
 
     New data: "Pain vs usual: Higher than usual". Old numeric-only data:
@@ -43,7 +43,7 @@ def describe_pain(pain_state: str | None, pain_score: float | int | None = None)
     return None
 
 
-def _fmt(value: float | int) -> str:
+def _fmt(value: float) -> str:
     try:
         f = float(value)
     except (TypeError, ValueError):

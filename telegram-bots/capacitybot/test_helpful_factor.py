@@ -14,7 +14,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[2]))
 
-from telegram_bots.capacitybot.capacity_today import (  # noqa: E402
+from telegram_bots.capacitybot.capacity_today import (
     DAY_WIN_HELPED_CODES,
     DAY_WIN_HELPED_OPTIONS,
     helpful_factor_code,
