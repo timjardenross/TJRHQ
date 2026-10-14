@@ -262,6 +262,29 @@ describe('assembleInterrupts', () => {
     expect(pain?.text).toContain('critically high');
   });
 
+  it('red flag: nominates a pain interrupt when the latest pain_state is "high", with no number', async () => {
+    const supabase = fakeSupabase({
+      capacity_checkins: { data: [{ pain_state: 'high', pain_score: null, captured_at: '2026-07-09T08:00:00Z' }] },
+    });
+    const result = await assembleInterrupts(supabase);
+    const pain = result.interrupts.find((i) => i.domain === 'Recovery pain trend');
+    expect(pain?.text).toContain('much higher than your usual baseline');
+  });
+
+  it('a missing number is not counted as 0 (new check-ins do not dilute an older high average)', async () => {
+    const supabase = fakeSupabase({
+      capacity_checkins: {
+        data: [
+          { pain_state: 'baseline', pain_score: null, captured_at: '2026-07-10T08:00:00Z' },
+          { pain_state: 'baseline', pain_score: null, captured_at: '2026-07-09T08:00:00Z' },
+          { pain_state: null, pain_score: 9, captured_at: '2026-07-08T08:00:00Z' },
+        ],
+      },
+    });
+    const result = await assembleInterrupts(supabase);
+    expect(result.interrupts.find((i) => i.domain === 'Recovery pain trend')?.text).toContain('critically high');
+  });
+
   it('does not nominate a pain-trend interrupt at or below the elevated threshold (6)', async () => {
     const supabase = fakeSupabase({
       capacity_checkins: { data: [{ pain_score: 4, captured_at: '2026-07-09T08:00:00Z' }] },
