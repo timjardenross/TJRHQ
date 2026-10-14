@@ -21,6 +21,14 @@ import urllib.request
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 
+# Shared pain vocabulary. Guarded like the other core.* imports here: a problem
+# importing it must degrade the pain wording only, never the whole brief.
+try:
+    from core.health.pain_vocab import describe_pain
+except Exception:  # pragma: no cover — import-time guard  # noqa: BLE001 - guarded import (see comment above)
+    def describe_pain(pain_state, pain_score=None):  # type: ignore[misc]
+        return None
+
 log = logging.getLogger("captains-brief")
 
 # ADR-024 fix #5 (RESIL-INFRA narrative synthesis) — guarded import so a
@@ -146,7 +154,20 @@ def _get_capacity_today() -> dict | None:
     (that concept doesn't exist under "allow more than one check-in a day,
     never overwrite")."""
     rows = _sb_get("capacity_checkins_today", "limit=1")
-    return rows[0] if rows else None
+    if not rows:
+        return None
+    row = dict(rows[0])
+    # The view exposes only the legacy numeric latest_pain_score. Pain is now
+    # captured as "compared with your usual baseline" (pain_state), so read the
+    # latest pain_state straight from capacity_checkins (no view change needed).
+    today = datetime.now(_AEST).date().isoformat()
+    latest = _sb_get(
+        "capacity_checkins",
+        f"checkin_type=eq.capacity&log_date=eq.{today}&pain_state=not.is.null"
+        f"&order=captured_at.desc&limit=1&select=pain_state",
+    )
+    row["latest_pain_state"] = latest[0].get("pain_state") if latest else None
+    return row
 
 
 def _get_infra_verification() -> dict | None:
@@ -809,8 +830,9 @@ def _format_capacity_block(cap: dict | None, header: str = "⚡ CAPACITY TODAY")
         ]
     state = cap.get("latest_capacity_state")
     bits = [f"{_capacity_state_emoji(state)} Capacity <b>{(state or '?').capitalize()}</b>"]
-    if cap.get("latest_pain_score") is not None:
-        bits.append(f"Pain {cap['latest_pain_score']}")
+    pain_text = describe_pain(cap.get("latest_pain_state"), cap.get("latest_pain_score"))
+    if pain_text:
+        bits.append(pain_text)
     if cap.get("latest_regulation_state"):
         bits.append(f"NS {cap['latest_regulation_state'].capitalize()}")
     if cap.get("latest_executive_function"):

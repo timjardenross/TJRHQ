@@ -28,6 +28,7 @@
 // vs. this page's prior 6). Captain confirmed the specific changes below;
 // this is not an engineering author's edit.
 
+import { describePain } from '@/lib/pain-vocab';
 import { useState, useEffect } from 'react';
 import { WorkbenchShell, Card } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
@@ -35,7 +36,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 interface LiveData {
   activeMissionsCount: number | null;
   lastLog: { log_date: string; captain_capacity_rating: number | null; tomorrows_priority: string | null } | null;
-  lastCheckin: { checkin_type: string | null; pain_score: number | null; capacity_state: string | null; regulation_state: string | null; captured_at: string | null } | null;
+  lastCheckin: { checkin_type: string | null; pain_score: number | null; pain_state: string | null; capacity_state: string | null; regulation_state: string | null; captured_at: string | null } | null;
 }
 
 const DOMAINS = [
@@ -95,7 +96,7 @@ export default function OperatingModelPage() {
             .maybeSingle(),
           supabase
             .from('capacity_checkins')
-            .select('checkin_type, pain_score, capacity_state, regulation_state, captured_at')
+            .select('checkin_type, pain_score, pain_state, capacity_state, regulation_state, captured_at')
             .order('captured_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
@@ -232,7 +233,7 @@ export default function OperatingModelPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-wb-ink2">Pain</span>
-                    <span className="font-sans text-sm text-wb-ink">{lastCheckin.pain_score != null ? `${lastCheckin.pain_score}/10` : '—'}</span>
+                    <span className="font-sans text-sm text-wb-ink">{describePain(lastCheckin.pain_state, lastCheckin.pain_score) ?? '—'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-wb-ink2">Capacity</span>

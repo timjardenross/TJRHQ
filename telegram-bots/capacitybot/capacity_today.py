@@ -180,6 +180,28 @@ DAY_WIN_HELPED_SHORT = [
     "Rest", "Movement", "Less demand", "Sensory ctrl", "Structure",
     "Connection", "Interesting", "Pain mgmt", "None helped",
 ]
+# Shared what_helped_most codes (TJR Life R2 vocabulary), parallel to
+# DAY_WIN_HELPED_OPTIONS by index. Rows written before this change hold the
+# label text in capacity_checkins.helpful_factor; new rows hold the code.
+# Stored values are never rewritten — helpful_factor_code() maps either form.
+DAY_WIN_HELPED_CODES = [
+    "rest", "movement", "reduced_demands", "sensory_control", "structure",
+    "connection", "interesting_activity", "pain_management", "nothing_clear",
+]
+_HELPED_LABEL_TO_CODE = {label.lower(): code for label, code in zip(DAY_WIN_HELPED_OPTIONS, DAY_WIN_HELPED_CODES)}
+
+
+def helpful_factor_code(stored: str | None) -> str | None:
+    """Map a stored helpful_factor (code or legacy label text) to its code.
+
+    Unknown text and None return None — never guessed.
+    """
+    if not stored:
+        return None
+    key = stored.strip().lower()
+    if key in DAY_WIN_HELPED_CODES:
+        return key
+    return _HELPED_LABEL_TO_CODE.get(key)
 
 
 # ── Action suggestion engine (spec §2 + §10 REVS levers) ──────────────────────
@@ -330,20 +352,6 @@ def kb_pain(f: dict) -> InlineKeyboardMarkup:
     base = base_from(f)
     rows = _select_rows(base, "p", PAIN_OPTIONS, PAIN_SHORT, per_row=2)
     rows.append(_done_row(base))
-    return InlineKeyboardMarkup(rows)
-
-
-def q_pain_score() -> str:
-    return "Pain intensity right now? (optional, 0=none · 10=worst)"
-
-
-def kb_pain_score(f: dict) -> InlineKeyboardMarkup:
-    base = base_from(f)
-    rows = [
-        [InlineKeyboardButton(str(i), callback_data=f"{base}|ps={i}") for i in range(6)],
-        [InlineKeyboardButton(str(i), callback_data=f"{base}|ps={i}") for i in range(6, 11)],
-        [InlineKeyboardButton("⏭ Skip", callback_data=f"{base}|ps=skip")],
-    ]
     return InlineKeyboardMarkup(rows)
 
 
@@ -878,7 +886,7 @@ def kb_deep_note_prompt(row_id: str) -> InlineKeyboardMarkup:
 # ── Evening reflection (spec §5) ─────────────────────────────────────────────
 
 EVENING_TRAJECTORY_OPTIONS = [("u", "⬆️ Improved"), ("s", "➡️ About the same"), ("d", "⬇️ Declined")]
-EVENING_TRAJECTORY_SHORT = {"u": "Improved", "s": "About same", "d": "Declined"}
+EVENING_TRAJECTORY_SHORT = {"u": "Improved", "s": "About the same", "d": "Declined"}
 
 EVENING_DEBT_OPTIONS = [("n", "No"), ("m", "Maybe"), ("y", "Yes")]
 EVENING_DEBT_SHORT = {"n": "No", "m": "Maybe", "y": "Yes"}
@@ -1065,11 +1073,9 @@ async def write_quick_checkin(db, f: dict) -> tuple[bool, dict | None, str | Non
         payload["stimulation_state"] = STIM_CODE_TO_STATE.get(f["t"])
     if f.get("p"):
         payload["pain_state"] = PAIN_CODE_TO_STATE.get(f["p"])
-    if f.get("ps") and f["ps"] != "skip":
-        try:
-            payload["pain_score"] = int(f["ps"])
-        except ValueError:
-            pass
+    # No numeric pain: the 0-10 question was retired (R2 alignment, Phase 2
+    # step 2). "ps" may still arrive from a button on an old, in-flight
+    # message; it is accepted by the callback parser but never written.
     if f.get("r"):
         payload["regulation_state"] = REG_CODE_TO_STATE.get(f["r"])
     if f.get("em"):
@@ -1205,7 +1211,7 @@ async def write_evening(db, f: dict) -> tuple[bool, str | None]:
     hf_idx = f.get("hf")
     helpful_factor = None
     if hf_idx is not None and hf_idx.isdigit() and int(hf_idx) < len(DAY_WIN_HELPED_OPTIONS):
-        helpful_factor = DAY_WIN_HELPED_OPTIONS[int(hf_idx)]
+        helpful_factor = DAY_WIN_HELPED_CODES[int(hf_idx)]
     payload = {
         "checkin_type": "evening",
         "source": "telegram",

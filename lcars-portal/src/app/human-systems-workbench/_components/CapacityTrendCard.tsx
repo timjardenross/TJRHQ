@@ -26,9 +26,9 @@ import type { TrendDayRow } from '@/app/api/human-systems/trends/route';
 const WINDOW_DAYS = 14;
 
 const LEGEND: { key: 'green' | 'orange' | 'red'; label: string; dot: string }[] = [
-  { key: 'green', label: 'Green', dot: 'bg-wb-ok' },
-  { key: 'orange', label: 'Amber', dot: 'bg-wb-warn' },
-  { key: 'red', label: 'Red', dot: 'bg-wb-crit' },
+  { key: 'green', label: 'Sustainable', dot: 'bg-wb-ok' },
+  { key: 'orange', label: 'Stretched', dot: 'bg-wb-warn' },
+  { key: 'red', label: 'Depleted', dot: 'bg-wb-crit' },
 ];
 
 export function CapacityTrendCard() {

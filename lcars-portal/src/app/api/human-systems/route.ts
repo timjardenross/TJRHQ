@@ -38,6 +38,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, requireSession } from '@/lib/supabase-server';
+import { normalizeCapacityCode } from '@/lib/capacity-vocab';
+import { describePain } from '@/lib/pain-vocab';
 import { computeInterventionEffectiveness } from './intervention-effectiveness';
 import { fetchSensoryRegulation } from './sensory-regulation';
 import { computeStrategicPosture, type BurnoutWindowRow } from './strategic-posture';
@@ -119,7 +121,7 @@ function checkinNsState(checkin: { regulation_state?: string | null } | null | u
  * computeRecoveryIndexes() ('High'/'Moderate'/'Low').
  */
 function energyFromCapacityState(state: string | null | undefined): string | null {
-  return ({ green: 'High', orange: 'Moderate', red: 'Low' } as Record<string, string>)[state ?? ''] ?? null;
+  return ({ green: 'High', orange: 'Moderate', red: 'Low' } as Record<string, string>)[normalizeCapacityCode(state) ?? ''] ?? null;
 }
 
 /**
@@ -128,14 +130,14 @@ function energyFromCapacityState(state: string | null | undefined): string | nul
  * compute_recovery_score() (migration 0150) uses for its capacity subscore.
  */
 function capacityStateBand(state: string | null | undefined): Band | null {
-  return ({ green: 'good', orange: 'moderate', red: 'limited' } as Record<string, Band>)[state ?? ''] ?? null;
+  return ({ green: 'good', orange: 'moderate', red: 'limited' } as Record<string, Band>)[normalizeCapacityCode(state) ?? ''] ?? null;
 }
 function capacityStateDetail(state: string | null | undefined): string | null {
   return ({
-    green: 'Green — full operational window (capacity check-in)',
-    orange: 'Orange — moderate operational window (capacity check-in)',
-    red: 'Red — minimal operational window (capacity check-in)',
-  } as Record<string, string>)[state ?? ''] ?? null;
+    green: 'Sustainable — full operational window (capacity check-in)',
+    orange: 'Stretched — moderate operational window (capacity check-in)',
+    red: 'Depleted — minimal operational window (capacity check-in)',
+  } as Record<string, string>)[normalizeCapacityCode(state) ?? ''] ?? null;
 }
 
 // ── VNext consolidation (WP02-04) — System Posture, Capacity Balance, Next Move ──
@@ -144,14 +146,15 @@ function capacityStateDetail(state: string | null | undefined): string | null {
 // per the doc, tuned here against the same field vocabulary the bot writes.
 
 function deriveCapacityBalance(c: CheckinRow | null): CapacityBalance {
-  if (!c || !c.capacity_state) return 'unknown';
+  const cap = normalizeCapacityCode(c?.capacity_state);
+  if (!c || !cap) return 'unknown';
   // "Too much" and "not enough" are about stimulation direction relative to
   // capacity, not capacity alone (spec §11 — regulation may mean reducing
   // OR adding input).
-  if (c.stimulation_state === 'high' || c.capacity_state === 'red') return 'too_much';
-  if (c.stimulation_state === 'low' && c.capacity_state !== 'red') return 'not_enough';
-  if (c.capacity_state === 'green' && (c.stimulation_state === 'balanced' || !c.stimulation_state)) return 'sustainable';
-  if (c.capacity_state === 'orange') return 'too_much';
+  if (c.stimulation_state === 'high' || cap === 'red') return 'too_much';
+  if (c.stimulation_state === 'low') return 'not_enough'; // red already returned above
+  if (cap === 'green' && (c.stimulation_state === 'balanced' || !c.stimulation_state)) return 'sustainable';
+  if (cap === 'orange') return 'too_much';
   return 'sustainable';
 }
 
@@ -387,13 +390,11 @@ function computeRecoveryConditions(
   const painState = latestCheckin?.pain_state ?? null;
   const painBand: Band = painState === 'low' ? 'good' : painState === 'baseline' ? 'good' :
     painState === 'elevated' ? 'moderate' : painState === 'high' ? 'limited' : 'unknown';
-  const painDetail = painState
-    ? `${{ low: 'Lower than usual', baseline: 'Around baseline', elevated: 'Higher than usual', high: 'Much higher than usual' }[painState] ?? painState}${latestCheckin?.pain_score != null ? ` (${latestCheckin.pain_score}/10)` : ''}`
-    : 'Not recorded';
+  const painDetail = describePain(painState, latestCheckin?.pain_score) ?? 'Not recorded';
 
   const stim = latestCheckin?.stimulation_state ?? null;
   const sensoryBand: Band = stim === 'balanced' ? 'good' : (stim === 'low' || stim === 'high') ? 'moderate' : 'unknown';
-  const sensoryDetail = stim === 'balanced' ? 'Balanced' : stim === 'low' ? 'Not enough — understimulated' : stim === 'high' ? 'Too much — overstimulated' : 'Not recorded';
+  const sensoryDetail = stim === 'balanced' ? 'About right' : stim === 'low' ? 'Not enough — understimulated' : stim === 'high' ? 'Too much — overstimulated' : 'Not recorded';
 
   const rdBand: Band = !recoveryDuration.most_common ? 'unknown' :
     recoveryDuration.most_common === 'No recovery needed' || recoveryDuration.most_common === 'Under 30 minutes' ? 'good' :

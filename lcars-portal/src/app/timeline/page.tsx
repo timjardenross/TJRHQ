@@ -13,6 +13,7 @@
 // row's glyph + label already identify its source; the colour coding was
 // decorative on top of that, not the only way to tell sources apart.
 
+import { describePain } from '@/lib/pain-vocab';
 import { useEffect, useState } from 'react';
 import { WorkbenchShell } from '@/components/ui';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
@@ -75,13 +76,13 @@ async function fetchCapacityCheckins(days: number): Promise<SourceResult> {
     // CAPACITY TODAY). No pulse_type slot exists in the new model — the
     // title reads by checkin_type + date instead of a morning/midday/
     // evening bucket.
-    .select('id, log_date, checkin_type, pain_score, capacity_state, regulation_state, captured_at')
+    .select('id, log_date, checkin_type, pain_score, pain_state, capacity_state, regulation_state, captured_at')
     .gte('captured_at', since)
     .order('captured_at', { ascending: false })
     .limit(30);
   const events = (data ?? []).map(r => {
     const parts: string[] = [];
-    if (r.pain_score != null)    parts.push(`pain ${r.pain_score}`);
+    { const pain = describePain(r.pain_state, r.pain_score); if (pain) parts.push(`pain: ${pain}`); }
     if (r.capacity_state)        parts.push(`capacity ${r.capacity_state}`);
     if (r.regulation_state)      parts.push(`regulation ${r.regulation_state}`);
     return {

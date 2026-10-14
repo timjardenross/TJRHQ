@@ -37,7 +37,7 @@ export async function POST(_request: NextRequest) {
   }
 
   return NextResponse.json(
-    { error: 'This endpoint is retired. Log capacity check-ins via the XO Telegram bot (/capacity command) instead.' },
+    { error: 'This endpoint is retired. Log capacity check-ins via the CapacityBot Telegram bot (/capacity command) instead.' },
     { status: 410 }
   );
 }

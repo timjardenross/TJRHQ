@@ -323,7 +323,6 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
                             capacity_before=row.get("capacity_state"),
                             stimulation_before=row.get("stimulation_state"),
                             pain_before=row.get("pain_state"),
-                            pain_score_before=row.get("pain_score"),
                             regulation_before=row.get("regulation_state"),
                             executive_before=row.get("executive_function"),
                             compensation_before=row.get("compensation_load"),
@@ -450,6 +449,8 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
         return
 
     if f.get("ps") is not None:
+        # Retired 0-10 pain answer from a button on an old, in-flight message:
+        # carry on to the next question; the value is not stored.
         await query.edit_message_text(
             ct.q_regulation(),
             reply_markup=ct.kb_regulation(f),
@@ -457,9 +458,11 @@ async def handle_capacity_callback(update: Update, context: ContextTypes.DEFAULT
         return
 
     if f.get("p") is not None:
+        # Pain state answered ("compared with your usual baseline") — straight
+        # on to the nervous-system question. No numeric pain question.
         await query.edit_message_text(
-            ct.q_pain_score(),
-            reply_markup=ct.kb_pain_score(f),
+            ct.q_regulation(),
+            reply_markup=ct.kb_regulation(f),
         )
         return
 

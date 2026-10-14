@@ -67,8 +67,9 @@ under-stimulation), it may require adding movement, novelty, music,
 interest, challenge, or connection.
 
 **Q3 — Pain**: "How is your pain compared with your usual baseline?"
-🟢 Lower / 🟡 Around usual / 🟠 Higher / 🔴 Much higher → `pain_state`, plus an
-optional 0-10 `pain_score` (not mandatory).
+🟢 Lower / 🟡 Around usual / 🟠 Higher / 🔴 Much higher → `pain_state`.
+(The optional 0-10 `pain_score` question was retired in the R2 alignment, Phase 2
+step 2; the column and its history remain, read-only.)
 
 **Q4 — Nervous system / overload**: "How activated or overloaded does your
 system feel?" 😌 Settled / 🙂 Manageable / 😣 Activated / 🚨 Overloaded →

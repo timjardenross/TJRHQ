@@ -591,10 +591,10 @@ export const CAPACITY_STATE_LABEL: Record<string, string> = {
 // invented. Used by /human-systems-workbench/trends alongside each
 // field's ordinal map for its sparkline.
 export const STIMULATION_STATE_TREND_LABEL: Record<string, string> = {
-  low: 'Not enough', balanced: 'Balanced', high: 'Too much',
+  low: 'Not enough', balanced: 'About right', high: 'Too much',
 };
 export const PAIN_STATE_LABEL: Record<string, string> = {
-  low: 'Low', baseline: 'Baseline', elevated: 'Elevated', high: 'High',
+  low: 'Lower than usual', baseline: 'Around usual', elevated: 'Higher than usual', high: 'Much higher than usual',
 };
 export const REGULATION_STATE_LABEL: Record<string, string> = {
   settled: 'Settled', manageable: 'Manageable', activated: 'Activated', overloaded: 'Overloaded',

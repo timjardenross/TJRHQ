@@ -112,7 +112,7 @@ const TREND_GROUPS: TrendGroup[] = [
       { key: 'regulation_state', label: 'Regulation', map: TREND_REGULATION },
       {
         key: 'stimulation_state', label: 'Stimulation', map: TREND_STIMULATION_POSITION,
-        caption: 'Not a goodness scale — both ends (too little, too much) are off; the middle (Balanced) is the goal.',
+        caption: 'Not a goodness scale — both ends (too little, too much) are off; the middle (About right) is the goal.',
       },
     ],
   },
@@ -121,8 +121,8 @@ const TREND_GROUPS: TrendGroup[] = [
     label: 'Load',
     blurb: 'What has been costing effort or asking more of the system than usual.',
     fields: [
-      { key: 'pain_score', label: 'Pain (0-10)', map: null },
-      { key: 'pain_state', label: 'Pain State', map: TREND_PAIN_STATE },
+      { key: 'pain_score', label: 'Pain (older 0–10 record)', map: null },
+      { key: 'pain_state', label: 'Pain vs usual', map: TREND_PAIN_STATE },
       { key: 'executive_function', label: 'Executive Function', map: TREND_EXEC_FN },
       { key: 'compensation_load', label: 'Compensation Load', map: TREND_COMPENSATION },
     ],

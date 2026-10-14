@@ -168,7 +168,7 @@ def interpret_capacity(row: dict | None) -> CapacitySnapshot:
             p = float(pain)
             pain_penalty = min(25.0, p * 2.5)  # contextual drag, never the target
             if p >= 6:
-                pain_note = f", body signals high ({p:.0f}/10)"
+                pain_note = f", body signals high (older 0-10 record: {p:.0f}/10)"
         except (TypeError, ValueError):
             pass
 
@@ -396,7 +396,7 @@ def explain_signal(row: dict | None) -> str:
     for d in snap.domains:
         lines.append(f"• *{d.label}:* {d.band} — {d.driver}.")
     pain = row.get("pain_score") if row else None
-    if pain is not None:
+    if pain is not None or (row or {}).get("pain_state"):
         lines += [
             "",
             ("Body signals are treated as information, not a damage readout — they "

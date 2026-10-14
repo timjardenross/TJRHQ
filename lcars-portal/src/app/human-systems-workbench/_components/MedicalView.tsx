@@ -19,7 +19,7 @@ import {
 // export to avoid touching RecoveryView.tsx (a peer agent's file this
 // mission) for an unrelated rename.
 const STIMULATION_STATE_LABEL: Record<string, string> = {
-  low: 'Not enough', balanced: 'Balanced', high: 'Too much',
+  low: 'Not enough', balanced: 'About right', high: 'Too much',
 };
 
 // The Energy/Pain/Nervous System sparklines that used to live here moved

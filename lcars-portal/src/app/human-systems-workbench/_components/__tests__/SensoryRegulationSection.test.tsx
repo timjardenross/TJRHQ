@@ -75,7 +75,7 @@ describe('SensoryRegulationSection (V3 §10/§11)', () => {
         })}
       />,
     );
-    expect(screen.getByText('Balanced')).toBeInTheDocument();
+    expect(screen.getByText('About right')).toBeInTheDocument();
     expect(screen.getByText('Auditory')).toBeInTheDocument();
     expect(screen.getByText('Reduce / avoid')).toBeInTheDocument();
     expect(screen.getByText('Touch')).toBeInTheDocument();

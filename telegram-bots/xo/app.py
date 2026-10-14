@@ -1373,13 +1373,13 @@ async def cmd_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             await update.message.reply_text(_escape(reply), parse_mode="MarkdownV2")
         else:
             await update.message.reply_text(
-                "XO here\\. LLM unreachable — use /recovery\\_status or /dispatch for now\\.",
+                "XO here\\. LLM unreachable — use /brief or /priorities for now\\.",
                 parse_mode="MarkdownV2",
             )
     except Exception:
         log.exception("[cmd_message] failed")
         await update.message.reply_text(
-            "⚠️ Something went wrong processing that — try /recovery_status or /dispatch, "
+            "⚠️ Something went wrong processing that — try /brief or /priorities, "
             "or resend your message."
         )
 
@@ -1784,11 +1784,11 @@ _FT_MODEL_ROUTER_URL   = os.environ.get("MODEL_ROUTER_URL", "http://127.0.0.1:88
 _FT_DECOMPOSE_TIMEOUT  = 65  # server-side cold model load can take ~50s
 
 _FT_BLOCK_REASONS = [
-    ("I don't know what to do",   "no_idea"),
-    ("I need information",        "need_info"),
-    ("I'm waiting on someone",    "waiting"),
-    ("It's too big",              "too_big"),
-    ("I don't have what I need",  "missing"),
+    ("No idea where to start",    "no_idea"),
+    ("Need information",          "need_info"),
+    ("Waiting on someone",        "waiting"),
+    ("Too big",                   "too_big"),
+    ("Don't have what I need",    "missing"),
     ("Not right now",             "not_now"),
     ("Something else",            "other"),
 ]
