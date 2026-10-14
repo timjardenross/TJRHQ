@@ -22,7 +22,7 @@ this module's compliance-toned copy duplicated and contradicted
 platform-runtime/human_systems_scheduler.py + lib/human_systems/push.py,
 which the Captain designated the sole automated recovery messenger (calmer,
 caring tone; same recovery_confidence_today-adjacent data, read once).
-run_dispatch_check() is still reachable manually via `/dispatch` in
+run_dispatch_check() was reachable manually via `/dispatch` (no longer registered in
 Telegram (telegram-bots/xo/app.py) — only the unattended interval call
 was removed.
 

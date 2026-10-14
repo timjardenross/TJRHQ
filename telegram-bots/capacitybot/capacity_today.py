@@ -878,7 +878,7 @@ def kb_deep_note_prompt(row_id: str) -> InlineKeyboardMarkup:
 # ── Evening reflection (spec §5) ─────────────────────────────────────────────
 
 EVENING_TRAJECTORY_OPTIONS = [("u", "⬆️ Improved"), ("s", "➡️ About the same"), ("d", "⬇️ Declined")]
-EVENING_TRAJECTORY_SHORT = {"u": "Improved", "s": "About same", "d": "Declined"}
+EVENING_TRAJECTORY_SHORT = {"u": "Improved", "s": "About the same", "d": "Declined"}
 
 EVENING_DEBT_OPTIONS = [("n", "No"), ("m", "Maybe"), ("y", "Yes")]
 EVENING_DEBT_SHORT = {"n": "No", "m": "Maybe", "y": "Yes"}

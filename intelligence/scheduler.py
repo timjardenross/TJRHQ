@@ -581,9 +581,9 @@ def _start_scheduler() -> None:
     # human_systems_scheduler.py's push.py pulses (same recovery_confidence_today
     # data, independently read by two live schedulers). Captain designated
     # human_systems_scheduler.py + push.py the sole automated recovery
-    # messenger. Manual `/dispatch` in Telegram (telegram-bots/xo/app.py)
-    # still works via engagement_dispatcher.py directly — only this
-    # automatic timer is removed.
+    # messenger. The former manual `/dispatch` Telegram command is no longer registered in
+    # telegram-bots/xo/app.py (see DEPLOY.md); this
+    # automatic timer is also removed.
 
     # ── Episodic Memory Decay (migration 0162) ────────────────────────────────
     # Prune zero-reuse research memories older than 90 days. Runs weekly on
