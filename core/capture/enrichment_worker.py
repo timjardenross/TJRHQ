@@ -78,6 +78,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from html import escape as _html_escape
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -420,7 +421,7 @@ def _route_to_personal_task(item: dict, suggestion: dict, dry_run: bool = False)
         log.info("[%s] Idempotent retry — skipping duplicate confirmation", item_id[:8])
         return True
 
-    preview = raw_text[:120] + ("…" if len(raw_text) > 120 else "")
+    preview = _html_escape(raw_text[:120]) + ("…" if len(raw_text) > 120 else "")
     confidence_pct = int(suggestion.get("actionable_confidence", 0) * 100)
     _send_telegram_confirmation(
         f"✅ <b>Capture routed → Personal Task</b>\n"
@@ -524,7 +525,7 @@ def _auto_route_personal(item: dict, suggestion: dict, dry_run: bool = False) ->
         return False
 
     # Telegram confirmation
-    preview = raw_text[:120] + ("…" if len(raw_text) > 120 else "")
+    preview = _html_escape(raw_text[:120]) + ("…" if len(raw_text) > 120 else "")
     confidence_pct = int(suggestion.get("confidence", 0) * 100)
     _send_telegram_confirmation(
         f"✅ <b>Capture auto-routed → Captain's Log</b>\n"
@@ -606,7 +607,7 @@ def _promote_to_intelligence_note(item: dict, suggestion: dict, dry_run: bool = 
         log.error("[%s] Failed to mark item as routed: %s", item_id[:8], exc)
         return False
 
-    preview = raw_text[:120] + ("…" if len(raw_text) > 120 else "")
+    preview = _html_escape(raw_text[:120]) + ("…" if len(raw_text) > 120 else "")
     confidence_pct = int(suggestion.get("confidence", 0) * 100)
     _send_telegram_confirmation(
         f"📋 <b>Capture promoted → Officer Triage</b>\n"
