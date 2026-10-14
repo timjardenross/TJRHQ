@@ -355,20 +355,6 @@ def kb_pain(f: dict) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
-def q_pain_score() -> str:
-    return "Pain intensity right now? (optional, 0=none · 10=worst)"
-
-
-def kb_pain_score(f: dict) -> InlineKeyboardMarkup:
-    base = base_from(f)
-    rows = [
-        [InlineKeyboardButton(str(i), callback_data=f"{base}|ps={i}") for i in range(6)],
-        [InlineKeyboardButton(str(i), callback_data=f"{base}|ps={i}") for i in range(6, 11)],
-        [InlineKeyboardButton("⏭ Skip", callback_data=f"{base}|ps=skip")],
-    ]
-    return InlineKeyboardMarkup(rows)
-
-
 def q_regulation() -> str:
     return render_question("How activated or overloaded does your system feel?",
                             [label for _, label in REGULATION_OPTIONS])
@@ -1087,11 +1073,9 @@ async def write_quick_checkin(db, f: dict) -> tuple[bool, dict | None, str | Non
         payload["stimulation_state"] = STIM_CODE_TO_STATE.get(f["t"])
     if f.get("p"):
         payload["pain_state"] = PAIN_CODE_TO_STATE.get(f["p"])
-    if f.get("ps") and f["ps"] != "skip":
-        try:
-            payload["pain_score"] = int(f["ps"])
-        except ValueError:
-            pass
+    # No numeric pain: the 0-10 question was retired (R2 alignment, Phase 2
+    # step 2). "ps" may still arrive from a button on an old, in-flight
+    # message; it is accepted by the callback parser but never written.
     if f.get("r"):
         payload["regulation_state"] = REG_CODE_TO_STATE.get(f["r"])
     if f.get("em"):
