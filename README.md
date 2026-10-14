@@ -36,9 +36,11 @@ so file history predating the split is preserved.
   proactive scheduling, specialist registry, captain notifications, runtime event logging,
   the collaboration engine. (Historically this lived at `slack-bot/`; it was renamed to
   `platform-runtime/` in mission MSN-0337 — don't recreate a `slack-bot/` directory.)
-- **`telegram-bots/`** — Telegram-facing bots. `xo/` is the only live Telegram bot (Captain
-  decision 2026-07-05) — the Captain's action interface, running as `tg-xo.service`.
-  `recovery_officer/` and `wellness_officer/` are its helpers. The standalone Chief Engineer
+- **`telegram-bots/`** — Telegram-facing bots. `xo/` is the Captain's action interface, running
+  as `tg-xo.service`; `capacitybot/` (capacity check-ins, `tg-capacitybot.service`) is also live.
+  *(Corrected 2026-10-15: this line used to say XO was the only live Telegram bot, per a
+  2026-07-05 Captain decision. CapacityBot is running — confirmed by the PO on the server, up since
+  2026-10-11 and restarted 2026-10-15.)* `recovery_officer/` and `wellness_officer/` are XO's helpers. The standalone Chief Engineer
   bot was retired 2026-07-12 and removed from the tree; see git history
   (`telegram-bot.DEPRECATED-2026-07-12/` prior to removal).
 - **`core/command-centre/`** — Express.js backend + frontend for the command centre surface.
