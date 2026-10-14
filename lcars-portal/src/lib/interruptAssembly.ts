@@ -336,6 +336,13 @@ async function painTrendNominator(supabase: SupabaseClient): Promise<Interrupt |
       evidenceAt: signal.evidenceAt,
     };
   }
+  if (signal.kind === 'state_trend_elevated') {
+    return {
+      domain: 'Recovery pain trend',
+      text: `${signal.count} of the last ${signal.window} check-ins report pain higher than usual or much higher than usual - elevated.`,
+      evidenceAt: signal.evidenceAt,
+    };
+  }
   const level = signal.kind === 'trend_critical' ? 'critically high' : 'elevated';
   return {
     domain: 'Recovery pain trend',
