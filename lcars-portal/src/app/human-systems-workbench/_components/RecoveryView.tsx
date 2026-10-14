@@ -19,9 +19,9 @@ import {
   type RecoveryStage,
 } from './types';
 
-const STIMULATION_LABEL: Record<string, string> = { low: '⬇ Not enough', balanced: '⚖ Balanced', high: '⬆ Too much' };
+const STIMULATION_LABEL: Record<string, string> = { low: '⬇ Not enough', balanced: '⚖ About right', high: '⬆ Too much' };
 const PAIN_LABEL: Record<string, string> = {
-  low: 'Lower than usual', baseline: 'Around baseline', elevated: 'Higher than usual', high: 'Much higher than usual',
+  low: 'Lower than usual', baseline: 'Around usual', elevated: 'Higher than usual', high: 'Much higher than usual',
 };
 const REGULATION_LABEL: Record<string, string> = {
   settled: 'Settled', manageable: 'Manageable', activated: 'Activated', overloaded: 'Overloaded',

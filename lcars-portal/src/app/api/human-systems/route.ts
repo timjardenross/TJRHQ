@@ -390,12 +390,12 @@ function computeRecoveryConditions(
   const painBand: Band = painState === 'low' ? 'good' : painState === 'baseline' ? 'good' :
     painState === 'elevated' ? 'moderate' : painState === 'high' ? 'limited' : 'unknown';
   const painDetail = painState
-    ? `${{ low: 'Lower than usual', baseline: 'Around baseline', elevated: 'Higher than usual', high: 'Much higher than usual' }[painState] ?? painState}${latestCheckin?.pain_score != null ? ` (${latestCheckin.pain_score}/10)` : ''}`
+    ? `${{ low: 'Lower than usual', baseline: 'Around usual', elevated: 'Higher than usual', high: 'Much higher than usual' }[painState] ?? painState}${latestCheckin?.pain_score != null ? ` (${latestCheckin.pain_score}/10)` : ''}`
     : 'Not recorded';
 
   const stim = latestCheckin?.stimulation_state ?? null;
   const sensoryBand: Band = stim === 'balanced' ? 'good' : (stim === 'low' || stim === 'high') ? 'moderate' : 'unknown';
-  const sensoryDetail = stim === 'balanced' ? 'Balanced' : stim === 'low' ? 'Not enough — understimulated' : stim === 'high' ? 'Too much — overstimulated' : 'Not recorded';
+  const sensoryDetail = stim === 'balanced' ? 'About right' : stim === 'low' ? 'Not enough — understimulated' : stim === 'high' ? 'Too much — overstimulated' : 'Not recorded';
 
   const rdBand: Band = !recoveryDuration.most_common ? 'unknown' :
     recoveryDuration.most_common === 'No recovery needed' || recoveryDuration.most_common === 'Under 30 minutes' ? 'good' :

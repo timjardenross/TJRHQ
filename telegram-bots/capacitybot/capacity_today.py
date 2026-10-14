@@ -180,6 +180,28 @@ DAY_WIN_HELPED_SHORT = [
     "Rest", "Movement", "Less demand", "Sensory ctrl", "Structure",
     "Connection", "Interesting", "Pain mgmt", "None helped",
 ]
+# Shared what_helped_most codes (TJR Life R2 vocabulary), parallel to
+# DAY_WIN_HELPED_OPTIONS by index. Rows written before this change hold the
+# label text in capacity_checkins.helpful_factor; new rows hold the code.
+# Stored values are never rewritten — helpful_factor_code() maps either form.
+DAY_WIN_HELPED_CODES = [
+    "rest", "movement", "reduced_demands", "sensory_control", "structure",
+    "connection", "interesting_activity", "pain_management", "nothing_clear",
+]
+_HELPED_LABEL_TO_CODE = {label.lower(): code for label, code in zip(DAY_WIN_HELPED_OPTIONS, DAY_WIN_HELPED_CODES)}
+
+
+def helpful_factor_code(stored: str | None) -> str | None:
+    """Map a stored helpful_factor (code or legacy label text) to its code.
+
+    Unknown text and None return None — never guessed.
+    """
+    if not stored:
+        return None
+    key = stored.strip().lower()
+    if key in DAY_WIN_HELPED_CODES:
+        return key
+    return _HELPED_LABEL_TO_CODE.get(key)
 
 
 # ── Action suggestion engine (spec §2 + §10 REVS levers) ──────────────────────
@@ -1205,7 +1227,7 @@ async def write_evening(db, f: dict) -> tuple[bool, str | None]:
     hf_idx = f.get("hf")
     helpful_factor = None
     if hf_idx is not None and hf_idx.isdigit() and int(hf_idx) < len(DAY_WIN_HELPED_OPTIONS):
-        helpful_factor = DAY_WIN_HELPED_OPTIONS[int(hf_idx)]
+        helpful_factor = DAY_WIN_HELPED_CODES[int(hf_idx)]
     payload = {
         "checkin_type": "evening",
         "source": "telegram",

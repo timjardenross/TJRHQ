@@ -112,7 +112,7 @@ const TREND_GROUPS: TrendGroup[] = [
       { key: 'regulation_state', label: 'Regulation', map: TREND_REGULATION },
       {
         key: 'stimulation_state', label: 'Stimulation', map: TREND_STIMULATION_POSITION,
-        caption: 'Not a goodness scale — both ends (too little, too much) are off; the middle (Balanced) is the goal.',
+        caption: 'Not a goodness scale — both ends (too little, too much) are off; the middle (About right) is the goal.',
       },
     ],
   },

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeCapacityCode, capacityLabel } from '../capacity-vocab';
+import { normalizeCapacityCode, capacityLabel, helpfulFactorCode, helpfulFactorLabel, HELPFUL_FACTOR_LABELS } from '../capacity-vocab';
 import { deriveSystemPosture, type TodayCheckinInput } from '@/app/api/human-systems/derive-system-posture';
 
 const base: TodayCheckinInput = {
@@ -48,5 +48,24 @@ describe('deriveSystemPosture normalises stored capacity_state', () => {
   });
   it('Green with balanced stimulation -> ENGAGE', () => {
     expect(deriveSystemPosture({ ...base, capacity_state: 'Green' }).posture).toBe('ENGAGE');
+  });
+});
+
+describe('helpfulFactorCode', () => {
+  it.each(Object.entries(HELPFUL_FACTOR_LABELS))('code %s and its label both map to the code', (code, label) => {
+    expect(helpfulFactorCode(code)).toBe(code);
+    expect(helpfulFactorCode(label)).toBe(code);
+    expect(helpfulFactorCode(label.toUpperCase())).toBe(code);
+    expect(helpfulFactorLabel(code)).toBe(label);
+  });
+  it('maps unknown text to null, never guessing', () => {
+    expect(helpfulFactorCode('Coffee')).toBeNull();
+    expect(helpfulFactorCode('Interesting')).toBeNull();
+    expect(helpfulFactorLabel('Coffee')).toBeNull();
+  });
+  it('maps null/undefined/empty to null', () => {
+    expect(helpfulFactorCode(null)).toBeNull();
+    expect(helpfulFactorCode(undefined)).toBeNull();
+    expect(helpfulFactorCode('')).toBeNull();
   });
 });
