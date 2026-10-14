@@ -1,7 +1,17 @@
 -- 0234_recovery_score_pain_state.sql
 -- TJR HQ / Telegram R2 alignment — Phase 2 step 3 (PO-approved rule).
--- STATUS: PREPARED, NOT APPLIED. Do not apply to the live project until the
--- PO says go.
+-- STATUS: APPLIED to the live USSTJR project on 2026-10-14 after the PO said go
+-- (Supabase migration history name: recovery_score_pain_state; the function
+-- text applied is identical to the body below, comments included).
+-- Backup/rollback: the exact pre-change definition is saved at
+-- core/infrastructure/supabase/rollbacks/0234_recovery_score_pain_state.rollback.sql.
+-- Aggregate-only before/after on the 25 days that have a capacity check-in:
+--   avg score 33.14 -> 36.09 (+2.95, matches the pre-apply comparison);
+--   bands STRONG/STABLE/FRAGILE/REST  0/0/12/13 -> 0/4/9/12
+--   (4 FRAGILE->STABLE, 1 REST->FRAGILE, as predicted);
+--   capacity_checkins rows 56 / with number 29 / with state 30: unchanged;
+--   post-apply function md5 = 313635a5f58ab3f6fe8f48768666c8ec; one overload;
+--   get_recovery_posture(date) still returns its row.
 --
 -- Replaces public.compute_recovery_score(date) so the pain penalty reads
 -- capacity_checkins.pain_state (low / baseline / elevated / high) instead of
