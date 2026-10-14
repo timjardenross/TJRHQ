@@ -11,11 +11,11 @@
 # not silently kept as an unused duplicate auth stack.
 python-telegram-bot==22.8
 apscheduler==3.11.3
-supabase==2.31.0
-python-dotenv==1.2.3
+supabase==2.32.0
+python-dotenv==1.2.4
 httpx<0.29
-pyjwt>=2.13.0
-# realtime 2.31.0 requires websockets<16,>=11; unpinned pip resolves 17.x
+pyjwt>=2.15.1
+# realtime 2.31.0 requires websockets>=17.2,<18; unpinned pip resolves 17.x
 # (breaks: `from websockets.asyncio.client import ClientConnection`, moved
 # in websockets 16). Pin explicitly so `pip install -r` stays reproducible.
-websockets<16,>=11
+websockets>=17.2,<18
