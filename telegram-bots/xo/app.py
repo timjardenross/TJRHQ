@@ -13,7 +13,6 @@ Env:  telegram-bots/xo/.env
 from __future__ import annotations
 
 import asyncio
-import html
 import json
 import logging
 import os
@@ -660,13 +659,6 @@ def _launch_brief_regen_detached() -> None:
     )
 
 
-def _h(value: object) -> str:
-    """Escape database-derived text for Telegram HTML parse mode. Stored briefs can carry
-    redaction placeholders such as <NRP>; unescaped, Telegram rejects the whole message
-    ("unsupported start tag"). Truncate BEFORE escaping so an entity is never cut in half."""
-    return html.escape(str(value), quote=False)
-
-
 async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """/brief — Section 25 of BRIEFS_CANONICAL_UPLIFT.md: if today's
     canonical brief already exists, just show it (no redundant regenerate).
@@ -772,17 +764,17 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         sources  = b.get("sources_checked", 0)
 
         lines = [
-            f"<b>🛡 OR Intelligence Brief — {_h(bid)}</b>",
-            f"{risk_icon} Risk: <b>{_h(risk)}</b>",
-            f"<i>Period {_h(p_start)} → {_h(p_end)} · Generated {_h(gen_at)} UTC</i>",
+            f"<b>🛡 OR Intelligence Brief — {_esc_html(bid)}</b>",
+            f"{risk_icon} Risk: <b>{_esc_html(risk)}</b>",
+            f"<i>Period {_esc_html(p_start)} → {_esc_html(p_end)} · Generated {_esc_html(gen_at)} UTC</i>",
             "",
         ]
 
         if bottom:
-            lines += ["<b>Bottom Line</b>", _h(bottom[:600]), ""]
+            lines += ["<b>Bottom Line</b>", _esc_html(bottom[:600]), ""]
 
         if snap and snap != bottom:
-            lines += ["<b>Snapshot</b>", _h(snap[:500]), ""]
+            lines += ["<b>Snapshot</b>", _esc_html(snap[:500]), ""]
 
         # Same canonical selection Telegram's morning push and Captain's
         # Chair render (BRIEFS_CANONICAL_UPLIFT.md Section 29) — this
@@ -796,19 +788,19 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 item_line = f"  {i}. {item['title']}"
                 if item.get("so_what"):
                     item_line += f" — {item['so_what']}"
-                lines.append(_h(item_line[:220]))
+                lines.append(_esc_html(item_line[:220]))
             lines.append("")
 
         if themes:
             lines.append("<b>Emerging Themes</b>")
             for t in themes[:5]:
                 label = t if isinstance(t, str) else (t.get("theme") or t.get("title") or str(t))
-                lines.append(f"  • {_h(str(label)[:100])}")
+                lines.append(f"  • {_esc_html(str(label)[:100])}")
             lines.append("")
 
         if fw:
             fw_text = fw if isinstance(fw, str) else json.dumps(fw)
-            lines += ["<b>Forward Watch</b>", _h(str(fw_text)[:300]), ""]
+            lines += ["<b>Forward Watch</b>", _esc_html(str(fw_text)[:300]), ""]
 
         if view["changed"]:
             changed_bits = []
@@ -818,17 +810,17 @@ async def cmd_brief(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             if changed_bits:
                 lines.append("<b>Changed Since Yesterday</b>")
                 for bit in changed_bits[:5]:
-                    lines.append(_h(f"  • {bit}"[:200]))
+                    lines.append(_esc_html(f"  • {bit}"[:200]))
                 lines.append("")
 
         if view["coverage_note"]:
-            lines += [f"⚠️ <i>{_h(view['coverage_note'])}</i>", ""]
+            lines += [f"⚠️ <i>{_esc_html(view['coverage_note'])}</i>", ""]
 
         ev_suppressed = ev_total - ev_in if ev_total and ev_in else None
-        ev_line = f"Events: {_h(ev_in)} included"
+        ev_line = f"Events: {_esc_html(ev_in)} included"
         if ev_suppressed is not None:
-            ev_line += f" · {_h(ev_suppressed)} suppressed"
-        ev_line += f" · {_h(sources)} sources checked"
+            ev_line += f" · {_esc_html(ev_suppressed)} suppressed"
+        ev_line += f" · {_esc_html(sources)} sources checked"
         lines.append(f"<i>{ev_line}</i>")
 
         await update.message.reply_text("\n".join(lines), parse_mode="HTML")
