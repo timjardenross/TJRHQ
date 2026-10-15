@@ -280,8 +280,43 @@ def _send_telegram(
             parsed = json.loads(resp.read())
             message_id = (parsed.get("result") or {}).get("message_id")
             return True, None, message_id
+    except urllib.error.HTTPError as exc:
+        return False, _telegram_http_error(exc, token), None
     except Exception as exc:  # noqa: BLE001 - error surfaced to the caller in the returned tuple, not swallowed
-        return False, f"{type(exc).__name__}: {exc}", None
+        error = f"{type(exc).__name__}: {exc}"
+        return False, error.replace(token, "<token>") if token else error, None
+
+
+_TELEGRAM_ERROR_DESCRIPTION_MAX = 200
+
+
+def _telegram_http_error(exc: urllib.error.HTTPError, token: str) -> str:
+    """"HTTP <code>: <description>" for a Bot API error response. The
+    description is Telegram's own `description` field (e.g. "Bad Request:
+    can't parse entities: Unsupported start tag ..."), capped short. Only that
+    field is read: never the message text we sent, the request URL or the
+    chat id; the bot token is blanked if it somehow appears."""
+    description = ""
+    try:
+        parsed = json.loads(exc.read(4096))
+        if isinstance(parsed, dict):
+            description = str(parsed.get("description") or "")
+    except Exception:  # noqa: BLE001 - body is optional context; the status code alone is still reported
+        description = ""
+    if token:
+        description = description.replace(token, "<token>")
+    description = description.replace("\n", " ")[:_TELEGRAM_ERROR_DESCRIPTION_MAX]
+    return f"HTTP {exc.code}: {description}" if description else f"HTTP {exc.code}"
+
+
+_PERMANENT_FAILURE = re.compile(r"^HTTP 4(?!29\b)\d\d\b")
+
+
+def _is_permanent_failure(error: str | None) -> bool:
+    """A Telegram 4xx other than 429 (rate limit) cannot succeed on retry —
+    a 400 is a malformed request (e.g. unparseable HTML). 429, 5xx and
+    network errors keep their retries."""
+    return bool(error and _PERMANENT_FAILURE.match(error))
 
 
 _SEVERITY_TO_APPRISE_TYPE: dict[Severity, str] = {
@@ -470,7 +505,7 @@ def _send_one(
     for attempt in range(max_retries + 1):
         attempts += 1
         ok, error, message_id = sender(text, reply_markup, chat_id, severity)
-        if ok or attempt >= max_retries:
+        if ok or attempt >= max_retries or _is_permanent_failure(error):
             break
         time.sleep(retry_backoff_seconds)
     return NotificationResult(ok=ok, transport=transport, attempts=attempts, error=error, message_id=message_id)
