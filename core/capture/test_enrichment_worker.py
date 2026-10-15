@@ -539,6 +539,63 @@ class TestSafeParseSummary:
         assert ew._safe_parse_summary("not json {") == {}
 
 
+# ── Telegram confirmation text is HTML: the captured preview must be escaped ──
+
+class TestConfirmationEscapesCapturedText:
+    """The confirmations go out via notify(template="raw") as Telegram HTML, which does not
+    escape the body. A capture containing "<" must not break (or inject into) the message."""
+
+    RAW = "Call <NRP> & <b>note</b> about x" + " y" * 80  # > 120 chars, so it is truncated too
+
+    def _item(self):
+        return {"id": "item-12345678", "raw_text": self.RAW, "title": "t", "source_type": "telegram"}
+
+    def _assert_escaped(self, sent: list[str]):
+        assert len(sent) == 1
+        text = sent[0]
+        assert "&lt;NRP&gt; &amp; &lt;b&gt;note&lt;/b&gt;" in text
+        assert "<NRP>" not in text and "<b>note</b>" not in text
+        assert text.count("<i>") == 1 and text.count("</i>") == 1  # only the template's own wrapper
+        assert "…" in text  # still truncated at 120 characters
+
+    def test_personal_task_confirmation_escapes_preview(self):
+        sent = []
+        with patch.object(ew, "_sb_insert", return_value={"id": "task-1"}), \
+             patch.object(ew, "_sb_patch"), \
+             patch.object(ew, "_send_telegram_confirmation", side_effect=sent.append):
+            assert ew._route_to_personal_task(
+                self._item(), {"actionable": "yes", "actionable_confidence": 0.9, "importance": "medium"}) is True
+        self._assert_escaped(sent)
+
+    def test_captains_log_confirmation_escapes_preview(self):
+        sent = []
+        with patch.object(ew, "_sb_get_one", return_value=None), \
+             patch.object(ew, "_sb_patch"), \
+             patch.object(ew, "_send_telegram_confirmation", side_effect=sent.append):
+            assert ew._auto_route_personal(
+                self._item(), {"confidence": 0.9, "classification": "personal"}) is True
+        self._assert_escaped(sent)
+
+    def test_officer_triage_confirmation_escapes_preview(self):
+        sent = []
+        with patch.object(ew, "_sb_insert", return_value={"id": "note-1"}), \
+             patch.object(ew, "_sb_patch"), \
+             patch.object(ew, "_send_telegram_confirmation", side_effect=sent.append):
+            assert ew._promote_to_intelligence_note(
+                self._item(), {"confidence": 0.9, "classification": "research", "actionable": "no",
+                               "actionable_confidence": 0.1}) is True
+        self._assert_escaped(sent)
+
+    def test_plain_capture_text_is_unchanged(self):
+        sent = []
+        item = {"id": "item-12345678", "raw_text": "Buy milk and call Sam", "title": "t"}
+        with patch.object(ew, "_sb_insert", return_value={"id": "task-1"}), \
+             patch.object(ew, "_sb_patch"), \
+             patch.object(ew, "_send_telegram_confirmation", side_effect=sent.append):
+            ew._route_to_personal_task(item, {"actionable": "yes", "actionable_confidence": 0.9, "importance": "medium"})
+        assert "<i>Buy milk and call Sam</i>" in sent[0]
+
+
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v"])
