@@ -1,6 +1,13 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { PUBLIC_ROUTE_ALLOWLIST } from '@/lib/public-site';
+import {
+  MOBILE_BEARER_READ_ROUTES,
+  failureResponse,
+  mobileReadJson,
+  parseBearerToken,
+  verifyCaptainBearer,
+} from '@/lib/mobileBearerAuth';
 
 // Routes intended for server-to-server calls carrying X-Bot-Secret, not
 // interactive browsing. 2026-09-15 adversarial review: previously any
@@ -45,6 +52,27 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname === HEALTH_BRIDGE_ROUTE) {
+    return NextResponse.next({ request });
+  }
+
+  // TJR Life iOS read path (R3 S2a). Exact-match allowlist, GET only. On
+  // these paths a request without a valid Captain bearer token gets plain
+  // JSON (401/403/405/503), never the /login redirect a native client cannot
+  // follow. A bearer token on ANY other path is ignored here and falls
+  // through to the cookie flow below exactly as before. The route handler
+  // re-verifies via requireCaptainRead() (defence in depth).
+  if (MOBILE_BEARER_READ_ROUTES.has(pathname)) {
+    const token = parseBearerToken(request.headers.get('authorization'));
+    if (!token) {
+      return failureResponse({ ok: false, status: 401, error: 'Unauthorized' });
+    }
+    if (request.method !== 'GET') {
+      return mobileReadJson({ error: 'Method not allowed' }, 405, { Allow: 'GET' });
+    }
+    const verified = await verifyCaptainBearer(token);
+    if (!verified.ok) {
+      return failureResponse(verified);
+    }
     return NextResponse.next({ request });
   }
 
