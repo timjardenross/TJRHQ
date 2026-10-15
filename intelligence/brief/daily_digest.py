@@ -173,7 +173,8 @@ def build_daily_digest(hours: int = 24, signals: list[dict] | None = None) -> st
     )
 
     try:
-        text, provider = _llm.generate(prompt)
+        # Local model only: this prompt carries platform-domain event text and must not reach a cloud tier.
+        text, provider = _llm.generate(prompt, local_only=True)
     except Exception as exc:  # noqa: BLE001 - best-effort LLM synthesis, already logged; caller treats None as 'digest unavailable'
         log.warning("[daily_digest] LLM synthesis failed: %s", exc)
         return None
