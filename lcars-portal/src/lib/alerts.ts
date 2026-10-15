@@ -195,6 +195,17 @@ async function wellnessAlerts(): Promise<AlertGroupResult> {
           href: '/human-systems-workbench',
           at: nowIso(),
         });
+      } else if (signal?.kind === 'state_trend_elevated') {
+        out.push({
+          id: 'wellness-pain-elevated',
+          kind: 'wellness',
+          severity: 'high',
+          title: 'Pain trend elevated',
+          detail: `${signal.count} of your last ${signal.window} check-ins report pain higher than usual or much higher than usual.`,
+          why: 'A rising pain trend is worth acting on before it becomes a red-flag escalation.',
+          href: '/human-systems-workbench',
+          at: nowIso(),
+        });
       } else if (signal?.kind === 'trend_elevated') {
         out.push({
           id: 'wellness-pain-elevated',

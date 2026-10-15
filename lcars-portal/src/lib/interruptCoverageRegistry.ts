@@ -124,7 +124,7 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
     label: 'Recovery Pulse — pain trend (EOS interrupt only)',
     canInterrupt: 'yes',
     conditions:
-      'Red flag: the latest capacity_checkin has pain_state "high" (much higher than usual), regardless of capacity. Legacy numeric history: average of the recorded pain_score values over the last 5 capacity_checkins is > 6 (elevated) or > 8 (critical); a missing number is skipped, never counted as 0.',
+      'Red flag: the latest capacity_checkin has pain_state "high" (much higher than usual), regardless of capacity. State trend: 3 or more of the last 5 capacity_checkins at "higher than usual" or "much higher than usual" (latest not already "much higher"), a check-in with no pain state is not counted. Legacy numeric history: average of the recorded pain_score values over the last 5 capacity_checkins is > 6 (elevated) or > 8 (critical); a missing number is skipped, never counted as 0.',
     evidenceSource: 'capacity_checkins.pain_state, capacity_checkins.pain_score, capacity_checkins.captured_at',
     evaluationMethod: 'server-on-demand',
     falsePositiveGuard:
