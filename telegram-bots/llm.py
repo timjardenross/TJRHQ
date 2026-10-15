@@ -14,6 +14,8 @@ Configure via env vars:
     OLLAMA_CLOUD_BASE_URL   — default https://ollama.com (the cloud tier only)
     OLLAMA_CLOUD_MODEL      — default glm-5.2
     OLLAMA_API_KEY          — Ollama cloud API key (required for cloud tier)
+    OLLAMA_CLOUD_DISABLED   — set to 1/true/yes/on to turn the cloud tier off
+                              entirely (local router only). Unset = unchanged.
 OLLAMA_BASE_URL / OLLAMA_MODEL are deliberately NOT read here: they are the
 platform-wide LOCAL Ollama settings (http://localhost:11434, a local model),
 and reading them made this "cloud" tier silently call the local CPU model.
@@ -54,6 +56,11 @@ def _cloud_api_key() -> str:
     return os.getenv("OLLAMA_API_KEY", "")
 
 
+def _cloud_disabled() -> bool:
+    """True when the operator has switched the cloud tier off (default: off-switch unset)."""
+    return os.getenv("OLLAMA_CLOUD_DISABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _call_router(prompt: str, system_prompt: str | None = None) -> str | None:
     """Call Model Router /api/model/xo-response. Returns text or None."""
     payload: dict = {"prompt": prompt}
@@ -81,6 +88,9 @@ def _call_router(prompt: str, system_prompt: str | None = None) -> str | None:
 
 def _call_cloud(prompt: str, system_prompt: str | None = None, *, degraded: bool = True) -> str | None:
     """Call Ollama Cloud (glm-5.2) as controlled overflow. Returns text or None."""
+    if _cloud_disabled():
+        log.info("[llm] cloud tier disabled (OLLAMA_CLOUD_DISABLED) - not sent")
+        return None
     key = _cloud_api_key()
     if not key:
         log.warning("[llm] cloud fallback skipped — OLLAMA_API_KEY not set")
@@ -119,7 +129,10 @@ def _call_cloud(prompt: str, system_prompt: str | None = None, *, degraded: bool
 
 def generate(prompt: str, system_prompt: str | None = None, *, cloud_first: bool = False) -> str | None:
     """Return text from the Model Router and Ollama Cloud, tried in that order
-    (or cloud first when cloud_first=True). None if both fail."""
+    (or cloud first when cloud_first=True). None if both fail. With
+    OLLAMA_CLOUD_DISABLED set, only the local router is used."""
+    if _cloud_disabled():
+        return _call_router(prompt, system_prompt)
     if cloud_first:
         result = _call_cloud(prompt, system_prompt, degraded=False)
         if result:
