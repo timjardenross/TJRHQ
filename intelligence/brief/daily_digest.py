@@ -34,6 +34,7 @@ from datetime import datetime, timedelta, timezone
 
 from core.platform.captain_brief_orchestrator import assemble_captain_brief_document
 from core.platform.event_bus import CAPTAIN_BRIEF_COLUMNS, poll_events
+from intelligence.brief.domains_view import _readable_text
 from intelligence.brief.llm_provider import LLMProvider
 
 log = logging.getLogger(__name__)
@@ -100,7 +101,15 @@ def _format_domain_events(doc) -> str:
         items = getattr(doc, attr, None) or []
         if not items:
             continue
-        lines = "\n".join(f"- {i.reason}" for i in items[:10])
+        # The event's readable text (recommendation, else description) — never
+        # `_routing_reason`, the Attention Engine's internal scoring/aggregation
+        # trail (see domains_view._readable_text). `CaptainBriefItem.reason` was
+        # renamed `_routing_reason`; this still read `.reason` and raised
+        # AttributeError whenever any domain section had items (TJRHQ#398).
+        texts = [t for t in (_readable_text(i) for i in items[:10]) if t]
+        if not texts:
+            continue
+        lines = "\n".join(f"- {t}" for t in texts)
         blocks.append(f"{label}:\n{lines}")
     return "\n\n".join(blocks)
 
