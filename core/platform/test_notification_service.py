@@ -150,7 +150,7 @@ def _http_error(code, description=None, body=None):
         {"ok": False, "error_code": code, "description": description}
     ).encode()
     return urllib.error.HTTPError(
-        f"https://api.telegram.org/bot{_TOKEN}/sendMessage", code, "err", {}, io.BytesIO(raw)
+        f"https://bot-api.example.invalid/bot{_TOKEN}/sendMessage", code, "err", {}, io.BytesIO(raw)
     )
 
 
@@ -247,6 +247,6 @@ def test_400_with_unreadable_body_reports_status_only(real_telegram):
 
 
 def test_network_error_message_never_contains_the_token(real_telegram):
-    real_telegram([urllib.error.URLError(f"failed for https://api.telegram.org/bot{_TOKEN}/sendMessage")] * 2)
+    real_telegram([urllib.error.URLError(f"failed for https://bot-api.example.invalid/bot{_TOKEN}/sendMessage")] * 2)
     result = ns.notify("hi", template="raw", transport=ns.Transport.TELEGRAM, max_retries=1)
     assert _TOKEN not in result.error and "<token>" in result.error
