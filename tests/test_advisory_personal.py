@@ -62,6 +62,15 @@ def test_capture_gaps(seeded):
     assert "narrative" in g
 
 
+def test_health_checkin_gap_names_a_command_that_exists(seeded):
+    # `/health-check` (Slack) was retired and its module deleted (TJRHQ#386); the hint must not point at it.
+    import data_quality
+    importlib.reload(data_quality)
+    gap = next(g for g in data_quality.capture_gaps()["gaps"] if g["kind"] == "health_checkins")
+    assert "/health-check" not in gap["how_to_capture"]
+    assert "/capacity" in gap["how_to_capture"]
+
+
 def test_trust_metrics_recognises_uncertainty(tmp_path, monkeypatch):
     monkeypatch.setenv("ADVISORY_DATA_ROOT", str(tmp_path))
     import data_quality
