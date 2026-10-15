@@ -309,14 +309,15 @@ def _telegram_http_error(exc: urllib.error.HTTPError, token: str) -> str:
     return f"HTTP {exc.code}: {description}" if description else f"HTTP {exc.code}"
 
 
-_PERMANENT_FAILURE = re.compile(r"^HTTP 4(?!29\b)\d\d\b")
+_PERMANENT_STATUSES = frozenset({400, 401, 403, 404})
+_PERMANENT_FAILURE = re.compile(r"^HTTP (\d{3})\b")
 
 
 def _is_permanent_failure(error: str | None) -> bool:
-    """A Telegram 4xx other than 429 (rate limit) cannot succeed on retry —
-    a 400 is a malformed request (e.g. unparseable HTML). 429, 5xx and
-    network errors keep their retries."""
-    return bool(error and _PERMANENT_FAILURE.match(error))
+    """A Telegram 400 (malformed request, e.g. unparseable HTML), 401, 403 or 404 cannot succeed
+    on retry. 408, 429, 5xx and network errors keep their retries."""
+    m = _PERMANENT_FAILURE.match(error or "")
+    return bool(m) and int(m.group(1)) in _PERMANENT_STATUSES
 
 
 _SEVERITY_TO_APPRISE_TYPE: dict[Severity, str] = {

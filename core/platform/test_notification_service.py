@@ -202,6 +202,21 @@ def test_400_logs_description_and_makes_one_attempt_only(real_telegram, caplog):
     assert "Unsupported start tag" in logged
 
 
+@pytest.mark.parametrize("code", [400, 401, 403, 404])
+def test_permanent_4xx_is_not_retried(real_telegram, code):
+    attempts = real_telegram([_http_error(code, "Bad Request: nope")] * 3)
+    result = ns.notify("hi", template="raw", transport=ns.Transport.TELEGRAM, max_retries=2)
+    assert not result.ok and len(attempts) == 1
+    assert result.error.startswith(f"HTTP {code}: ")
+
+
+@pytest.mark.parametrize("code", [408, 429, 500, 502, 503])
+def test_retryable_statuses_are_retried(real_telegram, code):
+    attempts = real_telegram([_http_error(code, "try again"), _OkResponse()])
+    result = ns.notify("hi", template="raw", transport=ns.Transport.TELEGRAM, max_retries=1)
+    assert result.ok and len(attempts) == 2
+
+
 def test_500_still_retries(real_telegram):
     attempts = real_telegram([_http_error(500, "Internal Server Error"), _http_error(500, "Internal Server Error"), _OkResponse()])
     result = ns.notify("hi", template="raw", transport=ns.Transport.TELEGRAM, max_retries=2)
