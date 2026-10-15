@@ -508,17 +508,22 @@ def _rule_new_missions(conn: sqlite3.Connection, client) -> None:
         if conn.execute("SELECT 1 FROM seen_missions WHERE mission_id=?", (mid,)).fetchone():
             continue
         # First time seeing this Idea
-        conn.execute(
-            "INSERT OR IGNORE INTO seen_missions (mission_id, first_seen) VALUES (?, ?)",
-            (mid, _now_iso()),
-        )
-        conn.commit()
         tg = (
             f"💡 <b>New Mission — Triage Required</b>\n"
             f"<code>{_esc_html(mid)}</code> — {_esc_html(title)}\n"
             "Status: <b>Idea</b> — awaiting review, approval, or archival via Mission Workbench."
         )
-        _route("MEDIUM", tg)
+        # Mark it seen only AFTER a successful send. It used to be marked first and the send result
+        # ignored, so a failed send (for example a Telegram 401) lost the one-time alert for good.
+        # An unsent mission stays unseen and is retried on the next cycle.
+        if not _route("MEDIUM", tg):
+            log.warning("[bus:missions] New Idea mission %s NOT alerted (send failed); will retry next cycle", mid)
+            break  # the transport is failing; do not make one failing call per remaining Idea
+        conn.execute(
+            "INSERT OR IGNORE INTO seen_missions (mission_id, first_seen) VALUES (?, ?)",
+            (mid, _now_iso()),
+        )
+        conn.commit()
         log.info("[bus:missions] New Idea mission alerted: %s", mid)
 
 
