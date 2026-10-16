@@ -156,12 +156,18 @@ class LLMProvider:
             log.warning("[risk-challenge] check failed: %s", exc)
             return None
 
-    def generate(self, prompt: str, use_mistral_pipeline: bool = True) -> tuple[str | None, str | None]:
+    def generate(
+        self, prompt: str, use_mistral_pipeline: bool = True, *, local_only: bool = False
+    ) -> tuple[str | None, str | None]:
         """
         Returns (text, provider_name) or (None, None) if all fail.
         Also sets self.last_usage (token counts + resolved model, where the
         winning provider's response exposed them) for callers that need it
         for cost-governance logging.
+
+        local_only=True tries ONLY the local Ollama model (OLLAMA_MODEL at OLLAMA_BASE_URL): no
+        Model Router (its intelligence-brief route is Gemini, cloud), no Gemini, no Mistral. Used
+        where nothing may leave this host; on failure it returns (None, None), like any total failure.
 
         use_mistral_pipeline=False skips the 7-agent brief pipeline
         (~30-70s latency per call, see _mistral_pipeline) when Model Router
@@ -182,7 +188,9 @@ class LLMProvider:
             ("mistral-small",           self._mistral),
             (OLLAMA_MODEL,              self._ollama),
         ]
-        if not use_mistral_pipeline:
+        if local_only:
+            providers = [(OLLAMA_MODEL, self._ollama)]
+        elif not use_mistral_pipeline:
             providers = [(name, fn) for name, fn in providers if name != "mistral-4stage-pipeline"]
         for name, fn in providers:
             try:
