@@ -70,7 +70,7 @@ Timestamps are UTC ISO-8601 with milliseconds and a `Z` offset.
   "error": null
 }
 ```
-The v1.0 rules for `id`, `headline`, `severity`, `occurred_at` and the 20-item cap are unchanged. The ordering changed in v1.1: items are ranked by severity (`emergency_warning`, then `watch_and_act`, then `unknown`, then `advice`), newest first within a rank (`issued_at`, falling back to `first_seen_at`). An active, unexpired `emergency_warning` is never dropped in favour of a lower severity; with more than 20 of them, the newest 20 are sent. v1.0 clients that re-sort by time keep working; clients should show the list in the order received.
+The v1.0 rules for `id`, `headline`, `severity`, `occurred_at` and the 20-item cap are unchanged. The ordering changed in v1.1: items are ranked by severity (`emergency_warning`, then `watch_and_act`, then `unknown`, then `advice`), newest first within a rank (`issued_at`, falling back to `first_seen_at`). An active, unexpired `emergency_warning` is never dropped in favour of a lower severity; with more than 20 of them, the newest 20 are sent. Clients should show the list in the order received.
 
 | Field | Source column | Rule |
 |---|---|---|
