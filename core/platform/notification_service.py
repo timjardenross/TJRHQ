@@ -461,7 +461,12 @@ def notify(
         # _render already truncated to _TELEGRAM_MAX_LEN — chunk the raw
         # body instead, then render each piece (template wrapping is
         # cheap/idempotent per chunk).
-        chunks = _split_at_word_boundary(body, _TELEGRAM_MAX_LEN)
+        # A "raw" body is caller-composed Telegram HTML: split it so each chunk has balanced tags.
+        # Other templates escape the body wholesale after this split, so it carries no markup yet.
+        if template in _RAW_TEMPLATES:
+            chunks = _split_html_aware(body, _TELEGRAM_MAX_LEN)
+        else:
+            chunks = _split_at_word_boundary(body, _TELEGRAM_MAX_LEN)
         result = None
         for i, piece in enumerate(chunks):
             piece_title = title if i == 0 else None
@@ -493,6 +498,93 @@ def _split_at_word_boundary(text: str, limit: int) -> list[str]:
     if remaining:
         pieces.append(remaining)
     return pieces
+
+
+# Telegram HTML parse_mode tags (https://core.telegram.org/bots/api#html-style). A "raw" body is
+# caller-composed HTML, so a chunk boundary must not leave one of these open or cut one in half.
+_TG_TAG = re.compile(
+    r"<(/?)(b|strong|i|em|u|ins|s|strike|del|code|pre|a|tg-spoiler|tg-emoji|span|blockquote)(\s[^<>]*)?>",
+    re.IGNORECASE,
+)
+_TG_ATOM = re.compile(r"(<[^<>]*>|\s+)")
+_TG_ATOM_TAGS = re.compile(r"<[^<>]*>")
+
+
+def _split_html_aware(text: str, limit: int) -> list[str]:
+    """Like _split_at_word_boundary, for a body that is Telegram HTML: each chunk is <= limit
+    characters and has balanced tags, so Telegram does not reject a chunk for an unclosed or cut
+    tag. Design: split only between words/tags (never inside a tag), and at a split close the
+    tags still open (innermost first) and re-open them, attributes included, at the start of
+    the next chunk. The closing tags are budgeted for, so a chunk never exceeds the limit. The
+    last chunk is left exactly as written (a tag the caller left open stays open). If a single
+    word or tag cannot fit a chunk even on its own, it falls back to _split_at_word_boundary."""
+    stack: list[tuple[str, str]] = []  # (tag name, opening tag as written)
+    chunks: list[str] = []
+    cur: list[str] = []
+    cur_len = 0
+    added = 0  # atoms in the current chunk beyond its re-opened tags
+
+    def openers() -> str:
+        return "".join(o for _, o in stack)
+
+    def closers(names: list[str]) -> str:
+        return "".join(f"</{n}>" for n in reversed(names))
+
+    def reserve_after(atom: str) -> int:
+        names = [n for n, _ in stack]
+        m = _TG_TAG.fullmatch(atom)
+        if m:
+            name = m.group(2).lower()
+            if m.group(1):
+                if name in names:
+                    del names[len(names) - 1 - names[::-1].index(name)]
+            else:
+                names.append(name)
+        return len(closers(names))
+
+    def apply(atom: str) -> None:
+        m = _TG_TAG.fullmatch(atom)
+        if not m:
+            return
+        name = m.group(2).lower()
+        if m.group(1):
+            for i in range(len(stack) - 1, -1, -1):
+                if stack[i][0] == name:
+                    del stack[i]
+                    break
+        else:
+            stack.append((name, atom))
+
+    def flush() -> None:
+        nonlocal cur, cur_len, added
+        body = "".join(cur)
+        if _TG_ATOM_TAGS.sub("", body).strip():  # a chunk of tags only carries nothing: drop it
+            chunks.append(body.rstrip() + closers([n for n, _ in stack]))
+        cur, cur_len, added = [], 0, 0
+
+    atoms = [a for a in _TG_ATOM.split(text) if a]
+    i = 0
+    while i < len(atoms):
+        atom = atoms[i]
+        if not cur:
+            if atom.isspace():
+                i += 1
+                continue  # no leading whitespace on a chunk
+            pre = openers()
+            cur, cur_len = [pre], len(pre)
+        if cur_len + len(atom) + reserve_after(atom) > limit:
+            if added == 0:
+                return _split_at_word_boundary(text, limit)
+            flush()  # closes what is open; the next chunk re-opens it
+            continue
+        cur.append(atom)
+        cur_len += len(atom)
+        added += 1
+        apply(atom)
+        i += 1
+    if "".join(cur).strip():
+        chunks.append("".join(cur))
+    return chunks
 
 
 def _send_one(
