@@ -1,0 +1,19 @@
+{
+  "contract_version": "1.1",
+  "generated_at": "2026-10-15T02:00:00.000Z",
+  "hq_status": {
+    "generated_at": "2026-10-15T01:59:30.000Z",
+    "summary": "HQ is degraded: alert coverage may be incomplete.",
+    "state": "ok",
+    "error": null
+  },
+  "latest_brief": {
+    "generated_at": null,
+    "brief_date": null,
+    "lines": [],
+    "error": null
+  },
+  "alerts": {
+    "error": "unavailable"
+  }
+}

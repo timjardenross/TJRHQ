@@ -1,4 +1,4 @@
-// TJR Life snapshot, contract v1 (R3 S3). Read-only, three independent
+// TJR Life snapshot, contract v1.1 (R3 S3; v1.1 = richer alerts). Read-only, three independent
 // sections built with the Captain's user-scoped Supabase client (RLS applies
 // as the Captain; never the service role). Contract: docs/r3-planning/
 // TJR_LIFE_SNAPSHOT_V1_CONTRACT.md. Shared fixtures: fixtures/tjr-life-snapshot-v1/.
@@ -16,7 +16,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildAgentStatusOverview } from '@/lib/agentStatusOverview';
 import { parseBriefText } from '@/lib/briefText';
 
-export const SNAPSHOT_CONTRACT_VERSION = '1.0';
+export const SNAPSHOT_CONTRACT_VERSION = '1.1';
 export const SNAPSHOT_ALERT_LIMIT = 20;
 export const SNAPSHOT_SECTION_TIMEOUT_MS = 8000;
 // Approved allowlist caps (PO, R3 review). Lengths are UTF-16 code units.
@@ -26,8 +26,17 @@ export const MAX_HEADLINE_CHARS = 160;
 export const MAX_SUMMARY_CHARS = 400;
 export const MAX_ALERT_ID_CHARS = 64;
 export const MAX_RESPONSE_BYTES = 64 * 1024;
+export const MAX_JURISDICTION_CHARS = 8;
+export const MAX_SOURCE_NAME_CHARS = 40;
 export const ALERT_SEVERITIES = ['emergency_warning', 'watch_and_act', 'advice', 'unknown'] as const;
 export type AlertSeverity = (typeof ALERT_SEVERITIES)[number];
+export const ALERT_TYPES = [
+  'bushfire', 'flood', 'storm', 'cyclone', 'heatwave', 'hazard_reduction',
+  'structure_fire', 'severe_weather', 'tsunami', 'other',
+] as const;
+export type AlertType = (typeof ALERT_TYPES)[number];
+export const ALERT_STATUSES = ['new', 'active', 'updated', 'superseded', 'expired', 'inactive', 'errored'] as const;
+export type AlertStatus = (typeof ALERT_STATUSES)[number] | 'unknown';
 
 export type SectionUnavailable = { error: 'unavailable' };
 export type HqState = 'ok' | 'degraded' | 'attention' | 'unknown';
@@ -49,9 +58,18 @@ export interface AlertItem {
   headline: string;
   severity: AlertSeverity;
   occurred_at: string;
+  // v1.1 additions. jurisdiction, source_name and updated_at are omitted when
+  // the stored value is missing or unusable; the others are always present.
+  jurisdiction?: string;
+  alert_type: AlertType;
+  status: AlertStatus;
+  expires_at: string | null;
+  updated_at?: string;
+  source_name?: string;
 }
 export interface AlertsSection {
   generated_at: string;
+  last_polled_at: string | null;
   items: AlertItem[];
   error: null;
 }
@@ -92,6 +110,23 @@ export function tidy(text: string, maxChars: number): string {
 function toSeverity(raw: unknown): AlertSeverity {
   const value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
   return (ALERT_SEVERITIES as readonly string[]).includes(value) ? (value as AlertSeverity) : 'unknown';
+}
+
+function toEnum<T extends string>(raw: unknown, allowed: readonly T[], fallback: T): T {
+  const value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  return (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
+}
+
+/** Plain text of at most maxChars, or undefined when nothing usable remains. */
+function optionalText(raw: unknown, maxChars: number): string | undefined {
+  const text = toPlainText(raw, maxChars);
+  return text.length > 0 ? text : undefined;
+}
+
+// PostgREST returns a many-to-one embed as an object; tolerate a one-element array.
+function embeddedSourceName(embed: unknown): unknown {
+  const one = Array.isArray(embed) ? embed[0] : embed;
+  return one && typeof one === 'object' ? (one as { source_name?: unknown }).source_name : undefined;
 }
 
 function toIso(value: unknown): string | null {
@@ -157,14 +192,27 @@ export async function buildLatestBriefSection(sb: SupabaseClient): Promise<Lates
 }
 
 export async function buildAlertsSection(sb: SupabaseClient, now: Date): Promise<AlertsSection> {
+  const notExpired = `expiry.is.null,expiry.gt.${now.toISOString()}`;
   const { data, error } = await sb
     .from('alerts')
-    .select('id, headline, severity, issued_at, first_seen_at')
+    .select(
+      'id, headline, severity, issued_at, first_seen_at, jurisdiction, alert_type, status, expiry, updated_at_src, last_seen_at, alert_sources(source_name)',
+    )
     .eq('is_active', true)
-    .or(`expiry.is.null,expiry.gt.${now.toISOString()}`)
+    .or(notExpired)
     .order('issued_at', { ascending: false, nullsFirst: false })
     .limit(SNAPSHOT_ALERT_LIMIT);
   if (error) throw error;
+  // Newest last_seen_at over ALL active unexpired alerts (not just the capped
+  // page). The source heartbeat is not read.
+  const polled = await sb
+    .from('alerts')
+    .select('last_seen_at')
+    .eq('is_active', true)
+    .or(notExpired)
+    .order('last_seen_at', { ascending: false })
+    .limit(1);
+  if (polled.error) throw polled.error;
   const items: AlertItem[] = [];
   const seen = new Set<string>();
   for (const row of data ?? []) {
@@ -174,14 +222,29 @@ export async function buildAlertsSection(sb: SupabaseClient, now: Date): Promise
     if (!occurredAt || typeof row.id !== 'string' || row.id.length === 0) continue;
     if (row.id.length > MAX_ALERT_ID_CHARS || seen.has(row.id)) continue;
     seen.add(row.id);
-    items.push({
+    const item: AlertItem = {
       id: row.id,
       headline: toPlainText(row.headline, MAX_HEADLINE_CHARS),
       severity: toSeverity(row.severity),
       occurred_at: occurredAt,
-    });
+      alert_type: toEnum(row.alert_type, ALERT_TYPES, 'other'),
+      status: toEnum<AlertStatus>(row.status, ALERT_STATUSES, 'unknown'),
+      expires_at: toIso(row.expiry),
+    };
+    const jurisdiction = optionalText(row.jurisdiction, MAX_JURISDICTION_CHARS);
+    if (jurisdiction) item.jurisdiction = jurisdiction;
+    const updatedAt = toIso(row.updated_at_src) ?? toIso(row.last_seen_at);
+    if (updatedAt) item.updated_at = updatedAt;
+    const sourceName = optionalText(embeddedSourceName(row.alert_sources), MAX_SOURCE_NAME_CHARS);
+    if (sourceName) item.source_name = sourceName;
+    items.push(item);
   }
-  return { generated_at: now.toISOString(), items, error: null };
+  return {
+    generated_at: now.toISOString(),
+    last_polled_at: toIso(polled.data?.[0]?.last_seen_at),
+    items,
+    error: null,
+  };
 }
 
 async function guarded<T>(section: string, work: () => Promise<T>): Promise<T | SectionUnavailable> {
