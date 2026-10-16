@@ -21,6 +21,7 @@ import urllib.request
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from html import escape as _html_escape
+from html import unescape as _html_unescape
 
 # Shared pain vocabulary. Guarded like the other core.* imports here: a problem
 # importing it must degrade the pain wording only, never the whole brief.
@@ -791,8 +792,14 @@ def _esc(value: object) -> str:
     escape its own dynamic text (stored events can carry redaction placeholders such as <NRP>,
     which Telegram rejects as an unsupported tag, failing the whole message). Escape AFTER
     truncating (_truncate_clean) so an entity is never cut in half. The literal <b>/<i>/<code>
-    wrappers are never passed through this."""
-    return _html_escape(str(value), quote=False)
+    wrappers are never passed through this.
+
+    Feed text can arrive already entity-encoded (an RSS title carrying "&#x5b;Guest Diary&#x5d;"
+    for "[Guest Diary]" because the feed double-encoded it, and rss_adapter stores the title as
+    parsed). Escaping that as-is turns the "&" into "&amp;" and Telegram, the email and the card
+    show the entity text literally. The text is decoded once first, so it reads as plain text, then
+    escaped once for HTML; plain text such as "AT&T" or "<NRP>" is unaffected by the decode."""
+    return _html_escape(_html_unescape(str(value)), quote=False)
 
 
 def _truncate_clean(text: str, limit: int) -> str:
