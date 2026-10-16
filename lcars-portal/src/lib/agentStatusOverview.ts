@@ -1,0 +1,247 @@
+// Shared builder for the HQ Status interpreted overview.
+//
+// Extracted verbatim from api/agent-status-workbench/overview/route.ts (R3
+// S3) so a second caller, the TJR Life snapshot route, can reuse the exact
+// same posture math with its own (bearer, user-scoped) Supabase client
+// instead of copying it. The route keeps its session check and error shape;
+// this function only gathers signals and returns the payload. It throws on
+// any read failure, as the inline code did.
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchAgentStatusEntries } from '@/lib/agentStatusJobs';
+import {
+  computeCapabilities,
+  applyCapabilitySignal,
+  interpretHQStatus,
+  buildCaptainChairSummary,
+  type CapabilityTone,
+} from '@/lib/hqStatusInterpreter';
+import { calculateOperationalConfidence } from '@/lib/operationalConfidence';
+
+type StageTone = 'ok' | 'warn' | 'crit' | 'unknown';
+
+interface StageResult {
+  key: string;
+  label: string;
+  tone: StageTone;
+  detail: string;
+  // True only for the notObservable branch below: this stage isn't wired to
+  // any Phase 26 view yet, so its 'unknown' reflects a permanent
+  // instrumentation gap, not a live signal. worstStage() below must not let
+  // a stage like this force the whole pipeline (and therefore the
+  // capability) to read 'unknown' forever when everything actually
+  // observable is fine — see worstStage()'s doc comment.
+  structuralUnknown?: boolean;
+}
+
+/** Tri-state for one pipeline stage: 'crit' if a feeding job has failed,
+ *  'unknown' if there's simply no data for today yet, else 'ok'/'warn'
+ *  based on whether the mapped view counts are flowing. Unchanged from the
+ *  prior overview route — still used to feed both the Sources tab's
+ *  Pipeline Health view and (new) the two intelligence capabilities below. */
+function stageHealth(
+  key: string,
+  label: string,
+  feedingJobKeys: string[],
+  jobFailed: (domainKey: string) => { label: string; lastAction: string | null } | undefined,
+  observedCount: number | null,
+  discoveredToday: number,
+  notObservable = false,
+): StageResult {
+  const failedJob = feedingJobKeys.map((k) => jobFailed(k)).find((j) => j !== undefined);
+  if (failedJob) {
+    return { key, label, tone: 'crit', detail: `Feeding job "${failedJob.label}" is failing: ${failedJob.lastAction ?? 'no detail'}` };
+  }
+  if (notObservable) {
+    return { key, label, tone: 'unknown', detail: 'Not exposed by the Phase 26 observability views yet — job health only.', structuralUnknown: true };
+  }
+  if (discoveredToday === 0) {
+    return { key, label, tone: 'unknown', detail: 'No items discovered today yet.' };
+  }
+  if (observedCount === null || observedCount === 0) {
+    return {
+      key,
+      label,
+      tone: 'warn',
+      detail: `Discovery flowed (${discoveredToday} item${discoveredToday === 1 ? '' : 's'} today) but ${label} shows zero — may be pre-rollout NULL or a real stall, worth a look.`,
+    };
+  }
+  return { key, label, tone: 'ok', detail: `${observedCount} today.` };
+}
+
+/** Worst stage across the pipeline, for both the aggregate tone and its
+ *  human-readable reason. Stages permanently pinned to 'unknown' by
+ *  structuralUnknown (Phase 26 doesn't instrument them yet) are excluded
+ *  from this verdict — they still render individually in the Pipeline
+ *  Health view, but must never be the reason Technical/Health Intelligence
+ *  reads "unknown" when every stage that IS observable is healthy. A
+ *  genuine "no data today" unknown (discoveredToday === 0) is a real signal
+ *  and still counts. Returns null when every relevant stage is 'ok'. */
+function worstStage(stages: StageResult[]): StageResult | null {
+  const relevant = stages.filter((s) => !(s.tone === 'unknown' && s.structuralUnknown));
+  return (
+    relevant.find((s) => s.tone === 'crit') ??
+    relevant.find((s) => s.tone === 'warn') ??
+    relevant.find((s) => s.tone === 'unknown') ??
+    null
+  );
+}
+
+function stageToneToCapabilitySignal(tone: StageTone, reason: string): { tone: CapabilityTone; reason: string } | null {
+  switch (tone) {
+    case 'crit': return { tone: 'unavailable', reason };
+    case 'warn': return { tone: 'degraded', reason };
+    case 'unknown': return { tone: 'unknown', reason };
+    case 'ok': return null; // healthy is the capability's own default — no need to force it
+  }
+}
+
+export async function buildAgentStatusOverview(sb: SupabaseClient) {
+  const [jobs, techQuality, healthQuality, techSources, activeTechSourceIds, healthFetchConfigs] = await Promise.all([
+    fetchAgentStatusEntries(sb),
+    sb.from('intelligence_ingestion_quality_daily').select('*').order('day', { ascending: false }).limit(1),
+    sb.from('health_ingestion_quality_daily').select('*').order('day', { ascending: false }).limit(1),
+    // Defensive bound (Supabase egress investigation, 2026-09-20): this
+    // view is one row per source (~200 today per intelligence_source_
+    // registry), but this endpoint is polled every REFRESH_INTERVAL_MS
+    // by every open Status-tab browser tab, so an unbounded select here
+    // is one accidental registry-growth away from a real cost.
+    sb.from('intelligence_source_health_latest').select('source_id, status, checked_at, error_message').limit(1000),
+    sb.from('intelligence_source_registry').select('source_id').eq('active', true),
+    sb.from('health_source_fetch_config').select('source_id, cadence, last_fetch, last_fetch_status, last_fetch_message, health_source_registry(source_name)'),
+  ]);
+
+  if (techQuality.error) throw techQuality.error;
+  if (healthQuality.error) throw healthQuality.error;
+  if (techSources.error) throw techSources.error;
+  if (activeTechSourceIds.error) throw activeTechSourceIds.error;
+  if (healthFetchConfigs.error) throw healthFetchConfigs.error;
+
+  const failedJobByKey = new Map(jobs.filter((j) => j.status === 'failed').map((j) => [j.domainKey, { label: j.label, lastAction: j.lastAction }]));
+  const jobFailed = (domainKey: string) => failedJobByKey.get(domainKey);
+
+  const t = techQuality.data?.[0] ?? null;
+  const h = healthQuality.data?.[0] ?? null;
+
+  // ── Pipeline health stages (unchanged math, now also feeds capabilities below) ──
+  const technicalStages: StageResult[] = [
+    stageHealth('discovery', 'Discovery', ['intelligence_collection', 'intraday_status_collection'], jobFailed, t?.discovered ?? null, t?.discovered ?? 0),
+    stageHealth('parsing', 'Parsing', ['intelligence_collection', 'intraday_status_collection'], jobFailed, t?.discovered ?? null, t?.discovered ?? 0, true),
+    stageHealth('relevance_gate', 'Relevance Gate', ['intelligence_suppression_audit'], jobFailed, (t?.not_relevant ?? 0) + (t?.low_confidence ?? 0) + (t?.relevant ?? 0), t?.discovered ?? 0),
+    // dedup_processed (0228) = rows that went through dedup clustering at
+    // all; `deduplicated` only counts near-dup members, and zero of those
+    // is a normal day, not a stall. Falls back until 0228 is applied.
+    stageHealth('deduplication', 'Deduplication', [], jobFailed, t?.dedup_processed ?? t?.deduplicated ?? null, t?.discovered ?? 0),
+    stageHealth('scoring', 'Scoring', ['evolved_captain_insight_generation'], jobFailed, (t?.relevant ?? 0) + (t?.not_relevant ?? 0) + (t?.low_confidence ?? 0), t?.discovered ?? 0),
+    stageHealth('disposition', 'Disposition', [], jobFailed, (t?.escalate ?? 0) + (t?.brief ?? 0) + (t?.watch ?? 0) + (t?.reference ?? 0) + (t?.suppress ?? 0), t?.discovered ?? 0),
+  ];
+
+  const healthStages: StageResult[] = [
+    stageHealth('discovery', 'Discovery', ['health_osint_weekly_fetch'], jobFailed, h?.discovered ?? null, h?.discovered ?? 0),
+    stageHealth('parsing', 'Parsing', ['health_osint_weekly_fetch'], jobFailed, h?.discovered ?? null, h?.discovered ?? 0, true),
+    stageHealth('relevance_gate', 'Relevance Gate', [], jobFailed, (h?.not_relevant ?? 0) + (h?.low_confidence ?? 0) + (h?.relevant ?? 0), h?.discovered ?? 0),
+    stageHealth('study_clustering', 'Study Clustering', [], jobFailed, null, h?.discovered ?? 0, true),
+    stageHealth('evidence_scoring', 'Evidence Scoring', [], jobFailed, h?.evidence_contribution_scored ?? null, h?.discovered ?? 0),
+    stageHealth('curation', 'Curation', [], jobFailed, null, h?.discovered ?? 0, true),
+  ];
+
+  // Retired sources (active=false) are excluded — their last-known status
+  // before retirement would otherwise generate a permanent, un-actionable
+  // "failing" signal.
+  const activeIds = new Set((activeTechSourceIds.data ?? []).map((r) => r.source_id));
+  const latestTechBySource = new Map<string, { status: string; checked_at: string; error_message: string | null }>();
+  for (const row of techSources.data ?? []) {
+    if (activeIds.has(row.source_id)) latestTechBySource.set(row.source_id, row);
+  }
+  const technicalSourceStatuses = Array.from(latestTechBySource.values()).map((r) => r.status);
+  const techFailing = technicalSourceStatuses.filter((s) => s === 'failed').length;
+  const techDegraded = technicalSourceStatuses.filter((s) => s === 'degraded' || s === 'stale' || s === 'skipped').length;
+
+  const healthConfigs = healthFetchConfigs.data ?? [];
+  const healthFailing = healthConfigs.filter((r) => r.last_fetch_status === 'failed').length;
+
+  // ── Capability posture (the interpreter) ──────────────────────────────
+  let capabilities = computeCapabilities(jobs);
+
+  const techWorst = worstStage(technicalStages);
+  const techStageTone: StageTone = techWorst?.tone ?? 'ok';
+  const techSignal = stageToneToCapabilitySignal(
+    techStageTone,
+    techStageTone === 'crit' || techStageTone === 'warn'
+      ? `Technical OSINT pipeline stage issue: ${techWorst?.detail ?? 'see Sources tab.'}`
+      : techStageTone === 'unknown'
+        ? (techWorst?.detail ?? 'No technical pipeline telemetry for today yet.')
+        : techFailing > 0
+          ? `${techFailing} technical source${techFailing === 1 ? '' : 's'} failing.`
+          : 'No technical pipeline telemetry for today yet.',
+  );
+  if (techSignal) capabilities = applyCapabilitySignal(capabilities, 'technical_intelligence', techSignal);
+  if (techFailing > 0) {
+    capabilities = applyCapabilitySignal(capabilities, 'technical_intelligence', { tone: 'degraded', reason: `${techFailing} technical source${techFailing === 1 ? '' : 's'} failing.` });
+  }
+
+  const healthWorst = worstStage(healthStages);
+  const healthStageTone: StageTone = healthWorst?.tone ?? 'ok';
+  const healthSignal = stageToneToCapabilitySignal(
+    healthStageTone,
+    healthStageTone === 'crit' || healthStageTone === 'warn'
+      ? `Health OSINT pipeline stage issue: ${healthWorst?.detail ?? 'see Sources tab.'}`
+      : healthWorst?.detail ?? 'No health pipeline telemetry for today yet.',
+  );
+  if (healthSignal) capabilities = applyCapabilitySignal(capabilities, 'health_intelligence', healthSignal);
+  if (healthFailing > 0) {
+    capabilities = applyCapabilitySignal(capabilities, 'health_intelligence', { tone: 'degraded', reason: `${healthFailing} health source${healthFailing === 1 ? '' : 's'} failing.` });
+  }
+
+  const interpretation = interpretHQStatus(capabilities);
+  const fetchedAt = new Date().toISOString();
+  const captainSummary = buildCaptainChairSummary(interpretation, fetchedAt);
+
+  // ── Secondary raw counts (spec §43: kept, but never primary) ──────────
+  const sourcesSummary = {
+    technical: { healthy: technicalSourceStatuses.filter((s) => s === 'ok').length, degraded: techDegraded, failing: techFailing },
+    health: { healthy: healthConfigs.filter((r) => r.last_fetch_status !== 'failed' && r.last_fetch).length, delayed: 0, failing: healthFailing },
+  };
+  const operationalConfidence = calculateOperationalConfidence([
+    ...Array.from(latestTechBySource.entries()).map(([id, source]) => ({
+      id: `technical:${id}`,
+      label: `Technical source ${id}`,
+      completeness: 1,
+      freshness: source.status === 'ok' ? 'fresh' as const : source.status === 'stale' ? 'stale' as const : source.status === 'failed' ? 'unavailable' as const : 'unknown' as const,
+    })),
+    ...healthConfigs.map((source) => ({
+      id: `health:${source.source_id}`,
+      label: `Health source ${source.source_id}`,
+      completeness: source.last_fetch ? 1 : 0,
+      freshness: source.last_fetch_status === 'failed' ? 'unavailable' as const : source.last_fetch ? 'fresh' as const : 'unknown' as const,
+    })),
+  ]);
+  const liveJobs = jobs.filter((j) => j.status !== 'retired' && j.status !== 'disabled');
+  const jobsSummary = {
+    scheduled: liveJobs.length,
+    healthy: liveJobs.filter((j) => j.status === 'ok').length,
+    attention: liveJobs.filter((j) => j.status === 'failed' || j.status === 'unknown').length,
+  };
+
+  return {
+    fetchedAt,
+    posture: interpretation.posture,
+    headline: interpretation.headline,
+    narrative: interpretation.narrative,
+    capabilities: interpretation.capabilities,
+    materialDegradations: interpretation.materialDegradations,
+    unknownMaterialAreas: interpretation.unknownMaterialAreas,
+    attentionItems: interpretation.attentionItems,
+    needsAttentionCount: interpretation.needsAttentionCount,
+    unknownMaterialCount: interpretation.unknownMaterialCount,
+    captainSummary,
+    // Secondary detail for progressive disclosure — Automations/Sources
+    // tabs are still the canonical home for the full picture.
+    pipelines: {
+      technical: { stages: technicalStages, day: t?.day ?? null },
+      health: { stages: healthStages, day: h?.day ?? null },
+    },
+    sourcesSummary,
+    operationalConfidence,
+    jobsSummary,
+  };
+}
