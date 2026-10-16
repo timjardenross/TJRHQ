@@ -191,35 +191,82 @@ export async function buildLatestBriefSection(sb: SupabaseClient): Promise<Lates
   };
 }
 
+// Rank order, most urgent first (PO decision): BOM warnings are always
+// 'unknown', which ranks above routine advice.
+const SEVERITY_RANK: readonly AlertSeverity[] = ['emergency_warning', 'watch_and_act', 'unknown', 'advice'];
+const HEARTBEAT_PREFIX = 'emergency_alert_';
+const HEARTBEAT_EXCLUDED = 'emergency_alert_hourly_summary';
+const HEARTBEAT_MAX_ROWS = 50;
+const ALERT_SELECT =
+  'id, headline, severity, issued_at, first_seen_at, jurisdiction, alert_type, status, expiry, updated_at_src, last_seen_at, alert_sources(source_name)';
+
+type AlertRow = Record<string, unknown>;
+
+/** Newest successful poll: newest checked_at among the latest heartbeat rows of
+ *  the emergency-alert sources whose latest status is ok (a skipped or failed
+ *  source does not count; the hourly summary job is not a source). Any failure
+ *  or no row gives null; it never fails the alerts section. */
+async function newestSourceHeartbeat(sb: SupabaseClient): Promise<string | null> {
+  try {
+    const { data, error } = await sb
+      .from('domain_heartbeats_latest')
+      .select('domain_key, checked_at')
+      .like('domain_key', `${HEARTBEAT_PREFIX}%`)
+      .neq('domain_key', HEARTBEAT_EXCLUDED)
+      .eq('status', 'ok')
+      .order('checked_at', { ascending: false })
+      .limit(HEARTBEAT_MAX_ROWS);
+    if (error) return null;
+    for (const row of data ?? []) {
+      // The SQL LIKE treats "_" as a wildcard, so the prefix is re-checked here.
+      if (typeof row.domain_key !== 'string' || !row.domain_key.startsWith(HEARTBEAT_PREFIX)) continue;
+      if (row.domain_key === HEARTBEAT_EXCLUDED) continue;
+      const iso = toIso(row.checked_at);
+      if (iso) return iso;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Alerts ranked by severity, then newest first (issued_at, else first_seen_at).
+ *  One query cannot give that order (PostgREST cannot order by coalesce), so the
+ *  bound is: per severity, one query for rows with issued_at (ordered by
+ *  issued_at) and one for rows without (ordered by first_seen_at), each capped
+ *  at SNAPSHOT_ALERT_LIMIT. That is 8 parallel queries and at most 160 rows in
+ *  memory. An active, unexpired emergency_warning is therefore never displaced
+ *  by a lower severity, and with more than 20 of them the newest 20 are kept. */
 export async function buildAlertsSection(sb: SupabaseClient, now: Date): Promise<AlertsSection> {
   const notExpired = `expiry.is.null,expiry.gt.${now.toISOString()}`;
-  const { data, error } = await sb
-    .from('alerts')
-    .select(
-      'id, headline, severity, issued_at, first_seen_at, jurisdiction, alert_type, status, expiry, updated_at_src, last_seen_at, alert_sources(source_name)',
-    )
-    .eq('is_active', true)
-    .or(notExpired)
-    .order('issued_at', { ascending: false, nullsFirst: false })
-    .limit(SNAPSHOT_ALERT_LIMIT);
-  if (error) throw error;
-  // Newest last_seen_at over ALL active unexpired alerts (not just the capped
-  // page). The source heartbeat is not read.
-  const polled = await sb
-    .from('alerts')
-    .select('last_seen_at')
-    .eq('is_active', true)
-    .or(notExpired)
-    .order('last_seen_at', { ascending: false })
-    .limit(1);
-  if (polled.error) throw polled.error;
+  const page = (severity: AlertSeverity, dated: boolean) => {
+    const q = sb.from('alerts').select(ALERT_SELECT).eq('is_active', true).or(notExpired).eq('severity', severity);
+    return (dated
+      ? q.not('issued_at', 'is', null).order('issued_at', { ascending: false })
+      : q.is('issued_at', null).order('first_seen_at', { ascending: false })
+    ).limit(SNAPSHOT_ALERT_LIMIT);
+  };
+  const [pages, polledAt] = await Promise.all([
+    Promise.all(SEVERITY_RANK.flatMap((sev) => [page(sev, true), page(sev, false)])),
+    newestSourceHeartbeat(sb),
+  ]);
+  const candidates: { row: AlertRow; rank: number; at: string }[] = [];
+  for (const res of pages) {
+    if (res.error) throw res.error;
+    for (const row of (res.data ?? []) as AlertRow[]) {
+      const at = toIso(row.issued_at) ?? toIso(row.first_seen_at);
+      if (!at) continue;
+      candidates.push({ row, rank: SEVERITY_RANK.indexOf(toSeverity(row.severity)), at });
+    }
+  }
+  candidates.sort((x, y) => x.rank - y.rank || (x.at < y.at ? 1 : x.at > y.at ? -1 : 0) || String(x.row.id).localeCompare(String(y.row.id)));
   const items: AlertItem[] = [];
   const seen = new Set<string>();
-  for (const row of data ?? []) {
-    const occurredAt = toIso(row.issued_at) ?? toIso(row.first_seen_at);
+  for (const { row, at: occurredAt } of candidates) {
+    if (items.length >= SNAPSHOT_ALERT_LIMIT) break;
     // An id over the cap is dropped, not truncated (truncation could collide);
     // a repeated id is dropped so ids are unique within a response.
-    if (!occurredAt || typeof row.id !== 'string' || row.id.length === 0) continue;
+    if (typeof row.id !== 'string' || row.id.length === 0) continue;
     if (row.id.length > MAX_ALERT_ID_CHARS || seen.has(row.id)) continue;
     seen.add(row.id);
     const item: AlertItem = {
@@ -239,12 +286,7 @@ export async function buildAlertsSection(sb: SupabaseClient, now: Date): Promise
     if (sourceName) item.source_name = sourceName;
     items.push(item);
   }
-  return {
-    generated_at: now.toISOString(),
-    last_polled_at: toIso(polled.data?.[0]?.last_seen_at),
-    items,
-    error: null,
-  };
+  return { generated_at: now.toISOString(), last_polled_at: polledAt, items, error: null };
 }
 
 async function guarded<T>(section: string, work: () => Promise<T>): Promise<T | SectionUnavailable> {

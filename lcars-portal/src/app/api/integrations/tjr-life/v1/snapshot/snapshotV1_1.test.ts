@@ -16,38 +16,48 @@ const FIXTURE_DIR = join(__dirname, '../../../../../../../../fixtures/tjr-life-s
 const FIXED = new Date('2026-10-15T02:00:00.000Z');
 const MAIN_SELECT =
   'id, headline, severity, issued_at, first_seen_at, jurisdiction, alert_type, status, expiry, updated_at_src, last_seen_at, alert_sources(source_name)';
+const SEVERITIES_BY_RANK = ['emergency_warning', 'watch_and_act', 'unknown', 'advice'];
 
 type Row = Record<string, unknown>;
 type Result = { data: unknown[] | null; error: unknown };
 let tables: Record<string, Result>;
 let calls: { table: string; select: string; order: unknown[][]; limit: unknown[] }[];
 
-// A chainable stand-in for the user-scoped client. The alerts table serves two
-// queries: the main page, and the one-row last_polled_at query (select
-// 'last_seen_at'), which is derived from the same rows unless overridden.
+// A chainable stand-in for the user-scoped client that really applies eq, neq,
+// is, not, like, order and limit to the rows in tables[table]. (The expiry
+// `or` filter and the is_active filter are not evaluated: test rows are all
+// active and unexpired.) This makes the ranking tests exercise the real query
+// bound rather than the order the test happened to hand rows in.
 function stubClient(): never {
   return {
     from: (table: string) => {
       const call = { table, select: '', order: [] as unknown[][], limit: [] as unknown[] };
       calls.push(call);
+      const filters: ((r: Row) => boolean)[] = [];
+      let sort: { col: string; asc: boolean } | null = null;
+      let max = Infinity;
       const chain: Record<string, unknown> = {};
-      for (const m of ['select', 'eq', 'or', 'order', 'limit']) {
-        chain[m] = (...args: unknown[]) => {
-          if (m === 'select') call.select = String(args[0]);
-          if (m === 'order') call.order.push(args);
-          if (m === 'limit') call.limit.push(args[0]);
-          return chain;
-        };
-      }
+      const add = (m: string, fn: (...a: unknown[]) => void) => {
+        chain[m] = (...args: unknown[]) => { fn(...args); return chain; };
+      };
+      add('select', (c) => { call.select = String(c); });
+      add('eq', (c, v) => { if (c !== 'is_active') filters.push((r) => r[c as string] === v); });
+      add('neq', (c, v) => filters.push((r) => r[c as string] !== v));
+      add('is', (c, v) => filters.push((r) => (r[c as string] ?? null) === v));
+      add('not', (c, _op, v) => filters.push((r) => (r[c as string] ?? null) !== v));
+      add('like', (c, pat) => { const prefix = String(pat).replace(/%$/, ''); filters.push((r) => String(r[c as string]).startsWith(prefix)); });
+      add('or', () => {});
+      add('order', (c, o) => { call.order.push([c, o]); sort = { col: String(c), asc: Boolean((o as { ascending?: boolean })?.ascending) }; });
+      add('limit', (n) => { call.limit.push(n); max = Number(n); });
       chain.then = (resolve: (r: Result) => unknown, reject: (e: unknown) => unknown) => {
-        let result: Result = tables[table] ?? { data: [], error: null };
-        if (table === 'alerts' && call.select === 'last_seen_at') {
-          result = tables.alerts_polled ?? {
-            data: result.error ? null : [...((result.data ?? []) as Row[])].sort((a, b) => String(b.last_seen_at).localeCompare(String(a.last_seen_at))).slice(0, 1),
-            error: result.error,
-          };
+        const src: Result = tables[table] ?? { data: [], error: null };
+        if (src.error || !src.data) return Promise.resolve(src).then(resolve, reject);
+        let rows = (src.data as Row[]).filter((r) => filters.every((f) => f(r)));
+        if (sort) {
+          const { col, asc } = sort;
+          rows = [...rows].sort((x, y) => (Date.parse(String(x[col])) - Date.parse(String(y[col]))) * (asc ? 1 : -1));
         }
-        return Promise.resolve(result).then(resolve, reject);
+        return Promise.resolve({ data: rows.slice(0, max), error: null }).then(resolve, reject);
       };
       return chain;
     },
@@ -101,9 +111,17 @@ describe('v1.1 alerts: allowlist', () => {
 
   it('pins the select list: named columns plus only source_name from the embed', async () => {
     await buildTjrLifeSnapshot(stubClient(), FIXED);
-    const main = calls.find((c) => c.table === 'alerts' && c.select !== 'last_seen_at');
-    expect(main?.select).toBe(MAIN_SELECT);
-    for (const c of calls) expect(c.select).not.toMatch(/\*|source_key|raw_text|latitude|longitude|canonical_url|description|location|event_key|emergency_email_sent_at|feed_url|notes/);
+    const alertQueries = calls.filter((c) => c.table === 'alerts');
+    expect(alertQueries.length).toBe(8); // 4 severities x (dated, undated)
+    for (const q of alertQueries) expect(q.select).toBe(MAIN_SELECT);
+    for (const c of calls) {
+      expect(c.select).not.toMatch(/\*|source_key|raw_text|latitude|longitude|canonical_url|description|location|event_key|emergency_email_sent_at|feed_url|base_url|notes/);
+    }
+  });
+
+  it('embeds only source_name from alert_sources, never base_url, feed_url, notes or source_key', () => {
+    const embeds = [...MAIN_SELECT.matchAll(/alert_sources\(([^)]*)\)/g)].map((m) => m[1]);
+    expect(embeds).toEqual(['source_name']);
   });
 
   it('leaves contract_version at 1.1 and hq_status and latest_brief untouched', async () => {
@@ -115,11 +133,16 @@ describe('v1.1 alerts: allowlist', () => {
 });
 
 describe('v1.1 alerts: caps and mappings', () => {
-  it('keeps the cap at 20 and newest-first ordering (issued_at descending)', async () => {
+  it('keeps the cap at 20: every alert query is bounded to 20 rows and ordered newest first', async () => {
     await buildTjrLifeSnapshot(stubClient(), FIXED);
-    const main = calls.find((c) => c.table === 'alerts' && c.select === MAIN_SELECT);
-    expect(main?.limit).toEqual([20]);
-    expect(main?.order).toEqual([['issued_at', { ascending: false, nullsFirst: false }]]);
+    const alertQueries = calls.filter((c) => c.table === 'alerts');
+    for (const q of alertQueries) expect(q.limit).toEqual([20]);
+    expect(alertQueries.map((q) => q.order[0][0]).sort()).toEqual(['first_seen_at', 'first_seen_at', 'first_seen_at', 'first_seen_at', 'issued_at', 'issued_at', 'issued_at', 'issued_at']);
+    for (const q of alertQueries) expect(q.order[0][1]).toEqual({ ascending: false });
+  });
+
+  it('never returns more than 20 alerts', async () => {
+    expect((await items(Array.from({ length: 30 }, (_, n) => alertRow(n)))).length).toBe(20);
   });
 
   it('maps alert_type to the ten allowed values, anything else to other', async () => {
@@ -187,32 +210,115 @@ describe('v1.1 alerts: caps and mappings', () => {
   });
 });
 
-describe('v1.1 alerts: last_polled_at', () => {
-  it('is the newest last_seen_at over all active alerts, read by its own one-row query', async () => {
-    tables.alerts = { data: [alertRow(1, { last_seen_at: '2026-10-15T01:10:00.000Z' }), alertRow(2, { last_seen_at: '2026-10-15T01:55:00.000Z' })], error: null };
-    const section = await buildAlertsSection(stubClient(), FIXED);
-    expect(section.last_polled_at).toBe('2026-10-15T01:55:00.000Z');
-    const q = calls.find((c) => c.select === 'last_seen_at');
-    expect(q?.limit).toEqual([1]);
-    expect(q?.order).toEqual([['last_seen_at', { ascending: false }]]);
-    expect(calls.every((c) => c.table === 'alerts')).toBe(true); // no source or heartbeat table is read
+describe('v1.1 alerts: ranking (severity, then newest first)', () => {
+  const sev = (n: number, severity: string, extra: Row = {}) => alertRow(n, { severity, headline: `${severity} ${n}`, ...extra });
+
+  it('keeps an older emergency_warning when 20 newer advice alerts exist', async () => {
+    const old = sev(100, 'emergency_warning', { issued_at: '2026-10-01T00:00:00.000Z' });
+    const out = await items([...Array.from({ length: 25 }, (_, n) => sev(n, 'advice')), old]);
+    expect(out.length).toBe(20);
+    expect(out[0].id).toBe(old.id);
+    expect(out[0].severity).toBe('emergency_warning');
   });
 
-  it('is null when there are no active alerts', async () => {
-    expect((await buildAlertsSection(stubClient(), FIXED)).last_polled_at).toBeNull();
+  it('ranks emergency_warning, then watch_and_act, then unknown, then advice, whatever the recency', async () => {
+    const out = await items([
+      sev(1, 'advice', { issued_at: '2026-10-15T01:59:00.000Z' }),
+      sev(2, 'unknown', { issued_at: '2026-10-15T01:58:00.000Z' }),
+      sev(3, 'watch_and_act', { issued_at: '2026-10-10T00:00:00.000Z' }),
+      sev(4, 'emergency_warning', { issued_at: '2026-10-05T00:00:00.000Z' }),
+    ]);
+    expect(out.map((i) => i.severity)).toEqual(SEVERITIES_BY_RANK);
+  });
+
+  it('puts unknown (BOM) above advice even when the advice is newer', async () => {
+    const out = await items([sev(1, 'advice', { issued_at: '2026-10-15T01:59:00.000Z' }), sev(2, 'unknown', { issued_at: '2026-10-14T00:00:00.000Z' })]);
+    expect(out.map((i) => i.severity)).toEqual(['unknown', 'advice']);
+  });
+
+  it('orders ties in rank newest first, with issued_at falling back to first_seen_at', async () => {
+    const out = await items([
+      sev(1, 'watch_and_act', { issued_at: '2026-10-15T00:10:00.000Z' }),
+      sev(2, 'watch_and_act', { issued_at: '2026-10-15T01:10:00.000Z' }),
+      sev(3, 'watch_and_act', { issued_at: null, first_seen_at: '2026-10-15T00:40:00.000Z' }),
+      sev(4, 'watch_and_act', { issued_at: null, first_seen_at: '2026-10-15T01:40:00.000Z' }),
+    ]);
+    expect(out.map((i) => i.occurred_at)).toEqual(['2026-10-15T01:40:00.000Z', '2026-10-15T01:10:00.000Z', '2026-10-15T00:40:00.000Z', '2026-10-15T00:10:00.000Z']);
+  });
+
+  it('with more than 20 emergency_warnings keeps the newest 20 and no lower severity', async () => {
+    const emergencies = Array.from({ length: 24 }, (_, n) => sev(n, 'emergency_warning', { issued_at: new Date(Date.UTC(2026, 9, 15, 1, 0) - n * 60000).toISOString() }));
+    const out = await items([sev(99, 'watch_and_act', { issued_at: '2026-10-15T01:59:00.000Z' }), ...emergencies]);
+    expect(out.length).toBe(20);
+    expect(out.every((i) => i.severity === 'emergency_warning')).toBe(true);
+    expect(out.map((i) => i.id)).toEqual(emergencies.slice(0, 20).map((r) => r.id));
+  });
+
+  it('keeps an undated emergency_warning that is newer than 20 dated ones by first_seen_at', async () => {
+    const dated = Array.from({ length: 20 }, (_, n) => sev(n, 'emergency_warning', { issued_at: new Date(Date.UTC(2026, 9, 14, 1, 0) - n * 60000).toISOString() }));
+    const undated = sev(50, 'emergency_warning', { issued_at: null, first_seen_at: '2026-10-15T01:00:00.000Z' });
+    const out = await items([...dated, undated]);
+    expect(out[0].id).toBe(undated.id);
+    expect(out.length).toBe(20);
+  });
+});
+
+describe('v1.1 alerts: last_polled_at (source heartbeat)', () => {
+  const hb = (domain_key: string, checked_at: string, status = 'ok'): Row => ({ domain_key, checked_at, status });
+  const polled = async (rows: Row[] | null, error: unknown = null) => {
+    tables.domain_heartbeats_latest = { data: rows, error };
+    return (await buildAlertsSection(stubClient(), FIXED)).last_polled_at;
+  };
+
+  it('is the newest checked_at among ok emergency_alert_ sources, read from domain_heartbeats_latest', async () => {
+    expect(await polled([hb('emergency_alert_nsw_rfs', '2026-10-15T01:10:00.000Z'), hb('emergency_alert_wa', '2026-10-15T01:55:00+00:00')])).toBe('2026-10-15T01:55:00.000Z');
+    const q = calls.find((c) => c.table === 'domain_heartbeats_latest');
+    expect(q?.select).toBe('domain_key, checked_at');
+    expect(q?.order).toEqual([['checked_at', { ascending: false }]]);
+    expect(q?.limit).toEqual([50]);
+    expect(calls.some((c) => c.table === 'alerts' && c.select === 'last_seen_at')).toBe(false); // alert rows no longer used
+  });
+
+  it('ignores skipped and failed sources (only status ok counts)', async () => {
+    expect(await polled([hb('emergency_alert_tas', '2026-10-15T01:59:00.000Z', 'skipped'), hb('emergency_alert_nt', '2026-10-15T01:58:00.000Z', 'skipped'), hb('emergency_alert_vic', '2026-10-15T01:57:00.000Z', 'failed'), hb('emergency_alert_wa', '2026-10-15T01:20:00.000Z')])).toBe('2026-10-15T01:20:00.000Z');
+  });
+
+  it('excludes the hourly summary job and any key without the emergency_alert_ prefix', async () => {
+    expect(await polled([hb('emergency_alert_hourly_summary', '2026-10-15T01:59:59.000Z'), hb('emergency-alertXnsw', '2026-10-15T01:59:00.000Z'), hb('core_events', '2026-10-15T01:58:00.000Z'), hb('emergency_alert_nsw_rfs', '2026-10-15T01:00:00.000Z')])).toBe('2026-10-15T01:00:00.000Z');
+  });
+
+  it('is null when no row qualifies, when there are no rows, and when the heartbeat query fails', async () => {
+    expect(await polled([hb('emergency_alert_tas', '2026-10-15T01:59:00.000Z', 'skipped')])).toBeNull();
+    expect(await polled([])).toBeNull();
+    expect(await polled(null, { message: 'LEAK' })).toBeNull();
+  });
+
+  it('is null when the heartbeat query throws, and the alerts section is still served', async () => {
+    const client = stubClient() as unknown as { from: (t: string) => unknown };
+    const inner = client.from;
+    client.from = (t: string) => { if (t === 'domain_heartbeats_latest') throw new Error('LEAK'); return inner(t); };
+    tables.alerts = { data: [alertRow(1)], error: null };
+    const section = await buildAlertsSection(client as never, FIXED);
+    expect(section.last_polled_at).toBeNull();
+    expect(section.items.length).toBe(1);
   });
 });
 
 describe('v1.1 failure and size behaviour', () => {
-  it('a failure in either alerts query makes only alerts exactly {"error":"unavailable"}', async () => {
+  it('a failure in an alerts query makes only alerts exactly {"error":"unavailable"}', async () => {
     tables.alerts = { data: null, error: { message: 'LEAK' } };
     const a = await buildTjrLifeSnapshot(stubClient(), FIXED);
     expect(a.alerts).toEqual({ error: 'unavailable' });
     expect(JSON.stringify(a)).not.toContain('LEAK');
     expect('summary' in a.hq_status && 'lines' in a.latest_brief).toBe(true);
+  });
+
+  it('a failed heartbeat query does not make alerts unavailable: last_polled_at is null', async () => {
     tables.alerts = { data: [alertRow(1)], error: null };
-    tables.alerts_polled = { data: null, error: { message: 'x' } };
-    expect((await buildTjrLifeSnapshot(stubClient(), FIXED)).alerts).toEqual({ error: 'unavailable' });
+    tables.domain_heartbeats_latest = { data: null, error: { message: 'x' } };
+    const a = (await buildTjrLifeSnapshot(stubClient(), FIXED)).alerts as { items: AlertItem[]; last_polled_at: string | null };
+    expect(a.last_polled_at).toBeNull();
+    expect(a.items.length).toBe(1);
   });
 
   const cjk = (n: number) => '漢'.repeat(n);
@@ -260,9 +366,17 @@ async function buildFor(name: 'full' | 'degraded' | 'all-errored' | 'oversized')
     tables = {
       captains_daily_briefs: brief('<b>MORNING BRIEF</b>\n\nQuiet night.'),
       alerts: { data: [
-        row(1, { headline: 'Bushfire Emergency Warning: evacuate now', severity: 'emergency_warning', issued_at: '2026-10-15T01:40:00.000Z', jurisdiction: 'VIC', alert_type: 'bushfire', status: 'updated', expiry: '2026-10-15T09:00:00.000Z', updated_at_src: '2026-10-15T01:52:00.000Z', last_seen_at: '2026-10-15T01:58:00.000Z', alert_sources: { source_name: 'VIC Emergency' } }),
-        row(2, { headline: 'Severe thunderstorm warning for the Illawarra', severity: 'unknown', issued_at: '2026-10-15T00:10:00.000Z', jurisdiction: 'NSW', alert_type: 'severe_weather', status: 'active', expiry: null, updated_at_src: null, last_seen_at: '2026-10-15T01:57:00.000Z', alert_sources: { source_name: 'Bureau of Meteorology warnings' } }),
         row(3, { headline: 'Hazard reduction burn, smoke possible', severity: 'advice', issued_at: '2026-10-14T23:00:00.000Z', jurisdiction: 'QLD', alert_type: 'hazard_reduction', status: 'new', expiry: '2026-10-15T06:00:00.000Z', updated_at_src: '2026-10-14T23:05:00.000Z', last_seen_at: '2026-10-15T01:56:00.000Z', alert_sources: { source_name: 'QFES' } }),
+        row(2, { headline: 'Severe thunderstorm warning for the Illawarra', severity: 'unknown', issued_at: '2026-10-15T00:10:00.000Z', jurisdiction: 'NSW', alert_type: 'severe_weather', status: 'active', expiry: null, updated_at_src: null, last_seen_at: '2026-10-15T01:57:00.000Z', alert_sources: { source_name: 'Bureau of Meteorology warnings' } }),
+        row(4, { headline: 'Watch and Act: grass fire near Geelong', severity: 'watch_and_act', issued_at: '2026-10-14T20:00:00.000Z', jurisdiction: 'VIC', alert_type: 'bushfire', status: 'active', expiry: null, updated_at_src: '2026-10-15T00:30:00.000Z', last_seen_at: '2026-10-15T01:58:00.000Z', alert_sources: { source_name: 'VIC Emergency' } }),
+        row(1, { headline: 'Bushfire Emergency Warning: evacuate now', severity: 'emergency_warning', issued_at: '2026-10-15T01:40:00.000Z', jurisdiction: 'VIC', alert_type: 'bushfire', status: 'updated', expiry: '2026-10-15T09:00:00.000Z', updated_at_src: '2026-10-15T01:52:00.000Z', last_seen_at: '2026-10-15T01:58:00.000Z', alert_sources: { source_name: 'VIC Emergency' } }),
+      ], error: null },
+      domain_heartbeats_latest: { data: [
+        { domain_key: 'emergency_alert_nsw_rfs', checked_at: '2026-10-15T01:58:30.000Z', status: 'ok' },
+        { domain_key: 'emergency_alert_wa', checked_at: '2026-10-15T01:57:00.000Z', status: 'ok' },
+        { domain_key: 'emergency_alert_tas', checked_at: '2026-10-15T01:59:00.000Z', status: 'skipped' },
+        { domain_key: 'emergency_alert_vic', checked_at: '2026-10-15T01:59:10.000Z', status: 'failed' },
+        { domain_key: 'emergency_alert_hourly_summary', checked_at: '2026-10-15T01:59:50.000Z', status: 'ok' },
       ], error: null },
     };
   } else if (name === 'degraded') {
@@ -273,7 +387,7 @@ async function buildFor(name: 'full' | 'degraded' | 'all-errored' | 'oversized')
     tables = {
       captains_daily_briefs: brief(Array.from({ length: 70 }, (_, i) => `<b>${cjk(700)}${i}</b>`).join('\n')),
       alerts: { data: Array.from({ length: 22 }, (_, i) => row(i + 1, {
-        headline: cjk(400), severity: i % 5 === 0 ? 'Catastrophic' : 'watch_and_act', issued_at: new Date(Date.UTC(2026, 9, 15, 1, 40) - i * 60000).toISOString(),
+        headline: cjk(400), severity: i % 5 === 0 ? 'unknown' : 'watch_and_act', issued_at: new Date(Date.UTC(2026, 9, 15, 1, 40) - i * 60000).toISOString(),
         jurisdiction: cjk(20), alert_type: i % 3 === 0 ? 'Earthquake' : 'storm', status: i % 4 === 0 ? 'paused' : 'active', expiry: '2026-10-15T09:00:00.000Z',
         updated_at_src: '2026-10-15T01:00:00.000Z', last_seen_at: '2026-10-15T01:50:00.000Z', alert_sources: { source_name: cjk(100) },
       })), error: null },

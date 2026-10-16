@@ -23,7 +23,7 @@ let selects: Record<string, string>;
 
 function builder(table: string) {
   const chain: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'or', 'order', 'limit']) {
+  for (const m of ['select', 'eq', 'neq', 'is', 'not', 'like', 'or', 'order', 'limit']) {
     chain[m] = (...args: unknown[]) => {
       if (m === 'select') selects[table] ??= String(args[0]);
       return chain;
@@ -339,8 +339,9 @@ describe('allowlist caps (approved by the PO)', () => {
       { id: 'ok-1', headline: 'dropped: duplicate id', severity: 'advice', issued_at: '2026-10-15T00:00:00Z' },
     ], error: null };
     const items = JSON.parse((await call()).text).alerts.items;
-    expect(items.map((i: { id: string }) => i.id)).toEqual(['ok-1', 'i'.repeat(64)]);
-    expect(items[0].headline.length).toBe(160);
+    // Equal rank and time: ordered by id (v1.1 ranking), so the 64-char id sorts first.
+    expect(items.map((i: { id: string }) => i.id)).toEqual(['i'.repeat(64), 'ok-1']);
+    expect(items[1].headline.length).toBe(160); // the first of the two repeated ids is the one kept
     expect(new Set(items.map((i: { id: string }) => i.id)).size).toBe(items.length);
   });
 
@@ -356,7 +357,8 @@ describe('allowlist caps (approved by the PO)', () => {
     const stored = ['emergency_warning', 'Emergency_Warning', ' WATCH_AND_ACT ', 'advice', 'unknown', 'Catastrophic', 'emergency warning', '', null, 42, 'advice\nextra'];
     tables.alerts = { data: stored.map((severity, n) => ({ id: `s-${n}`, headline: 'h', severity, issued_at: '2026-10-15T00:00:00Z' })), error: null };
     const severities = JSON.parse((await call()).text).alerts.items.map((i: { severity: string }) => i.severity);
-    expect(severities).toEqual(['emergency_warning', 'emergency_warning', 'watch_and_act', 'advice', 'unknown', 'unknown', 'unknown', 'unknown', 'unknown', 'unknown', 'unknown']);
+    // v1.1 ranks by severity: emergency_warning, watch_and_act, unknown, advice.
+    expect(severities).toEqual(['emergency_warning', 'emergency_warning', 'watch_and_act', 'unknown', 'unknown', 'unknown', 'unknown', 'unknown', 'unknown', 'unknown', 'advice']);
     for (const s of severities) expect(['emergency_warning', 'watch_and_act', 'advice', 'unknown']).toContain(s);
   });
 

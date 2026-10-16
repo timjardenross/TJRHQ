@@ -19,7 +19,7 @@
   },
   "alerts": {
     "generated_at": "2026-10-15T02:00:00.000Z",
-    "last_polled_at": "2026-10-15T01:58:00.000Z",
+    "last_polled_at": "2026-10-15T01:58:30.000Z",
     "items": [
       {
         "id": "6f1c0c1e-0000-4000-8000-000000000001",
@@ -31,6 +31,18 @@
         "expires_at": "2026-10-15T09:00:00.000Z",
         "jurisdiction": "VIC",
         "updated_at": "2026-10-15T01:52:00.000Z",
+        "source_name": "VIC Emergency"
+      },
+      {
+        "id": "6f1c0c1e-0000-4000-8000-000000000004",
+        "headline": "Watch and Act: grass fire near Geelong",
+        "severity": "watch_and_act",
+        "occurred_at": "2026-10-14T20:00:00.000Z",
+        "alert_type": "bushfire",
+        "status": "active",
+        "expires_at": null,
+        "jurisdiction": "VIC",
+        "updated_at": "2026-10-15T00:30:00.000Z",
         "source_name": "VIC Emergency"
       },
       {
