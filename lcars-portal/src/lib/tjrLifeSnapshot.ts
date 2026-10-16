@@ -14,6 +14,7 @@
 //    (tags stripped first, then entities decoded; see lib/briefText.ts).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildAgentStatusOverview } from '@/lib/agentStatusOverview';
+import { SCHEDULER_JOBS } from '@/lib/agentStatusJobs';
 import { parseBriefText } from '@/lib/briefText';
 
 export const SNAPSHOT_CONTRACT_VERSION = '1.1';
@@ -191,36 +192,40 @@ export async function buildLatestBriefSection(sb: SupabaseClient): Promise<Lates
   };
 }
 
-// Rank order, most urgent first (PO decision): BOM warnings are always
-// 'unknown', which ranks above routine advice.
-const SEVERITY_RANK: readonly AlertSeverity[] = ['emergency_warning', 'watch_and_act', 'unknown', 'advice'];
-const HEARTBEAT_PREFIX = 'emergency_alert_';
+// Rank order, most urgent first (PO decision): routine advice ranks above
+// unknown, because the state incident feeds send no severity and would
+// otherwise crowd every advice alert out of the list.
+const KNOWN_RANKS = ['emergency_warning', 'watch_and_act', 'advice'] as const;
+const SEVERITY_RANK: readonly AlertSeverity[] = ['emergency_warning', 'watch_and_act', 'advice', 'unknown'];
 const HEARTBEAT_EXCLUDED = 'emergency_alert_hourly_summary';
-const HEARTBEAT_MAX_ROWS = 50;
+// Feed domain_keys, taken from the scheduler job list (every emergency_alert_*
+// key except the hourly summary): an exact list, no wildcard.
+export const ALERT_FEED_DOMAIN_KEYS: readonly string[] = SCHEDULER_JOBS.map((job) => job.domainKey).filter(
+  (key) => key.startsWith('emergency_alert_') && key !== HEARTBEAT_EXCLUDED,
+);
 const ALERT_SELECT =
   'id, headline, severity, issued_at, first_seen_at, jurisdiction, alert_type, status, expiry, updated_at_src, last_seen_at, alert_sources(source_name)';
 
 type AlertRow = Record<string, unknown>;
 
 /** Newest successful poll: newest checked_at among the latest heartbeat rows of
- *  the emergency-alert sources whose latest status is ok (a skipped or failed
- *  source does not count; the hourly summary job is not a source). Any failure
- *  or no row gives null; it never fails the alerts section. */
+ *  the feed sources (an exact domain_key list) whose latest status is ok. A
+ *  skipped or failed source does not count. The view has one row per
+ *  domain_key, so the list length bounds the rows. Any failure or no row gives
+ *  null; it never fails the alerts section. */
 async function newestSourceHeartbeat(sb: SupabaseClient): Promise<string | null> {
   try {
     const { data, error } = await sb
       .from('domain_heartbeats_latest')
       .select('domain_key, checked_at')
-      .like('domain_key', `${HEARTBEAT_PREFIX}%`)
-      .neq('domain_key', HEARTBEAT_EXCLUDED)
+      .in('domain_key', [...ALERT_FEED_DOMAIN_KEYS])
       .eq('status', 'ok')
       .order('checked_at', { ascending: false })
-      .limit(HEARTBEAT_MAX_ROWS);
+      .limit(ALERT_FEED_DOMAIN_KEYS.length);
     if (error) return null;
     for (const row of data ?? []) {
-      // The SQL LIKE treats "_" as a wildcard, so the prefix is re-checked here.
-      if (typeof row.domain_key !== 'string' || !row.domain_key.startsWith(HEARTBEAT_PREFIX)) continue;
-      if (row.domain_key === HEARTBEAT_EXCLUDED) continue;
+      // Literal re-check of the key, in case the filter ever changes shape.
+      if (typeof row.domain_key !== 'string' || !ALERT_FEED_DOMAIN_KEYS.includes(row.domain_key)) continue;
       const iso = toIso(row.checked_at);
       if (iso) return iso;
     }
@@ -232,18 +237,22 @@ async function newestSourceHeartbeat(sb: SupabaseClient): Promise<string | null>
 
 /** Alerts ranked by severity, then newest first (issued_at, else first_seen_at).
  *  One query cannot give that order (PostgREST cannot order by coalesce), so the
- *  bound is: per severity, one query for rows with issued_at (ordered by
- *  issued_at) and one for rows without (ordered by first_seen_at), each capped
- *  at SNAPSHOT_ALERT_LIMIT. That is 8 parallel queries and at most 160 rows in
- *  memory. An active, unexpired emergency_warning is therefore never displaced
- *  by a lower severity, and with more than 20 of them the newest 20 are kept. */
+ *  bound is: per rank, one query for rows with issued_at (ordered by issued_at)
+ *  and one for rows without (ordered by first_seen_at), each capped at
+ *  SNAPSHOT_ALERT_LIMIT. That is 8 parallel queries and at most 160 rows in
+ *  memory. The last rank is "not one of the other three", so a stored severity
+ *  outside the known set is still selected and sent as unknown. An active,
+ *  unexpired emergency_warning is never displaced by a lower severity; with
+ *  more than 20 of them the newest 20 are sent. */
 export async function buildAlertsSection(sb: SupabaseClient, now: Date): Promise<AlertsSection> {
   const notExpired = `expiry.is.null,expiry.gt.${now.toISOString()}`;
-  const page = (severity: AlertSeverity, dated: boolean) => {
-    const q = sb.from('alerts').select(ALERT_SELECT).eq('is_active', true).or(notExpired).eq('severity', severity);
+  const page = (rank: AlertSeverity, dated: boolean) => {
+    const q = sb.from('alerts').select(ALERT_SELECT).eq('is_active', true).or(notExpired);
+    // severity is NOT NULL in the table, so "not in" cannot skip a null row.
+    const ranked = rank === 'unknown' ? q.not('severity', 'in', `(${KNOWN_RANKS.join(',')})`) : q.eq('severity', rank);
     return (dated
-      ? q.not('issued_at', 'is', null).order('issued_at', { ascending: false })
-      : q.is('issued_at', null).order('first_seen_at', { ascending: false })
+      ? ranked.not('issued_at', 'is', null).order('issued_at', { ascending: false })
+      : ranked.is('issued_at', null).order('first_seen_at', { ascending: false })
     ).limit(SNAPSHOT_ALERT_LIMIT);
   };
   const [pages, polledAt] = await Promise.all([

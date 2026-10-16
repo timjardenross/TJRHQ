@@ -10,28 +10,29 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const { overviewMock } = vi.hoisted(() => ({ overviewMock: vi.fn() }));
 vi.mock('@/lib/agentStatusOverview', () => ({ buildAgentStatusOverview: overviewMock }));
 
-import { buildAlertsSection, buildTjrLifeSnapshot, enforceSizeCap, type AlertItem } from '@/lib/tjrLifeSnapshot';
+import { ALERT_FEED_DOMAIN_KEYS, buildAlertsSection, buildTjrLifeSnapshot, enforceSizeCap, type AlertItem } from '@/lib/tjrLifeSnapshot';
 
 const FIXTURE_DIR = join(__dirname, '../../../../../../../../fixtures/tjr-life-snapshot-v1_1');
 const FIXED = new Date('2026-10-15T02:00:00.000Z');
 const MAIN_SELECT =
   'id, headline, severity, issued_at, first_seen_at, jurisdiction, alert_type, status, expiry, updated_at_src, last_seen_at, alert_sources(source_name)';
-const SEVERITIES_BY_RANK = ['emergency_warning', 'watch_and_act', 'unknown', 'advice'];
+const SEVERITIES_BY_RANK = ['emergency_warning', 'watch_and_act', 'advice', 'unknown'];
 
 type Row = Record<string, unknown>;
 type Result = { data: unknown[] | null; error: unknown };
 let tables: Record<string, Result>;
-let calls: { table: string; select: string; order: unknown[][]; limit: unknown[] }[];
+let skipExpiryFilter = false; // only for the defensive unparseable-expiry test: the real column is a timestamp
+let calls: { table: string; select: string; order: unknown[][]; limit: unknown[]; eqs: unknown[][]; ors: string[] }[];
 
-// A chainable stand-in for the user-scoped client that really applies eq, neq,
-// is, not, like, order and limit to the rows in tables[table]. (The expiry
-// `or` filter and the is_active filter are not evaluated: test rows are all
-// active and unexpired.) This makes the ranking tests exercise the real query
-// bound rather than the order the test happened to hand rows in.
+// A chainable stand-in for the user-scoped client that really applies eq (including
+// is_active), neq, in, is, not (is / in), like, the two expiry `or` branches,
+// order and limit to the rows in tables[table]. It throws on any filter shape
+// it does not know, so a changed query fails loudly instead of passing silently.
+// SQL null semantics are mirrored: "not in" never selects a null value.
 function stubClient(): never {
   return {
     from: (table: string) => {
-      const call = { table, select: '', order: [] as unknown[][], limit: [] as unknown[] };
+      const call = { table, select: '', order: [] as unknown[][], limit: [] as unknown[], eqs: [] as unknown[][], ors: [] as string[] };
       calls.push(call);
       const filters: ((r: Row) => boolean)[] = [];
       let sort: { col: string; asc: boolean } | null = null;
@@ -41,12 +42,31 @@ function stubClient(): never {
         chain[m] = (...args: unknown[]) => { fn(...args); return chain; };
       };
       add('select', (c) => { call.select = String(c); });
-      add('eq', (c, v) => { if (c !== 'is_active') filters.push((r) => r[c as string] === v); });
+      add('eq', (c, v) => { call.eqs.push([c, v]); filters.push((r) => r[c as string] === v); });
       add('neq', (c, v) => filters.push((r) => r[c as string] !== v));
+      add('in', (c, list) => filters.push((r) => (list as unknown[]).includes(r[c as string])));
       add('is', (c, v) => filters.push((r) => (r[c as string] ?? null) === v));
-      add('not', (c, _op, v) => filters.push((r) => (r[c as string] ?? null) !== v));
-      add('like', (c, pat) => { const prefix = String(pat).replace(/%$/, ''); filters.push((r) => String(r[c as string]).startsWith(prefix)); });
-      add('or', () => {});
+      add('not', (c, op, v) => {
+        if (op === 'is') filters.push((r) => (r[c as string] ?? null) !== v);
+        else if (op === 'in') {
+          const list = String(v).replace(/^\(|\)$/g, '').split(',');
+          filters.push((r) => r[c as string] != null && !list.includes(String(r[c as string])));
+        } else throw new Error(`stub: unsupported not(${String(op)})`);
+      });
+      add('like', () => { throw new Error('stub: like is not used'); });
+      add('or', (expr) => {
+        call.ors.push(String(expr));
+        if (skipExpiryFilter) return;
+        const tests = String(expr).split(',').map((part) => {
+          const m = /^(\w+)\.(is|gt)\.(.+)$/.exec(part);
+          if (!m) throw new Error(`stub: unsupported or() part ${part}`);
+          const [, col, op, val] = m;
+          if (op === 'is' && val === 'null') return (r: Row) => (r[col] ?? null) === null;
+          if (op === 'gt') return (r: Row) => r[col] != null && Date.parse(String(r[col])) > Date.parse(val);
+          throw new Error(`stub: unsupported or() part ${part}`);
+        });
+        filters.push((r) => tests.some((t) => t(r)));
+      });
       add('order', (c, o) => { call.order.push([c, o]); sort = { col: String(c), asc: Boolean((o as { ascending?: boolean })?.ascending) }; });
       add('limit', (n) => { call.limit.push(n); max = Number(n); });
       chain.then = (resolve: (r: Result) => unknown, reject: (e: unknown) => unknown) => {
@@ -77,6 +97,7 @@ const alertRow = (n: number, extra: Row = {}): Row => ({
   expiry: null,
   updated_at_src: '2026-10-15T01:45:00.000Z',
   alert_sources: { source_name: 'VIC Emergency' },
+  is_active: true,
   ...extra,
 });
 
@@ -89,6 +110,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, 'error').mockImplementation(() => {});
   calls = [];
+  skipExpiryFilter = false;
   tables = { captains_daily_briefs: { data: [], error: null }, alerts: { data: [], error: null } };
   overviewMock.mockResolvedValue({ captainSummary: { hq_posture: 'NORMAL', summary: 'HQ is operating normally', last_updated: '2026-10-15T01:59:30.000Z' } });
 });
@@ -185,11 +207,15 @@ describe('v1.1 alerts: caps and mappings', () => {
     const out = await items([
       alertRow(1, { expiry: '2026-10-16T11:00:00+11:00' }),
       alertRow(2, { expiry: null }),
-      alertRow(3, { expiry: 'not a date' }),
       alertRow(4, {}), // column absent
     ]);
     expect(out[0].expires_at).toBe('2026-10-16T00:00:00.000Z');
-    expect(out.slice(1).map((i) => i.expires_at)).toEqual([null, null, null]);
+    expect(out.slice(1).map((i) => i.expires_at)).toEqual([null, null]);
+  });
+
+  it('sends expires_at null for an unparseable stored value (defensive: the column is a timestamp, so the filter skipped here)', async () => {
+    skipExpiryFilter = true;
+    expect((await items([alertRow(1, { expiry: 'not a date' })]))[0].expires_at).toBeNull();
   });
 
   it('sends updated_at from updated_at_src, else last_seen_at, else omits it', async () => {
@@ -210,8 +236,33 @@ describe('v1.1 alerts: caps and mappings', () => {
   });
 });
 
-describe('v1.1 alerts: ranking (severity, then newest first)', () => {
-  const sev = (n: number, severity: string, extra: Row = {}) => alertRow(n, { severity, headline: `${severity} ${n}`, ...extra });
+describe('v1.1 alerts: filters', () => {
+  const NOW_ISO = FIXED.toISOString();
+  it('every alert query carries the is_active and not-expired filters, as written', async () => {
+    await buildTjrLifeSnapshot(stubClient(), FIXED);
+    const alertQueries = calls.filter((c) => c.table === 'alerts');
+    expect(alertQueries.length).toBe(8);
+    for (const q of alertQueries) {
+      expect(q.eqs).toContainEqual(['is_active', true]);
+      expect(q.ors).toEqual([`expiry.is.null,expiry.gt.${NOW_ISO}`]);
+    }
+  });
+
+  it('drops expired and inactive rows, keeps null-expiry and future-expiry rows', async () => {
+    const out = await items([
+      alertRow(1, { headline: 'no expiry', expiry: null }),
+      alertRow(2, { headline: 'future expiry', expiry: '2026-10-15T09:00:00.000Z' }),
+      alertRow(3, { headline: 'expired', expiry: '2026-10-15T01:00:00.000Z' }),
+      alertRow(4, { headline: 'expires exactly now', expiry: NOW_ISO }),
+      alertRow(5, { headline: 'inactive', is_active: false }),
+      alertRow(6, { headline: 'inactive emergency', severity: 'emergency_warning', is_active: false }),
+    ]);
+    expect(out.map((i) => i.headline)).toEqual(['no expiry', 'future expiry']);
+  });
+});
+
+describe('v1.1 alerts: ranking (emergency_warning, watch_and_act, advice, unknown; newest first)', () => {
+  const sev = (n: number, severity: unknown, extra: Row = {}) => alertRow(n, { severity, headline: `${String(severity)} ${n}`, ...extra });
 
   it('keeps an older emergency_warning when 20 newer advice alerts exist', async () => {
     const old = sev(100, 'emergency_warning', { issued_at: '2026-10-01T00:00:00.000Z' });
@@ -221,19 +272,28 @@ describe('v1.1 alerts: ranking (severity, then newest first)', () => {
     expect(out[0].severity).toBe('emergency_warning');
   });
 
-  it('ranks emergency_warning, then watch_and_act, then unknown, then advice, whatever the recency', async () => {
+  it('keeps an older emergency_warning when 20 newer unknown alerts exist', async () => {
+    const old = sev(100, 'emergency_warning', { issued_at: '2026-10-01T00:00:00.000Z' });
+    const out = await items([...Array.from({ length: 25 }, (_, n) => sev(n, 'unknown')), old]);
+    expect(out[0].id).toBe(old.id);
+  });
+
+  it('ranks emergency_warning, then watch_and_act, then advice, then unknown, whatever the recency', async () => {
     const out = await items([
-      sev(1, 'advice', { issued_at: '2026-10-15T01:59:00.000Z' }),
-      sev(2, 'unknown', { issued_at: '2026-10-15T01:58:00.000Z' }),
+      sev(1, 'unknown', { issued_at: '2026-10-15T01:59:00.000Z' }),
+      sev(2, 'advice', { issued_at: '2026-10-15T01:58:00.000Z' }),
       sev(3, 'watch_and_act', { issued_at: '2026-10-10T00:00:00.000Z' }),
       sev(4, 'emergency_warning', { issued_at: '2026-10-05T00:00:00.000Z' }),
     ]);
     expect(out.map((i) => i.severity)).toEqual(SEVERITIES_BY_RANK);
   });
 
-  it('puts unknown (BOM) above advice even when the advice is newer', async () => {
-    const out = await items([sev(1, 'advice', { issued_at: '2026-10-15T01:59:00.000Z' }), sev(2, 'unknown', { issued_at: '2026-10-14T00:00:00.000Z' })]);
-    expect(out.map((i) => i.severity)).toEqual(['unknown', 'advice']);
+  it('puts advice above unknown even when the unknown alert is newer, so 20 unknowns cannot hide advice', async () => {
+    const unknowns = Array.from({ length: 20 }, (_, n) => sev(n, 'unknown', { issued_at: new Date(Date.UTC(2026, 9, 15, 1, 0) - n * 60000).toISOString() }));
+    const advice = sev(50, 'advice', { issued_at: '2026-10-10T00:00:00.000Z' });
+    const out = await items([...unknowns, advice]);
+    expect(out[0].id).toBe(advice.id);
+    expect(out.length).toBe(20);
   });
 
   it('orders ties in rank newest first, with issued_at falling back to first_seen_at', async () => {
@@ -244,6 +304,12 @@ describe('v1.1 alerts: ranking (severity, then newest first)', () => {
       sev(4, 'watch_and_act', { issued_at: null, first_seen_at: '2026-10-15T01:40:00.000Z' }),
     ]);
     expect(out.map((i) => i.occurred_at)).toEqual(['2026-10-15T01:40:00.000Z', '2026-10-15T01:10:00.000Z', '2026-10-15T00:40:00.000Z', '2026-10-15T00:10:00.000Z']);
+  });
+
+  it('breaks an exact tie by id, so the order is the same on every call', async () => {
+    const same = '2026-10-15T01:00:00.000Z';
+    const out = await items([sev(3, 'advice', { issued_at: same }), sev(1, 'advice', { issued_at: same }), sev(2, 'advice', { issued_at: same })]);
+    expect(out.map((i) => i.id)).toEqual([1, 2, 3].map((n) => alertRow(n).id));
   });
 
   it('with more than 20 emergency_warnings keeps the newest 20 and no lower severity', async () => {
@@ -261,6 +327,34 @@ describe('v1.1 alerts: ranking (severity, then newest first)', () => {
     expect(out[0].id).toBe(undated.id);
     expect(out.length).toBe(20);
   });
+
+  // Production-faithful: the unknown bucket is selected as "not one of the other
+  // three", exactly as the stub evaluates it (SQL semantics, case-sensitive,
+  // null never selected; severity is NOT NULL in the table). Whatever is stored
+  // outside the three known values is selected and sent as unknown (or, for a
+  // wrong-case spelling, as the value it spells), after the three known ranks.
+  it('selects any stored severity outside the three known values and sends it as unknown', async () => {
+    const out = await items([
+      sev(1, 'Catastrophic'), sev(2, ''), sev(3, 42), sev(4, 'advice\nextra'), sev(5, 'emergency warning'),
+      sev(6, 'advice', { headline: 'plain advice' }),
+      sev(7, 'watch_and_act', { headline: 'plain watch' }),
+      sev(8, 'emergency_warning', { headline: 'plain emergency' }),
+    ]);
+    expect(out.map((i) => i.severity)).toEqual(['emergency_warning', 'watch_and_act', 'advice', 'unknown', 'unknown', 'unknown', 'unknown', 'unknown']);
+    expect(out.map((i) => i.headline).slice(0, 3)).toEqual(['plain emergency', 'plain watch', 'plain advice']);
+    const unknownQueries = calls.filter((c) => c.table === 'alerts' && !c.eqs.some(([col]) => col === 'severity'));
+    expect(unknownQueries.length).toBe(2); // the unknown bucket adds no extra query: dated and undated only
+  });
+
+  it('a wrong-case stored severity is selected via the unknown bucket and ranked as the value it spells', async () => {
+    const out = await items([sev(1, 'advice'), sev(2, 'Emergency_Warning', { headline: 'wrong case' })]);
+    expect(out.map((i) => i.headline)).toEqual(['wrong case', 'advice 1']);
+    expect(out[0].severity).toBe('emergency_warning');
+  });
+
+  it('never selects a null severity (the column is NOT NULL; "not in" skips nulls)', async () => {
+    expect((await items([sev(1, null), sev(2, 'advice')])).map((i) => i.id)).toEqual([alertRow(2).id]);
+  });
 });
 
 describe('v1.1 alerts: last_polled_at (source heartbeat)', () => {
@@ -270,21 +364,30 @@ describe('v1.1 alerts: last_polled_at (source heartbeat)', () => {
     return (await buildAlertsSection(stubClient(), FIXED)).last_polled_at;
   };
 
-  it('is the newest checked_at among ok emergency_alert_ sources, read from domain_heartbeats_latest', async () => {
+  it('uses the exact feed key list from the scheduler job list: 16 keys, no summary job, no wildcard', () => {
+    expect(ALERT_FEED_DOMAIN_KEYS.length).toBe(16);
+    expect(ALERT_FEED_DOMAIN_KEYS).not.toContain('emergency_alert_hourly_summary');
+    expect(ALERT_FEED_DOMAIN_KEYS).toEqual(expect.arrayContaining(['emergency_alert_nsw_rfs', 'emergency_alert_wa', 'emergency_alert_tas', 'emergency_alert_nt', 'emergency_alert_bom_nsw', 'emergency_alert_bom_act']));
+    for (const key of ALERT_FEED_DOMAIN_KEYS) expect(key).toMatch(/^emergency_alert_[a-z_]+$/);
+    expect(new Set(ALERT_FEED_DOMAIN_KEYS).size).toBe(ALERT_FEED_DOMAIN_KEYS.length);
+  });
+
+  it('reads domain_heartbeats_latest with an in list, status ok, newest first, bounded by the key count', async () => {
     expect(await polled([hb('emergency_alert_nsw_rfs', '2026-10-15T01:10:00.000Z'), hb('emergency_alert_wa', '2026-10-15T01:55:00+00:00')])).toBe('2026-10-15T01:55:00.000Z');
     const q = calls.find((c) => c.table === 'domain_heartbeats_latest');
     expect(q?.select).toBe('domain_key, checked_at');
+    expect(q?.eqs).toContainEqual(['status', 'ok']);
     expect(q?.order).toEqual([['checked_at', { ascending: false }]]);
-    expect(q?.limit).toEqual([50]);
-    expect(calls.some((c) => c.table === 'alerts' && c.select === 'last_seen_at')).toBe(false); // alert rows no longer used
+    expect(q?.limit).toEqual([ALERT_FEED_DOMAIN_KEYS.length]);
+    expect(calls.some((c) => c.table === 'alerts' && c.select === 'last_seen_at')).toBe(false);
   });
 
   it('ignores skipped and failed sources (only status ok counts)', async () => {
     expect(await polled([hb('emergency_alert_tas', '2026-10-15T01:59:00.000Z', 'skipped'), hb('emergency_alert_nt', '2026-10-15T01:58:00.000Z', 'skipped'), hb('emergency_alert_vic', '2026-10-15T01:57:00.000Z', 'failed'), hb('emergency_alert_wa', '2026-10-15T01:20:00.000Z')])).toBe('2026-10-15T01:20:00.000Z');
   });
 
-  it('excludes the hourly summary job and any key without the emergency_alert_ prefix', async () => {
-    expect(await polled([hb('emergency_alert_hourly_summary', '2026-10-15T01:59:59.000Z'), hb('emergency-alertXnsw', '2026-10-15T01:59:00.000Z'), hb('core_events', '2026-10-15T01:58:00.000Z'), hb('emergency_alert_nsw_rfs', '2026-10-15T01:00:00.000Z')])).toBe('2026-10-15T01:00:00.000Z');
+  it('ignores the hourly summary job and any key not on the feed list, including look-alikes', async () => {
+    expect(await polled([hb('emergency_alert_hourly_summary', '2026-10-15T01:59:59.000Z'), hb('emergencyXalertXnsw_rfs', '2026-10-15T01:59:00.000Z'), hb('emergency_alert_nsw_rfsX', '2026-10-15T01:58:30.000Z'), hb('emergency_alert_unlisted', '2026-10-15T01:58:00.000Z'), hb('core_events', '2026-10-15T01:57:00.000Z'), hb('emergency_alert_nsw_rfs', '2026-10-15T01:00:00.000Z')])).toBe('2026-10-15T01:00:00.000Z');
   });
 
   it('is null when no row qualifies, when there are no rows, and when the heartbeat query fails', async () => {
@@ -360,7 +463,7 @@ const cjk = (n: number) => '漢'.repeat(n);
 async function buildFor(name: 'full' | 'degraded' | 'all-errored' | 'oversized') {
   const at = (s: string) => ({ captainSummary: { hq_posture: 'NORMAL', summary: s, last_updated: '2026-10-15T01:59:30.000Z' } });
   const brief = (text: string) => ({ data: [{ brief_date: '2026-10-15', generated_at: '2026-10-14T21:00:12.000Z', brief_text: text }], error: null });
-  const row = (n: number, extra: Row) => ({ id: `6f1c0c1e-0000-4000-8000-${String(n).padStart(12, '0')}`, first_seen_at: '2026-10-14T22:00:00.000Z', ...extra });
+  const row = (n: number, extra: Row) => ({ id: `6f1c0c1e-0000-4000-8000-${String(n).padStart(12, '0')}`, first_seen_at: '2026-10-14T22:00:00.000Z', is_active: true, ...extra });
   if (name === 'full') {
     overviewMock.mockResolvedValue(at('HQ is operating normally'));
     tables = {
@@ -369,6 +472,7 @@ async function buildFor(name: 'full' | 'degraded' | 'all-errored' | 'oversized')
         row(3, { headline: 'Hazard reduction burn, smoke possible', severity: 'advice', issued_at: '2026-10-14T23:00:00.000Z', jurisdiction: 'QLD', alert_type: 'hazard_reduction', status: 'new', expiry: '2026-10-15T06:00:00.000Z', updated_at_src: '2026-10-14T23:05:00.000Z', last_seen_at: '2026-10-15T01:56:00.000Z', alert_sources: { source_name: 'QFES' } }),
         row(2, { headline: 'Severe thunderstorm warning for the Illawarra', severity: 'unknown', issued_at: '2026-10-15T00:10:00.000Z', jurisdiction: 'NSW', alert_type: 'severe_weather', status: 'active', expiry: null, updated_at_src: null, last_seen_at: '2026-10-15T01:57:00.000Z', alert_sources: { source_name: 'Bureau of Meteorology warnings' } }),
         row(4, { headline: 'Watch and Act: grass fire near Geelong', severity: 'watch_and_act', issued_at: '2026-10-14T20:00:00.000Z', jurisdiction: 'VIC', alert_type: 'bushfire', status: 'active', expiry: null, updated_at_src: '2026-10-15T00:30:00.000Z', last_seen_at: '2026-10-15T01:58:00.000Z', alert_sources: { source_name: 'VIC Emergency' } }),
+        row(5, { headline: 'Smoke haze advisory', severity: 'advice', issued_at: null, first_seen_at: '2026-10-14T22:00:00.000Z', jurisdiction: null, alert_type: 'other', status: 'updated', expiry: '2026-10-15T12:00:00.000Z', updated_at_src: null, last_seen_at: '2026-10-15T01:50:00.000Z', alert_sources: null }),
         row(1, { headline: 'Bushfire Emergency Warning: evacuate now', severity: 'emergency_warning', issued_at: '2026-10-15T01:40:00.000Z', jurisdiction: 'VIC', alert_type: 'bushfire', status: 'updated', expiry: '2026-10-15T09:00:00.000Z', updated_at_src: '2026-10-15T01:52:00.000Z', last_seen_at: '2026-10-15T01:58:00.000Z', alert_sources: { source_name: 'VIC Emergency' } }),
       ], error: null },
       domain_heartbeats_latest: { data: [
@@ -459,6 +563,26 @@ describe('fixtures/tjr-life-snapshot-v1_1', () => {
       expect(['unknown', 'active']).toContain(i.status);
       expect(['other', 'storm']).toContain(i.alert_type);
     }
+  });
+
+  it('full.json covers every v1.1 field, the ranked order, the omitted optionals and last_polled_at from ok sources only', () => {
+    const body = JSON.parse(fixture('full'));
+    expect(body.contract_version).toBe('1.1');
+    expect(Object.keys(body.alerts)).toEqual(['generated_at', 'last_polled_at', 'items', 'error']);
+    expect(body.alerts.last_polled_at).toBe('2026-10-15T01:58:30.000Z'); // skipped, failed and summary rows are newer and ignored
+    const items: Row[] = body.alerts.items;
+    for (const key of ['jurisdiction', 'alert_type', 'status', 'expires_at', 'updated_at', 'source_name']) {
+      expect(items.some((i) => key in i), key).toBe(true);
+    }
+    expect(items.some((i) => i.expires_at === null)).toBe(true);
+    expect(items.some((i) => typeof i.expires_at === 'string')).toBe(true);
+    const bare = items.find((i) => i.headline === 'Smoke haze advisory');
+    expect(bare && 'jurisdiction' in bare).toBe(false);
+    expect(bare && 'source_name' in bare).toBe(false);
+    expect(bare?.occurred_at).toBe('2026-10-14T22:00:00.000Z'); // first_seen_at fallback
+    expect(bare?.updated_at).toBe('2026-10-15T01:50:00.000Z'); // last_seen_at fallback
+    expect(items.map((i) => i.severity)).toEqual(['emergency_warning', 'watch_and_act', 'advice', 'advice', 'unknown']);
+    expect(items.map((i) => i.alert_type)).toEqual(expect.arrayContaining(['bushfire', 'severe_weather', 'hazard_reduction', 'other']));
   });
 
   it('no fixture contains an excluded field name or a feed URL', () => {

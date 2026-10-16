@@ -46,18 +46,6 @@
         "source_name": "VIC Emergency"
       },
       {
-        "id": "6f1c0c1e-0000-4000-8000-000000000002",
-        "headline": "Severe thunderstorm warning for the Illawarra",
-        "severity": "unknown",
-        "occurred_at": "2026-10-15T00:10:00.000Z",
-        "alert_type": "severe_weather",
-        "status": "active",
-        "expires_at": null,
-        "jurisdiction": "NSW",
-        "updated_at": "2026-10-15T01:57:00.000Z",
-        "source_name": "Bureau of Meteorology warnings"
-      },
-      {
         "id": "6f1c0c1e-0000-4000-8000-000000000003",
         "headline": "Hazard reduction burn, smoke possible",
         "severity": "advice",
@@ -68,6 +56,28 @@
         "jurisdiction": "QLD",
         "updated_at": "2026-10-14T23:05:00.000Z",
         "source_name": "QFES"
+      },
+      {
+        "id": "6f1c0c1e-0000-4000-8000-000000000005",
+        "headline": "Smoke haze advisory",
+        "severity": "advice",
+        "occurred_at": "2026-10-14T22:00:00.000Z",
+        "alert_type": "other",
+        "status": "updated",
+        "expires_at": "2026-10-15T12:00:00.000Z",
+        "updated_at": "2026-10-15T01:50:00.000Z"
+      },
+      {
+        "id": "6f1c0c1e-0000-4000-8000-000000000002",
+        "headline": "Severe thunderstorm warning for the Illawarra",
+        "severity": "unknown",
+        "occurred_at": "2026-10-15T00:10:00.000Z",
+        "alert_type": "severe_weather",
+        "status": "active",
+        "expires_at": null,
+        "jurisdiction": "NSW",
+        "updated_at": "2026-10-15T01:57:00.000Z",
+        "source_name": "Bureau of Meteorology warnings"
       }
     ],
     "error": null
