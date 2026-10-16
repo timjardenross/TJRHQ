@@ -6,7 +6,8 @@
 // once in middleware.ts (so a bad token never reaches a route handler) and
 // once inside the route via requireCaptainRead() (defence in depth: a route
 // that is ever mounted at a path the middleware does not cover still
-// refuses). requireSession() in supabase-server.ts is deliberately NOT
+// refuses). The two layers share this one verifier, so the redundancy is
+// partial: see docs/r3-planning/TJR_LIFE_KILL_SWITCH_RUNBOOK.md. requireSession() in supabase-server.ts is deliberately NOT
 // touched; cookie-session behaviour is unchanged.
 //
 // Kill switch: MOBILE_BEARER_READ_ENABLED must equal the string "true".
@@ -36,7 +37,7 @@ const MAX_TOKEN_LENGTH = 4096;
 
 export type MobileReadFailure = {
   ok: false;
-  status: 401 | 403 | 429 | 503;
+  status: 400 | 401 | 403 | 429 | 503;
   error: string;
   retryAfterSeconds?: number;
 };
@@ -56,6 +57,14 @@ export function parseBearerToken(header: string | null): string | null {
   const match = header.match(/^Bearer\s+(\S+)$/i);
   if (!match) return null;
   return match[1].length <= MAX_TOKEN_LENGTH ? match[1] : null;
+}
+
+/** Body for an authenticated request that carries a query string. */
+export const INVALID_REQUEST: MobileReadFailure = { ok: false, status: 400, error: 'invalid_request' };
+
+/** True for any query string, including a bare "?". */
+export function hasQueryString(url: string): boolean {
+  return url.includes('?');
 }
 
 export function isMobileBearerReadEnabled(): boolean {
@@ -158,6 +167,10 @@ export async function requireCaptainRead(
 
   const verified = await verifyCaptainBearer(token);
   if (!verified.ok) return verified;
+
+  // Authenticated callers only (so the answer never confirms anything to an
+  // unauthenticated probe): the snapshot takes no parameters.
+  if (hasQueryString(request.url)) return INVALID_REQUEST;
 
   if (
     !checkRateLimit(
