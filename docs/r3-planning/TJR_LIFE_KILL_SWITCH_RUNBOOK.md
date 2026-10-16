@@ -22,11 +22,22 @@ Default state: the flag and the Captain id are unset in production today (stated
 
 ## Test script for the PO (not run)
 
-1. Record the start time. Apply switch A. Redeploy.
-2. Send the verification request every 10 s until it returns 403. Record the elapsed time as
-   the propagation figure. Repeat for switch D (expect 401).
-3. Roll back, confirm 200 with a valid token, record the time.
-4. Write the figures in the table. Do not paste tokens, response bodies or headers.
+Run on PRODUCTION with the flag closed by default (it is unset until the PO sets it). Do not use a preview
+deployment: previews sit behind Vercel's login and cannot be exercised by the app or by a plain request.
+Record every figure below in the table. Do not paste tokens, response bodies or headers.
+
+1. Closed state: with the flag unset, send the verification request. Record the status (expect 403).
+2. Open the flag, redeploy. Send the request with a valid Captain token. Record the status (expect 200).
+3. Latency added by the second Auth call: send the same valid request 10 times to the route and 10 times to
+   a route that does not call the verifier (for example the existing ping route). Record both medians and the
+   difference in milliseconds. The route verifies the token twice (middleware, then route), so record that
+   difference as the added latency.
+4. 401 result: send a request with a deliberately invalid token. Record the status (expect 401).
+5. 403 result: send a request with a valid token for a different user, if one is available. Record the status
+   (expect 403). If no second user is available, record NOT RUN.
+6. Flag-off propagation time: record the start time. Apply switch A and redeploy. Send the request every 10 s
+   until it returns 403. Record the elapsed time as the propagation figure. Repeat for switch D (expect 401).
+7. Roll back, confirm 200 with a valid token, record the time.
 
 ## Defence in depth: where it is partial
 
