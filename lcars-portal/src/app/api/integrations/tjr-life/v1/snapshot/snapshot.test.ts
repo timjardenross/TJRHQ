@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,9 +23,9 @@ let selects: Record<string, string>;
 
 function builder(table: string) {
   const chain: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'or', 'order', 'limit']) {
+  for (const m of ['select', 'eq', 'neq', 'in', 'is', 'not', 'like', 'or', 'order', 'limit']) {
     chain[m] = (...args: unknown[]) => {
-      if (m === 'select') selects[table] = String(args[0]);
+      if (m === 'select') selects[table] ??= String(args[0]);
       return chain;
     };
   }
@@ -99,7 +99,7 @@ describe('GET /api/integrations/tjr-life/v1/snapshot', () => {
     expect(response.headers.get('cache-control')).toBe('private, no-store');
     const body = JSON.parse(text);
     expect(Object.keys(body)).toEqual(['contract_version', 'generated_at', 'hq_status', 'latest_brief', 'alerts']);
-    expect(body.contract_version).toBe('1.0');
+    expect(body.contract_version).toBe('1.1');
     expect(body.hq_status).toEqual({
       generated_at: '2026-10-15T01:00:00.000Z',
       summary: 'HQ is degraded — Technical intelligence coverage may be delayed or incomplete.',
@@ -116,8 +116,8 @@ describe('GET /api/integrations/tjr-life/v1/snapshot', () => {
     ]);
     expect(body.latest_brief.brief_date).toBe('2026-10-15');
     expect(body.alerts.items).toEqual([
-      { id: 'a-1', headline: 'Flood Warning & evacuation', severity: 'emergency_warning', occurred_at: '2026-10-15T00:30:00.000Z' },
-      { id: 'a-2', headline: 'Fire danger', severity: 'advice', occurred_at: '2026-10-14T20:00:00.000Z' },
+      { id: 'a-1', headline: 'Flood Warning & evacuation', severity: 'emergency_warning', occurred_at: '2026-10-15T00:30:00.000Z', alert_type: 'other', status: 'unknown', expires_at: null },
+      { id: 'a-2', headline: 'Fire danger', severity: 'advice', occurred_at: '2026-10-14T20:00:00.000Z', alert_type: 'other', status: 'unknown', expires_at: null },
     ]);
   });
 
@@ -141,7 +141,9 @@ describe('GET /api/integrations/tjr-life/v1/snapshot', () => {
   it('never selects the excluded columns', async () => {
     await call();
     expect(selects.captains_daily_briefs).toBe('brief_date, generated_at, brief_text');
-    expect(selects.alerts).toBe('id, headline, severity, issued_at, first_seen_at');
+    expect(selects.alerts).toBe(
+      'id, headline, severity, issued_at, first_seen_at, jurisdiction, alert_type, status, expiry, updated_at_src, last_seen_at, alert_sources(source_name)',
+    );
     for (const select of Object.values(selects)) {
       expect(select).not.toMatch(/health_snapshot|raw_text|latitude|longitude|canonical_url|description|created_by|\*/);
     }
@@ -337,8 +339,9 @@ describe('allowlist caps (approved by the PO)', () => {
       { id: 'ok-1', headline: 'dropped: duplicate id', severity: 'advice', issued_at: '2026-10-15T00:00:00Z' },
     ], error: null };
     const items = JSON.parse((await call()).text).alerts.items;
-    expect(items.map((i: { id: string }) => i.id)).toEqual(['ok-1', 'i'.repeat(64)]);
-    expect(items[0].headline.length).toBe(160);
+    // Equal rank and time: ordered by id (v1.1 ranking), so the 64-char id sorts first.
+    expect(items.map((i: { id: string }) => i.id)).toEqual(['i'.repeat(64), 'ok-1']);
+    expect(items[1].headline.length).toBe(160); // the first of the two repeated ids is the one kept
     expect(new Set(items.map((i: { id: string }) => i.id)).size).toBe(items.length);
   });
 
@@ -354,6 +357,7 @@ describe('allowlist caps (approved by the PO)', () => {
     const stored = ['emergency_warning', 'Emergency_Warning', ' WATCH_AND_ACT ', 'advice', 'unknown', 'Catastrophic', 'emergency warning', '', null, 42, 'advice\nextra'];
     tables.alerts = { data: stored.map((severity, n) => ({ id: `s-${n}`, headline: 'h', severity, issued_at: '2026-10-15T00:00:00Z' })), error: null };
     const severities = JSON.parse((await call()).text).alerts.items.map((i: { severity: string }) => i.severity);
+    // v1.1 ranks by severity: emergency_warning, watch_and_act, advice, unknown.
     expect(severities).toEqual(['emergency_warning', 'emergency_warning', 'watch_and_act', 'advice', 'unknown', 'unknown', 'unknown', 'unknown', 'unknown', 'unknown', 'unknown']);
     for (const s of severities) expect(['emergency_warning', 'watch_and_act', 'advice', 'unknown']).toContain(s);
   });
@@ -378,12 +382,12 @@ describe('allowlist caps (approved by the PO)', () => {
   it('enforceSizeCap sheds sections in order and stays valid when nothing fits', async () => {
     const { enforceSizeCap } = await import('@/lib/tjrLifeSnapshot');
     const huge = Array.from({ length: 40 }, () => '漢'.repeat(500));
-    const items = Array.from({ length: 20 }, (_, n) => ({ id: `i${n}`, headline: '漢'.repeat(160), severity: 'advice' as const, occurred_at: '2026-10-15T00:00:00.000Z' }));
+    const items = Array.from({ length: 20 }, (_, n) => ({ id: `i${n}`, headline: '漢'.repeat(160), severity: 'advice' as const, occurred_at: '2026-10-15T00:00:00.000Z', alert_type: 'other' as const, status: 'unknown' as const, expires_at: null }));
     const base = {
       contract_version: '1.0', generated_at: '2026-10-15T02:00:00.000Z',
       hq_status: { generated_at: 'x', summary: 's', state: 'ok' as const, error: null },
       latest_brief: { generated_at: null, brief_date: null, lines: huge, error: null },
-      alerts: { generated_at: 'x', items, error: null },
+      alerts: { generated_at: 'x', last_polled_at: null, items, error: null },
     };
     const out = enforceSizeCap(base);
     expect(new TextEncoder().encode(JSON.stringify(out)).length).toBeLessThanOrEqual(64 * 1024);
@@ -408,15 +412,41 @@ describe('allowlist caps (approved by the PO)', () => {
 
 describe('shared fixtures fixtures/tjr-life-snapshot-v1', () => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
-  for (const name of ['full', 'degraded', 'all-errored', 'oversized'] as const) {
-    it(`${name}.json is byte-identical to the builder output`, async () => {
-      const expected = pretty(await buildFor(name));
-      if (process.env.UPDATE_FIXTURES) {
-        mkdirSync(FIXTURE_DIR, { recursive: true });
-        writeFileSync(join(FIXTURE_DIR, `${name}.json`), expected);
-      }
-      expect(existsSync(join(FIXTURE_DIR, `${name}.json`))).toBe(true);
-      expect(fixture(name)).toBe(expected);
+  // v1.0 files are frozen. The builder now emits v1.1, so the three builder
+  // fixtures with no shedding are checked by projecting the v1.1 output back
+  // to the v1.0 shape (drop the additive keys, version 1.0) and comparing bytes.
+  // oversized.json sheds by size, which the larger v1.1 items change, so it is
+  // pinned by hash only. Every file is also pinned by the hash recorded in #409.
+  const FROZEN_SHA256: Record<string, string> = {
+    'all-errored': '65a90f76a95030261deebabcb0b28eb9565f4be96266502f37ac958939400336',
+    degraded: '40d19e25fa419a870d82a9fe582d9acf31a5c8aabffa0ada29a2a43123121e69',
+    full: 'e909d9b52b419d2d1894773138ce931c9ba19d21ba64426883d49e888ae72127',
+    'malformed-section': '291b54adda6756689ecd97b04dfed77aebc71603efecfebecd751ce69b897770',
+    oversized: 'b099d2303997ae542f8fe962df3d9c40e3afe028567360aa9897d23a8f6aacec',
+    'unknown-keys': 'a83351e2246d54525e1b603d6de3a95ff5183e4f7d6b42132514798dd59a519e',
+    'unknown-version': '2823a96e9be70ce085a7db5d8ab31ad40ef2a1fe817d5417512ea0753f318aeb',
+  };
+  for (const [name, hash] of Object.entries(FROZEN_SHA256)) {
+    it(`${name}.json is unchanged from v1.0`, () => {
+      expect(createHash('sha256').update(readFileSync(join(FIXTURE_DIR, `${name}.json`))).digest('hex')).toBe(hash);
+    });
+  }
+  for (const name of ['full', 'degraded', 'all-errored'] as const) {
+    it(`${name}.json equals the v1.1 builder output projected to v1.0`, async () => {
+      const built = (await buildFor(name)) as unknown as Record<string, unknown>;
+      const alerts = built.alerts as Record<string, unknown>;
+      const projected = {
+        ...built,
+        contract_version: '1.0',
+        alerts: 'items' in alerts
+          ? {
+              generated_at: alerts.generated_at,
+              items: (alerts.items as Record<string, unknown>[]).map(({ id, headline, severity, occurred_at }) => ({ id, headline, severity, occurred_at })),
+              error: null,
+            }
+          : alerts,
+      };
+      expect(fixture(name)).toBe(pretty(projected));
     });
   }
 

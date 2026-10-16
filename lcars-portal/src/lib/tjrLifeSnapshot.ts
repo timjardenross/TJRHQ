@@ -1,4 +1,4 @@
-// TJR Life snapshot, contract v1 (R3 S3). Read-only, three independent
+// TJR Life snapshot, contract v1.1 (R3 S3; v1.1 = richer alerts). Read-only, three independent
 // sections built with the Captain's user-scoped Supabase client (RLS applies
 // as the Captain; never the service role). Contract: docs/r3-planning/
 // TJR_LIFE_SNAPSHOT_V1_CONTRACT.md. Shared fixtures: fixtures/tjr-life-snapshot-v1/.
@@ -14,9 +14,10 @@
 //    (tags stripped first, then entities decoded; see lib/briefText.ts).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildAgentStatusOverview } from '@/lib/agentStatusOverview';
+import { SCHEDULER_JOBS } from '@/lib/agentStatusJobs';
 import { parseBriefText } from '@/lib/briefText';
 
-export const SNAPSHOT_CONTRACT_VERSION = '1.0';
+export const SNAPSHOT_CONTRACT_VERSION = '1.1';
 export const SNAPSHOT_ALERT_LIMIT = 20;
 export const SNAPSHOT_SECTION_TIMEOUT_MS = 8000;
 // Approved allowlist caps (PO, R3 review). Lengths are UTF-16 code units.
@@ -26,8 +27,17 @@ export const MAX_HEADLINE_CHARS = 160;
 export const MAX_SUMMARY_CHARS = 400;
 export const MAX_ALERT_ID_CHARS = 64;
 export const MAX_RESPONSE_BYTES = 64 * 1024;
+export const MAX_JURISDICTION_CHARS = 8;
+export const MAX_SOURCE_NAME_CHARS = 40;
 export const ALERT_SEVERITIES = ['emergency_warning', 'watch_and_act', 'advice', 'unknown'] as const;
 export type AlertSeverity = (typeof ALERT_SEVERITIES)[number];
+export const ALERT_TYPES = [
+  'bushfire', 'flood', 'storm', 'cyclone', 'heatwave', 'hazard_reduction',
+  'structure_fire', 'severe_weather', 'tsunami', 'other',
+] as const;
+export type AlertType = (typeof ALERT_TYPES)[number];
+export const ALERT_STATUSES = ['new', 'active', 'updated', 'superseded', 'expired', 'inactive', 'errored'] as const;
+export type AlertStatus = (typeof ALERT_STATUSES)[number] | 'unknown';
 
 export type SectionUnavailable = { error: 'unavailable' };
 export type HqState = 'ok' | 'degraded' | 'attention' | 'unknown';
@@ -49,9 +59,18 @@ export interface AlertItem {
   headline: string;
   severity: AlertSeverity;
   occurred_at: string;
+  // v1.1 additions. jurisdiction, source_name and updated_at are omitted when
+  // the stored value is missing or unusable; the others are always present.
+  jurisdiction?: string;
+  alert_type: AlertType;
+  status: AlertStatus;
+  expires_at: string | null;
+  updated_at?: string;
+  source_name?: string;
 }
 export interface AlertsSection {
   generated_at: string;
+  last_polled_at: string | null;
   items: AlertItem[];
   error: null;
 }
@@ -92,6 +111,23 @@ export function tidy(text: string, maxChars: number): string {
 function toSeverity(raw: unknown): AlertSeverity {
   const value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
   return (ALERT_SEVERITIES as readonly string[]).includes(value) ? (value as AlertSeverity) : 'unknown';
+}
+
+function toEnum<T extends string>(raw: unknown, allowed: readonly T[], fallback: T): T {
+  const value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  return (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
+}
+
+/** Plain text of at most maxChars, or undefined when nothing usable remains. */
+function optionalText(raw: unknown, maxChars: number): string | undefined {
+  const text = toPlainText(raw, maxChars);
+  return text.length > 0 ? text : undefined;
+}
+
+// PostgREST returns a many-to-one embed as an object; tolerate a one-element array.
+function embeddedSourceName(embed: unknown): unknown {
+  const one = Array.isArray(embed) ? embed[0] : embed;
+  return one && typeof one === 'object' ? (one as { source_name?: unknown }).source_name : undefined;
 }
 
 function toIso(value: unknown): string | null {
@@ -156,32 +192,110 @@ export async function buildLatestBriefSection(sb: SupabaseClient): Promise<Lates
   };
 }
 
+// Rank order, most urgent first (PO decision): routine advice ranks above
+// unknown, because the state incident feeds send no severity and would
+// otherwise crowd every advice alert out of the list.
+const KNOWN_RANKS = ['emergency_warning', 'watch_and_act', 'advice'] as const;
+const SEVERITY_RANK: readonly AlertSeverity[] = ['emergency_warning', 'watch_and_act', 'advice', 'unknown'];
+const HEARTBEAT_EXCLUDED = 'emergency_alert_hourly_summary';
+// Feed domain_keys, taken from the scheduler job list (every emergency_alert_*
+// key except the hourly summary): an exact list, no wildcard.
+export const ALERT_FEED_DOMAIN_KEYS: readonly string[] = SCHEDULER_JOBS.map((job) => job.domainKey).filter(
+  (key) => key.startsWith('emergency_alert_') && key !== HEARTBEAT_EXCLUDED,
+);
+const ALERT_SELECT =
+  'id, headline, severity, issued_at, first_seen_at, jurisdiction, alert_type, status, expiry, updated_at_src, last_seen_at, alert_sources(source_name)';
+
+type AlertRow = Record<string, unknown>;
+
+/** Newest successful poll: newest checked_at among the latest heartbeat rows of
+ *  the feed sources (an exact domain_key list) whose latest status is ok. A
+ *  skipped or failed source does not count. The view has one row per
+ *  domain_key, so the list length bounds the rows. Any failure or no row gives
+ *  null; it never fails the alerts section. */
+async function newestSourceHeartbeat(sb: SupabaseClient): Promise<string | null> {
+  try {
+    const { data, error } = await sb
+      .from('domain_heartbeats_latest')
+      .select('domain_key, checked_at')
+      .in('domain_key', [...ALERT_FEED_DOMAIN_KEYS])
+      .eq('status', 'ok')
+      .order('checked_at', { ascending: false })
+      .limit(ALERT_FEED_DOMAIN_KEYS.length);
+    if (error) return null;
+    for (const row of data ?? []) {
+      // Literal re-check of the key, in case the filter ever changes shape.
+      if (typeof row.domain_key !== 'string' || !ALERT_FEED_DOMAIN_KEYS.includes(row.domain_key)) continue;
+      const iso = toIso(row.checked_at);
+      if (iso) return iso;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Alerts ranked by severity, then newest first (issued_at, else first_seen_at).
+ *  One query cannot give that order (PostgREST cannot order by coalesce), so the
+ *  bound is: per rank, one query for rows with issued_at (ordered by issued_at)
+ *  and one for rows without (ordered by first_seen_at), each capped at
+ *  SNAPSHOT_ALERT_LIMIT. That is 8 parallel queries and at most 160 rows in
+ *  memory. The last rank is "not one of the other three", so a stored severity
+ *  outside the known set is still selected and sent as unknown. An active,
+ *  unexpired emergency_warning is never displaced by a lower severity; with
+ *  more than 20 of them the newest 20 are sent. */
 export async function buildAlertsSection(sb: SupabaseClient, now: Date): Promise<AlertsSection> {
-  const { data, error } = await sb
-    .from('alerts')
-    .select('id, headline, severity, issued_at, first_seen_at')
-    .eq('is_active', true)
-    .or(`expiry.is.null,expiry.gt.${now.toISOString()}`)
-    .order('issued_at', { ascending: false, nullsFirst: false })
-    .limit(SNAPSHOT_ALERT_LIMIT);
-  if (error) throw error;
+  const notExpired = `expiry.is.null,expiry.gt.${now.toISOString()}`;
+  const page = (rank: AlertSeverity, dated: boolean) => {
+    const q = sb.from('alerts').select(ALERT_SELECT).eq('is_active', true).or(notExpired);
+    // severity is NOT NULL in the table, so "not in" cannot skip a null row.
+    const ranked = rank === 'unknown' ? q.not('severity', 'in', `(${KNOWN_RANKS.join(',')})`) : q.eq('severity', rank);
+    return (dated
+      ? ranked.not('issued_at', 'is', null).order('issued_at', { ascending: false })
+      : ranked.is('issued_at', null).order('first_seen_at', { ascending: false })
+    ).limit(SNAPSHOT_ALERT_LIMIT);
+  };
+  const [pages, polledAt] = await Promise.all([
+    Promise.all(SEVERITY_RANK.flatMap((sev) => [page(sev, true), page(sev, false)])),
+    newestSourceHeartbeat(sb),
+  ]);
+  const candidates: { row: AlertRow; rank: number; at: string }[] = [];
+  for (const res of pages) {
+    if (res.error) throw res.error;
+    for (const row of (res.data ?? []) as AlertRow[]) {
+      const at = toIso(row.issued_at) ?? toIso(row.first_seen_at);
+      if (!at) continue;
+      candidates.push({ row, rank: SEVERITY_RANK.indexOf(toSeverity(row.severity)), at });
+    }
+  }
+  candidates.sort((x, y) => x.rank - y.rank || (x.at < y.at ? 1 : x.at > y.at ? -1 : 0) || String(x.row.id).localeCompare(String(y.row.id)));
   const items: AlertItem[] = [];
   const seen = new Set<string>();
-  for (const row of data ?? []) {
-    const occurredAt = toIso(row.issued_at) ?? toIso(row.first_seen_at);
+  for (const { row, at: occurredAt } of candidates) {
+    if (items.length >= SNAPSHOT_ALERT_LIMIT) break;
     // An id over the cap is dropped, not truncated (truncation could collide);
     // a repeated id is dropped so ids are unique within a response.
-    if (!occurredAt || typeof row.id !== 'string' || row.id.length === 0) continue;
+    if (typeof row.id !== 'string' || row.id.length === 0) continue;
     if (row.id.length > MAX_ALERT_ID_CHARS || seen.has(row.id)) continue;
     seen.add(row.id);
-    items.push({
+    const item: AlertItem = {
       id: row.id,
       headline: toPlainText(row.headline, MAX_HEADLINE_CHARS),
       severity: toSeverity(row.severity),
       occurred_at: occurredAt,
-    });
+      alert_type: toEnum(row.alert_type, ALERT_TYPES, 'other'),
+      status: toEnum<AlertStatus>(row.status, ALERT_STATUSES, 'unknown'),
+      expires_at: toIso(row.expiry),
+    };
+    const jurisdiction = optionalText(row.jurisdiction, MAX_JURISDICTION_CHARS);
+    if (jurisdiction) item.jurisdiction = jurisdiction;
+    const updatedAt = toIso(row.updated_at_src) ?? toIso(row.last_seen_at);
+    if (updatedAt) item.updated_at = updatedAt;
+    const sourceName = optionalText(embeddedSourceName(row.alert_sources), MAX_SOURCE_NAME_CHARS);
+    if (sourceName) item.source_name = sourceName;
+    items.push(item);
   }
-  return { generated_at: now.toISOString(), items, error: null };
+  return { generated_at: now.toISOString(), last_polled_at: polledAt, items, error: null };
 }
 
 async function guarded<T>(section: string, work: () => Promise<T>): Promise<T | SectionUnavailable> {
