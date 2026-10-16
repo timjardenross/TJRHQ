@@ -10,6 +10,7 @@ Responses carry `Cache-Control: private, no-store`.
 | 200 | snapshot | Authenticated. Always 200 even if every section is unavailable. |
 | 401 | `{"error":"Unauthorized"}` | Missing, malformed, invalid or expired token. Refresh and retry once. |
 | 403 | `{"error":"Forbidden"}` | Not the Captain, or the feature is switched off (kill switch). Do not retry. |
+| 400 | `{"error":"invalid_request"}` | Authenticated request carrying any query string. The snapshot takes no parameters. An unauthenticated request with a query string still gets 401/403 first. |
 | 405 | `{"error":"Method not allowed"}` | Anything but GET. |
 | 429 | `{"error":"Too many requests"}` + `Retry-After: 60` | More than 30 requests a minute. |
 | 503 | `{"error":"Service unavailable"}` | Auth server or configuration unavailable. Keep the session; retry later. |
@@ -28,21 +29,24 @@ A section that failed is exactly `{"error":"unavailable"}` (no other keys, no de
 Timestamps are UTC ISO-8601 with milliseconds and a `Z` offset.
 
 ## Differences from the proposal (reasons)
-1. `hq_status.state` has a fourth value, `attention`. The HQ interpreter's most severe posture is ATTENTION ("a critical capability is unavailable"). Folding it into `degraded` would understate the worst case on the Captain's phone. Clients must treat unknown state strings as `unknown`.
+1. `hq_status.state` has a fourth value, `attention` (the allowed set is exactly `ok`, `degraded`, `attention`, `unknown`). The HQ interpreter's most severe posture is ATTENTION ("a critical capability is unavailable"). Folding it into `degraded` would understate the worst case on the Captain's phone. Clients must treat unknown state strings as `unknown`.
 2. `latest_brief.generated_at`, `brief_date` are `null` and `lines` is `[]` when no brief exists yet (distinct from an unavailable section).
 3. In `lines`, an empty string `""` marks a paragraph break (never first, last or repeated). Lines are plain text: render as text, never as HTML or Markdown. Text such as `<NRP>` is literal.
 4. Section `generated_at` meaning: `hq_status` is when the status was computed, `alerts` is when the query ran, `latest_brief` is when the brief itself was generated (use it to show staleness).
 
 ## Field notes
-- `hq_status.summary`: the Captain's Chair summary (headline plus capability impact sentences). Static interpreter text; carries no job output or error text.
-- `latest_brief`: newest `captains_daily_briefs` row of any type. Tags stripped first, then entities decoded. `health_snapshot` is never read. At most 200 lines of 1000 characters.
-- `alerts`: at most 20 active, unexpired rows, newest `issued_at` first (falls back to `first_seen_at`). `severity` is lower-cased source text (observed: `emergency_warning`, `watch_and_act`, `advice`, `unknown`); treat unknown values as informational. `headline` is plain text, 300 characters max. No description, raw text, coordinates, URLs or source details.
+- `hq_status.summary`: the Captain's Chair summary (headline plus capability impact sentences). Static interpreter text; carries no job output or error text. At most 400 characters.
+- `latest_brief`: newest `captains_daily_briefs` row of any type. Tags stripped first, then entities decoded. `health_snapshot` is never read. At most 40 lines (the first 40; a trailing paragraph break is dropped) of at most 500 characters each.
+- `alerts`: at most 20 active, unexpired rows, newest `issued_at` first (falls back to `first_seen_at`). `id` is at most 64 characters and unique within a response (a longer or repeated id drops that row). `severity` is exactly one of `emergency_warning`, `watch_and_act`, `advice`, `unknown`; any other stored value is sent as `unknown`. `headline` is plain text, 160 characters max. No description, raw text, coordinates, URLs or source details.
+- Caps are in UTF-16 code units; a cut never splits a surrogate pair and ends with `…`.
+- Total response cap: 64 KB (65,536 bytes of compact UTF-8 JSON). If the caps alone would exceed it (3-byte characters can), the server drops brief lines from the end, then alerts from the end, and as a last resort marks sections `{"error":"unavailable"}`. The pretty-printed fixture file `oversized.json` is slightly larger than 64 KB only because of indentation; its compact form is within the cap (a test checks this).
 - Never present: audit rows, mission lists, `created_by`, source `error_message`, job `lastAction` text, OSINT rows.
 
 ## Client rules
 - If `contract_version` is not `1.x`, do not parse; show "update the app" (fixture `unknown-version.json`).
 - Ignore unknown keys at every level (fixture `unknown-keys.json`).
 - Sections are independent; show what is available.
+- A section that matches neither its shape nor `{"error":"unavailable"}` (wrong type, `lines` not an array, an unknown `state`) is treated as unavailable; do not crash (fixture `malformed-section.json`).
 
 ## Fixtures
-`fixtures/tjr-life-snapshot-v1/`: `full`, `degraded`, `all-errored`, `unknown-version`, `unknown-keys` (.json). `full`, `degraded` and `all-errored` are generated by the real builder and checked byte-for-byte by the server tests. Copy them byte-for-byte; LF line endings, trailing newline.
+`fixtures/tjr-life-snapshot-v1/`, seven files plus `SHA256SUMS`: `full`, `degraded`, `all-errored`, `oversized`, `malformed-section`, `unknown-version`, `unknown-keys` (.json). `full`, `degraded`, `all-errored` and `oversized` are generated by the real builder and checked byte-for-byte by the server tests; the other three are hand-authored edge cases. Copy them byte-for-byte; LF line endings, trailing newline. `SHA256SUMS` is checked by a test (`sha256sum -c SHA256SUMS`).

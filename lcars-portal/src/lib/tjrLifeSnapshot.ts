@@ -19,10 +19,15 @@ import { parseBriefText } from '@/lib/briefText';
 export const SNAPSHOT_CONTRACT_VERSION = '1.0';
 export const SNAPSHOT_ALERT_LIMIT = 20;
 export const SNAPSHOT_SECTION_TIMEOUT_MS = 8000;
-const MAX_BRIEF_LINES = 200;
-const MAX_LINE_CHARS = 1000;
-const MAX_HEADLINE_CHARS = 300;
-const MAX_SUMMARY_CHARS = 500;
+// Approved allowlist caps (PO, R3 review). Lengths are UTF-16 code units.
+export const MAX_BRIEF_LINES = 40;
+export const MAX_LINE_CHARS = 500;
+export const MAX_HEADLINE_CHARS = 160;
+export const MAX_SUMMARY_CHARS = 400;
+export const MAX_ALERT_ID_CHARS = 64;
+export const MAX_RESPONSE_BYTES = 64 * 1024;
+export const ALERT_SEVERITIES = ['emergency_warning', 'watch_and_act', 'advice', 'unknown'] as const;
+export type AlertSeverity = (typeof ALERT_SEVERITIES)[number];
 
 export type SectionUnavailable = { error: 'unavailable' };
 export type HqState = 'ok' | 'degraded' | 'attention' | 'unknown';
@@ -42,7 +47,7 @@ export interface LatestBriefSection {
 export interface AlertItem {
   id: string;
   headline: string;
-  severity: string;
+  severity: AlertSeverity;
   occurred_at: string;
 }
 export interface AlertsSection {
@@ -77,7 +82,16 @@ export function toPlainText(raw: unknown, maxChars: number): string {
 export function tidy(text: string, maxChars: number): string {
   // eslint-disable-next-line no-control-regex
   const clean = text.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
-  return clean.length > maxChars ? `${clean.slice(0, maxChars - 1)}…` : clean;
+  if (clean.length <= maxChars) return clean;
+  let cut = clean.slice(0, maxChars - 1);
+  // Never end on half of a surrogate pair.
+  if (/[\ud800-\udbff]$/.test(cut)) cut = cut.slice(0, -1);
+  return `${cut}…`;
+}
+
+function toSeverity(raw: unknown): AlertSeverity {
+  const value = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  return (ALERT_SEVERITIES as readonly string[]).includes(value) ? (value as AlertSeverity) : 'unknown';
 }
 
 function toIso(value: unknown): string | null {
@@ -132,11 +146,12 @@ export async function buildLatestBriefSection(sb: SupabaseClient): Promise<Lates
     }
     lines.push(tidy(line.text, MAX_LINE_CHARS));
   }
+  lines.length = Math.min(lines.length, MAX_BRIEF_LINES);
   while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
   return {
     generated_at: toIso(row.generated_at),
     brief_date: typeof row.brief_date === 'string' ? row.brief_date.slice(0, 10) : null,
-    lines: lines.slice(0, MAX_BRIEF_LINES),
+    lines,
     error: null,
   };
 }
@@ -151,13 +166,18 @@ export async function buildAlertsSection(sb: SupabaseClient, now: Date): Promise
     .limit(SNAPSHOT_ALERT_LIMIT);
   if (error) throw error;
   const items: AlertItem[] = [];
+  const seen = new Set<string>();
   for (const row of data ?? []) {
     const occurredAt = toIso(row.issued_at) ?? toIso(row.first_seen_at);
-    if (!occurredAt || typeof row.id !== 'string') continue;
+    // An id over the cap is dropped, not truncated (truncation could collide);
+    // a repeated id is dropped so ids are unique within a response.
+    if (!occurredAt || typeof row.id !== 'string' || row.id.length === 0) continue;
+    if (row.id.length > MAX_ALERT_ID_CHARS || seen.has(row.id)) continue;
+    seen.add(row.id);
     items.push({
       id: row.id,
       headline: toPlainText(row.headline, MAX_HEADLINE_CHARS),
-      severity: toPlainText(row.severity, 40).toLowerCase() || 'unknown',
+      severity: toSeverity(row.severity),
       occurred_at: occurredAt,
     });
   }
@@ -184,11 +204,44 @@ export async function buildTjrLifeSnapshot(
     guarded('latest_brief', () => buildLatestBriefSection(sb)),
     guarded('alerts', () => buildAlertsSection(sb, now)),
   ]);
-  return {
+  return enforceSizeCap({
     contract_version: SNAPSHOT_CONTRACT_VERSION,
     generated_at: now.toISOString(),
     hq_status,
     latest_brief,
     alerts,
-  };
+  });
+}
+
+function sizeOf(snapshot: TjrLifeSnapshot): number {
+  return new TextEncoder().encode(JSON.stringify(snapshot)).length;
+}
+
+/** Total response cap. The per-field caps bound the normal case, but 3-byte
+ *  characters can still push a full snapshot past 64 KB. Shed content in a
+ *  fixed order, newest information last: brief lines from the end, then
+ *  alerts from the end, then (cannot happen with the caps, kept as a
+ *  guarantee) whole sections. */
+export function enforceSizeCap(snapshot: TjrLifeSnapshot): TjrLifeSnapshot {
+  const out: TjrLifeSnapshot = { ...snapshot };
+  if (sizeOf(out) <= MAX_RESPONSE_BYTES) return out;
+  if ('lines' in out.latest_brief) {
+    const brief = { ...out.latest_brief, lines: [...out.latest_brief.lines] };
+    out.latest_brief = brief;
+    while (brief.lines.length > 0 && sizeOf(out) > MAX_RESPONSE_BYTES) {
+      brief.lines.pop();
+      while (brief.lines.length > 0 && brief.lines[brief.lines.length - 1] === '') brief.lines.pop();
+    }
+  }
+  if ('items' in out.alerts) {
+    const alerts = { ...out.alerts, items: [...out.alerts.items] };
+    out.alerts = alerts;
+    while (alerts.items.length > 0 && sizeOf(out) > MAX_RESPONSE_BYTES) alerts.items.pop();
+  }
+  if (sizeOf(out) > MAX_RESPONSE_BYTES) {
+    out.latest_brief = UNAVAILABLE;
+    out.alerts = UNAVAILABLE;
+    out.hq_status = UNAVAILABLE;
+  }
+  return out;
 }
