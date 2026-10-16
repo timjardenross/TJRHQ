@@ -762,6 +762,18 @@ def _now_aest() -> datetime:
     return datetime.now(_AEST)
 
 
+def _clock_label(now: datetime) -> str:
+    """"HH:MM ZZZZ" in the zone the brief jobs are scheduled in (OR_INTEL_SCHEDULE_TZ, default
+    Australia/Melbourne), so the header shows AEDT in daylight saving and matches the clock the job
+    fired on. `_AEST` is Brisbane (no DST), so formatting `now` directly printed 06:00 AEST for a job
+    that ran at 07:00 AEDT. Dates and day windows still use `_AEST`; only the displayed label changes."""
+    try:
+        local = now.astimezone(ZoneInfo(os.getenv("OR_INTEL_SCHEDULE_TZ", "Australia/Melbourne")))
+        return local.strftime("%H:%M %Z")
+    except Exception:  # noqa: BLE001 - label only: no zoneinfo/tzdata -> the previous fixed label
+        return f"{now.strftime('%H:%M')} AEST"
+
+
 def _relative_age(timestamp: str | None) -> str:
     """Part 1 item 3 (2026-08-09 Telegram usefulness design): a coarse
     relative-age label ("today" / "3 days old" / "4 weeks old") for a
@@ -1103,7 +1115,7 @@ def generate_morning_brief() -> str:
 
     lines = [
         f"<b>☀️ MORNING BRIEF — {now.strftime('%A %d %B %Y')}</b>",
-        f"<i>Stardate {now.strftime('%Y.%j')} · {now.strftime('%H:%M')} AEST</i>",
+        f"<i>Stardate {now.strftime('%Y.%j')} · {_clock_label(now)}</i>",
         "",
     ]
 
@@ -1156,7 +1168,7 @@ def generate_morning_brief() -> str:
 def generate_midday_update(signals: list[dict]) -> str:
     now = _now_aest()
     lines = [
-        f"<b>🔔 MIDDAY UPDATE — {now.strftime('%H:%M')} AEST</b>",
+        f"<b>🔔 MIDDAY UPDATE — {_clock_label(now)}</b>",
         f"<i>{len(signals)} new signal(s) since morning brief</i>",
         "",
         "<b>📡 NEW SIGNALS</b>",
@@ -1187,7 +1199,7 @@ def generate_eod_summary() -> str:
 
     lines = [
         f"<b>🌙 END-OF-DAY SUMMARY — {now.strftime('%A %d %B')}</b>",
-        f"<i>{now.strftime('%H:%M')} AEST</i>",
+        f"<i>{_clock_label(now)}</i>",
         "",
     ]
 
@@ -1209,7 +1221,7 @@ def generate_knowledge_ops_brief() -> str:
 
     lines = [
         f"<b>📚 KNOWLEDGE PLATFORM — {now.strftime('%A %d %B')}</b>",
-        f"<i>{now.strftime('%H:%M')} AEST</i>",
+        f"<i>{_clock_label(now)}</i>",
         "",
     ]
 
