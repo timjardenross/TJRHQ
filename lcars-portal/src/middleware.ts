@@ -2,8 +2,10 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { PUBLIC_ROUTE_ALLOWLIST } from '@/lib/public-site';
 import {
+  INVALID_REQUEST,
   MOBILE_BEARER_READ_ROUTES,
   failureResponse,
+  hasQueryString,
   mobileReadJson,
   parseBearerToken,
   verifyCaptainBearer,
@@ -72,6 +74,10 @@ export async function middleware(request: NextRequest) {
     const verified = await verifyCaptainBearer(token);
     if (!verified.ok) {
       return failureResponse(verified);
+    }
+    // After auth: an unauthenticated caller still gets 401/403 first.
+    if (hasQueryString(request.url)) {
+      return failureResponse(INVALID_REQUEST);
     }
     return NextResponse.next({ request });
   }

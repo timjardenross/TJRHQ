@@ -196,6 +196,41 @@ describe('middleware bearer read path (TJR Life)', () => {
     expect(bearerGetUserMock).not.toHaveBeenCalled();
   });
 
+  // A bare "?" is dropped by NextRequest before middleware sees it (checked), so it is not testable here.
+  it.each(['?x=1', '?a=1&b=2', '?token=abc', '?='])('answers an authenticated request with query %j with JSON 400', async (query) => {
+    const response = await middleware(bearerRequest(`${SNAPSHOT}${query}`));
+    expect(response.status).toBe(400);
+    expect(await response.text()).toBe('{"error":"invalid_request"}');
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+  });
+
+  it('gives an unauthenticated request with a query string 401/403 first, never 400', async () => {
+    expect((await middleware(bearerRequest(`${SNAPSHOT}?x=1`, { authorization: null }))).status).toBe(401);
+    bearerGetUserMock.mockResolvedValue({ data: { user: { id: 'someone-else' } }, error: null });
+    expect((await middleware(bearerRequest(`${SNAPSHOT}?x=1`))).status).toBe(403);
+    bearerGetUserMock.mockResolvedValue({ data: { user: null }, error: { name: 'AuthApiError', status: 401, message: 'x' } });
+    expect((await middleware(bearerRequest(`${SNAPSHOT}?x=1`))).status).toBe(401);
+    process.env.MOBILE_BEARER_READ_ENABLED = 'false';
+    expect((await middleware(bearerRequest(`${SNAPSHOT}?x=1`))).status).toBe(403);
+  });
+
+  it('layer 1 alone fails closed: with the route bypassed, middleware still refuses every bad caller', async () => {
+    // No route handler is involved in this file, so each refusal below is the
+    // middleware layer by itself.
+    const cases: Array<[number, () => Promise<Response>]> = [
+      [401, () => middleware(bearerRequest(SNAPSHOT, { authorization: null }))],
+      [405, () => middleware(bearerRequest(SNAPSHOT, { method: 'POST' }))],
+      [400, () => middleware(bearerRequest(`${SNAPSHOT}?x=1`))],
+    ];
+    for (const [status, run] of cases) expect((await run()).status).toBe(status);
+    bearerGetUserMock.mockResolvedValue({ data: { user: { id: 'someone-else' } }, error: null });
+    expect((await middleware(bearerRequest(SNAPSHOT))).status).toBe(403);
+    bearerGetUserMock.mockRejectedValue(new Error('down'));
+    expect((await middleware(bearerRequest(SNAPSHOT))).status).toBe(503);
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    expect((await middleware(bearerRequest(SNAPSHOT))).status).toBe(503);
+  });
+
   it('never logs the token or the Authorization header', async () => {
     bearerGetUserMock.mockRejectedValueOnce(new Error(`failed for ${TOKEN}`));
     await middleware(bearerRequest(SNAPSHOT));

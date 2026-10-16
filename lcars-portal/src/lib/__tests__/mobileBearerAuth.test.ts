@@ -89,6 +89,44 @@ describe('requireCaptainRead', () => {
     expect(response.headers.get('cache-control')).toBe('private, no-store');
   });
 
+  it.each(['?', '?x=1', '?a=b&c=d'])('route layer: authenticated request with query %j gets 400 invalid_request', async (query) => {
+    const request = new Request(`https://example.test/api/integrations/tjr-life/v1/snapshot${query}`, {
+      headers: { authorization: `Bearer ${TOKEN}` },
+    });
+    const result = await requireCaptainRead(request);
+    expect(result).toMatchObject({ ok: false, status: 400, error: 'invalid_request' });
+    const response = failureResponse(result as Parameters<typeof failureResponse>[0]);
+    expect(await response.text()).toBe('{"error":"invalid_request"}');
+  });
+
+  it('route layer: unauthenticated request with a query string gets 401/403 first, never 400', async () => {
+    const withQuery = (authorization?: string) =>
+      new Request('https://example.test/api/integrations/tjr-life/v1/snapshot?x=1', {
+        headers: authorization ? { authorization } : {},
+      });
+    expect(await requireCaptainRead(withQuery())).toMatchObject({ status: 401 });
+    getUserMock.mockResolvedValue({ data: { user: { id: 'other' } }, error: null });
+    expect(await requireCaptainRead(withQuery(`Bearer ${TOKEN}`))).toMatchObject({ status: 403 });
+    process.env.MOBILE_BEARER_READ_ENABLED = 'false';
+    expect(await requireCaptainRead(withQuery(`Bearer ${TOKEN}`))).toMatchObject({ status: 403 });
+  });
+
+  it('layer 2 alone fails closed: with middleware bypassed, the route guard refuses every bad caller', async () => {
+    // These calls go straight to requireCaptainRead(), as a route mounted
+    // where middleware does not run would.
+    expect(await requireCaptainRead(req())).toMatchObject({ status: 401 });
+    getUserMock.mockResolvedValue({ data: { user: { id: 'other' } }, error: null });
+    expect(await requireCaptainRead(req(`Bearer ${TOKEN}`))).toMatchObject({ status: 403 });
+    getUserMock.mockRejectedValue(new Error('down'));
+    expect(await requireCaptainRead(req(`Bearer ${TOKEN}`))).toMatchObject({ status: 503 });
+    getUserMock.mockResolvedValue({ data: { user: { id: CAPTAIN_ID } }, error: null });
+    process.env.MOBILE_BEARER_READ_ENABLED = 'false';
+    expect(await requireCaptainRead(req(`Bearer ${TOKEN}`))).toMatchObject({ status: 403 });
+    process.env.MOBILE_BEARER_READ_ENABLED = 'true';
+    delete process.env.MOBILE_READ_CAPTAIN_USER_ID;
+    expect(await requireCaptainRead(req(`Bearer ${TOKEN}`))).toMatchObject({ status: 403 });
+  });
+
   it('does not leak the auth-server error text', async () => {
     getUserMock.mockResolvedValue({
       data: { user: null },
