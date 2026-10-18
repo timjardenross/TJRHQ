@@ -31,4 +31,11 @@ describe('reset-password heading brand (brand Stage 3), rendered', () => {
     expect(screen.queryByText(/endeavour 27/i)).toBeNull();
     expect(screen.getByRole('heading', { level: 1, name: 'Reset password' })).toBeInTheDocument();
   });
+
+  it('puts the whole page inside one main landmark (axe: landmark-one-main, region)', () => {
+    render(<ResetPasswordPage />);
+    const mains = screen.getAllByRole('main');
+    expect(mains).toHaveLength(1);
+    expect(mains[0].querySelector('h1')).not.toBeNull();
+  });
 });

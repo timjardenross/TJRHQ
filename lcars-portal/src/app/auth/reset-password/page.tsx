@@ -101,7 +101,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-wb-bg px-4 font-sans antialiased">
+    <main className="flex min-h-screen items-center justify-center bg-wb-bg px-4 font-sans antialiased">
       <div className="w-full max-w-md">
         <div className="mb-6 flex items-center gap-3">
           {/* TJR HQ identity (Stage 3), same heading treatment as login: light
@@ -190,6 +190,6 @@ export default function ResetPasswordPage() {
           )}
         </div>
       </div>
-    </div>
+    </main>
   );
 }

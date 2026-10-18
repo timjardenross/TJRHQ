@@ -24,6 +24,14 @@ describe('login page brand heading (brand Stage 2), rendered', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Command access' })).toBeInTheDocument();
   });
 
+  it('puts the whole page inside one main landmark (axe: landmark-one-main, region)', () => {
+    render(<LoginPage />);
+    const mains = screen.getAllByRole('main');
+    expect(mains).toHaveLength(1);
+    expect(mains[0].querySelector('form')).not.toBeNull();
+    expect(mains[0].querySelector('h1')).not.toBeNull();
+  });
+
   it('keeps the sign-in form: the mark did not displace the controls', () => {
     render(<LoginPage />);
     expect(document.querySelector('form')).not.toBeNull();
