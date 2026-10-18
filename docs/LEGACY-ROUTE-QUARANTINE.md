@@ -10,8 +10,9 @@ navigation architecture and must not receive new product capability.
   task-family directory at `/workbenches`.
 - A legacy route must either redirect to its canonical successor or render a
   clear “Compatibility route” notice with a link to the successor.
-- Legacy components (`LCARSHeader`, `LCARSNav`, `LCARSBottomNav`,
-  `LCARSPanel`, and `StatusBadge`) may support compatibility routes, but must
+- Legacy components (`LCARSPanel` and `StatusBadge`; the old `LCARSHeader`, `LCARSNav`
+  and `LCARSBottomNav` shell was removed in Stage C, 2026-10-18, and legacy routes now sit
+  in `WorkbenchShell` via `(app)/_components/LegacyFrame.tsx`) may support compatibility routes, but must
   not be imported into new workbench pages. `WorkbenchPanel` and
   `WorkbenchBadge` are the wb-native replacements purpose-built so
   `*-workbench` routes need never import anything LCARS-rooted (see

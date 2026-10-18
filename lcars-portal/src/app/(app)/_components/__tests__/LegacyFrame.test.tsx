@@ -10,8 +10,8 @@ vi.mock('next/link', () => ({
   default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a>,
 }));
 vi.mock('@/components/ui/WorkbenchShell', () => ({
-  WorkbenchShell: ({ children, title }: { children: React.ReactNode; title: string }) => (
-    <div data-testid="shell" data-title={title}>{children}</div>
+  WorkbenchShell: ({ children, title, quiet }: { children: React.ReactNode; title: string; quiet?: boolean }) => (
+    <div data-testid="shell" data-title={title} data-quiet={quiet ? 'true' : 'false'}>{children}</div>
   ),
 }));
 import { LegacyFrame, OWN_SHELL } from '../LegacyFrame';
@@ -21,10 +21,11 @@ describe('LegacyFrame', () => {
   beforeEach(() => { pathname = '/missions'; });
   afterEach(cleanup);
 
-  it('puts legacy routes in the workbench shell with the compatibility note', () => {
+  it('puts legacy routes in a quiet workbench shell, with no extra compatibility note', () => {
     render(<LegacyFrame><p>content</p></LegacyFrame>);
-    expect(screen.getByTestId('shell')).toBeTruthy();
-    expect(screen.getByRole('note').getAttribute('data-route-family')).toBe('legacy-compatibility');
+    const shell = screen.getByTestId('shell');
+    expect(shell.getAttribute('data-quiet')).toBe('true');
+    expect(screen.queryByRole('note')).toBeNull();
     expect(screen.getByText('content')).toBeTruthy();
   });
 

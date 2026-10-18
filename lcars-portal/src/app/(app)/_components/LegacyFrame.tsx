@@ -14,18 +14,12 @@ export function LegacyFrame({ children }: { children: ReactNode }) {
   return (
     <WorkbenchShell
       title="TJR HQ"
-      eyebrow="Compatibility route"
+      eyebrow="Moved or retired page"
       tagline="TJR HQ · retained for bookmarks — use the linked workbench for current workflows"
       mode="command"
+      quiet
       wide
     >
-      <aside
-        data-route-family="legacy-compatibility"
-        className="mb-4 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-wb-label text-wb-ink2"
-        role="note"
-      >
-        Compatibility route: this older command-centre surface is retained for bookmarks only. Use the linked workbench destination for current workflows.
-      </aside>
       {children}
     </WorkbenchShell>
   );

@@ -42,28 +42,28 @@ function InvestigatePageInner() {
   }, [type, reason, originRef]);
 
   return (
-    <main className="min-h-screen flex justify-center bg-[#0B1017] text-[#E8EDF2]">
+    <main data-wb-mode="dark" className="wb-mode-dark min-h-screen flex justify-center bg-wb-bg text-wb-ink">
       <div className="w-full max-w-[620px] px-7 pt-10 pb-14 flex flex-col min-h-screen">
         <Link
           href="/workbenches"
-          className="text-sm text-[#5A6875] hover:text-[#93A1B0] mb-8 inline-flex items-center gap-1.5 w-fit"
+          className="text-sm text-wb-ink2 hover:text-wb-ink mb-8 inline-flex items-center gap-1.5 w-fit"
         >
           ← Workbenches
         </Link>
 
         {result === 'loading' && (
-          <p className="text-[#5A6875] text-wb-lead">Running the investigation…</p>
+          <p className="text-wb-ink2 text-wb-lead">Running the investigation…</p>
         )}
 
         {result === 'missing-params' && (
-          <p className="text-[#93A1B0] text-wb-lead leading-relaxed">
+          <p className="text-wb-ink2 text-wb-lead leading-relaxed">
             This page needs a specific starting point — there&rsquo;s nothing to browse here.
             Reach it from a link on Home or Recommended.
           </p>
         )}
 
         {result === null && (
-          <p className="text-[#93A1B0] text-wb-lead leading-relaxed">
+          <p className="text-wb-ink2 text-wb-lead leading-relaxed">
             Couldn&rsquo;t run this investigation just now. Try again from where you linked in.
           </p>
         )}
@@ -71,42 +71,39 @@ function InvestigatePageInner() {
         {result && result !== 'loading' && result !== 'missing-params' && (
           <div className="flex flex-col gap-6">
             <div>
-              <span className="inline-block text-wb-label uppercase tracking-[0.14em] text-[#5A6875] border border-[rgba(147,161,176,0.25)] rounded-full px-2.5 py-1 mb-4">
+              <span className="inline-block text-wb-label uppercase tracking-[0.14em] text-wb-ink2 border border-wb-line rounded-full px-2.5 py-1 mb-4">
                 {result.label} · {result.owner}
               </span>
-              <p className="text-wb-lead text-[#93A1B0] leading-relaxed">{result.triggerDescription}</p>
+              <p className="text-wb-lead text-wb-ink2 leading-relaxed">{result.triggerDescription}</p>
             </div>
 
             {!result.validation?.ok && (
-              <div
-                className="py-5"
-                style={{ borderTop: '1px solid rgba(147,161,176,0.14)' }}
-              >
-                <p className="text-wb-body uppercase tracking-[0.12em] text-[#5A6875] mb-2">
+              <div className="border-t border-wb-line py-5">
+                <p className="text-wb-body uppercase tracking-[0.12em] text-wb-ink2 mb-2">
                   Blocked before any decision was offered
                 </p>
-                <p className="text-wb-lead text-[#E8EDF2] leading-relaxed">
+                <p className="text-wb-lead text-wb-ink leading-relaxed">
                   {result.validation?.problems.join(' ') ?? 'Evidence could not be validated.'}
                 </p>
               </div>
             )}
 
             {result.validation?.ok && result.decisionOptions.length > 0 && (
-              <div className="py-5" style={{ borderTop: '1px solid rgba(147,161,176,0.14)' }}>
-                <p className="text-wb-body uppercase tracking-[0.12em] text-[#5A6875] mb-3">
+              <div className="border-t border-wb-line py-5">
+                <p className="text-wb-body uppercase tracking-[0.12em] text-wb-ink2 mb-3">
                   What the evidence shows
                 </p>
                 <ul className="flex flex-col gap-4">
                   {result.decisionOptions.map((opt) => (
-                    <li key={opt.id} className="text-wb-lead text-[#E8EDF2] leading-relaxed">
+                    <li key={opt.id} className="text-wb-lead text-wb-ink leading-relaxed">
                       {opt.label}
                       {!opt.isReversible && (
-                        <span className="block text-wb-label text-[#D8A65A] mt-1">Not reversible</span>
+                        <span className="block text-wb-label text-wb-warn-on mt-1">Not reversible</span>
                       )}
                     </li>
                   ))}
                 </ul>
-                <p className="text-wb-label text-[#5A6875] mt-4">
+                <p className="text-wb-label text-wb-ink2 mt-4">
                   This is evidence, not an action — nothing here changes anything. A decision with
                   real effect goes through Decide.
                 </p>
@@ -117,19 +114,19 @@ function InvestigatePageInner() {
                     advisory-workbench/_components/ThinkView.tsx's EvidencePanel. */}
                 <Link
                   href={`/advisory-workbench?domain=think&investigationType=${encodeURIComponent(type ?? '')}&investigationReason=${encodeURIComponent(result.triggerDescription)}`}
-                  className="inline-block mt-3 text-wb-label text-[#5A6875] hover:text-[#93A1B0] underline underline-offset-2"
+                  className="inline-block mt-3 text-wb-label text-wb-ink2 hover:text-wb-ink underline underline-offset-2"
                 >
                   Think this through in Advisory
                 </Link>
               </div>
             )}
 
-            <details className="text-wb-label text-[#5A6875]">
-              <summary className="cursor-pointer hover:text-[#93A1B0]">Audit trail</summary>
+            <details className="text-wb-label text-wb-ink2">
+              <summary className="cursor-pointer hover:text-wb-ink">Audit trail</summary>
               <ul className="mt-3 flex flex-col gap-2">
                 {result.audit.map((entry, i) => (
                   <li key={i}>
-                    <span className="text-[#93A1B0]">{entry.stage}</span>: {entry.summary}
+                    <span className="text-wb-ink2">{entry.stage}</span>: {entry.summary}
                   </li>
                 ))}
               </ul>
