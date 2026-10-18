@@ -47,7 +47,7 @@ export function SystemStatus({ data, loading, error }: { data: HqStatusSummary |
         <div className="flex flex-wrap items-center gap-2"><OperationalStateBadge state="attention" /><p className={`text-sm font-semibold ${stateToneClasses('crit').text}`}>HQ NEEDS YOU</p></div>
         <p className="mt-1 text-sm text-wb-ink2">{data.summary}</p>
         <EvidenceMeta source="Agent status overview" observedAt={data.observedAt} />
-        <Link href="/agent-status-workbench" className="mt-2 inline-block text-[11px] text-wb-sage-deep hover:underline">Review →</Link>
+        <Link href="/agent-status-workbench" className="mt-2 inline-block text-[12px] text-wb-sage-deep hover:underline">Review →</Link>
       </WorkbenchPanel>
     );
   }

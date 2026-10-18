@@ -66,7 +66,7 @@ export function ItemRow({
             {item.currency} {item.cost.toFixed(2)}
           </span>
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-wb-ink2">
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-wb-ink2">
           {item.vendor && <span>{item.vendor}</span>}
           <span>{item.category}</span>
           {item.recipient && <span>For: {item.recipient}</span>}

@@ -107,7 +107,7 @@ function Workbench() {
       <div className="focus-reference-surface">
         <div className="focus-reference-kicker">Focus mode · one next action</div>
         {domain === 'do' && Object.keys(taskStates).length > 0 && (
-          <div aria-label="Task state summary" className="mb-4 flex flex-wrap gap-2 text-[11px]">
+          <div aria-label="Task state summary" className="mb-4 flex flex-wrap gap-2 text-[12px]">
             {(['captured', 'in_progress', 'blocked', 'paused', 'completed'] as const).filter((state) => taskStates[state]).map((state) => (
               <span key={state} className="rounded-full border border-wb-line bg-wb-surface px-2.5 py-1 text-wb-ink2"><strong className="text-wb-ink">{taskStates[state]}</strong> {state.replace('_', ' ')}</span>
             ))}
@@ -122,8 +122,8 @@ function Workbench() {
         />}
         {domain === 'do' && analytics && (
           <section aria-labelledby="ready-room-analytics" className="mb-4 rounded-lg border border-wb-line bg-wb-surface p-3">
-            <h2 id="ready-room-analytics" className="text-[11px] font-bold uppercase tracking-[0.16em] text-wb-ink2">Task flow signals</h2>
-            <p className="mt-1 text-[11px] text-wb-ink2">Observed from task records; these indicate friction, not why it happened.</p>
+            <h2 id="ready-room-analytics" className="text-[12px] font-bold uppercase tracking-[0.16em] text-wb-ink2">Task flow signals</h2>
+            <p className="mt-1 text-[12px] text-wb-ink2">Observed from task records; these indicate friction, not why it happened.</p>
             <div className="mt-2 grid grid-cols-2 gap-2 text-xs sm:grid-cols-5">
               <span><strong>{analytics.frictionPoints}</strong> friction points</span>
               <span><strong>{analytics.abandoned}</strong> abandoned</span>

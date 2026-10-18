@@ -105,7 +105,7 @@ export function TopicDetail({ topicKey, onBack }: { topicKey: string; onBack: ()
           <div><div className="text-lg font-semibold text-wb-ink">{data.composition.low}</div>Emerging</div>
           <div><div className="text-lg font-semibold text-wb-ink">{data.composition.unknown}</div>Unclear</div>
         </div>
-        <p className="mt-2 text-[11px] text-wb-ink2">{total} sources considered in this topic over the last year.</p>
+        <p className="mt-2 text-[12px] text-wb-ink2">{total} sources considered in this topic over the last year.</p>
       </Card>
 
       {(data.supports.length > 0 || data.challenges.length > 0) && (
@@ -148,7 +148,7 @@ export function TopicDetail({ topicKey, onBack }: { topicKey: string; onBack: ()
         <div className="mt-3 space-y-2">{data.recent_items.map((i) => (<ItemRow key={i.signal_id} item={i} />))}</div>
       </details>
 
-      <p className="max-w-[70ch] text-[11px] italic text-wb-ink2">
+      <p className="max-w-[70ch] text-[12px] italic text-wb-ink2">
         {data.gaps.evidence_contribution_coverage} {data.gaps.history_over_time}
       </p>
     </div>

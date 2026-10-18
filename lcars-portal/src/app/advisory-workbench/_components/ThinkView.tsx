@@ -134,7 +134,7 @@ export function ThinkView({
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'advisory-export.md'; a.click();
   };
 
-  const actionBtn = 'rounded-md border border-wb-line px-3 py-1 text-[10px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
+  const actionBtn = 'rounded-md border border-wb-line px-3 py-1 text-[12px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
 
   return (
     <div className="space-y-5">
@@ -156,7 +156,7 @@ export function ThinkView({
         <div className="flex items-center justify-center gap-3 py-4">
           <Dots />
           <span className="text-sm text-wb-ink2">Routing to specialists…</span>
-          <span className="font-mono text-[10px] text-wb-ink2">{elapsed}s</span>
+          <span className="font-mono text-[12px] text-wb-ink2">{elapsed}s</span>
         </div>
       )}
       {error && (
@@ -173,7 +173,7 @@ export function ThinkView({
           <div className="flex flex-wrap gap-2">
             {REASONING_LENSES.map((l) => (
               <button key={l.key} onClick={() => applyLens(l.key)}
-                className="rounded-md border border-wb-line px-3 py-1.5 text-[11px] uppercase tracking-wider text-wb-ink2 transition-colors hover:border-wb-sage-deep/50 hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
+                className="rounded-md border border-wb-line px-3 py-1.5 text-[12px] uppercase tracking-wider text-wb-ink2 transition-colors hover:border-wb-sage-deep/50 hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
                 {l.label}
               </button>
             ))}
@@ -181,12 +181,12 @@ export function ThinkView({
 
           {openGroup === 'Challenge' && (
             <div className="space-y-1.5 rounded-md border border-wb-crit/30 bg-wb-crit/5 px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-wb-crit-on">Challenge</p>
+              <p className="text-[12px] font-semibold uppercase tracking-[0.15em] text-wb-crit-on">Challenge</p>
               {challengeLoading ? (
                 <div className="flex items-center gap-2 py-1"><Dots size="sm" /><span className="text-xs text-wb-ink2">Running the adversarial review…</span></div>
               ) : challenge ? (
                 <>
-                  {challenge.reviewer && <p className="text-[10px] text-wb-ink2">Reviewed by {challenge.reviewer}</p>}
+                  {challenge.reviewer && <p className="text-[12px] text-wb-ink2">Reviewed by {challenge.reviewer}</p>}
                   <p className="text-sm leading-relaxed text-wb-ink/85">{challenge.disagreement || 'No material disagreement was raised on review.'}</p>
                 </>
               ) : (
@@ -197,7 +197,7 @@ export function ThinkView({
 
           <div>
             <button onClick={() => setShowPullApart((v) => !v)}
-              className="text-[11px] font-semibold uppercase tracking-[0.15em] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
+              className="text-[12px] font-semibold uppercase tracking-[0.15em] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
               {showPullApart ? '▲ Hide' : '▼'} Pull apart the reasoning
             </button>
             {showPullApart && (
@@ -211,7 +211,7 @@ export function ThinkView({
 
       <div className="mx-auto max-w-xl space-y-3 border-t border-wb-line pt-4">
         <button onClick={() => setShowAdvanced((v) => !v)}
-          className="text-[11px] uppercase tracking-[0.15em] text-wb-ink2 hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
+          className="text-[12px] uppercase tracking-[0.15em] text-wb-ink2 hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
           {showAdvanced ? '▲ Hide' : '▼'} Advanced — talk to an advisor directly
         </button>
         {showAdvanced && (
@@ -224,7 +224,7 @@ export function ThinkView({
       {log.length > 0 && (
         <div className="mx-auto max-w-xl space-y-2 border-t border-wb-line pt-4">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Recent</span>
+            <span className="text-[12px] uppercase tracking-[0.15em] text-wb-ink2">Recent</span>
             <div className="flex gap-2">
               <button onClick={() => setShowLog((v) => !v)} className={actionBtn}>{showLog ? 'Hide' : `View (${log.length})`}</button>
               <button onClick={exportLog} className={actionBtn}>Export ↓</button>
@@ -236,10 +236,10 @@ export function ThinkView({
                 <div key={s.id} className="flex items-start justify-between gap-2 border-b border-wb-line pb-2 last:border-0">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs text-wb-ink/80">{s.question}</p>
-                    <p className="text-[10px] text-wb-ink2">{new Date(s.ts).toLocaleString()}</p>
+                    <p className="text-[12px] text-wb-ink2">{new Date(s.ts).toLocaleString()}</p>
                   </div>
                   <button onClick={() => { setSummary(s.result); setInput(s.question); setShowLog(false); setShowPullApart(false); setOpenGroup(null); setChallenge(null); }}
-                    className="shrink-0 text-[9px] uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">View</button>
+                    className="shrink-0 text-[12px] uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">View</button>
                 </div>
               ))}
             </div>

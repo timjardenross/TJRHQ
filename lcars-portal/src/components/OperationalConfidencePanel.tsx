@@ -12,6 +12,6 @@ export function OperationalConfidencePanel({ confidence }: { confidence: Operati
       <p className={`rounded border px-2 py-1 text-[13px] font-semibold ${tone}`} aria-label={label}>{label}</p>
     </div>
     <ul className="mt-3 space-y-1 text-[12px] text-wb-ink2">{confidence.reasons.map((reason) => <li key={reason}>• {reason}</li>)}</ul>
-    <p className="mt-2 text-[11px] text-wb-ink2">Assessed {confidence.assessedSources} of {confidence.totalSources} sources. This score is a decision aid, not a replacement for source detail.</p>
+    <p className="mt-2 text-[12px] text-wb-ink2">Assessed {confidence.assessedSources} of {confidence.totalSources} sources. This score is a decision aid, not a replacement for source detail.</p>
   </Card>;
 }

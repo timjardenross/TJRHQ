@@ -14,9 +14,9 @@ export function WatchNextWeek({ items }: { items: WatchItem[] }) {
       <div className="grid gap-3 sm:grid-cols-3">
         {items.map((item) => (
           <div key={item.key} className="rounded-md border border-wb-line bg-wb-bg px-3 py-2">
-            <div className="text-[11px] uppercase tracking-[0.08em] text-wb-ink2">{item.label}</div>
+            <div className="text-[12px] uppercase tracking-[0.08em] text-wb-ink2">{item.label}</div>
             <p className="mt-0.5 text-[12px] text-wb-ink">{item.detail}</p>
-            {!item.available && <p className="mt-1 text-[10px] uppercase tracking-[0.06em] text-wb-ink2">Not yet computable</p>}
+            {!item.available && <p className="mt-1 text-[12px] uppercase tracking-[0.06em] text-wb-ink2">Not yet computable</p>}
           </div>
         ))}
       </div>

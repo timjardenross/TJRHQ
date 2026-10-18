@@ -120,7 +120,7 @@ function Workbench() {
   });
 
   const right = (
-    <span className="hidden text-[11px] text-wb-ink2 sm:inline">
+    <span className="hidden text-[12px] text-wb-ink2 sm:inline">
       {live ? '● Live' : lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}` : ''}
     </span>
   );

@@ -79,7 +79,7 @@ function Workbench() {
       mode="command"
     >
       <div className="mb-4 rounded-lg border-2 border-wb-sage-deep/40 bg-wb-sage/10 p-4">
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-wb-sage-deep">Your decision</p>
+        <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-wb-sage-deep">Your decision</p>
         <p className="mt-1 text-sm font-semibold text-wb-ink">
           {domain === 'think' ? 'What decision, problem, or question needs clarity?' : domain === 'perspectives' ? 'Which options or viewpoints do you want to compare?' : 'What happened after the decision, and what should HQ learn?'}
         </p>

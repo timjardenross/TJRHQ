@@ -110,7 +110,7 @@ function WorkbenchesContent() {
                           <a key={group} href={`/workbenches?group=${group}`} className="rounded-xl border border-wb-line bg-wb-surface p-5 transition hover:border-wb-sage-deep/60 hover:bg-wb-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                             <h3 className="font-serif text-lg text-wb-ink">{meta.label}</h3>
                             <p className="mt-1 text-[12px] leading-relaxed text-wb-ink2">{meta.hint}</p>
-                            <p className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-wb-sage-deep">{count} workbenches →</p>
+                            <p className="mt-3 text-[12px] font-semibold uppercase tracking-wider text-wb-sage-deep">{count} workbenches →</p>
                           </a>
                         );
                       })}

@@ -24,7 +24,7 @@ export function PriorWeekNote({ data }: { data: PriorWeekContext }) {
       {data.reflection && (
         <p className="text-[13px] italic text-wb-ink2">&ldquo;{data.reflection}&rdquo;</p>
       )}
-      <p className="mt-2 text-[11px] text-wb-ink2">
+      <p className="mt-2 text-[12px] text-wb-ink2">
         This week&apos;s synthesis below uses today&apos;s own evidence — a plan made last week doesn&apos;t override it.
       </p>
     </Card>

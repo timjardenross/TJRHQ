@@ -37,7 +37,7 @@ function NeedsYouRow({ item }: { item: NeedsYouItem }) {
     : null;
   return (
     <li className={`rounded-lg border ${c.border} ${c.bg} p-3`}>
-      <p className={`text-[10px] font-semibold uppercase tracking-wider ${c.text}`}>{KIND_LABEL[item.kind]}</p>
+      <p className={`text-[12px] font-semibold uppercase tracking-wider ${c.text}`}>{KIND_LABEL[item.kind]}</p>
       <p className="mt-0.5 text-sm font-semibold text-wb-ink">{item.title}</p>
       <p className="mt-0.5 text-xs text-wb-ink2">{item.detail}</p>
       {/* Mission 7 §22/§30: matches Hub's own Needs You action treatment
@@ -47,7 +47,7 @@ function NeedsYouRow({ item }: { item: NeedsYouItem }) {
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <Link
           href={contextualHref}
-          className="inline-block rounded-md bg-wb-sage-deep px-2.5 py-1 text-[11px] font-semibold text-white hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          className="inline-block rounded-md bg-wb-sage-deep px-2.5 py-1 text-[12px] font-semibold text-white hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         >
           {item.actionLabel}
         </Link>
@@ -57,7 +57,7 @@ function NeedsYouRow({ item }: { item: NeedsYouItem }) {
         {contextualHelpHref && (
           <Link
             href={contextualHelpHref}
-            className="inline-block rounded-md border border-wb-line px-2.5 py-1 text-[11px] font-semibold text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+            className="inline-block rounded-md border border-wb-line px-2.5 py-1 text-[12px] font-semibold text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           >
             Help me start
           </Link>
@@ -86,7 +86,7 @@ export function NeedsYou({ items, loading, errors }: { items: NeedsYouItem[]; lo
         </ul>
       )}
       {errors.length > 0 && (
-        <p className="mt-3 text-[10px] text-wb-ink2">Unavailable right now: {errors.join(', ')}.</p>
+        <p className="mt-3 text-[12px] text-wb-ink2">Unavailable right now: {errors.join(', ')}.</p>
       )}
     </WorkbenchPanel>
   );

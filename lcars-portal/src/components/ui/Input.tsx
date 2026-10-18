@@ -14,7 +14,7 @@ function FieldWrapper({ id, label, hint, children }: { id: string; label?: strin
         </label>
       )}
       {children}
-      {hint && <span className="text-[11px] text-wb-ink2">{hint}</span>}
+      {hint && <span className="text-[12px] text-wb-ink2">{hint}</span>}
     </div>
   );
 }

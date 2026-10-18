@@ -204,16 +204,16 @@ export function MemoryView() {
                   <Card key={r.id} className="border-wb-line bg-wb-bg/30 p-3 flex flex-col gap-1">
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-sm font-serif text-wb-ink">{r.decision_title}</span>
-                      <span className="text-[11px] text-wb-ink2 shrink-0">{relativeTime(r.created_at)}</span>
+                      <span className="text-[12px] text-wb-ink2 shrink-0">{relativeTime(r.created_at)}</span>
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
                       {r.route && (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                        <span className="text-[12px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                           {r.route}
                         </span>
                       )}
                       {r.source && (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                        <span className="text-[12px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                           {r.source}
                         </span>
                       )}
@@ -237,16 +237,16 @@ export function MemoryView() {
                   <Card key={r.id} className="border-wb-line bg-wb-bg/30 p-3 flex flex-col gap-1">
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-sm font-serif text-wb-ink">{r.title}</span>
-                      <span className="text-[11px] text-wb-ink2 shrink-0">{relativeTime(r.created_at)}</span>
+                      <span className="text-[12px] text-wb-ink2 shrink-0">{relativeTime(r.created_at)}</span>
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
                       {r.source && (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                        <span className="text-[12px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                           {r.source}
                         </span>
                       )}
                       {r.mission_id && (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                        <span className="text-[12px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                           {r.mission_id}
                         </span>
                       )}
@@ -276,19 +276,19 @@ export function MemoryView() {
                       <Card key={`d-${rec.id}`} className="border-wb-line bg-wb-bg/30 p-3 flex flex-col gap-1">
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-sm font-serif text-wb-ink">{rec.decision_title}</span>
-                          <span className="text-[11px] text-wb-ink2 shrink-0">{relativeTime(rec.created_at)}</span>
+                          <span className="text-[12px] text-wb-ink2 shrink-0">{relativeTime(rec.created_at)}</span>
                         </div>
                         <div className="flex gap-1.5 flex-wrap">
-                          <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                          <span className="text-[12px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                             Decision
                           </span>
                           {rec.route && (
-                            <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                            <span className="text-[12px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                               {rec.route}
                             </span>
                           )}
                           {rec.source && (
-                            <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                            <span className="text-[12px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                               {rec.source}
                             </span>
                           )}
@@ -305,19 +305,19 @@ export function MemoryView() {
                     <Card key={`l-${rec.id}`} className="border-wb-line bg-wb-bg/30 p-3 flex flex-col gap-1">
                       <div className="flex items-start justify-between gap-2">
                         <span className="text-sm font-serif text-wb-ink">{rec.title}</span>
-                        <span className="text-[11px] text-wb-ink2 shrink-0">{relativeTime(rec.created_at)}</span>
+                        <span className="text-[12px] text-wb-ink2 shrink-0">{relativeTime(rec.created_at)}</span>
                       </div>
                       <div className="flex gap-1.5 flex-wrap">
-                        <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                        <span className="text-[12px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                           Lesson
                         </span>
                         {rec.source && (
-                          <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                          <span className="text-[12px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                             {rec.source}
                           </span>
                         )}
                         {rec.mission_id && (
-                          <span className="text-[11px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+                          <span className="text-[12px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
                             {rec.mission_id}
                           </span>
                         )}

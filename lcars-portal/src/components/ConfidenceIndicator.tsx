@@ -32,7 +32,7 @@ export function ConfidenceIndicator({ score, label, compact = false }: Confidenc
 
   const badge = (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${c.text} ${c.border} ${c.bg}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-wider ${c.text} ${c.border} ${c.bg}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
       {valueText}
@@ -53,7 +53,7 @@ export function ConfidenceIndicator({ score, label, compact = false }: Confidenc
   return (
     <div className="flex w-full flex-col gap-1.5">
       <div className={`flex items-center gap-3 ${label ? 'justify-between' : 'justify-end'}`}>
-        {label && <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{label}</p>}
+        {label && <p className="text-[12px] uppercase tracking-wider text-wb-ink2">{label}</p>}
         {badge}
       </div>
       <div className="h-3 rounded-full bg-edge/30 overflow-hidden">

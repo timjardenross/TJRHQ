@@ -336,7 +336,7 @@ export default function HqEvolutionPage() {
             <h2 className="font-serif text-lg text-wb-ink">Evolution lifecycle</h2>
             <p className="text-xs text-wb-ink2">Every opportunity has one explicit state from discovery through learning or rejection.</p>
           </div>
-          <span className="text-[11px] text-wb-ink2">{opportunities.length} total</span>
+          <span className="text-[12px] text-wb-ink2">{opportunities.length} total</span>
         </div>
         <ol aria-label="HQ Evolution lifecycle states" className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:grid-cols-10">
           {LIFECYCLE_STAGES.map(({ key, label }) => (

@@ -64,7 +64,7 @@ export function AiAutomationSection() {
             nothing" principle this section's own header comment already
             applies to the Advanced model-routing fields below, just not yet
             applied here. Honest caveat until a real gate is wired to them. */}
-        <p className="mt-2 text-[11px] text-wb-ink2/70">
+        <p className="mt-2 text-[12px] text-wb-ink2/70">
           These 5 are recorded but not yet wired to any live gate — toggling them changes nothing today.
         </p>
       </div>

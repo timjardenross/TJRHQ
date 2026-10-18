@@ -132,11 +132,11 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
     <div className="flex flex-wrap items-center gap-1.5">
       <RankBadge score={item.rank_score} />
       {item.pillar && (
-        <span className="rounded-full bg-wb-line px-2 py-0.5 text-[10.5px] font-medium text-wb-ink2">
+        <span className="rounded-full bg-wb-line px-2 py-0.5 text-[12px] font-medium text-wb-ink2">
           {PILLAR_LABEL[item.pillar] ?? item.pillar}
         </span>
       )}
-      {item.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-[10.5px] font-semibold text-wb-warn-on">★ Priority</span>}
+      {item.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-[12px] font-semibold text-wb-warn-on">★ Priority</span>}
       {item.sensitive && <Badge status="error">! Sensitive</Badge>}
     </div>
   );
@@ -155,7 +155,7 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
             <p className="break-words text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>
           </button>
         </div>
-        <p className="border-t border-wb-line/70 px-3 py-1.5 text-[10px] text-wb-ink2">
+        <p className="border-t border-wb-line/70 px-3 py-1.5 text-[12px] text-wb-ink2">
           Created {item.created_at.slice(0, 10)}
           {item.source_kind && ` · ${item.source_kind.replace(/_/g, ' ')}`}
         </p>
@@ -164,7 +164,7 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
       <Modal open={open} onClose={() => { setOpen(false); cancelDiscard(); }} title={item.title} variant="preview">
         <div className="mb-4 space-y-2">
           {chipRow}
-          <p className="text-[11px] uppercase tracking-wide text-wb-ink2">{STAGE_LABEL[item.stage]}</p>
+          <p className="text-[12px] uppercase tracking-wide text-wb-ink2">{STAGE_LABEL[item.stage]}</p>
         </div>
 
         {item.stage === 'capture' && <CaptureStageBody item={item} onChanged={onChanged} />}
@@ -211,13 +211,13 @@ function Column({ stage, items, onChanged }: { stage: Stage; items: ContentItem[
       <div className={`h-1 rounded-full ${accent.bar}`} aria-hidden />
       <div className="flex items-center gap-1.5 px-1 py-1">
         <span aria-hidden className="text-[12px]">{accent.icon}</span>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-wb-ink">{STAGE_LABEL[stage]}</p>
-        <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${accent.chip}`}>{items.length}</span>
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-wb-ink">{STAGE_LABEL[stage]}</p>
+        <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[12px] font-semibold ${accent.chip}`}>{items.length}</span>
       </div>
-      <p className="px-1 text-[9.5px] italic leading-tight text-wb-ink2">{STAGE_HINT[stage]}</p>
+      <p className="px-1 text-[12px] italic leading-tight text-wb-ink2">{STAGE_HINT[stage]}</p>
       <div className="flex flex-col gap-2" role="list" aria-label={`Items in ${STAGE_LABEL[stage]}`}>
         {items.map((item) => (<ItemCard key={item.id} item={item} onChanged={onChanged} />))}
-        {items.length === 0 && <p className="py-4 text-center text-[10px] text-wb-ink2">Empty</p>}
+        {items.length === 0 && <p className="py-4 text-center text-[12px] text-wb-ink2">Empty</p>}
       </div>
     </div>
   );
@@ -245,10 +245,10 @@ function PipelineOverview({
         const isActive = onSelectStage && activeStage === stage;
         const chip = (
           <div className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5 ${isActive ? 'bg-wb-line' : ''}`}>
-            <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold text-white ${accent.bar}`} aria-hidden>
+            <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[12px] font-semibold text-white ${accent.bar}`} aria-hidden>
               {counts[stage]}
             </span>
-            <span className="text-[11px] font-medium text-wb-ink2">{STAGE_LABEL[stage]}</span>
+            <span className="text-[12px] font-medium text-wb-ink2">{STAGE_LABEL[stage]}</span>
           </div>
         );
         return (

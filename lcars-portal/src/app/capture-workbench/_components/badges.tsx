@@ -33,7 +33,7 @@ export function fmtDate(iso: string) {
   });
 }
 
-const CHIP = 'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] uppercase tracking-wide';
+const CHIP = 'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[12px] uppercase tracking-wide';
 
 export function SourceBadge({ channelId }: { channelId: string | null | undefined }) {
   const label = channelId && SOURCE_BADGE[channelId] ? SOURCE_BADGE[channelId].label : 'Unknown';
@@ -90,7 +90,7 @@ export function VoiceMeta({ summary }: { summary: Record<string, unknown> | null
   const model = summary.transcription_model as string | undefined;
   const conf = summary.confidence as number | undefined;
   return (
-    <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-wb-ink2">
+    <div className="mt-1 flex flex-wrap gap-2 text-[12px] text-wb-ink2">
       {dur !== undefined && <span>⏱ {dur.toFixed(1)}s</span>}
       {model && <span>Model: {model}</span>}
       {conf !== undefined && <span>Conf: {(conf * 100).toFixed(0)}%</span>}
@@ -118,8 +118,8 @@ export function AiSuggestion({
   return (
     <div className="mb-3 rounded-md border border-wb-sage-deep/40 bg-wb-sage-deep/5 px-3 py-3">
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-wb-sage-deep">✦ AI Suggestion</span>
-        {confPct != null && <span className="text-[10px] text-wb-ink2">{confPct}% confidence</span>}
+        <span className="text-[12px] font-semibold uppercase tracking-wide text-wb-sage-deep">✦ AI Suggestion</span>
+        {confPct != null && <span className="text-[12px] text-wb-ink2">{confPct}% confidence</span>}
       </div>
       {conf != null && (
         <div className="mb-2 h-1 w-full overflow-hidden rounded bg-wb-line">
@@ -127,10 +127,10 @@ export function AiSuggestion({
         </div>
       )}
       <div className="mb-1 flex items-center gap-2">
-        <span className="text-[10px] text-wb-ink2">Classification:</span>
+        <span className="text-[12px] text-wb-ink2">Classification:</span>
         <ClassBadge classification={cls} />
       </div>
-      {summary.ai_reasoning && <p className="mb-3 text-[11px] italic text-wb-ink2">{summary.ai_reasoning}</p>}
+      {summary.ai_reasoning && <p className="mb-3 text-[12px] italic text-wb-ink2">{summary.ai_reasoning}</p>}
       <div className="flex items-center gap-3">
         <button type="button" onClick={() => onAccept(cls)}
           className="rounded-md bg-wb-sage-deep px-3 py-1 text-xs font-semibold text-white hover:opacity-80">

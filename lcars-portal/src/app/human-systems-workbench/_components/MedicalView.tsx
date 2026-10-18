@@ -98,7 +98,7 @@ export function CapacityConditionsSection({ data, defaultOpen = true }: { data: 
       )}
 
       <div className="mt-4 rounded-md border border-wb-line bg-wb-bg p-3">
-        <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Capacity Debt</div>
+        <div className="text-[12px] uppercase tracking-wide text-wb-ink2">Capacity Debt</div>
         <div className="mt-1 font-serif text-2xl text-wb-ink">
           {data.capacity_debt.days_total === 0 ? '—' : `${data.capacity_debt.days_with_debt} of ${data.capacity_debt.days_total} days`}
         </div>
@@ -143,7 +143,7 @@ export function SensoryRegulationSection({ data, defaultOpen = true }: { data: M
       </p>
 
       <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-        <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Sensory profile</div>
+        <div className="text-[12px] uppercase tracking-wide text-wb-ink2">Sensory profile</div>
         <div className="mt-1 flex items-center gap-2">
           <span className="text-[13px] text-wb-ink">Overall stimulation</span>
           <Badge status="neutral">
@@ -169,7 +169,7 @@ export function SensoryRegulationSection({ data, defaultOpen = true }: { data: M
       </div>
 
       <div className="mt-3 rounded-md border border-wb-line bg-wb-bg p-3">
-        <div className="text-[11px] uppercase tracking-wide text-wb-ink2">What my system seems to want</div>
+        <div className="text-[12px] uppercase tracking-wide text-wb-ink2">What my system seems to want</div>
         <div className="mt-1">
           <Badge status="neutral">
             {data.natural_regulation.response ? NATURAL_REGULATION_LABEL[data.natural_regulation.response] : 'Not recorded'}

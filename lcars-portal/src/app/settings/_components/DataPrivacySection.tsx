@@ -20,7 +20,7 @@ function ComingSoonRow({ label, description }: { label: string; description: str
     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-wb-line py-4 last:border-b-0">
       <div className="min-w-0 flex-1 pr-4">
         <p className="text-[13px] font-medium text-wb-ink">
-          {label} <span className="ml-1 text-[10px] uppercase tracking-[0.1em] text-wb-ink2">Soon</span>
+          {label} <span className="ml-1 text-[12px] uppercase tracking-[0.1em] text-wb-ink2">Soon</span>
         </p>
         <p className="mt-0.5 text-[12px] text-wb-ink2">{description}</p>
       </div>

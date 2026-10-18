@@ -145,7 +145,7 @@ export function IntelligenceSection() {
             </label>
           ))}
         </fieldset>
-        <p className="mt-2 text-[11px] text-wb-ink2">
+        <p className="mt-2 text-[12px] text-wb-ink2">
           Systemic global events are still considered where they could materially affect a monitored area, regardless of this
           setting.
         </p>

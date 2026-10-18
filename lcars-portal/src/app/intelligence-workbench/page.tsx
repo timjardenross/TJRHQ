@@ -233,7 +233,7 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
                 </div>
               ))}
             </div>
-            {data.note && <p className="mt-2 text-[11px] italic text-wb-ink2">{data.note}</p>}
+            {data.note && <p className="mt-2 text-[12px] italic text-wb-ink2">{data.note}</p>}
           </Card>
         </div>
       )}

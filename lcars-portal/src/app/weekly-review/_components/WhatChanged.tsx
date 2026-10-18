@@ -18,7 +18,7 @@ export function WhatChanged({ items }: { items: ChangeItem[] }) {
             <span>
               <span className="font-medium text-wb-ink">{item.label}</span>
               <span className="text-wb-ink2"> — {item.detail}</span>
-              {item.noHistory && <span className="ml-1 text-[10px] uppercase tracking-[0.08em] text-wb-ink2">no history</span>}
+              {item.noHistory && <span className="ml-1 text-[12px] uppercase tracking-[0.08em] text-wb-ink2">no history</span>}
             </span>
           </li>
         ))}

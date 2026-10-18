@@ -237,7 +237,7 @@ export function PerspectivesView() {
   const totalLoading = responses.filter((r) => r.loading).length;
   const selectionCount = activeNames.length;
 
-  const actionBtn = 'rounded-md border border-wb-line px-3 py-1 text-[10px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
+  const actionBtn = 'rounded-md border border-wb-line px-3 py-1 text-[12px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
   const lensBtn = 'rounded-md border px-3 py-1.5 text-xs uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
 
   return (
@@ -253,14 +253,14 @@ export function PerspectivesView() {
       <div className="space-y-4">
         {showLog && log.length > 0 && (
           <div className="max-h-64 space-y-3 overflow-y-auto rounded-md border border-wb-line bg-wb-bg p-3">
-            <p className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Session History</p>
+            <p className="text-[12px] uppercase tracking-[0.15em] text-wb-ink2">Session History</p>
             {log.map((s) => (
               <div key={s.id} className="space-y-1 border-b border-wb-line pb-2 last:border-0">
                 <div className="flex items-start justify-between gap-2">
                   <p className="flex-1 text-xs text-wb-ink/80">{s.question}</p>
-                  <button onClick={() => { setInput(s.question); setShowLog(false); }} className="shrink-0 text-[9px] uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">Re-ask</button>
+                  <button onClick={() => { setInput(s.question); setShowLog(false); }} className="shrink-0 text-[12px] uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">Re-ask</button>
                 </div>
-                <p className="text-[10px] text-wb-ink2">{new Date(s.ts).toLocaleString()} · {s.responses.map((r) => r.label).join(', ')}</p>
+                <p className="text-[12px] text-wb-ink2">{new Date(s.ts).toLocaleString()} · {s.responses.map((r) => r.label).join(', ')}</p>
               </div>
             ))}
           </div>
@@ -297,7 +297,7 @@ export function PerspectivesView() {
             className="rounded-md bg-wb-sage-deep px-4 py-2 text-sm font-semibold uppercase tracking-[0.15em] text-white transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-40 disabled:cursor-not-allowed">
             Show me this perspective
           </button>
-          {selectionCount === 0 && !anyLoading && <p className="text-[10px] text-wb-ink2">Pick a lens above, or open Distinguished Voices below.</p>}
+          {selectionCount === 0 && !anyLoading && <p className="text-[12px] text-wb-ink2">Pick a lens above, or open Distinguished Voices below.</p>}
         </div>
 
         {(anyLoading || synthesising) && (
@@ -306,12 +306,12 @@ export function PerspectivesView() {
             <span className="text-sm text-wb-ink2">
               {synthesising ? 'Synthesising panel response…' : `Gathering ${totalLoading} perspective${totalLoading !== 1 ? 's' : ''}…`}
             </span>
-            <span className="ml-auto font-mono text-[10px] text-wb-ink2">{elapsed}s</span>
+            <span className="ml-auto font-mono text-[12px] text-wb-ink2">{elapsed}s</span>
           </div>
         )}
 
         {(hasActive || synthesis) && !anyLoading && !synthesising && (
-          <p className="text-[10px] italic text-wb-ink2">
+          <p className="text-[12px] italic text-wb-ink2">
             Perspectives below are framed around each thinker&apos;s documented ideas and work — not a simulation of the person, and not their literal endorsement.
           </p>
         )}
@@ -319,7 +319,7 @@ export function PerspectivesView() {
         {synthesis && !synthesising && (
           <div className="rounded-md border border-wb-sage-deep/40 bg-wb-sage-deep/5">
             <div className="border-b border-wb-sage-deep/30 px-4 py-2.5">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-wb-sage-deep">Synthesis — common ground, tensions, and distinctive contributions</p>
+              <p className="text-[12px] font-semibold uppercase tracking-widest text-wb-sage-deep">Synthesis — common ground, tensions, and distinctive contributions</p>
             </div>
             <div className="px-5 py-4">
               <div className="prose prose-base prose-headings:font-serif prose-headings:text-wb-ink prose-p:my-2 prose-p:leading-7 prose-strong:text-wb-ink">
@@ -332,16 +332,16 @@ export function PerspectivesView() {
         {hasActive && (
           <div className="space-y-4">
             {responseMode === 'synthesised' && synthesis && (
-              <p className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Individual voices</p>
+              <p className="text-[12px] uppercase tracking-[0.15em] text-wb-ink2">Individual voices</p>
             )}
             {responses.map((r, i) => (
               <div key={i} className="rounded-md border border-wb-line bg-wb-surface">
                 <div className="flex items-center justify-between gap-3 border-b border-wb-line px-4 py-2.5">
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-wb-sage-deep">{r.perspective.label}</span>
+                  <span className="text-[12px] font-semibold uppercase tracking-widest text-wb-sage-deep">{r.perspective.label}</span>
                   <div className="flex items-center gap-2">
                     {r.response && !r.loading && (
                       <button onClick={() => convene([r.perspective.name])} disabled={anyLoading || !input.trim()}
-                        className="text-[9px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-40 disabled:cursor-not-allowed">
+                        className="text-[12px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep disabled:opacity-40 disabled:cursor-not-allowed">
                         ↺ Regenerate
                       </button>
                     )}
@@ -363,34 +363,34 @@ export function PerspectivesView() {
         )}
 
         <details className="rounded-md border border-wb-line" open={showVoices} onToggle={(e) => setShowVoices((e.target as HTMLDetailsElement).open)}>
-          <summary className="cursor-pointer px-4 py-2.5 text-[11px] font-semibold uppercase tracking-widest text-wb-ink2 hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
+          <summary className="cursor-pointer px-4 py-2.5 text-[12px] font-semibold uppercase tracking-widest text-wb-ink2 hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
             Distinguished Voices
           </summary>
           <div className="space-y-3 border-t border-wb-line px-4 py-3">
-            <p className="text-[11px] text-wb-ink2">
+            <p className="text-[12px] text-wb-ink2">
               Optional — pick named voices directly for reflective, exploratory reading. This is not the default reasoning path; for decision support, use the lenses above or Think.
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Select by</span>
+              <span className="text-[12px] uppercase tracking-[0.15em] text-wb-ink2">Select by</span>
               {CATEGORIES.map((cat) => {
                 const isActive = selectionMode === 'category' && activeCategory === cat.key;
                 const count = available.filter((p) => p.category === cat.key).length;
                 if (count === 0) return null;
                 return (
                   <button key={cat.key} onClick={() => selectCategory(cat.key)}
-                    className={`rounded-md border px-3 py-1 text-[10px] uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${isActive ? 'border-wb-sage-deep bg-wb-sage-deep/15 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'}`}>
+                    className={`rounded-md border px-3 py-1 text-[12px] uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${isActive ? 'border-wb-sage-deep bg-wb-sage-deep/15 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'}`}>
                     {cat.label} <span className="opacity-60">({count})</span>
                   </button>
                 );
               })}
               <button onClick={selectAll}
-                className={`rounded-md border px-3 py-1 text-[10px] uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${selectionMode === 'all' ? 'border-wb-sage-deep bg-wb-sage-deep/15 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'}`}>
+                className={`rounded-md border px-3 py-1 text-[12px] uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${selectionMode === 'all' ? 'border-wb-sage-deep bg-wb-sage-deep/15 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'}`}>
                 All ({available.length})
               </button>
             </div>
 
             <div>
-              <p className="mb-2 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">
+              <p className="mb-2 text-[12px] uppercase tracking-[0.15em] text-wb-ink2">
                 {selectionMode === 'individual' ? 'Or pick individual voices' : `Active: ${selectionCount} voice${selectionCount !== 1 ? 's' : ''}`}
               </p>
               <div className="flex flex-wrap gap-2">
@@ -408,10 +408,10 @@ export function PerspectivesView() {
 
             {selectionCount > 1 && (
               <div className="flex items-center gap-3">
-                <span className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Response</span>
+                <span className="text-[12px] uppercase tracking-[0.15em] text-wb-ink2">Response</span>
                 {(['individual', 'synthesised'] as ResponseMode[]).map((m) => (
                   <button key={m} onClick={() => setResponseMode(m)}
-                    className={`rounded-md border px-3 py-1 text-[10px] uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${responseMode === m ? 'border-wb-sage-deep bg-wb-sage-deep/15 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40'}`}>
+                    className={`rounded-md border px-3 py-1 text-[12px] uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${responseMode === m ? 'border-wb-sage-deep bg-wb-sage-deep/15 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40'}`}>
                     {m === 'individual' ? 'Individual voices' : 'Group synthesis'}
                   </button>
                 ))}

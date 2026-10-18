@@ -46,7 +46,7 @@ export function HqEvolution({
       <p className="mt-1 text-sm text-wb-ink2">
         {highestValueTitle ?? 'Evolution found a possible improvement overnight.'}
       </p>
-      <Link href="/self-improvement-findings" className="mt-2 inline-block text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+      <Link href="/self-improvement-findings" className="mt-2 inline-block text-[12px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
         Review →
       </Link>
     </WorkbenchPanel>

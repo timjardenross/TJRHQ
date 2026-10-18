@@ -43,7 +43,7 @@ export default function RecoveryBriefPage() {
       back={{ href: '/human-systems-workbench', label: 'Human Systems' }}
     >
       <Card className="max-w-2xl">
-        <div className="text-[11px] uppercase tracking-[0.12em] text-wb-ink2">Recovery Brief has moved</div>
+        <div className="text-[12px] uppercase tracking-[0.12em] text-wb-ink2">Recovery Brief has moved</div>
         <p className="mt-2 text-[14px] leading-relaxed text-wb-ink">
           What this page used to show — capacity today, what&rsquo;s driving it, what your system needs,
           and your recovery trajectory — now lives on the Human Systems Workbench&rsquo;s{' '}

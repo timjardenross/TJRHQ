@@ -49,7 +49,7 @@ export function ProgressSteps({ steps }: ProgressStepsProps) {
           <li className="flex items-center gap-2 text-[12px]">
             <span
               aria-hidden
-              className={`grid h-5 w-5 place-items-center rounded text-[11px] text-white ${
+              className={`grid h-5 w-5 place-items-center rounded text-[12px] text-white ${
                 s.complete ? 'bg-wb-ok' : 'bg-wb-line'
               }`}
             >

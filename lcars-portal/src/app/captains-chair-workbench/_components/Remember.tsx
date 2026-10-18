@@ -41,7 +41,7 @@ export function Remember({ data, error }: { data: RememberData | null; error: st
               <p className="text-sm font-semibold text-wb-ink">{item.title}</p>
               <p className="mt-0.5 text-xs text-wb-ink2">{item.capacity_adjusted_reason ?? item.reason}</p>
               {item.ref && (
-                <Link href="/ready-room" className="mt-1.5 inline-block text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                <Link href="/ready-room" className="mt-1.5 inline-block text-[12px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                   Open in Ready Room →
                 </Link>
               )}
@@ -51,7 +51,7 @@ export function Remember({ data, error }: { data: RememberData | null; error: st
             <li key={item.id} className="rounded-lg border border-wb-line bg-wb-surface p-3">
               <p className="text-sm font-semibold text-wb-ink">{item.title}</p>
               <p className="mt-0.5 text-xs text-wb-ink2">{item.reason}</p>
-              <Link href="/capture-workbench" className="mt-1.5 inline-block text-[11px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+              <Link href="/capture-workbench" className="mt-1.5 inline-block text-[12px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                 Review in Capture Workbench →
               </Link>
             </li>
@@ -59,7 +59,7 @@ export function Remember({ data, error }: { data: RememberData | null; error: st
         </ul>
       )}
       {error && (
-        <p className="mt-3 text-[10px] text-wb-ink2">Unavailable right now: {error}.</p>
+        <p className="mt-3 text-[12px] text-wb-ink2">Unavailable right now: {error}.</p>
       )}
     </WorkbenchPanel>
   );

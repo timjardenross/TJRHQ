@@ -25,7 +25,7 @@ export function WhatNeedsMeNow({
     <section aria-labelledby="what-needs-me-now" className="rounded-lg border-2 border-wb-sage-deep/50 bg-wb-sage/10 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 id="what-needs-me-now" className="text-[11px] font-bold uppercase tracking-[0.18em] text-wb-sage-deep">What needs me now</h2>
+          <h2 id="what-needs-me-now" className="text-[12px] font-bold uppercase tracking-[0.18em] text-wb-sage-deep">What needs me now</h2>
           <p className="mt-1 text-sm font-semibold text-wb-ink">
             {loading ? 'Checking what needs you…' : items.length ? `${items.length} item${items.length === 1 ? '' : 's'} need a decision or next action.` : emptyLabel}
           </p>

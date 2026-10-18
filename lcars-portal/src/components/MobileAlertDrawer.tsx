@@ -55,11 +55,11 @@ export function MobileAlertDrawer() {
       <Dialog.Trigger asChild>
         <button
           type="button"
-          className="xl:hidden flex items-center gap-2 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-wb-ink2 hover:border-wb-sand hover:text-wb-ink transition-colors"
+          className="xl:hidden flex items-center gap-2 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[12px] font-bold uppercase tracking-[0.2em] text-wb-ink2 hover:border-wb-sand hover:text-wb-ink transition-colors"
           aria-label={`Open alerts and decisions (${totalCount} items)`}
         >
           {totalCount > 0 && (
-            <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-operations px-1 text-[10px] font-bold text-space">
+            <span className="flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-operations px-1 text-[12px] font-bold text-space">
               {totalCount > 9 ? '9+' : totalCount}
             </span>
           )}
@@ -91,13 +91,13 @@ export function MobileAlertDrawer() {
 
             {/* Header */}
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.25em] text-wb-ink2" aria-hidden="true">
+              <h2 className="text-[12px] font-bold uppercase tracking-[0.25em] text-wb-ink2" aria-hidden="true">
                 Alerts &amp; Decisions
               </h2>
               <Dialog.Close asChild>
                 <button
                   type="button"
-                  className="text-[11px] uppercase tracking-[0.15em] text-wb-ink2 hover:text-wb-ink transition-colors"
+                  className="text-[12px] uppercase tracking-[0.15em] text-wb-ink2 hover:text-wb-ink transition-colors"
                   aria-label="Close alerts and decisions drawer"
                 >
                   ✕ Close
@@ -107,7 +107,7 @@ export function MobileAlertDrawer() {
 
           {/* Active alerts — live via useAlerts() */}
           <section className="mb-5">
-            <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-operations">
+            <p className="mb-2 text-[12px] uppercase tracking-[0.2em] text-operations">
               Active Alerts
               {!isLoading && alerts.length > 0 && (
                 <span className="ml-1 text-wb-ink2">({alerts.length})</span>
@@ -129,10 +129,10 @@ export function MobileAlertDrawer() {
                       aria-hidden="true"
                     />
                     <div className="min-w-0">
-                      <p className={`text-[11px] font-bold uppercase ${sevText(a.severity) || 'text-wb-ink'}`}>
+                      <p className={`text-[12px] font-bold uppercase ${sevText(a.severity) || 'text-wb-ink'}`}>
                         {a.title}
                       </p>
-                      <p className="text-[10px] text-wb-ink2">{a.detail}</p>
+                      <p className="text-[12px] text-wb-ink2">{a.detail}</p>
                     </div>
                   </li>
                 ))}
@@ -142,7 +142,7 @@ export function MobileAlertDrawer() {
 
           {/* Decisions awaiting approval — real data, see fetchDecisionsInbox() call above */}
           <section>
-            <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-command">
+            <p className="mb-2 text-[12px] uppercase tracking-[0.2em] text-command">
               Decisions Awaiting Approval
               {!decisionsLoading && decisions.length > 0 && (
                 <span className="ml-1 text-wb-ink2">({decisions.length})</span>
@@ -163,8 +163,8 @@ export function MobileAlertDrawer() {
                       {d.code ?? d.source}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-[11px] font-semibold text-wb-ink">{d.title}</p>
-                      <p className="text-[10px] text-wb-ink2">{d.detail}</p>
+                      <p className="text-[12px] font-semibold text-wb-ink">{d.title}</p>
+                      <p className="text-[12px] text-wb-ink2">{d.detail}</p>
                     </div>
                   </li>
                 ))}

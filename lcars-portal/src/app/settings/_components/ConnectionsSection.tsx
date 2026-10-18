@@ -63,7 +63,7 @@ function ConnectionCard({
               </Button>
             </a>
           )}
-          {manageHint && <p className="max-w-[180px] text-right text-[11px] text-wb-ink2">{manageHint}</p>}
+          {manageHint && <p className="max-w-[180px] text-right text-[12px] text-wb-ink2">{manageHint}</p>}
         </div>
       </div>
     </Card>

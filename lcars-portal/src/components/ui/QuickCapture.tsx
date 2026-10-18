@@ -119,7 +119,7 @@ export function QuickCapture() {
               </button>
             ))}
           </div>
-          <p className="text-[11px] italic text-wb-ink2">{captureTypeMeta(type).hint}</p>
+          <p className="text-[12px] italic text-wb-ink2">{captureTypeMeta(type).hint}</p>
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -129,7 +129,7 @@ export function QuickCapture() {
             >
               {saving ? 'Capturing…' : 'Capture'}
             </button>
-            <span className="rounded border border-wb-line bg-wb-bg px-1.5 py-0.5 text-[10px] font-medium text-wb-ink2">⌘/Ctrl + Enter</span>
+            <span className="rounded border border-wb-line bg-wb-bg px-1.5 py-0.5 text-[12px] font-medium text-wb-ink2">⌘/Ctrl + Enter</span>
             {flash && <span className="text-[12px] text-wb-ok-on" role="status" aria-live="polite">{flash}</span>}
           </div>
           {error && <p className="text-[12px] text-wb-crit-on">{error}</p>}

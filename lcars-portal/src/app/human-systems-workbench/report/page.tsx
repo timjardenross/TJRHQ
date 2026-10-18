@@ -107,7 +107,7 @@ export default function HumanSystemsReportPage() {
           <button
             onClick={() => window.print()}
             disabled={!data}
-            className="rounded-md border border-wb-line px-3 py-1 text-[11px] font-medium text-wb-ink transition hover:border-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-wb-line px-3 py-1 text-[12px] font-medium text-wb-ink transition hover:border-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-50"
           >
             Download PDF
           </button>
@@ -146,21 +146,21 @@ export default function HumanSystemsReportPage() {
 
             {stats && stats.recordedDays > 0 && (
               <Card className="print-compact print-tile" style={{ breakInside: 'avoid' }}>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wb-ink2">At a Glance</div>
+                <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-wb-ink2">At a Glance</div>
                 <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[13px] text-wb-ink sm:grid-cols-4">
                   <div>
-                    <dt className="text-[11px] text-wb-ink2">Days recorded</dt>
+                    <dt className="text-[12px] text-wb-ink2">Days recorded</dt>
                     <dd>{stats.recordedDays} of {stats.totalDays}</dd>
                   </div>
                   {stats.capacityRecorded > 0 && (
                     <div>
-                      <dt className="text-[11px] text-wb-ink2">Capacity</dt>
+                      <dt className="text-[12px] text-wb-ink2">Capacity</dt>
                       <dd>{stats.capacityCounts.green} sustainable · {stats.capacityCounts.orange} stretched · {stats.capacityCounts.red} depleted</dd>
                     </div>
                   )}
                   {stats.painValues.length > 0 && (
                     <div>
-                      <dt className="text-[11px] text-wb-ink2">Pain (0-10)</dt>
+                      <dt className="text-[12px] text-wb-ink2">Pain (0-10)</dt>
                       <dd>
                         avg {(stats.painValues.reduce((a, b) => a + b, 0) / stats.painValues.length).toFixed(1)},
                         {' '}max {Math.max(...stats.painValues)} ({stats.painValues.length} day(s))
@@ -169,7 +169,7 @@ export default function HumanSystemsReportPage() {
                   )}
                   {stats.capacityRecorded > 1 && (
                     <div>
-                      <dt className="text-[11px] text-wb-ink2">Capacity changes</dt>
+                      <dt className="text-[12px] text-wb-ink2">Capacity changes</dt>
                       <dd>{stats.capacityTransitions} of {stats.capacityRecorded - 1} possible day-to-day shifts</dd>
                     </div>
                   )}
@@ -177,7 +177,7 @@ export default function HumanSystemsReportPage() {
               </Card>
             )}
 
-            <p className="text-[10px] text-wb-ink2 print:mt-2">
+            <p className="text-[12px] text-wb-ink2 print:mt-2">
               This is a personal tracking summary, not a clinical assessment — generated{' '}
               {data.source === 'llm' ? 'with AI assistance from' : 'directly from'} the numbers above,
               nothing invented beyond what was actually recorded.

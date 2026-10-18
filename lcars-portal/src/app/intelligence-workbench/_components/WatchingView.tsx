@@ -70,13 +70,13 @@ export function WatchingView() {
             <RiskPill value={w.significance} />
           </div>
           <p className="text-[12px] text-wb-ink2">{w.why_watched}</p>
-          <p className="text-[11.5px] text-wb-ink2">
+          <p className="text-[12px] text-wb-ink2">
             {w.confidence_level} confidence{w.geography ? ` · ${w.geography}` : ''}
             {w.corroboration > 0 ? ` · ${w.corroboration} corroborating source${w.corroboration === 1 ? '' : 's'}` : ''}
           </p>
-          <p className="text-[11.5px] italic text-wb-ink2">What would change this: {w.what_would_change_this}</p>
+          <p className="text-[12px] italic text-wb-ink2">What would change this: {w.what_would_change_this}</p>
           {w.last_update && (
-            <p className="text-[11px] text-wb-ink2">Last update: {new Date(w.last_update).toLocaleDateString()}</p>
+            <p className="text-[12px] text-wb-ink2">Last update: {new Date(w.last_update).toLocaleDateString()}</p>
           )}
         </div>
       ))}

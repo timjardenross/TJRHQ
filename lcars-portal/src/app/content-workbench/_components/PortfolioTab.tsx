@@ -42,7 +42,7 @@ function ExportMenu({ item }: { item: PublishedItem }) {
       <Button size="sm" variant="secondary" onClick={() => copy('markdown')}>Copy markdown</Button>
       <Button size="sm" variant="secondary" onClick={() => exportFile('text')}>⬇ .txt</Button>
       <Button size="sm" variant="secondary" onClick={() => exportFile('markdown')}>⬇ .md</Button>
-      <span className="min-h-[1lh] text-[11px] text-wb-ok-on" role="status">{copied && `Copied ${copied}`}</span>
+      <span className="min-h-[1lh] text-[12px] text-wb-ok-on" role="status">{copied && `Copied ${copied}`}</span>
     </div>
   );
 }
@@ -80,7 +80,7 @@ function ReuseIdeaButton({ item }: { item: PublishedItem }) {
       <Button size="sm" variant="secondary" onClick={reuse} disabled={busy}>
         {busy ? 'Creating…' : 'Reuse Idea'}
       </Button>
-      {msg && <span className="text-[11px] text-wb-ink2">{msg}</span>}
+      {msg && <span className="text-[12px] text-wb-ink2">{msg}</span>}
     </div>
   );
 }
@@ -98,12 +98,12 @@ function PortfolioCard({ item }: { item: PublishedItem }) {
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge status="success">✓ Published</Badge>
           {item.pillar && (
-            <span className="rounded-full bg-wb-line px-2 py-0.5 text-[10.5px] font-medium text-wb-ink2">
+            <span className="rounded-full bg-wb-line px-2 py-0.5 text-[12px] font-medium text-wb-ink2">
               {PILLAR_LABEL[item.pillar] ?? item.pillar}
             </span>
           )}
-          <span className="text-[11px] text-wb-ink2">{item.updated_at.slice(0, 10)}</span>
-          <span className="ml-auto text-[10px] text-wb-ink2">{open ? '▲' : '▼'}</span>
+          <span className="text-[12px] text-wb-ink2">{item.updated_at.slice(0, 10)}</span>
+          <span className="ml-auto text-[12px] text-wb-ink2">{open ? '▲' : '▼'}</span>
         </div>
         <p className="text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>
       </button>

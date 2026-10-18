@@ -49,10 +49,10 @@ export function LCARSNav() {
                       sectionIdx === 0 ? 'mt-0' : 'mt-3',
                     ].join(' ')}
                   >
-                    <span className="text-[9px] uppercase tracking-[0.3em] text-[#61718c]">
+                    <span className="text-[12px] uppercase tracking-[0.3em] text-[#61718c]">
                       {section.label}
                     </span>
-                    <span className="text-[9px] text-[#61718c]">{collapsed ? '▸' : '▾'}</span>
+                    <span className="text-[12px] text-[#61718c]">{collapsed ? '▸' : '▾'}</span>
                   </button>
                 </Collapsible.Trigger>
                 <Collapsible.Content>
@@ -83,7 +83,7 @@ export function LCARSNav() {
                             <span className="text-sm font-semibold text-[#18223a]">
                               {item.label}
                             </span>
-                            <span className="hidden text-[11px] text-[#61718c] lg:block">
+                            <span className="hidden text-[12px] text-[#61718c] lg:block">
                               {item.description}
                             </span>
                           </span>

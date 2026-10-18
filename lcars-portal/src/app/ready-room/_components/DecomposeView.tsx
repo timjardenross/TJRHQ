@@ -300,7 +300,7 @@ export function DecomposeView({
         <PickUpBanner tasks={pickUp} onResume={resumePickUp} />
       )}
       {existingTask && stage === 'input' && (
-        <p className="text-[11px] uppercase tracking-wide text-wb-sage-deep">
+        <p className="text-[12px] uppercase tracking-wide text-wb-sage-deep">
           Helping you start &ldquo;{existingTask.title}&rdquo; — from your Needs You list
         </p>
       )}
@@ -315,7 +315,7 @@ export function DecomposeView({
           disabled={stage === 'thinking'}
         />
         {stage === 'input' && (
-          <p className="mt-1 text-[11px] text-wb-ink2">e.g. {EXAMPLES.join(' · ')}</p>
+          <p className="mt-1 text-[12px] text-wb-ink2">e.g. {EXAMPLES.join(' · ')}</p>
         )}
       </div>
 
@@ -358,7 +358,7 @@ export function DecomposeView({
           {decomposeError && <p className="text-[12px] text-wb-warn-on">{decomposeError}</p>}
 
           <div>
-            <p className="text-[11px] uppercase tracking-wide text-wb-sage-deep">Start here</p>
+            <p className="text-[12px] uppercase tracking-wide text-wb-sage-deep">Start here</p>
             <Textarea rows={2} value={microAction} onChange={(e) => setMicroAction(e.target.value)} />
           </div>
 

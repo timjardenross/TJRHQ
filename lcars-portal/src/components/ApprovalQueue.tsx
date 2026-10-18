@@ -106,7 +106,7 @@ export function ApprovalQueue({
   if (loading) {
     return (
       <div className={t.box}>
-        <p className={`text-[10px] uppercase tracking-[0.25em] mb-3 ${t.boxLabel}`}>{title}</p>
+        <p className={`text-[12px] uppercase tracking-[0.25em] mb-3 ${t.boxLabel}`}>{title}</p>
         <p className={`text-xs animate-pulse ${t.boxBody}`}>Loading…</p>
       </div>
     );
@@ -115,7 +115,7 @@ export function ApprovalQueue({
   if (items.length === 0) {
     return (
       <div className={t.box}>
-        <p className={`text-[10px] uppercase tracking-[0.25em] mb-3 ${t.boxLabel}`}>{title}</p>
+        <p className={`text-[12px] uppercase tracking-[0.25em] mb-3 ${t.boxLabel}`}>{title}</p>
         <p className={`text-xs ${t.boxBody}`}>{emptyMessage}</p>
       </div>
     );
@@ -124,13 +124,13 @@ export function ApprovalQueue({
   return (
     <div className={t.container}>
       <div className="mb-3 flex items-center justify-between">
-        <p className={`text-[10px] uppercase tracking-[0.25em] ${t.headerLabel}`}>
+        <p className={`text-[12px] uppercase tracking-[0.25em] ${t.headerLabel}`}>
           {title} — {items.length} awaiting decision
         </p>
         {onRefresh && (
           <button
             onClick={onRefresh}
-            className={`text-[10px] uppercase tracking-[0.2em] transition-colors ${t.refresh}`}
+            className={`text-[12px] uppercase tracking-[0.2em] transition-colors ${t.refresh}`}
           >
             Refresh
           </button>
@@ -150,7 +150,7 @@ export function ApprovalQueue({
           <li key={item.id} className={t.item}>
             <div className="flex items-start justify-between gap-2 mb-2">
               <div>
-                {item.code && <span className={`font-mono text-[10px] ${t.itemMeta}`}>{item.code}</span>}
+                {item.code && <span className={`font-mono text-[12px] ${t.itemMeta}`}>{item.code}</span>}
                 {item.href ? (
                   <Link href={item.href} className={`block text-xs font-medium leading-snug mt-0.5 underline underline-offset-2 hover:text-status-on ${t.itemTitle}`}>
                     {item.title}
@@ -158,7 +158,7 @@ export function ApprovalQueue({
                 ) : (
                   <p className={`text-xs font-medium leading-snug mt-0.5 ${t.itemTitle}`}>{item.title}</p>
                 )}
-                {item.detail && <p className={`text-[10px] mt-0.5 ${t.itemMeta}`}>{item.detail}</p>}
+                {item.detail && <p className={`text-[12px] mt-0.5 ${t.itemMeta}`}>{item.detail}</p>}
               </div>
             </div>
 
@@ -179,7 +179,7 @@ export function ApprovalQueue({
                     <button
                       disabled={actingId === item.id}
                       onClick={() => onApprove(item.id)}
-                      className={`flex-1 rounded border ${stateToneClasses('ok').border} ${stateToneClasses('ok').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('ok').text} hover:bg-state-ok/20 disabled:opacity-40 transition-colors`}
+                      className={`flex-1 rounded border ${stateToneClasses('ok').border} ${stateToneClasses('ok').bg} px-3 py-2.5 min-h-[44px] text-[12px] uppercase tracking-[0.15em] ${stateToneClasses('ok').text} hover:bg-state-ok/20 disabled:opacity-40 transition-colors`}
                     >
                       {actingId === item.id ? 'Working…' : 'Approve'}
                     </button>
@@ -188,7 +188,7 @@ export function ApprovalQueue({
                     <Collapsible.Trigger asChild>
                       <button
                         disabled={actingId === item.id}
-                        className={`flex-1 rounded border ${stateToneClasses('crit').border} ${stateToneClasses('crit').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('crit').text} hover:bg-state-crit/10 disabled:opacity-40 transition-colors`}
+                        className={`flex-1 rounded border ${stateToneClasses('crit').border} ${stateToneClasses('crit').bg} px-3 py-2.5 min-h-[44px] text-[12px] uppercase tracking-[0.15em] ${stateToneClasses('crit').text} hover:bg-state-crit/10 disabled:opacity-40 transition-colors`}
                       >
                         Reject
                       </button>
@@ -215,7 +215,7 @@ export function ApprovalQueue({
                         setRejectReason('');
                         onReject(item.id, reason);
                       }}
-                      className={`flex-1 rounded border ${stateToneClasses('crit').border} ${stateToneClasses('crit').bg} px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] ${stateToneClasses('crit').text} hover:bg-state-crit/20 disabled:opacity-40 transition-colors`}
+                      className={`flex-1 rounded border ${stateToneClasses('crit').border} ${stateToneClasses('crit').bg} px-3 py-2.5 min-h-[44px] text-[12px] uppercase tracking-[0.15em] ${stateToneClasses('crit').text} hover:bg-state-crit/20 disabled:opacity-40 transition-colors`}
                     >
                       {actingId === item.id ? 'Rejecting…' : 'Confirm Reject'}
                     </button>
@@ -224,7 +224,7 @@ export function ApprovalQueue({
                         setRejectReasonFor(null);
                         setRejectReason('');
                       }}
-                      className={`rounded border px-3 py-2.5 min-h-[44px] text-[10px] uppercase tracking-[0.15em] transition-colors ${t.cancel}`}
+                      className={`rounded border px-3 py-2.5 min-h-[44px] text-[12px] uppercase tracking-[0.15em] transition-colors ${t.cancel}`}
                     >
                       Cancel
                     </button>

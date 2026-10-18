@@ -211,7 +211,7 @@
 
   .focus-reference-kicker,
   .read-reference-kicker {
-    @apply mb-4 text-[10px] font-semibold uppercase tracking-[0.22em] text-wb-ink2;
+    @apply mb-4 text-[12px] font-semibold uppercase tracking-[0.22em] text-wb-ink2;
   }
 
   .focus-reference-surface > .focus-reference-kicker {
@@ -240,7 +240,7 @@
   }
 
   .risk-reference-kicker {
-    @apply mb-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-wb-ink2;
+    @apply mb-1 text-[12px] font-semibold uppercase tracking-[0.22em] text-wb-ink2;
   }
 
   .risk-reference-command > .risk-reference-kicker {
