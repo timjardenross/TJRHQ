@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { BrandMark } from '@/components/brand';
+import { Button } from '@/components/ui/Button';
 
 // Landing page for Supabase password-recovery links. Lives under /auth so
 // middleware lets it through without a session (the session is exactly
@@ -168,14 +169,15 @@ export default function ResetPasswordPage() {
                   required
                   disabled={status === 'saving'}
                 />
-                <button
+                <Button
                   type="submit"
+                  caps
+                  fullWidth
                   disabled={status === 'saving'}
-                  className="w-full rounded-md bg-wb-sage-deep px-4 py-2 text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   aria-busy={status === 'saving'}
                 >
                   {status === 'saving' ? 'Saving…' : 'Set password'}
-                </button>
+                </Button>
                 {error && (
                   <p role="alert" className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-xs text-state-crit-on">{error}</p>
                 )}
