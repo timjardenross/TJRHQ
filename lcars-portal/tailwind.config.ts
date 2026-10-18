@@ -66,6 +66,14 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      // Shared text scale (Stage B). Sizes only - no line-height, so each element keeps
+      // the line height it inherits. label 12 (floor), body 14, lead 16, title 18.
+      fontSize: {
+        'wb-label': '12px',
+        'wb-body': '14px',
+        'wb-lead': '16px',
+        'wb-title': '18px',
+      },
       colors: withAlpha({
         // TJR family brand palette — fixed values, additive (Stage 0).
         brand: {

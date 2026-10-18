@@ -20,7 +20,7 @@ const STRENGTH_OPTIONS = [
 
 function Row({ item }: { item: EvidenceItem }) {
   return (
-    <div className="border-b border-wb-line pb-2 text-[12.5px] last:border-0">
+    <div className="border-b border-wb-line pb-2 text-wb-label last:border-0">
       <div className="font-semibold text-wb-ink">
         {item.source_url ? (
           <a href={item.source_url} target="_blank" rel="noreferrer" className="hover:underline">{item.title}</a>
@@ -112,7 +112,7 @@ export function LibraryView() {
         )}
       </div>
 
-      <div className="flex items-center justify-between text-[12px] text-wb-ink2">
+      <div className="flex items-center justify-between text-wb-label text-wb-ink2">
         <span>{total} total</span>
         <div className="flex gap-2">
           <Button type="button" variant="secondary" size="sm" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>Prev</Button>

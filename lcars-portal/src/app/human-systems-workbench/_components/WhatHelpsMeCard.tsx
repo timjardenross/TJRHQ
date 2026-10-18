@@ -31,7 +31,7 @@ export function WhatHelpsMeCard({ data }: { data: InterventionEffectiveness[] })
   return (
     <CollapsibleSection title="What Helps Me">
       {data.length === 0 ? (
-        <p className="text-[13px] text-wb-ink2">No interventions tried yet. Use /capacity, /helpme, or /guide on the Capacity Bot to start building a track record.</p>
+        <p className="text-wb-body text-wb-ink2">No interventions tried yet. Use /capacity, /helpme, or /guide on the Capacity Bot to start building a track record.</p>
       ) : (
         <div className="flex flex-col gap-2">
           {qualified.map((r) => {
@@ -39,8 +39,8 @@ export function WhatHelpsMeCard({ data }: { data: InterventionEffectiveness[] })
             return (
               <div key={r.intervention_id} className="flex items-center justify-between gap-2 rounded-md border border-wb-line bg-wb-bg p-3">
                 <div>
-                  <div className="text-[13px] font-medium text-wb-ink">{r.title}</div>
-                  <div className="text-[12px] text-wb-ink2">
+                  <div className="text-wb-body font-medium text-wb-ink">{r.title}</div>
+                  <div className="text-wb-label text-wb-ink2">
                     {r.attempts} attempts
                     {r.common_context && <> · most often used for {r.common_context}</>}
                   </div>
@@ -51,7 +51,7 @@ export function WhatHelpsMeCard({ data }: { data: InterventionEffectiveness[] })
                    *  rows until a human reviews them) so this doesn't read as "checked,
                    *  found nothing" on every row. */}
                   {r.evidence_strength !== 'unknown' && (
-                    <div className="mt-0.5 text-[12px] italic text-wb-ink2" title={r.evidence_basis ?? undefined}>
+                    <div className="mt-0.5 text-wb-label italic text-wb-ink2" title={r.evidence_basis ?? undefined}>
                       {EVIDENCE_LABEL[r.evidence_strength]}
                     </div>
                   )}
@@ -63,7 +63,7 @@ export function WhatHelpsMeCard({ data }: { data: InterventionEffectiveness[] })
             );
           })}
           {unqualified.length > 0 && (
-            <p className="mt-1 text-[12px] text-wb-ink2">
+            <p className="mt-1 text-wb-label text-wb-ink2">
               {unqualified.length} more strateg{unqualified.length === 1 ? 'y' : 'ies'} tried fewer than 3 times — not enough data yet.
             </p>
           )}

@@ -29,7 +29,7 @@ export function LibraryKpis({ onStatsUpdate }: LibraryKpisProps) {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <p className="mb-2 text-[12px] uppercase tracking-[0.2em] text-wb-ink2">
+        <p className="mb-2 text-wb-label uppercase tracking-[0.2em] text-wb-ink2">
           Pipeline Health — system status, nothing here is yours to act on
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -40,7 +40,7 @@ export function LibraryKpis({ onStatsUpdate }: LibraryKpisProps) {
         </div>
       </div>
       <div>
-        <p className="mb-2 text-[12px] uppercase tracking-[0.2em] text-wb-ink2">
+        <p className="mb-2 text-wb-label uppercase tracking-[0.2em] text-wb-ink2">
           Your Review Queue — needs a decision from you
         </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">

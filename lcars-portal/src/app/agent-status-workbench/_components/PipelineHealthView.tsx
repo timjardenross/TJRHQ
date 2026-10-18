@@ -30,12 +30,12 @@ function StageChecklist({ stages }: { stages: StageResult[] }) {
         const classes = stateToneClasses(s.tone);
         return (
           <li key={s.key} className="flex items-start gap-2" title={s.detail}>
-            <span className={`mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${classes.bg} ${classes.on}`} aria-hidden>
+            <span className={`mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-wb-label font-bold ${classes.bg} ${classes.on}`} aria-hidden>
               {stageToneGlyph(s.tone)}
             </span>
             <div className="min-w-0">
-              <p className="text-[12px] font-medium text-wb-ink">{s.label}</p>
-              <p className="truncate text-[12px] text-wb-ink2">{s.detail}</p>
+              <p className="text-wb-label font-medium text-wb-ink">{s.label}</p>
+              <p className="truncate text-wb-label text-wb-ink2">{s.detail}</p>
             </div>
           </li>
         );
@@ -56,25 +56,25 @@ const HEALTH_COLS: Array<[string, string]> = [
 
 function QualityTable({ rows, cols }: { rows: Array<Record<string, any>>; cols: Array<[string, string]> }) {
   if (rows.length === 0) {
-    return <p className="text-[12px] italic text-wb-ink2">No daily rows yet.</p>;
+    return <p className="text-wb-label italic text-wb-ink2">No daily rows yet.</p>;
   }
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b border-wb-line">
-            <th className="pb-2 pr-3 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Day</th>
+            <th className="pb-2 pr-3 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Day</th>
             {cols.map(([key, label]) => (
-              <th key={key} className="pb-2 pr-3 text-right text-[12px] uppercase tracking-wider text-wb-ink2">{label}</th>
+              <th key={key} className="pb-2 pr-3 text-right text-wb-label uppercase tracking-wider text-wb-ink2">{label}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.day} className="border-b border-wb-line last:border-0">
-              <td className="py-2 pr-3 text-[12px] text-wb-ink">{new Date(r.day).toLocaleDateString('en-AU', { day: '2-digit', month: 'short' })}</td>
+              <td className="py-2 pr-3 text-wb-label text-wb-ink">{new Date(r.day).toLocaleDateString('en-AU', { day: '2-digit', month: 'short' })}</td>
               {cols.map(([key]) => (
-                <td key={key} className="py-2 pr-3 text-right text-[12px] tabular-nums text-wb-ink2">{r[key] ?? 0}</td>
+                <td key={key} className="py-2 pr-3 text-right text-wb-label tabular-nums text-wb-ink2">{r[key] ?? 0}</td>
               ))}
             </tr>
           ))}
@@ -111,13 +111,13 @@ export function PipelineHealthView() {
     load();
   }, []);
 
-  if (isLoading) return <Card><p className="text-[13px] italic text-wb-ink2">Loading pipeline health…</p></Card>;
+  if (isLoading) return <Card><p className="text-wb-body italic text-wb-ink2">Loading pipeline health…</p></Card>;
   if (loadError || !overview || !quality) {
     return (
       <Card>
         <div className="rounded-md border border-wb-crit/40 bg-wb-crit/10 px-4 py-3">
-          <p className="text-[13px] font-semibold text-wb-crit-on">Pipeline health unavailable</p>
-          <p className="mt-1 text-[12px] text-wb-ink2">{loadError ?? 'No data returned.'}</p>
+          <p className="text-wb-body font-semibold text-wb-crit-on">Pipeline health unavailable</p>
+          <p className="mt-1 text-wb-label text-wb-ink2">{loadError ?? 'No data returned.'}</p>
         </div>
       </Card>
     );
@@ -128,24 +128,24 @@ export function PipelineHealthView() {
       <Card>
         <div className="mb-2 flex items-center justify-between">
           <h2 className="font-serif text-lg text-wb-ink">Technical OSINT Pipeline</h2>
-          <Link href="/intelligence-workbench" className="text-[12px] text-wb-sage-deep hover:underline">Open Technical OSINT →</Link>
+          <Link href="/intelligence-workbench" className="text-wb-label text-wb-sage-deep hover:underline">Open Technical OSINT →</Link>
         </div>
         <StageChecklist stages={overview.pipelines.technical.stages} />
-        <h3 className="mb-2 mt-4 text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">Last 14 days</h3>
+        <h3 className="mb-2 mt-4 text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">Last 14 days</h3>
         <QualityTable rows={quality.technical} cols={TECH_COLS} />
       </Card>
 
       <Card>
         <div className="mb-2 flex items-center justify-between">
           <h2 className="font-serif text-lg text-wb-ink">Health OSINT Pipeline</h2>
-          <Link href="/health-osint" className="text-[12px] text-wb-sage-deep hover:underline">Open Health OSINT →</Link>
+          <Link href="/health-osint" className="text-wb-label text-wb-sage-deep hover:underline">Open Health OSINT →</Link>
         </div>
         <StageChecklist stages={overview.pipelines.health.stages} />
-        <h3 className="mb-2 mt-4 text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">Last 14 days</h3>
+        <h3 className="mb-2 mt-4 text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">Last 14 days</h3>
         <QualityTable rows={quality.health} cols={HEALTH_COLS} />
       </Card>
 
-      <p className="text-[12px] text-wb-ink2">{quality.note}</p>
+      <p className="text-wb-label text-wb-ink2">{quality.note}</p>
     </div>
   );
 }

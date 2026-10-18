@@ -41,7 +41,7 @@ export function EscalationBanner({ level, message, footnote, label }: Escalation
         </span>
         <span className="text-xs text-wb-ink">{message}</span>
       </div>
-      {footnote && <p className="mt-1 text-[12px] text-wb-ink2">{footnote}</p>}
+      {footnote && <p className="mt-1 text-wb-label text-wb-ink2">{footnote}</p>}
     </div>
   );
 }

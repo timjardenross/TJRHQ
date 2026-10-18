@@ -305,12 +305,12 @@ export default function SearchPage() {
         </div>
         <div role="group" aria-label="Attention view" className="flex flex-wrap gap-2">
           {([['all', 'All'], ['needs-action', 'Needs action'], ['important', 'Important only']] as const).map(([value, label]) => (
-            <button key={value} type="button" onClick={() => setAttentionView(value)} aria-pressed={attentionView === value} className={`rounded-md border px-3 py-1 text-[12px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${attentionView === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+            <button key={value} type="button" onClick={() => setAttentionView(value)} aria-pressed={attentionView === value} className={`rounded-md border px-3 py-1 text-wb-label font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${attentionView === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
           ))}
           {LIFECYCLE_FILTERS.map(({ value, label }) => (
-            <button key={value} type="button" onClick={() => setLifecycleFilter(lifecycleFilter === value ? null : value)} aria-pressed={lifecycleFilter === value} className={`rounded-md border px-3 py-1 text-[12px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${lifecycleFilter === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+            <button key={value} type="button" onClick={() => setLifecycleFilter(lifecycleFilter === value ? null : value)} aria-pressed={lifecycleFilter === value} className={`rounded-md border px-3 py-1 text-wb-label font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${lifecycleFilter === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
           ))}
-          <span className="self-center text-[12px] text-wb-ink2">{lifecycleResults.length} shown</span>
+          <span className="self-center text-wb-label text-wb-ink2">{lifecycleResults.length} shown</span>
         </div>
 
         {!searched && (
@@ -337,7 +337,7 @@ export default function SearchPage() {
         )}
         {Object.entries(filteredGrouped).map(([type, items]) => (
           <div key={type} className="flex flex-col gap-1">
-            <p className="border-b border-wb-line pb-1 text-[12px] uppercase tracking-[0.2em] text-wb-ink2">
+            <p className="border-b border-wb-line pb-1 text-wb-label uppercase tracking-[0.2em] text-wb-ink2">
               {TYPE_LABEL[type] ?? type}
             </p>
             {items.map(r => (
@@ -353,7 +353,7 @@ export default function SearchPage() {
                   {r.detail && <p className="mt-0.5 truncate text-xs text-wb-ink2">{r.detail}</p>}
                   <EvidenceMeta source={TYPE_LABEL[r.type] ?? r.type} observedAt={r.timestamp} />
                 </div>
-                <span className="mt-1 shrink-0 text-[12px] text-wb-ink2">{relTs(r.timestamp)}</span>
+                <span className="mt-1 shrink-0 text-wb-label text-wb-ink2">{relTs(r.timestamp)}</span>
               </button>
             ))}
           </div>

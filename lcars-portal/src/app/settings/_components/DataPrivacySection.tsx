@@ -19,10 +19,10 @@ function ComingSoonRow({ label, description }: { label: string; description: str
   return (
     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-wb-line py-4 last:border-b-0">
       <div className="min-w-0 flex-1 pr-4">
-        <p className="text-[13px] font-medium text-wb-ink">
-          {label} <span className="ml-1 text-[12px] uppercase tracking-[0.1em] text-wb-ink2">Soon</span>
+        <p className="text-wb-body font-medium text-wb-ink">
+          {label} <span className="ml-1 text-wb-label uppercase tracking-[0.1em] text-wb-ink2">Soon</span>
         </p>
-        <p className="mt-0.5 text-[12px] text-wb-ink2">{description}</p>
+        <p className="mt-0.5 text-wb-label text-wb-ink2">{description}</p>
       </div>
       <Button variant="secondary" size="sm" disabled>
         {label}
@@ -57,7 +57,7 @@ export function DataPrivacySection() {
           />
         </SettingRow>
       </div>
-      <p className="mt-2 text-[12px] text-wb-ink2">
+      <p className="mt-2 text-wb-label text-wb-ink2">
         <Link href="/model-crew" className="text-wb-sage-deep hover:underline">
           View current model routing →
         </Link>
@@ -67,7 +67,7 @@ export function DataPrivacySection() {
       </div>
 
       <div className="mt-6 rounded-lg border border-wb-crit bg-wb-surface px-4">
-        <h2 className="border-b border-wb-line py-3 text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-crit-on">
+        <h2 className="border-b border-wb-line py-3 text-wb-label font-semibold uppercase tracking-[0.1em] text-wb-crit-on">
           Danger Zone
         </h2>
         <ComingSoonRow label="Clear specific HQ data…" description="Delete a specific category of HQ data. Not available yet." />

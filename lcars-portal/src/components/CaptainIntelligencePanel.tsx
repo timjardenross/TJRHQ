@@ -105,7 +105,7 @@ export function CaptainIntelligencePanel() {
           <button
             onClick={generate}
             disabled={generating}
-            className="rounded-full border border-wb-line px-3 py-1 text-[12px] font-semibold uppercase tracking-wider text-wb-ink hover:bg-wb-bg disabled:opacity-50"
+            className="rounded-full border border-wb-line px-3 py-1 text-wb-label font-semibold uppercase tracking-wider text-wb-ink hover:bg-wb-bg disabled:opacity-50"
           >
             {generating ? 'Synthesising… (can take 1-4 min)' : 'Generate New Insights'}
           </button>
@@ -128,10 +128,10 @@ export function CaptainIntelligencePanel() {
         {insights.map((insight) => (
           <div key={insight.id} className="rounded-lg border border-wb-line/60 bg-wb-bg/60 p-3">
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-[12px] uppercase tracking-wider text-wb-ink2">
+              <span className="text-wb-label uppercase tracking-wider text-wb-ink2">
                 {insight.source_domains?.join(', ')} · {new Date(insight.generated_at).toLocaleString()}
               </span>
-              <span className="text-[12px] uppercase tracking-wider text-wb-ink2">
+              <span className="text-wb-label uppercase tracking-wider text-wb-ink2">
                 confidence {insight.insight_confidence ?? '—'} · {insight.outcome}
               </span>
             </div>
@@ -150,14 +150,14 @@ export function CaptainIntelligencePanel() {
             )}
             {insight.outcome === 'pending' && (
               <div className="mt-2 flex items-center gap-2 border-t border-wb-line/40 pt-2">
-                <span className="text-[12px] uppercase tracking-wider text-wb-ink2">Was this useful?</span>
+                <span className="text-wb-label uppercase tracking-wider text-wb-ink2">Was this useful?</span>
                 {(['useful', 'not_useful', 'incorrect'] as const).map((o) => (
                   <button
                     key={o}
                     type="button"
                     disabled={recordingId === insight.id}
                     onClick={() => recordOutcome(insight.id, o)}
-                    className="rounded-full border border-wb-line px-2 py-0.5 text-[12px] font-medium text-wb-ink hover:bg-wb-bg disabled:opacity-50"
+                    className="rounded-full border border-wb-line px-2 py-0.5 text-wb-label font-medium text-wb-ink hover:bg-wb-bg disabled:opacity-50"
                   >
                     {o === 'useful' ? '✓ Useful' : o === 'not_useful' ? 'Not useful' : '✗ Incorrect'}
                   </button>

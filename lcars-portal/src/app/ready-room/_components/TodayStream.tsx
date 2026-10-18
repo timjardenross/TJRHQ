@@ -33,22 +33,22 @@ function OverloadView({
 }) {
   return (
     <div className="flex flex-col gap-4 rounded-md border border-wb-line bg-wb-surface p-4">
-      <p className="text-[13px] text-wb-ink">
+      <p className="text-wb-body text-wb-ink">
         That&apos;s okay. Everything else is being protected — you don&apos;t need to look at it right now.
       </p>
       {onlyTask ? (
         <div className="rounded-md bg-wb-sage/10 p-3">
-          <p className="text-[12px] uppercase tracking-wide text-wb-sage-deep">One thing, if you want it</p>
-          <p className="mt-1 text-[14px] text-wb-ink">{onlyTask.title}</p>
+          <p className="text-wb-label uppercase tracking-wide text-wb-sage-deep">One thing, if you want it</p>
+          <p className="mt-1 text-wb-body text-wb-ink">{onlyTask.title}</p>
           <Button size="sm" className="mt-2" onClick={() => onStart(onlyTask)}>Start this</Button>
         </div>
       ) : (
-        <p className="text-[13px] text-wb-ink2">Nothing urgent needs you at all right now.</p>
+        <p className="text-wb-body text-wb-ink2">Nothing urgent needs you at all right now.</p>
       )}
       <div className="flex flex-wrap gap-2">
         <a
           href="/human-systems-workbench?domain=recovery"
-          className="inline-flex items-center rounded-md border border-wb-line bg-wb-bg px-3 py-1.5 text-[13px] text-wb-ink hover:bg-wb-surface-raised"
+          className="inline-flex items-center rounded-md border border-wb-line bg-wb-bg px-3 py-1.5 text-wb-body text-wb-ink hover:bg-wb-surface-raised"
         >
           Take a break instead
         </a>
@@ -106,7 +106,7 @@ function QuickAdd({ onAdded }: { onAdded: () => void }) {
       onSubmit={(e) => { e.preventDefault(); submit(); }}
       className="flex flex-col gap-2 rounded-md border border-wb-line bg-wb-surface p-3"
     >
-      <p className="text-[13px] font-medium text-wb-ink">+ Add something</p>
+      <p className="text-wb-body font-medium text-wb-ink">+ Add something</p>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="flex-1">
           <Input
@@ -121,7 +121,7 @@ function QuickAdd({ onAdded }: { onAdded: () => void }) {
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="self-start text-[12px] text-wb-ink2 underline-offset-2 hover:underline"
+        className="self-start text-wb-label text-wb-ink2 underline-offset-2 hover:underline"
       >
         {expanded ? 'Hide details' : 'Add details ▾'}
       </button>
@@ -165,8 +165,8 @@ function CollapsedSection({
     <section>
       <div className="flex items-center justify-between rounded-md border border-wb-line bg-wb-surface px-3 py-2">
         <div>
-          <p className="text-[13px] font-medium text-wb-ink">{title} {count}</p>
-          <p className="text-[12px] text-wb-ink2">{reassurance}</p>
+          <p className="text-wb-body font-medium text-wb-ink">{title} {count}</p>
+          <p className="text-wb-label text-wb-ink2">{reassurance}</p>
         </div>
         <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>
           {open ? 'Hide' : 'Show'}
@@ -175,7 +175,7 @@ function CollapsedSection({
       {open && (
         <div className="mt-2 flex flex-col gap-2">
           {tasks.length === 0 && (
-            <p className="rounded-md border border-dashed border-wb-line px-3 py-4 text-center text-[12px] text-wb-ink2">
+            <p className="rounded-md border border-dashed border-wb-line px-3 py-4 text-center text-wb-label text-wb-ink2">
               {emptyLabel}
             </p>
           )}
@@ -276,7 +276,7 @@ export function TodayStream({
 
   if (state === 'unavailable') {
     return (
-      <p className="rounded-md border border-wb-line bg-wb-surface px-4 py-3 text-[13px] text-wb-warn-on">
+      <p className="rounded-md border border-wb-line bg-wb-surface px-4 py-3 text-wb-body text-wb-warn-on">
         Ready Room could not load your task state. Try reloading.
       </p>
     );
@@ -325,28 +325,28 @@ export function TodayStream({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-wb-line bg-wb-surface px-4 py-3">
-        <p className="text-[13px] text-wb-ink">{statusSentence}</p>
+        <p className="text-wb-body text-wb-ink">{statusSentence}</p>
         {(today.length > 0 || radar.length > 0) && (
           <button
             type="button"
             onClick={() => setOverloaded(true)}
-            className="shrink-0 text-[12px] text-wb-ink2 underline-offset-2 hover:underline"
+            className="shrink-0 text-wb-label text-wb-ink2 underline-offset-2 hover:underline"
           >
             This feels like too much
           </button>
         )}
       </div>
       {syncStatus === 'failed' && (
-        <p className="rounded-md border border-wb-warn/40 bg-wb-warn/10 px-4 py-2 text-[12px] text-wb-warn-on">
+        <p className="rounded-md border border-wb-warn/40 bg-wb-warn/10 px-4 py-2 text-wb-label text-wb-warn-on">
           Google Tasks sync is currently failing — tasks added or completed on your phone may not appear here yet.
         </p>
       )}
 
       <section>
-        <h2 className="mb-2 font-serif text-[15px] text-wb-ink">Today</h2>
+        <h2 className="mb-2 font-serif text-wb-lead text-wb-ink">Today</h2>
         <div className="flex flex-col gap-2">
           {today.length === 0 && (
-            <p className="rounded-md border border-dashed border-wb-line px-3 py-4 text-center text-[12px] text-wb-ink2">
+            <p className="rounded-md border border-dashed border-wb-line px-3 py-4 text-center text-wb-label text-wb-ink2">
               Nothing urgent. ✓
             </p>
           )}
@@ -356,13 +356,13 @@ export function TodayStream({
 
       {pickUp.length > 0 && (
         <section>
-          <h2 className="mb-2 font-serif text-[15px] text-wb-ink">Pick up where you left off</h2>
+          <h2 className="mb-2 font-serif text-wb-lead text-wb-ink">Pick up where you left off</h2>
           <div className="flex flex-col gap-2">
             {pickUp.map((t) => (
               <div key={t.id} className="rounded-md border border-wb-sage/40 bg-wb-sage/10 p-3">
-                <p className="text-[14px] font-medium text-wb-ink">{t.title}</p>
-                <p className="mt-1 text-[12px] uppercase tracking-wide text-wb-sage-deep">You left off here</p>
-                <p className="text-[13px] text-wb-ink">{t.restart_cue}</p>
+                <p className="text-wb-body font-medium text-wb-ink">{t.title}</p>
+                <p className="mt-1 text-wb-label uppercase tracking-wide text-wb-sage-deep">You left off here</p>
+                <p className="text-wb-body text-wb-ink">{t.restart_cue}</p>
                 <div className="mt-2 flex gap-2">
                   <Button size="sm" onClick={() => setActiveTask(t)}>Continue</Button>
                   <Button size="sm" variant="ghost" onClick={async () => { await deferNotToday(t.id); refresh(); }}>
@@ -399,7 +399,7 @@ export function TodayStream({
         </Button>
         {doneOpen && (
           <div className="mt-2 flex flex-col gap-2 opacity-80">
-            {doneTasks.length === 0 && <p className="text-[12px] text-wb-ink2">Nothing completed yet.</p>}
+            {doneTasks.length === 0 && <p className="text-wb-label text-wb-ink2">Nothing completed yet.</p>}
             {doneTasks.map((t) => <TaskRow key={t.id} task={t} onChanged={refresh} showNotToday={false} />)}
           </div>
         )}

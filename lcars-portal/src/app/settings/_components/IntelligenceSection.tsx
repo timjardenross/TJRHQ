@@ -102,14 +102,14 @@ export function IntelligenceSection() {
       />
 
       {taxonomyError && (
-        <p role="alert" className="mb-4 text-[12px] font-medium text-wb-crit-on">
+        <p role="alert" className="mb-4 text-wb-label font-medium text-wb-crit-on">
           Could not load the category list. Showing a smaller built-in set instead.
         </p>
       )}
 
       <section className="mb-8">
-        <h2 className="mb-1 text-[13px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Technical Intelligence</h2>
-        <p className="mb-3 text-[12px] text-wb-ink2">HQ is monitoring:</p>
+        <h2 className="mb-1 text-wb-body font-semibold uppercase tracking-[0.1em] text-wb-ink2">Technical Intelligence</h2>
+        <p className="mb-3 text-wb-label text-wb-ink2">HQ is monitoring:</p>
         <div className="grid grid-cols-1 gap-x-6 gap-y-1 rounded-lg border border-wb-line bg-wb-surface p-4 sm:grid-cols-2">
           {(taxonomy?.technical ?? []).map((category) => (
             <Checkbox
@@ -122,7 +122,7 @@ export function IntelligenceSection() {
           ))}
         </div>
 
-        <p className="mb-2 mt-4 text-[12px] text-wb-ink2">Geographic focus:</p>
+        <p className="mb-2 mt-4 text-wb-label text-wb-ink2">Geographic focus:</p>
         <fieldset className="flex flex-col gap-2 rounded-lg border border-wb-line bg-wb-surface p-4">
           <legend className="sr-only">Geographic focus</legend>
           {(
@@ -132,7 +132,7 @@ export function IntelligenceSection() {
               ['global', 'Global'],
             ] as const
           ).map(([key, label]) => (
-            <label key={key} className="flex cursor-pointer items-center gap-2 text-[13px] text-wb-ink">
+            <label key={key} className="flex cursor-pointer items-center gap-2 text-wb-body text-wb-ink">
               <input
                 type="radio"
                 name="geographic-focus"
@@ -145,21 +145,21 @@ export function IntelligenceSection() {
             </label>
           ))}
         </fieldset>
-        <p className="mt-2 text-[12px] text-wb-ink2">
+        <p className="mt-2 text-wb-label text-wb-ink2">
           Systemic global events are still considered where they could materially affect a monitored area, regardless of this
           setting.
         </p>
       </section>
 
       <section>
-        <h2 className="mb-1 text-[13px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Health Intelligence</h2>
-        <p className="mb-3 text-[12px] text-wb-ink2">
+        <h2 className="mb-1 text-wb-body font-semibold uppercase tracking-[0.1em] text-wb-ink2">Health Intelligence</h2>
+        <p className="mb-3 text-wb-label text-wb-ink2">
           Monitoring-interest preferences, not diagnoses or medical conclusions.
         </p>
         <div className="flex flex-col gap-4">
           {(taxonomy?.health ?? []).map((tier) => (
             <div key={tier.key} className="rounded-lg border border-wb-line bg-wb-surface p-4">
-              <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-wb-ink2">{tier.label}</h3>
+              <h3 className="mb-2 text-wb-label font-semibold uppercase tracking-[0.08em] text-wb-ink2">{tier.label}</h3>
               <div className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
                 {tier.tags.map((tag) => (
                   <Checkbox

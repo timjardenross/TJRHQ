@@ -92,7 +92,7 @@ export default function PhysicalReadinessHome() {
                   {lastSession.duration_minutes ? ` · ${lastSession.duration_minutes} min` : ''}
                 </p>
               </div>
-              <span className="rounded-full border border-wb-line bg-wb-bg px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-wider text-wb-ink2">
+              <span className="rounded-full border border-wb-line bg-wb-bg px-2.5 py-0.5 text-wb-label font-semibold uppercase tracking-wider text-wb-ink2">
                 {STATUS_LABEL[lastSession.status] ?? lastSession.status.replace('_', ' ')}
               </span>
             </div>

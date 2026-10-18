@@ -56,12 +56,12 @@ function recToRec(rec: Recommendation) {
 function InsightCard({ insight }: { insight: Insight }) {
   return (
     <div className="rounded-md border border-wb-line bg-wb-surface p-3">
-      {insight.observation && <p className="text-[13px] font-medium text-wb-ink">{insight.observation}</p>}
-      {insight.why_it_matters && <p className="mt-1 text-[12px] text-wb-ink2">{insight.why_it_matters}</p>}
+      {insight.observation && <p className="text-wb-body font-medium text-wb-ink">{insight.observation}</p>}
+      {insight.why_it_matters && <p className="mt-1 text-wb-label text-wb-ink2">{insight.why_it_matters}</p>}
       {insight.potential_impact && (
-        <p className="mt-1 text-[12px] text-wb-ink2">Impact: {insight.potential_impact}</p>
+        <p className="mt-1 text-wb-label text-wb-ink2">Impact: {insight.potential_impact}</p>
       )}
-      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] uppercase tracking-[0.14em] text-wb-sage-deep">
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-wb-label uppercase tracking-[0.14em] text-wb-sage-deep">
         {insight.source_kind && <span>{insight.source_kind}</span>}
         {insight.source_domains && insight.source_domains.length > 0 && (
           <span className="normal-case tracking-normal text-wb-ink2">{insight.source_domains.join(', ')}</span>
@@ -69,7 +69,7 @@ function InsightCard({ insight }: { insight: Insight }) {
         {insight.confidence != null && <span className="text-wb-ink2">{insight.confidence}% confidence</span>}
       </div>
       {insight.evidence_chain && insight.evidence_chain.length > 0 && (
-        <ul className="mt-1.5 list-disc pl-4 text-[12px] text-wb-ink2">
+        <ul className="mt-1.5 list-disc pl-4 text-wb-label text-wb-ink2">
           {insight.evidence_chain.map((e, i) => (
             <li key={i}>{e}</li>
           ))}
@@ -100,7 +100,7 @@ export function BriefView({
 
       {doc.interrupt_now.length > 0 && (
         <Section title="Interrupt Now">
-          <p className="mb-2 text-[12px] text-wb-ink2">
+          <p className="mb-2 text-wb-label text-wb-ink2">
             The raw Attention Engine interrupt-now bucket — items judged to warrant immediate attention.
           </p>
           <ItemGrid items={doc.interrupt_now} />

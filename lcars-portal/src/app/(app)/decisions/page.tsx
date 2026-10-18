@@ -89,7 +89,7 @@ export default function DecisionsPage() {
             and inventing one here would be new governance this page does
             not authorise (see lib/decisions.ts's own header). */}
         <div className="rounded-xl border border-wb-line bg-wb-surface p-3">
-          <p className="mb-3 text-[12px] uppercase tracking-[0.25em] text-wb-sand-deep">
+          <p className="mb-3 text-wb-label uppercase tracking-[0.25em] text-wb-sand-deep">
             Flagged Intelligence Recommendations
             {intelligence.length > 0 && <span className="ml-1 text-wb-ink2">({intelligence.length})</span>}
           </p>
@@ -107,7 +107,7 @@ export default function DecisionsPage() {
                   <Link href={item.briefHref} className="block text-xs font-medium leading-snug text-wb-ink underline underline-offset-2 hover:text-wb-sand-deep">
                     {item.description}
                   </Link>
-                  <p className="mt-0.5 text-[12px] text-wb-ink2">
+                  <p className="mt-0.5 text-wb-label text-wb-ink2">
                     {item.sourceDomain}
                     {item.confidence != null && ` · ${Math.round(item.confidence * 100)}% confidence`}
                   </p>

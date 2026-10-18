@@ -263,24 +263,24 @@ export default function TrendsPage() {
       `}</style>
       <div className="flex flex-col gap-4 print:gap-2">
         <Card className="print-compact">
-          <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-wb-ink2">What Changed (last 30 days)</div>
-          <p className="mt-1 text-[13px] text-wb-ink">
+          <div className="text-wb-label font-semibold uppercase tracking-[0.12em] text-wb-ink2">What Changed (last 30 days)</div>
+          <p className="mt-1 text-wb-body text-wb-ink">
             {summaryLoading
               ? 'Generating summary…'
               : summary ?? `Not enough recorded days yet for a summary — only ${last30Recorded} of the last 30 days have anything recorded.`}
           </p>
-          <p className="mt-2 text-[12px] text-wb-ink2">
+          <p className="mt-2 text-wb-label text-wb-ink2">
             Built only from what was actually recorded — never a value it doesn&rsquo;t have.
           </p>
         </Card>
 
         <Card className="print:hidden">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-[13px] text-wb-ink2">
+            <p className="text-wb-body text-wb-ink2">
               {trends === null && !loadError ? 'Loading…' : `${recordedDays} of ${windowed.length} day(s) in this window have at least one recorded field.`}
             </p>
             <div className="flex items-center gap-2">
-              <div className="flex flex-nowrap overflow-x-auto rounded-md border border-wb-line text-[12px] [scrollbar-width:thin]">
+              <div className="flex flex-nowrap overflow-x-auto rounded-md border border-wb-line text-wb-label [scrollbar-width:thin]">
                 {WINDOWS.map((w) => (
                   <button
                     key={w.key}
@@ -298,7 +298,7 @@ export default function TrendsPage() {
                *  plain language. See human-systems-workbench/report/page.tsx. */}
               <Link
                 href="/human-systems-workbench/report"
-                className="rounded-md border border-wb-line px-3 py-1 text-[12px] font-medium text-wb-ink transition hover:border-wb-sage-deep"
+                className="rounded-md border border-wb-line px-3 py-1 text-wb-label font-medium text-wb-ink transition hover:border-wb-sage-deep"
               >
                 Download PDF
               </Link>
@@ -310,12 +310,12 @@ export default function TrendsPage() {
          *  controls above are hidden via print:hidden; this line gives the
          *  PDF its own context (which window, when generated) since the
          *  interactive toggle buttons obviously don't survive onto paper. */}
-        <p className="hidden text-[12px] text-wb-ink2 print:block">
+        <p className="hidden text-wb-label text-wb-ink2 print:block">
           Human Systems — Trends · {activeWindow.label} window · generated {new Date().toLocaleString('en-AU')}
         </p>
 
         {loadError && (
-          <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4 text-[13px] text-wb-crit-on">
+          <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4 text-wb-body text-wb-crit-on">
             Couldn&rsquo;t load trends: {loadError}
           </div>
         )}
@@ -325,23 +325,23 @@ export default function TrendsPage() {
             {TREND_GROUPS.map((group) => (
               <Card key={group.key} className="print-compact print-tile">
                 <div className="flex items-baseline justify-between gap-3">
-                  <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-wb-ink">{group.label}</div>
-                  <div className="text-[12px] text-wb-ink2">{group.blurb}</div>
+                  <div className="text-wb-label font-semibold uppercase tracking-[0.12em] text-wb-ink">{group.label}</div>
+                  <div className="text-wb-label text-wb-ink2">{group.blurb}</div>
                 </div>
                 <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 print:grid-cols-3 print:gap-2">
                   {group.fields.map((field) => {
                     const score = latestScore(windowed, field);
                     return (
                       <div key={field.key} className="print-tile rounded-md border border-wb-line bg-wb-bg p-3 print:p-1.5">
-                        <div className="text-[12px] uppercase tracking-wide text-wb-ink2">{field.label}</div>
+                        <div className="text-wb-label uppercase tracking-wide text-wb-ink2">{field.label}</div>
                         <div className="mt-1 flex items-baseline gap-2">
-                          <span className="text-[13px] font-medium text-wb-ink">{latestLabel(windowed, field)}</span>
-                          {score != null && <span className="text-[12px] tabular-nums text-wb-ink2">{score}/100</span>}
+                          <span className="text-wb-body font-medium text-wb-ink">{latestLabel(windowed, field)}</span>
+                          {score != null && <span className="text-wb-label tabular-nums text-wb-ink2">{score}/100</span>}
                         </div>
                         <div className="mt-2">
                           <Sparkline values={fieldValues(windowed, field)} />
                         </div>
-                        {field.caption && <p className="mt-1 text-[12px] italic text-wb-ink2">{field.caption}</p>}
+                        {field.caption && <p className="mt-1 text-wb-label italic text-wb-ink2">{field.caption}</p>}
                       </div>
                     );
                   })}

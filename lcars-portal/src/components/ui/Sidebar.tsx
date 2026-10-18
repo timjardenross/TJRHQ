@@ -43,7 +43,7 @@ const SECONDARY: SidebarLink[] = [
 function SidebarRow({ link, active }: { link: SidebarLink; active: boolean }) {
   const Icon = link.icon;
   const classes = [
-    'flex items-center gap-3 rounded-md px-3 py-2 text-[13px] transition-colors',
+    'flex items-center gap-3 rounded-md px-3 py-2 text-wb-body transition-colors',
     link.disabled
       ? 'cursor-not-allowed text-wb-ink2/50'
       : active
@@ -56,7 +56,7 @@ function SidebarRow({ link, active }: { link: SidebarLink; active: boolean }) {
       <span className={classes} aria-disabled="true">
         <Icon className="h-4 w-4 shrink-0" aria-hidden />
         {link.label}
-        <span className="ml-auto text-[12px] uppercase tracking-[0.1em] text-wb-ink2/50">Soon</span>
+        <span className="ml-auto text-wb-label uppercase tracking-[0.1em] text-wb-ink2/50">Soon</span>
       </span>
     );
   }
@@ -88,7 +88,7 @@ export function Sidebar() {
           {/* TJR HQ identity (Stage 2): the sidebar is always dark chrome, so the
               inverted tile. Name only: the descriptor does not fit at this size. */}
           <BrandMark surface="dark" size={36} />
-          <span className="text-[13px] font-semibold leading-tight text-wb-ink">TJR HQ</span>
+          <span className="text-wb-body font-semibold leading-tight text-wb-ink">TJR HQ</span>
         </Link>
         {GROUP_ORDER.map((group) => {
           const entries = LIVE_WORKBENCHES.filter((e) => e.group === group);
@@ -96,7 +96,7 @@ export function Sidebar() {
           const meta = WORKBENCH_GROUP_META[group];
           return (
             <nav key={group} className="flex flex-col gap-1" aria-label={meta.label}>
-              <p className="px-3 pb-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-wb-ink2">
+              <p className="px-3 pb-1 text-wb-label font-semibold uppercase tracking-[0.14em] text-wb-ink2">
                 {meta.label}
               </p>
               {entries.map((entry) => (
@@ -121,7 +121,7 @@ export function Sidebar() {
         {/* Mission §1.1: mockups show this motto in every sidebar footer —
             real copy from the source brief, not fabricated here, but not
             yet Captain-confirmed as final (see mission doc §1.1). */}
-        <p className="mt-4 px-3 text-[12px] uppercase leading-relaxed tracking-[0.18em] text-wb-ink2">
+        <p className="mt-4 px-3 text-wb-label uppercase leading-relaxed tracking-[0.18em] text-wb-ink2">
           Discipline<br />Clarity<br />Progress<br />Freedom
         </p>
       </nav>

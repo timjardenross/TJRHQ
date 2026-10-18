@@ -14,17 +14,17 @@ export function PriorWeekNote({ data }: { data: PriorWeekContext }) {
   if (!data.posture && !data.reflection) return null;
   return (
     <Card>
-      <h2 className="mb-1 font-serif text-[13px] uppercase tracking-[0.1em] text-wb-ink2">Last week&apos;s plan</h2>
+      <h2 className="mb-1 font-serif text-wb-body uppercase tracking-[0.1em] text-wb-ink2">Last week&apos;s plan</h2>
       {data.posture && (
-        <p className="mb-1 text-[13px] text-wb-ink">
+        <p className="mb-1 text-wb-body text-wb-ink">
           Planned posture: <span className="font-medium">{data.posture}</span>
           {data.carryForward.length > 0 && ` — focused on ${data.carryForward.slice(0, 2).join(', ')}.`}
         </p>
       )}
       {data.reflection && (
-        <p className="text-[13px] italic text-wb-ink2">&ldquo;{data.reflection}&rdquo;</p>
+        <p className="text-wb-body italic text-wb-ink2">&ldquo;{data.reflection}&rdquo;</p>
       )}
-      <p className="mt-2 text-[12px] text-wb-ink2">
+      <p className="mt-2 text-wb-label text-wb-ink2">
         This week&apos;s synthesis below uses today&apos;s own evidence — a plan made last week doesn&apos;t override it.
       </p>
     </Card>

@@ -30,7 +30,7 @@ export function StatusBadge({ label, tone, status, stateTone }: StatusBadgeProps
     const s = stateToneClasses(stateTone);
     return (
       <span
-        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-wider ${s.on} ${s.border} ${s.bg}`}
+        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-wb-label font-semibold uppercase tracking-wider ${s.on} ${s.border} ${s.bg}`}
       >
         <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
         {label}
@@ -42,7 +42,7 @@ export function StatusBadge({ label, tone, status, stateTone }: StatusBadgeProps
   const c = toneClasses(resolved);
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-wider ${c.text} ${c.border} ${c.bg}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-wb-label font-semibold uppercase tracking-wider ${c.text} ${c.border} ${c.bg}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
       {label}

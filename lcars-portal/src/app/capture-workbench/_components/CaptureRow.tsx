@@ -94,13 +94,13 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
             <SourceBadge channelId={item.source_channel_id} />
             <ClassBadge classification={item.classification} />
             {item.importance && item.importance !== 'medium' && (
-              <span className="text-[12px] uppercase tracking-wide text-wb-ink2">
+              <span className="text-wb-label uppercase tracking-wide text-wb-ink2">
                 {item.importance === 'high' ? '▲ High' : '▼ Low'}
               </span>
             )}
-            {item.requires_review && <span className="text-[12px] uppercase tracking-wide text-wb-warn-on">⚑ Review</span>}
+            {item.requires_review && <span className="text-wb-label uppercase tracking-wide text-wb-warn-on">⚑ Review</span>}
             <AiBadge status={item.ai_enrichment_status} summary={parsedSummary} />
-            <span className="ml-auto shrink-0 text-[12px] text-wb-ink2">{fmtDate(item.captured_at)}</span>
+            <span className="ml-auto shrink-0 text-wb-label text-wb-ink2">{fmtDate(item.captured_at)}</span>
           </div>
         </div>
         <span className="shrink-0 text-xs text-wb-ink2">{expanded ? '▲' : '▼'}</span>
@@ -113,7 +113,7 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-wb-ink2">{preview}</p>
               {fullContent.length > 300 && (
                 <button type="button" onClick={() => setShowFullContent((v) => !v)}
-                  className="mt-1 text-[12px] uppercase tracking-wider text-wb-sage-deep transition-colors hover:text-wb-sage-deep">
+                  className="mt-1 text-wb-label uppercase tracking-wider text-wb-sage-deep transition-colors hover:text-wb-sage-deep">
                   {showFullContent ? '▲ Show less' : `▼ Show full content (${fullContent.length} chars)`}
                 </button>
               )}
@@ -124,7 +124,7 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
             <div className="mb-2">
               <ActionOutcome message={flash} tone="success" taskId={`capture:${item.id}`} startedAt={actionStartedAtRef.current ?? undefined} />
               {routedDest && (
-                <Link href={routedDest.href} className="mt-1 inline-block text-[12px] uppercase tracking-wider text-wb-sage-deep hover:text-wb-sage-deep">
+                <Link href={routedDest.href} className="mt-1 inline-block text-wb-label uppercase tracking-wider text-wb-sage-deep hover:text-wb-sage-deep">
                   View in {routedDest.label} →
                 </Link>
               )}
@@ -134,7 +134,7 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
 
           {/* Classification + Importance pickers */}
           <div className="mb-3 flex flex-wrap gap-3">
-            <label className="flex flex-col gap-1 text-[12px] uppercase tracking-wide text-wb-ink2">
+            <label className="flex flex-col gap-1 text-wb-label uppercase tracking-wide text-wb-ink2">
               Classification
               <select value={newClass} disabled={busy} onChange={(e) => setNewClass(e.target.value as CaptureClassification)}
                 className="rounded-md border border-wb-line bg-wb-bg px-2 py-1 text-xs normal-case tracking-normal text-wb-ink">
@@ -146,7 +146,7 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
                 <option value="unclassified">Unclassified</option>
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-[12px] uppercase tracking-wide text-wb-ink2">
+            <label className="flex flex-col gap-1 text-wb-label uppercase tracking-wide text-wb-ink2">
               Importance
               <select value={newImp} disabled={busy} onChange={(e) => setNewImp(e.target.value as CaptureImportance)}
                 className="rounded-md border border-wb-line bg-wb-bg px-2 py-1 text-xs normal-case tracking-normal text-wb-ink">
@@ -185,8 +185,8 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
           )}
           {item.ai_enrichment_status === 'enriched' && suggestionDismissed && parsedSummary?.ai_reasoning && (
             <div className="mb-3 rounded-md border border-wb-line bg-wb-bg px-3 py-2">
-              <p className="mb-1 text-[12px] uppercase tracking-wide text-wb-ink2">✦ AI Analysis</p>
-              <p className="text-[12px] italic text-wb-ink2">{parsedSummary.ai_reasoning}</p>
+              <p className="mb-1 text-wb-label uppercase tracking-wide text-wb-ink2">✦ AI Analysis</p>
+              <p className="text-wb-label italic text-wb-ink2">{parsedSummary.ai_reasoning}</p>
             </div>
           )}
 
@@ -205,7 +205,7 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
           {/* AI enrichment trigger — only when not yet enriched */}
           {item.ai_enrichment_status !== 'enriched' && (
             <div className="mt-3 flex items-center gap-2 rounded-md border border-dashed border-wb-line px-3 py-2">
-              <span className="text-[12px] uppercase tracking-wide text-wb-ink2">AI enrichment</span>
+              <span className="text-wb-label uppercase tracking-wide text-wb-ink2">AI enrichment</span>
               <button type="button" disabled={busy || item.ai_enrichment_status === 'queued'}
                 onClick={() => act(async () => {
                   // Server-side proxy now bounds this to 15s on its own
@@ -221,10 +221,10 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
                   if (json?.data?.enriched === false) return { ok: false, error: json?.data?.error ?? 'Enrichment failed' };
                   return { ok: true };
                 }, 'AI enrichment complete')}
-                className="rounded-md border border-wb-sage-deep/40 bg-wb-sage-deep/10 px-2 py-0.5 text-[12px] text-wb-sage-deep hover:bg-wb-sage-deep/20 disabled:opacity-40">
+                className="rounded-md border border-wb-sage-deep/40 bg-wb-sage-deep/10 px-2 py-0.5 text-wb-label text-wb-sage-deep hover:bg-wb-sage-deep/20 disabled:opacity-40">
                 {item.ai_enrichment_status === 'queued' ? 'Queued…' : '✦ Enrich with AI'}
               </button>
-              <span className="text-[12px] text-wb-ink2">Suggests classification + route</span>
+              <span className="text-wb-label text-wb-ink2">Suggests classification + route</span>
             </div>
           )}
         </div>

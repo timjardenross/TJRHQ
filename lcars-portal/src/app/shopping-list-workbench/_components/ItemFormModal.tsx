@@ -108,7 +108,7 @@ export function ItemFormModal({
             {fetching ? 'Fetching…' : 'Fetch details'}
           </Button>
         </div>
-        {fetchError && <p className="text-[12px] text-wb-crit">{fetchError}</p>}
+        {fetchError && <p className="text-wb-label text-wb-crit">{fetchError}</p>}
 
         <Input label="Product name" value={productName} onChange={(e) => setProductName(e.target.value)} required />
 
@@ -147,7 +147,7 @@ export function ItemFormModal({
 
         <Textarea label="Notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
 
-        {saveError && <p className="text-[12px] text-wb-crit">{saveError}</p>}
+        {saveError && <p className="text-wb-label text-wb-crit">{saveError}</p>}
 
         <div className="mt-2 flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>

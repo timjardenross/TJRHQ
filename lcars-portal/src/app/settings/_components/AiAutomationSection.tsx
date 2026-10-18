@@ -43,7 +43,7 @@ export function AiAutomationSection() {
       </div>
 
       <div className="mt-4">
-        <p className="mb-2 text-[12px] text-wb-ink2">Allow HQ to:</p>
+        <p className="mb-2 text-wb-label text-wb-ink2">Allow HQ to:</p>
         <div className={`rounded-lg border border-wb-line bg-wb-surface p-4 ${!value.assistanceEnabled ? 'opacity-50' : ''}`}>
           <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
             {CAPABILITIES.map((cap) => (
@@ -64,7 +64,7 @@ export function AiAutomationSection() {
             nothing" principle this section's own header comment already
             applies to the Advanced model-routing fields below, just not yet
             applied here. Honest caveat until a real gate is wired to them. */}
-        <p className="mt-2 text-[12px] text-wb-ink2">
+        <p className="mt-2 text-wb-label text-wb-ink2">
           These 5 are recorded but not yet wired to any live gate — toggling them changes nothing today.
         </p>
       </div>
@@ -74,22 +74,22 @@ export function AiAutomationSection() {
       </div>
 
       <div className="mt-6 rounded-lg border border-wb-line bg-wb-surface p-4">
-        <h2 className="mb-2 text-[13px] font-semibold uppercase tracking-[0.08em] text-wb-ink2">HQ will ask before:</h2>
-        <ul className="list-disc space-y-1 pl-5 text-[13px] text-wb-ink">
+        <h2 className="mb-2 text-wb-body font-semibold uppercase tracking-[0.08em] text-wb-ink2">HQ will ask before:</h2>
+        <ul className="list-disc space-y-1 pl-5 text-wb-body text-wb-ink">
           <li>publishing content</li>
           <li>creating a Mission</li>
           <li>making consequential evidence/curation decisions where human review is required</li>
           <li>closing important work where confirmation is expected</li>
         </ul>
-        <p className="mt-3 text-[12px] text-wb-ink2">
+        <p className="mt-3 text-wb-label text-wb-ink2">
           Background classification and everyday suggestions don&apos;t require confirmation — AI proposes, and you decide
           where it materially matters.
         </p>
       </div>
 
       <details className="mt-6 rounded-lg border border-wb-line bg-wb-surface p-4">
-        <summary className="cursor-pointer text-[13px] font-medium text-wb-ink">Advanced</summary>
-        <div className="mt-3 text-[13px] text-wb-ink2">
+        <summary className="cursor-pointer text-wb-body font-medium text-wb-ink">Advanced</summary>
+        <div className="mt-3 text-wb-body text-wb-ink2">
           <p>
             Model routing, local-vs-cloud fallback, and model health are managed automatically and shown read-only in{' '}
             <Link href="/model-crew" className="text-wb-sage-deep hover:underline">

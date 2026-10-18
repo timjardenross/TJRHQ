@@ -38,15 +38,15 @@ function ConnectionCard({
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em] text-wb-ink">{title}</h3>
+          <h3 className="text-wb-body font-semibold uppercase tracking-[0.08em] text-wb-ink">{title}</h3>
           {badge ? (
             <Badge status={badge.status} className="mt-1.5">
               {badge.label}
             </Badge>
           ) : (
-            <span className="mt-1.5 block text-[12px] text-wb-ink2">Checking…</span>
+            <span className="mt-1.5 block text-wb-label text-wb-ink2">Checking…</span>
           )}
-          <p className="mt-2 text-[12px] text-wb-ink2">{usedBy}</p>
+          <p className="mt-2 text-wb-label text-wb-ink2">{usedBy}</p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
           {state === 'connected' && connectHref && (
@@ -63,7 +63,7 @@ function ConnectionCard({
               </Button>
             </a>
           )}
-          {manageHint && <p className="max-w-[180px] text-right text-[12px] text-wb-ink2">{manageHint}</p>}
+          {manageHint && <p className="max-w-[180px] text-right text-wb-label text-wb-ink2">{manageHint}</p>}
         </div>
       </div>
     </Card>
@@ -96,7 +96,7 @@ export function ConnectionsSection() {
       <SectionHeading title="Connections" description="Which external services HQ is configured to use." />
 
       {error && (
-        <p role="alert" className="mb-4 text-[12px] font-medium text-wb-crit-on">
+        <p role="alert" className="mb-4 text-wb-label font-medium text-wb-crit-on">
           Could not load connection status. Try reloading this page.
         </p>
       )}
@@ -122,7 +122,7 @@ export function ConnectionsSection() {
         />
       </div>
 
-      <p className="mt-4 text-[12px] text-wb-ink2">
+      <p className="mt-4 text-wb-label text-wb-ink2">
         <Link href="/agent-status-workbench" className="text-wb-sage-deep hover:underline">
           View technical status →
         </Link>{' '}

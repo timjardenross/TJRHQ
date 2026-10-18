@@ -25,13 +25,13 @@ export default function MedicalPage() {
       <h1 className="font-sans text-lg font-bold uppercase tracking-wider text-wb-ink">
         Medical Bay
       </h1>
-      <p className="mt-3 text-[13px] leading-relaxed text-wb-ink2">
+      <p className="mt-3 text-wb-body leading-relaxed text-wb-ink2">
         This page moved.{' '}
         <Link href="/human-systems-workbench" className="text-wb-sage-deep underline hover:no-underline">
           Go to Human Systems →
         </Link>
       </p>
-      <ul className="mt-4 space-y-2 text-[13px] text-wb-ink2">
+      <ul className="mt-4 space-y-2 text-wb-body text-wb-ink2">
         <li>
           Daily check-in:{' '}
           <Link href="/human-systems-workbench/medical/check-in" className="text-wb-sage-deep underline hover:no-underline">

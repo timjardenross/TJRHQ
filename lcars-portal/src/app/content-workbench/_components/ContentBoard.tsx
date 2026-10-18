@@ -132,11 +132,11 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
     <div className="flex flex-wrap items-center gap-1.5">
       <RankBadge score={item.rank_score} />
       {item.pillar && (
-        <span className="rounded-full bg-wb-line px-2 py-0.5 text-[12px] font-medium text-wb-ink2">
+        <span className="rounded-full bg-wb-line px-2 py-0.5 text-wb-label font-medium text-wb-ink2">
           {PILLAR_LABEL[item.pillar] ?? item.pillar}
         </span>
       )}
-      {item.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-[12px] font-semibold text-wb-warn-on">★ Priority</span>}
+      {item.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-wb-label font-semibold text-wb-warn-on">★ Priority</span>}
       {item.sensitive && <Badge status="error">! Sensitive</Badge>}
     </div>
   );
@@ -150,12 +150,12 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
             className="w-full space-y-1.5 p-3 text-left transition-colors hover:bg-wb-line/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
             <div className="flex flex-wrap items-center gap-1.5">
               {chipRow}
-              <span aria-hidden className="ml-auto text-[13px] text-wb-ink2">⤢</span>
+              <span aria-hidden className="ml-auto text-wb-body text-wb-ink2">⤢</span>
             </div>
-            <p className="break-words text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>
+            <p className="break-words text-wb-body font-medium leading-snug text-wb-ink">{item.title}</p>
           </button>
         </div>
-        <p className="border-t border-wb-line/70 px-3 py-1.5 text-[12px] text-wb-ink2">
+        <p className="border-t border-wb-line/70 px-3 py-1.5 text-wb-label text-wb-ink2">
           Created {item.created_at.slice(0, 10)}
           {item.source_kind && ` · ${item.source_kind.replace(/_/g, ' ')}`}
         </p>
@@ -164,7 +164,7 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
       <Modal open={open} onClose={() => { setOpen(false); cancelDiscard(); }} title={item.title} variant="preview">
         <div className="mb-4 space-y-2">
           {chipRow}
-          <p className="text-[12px] uppercase tracking-wide text-wb-ink2">{STAGE_LABEL[item.stage]}</p>
+          <p className="text-wb-label uppercase tracking-wide text-wb-ink2">{STAGE_LABEL[item.stage]}</p>
         </div>
 
         {item.stage === 'capture' && <CaptureStageBody item={item} onChanged={onChanged} />}
@@ -175,18 +175,18 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
         <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-wb-line pt-3">
           {(item.stage === 'content_prep' || item.stage === 'proofing') && !pendingDiscard && (
             <button type="button" onClick={handleSendBack} disabled={sendingBack}
-              className="text-[12px] text-wb-ink2 hover:underline disabled:opacity-60" aria-label={`Send "${item.title}" back to Research`}>
+              className="text-wb-label text-wb-ink2 hover:underline disabled:opacity-60" aria-label={`Send "${item.title}" back to Research`}>
               {sendingBack ? 'Sending back…' : '← Send Back to Research'}
             </button>
           )}
           {!pendingDiscard ? (
             <button type="button" onClick={startDiscard}
-              className="text-[12px] text-wb-crit-on hover:underline" aria-label={`Discard "${item.title}"`}>
+              className="text-wb-label text-wb-crit-on hover:underline" aria-label={`Discard "${item.title}"`}>
               Discard this item
             </button>
           ) : (
             <div className="flex items-center gap-2 rounded-md border border-wb-crit/40 bg-wb-crit/5 p-2">
-              <p className="flex-1 text-[12px] text-wb-crit-on">
+              <p className="flex-1 text-wb-label text-wb-crit-on">
                 {discarding ? 'Discarding…' : 'Discarded — removed from the board, not deleted.'}
               </p>
               <Button size="sm" variant="secondary" onClick={cancelDiscard} disabled={discarding}>
@@ -195,7 +195,7 @@ function ItemCard({ item, onChanged }: { item: ContentItem; onChanged: () => voi
             </div>
           )}
         </div>
-        {sendBackMsg && <p className="mt-1 text-[12px] text-wb-crit-on" role="status" aria-live="polite">{sendBackMsg}</p>}
+        {sendBackMsg && <p className="mt-1 text-wb-label text-wb-crit-on" role="status" aria-live="polite">{sendBackMsg}</p>}
       </Modal>
     </>
   );
@@ -210,14 +210,14 @@ function Column({ stage, items, onChanged }: { stage: Stage; items: ContentItem[
       className={`flex min-w-[264px] flex-1 flex-col gap-2 rounded-xl ${accent.header} p-1.5`}>
       <div className={`h-1 rounded-full ${accent.bar}`} aria-hidden />
       <div className="flex items-center gap-1.5 px-1 py-1">
-        <span aria-hidden className="text-[12px]">{accent.icon}</span>
-        <p className="text-[12px] font-semibold uppercase tracking-wide text-wb-ink">{STAGE_LABEL[stage]}</p>
-        <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[12px] font-semibold ${accent.chip}`}>{items.length}</span>
+        <span aria-hidden className="text-wb-label">{accent.icon}</span>
+        <p className="text-wb-label font-semibold uppercase tracking-wide text-wb-ink">{STAGE_LABEL[stage]}</p>
+        <span className={`ml-auto rounded-full px-1.5 py-0.5 text-wb-label font-semibold ${accent.chip}`}>{items.length}</span>
       </div>
-      <p className="px-1 text-[12px] italic leading-tight text-wb-ink2">{STAGE_HINT[stage]}</p>
+      <p className="px-1 text-wb-label italic leading-tight text-wb-ink2">{STAGE_HINT[stage]}</p>
       <div className="flex flex-col gap-2" role="list" aria-label={`Items in ${STAGE_LABEL[stage]}`}>
         {items.map((item) => (<ItemCard key={item.id} item={item} onChanged={onChanged} />))}
-        {items.length === 0 && <p className="py-4 text-center text-[12px] text-wb-ink2">Empty</p>}
+        {items.length === 0 && <p className="py-4 text-center text-wb-label text-wb-ink2">Empty</p>}
       </div>
     </div>
   );
@@ -245,10 +245,10 @@ function PipelineOverview({
         const isActive = onSelectStage && activeStage === stage;
         const chip = (
           <div className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5 ${isActive ? 'bg-wb-line' : ''}`}>
-            <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[12px] font-semibold text-white ${accent.bar}`} aria-hidden>
+            <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-wb-label font-semibold text-white ${accent.bar}`} aria-hidden>
               {counts[stage]}
             </span>
-            <span className="text-[12px] font-medium text-wb-ink2">{STAGE_LABEL[stage]}</span>
+            <span className="text-wb-label font-medium text-wb-ink2">{STAGE_LABEL[stage]}</span>
           </div>
         );
         return (

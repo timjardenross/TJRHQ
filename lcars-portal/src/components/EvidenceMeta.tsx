@@ -18,5 +18,5 @@ export function EvidenceMeta({
     state ? `State: ${state.replace('-', ' ')}` : null,
   ].filter(Boolean);
   if (!parts.length) return null;
-  return <p className="text-[12px] leading-relaxed text-wb-ink2" aria-label="Evidence metadata">{parts.join(' · ')}</p>;
+  return <p className="text-wb-label leading-relaxed text-wb-ink2" aria-label="Evidence metadata">{parts.join(' · ')}</p>;
 }

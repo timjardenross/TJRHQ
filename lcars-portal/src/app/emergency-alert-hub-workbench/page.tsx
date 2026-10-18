@@ -134,7 +134,7 @@ function SeverityBadge({ alert }: { alert: EmergencyAlertEntry }) {
       <Badge status={toneToStatus(emergencyAlertTierToTone(alert.severity))}>{severityLabel(alert)}</Badge>
       {alert.severity === 'unknown' && isBomSource(alert.sourceKey) && (
         <span
-          className="text-[12px] uppercase tracking-wide text-wb-ink2"
+          className="text-wb-label uppercase tracking-wide text-wb-ink2"
           title="BOM does not provide an Advice / Watch and Act / Emergency Warning tier for this feed."
         >
           BOM
@@ -172,7 +172,7 @@ function relativeTime(isoTimestamp: string | null): string {
 function MutedBadge() {
   return (
     <span
-      className="inline-flex items-center gap-1 text-[12px] uppercase tracking-wide text-wb-ink2"
+      className="inline-flex items-center gap-1 text-wb-label uppercase tracking-wide text-wb-ink2"
       title="An active silence is currently suppressing notifications for this alert."
     >
       🔇 Muted
@@ -190,14 +190,14 @@ function AlertRow({ alert, isSelected, isMuted, onSelect }: { alert: EmergencyAl
         <Badge status="neutral">{alert.jurisdiction}</Badge>
       </td>
       <td className="py-3 pr-4"><SeverityBadge alert={alert} /></td>
-      <td className="py-3 pr-4 text-[13px] font-medium text-wb-ink">
+      <td className="py-3 pr-4 text-wb-body font-medium text-wb-ink">
         <div className="flex items-center gap-2">
           <span>{alert.headline}</span>
           {isMuted && <MutedBadge />}
         </div>
       </td>
-      <td className="py-3 pr-4 text-[12px] text-wb-ink2">{alert.location ?? <span className="italic">—</span>}</td>
-      <td className="py-3 text-[12px] tabular-nums text-wb-ink2">{relativeTime(alert.lastSeenAt)}</td>
+      <td className="py-3 pr-4 text-wb-label text-wb-ink2">{alert.location ?? <span className="italic">—</span>}</td>
+      <td className="py-3 text-wb-label tabular-nums text-wb-ink2">{relativeTime(alert.lastSeenAt)}</td>
     </tr>
   );
 }
@@ -230,12 +230,12 @@ function HighSeverityCard({ alert, isMuted, onSelect }: { alert: EmergencyAlertE
           whole page's) min-content width and forced horizontal page
           scroll. `break-words` lets it wrap mid-word as a last resort. */}
       <h3 className="break-words font-serif text-base text-wb-ink">{alert.headline}</h3>
-      {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
-      <p className="mt-1 text-[12px] text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
+      {alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
+      <p className="mt-1 text-wb-label text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
       <div className="mt-3 flex flex-wrap gap-3">
         <button
           onClick={onSelect}
-          className="rounded-md border border-wb-line px-3 py-1.5 text-[12px] text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          className="rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         >
           View details
         </button>
@@ -244,7 +244,7 @@ function HighSeverityCard({ alert, isMuted, onSelect }: { alert: EmergencyAlertE
             href={alert.canonicalUrl}
             target="_blank"
             rel="noreferrer"
-            className="rounded-md px-3 py-1.5 text-[12px] font-semibold text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+            className="rounded-md px-3 py-1.5 text-wb-label font-semibold text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           >
             View official warning →
           </a>
@@ -265,26 +265,26 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
             <Badge status={alert.isActive ? 'success' : 'neutral'}>{alert.status}</Badge>
           </div>
           <h2 className="break-words font-serif text-lg text-wb-ink">{alert.headline}</h2>
-          {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
+          {alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
           {alert.severity === 'unknown' && isBomSource(alert.sourceKey) && (
-            <p className="mt-1 text-[12px] italic text-wb-ink2">
+            <p className="mt-1 text-wb-label italic text-wb-ink2">
               BOM does not provide an Advice / Watch and Act / Emergency Warning tier for this feed.
             </p>
           )}
         </div>
-        <button onClick={onClose} className="rounded-md px-3 py-2 text-[12px] text-wb-ink2 hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Close</button>
+        <button onClick={onClose} className="rounded-md px-3 py-2 text-wb-label text-wb-ink2 hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Close</button>
       </div>
-      <div className="grid grid-cols-2 gap-3 text-[12px] text-wb-ink2 sm:grid-cols-4">
-        <div><span className="uppercase tracking-wide text-[12px]">Issued</span><div className="text-wb-ink">{alert.issuedAt ? new Date(alert.issuedAt).toLocaleString() : '—'}</div></div>
-        <div><span className="uppercase tracking-wide text-[12px]">Source updated</span><div className="text-wb-ink">{alert.updatedAtSrc ? new Date(alert.updatedAtSrc).toLocaleString() : '—'}</div></div>
-        <div><span className="uppercase tracking-wide text-[12px]">Expiry</span><div className="text-wb-ink">{alert.expiry ? new Date(alert.expiry).toLocaleString() : '—'}</div></div>
-        <div><span className="uppercase tracking-wide text-[12px]">Last seen</span><div className="text-wb-ink">{relativeTime(alert.lastSeenAt)}</div></div>
+      <div className="grid grid-cols-2 gap-3 text-wb-label text-wb-ink2 sm:grid-cols-4">
+        <div><span className="uppercase tracking-wide text-wb-label">Issued</span><div className="text-wb-ink">{alert.issuedAt ? new Date(alert.issuedAt).toLocaleString() : '—'}</div></div>
+        <div><span className="uppercase tracking-wide text-wb-label">Source updated</span><div className="text-wb-ink">{alert.updatedAtSrc ? new Date(alert.updatedAtSrc).toLocaleString() : '—'}</div></div>
+        <div><span className="uppercase tracking-wide text-wb-label">Expiry</span><div className="text-wb-ink">{alert.expiry ? new Date(alert.expiry).toLocaleString() : '—'}</div></div>
+        <div><span className="uppercase tracking-wide text-wb-label">Last seen</span><div className="text-wb-ink">{relativeTime(alert.lastSeenAt)}</div></div>
       </div>
       {alert.rawText && (
-        <p className="mt-4 whitespace-pre-wrap text-[13px] text-wb-ink2">{alert.rawText}</p>
+        <p className="mt-4 whitespace-pre-wrap text-wb-body text-wb-ink2">{alert.rawText}</p>
       )}
       {alert.canonicalUrl && (
-        <a href={alert.canonicalUrl} target="_blank" rel="noreferrer" className="mt-4 inline-block text-[12px] font-semibold text-wb-sage-deep underline">
+        <a href={alert.canonicalUrl} target="_blank" rel="noreferrer" className="mt-4 inline-block text-wb-label font-semibold text-wb-sage-deep underline">
           Open official source →
         </a>
       )}
@@ -315,20 +315,20 @@ function CoveragePanel({ sources, latestCheckedAt }: { sources: EmergencyAlertSo
         <div>
           <h2 className="font-serif text-base text-wb-ink">Coverage</h2>
           {state === 'good' && (
-            <p className="text-[12px] text-wb-ink2">Official-source coverage is currently good.</p>
+            <p className="text-wb-label text-wb-ink2">Official-source coverage is currently good.</p>
           )}
           {state === 'degraded' && (
-            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-[12px] text-state-warn-on">
+            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
               {failedSources.length} official source{failedSources.length === 1 ? '' : 's'} currently unavailable. Alert coverage may be incomplete.
             </p>
           )}
           {state === 'stale' && (
-            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-[12px] text-state-warn-on">Alerts have not been refreshed recently. Coverage may be stale.</p>
+            <p className="mt-1 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">Alerts have not been refreshed recently. Coverage may be stale.</p>
           )}
           {state === 'unknown' && (
-            <p className="text-[12px] text-wb-ink2">Source health could not be determined.</p>
+            <p className="text-wb-label text-wb-ink2">Source health could not be determined.</p>
           )}
-          <p className="mt-1 text-[12px] text-wb-ink2">
+          <p className="mt-1 text-wb-label text-wb-ink2">
             {latestCheckedAt ? `Last checked ${relativeTime(latestCheckedAt)}.` : 'No collection recorded yet.'}
           </p>
           <EvidenceMeta
@@ -339,7 +339,7 @@ function CoveragePanel({ sources, latestCheckedAt }: { sources: EmergencyAlertSo
         </div>
         <Link
           href="/agent-status-workbench"
-          className="rounded-md border border-wb-line px-3 py-1.5 text-[12px] text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          className="rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         >
           View system status →
         </Link>
@@ -402,26 +402,26 @@ function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
   return (
     <Card>
       <h2 className="font-serif text-base text-wb-ink">Create a silence</h2>
-      <p className="mt-1 text-[12px] text-wb-ink2">
+      <p className="mt-1 text-wb-label text-wb-ink2">
         Mute matching alert notifications for a bounded window — e.g. a planned hazard-reduction burn. The alert
         record itself always stays visible; only outbound notifications (email) are suppressed while a silence is active.
       </p>
       <form onSubmit={handleSubmit} className="mt-3 flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+        <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
           Reason (required)
           <input
             type="text"
-            className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+            className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="e.g. Planned RFS hazard-reduction burn, western Sydney"
           />
         </label>
         <div className="flex flex-wrap gap-3">
-          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
             Duration
             <select
-              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
               value={durationHours}
               onChange={(e) => setDurationHours(Number(e.target.value))}
             >
@@ -430,10 +430,10 @@ function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
             Jurisdiction
             <select
-              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
               value={jurisdiction}
               onChange={(e) => setJurisdiction(e.target.value)}
             >
@@ -441,10 +441,10 @@ function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
               {JURISDICTIONS.map((j) => (<option key={j} value={j}>{j}</option>))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
             Alert type
             <select
-              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
               value={alertType}
               onChange={(e) => setAlertType(e.target.value)}
             >
@@ -452,10 +452,10 @@ function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
               {ALERT_TYPES.map((t) => (<option key={t} value={t}>{ALERT_TYPE_LABELS[t]}</option>))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
             Severity
             <select
-              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
               value={severity}
               onChange={(e) => setSeverity(e.target.value)}
             >
@@ -463,10 +463,10 @@ function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
               {Object.entries(SEVERITY_LABELS).map(([key, label]) => (<option key={key} value={key}>{label}</option>))}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-[12px] text-wb-ink2">
+          <label className="flex flex-col gap-1 text-wb-label text-wb-ink2">
             Source
             <select
-              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+              className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
               value={sourceKey}
               onChange={(e) => setSourceKey(e.target.value)}
             >
@@ -475,12 +475,12 @@ function CreateSilenceForm({ onCreated }: { onCreated: () => void }) {
             </select>
           </label>
         </div>
-        {submitError && <p className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-[12px] text-state-crit-on">{submitError}</p>}
+        {submitError && <p className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-wb-label text-state-crit-on">{submitError}</p>}
         <div>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="rounded-md bg-wb-ink px-3 py-1.5 text-[12px] font-semibold text-wb-bg hover:opacity-90 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+            className="rounded-md bg-wb-ink px-3 py-1.5 text-wb-label font-semibold text-wb-bg hover:opacity-90 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           >
             {isSubmitting ? 'Creating…' : 'Create silence'}
           </button>
@@ -512,9 +512,9 @@ function SilenceRow({ silence, onExpired }: { silence: AlertSilenceEntry; onExpi
           <Badge status={silence.isActive ? 'success' : isUpcoming ? 'neutral' : 'error'}>
             {silence.isActive ? 'Active' : isUpcoming ? 'Upcoming' : 'Expired'}
           </Badge>
-          <span className="text-[13px] font-medium text-wb-ink">{silence.reason}</span>
+          <span className="text-wb-body font-medium text-wb-ink">{silence.reason}</span>
         </div>
-        <p className="mt-1 text-[12px] text-wb-ink2">
+        <p className="mt-1 text-wb-label text-wb-ink2">
           Scope: {describeSilenceScope(silence)} · {silence.isActive ? `Ends ${relativeTime(silence.endsAt)}` : isUpcoming ? `Starts ${relativeTime(silence.startsAt)}` : `Ended ${relativeTime(silence.endsAt)}`}
           {silence.isActive && ` · Currently matching ${silence.matchingActiveAlertCount} active alert${silence.matchingActiveAlertCount === 1 ? '' : 's'}`}
         </p>
@@ -523,7 +523,7 @@ function SilenceRow({ silence, onExpired }: { silence: AlertSilenceEntry; onExpi
         <button
           onClick={handleExpire}
           disabled={isExpiring}
-          className="rounded-md border border-wb-line px-3 py-1.5 text-[12px] text-wb-ink hover:bg-wb-bg disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          className="rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         >
           {isExpiring ? 'Ending…' : 'End now'}
         </button>
@@ -539,7 +539,7 @@ function SilencesPanel({ silences, onRefresh }: { silences: AlertSilenceEntry[];
       <Card>
         <h2 className="font-serif text-base text-wb-ink">Silences</h2>
         {silences.length === 0 ? (
-          <p className="mt-2 text-[12px] italic text-wb-ink2">No silences created yet.</p>
+          <p className="mt-2 text-wb-label italic text-wb-ink2">No silences created yet.</p>
         ) : (
           <div className="mt-2">
             {silences.map((s) => (
@@ -695,13 +695,13 @@ export default function EmergencyAlertsWorkbench() {
       <div className="risk-reference-surface risk-reference-command flex flex-col gap-4">
         <div className="risk-reference-kicker">Command / intelligence · immediate state first</div>
         {isLoading ? (
-          <Card><p className="text-[13px] italic text-wb-ink2">Loading Emergency Alerts…</p></Card>
+          <Card><p className="text-wb-body italic text-wb-ink2">Loading Emergency Alerts…</p></Card>
         ) : loadError ? (
           <Card>
             <DataAvailabilityNotice state="unavailable" sources={[`Emergency Alerts: ${loadError}`]} />
             <div className="rounded-md border border-state-crit/40 bg-state-crit/10 px-4 py-3">
-              <p className="text-[13px] font-semibold text-state-crit-on">Emergency alert data could not be loaded</p>
-              <p className="mt-1 text-[12px] text-wb-ink2">{loadError}</p>
+              <p className="text-wb-body font-semibold text-state-crit-on">Emergency alert data could not be loaded</p>
+              <p className="mt-1 text-wb-label text-wb-ink2">{loadError}</p>
             </div>
           </Card>
         ) : (
@@ -725,21 +725,21 @@ export default function EmergencyAlertsWorkbench() {
             <div className="flex min-w-0 flex-nowrap gap-2 overflow-x-auto [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] snap-x snap-mandatory">
               <button
                 onClick={() => setView('overview')}
-                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'overview' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'overview'}
               >
                 Current
               </button>
               <button
                 onClick={() => setView('browse')}
-                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'browse' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'browse' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'browse'}
               >
                 Browse all alerts
               </button>
               <button
                 onClick={() => setView('silences')}
-                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-[12px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'silences' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
+                className={`shrink-0 snap-start rounded-md px-3 py-1.5 text-wb-label font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${view === 'silences' ? 'bg-wb-ink text-wb-bg' : 'border border-wb-line text-wb-ink hover:bg-wb-bg'}`}
                 aria-pressed={view === 'silences'}
               >
                 Silences{activeSilences.length > 0 ? ` (${activeSilences.length})` : ''}
@@ -750,14 +750,14 @@ export default function EmergencyAlertsWorkbench() {
               <>
                 {emergencyAlerts.length === 0 && watchAlerts.length === 0 && (
                   <Card>
-                    <p className="rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-[15px] font-semibold text-state-ok-on">✓ No Emergency Warnings detected</p>
-                    <p className="mt-1.5 rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-[15px] font-semibold text-state-ok-on">✓ No Watch and Act alerts detected</p>
+                    <p className="rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-wb-lead font-semibold text-state-ok-on">✓ No Emergency Warnings detected</p>
+                    <p className="mt-1.5 rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-wb-lead font-semibold text-state-ok-on">✓ No Watch and Act alerts detected</p>
                     {(adviceCount + unknownCount) > 0 ? (
-                      <p className="mt-2 text-[12px] text-wb-ink2">
+                      <p className="mt-2 text-wb-label text-wb-ink2">
                         {adviceCount + unknownCount} lower-severity or unclassified official alert{adviceCount + unknownCount === 1 ? '' : 's'} {adviceCount + unknownCount === 1 ? 'is' : 'are'} active nationally.
                       </p>
                     ) : (
-                      <p className="mt-2 text-[12px] text-wb-ink2">No active official alerts detected.</p>
+                      <p className="mt-2 text-wb-label text-wb-ink2">No active official alerts detected.</p>
                     )}
                   </Card>
                 )}
@@ -765,7 +765,7 @@ export default function EmergencyAlertsWorkbench() {
                 {emergencyAlerts.length > 0 && (
                   <section aria-labelledby="alerts-action-required" data-alert-state="action-required">
                   <Card>
-                    <h2 className="mb-3 inline-block rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-state-crit-on">
+                    <h2 className="mb-3 inline-block rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-state-crit-on">
                       <span id="alerts-action-required">Action required · </span>
                       {emergencyAlerts.length} Emergency Warning{emergencyAlerts.length === 1 ? '' : 's'}
                     </h2>
@@ -781,7 +781,7 @@ export default function EmergencyAlertsWorkbench() {
                 {watchAlerts.length > 0 && (
                   <section aria-labelledby="alerts-watch" data-alert-state="watch">
                   <Card>
-                    <h2 className="mb-3 inline-block rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-state-warn-on">
+                    <h2 className="mb-3 inline-block rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-state-warn-on">
                       <span id="alerts-watch">Watch · </span>
                       Watch and Act — {watchAlerts.length} active
                     </h2>
@@ -797,7 +797,7 @@ export default function EmergencyAlertsWorkbench() {
                 {informationalAlerts.length > 0 && (
                   <section aria-labelledby="alerts-informational" data-alert-state="informational">
                   <Card>
-                    <h2 className="mb-3 inline-block rounded border border-wb-line bg-wb-surface-raised px-2 py-1 text-[13px] font-bold uppercase tracking-wide text-wb-ink2"><span id="alerts-informational">Informational · </span>{informationalAlerts.length} active · no immediate action</h2>
+                    <h2 className="mb-3 inline-block rounded border border-wb-line bg-wb-surface-raised px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-wb-ink2"><span id="alerts-informational">Informational · </span>{informationalAlerts.length} active · no immediate action</h2>
                     <div className="flex flex-col gap-3">
                       {informationalAlerts.map((alert) => <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
                     </div>
@@ -808,15 +808,15 @@ export default function EmergencyAlertsWorkbench() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   <Card>
                     <h2 className="font-serif text-base text-wb-ink">Relevant to you</h2>
-                    <p className="mt-1 text-[12px] text-wb-ink2">Personal relevance unavailable — showing national alerts.</p>
+                    <p className="mt-1 text-wb-label text-wb-ink2">Personal relevance unavailable — showing national alerts.</p>
                     <button
                       onClick={() => setShowRelevanceInfo((v) => !v)}
-                      className="mt-2 text-[12px] font-semibold text-wb-sage-deep underline"
+                      className="mt-2 text-wb-label font-semibold text-wb-sage-deep underline"
                     >
                       {showRelevanceInfo ? 'Hide' : 'How relevance works'}
                     </button>
                     {showRelevanceInfo && (
-                      <p className="mt-2 text-[12px] italic text-wb-ink2">
+                      <p className="mt-2 text-wb-label italic text-wb-ink2">
                         HQ does not yet have a configured location or area of interest to match against alert
                         locations. Without a reliable match, alerts are shown nationally rather than guessing
                         at relevance.
@@ -827,13 +827,13 @@ export default function EmergencyAlertsWorkbench() {
                   {(adviceCount > 0 || unknownCount > 0) && (
                     <Card>
                       <h2 className="font-serif text-base text-wb-ink">Other active alerts</h2>
-                      <div className="mt-2 flex flex-col gap-1 text-[12px] text-wb-ink2">
+                      <div className="mt-2 flex flex-col gap-1 text-wb-label text-wb-ink2">
                         {adviceCount > 0 && <p>Advice — {adviceCount}</p>}
                         {unknownCount > 0 && <p>Severity not supplied — {unknownCount}</p>}
                       </div>
                       <button
                         onClick={() => setView('browse')}
-                        className="mt-3 rounded-md border border-wb-line px-3 py-1.5 text-[12px] text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                        className="mt-3 rounded-md border border-wb-line px-3 py-1.5 text-wb-label text-wb-ink hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
                       >
                         Browse all alerts →
                       </button>
@@ -849,10 +849,10 @@ export default function EmergencyAlertsWorkbench() {
               <>
                 <Card>
                   <div className="flex flex-wrap items-center gap-3">
-                    <label className="flex items-center gap-2 text-[12px] text-wb-ink2">
+                    <label className="flex items-center gap-2 text-wb-label text-wb-ink2">
                       Jurisdiction
                       <select
-                        className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+                        className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
                         value={jurisdictionFilter}
                         onChange={(e) => setJurisdictionFilter(e.target.value)}
                       >
@@ -862,10 +862,10 @@ export default function EmergencyAlertsWorkbench() {
                         ))}
                       </select>
                     </label>
-                    <label className="flex items-center gap-2 text-[12px] text-wb-ink2">
+                    <label className="flex items-center gap-2 text-wb-label text-wb-ink2">
                       Severity
                       <select
-                        className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-[12px] text-wb-ink"
+                        className="rounded-md border border-wb-line bg-wb-bg px-2 py-2 text-wb-label text-wb-ink"
                         value={severityFilter}
                         onChange={(e) => setSeverityFilter(e.target.value)}
                       >
@@ -875,7 +875,7 @@ export default function EmergencyAlertsWorkbench() {
                         ))}
                       </select>
                     </label>
-                    <label className="flex items-center gap-2 rounded-md px-1 py-2 text-[12px] text-wb-ink2">
+                    <label className="flex items-center gap-2 rounded-md px-1 py-2 text-wb-label text-wb-ink2">
                       <input type="checkbox" className="h-4 w-4" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
                       Include expired/inactive
                     </label>
@@ -887,11 +887,11 @@ export default function EmergencyAlertsWorkbench() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-wb-line">
-                          <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Jurisdiction</th>
-                          <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Severity</th>
-                          <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Headline</th>
-                          <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Location</th>
-                          <th className="pb-2 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Last Seen</th>
+                          <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Jurisdiction</th>
+                          <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Severity</th>
+                          <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Headline</th>
+                          <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Location</th>
+                          <th className="pb-2 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Last Seen</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -905,7 +905,7 @@ export default function EmergencyAlertsWorkbench() {
                           />
                         ))}
                         {browseAlerts.length === 0 && (
-                          <tr><td colSpan={5} className="py-6 text-center text-[13px] italic text-wb-ink2">No alerts matching these filters.</td></tr>
+                          <tr><td colSpan={5} className="py-6 text-center text-wb-body italic text-wb-ink2">No alerts matching these filters.</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -919,8 +919,8 @@ export default function EmergencyAlertsWorkbench() {
                 {silencesError && (
                   <Card>
                     <div className="rounded-md border border-state-crit/40 bg-state-crit/10 px-4 py-3">
-                      <p className="text-[13px] font-semibold text-state-crit-on">Silences could not be loaded</p>
-                      <p className="mt-1 text-[12px] text-wb-ink2">{silencesError}</p>
+                      <p className="text-wb-body font-semibold text-state-crit-on">Silences could not be loaded</p>
+                      <p className="mt-1 text-wb-label text-wb-ink2">{silencesError}</p>
                     </div>
                   </Card>
                 )}

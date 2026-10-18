@@ -56,11 +56,11 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
         <div>
           <div className="flex items-center gap-2">
             <h3 className="font-serif text-base text-wb-ink">{domain.label}</h3>
-            <span className="rounded-full border border-wb-line px-2 py-0.5 text-[12px] uppercase tracking-wider text-wb-ink2">
+            <span className="rounded-full border border-wb-line px-2 py-0.5 text-wb-label uppercase tracking-wider text-wb-ink2">
               {SOURCE_LABEL[domain.source]}
             </span>
           </div>
-          <p className="mt-0.5 text-[12px] text-wb-ink2">As of {relativeTime(domain.as_of)}</p>
+          <p className="mt-0.5 text-wb-label text-wb-ink2">As of {relativeTime(domain.as_of)}</p>
           <EvidenceMeta
             source={SOURCE_LABEL[domain.source]}
             observedAt={domain.as_of}
@@ -69,7 +69,7 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
         </div>
         <div className="flex items-center gap-2">
           {domain.availability !== 'ok' && (
-            <span className={`rounded-full border px-2 py-0.5 text-[12px] font-medium uppercase tracking-wider ${availabilityTone.border} ${availabilityTone.bg} ${availabilityTone.text}`}>
+            <span className={`rounded-full border px-2 py-0.5 text-wb-label font-medium uppercase tracking-wider ${availabilityTone.border} ${availabilityTone.bg} ${availabilityTone.text}`}>
               {AVAILABILITY_LABEL[domain.availability]}
             </span>
           )}
@@ -78,20 +78,20 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
       </div>
 
       {domain.confidence != null && (
-        <p className="text-[12px] text-wb-ink2">Confidence: {Math.round(domain.confidence)}%</p>
+        <p className="text-wb-label text-wb-ink2">Confidence: {Math.round(domain.confidence)}%</p>
       )}
 
       {domain.what_changed && (
         <div>
-          <h4 className="mb-1 text-[12px] uppercase tracking-wider text-wb-ink2">What Changed</h4>
-          <p className="text-[13px] text-wb-ink">{domain.what_changed}</p>
+          <h4 className="mb-1 text-wb-label uppercase tracking-wider text-wb-ink2">What Changed</h4>
+          <p className="text-wb-body text-wb-ink">{domain.what_changed}</p>
         </div>
       )}
 
       {domain.what_matters.length > 0 && (
         <div>
-          <h4 className="mb-1 text-[12px] uppercase tracking-wider text-wb-ink2">What Matters</h4>
-          <ul className="list-disc space-y-0.5 pl-5 text-[13px] text-wb-ink">
+          <h4 className="mb-1 text-wb-label uppercase tracking-wider text-wb-ink2">What Matters</h4>
+          <ul className="list-disc space-y-0.5 pl-5 text-wb-body text-wb-ink">
             {domain.what_matters.map((m, i) => <li key={i}>{m}</li>)}
           </ul>
         </div>
@@ -99,8 +99,8 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
 
       {domain.watch_conditions.length > 0 && (
         <div>
-          <h4 className="mb-1 text-[12px] uppercase tracking-wider text-wb-ink2">Watch</h4>
-          <ul className="list-disc space-y-0.5 pl-5 text-[13px] text-wb-ink2">
+          <h4 className="mb-1 text-wb-label uppercase tracking-wider text-wb-ink2">Watch</h4>
+          <ul className="list-disc space-y-0.5 pl-5 text-wb-body text-wb-ink2">
             {domain.watch_conditions.map((w, i) => <li key={i}>{w}</li>)}
           </ul>
         </div>
@@ -108,21 +108,21 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
 
       {domain.constraints.length > 0 && (
         <div>
-          <h4 className="mb-1 text-[12px] uppercase tracking-wider text-wb-ink2">Coverage Notes</h4>
-          <ul className="list-disc space-y-0.5 pl-5 text-[12.5px] italic text-wb-ink2">
+          <h4 className="mb-1 text-wb-label uppercase tracking-wider text-wb-ink2">Coverage Notes</h4>
+          <ul className="list-disc space-y-0.5 pl-5 text-wb-label italic text-wb-ink2">
             {domain.constraints.map((c, i) => <li key={i}>{c}</li>)}
           </ul>
         </div>
       )}
 
       {domain.evidence_count === 0 ? (
-        <p className="text-[12.5px] text-wb-ink2">No signals in this domain right now.</p>
+        <p className="text-wb-label text-wb-ink2">No signals in this domain right now.</p>
       ) : (
         <Collapsible.Root>
           <Collapsible.Trigger asChild>
             <button
               type="button"
-              className="self-start rounded-md border border-wb-line px-2.5 py-1 text-[12px] text-wb-ink2 hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+              className="self-start rounded-md border border-wb-line px-2.5 py-1 text-wb-label text-wb-ink2 hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
             >
               Evidence ({domain.evidence_count})
             </button>
@@ -130,7 +130,7 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
           <Collapsible.Content>
             <ul className="mt-2 space-y-1.5 border-t border-wb-line pt-2">
               {domain.evidence.map((e, i) => (
-                <li key={i} className="flex items-start justify-between gap-2 text-[12.5px]">
+                <li key={i} className="flex items-start justify-between gap-2 text-wb-label">
                   <span className="text-wb-ink">
                     {e.title}
                     {e.detail && <span className="text-wb-ink2"> — {e.detail}</span>}
@@ -139,7 +139,7 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
                 </li>
               ))}
               {domain.evidence.length < domain.evidence_count && (
-                <li className="text-[12px] text-wb-ink2">
+                <li className="text-wb-label text-wb-ink2">
                   +{domain.evidence_count - domain.evidence.length} more — see full detail.
                 </li>
               )}
@@ -149,7 +149,7 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
       )}
 
       {domain.detail_href && (
-        <Link href={domain.detail_href} className="text-[12.5px] text-wb-sage-deep underline">
+        <Link href={domain.detail_href} className="text-wb-label text-wb-sage-deep underline">
           View full detail →
         </Link>
       )}
@@ -161,7 +161,7 @@ function DomainGroup({ title, domains }: { title: string; domains: DomainSummary
   if (domains.length === 0) return null;
   return (
     <div>
-      <h3 className="mb-2 text-[12px] uppercase tracking-wider text-wb-ink2">{title}</h3>
+      <h3 className="mb-2 text-wb-label uppercase tracking-wider text-wb-ink2">{title}</h3>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {domains.map((d) => <DomainCard key={d.key} domain={d} />)}
       </div>
@@ -196,7 +196,7 @@ export function DomainsView({ doc, loading, error }: { doc: DomainsDocument | nu
       {doc.warnings.length > 0 && (
         <div className="space-y-1.5 rounded-lg border border-wb-crit/30 bg-wb-crit/10 p-3">
           {doc.warnings.map((w, i) => (
-            <p key={i} className="text-[12.5px] text-wb-crit-on">⚠️ {w}</p>
+            <p key={i} className="text-wb-label text-wb-crit-on">⚠️ {w}</p>
           ))}
         </div>
       )}

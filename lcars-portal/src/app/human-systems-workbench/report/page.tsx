@@ -49,13 +49,13 @@ function formatDate(iso: string): string {
 function Section({ title, items, empty }: { title: string; items: string[]; empty: string }) {
   return (
     <div>
-      <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-wb-ink">{title}</div>
+      <div className="text-wb-label font-semibold uppercase tracking-[0.12em] text-wb-ink">{title}</div>
       {items.length > 0 ? (
-        <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed text-wb-ink">
+        <ul className="mt-2 list-disc space-y-1.5 pl-5 text-wb-body leading-relaxed text-wb-ink">
           {items.map((item, i) => <li key={i}>{item}</li>)}
         </ul>
       ) : (
-        <p className="mt-2 text-[13px] italic text-wb-ink2">{empty}</p>
+        <p className="mt-2 text-wb-body italic text-wb-ink2">{empty}</p>
       )}
     </div>
   );
@@ -101,20 +101,20 @@ export default function HumanSystemsReportPage() {
 
       <div className="flex flex-col gap-4 print:gap-3">
         <div className="flex items-center justify-between gap-3 print:hidden">
-          <p className="text-[13px] text-wb-ink2">
+          <p className="text-wb-body text-wb-ink2">
             {data ? `${formatDate(data.since)} – ${formatDate(data.until)}` : loadError ? 'Failed to load' : 'Loading…'}
           </p>
           <button
             onClick={() => window.print()}
             disabled={!data}
-            className="rounded-md border border-wb-line px-3 py-1 text-[12px] font-medium text-wb-ink transition hover:border-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-wb-line px-3 py-1 text-wb-label font-medium text-wb-ink transition hover:border-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-50"
           >
             Download PDF
           </button>
         </div>
 
         {loadError && (
-          <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4 text-[13px] text-wb-crit-on">
+          <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4 text-wb-body text-wb-crit-on">
             Couldn&rsquo;t load the report: {loadError}
           </div>
         )}
@@ -123,7 +123,7 @@ export default function HumanSystemsReportPage() {
           <>
             <div>
               <h1 className="font-serif text-xl text-wb-ink">Human Systems — 14-Day Summary</h1>
-              <p className="mt-1 text-[12px] text-wb-ink2">
+              <p className="mt-1 text-wb-label text-wb-ink2">
                 {formatDate(data.since)} – {formatDate(data.until)} · prepared for my psychologist ·
                 {' '}generated {new Date().toLocaleString('en-AU')}
               </p>
@@ -131,7 +131,7 @@ export default function HumanSystemsReportPage() {
 
             {stats && stats.recordedDays < 2 && (
               <Card className="print-compact">
-                <p className="text-[13px] text-wb-ink">
+                <p className="text-wb-body text-wb-ink">
                   Only {stats.recordedDays} of the last {stats.totalDays} days have anything recorded — too little
                   to summarize meaningfully yet.
                 </p>
@@ -146,21 +146,21 @@ export default function HumanSystemsReportPage() {
 
             {stats && stats.recordedDays > 0 && (
               <Card className="print-compact print-tile" style={{ breakInside: 'avoid' }}>
-                <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-wb-ink2">At a Glance</div>
-                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[13px] text-wb-ink sm:grid-cols-4">
+                <div className="text-wb-label font-semibold uppercase tracking-[0.12em] text-wb-ink2">At a Glance</div>
+                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-wb-body text-wb-ink sm:grid-cols-4">
                   <div>
-                    <dt className="text-[12px] text-wb-ink2">Days recorded</dt>
+                    <dt className="text-wb-label text-wb-ink2">Days recorded</dt>
                     <dd>{stats.recordedDays} of {stats.totalDays}</dd>
                   </div>
                   {stats.capacityRecorded > 0 && (
                     <div>
-                      <dt className="text-[12px] text-wb-ink2">Capacity</dt>
+                      <dt className="text-wb-label text-wb-ink2">Capacity</dt>
                       <dd>{stats.capacityCounts.green} sustainable · {stats.capacityCounts.orange} stretched · {stats.capacityCounts.red} depleted</dd>
                     </div>
                   )}
                   {stats.painValues.length > 0 && (
                     <div>
-                      <dt className="text-[12px] text-wb-ink2">Pain (0-10)</dt>
+                      <dt className="text-wb-label text-wb-ink2">Pain (0-10)</dt>
                       <dd>
                         avg {(stats.painValues.reduce((a, b) => a + b, 0) / stats.painValues.length).toFixed(1)},
                         {' '}max {Math.max(...stats.painValues)} ({stats.painValues.length} day(s))
@@ -169,7 +169,7 @@ export default function HumanSystemsReportPage() {
                   )}
                   {stats.capacityRecorded > 1 && (
                     <div>
-                      <dt className="text-[12px] text-wb-ink2">Capacity changes</dt>
+                      <dt className="text-wb-label text-wb-ink2">Capacity changes</dt>
                       <dd>{stats.capacityTransitions} of {stats.capacityRecorded - 1} possible day-to-day shifts</dd>
                     </div>
                   )}
@@ -177,7 +177,7 @@ export default function HumanSystemsReportPage() {
               </Card>
             )}
 
-            <p className="text-[12px] text-wb-ink2 print:mt-2">
+            <p className="text-wb-label text-wb-ink2 print:mt-2">
               This is a personal tracking summary, not a clinical assessment — generated{' '}
               {data.source === 'llm' ? 'with AI assistance from' : 'directly from'} the numbers above,
               nothing invented beyond what was actually recorded.

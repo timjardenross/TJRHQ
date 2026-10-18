@@ -24,8 +24,8 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
 // sensitive call sites can still reach for `sm` deliberately, it's just
 // no longer touch-unsafe by default.
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  sm: 'px-3 py-2.5 text-[12px]',
-  md: 'px-4 py-3 text-[13px]',
+  sm: 'px-3 py-2.5 text-wb-label',
+  md: 'px-4 py-3 text-wb-body',
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

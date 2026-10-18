@@ -20,7 +20,7 @@ export function QuickCaptureModal({ onCaptured, onDevelop }: { onCaptured: () =>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-full bg-wb-sage-deep px-3.5 py-1.5 text-[12.5px] font-semibold text-white shadow-sm transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
+        className="inline-flex items-center gap-1.5 rounded-full bg-wb-sage-deep px-3.5 py-1.5 text-wb-label font-semibold text-white shadow-sm transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
       >
         <span aria-hidden>+</span> Capture Idea
       </button>

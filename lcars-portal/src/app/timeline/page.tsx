@@ -277,7 +277,7 @@ export default function TimelinePage() {
           type="button"
           onClick={() => setDays(d)}
           aria-pressed={days === d}
-          className={`rounded-md px-2 py-1 text-[12px] font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+          className={`rounded-md px-2 py-1 text-wb-label font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
             days === d
               ? 'bg-wb-sage-deep text-white'
               : 'text-wb-ink2 hover:text-wb-ink'
@@ -295,7 +295,7 @@ export default function TimelinePage() {
         type="button"
         onClick={() => setFilter('')}
         aria-pressed={filter === ''}
-        className={`rounded-md border px-3 py-1 text-[12px] font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+        className={`rounded-md border px-3 py-1 text-wb-label font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
           filter === ''
             ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep'
             : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'
@@ -309,7 +309,7 @@ export default function TimelinePage() {
           type="button"
           onClick={() => setFilter(s === filter ? '' : s)}
           aria-pressed={filter === s}
-          className={`rounded-md border px-3 py-1 text-[12px] font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+          className={`rounded-md border px-3 py-1 text-wb-label font-bold uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
             filter === s
               ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep'
               : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'
@@ -318,7 +318,7 @@ export default function TimelinePage() {
           {SOURCE_META[s].glyph} {SOURCE_META[s].label}
         </button>
       ))}
-      <span className="ml-auto text-[12px] text-wb-ink2">
+      <span className="ml-auto text-wb-label text-wb-ink2">
         {visible.length} event{visible.length !== 1 ? 's' : ''}
       </span>
     </div>
@@ -327,15 +327,15 @@ export default function TimelinePage() {
     <div className="flex flex-wrap items-center gap-2">
       <div role="group" aria-label="Attention view" className="flex flex-wrap items-center gap-2">
       {([['all', 'All'], ['needs-action', 'Needs action'], ['important', 'Important only']] as const).map(([value, label]) => (
-        <button key={value} type="button" onClick={() => setAttentionView(value)} aria-pressed={attentionView === value} className={`rounded-md border px-3 py-1 text-[12px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${attentionView === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+        <button key={value} type="button" onClick={() => setAttentionView(value)} aria-pressed={attentionView === value} className={`rounded-md border px-3 py-1 text-wb-label font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${attentionView === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
       ))}
       </div>
       <div role="group" aria-label="Lifecycle state" className="flex flex-wrap items-center gap-2">
         {LIFECYCLE_FILTERS.map(({ value, label }) => (
-          <button key={value} type="button" onClick={() => setLifecycleFilter(lifecycleFilter === value ? null : value)} aria-pressed={lifecycleFilter === value} className={`rounded-md border px-3 py-1 text-[12px] font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${lifecycleFilter === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
+          <button key={value} type="button" onClick={() => setLifecycleFilter(lifecycleFilter === value ? null : value)} aria-pressed={lifecycleFilter === value} className={`rounded-md border px-3 py-1 text-wb-label font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep ${lifecycleFilter === value ? 'border-wb-sage-deep/60 bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'}`}>{label}</button>
         ))}
       </div>
-      <span className="text-[12px] text-wb-ink2">{lifecycleVisible.length} shown</span>
+      <span className="text-wb-label text-wb-ink2">{lifecycleVisible.length} shown</span>
     </div>
   );
 
@@ -378,12 +378,12 @@ export default function TimelinePage() {
               <div className="min-w-0 flex-1 pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm leading-snug text-wb-ink">{e.title}</p>
-                  <span className="mt-0.5 shrink-0 text-[12px] text-wb-ink2">{relTs(e.timestamp)}</span>
+                  <span className="mt-0.5 shrink-0 text-wb-label text-wb-ink2">{relTs(e.timestamp)}</span>
                 </div>
                 {e.detail && (
                   <p className="mt-0.5 truncate text-xs text-wb-ink2">{e.detail}</p>
                 )}
-                <span className="mt-1 block text-[12px] uppercase tracking-[0.15em] text-wb-ink2">
+                <span className="mt-1 block text-wb-label uppercase tracking-[0.15em] text-wb-ink2">
                   {SOURCE_META[e.source]?.label ?? e.source}
                 </span>
                 <EvidenceMeta source={SOURCE_META[e.source]?.label ?? e.source} observedAt={e.timestamp} />

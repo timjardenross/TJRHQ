@@ -53,7 +53,7 @@ function Workbench() {
       {loading && <div className="h-40 animate-pulse rounded-md bg-wb-line/40" />}
 
       {!loading && !data && (
-        <p className="rounded-md border border-wb-line bg-wb-surface px-4 py-3 text-[13px] text-wb-ink2">
+        <p className="rounded-md border border-wb-line bg-wb-surface px-4 py-3 text-wb-body text-wb-ink2">
           Couldn&apos;t load this week&apos;s review. Try again shortly.
         </p>
       )}

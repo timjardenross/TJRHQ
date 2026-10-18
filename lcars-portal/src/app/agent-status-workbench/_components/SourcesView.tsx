@@ -83,13 +83,13 @@ export function SourcesView() {
     load();
   }, []);
 
-  if (isLoading) return <Card><p className="text-[13px] italic text-wb-ink2">Loading source health…</p></Card>;
+  if (isLoading) return <Card><p className="text-wb-body italic text-wb-ink2">Loading source health…</p></Card>;
   if (loadError || !data) {
     return (
       <Card>
         <div className="rounded-md border border-wb-crit/40 bg-wb-crit/10 px-4 py-3">
-          <p className="text-[13px] font-semibold text-wb-crit-on">Source health unavailable</p>
-          <p className="mt-1 text-[12px] text-wb-ink2">{loadError ?? 'No data returned.'}</p>
+          <p className="text-wb-body font-semibold text-wb-crit-on">Source health unavailable</p>
+          <p className="mt-1 text-wb-label text-wb-ink2">{loadError ?? 'No data returned.'}</p>
         </div>
       </Card>
     );
@@ -106,21 +106,21 @@ export function SourcesView() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-wb-line">
-                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Source</th>
-                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Category</th>
-                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Status</th>
-                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Last Success</th>
-                <th className="pb-2 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Error</th>
+                <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Source</th>
+                <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Category</th>
+                <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Status</th>
+                <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Last Success</th>
+                <th className="pb-2 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Error</th>
               </tr>
             </thead>
             <tbody>
               {technical.map((s) => (
                 <tr key={s.sourceId} className="border-b border-wb-line last:border-0">
-                  <td className="py-2.5 pr-4 text-[13px] font-medium text-wb-ink">{s.sourceName}</td>
-                  <td className="py-2.5 pr-4 text-[12px] text-wb-ink2">{s.category} · {s.sourceType}</td>
+                  <td className="py-2.5 pr-4 text-wb-body font-medium text-wb-ink">{s.sourceName}</td>
+                  <td className="py-2.5 pr-4 text-wb-label text-wb-ink2">{s.category} · {s.sourceType}</td>
                   <td className="py-2.5 pr-4"><Badge status={sourceStatusToBadge(s.status)}>{sourceStatusLabel(s.status)}</Badge></td>
-                  <td className="py-2.5 pr-4 text-[12px] tabular-nums text-wb-ink2">{relativeTime(s.lastCheckedAt)}</td>
-                  <td className="py-2.5 max-w-[320px] truncate text-[12px] text-wb-ink2" title={s.errorMessage ?? undefined}>
+                  <td className="py-2.5 pr-4 text-wb-label tabular-nums text-wb-ink2">{relativeTime(s.lastCheckedAt)}</td>
+                  <td className="py-2.5 max-w-[320px] truncate text-wb-label text-wb-ink2" title={s.errorMessage ?? undefined}>
                     {s.errorMessage ?? <span className="italic">—</span>}
                   </td>
                 </tr>
@@ -128,7 +128,7 @@ export function SourcesView() {
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-[12px] text-wb-ink2">No per-source cadence metadata exists for technical sources (only source_type/priority) — &ldquo;Last Success&rdquo; is shown without an expected-cadence comparison.</p>
+        <p className="mt-2 text-wb-label text-wb-ink2">No per-source cadence metadata exists for technical sources (only source_type/priority) — &ldquo;Last Success&rdquo; is shown without an expected-cadence comparison.</p>
         <EvidenceMeta
           source="Technical OSINT source registry"
           observedAt={mostRecent(technical.map((s) => s.lastCheckedAt))}
@@ -142,21 +142,21 @@ export function SourcesView() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-wb-line">
-                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Source</th>
-                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Cadence</th>
-                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Status</th>
-                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Last Fetch</th>
-                <th className="pb-2 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Parser / fetch error</th>
+                <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Source</th>
+                <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Cadence</th>
+                <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Status</th>
+                <th className="pb-2 pr-4 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Last Fetch</th>
+                <th className="pb-2 text-left text-wb-label uppercase tracking-wider text-wb-ink2">Parser / fetch error</th>
               </tr>
             </thead>
             <tbody>
               {health.map((s) => (
                 <tr key={s.sourceId} className="border-b border-wb-line last:border-0">
-                  <td className="py-2.5 pr-4 text-[13px] font-medium text-wb-ink">{s.sourceName}</td>
-                  <td className="py-2.5 pr-4 text-[12px] text-wb-ink2">{s.cadence ?? '—'}</td>
+                  <td className="py-2.5 pr-4 text-wb-body font-medium text-wb-ink">{s.sourceName}</td>
+                  <td className="py-2.5 pr-4 text-wb-label text-wb-ink2">{s.cadence ?? '—'}</td>
                   <td className="py-2.5 pr-4"><Badge status={sourceStatusToBadge(s.status)}>{sourceStatusLabel(s.status)}</Badge></td>
-                  <td className="py-2.5 pr-4 text-[12px] tabular-nums text-wb-ink2">{relativeTime(s.lastFetch)}</td>
-                  <td className="py-2.5 max-w-[320px] truncate text-[12px] text-wb-ink2" title={s.lastFetchMessage ?? undefined}>
+                  <td className="py-2.5 pr-4 text-wb-label tabular-nums text-wb-ink2">{relativeTime(s.lastFetch)}</td>
+                  <td className="py-2.5 max-w-[320px] truncate text-wb-label text-wb-ink2" title={s.lastFetchMessage ?? undefined}>
                     {s.lastFetchStatus === 'failed' ? (s.lastFetchMessage ?? 'Failed — no detail') : <span className="italic">—</span>}
                   </td>
                 </tr>
@@ -164,7 +164,7 @@ export function SourcesView() {
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-[12px] text-wb-ink2">{data.note}</p>
+        <p className="mt-2 text-wb-label text-wb-ink2">{data.note}</p>
         <EvidenceMeta
           source="Health OSINT source registry (auto-fetched)"
           observedAt={mostRecent(health.map((s) => s.lastFetch))}

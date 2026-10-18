@@ -132,7 +132,7 @@ function ArtifactViewer({ path }: { path: string }) {
         <button
           type="button"
           className="inline-flex items-center gap-1.5 rounded-md border border-wb-line px-3 py-1.5
-            text-[12px] font-semibold text-wb-ink2 transition-colors hover:bg-wb-line/20
+            text-wb-label font-semibold text-wb-ink2 transition-colors hover:bg-wb-line/20
             focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-line"
         >
           {open ? 'Hide artifact ↑' : 'View artifact →'}
@@ -141,15 +141,15 @@ function ArtifactViewer({ path }: { path: string }) {
       <Collapsible.Content>
         <div className="mt-2 rounded-md border border-wb-line bg-wb-surface-raised p-3">
           {isLoading ? (
-            <p className="text-[12px] italic text-wb-ink2">Loading artifact…</p>
+            <p className="text-wb-label italic text-wb-ink2">Loading artifact…</p>
           ) : error ? (
-            <p className="text-[12px] text-wb-crit-on">{error}</p>
+            <p className="text-wb-label text-wb-crit-on">{error}</p>
           ) : (
             <>
-              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-[12px] text-wb-ink">
+              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-wb-label text-wb-ink">
                 {content}
               </pre>
-              <p className="mt-2 border-t border-wb-line pt-2 text-[12px] italic text-wb-ink2">
+              <p className="mt-2 border-t border-wb-line pt-2 text-wb-label italic text-wb-ink2">
                 This edit touches an existing file, so it was deliberately held back from an
                 automatic PR (a whole-file rewrite can silently drop code) — it was never opened,
                 so there is nothing here to merge yet. To progress it: apply the change yourself
@@ -171,18 +171,18 @@ function HandoffCard({ handoff }: { handoff: Handoff }) {
   return (
     <div className="rounded-lg border border-wb-line bg-wb-bg p-4">
       <div className="mb-2 flex items-start justify-between gap-3">
-        <h3 className="min-w-0 flex-1 break-words font-serif text-[15px] text-wb-ink">{displayTitle(handoff.title)}</h3>
-        <span className="shrink-0 rounded-md border border-wb-line px-2 py-0.5 font-mono text-[12px] text-wb-ink2">
+        <h3 className="min-w-0 flex-1 break-words font-serif text-wb-lead text-wb-ink">{displayTitle(handoff.title)}</h3>
+        <span className="shrink-0 rounded-md border border-wb-line px-2 py-0.5 font-mono text-wb-label text-wb-ink2">
           {handoff.priority}
         </span>
       </div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Badge status={badgeStatus}>{metadata.engineering_status}</Badge>
-        <span className="text-[12px] uppercase tracking-wide text-wb-ink2">
+        <span className="text-wb-label uppercase tracking-wide text-wb-ink2">
           batch: {metadata.batch_status}
         </span>
       </div>
-      <p className="mb-3 text-[12px] text-wb-ink2">{handoff.next_action}</p>
+      <p className="mb-3 text-wb-label text-wb-ink2">{handoff.next_action}</p>
       <EvidenceMeta
         source="Engineering handoff reader"
         observedAt={metadata.approved_at || undefined}
@@ -195,7 +195,7 @@ function HandoffCard({ handoff }: { handoff: Handoff }) {
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-md border border-wb-line px-3 py-1.5
-              text-[12px] font-semibold text-wb-ink2 transition-colors hover:bg-wb-line/20
+              text-wb-label font-semibold text-wb-ink2 transition-colors hover:bg-wb-line/20
               focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-line"
           >
             View merged PR →
@@ -207,7 +207,7 @@ function HandoffCard({ handoff }: { handoff: Handoff }) {
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 rounded-md border border-wb-sage-deep bg-wb-sage-deep/10
-            px-3 py-1.5 text-[12px] font-semibold text-wb-sage-deep transition-colors hover:bg-wb-sage-deep/20
+            px-3 py-1.5 text-wb-label font-semibold text-wb-sage-deep transition-colors hover:bg-wb-sage-deep/20
             focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         >
           Open draft PR →
@@ -215,7 +215,7 @@ function HandoffCard({ handoff }: { handoff: Handoff }) {
       ) : metadata.batch_artifact ? (
         <ArtifactViewer path={metadata.batch_artifact} />
       ) : (
-        <p className="text-[12px] italic text-wb-ink2">No PR or artifact yet.</p>
+        <p className="text-wb-label italic text-wb-ink2">No PR or artifact yet.</p>
       )}
     </div>
   );
@@ -284,7 +284,7 @@ export default function EngineeringHandoffsPage() {
       <div className="flex flex-col gap-4">
         <Card>
           {isLoading ? (
-            <p className="text-[13px] italic text-wb-ink2">Loading engineering handoffs…</p>
+            <p className="text-wb-body italic text-wb-ink2">Loading engineering handoffs…</p>
           ) : loadError ? (
             <DataAvailabilityNotice sources={[`Engineering Handoffs: ${loadError}`]} />
           ) : (
@@ -292,7 +292,7 @@ export default function EngineeringHandoffsPage() {
               {ALL_STAGES.map(s => (
                 <div key={s} className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
                   <p className="text-2xl font-bold text-wb-ink">{byStatus[s] ?? 0}</p>
-                  <p className="text-[12px] uppercase tracking-wider text-wb-ink2">{s}</p>
+                  <p className="text-wb-label uppercase tracking-wider text-wb-ink2">{s}</p>
                 </div>
               ))}
             </div>
@@ -311,15 +311,15 @@ export default function EngineeringHandoffsPage() {
             <Card key={queue}>
               <div className="mb-3">
                 <h2 className="font-serif text-lg text-wb-ink">{QUEUE_META[queue].title}</h2>
-                <p className="mt-1 text-[12px] text-wb-ink2">{QUEUE_META[queue].description}</p>
-                <p className="mt-2 text-[12px] font-semibold uppercase tracking-wide text-wb-sage-deep">{queues[queue].length} handoff{queues[queue].length === 1 ? '' : 's'}</p>
+                <p className="mt-1 text-wb-label text-wb-ink2">{QUEUE_META[queue].description}</p>
+                <p className="mt-2 text-wb-label font-semibold uppercase tracking-wide text-wb-sage-deep">{queues[queue].length} handoff{queues[queue].length === 1 ? '' : 's'}</p>
               </div>
           {isLoading ? (
-            <p className="text-[13px] italic text-wb-ink2">Loading engineering handoffs…</p>
+            <p className="text-wb-body italic text-wb-ink2">Loading engineering handoffs…</p>
           ) : loadError ? (
-            <p className="text-[13px] text-wb-crit-on">{loadError} No list to show.</p>
+            <p className="text-wb-body text-wb-crit-on">{loadError} No list to show.</p>
           ) : queues[queue].length === 0 ? (
-            <p className="text-[13px] italic text-wb-ink2">{QUEUE_META[queue].empty}</p>
+            <p className="text-wb-body italic text-wb-ink2">{QUEUE_META[queue].empty}</p>
           ) : (
             <div className="flex flex-col gap-3">
               {queues[queue].map(h => (

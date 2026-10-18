@@ -305,10 +305,10 @@ function LibraryViewInner() {
 
       <Card className="mb-4 p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-serif text-[14px] uppercase tracking-wide text-wb-ink">Filters</h3>
+          <h3 className="font-serif text-wb-body uppercase tracking-wide text-wb-ink">Filters</h3>
           <button
             onClick={clearFilters}
-            className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2 hover:text-wb-sage-deep transition-colors"
+            className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2 hover:text-wb-sage-deep transition-colors"
           >
             Clear
           </button>
@@ -358,11 +358,11 @@ function LibraryViewInner() {
       <div className="flex flex-col gap-4 xl:flex-row">
         <Card className="flex-1 p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-serif text-[14px] uppercase tracking-wide text-wb-ink">
+            <h3 className="font-serif text-wb-body uppercase tracking-wide text-wb-ink">
               Documents ({total})
             </h3>
             {total > PAGE_SIZE && (
-              <div className="flex items-center gap-2 text-[12px] uppercase tracking-wider text-wb-ink2">
+              <div className="flex items-center gap-2 text-wb-label uppercase tracking-wider text-wb-ink2">
                 <button
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page === 0}
@@ -389,7 +389,7 @@ function LibraryViewInner() {
             <p className="text-xs text-wb-ink2">No documents match these filters.</p>
           ) : (
             <>
-              <label className="mb-2 flex items-center gap-2 text-[12px] uppercase tracking-wider text-wb-ink2">
+              <label className="mb-2 flex items-center gap-2 text-wb-label uppercase tracking-wider text-wb-ink2">
                 <input type="checkbox" checked={allVisibleChecked} onChange={toggleAllVisible} />
                 Select all visible ({documents.length})
               </label>
@@ -412,7 +412,7 @@ function LibraryViewInner() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-xs font-medium text-wb-ink">{doc.filename}</p>
-                          <p className="mt-0.5 text-[12px] text-wb-ink2">
+                          <p className="mt-0.5 text-wb-label text-wb-ink2">
                             {doc.source_name} · {formatBytes(doc.size_bytes)}
                           </p>
                         </div>
@@ -423,7 +423,7 @@ function LibraryViewInner() {
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         {doc.category && (
-                          <span className="rounded-full border border-wb-line px-2 py-0.5 text-[12px] text-wb-ink2">{doc.category}</span>
+                          <span className="rounded-full border border-wb-line px-2 py-0.5 text-wb-label text-wb-ink2">{doc.category}</span>
                         )}
                         {doc.review_decision && (
                           <WorkbenchBadge
