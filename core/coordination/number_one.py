@@ -28,18 +28,17 @@ Design:
 from __future__ import annotations
 
 import logging
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
-
-import sys
 from pathlib import Path
+from typing import Any
 
 _REPO_ROOT_FOR_ENFORCEMENT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT_FOR_ENFORCEMENT) not in sys.path:  # this module is also imported by bare name
     sys.path.insert(0, str(_REPO_ROOT_FOR_ENFORCEMENT))
-from core.health.capacity_enforcement import enforcing  # noqa: E402
+from core.health.capacity_enforcement import enforcing
 
 log = logging.getLogger(__name__)
 

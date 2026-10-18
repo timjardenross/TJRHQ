@@ -150,7 +150,7 @@ def test_context_service_queue_path_is_advisory(advisory, monkeypatch):
     monkeypatch.setattr(mod, "_capacity_status_for_today", lambda: "Red")
     import engineering_handoff_reader  # imported by the function from core/coordination
 
-    monkeypatch.setattr(engineering_handoff_reader, "load_engineering_handoffs", lambda: [])
+    monkeypatch.setattr(engineering_handoff_reader, "load_engineering_handoffs", list)
     out = mod._http_health_adjusted_queue()
     blob = str(out)
     assert "DEFERRED" not in blob and "P0 only" not in blob
