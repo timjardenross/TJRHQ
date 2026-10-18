@@ -56,10 +56,16 @@ function InvestigatePageInner() {
         )}
 
         {result === 'missing-params' && (
-          <p className="text-wb-ink2 text-wb-lead leading-relaxed">
-            This page needs a specific starting point — there&rsquo;s nothing to browse here.
-            Reach it from a link on Home or Recommended.
-          </p>
+          <div className="text-wb-ink2 text-wb-lead leading-relaxed">
+            <p>
+              This page needs a specific starting point — there&rsquo;s nothing to browse here.
+              It opens from an item that asks for investigation, on Today or in Decisions.
+            </p>
+            <p className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-wb-body">
+              <Link href="/captains-chair-workbench" className="underline underline-offset-2 hover:text-wb-ink">Go to Today</Link>
+              <Link href="/decisions" className="underline underline-offset-2 hover:text-wb-ink">Go to Decisions</Link>
+            </p>
+          </div>
         )}
 
         {result === null && (
