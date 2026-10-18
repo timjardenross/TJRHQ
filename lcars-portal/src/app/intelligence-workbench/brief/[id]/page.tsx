@@ -194,7 +194,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
                 Publish
               </button>
               <button disabled={!!busy} onClick={() => act('brief.escalate', {}, 'Escalate to RED')}
-                className="rounded-md border border-wb-crit-on bg-wb-crit-on px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-crit-on">
+                className="rounded-md border border-wb-crit-fill bg-wb-crit-fill px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-crit-on">
                 Escalate to RED
               </button>
               <a href={`/intelligence-workbench/escalation/${id}`}

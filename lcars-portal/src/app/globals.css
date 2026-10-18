@@ -121,6 +121,11 @@
   --wb-ok-on: #3F633F;
   --wb-warn-on: #8A5A1B;
   --wb-crit-on: #A23A34;
+  /* Fill-safe (white text on top) in BOTH sets; deliberately not overridden in the dark scope,
+     where the -on shades are light text colours. */
+  --wb-ok-fill: #3F633F;
+  --wb-warn-fill: #8A5A1B;
+  --wb-crit-fill: #A23A34;
   --wb-crit-deep: #8a2f2a;
 
   /* Operational state colours (state-* in tailwind.config.ts). DEFAULT and

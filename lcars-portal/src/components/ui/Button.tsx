@@ -12,7 +12,7 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary: 'bg-wb-sage-deep text-white hover:bg-wb-ink active:bg-wb-ink disabled:hover:bg-wb-sage-deep disabled:active:bg-wb-sage-deep',
   secondary:
     'border border-wb-line bg-wb-surface text-wb-ink hover:border-wb-sage-deep active:border-wb-sage-deep active:bg-wb-line/40 disabled:hover:border-wb-line disabled:active:border-wb-line disabled:active:bg-transparent',
-  danger: 'bg-wb-crit-on text-white hover:bg-wb-crit-on/90 active:bg-wb-crit-on/80 disabled:hover:bg-wb-crit-on disabled:active:bg-wb-crit-on',
+  danger: 'bg-wb-crit-fill text-white hover:bg-wb-crit-fill/90 active:bg-wb-crit-fill/80 disabled:hover:bg-wb-crit-fill disabled:active:bg-wb-crit-fill',
   ghost: 'text-wb-sage-deep hover:underline active:underline disabled:hover:no-underline disabled:active:no-underline',
 };
 

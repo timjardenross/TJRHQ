@@ -140,3 +140,22 @@ describe('status pills stay legible in both sets', () => {
     }
   });
 });
+
+describe('status fills (white text on top) in both sets', () => {
+  const dark2 = block("[data-wb-mode='dark']");
+  it('-fill tokens exist in the light set, pass 4.5:1 with white, and are not overridden in dark', () => {
+    for (const t of ['ok', 'warn', 'crit']) {
+      expect(light[`${t}-fill`], t).toBeDefined();
+      expect(ratio('#FFFFFF', light[`${t}-fill`]), t).toBeGreaterThanOrEqual(4.5);
+      expect(dark2[`${t}-fill`], `${t} must not be overridden`).toBeUndefined();
+    }
+  });
+  it('no source uses a -on token as a fill, border or gradient colour', () => {
+    const { execSync } = require('node:child_process') as typeof import('node:child_process');
+    const out = execSync(
+      `grep -rnE "(bg|from|to|via)-(wb-(ok|warn|crit)|state-[a-z]+)-on" src --include=*.tsx --include=*.ts --include=*.css | grep -v __tests__ || true`,
+      { cwd: process.cwd(), encoding: 'utf8' },
+    );
+    expect(out.trim()).toBe('');
+  });
+});
