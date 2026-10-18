@@ -40,7 +40,7 @@ def _escalation(level="CRITICAL", etype="PR_CI_FAILING", mission_id="USS-TJR-MSN
 
 class TestInQuietHours(unittest.TestCase):
     def _at(self, hour: int) -> bool:
-        fixed = datetime(2026, 9, 8, hour, 0, tzinfo=ZoneInfo("Australia/Brisbane"))
+        fixed = datetime(2026, 9, 8, hour, 0, tzinfo=ZoneInfo("Australia/Melbourne"))
         with patch.object(cb, "datetime") as mock_dt:
             mock_dt.now.return_value = fixed
             return cb._in_number_one_quiet_hours()

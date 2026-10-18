@@ -614,7 +614,7 @@ def _start_scheduler() -> None:
         "Daily collection: 06:00 (%s) | Brief QA pre-screen: 02:00 (%s) | "
         "Validation suite: 06:30 (%s) | Source fidelity audit: 06:45 (%s) | "
         "Health-mission correlation: 07:30 (%s) | Attention evaluation: every %d min | "
-        "Downdetector priority tiered collection: every %d min, 07:00-19:00 (Australia/Brisbane) | "
+        "Downdetector priority tiered collection: every %d min, 07:00-19:00 (Australia/Melbourne) | "
         "Downdetector threshold recompute: 05:00 (%s) | "
         "Episodic memory decay: Sunday 03:00 (%s)",
         SCHEDULE_CRON, GITHUB_SYNC_CRON, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, SCHEDULE_TZ, eval_interval,
@@ -1070,17 +1070,17 @@ _PRIORITY_TIERED_SOURCE_NAMES = frozenset({
 # leaves genuine headroom on both providers' budgets — this constant is the
 # real, math-checked interval, not a placeholder.
 _PRIORITY_TIERED_INTERVAL_MINUTES = 120
-_PRIORITY_TIERED_WINDOW_START_HOUR = 7   # inclusive, AEST (Australia/Brisbane, no DST)
-_PRIORITY_TIERED_WINDOW_END_HOUR = 19    # exclusive, AEST
+_PRIORITY_TIERED_WINDOW_START_HOUR = 7   # inclusive, Melbourne local time (Australia/Melbourne, DST-aware)
+_PRIORITY_TIERED_WINDOW_END_HOUR = 19    # exclusive, Melbourne local time
 
 
 def _within_priority_tiered_window(hour: int) -> bool:
     """Pure, directly-testable time-gate — see
-    tests/test_downdetector_priority_cadence.py. 07:00-19:00 AEST
-    (Australia/Brisbane — this platform's standard timezone, no DST, same
-    tz pulse_time.py already uses;
-    deliberately NOT SCHEDULE_TZ/Australia-Melbourne, which shifts with
-    DST)."""
+    tests/test_downdetector_priority_cadence.py. 07:00-19:00 Melbourne local
+    time (Australia/Melbourne — this platform's standard timezone since
+    2026-10, DST-aware, same tz pulse_time.py uses). The window is the same
+    12 hours as before, so the call budget is unchanged; it shifts by an
+    hour in UTC terms when daylight saving starts or ends."""
     return _PRIORITY_TIERED_WINDOW_START_HOUR <= hour < _PRIORITY_TIERED_WINDOW_END_HOUR
 
 
@@ -1102,16 +1102,16 @@ def _priority_tiered_collection_job() -> None:
     from datetime import datetime as _datetime
     try:
         from zoneinfo import ZoneInfo
-        hour = _datetime.now(ZoneInfo("Australia/Brisbane")).hour
+        hour = _datetime.now(ZoneInfo("Australia/Melbourne")).hour
     except Exception:  # noqa: BLE001 - defensive-only fallback, see comment above; already handled by falling back to host-local time
-        # Defensive only — ZoneInfo("Australia/Brisbane") should never fail on a
+        # Defensive only — ZoneInfo("Australia/Melbourne") should never fail on a
         # supported Python; if it somehow does, fall back to host local time
         # rather than guessing UTC (this host is deployed/configured for
-        # Brisbane time, so host-local is the closer approximation).
+        # Melbourne time, so host-local is the closer approximation).
         hour = _datetime.now().hour  # noqa: DTZ005 - deliberate host-local-time fallback, see comment above
     if not _within_priority_tiered_window(hour):
         log.info(
-            "Priority tiered collection skipped (outside 07:00-19:00 Brisbane, hour=%d)",
+            "Priority tiered collection skipped (outside 07:00-19:00 Melbourne, hour=%d)",
             hour,
         )
         return

@@ -29,7 +29,7 @@ from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 
-_TZ = ZoneInfo("Australia/Brisbane")
+_TZ = ZoneInfo("Australia/Melbourne")
 
 # ── Env ───────────────────────────────────────────────────────────────────────
 
@@ -1609,7 +1609,7 @@ _BOT_COMMANDS = [
 ]
 
 
-# ── Proactive cadence — 08:00 / 13:00 / 20:00 Australia/Brisbane ────────────
+# ── Proactive cadence — 08:00 / 13:00 / 20:00 Australia/Melbourne ────────────
 # Prior to this, capacitybot was 100% command-driven (no scheduled push at
 # all) — the Captain had to remember to message it. These three jobs push
 # the same flows /capacity, /midcheck, and /evening already serve on
@@ -1656,7 +1656,7 @@ async def _post_init(app) -> None:
 
     log.info(
         "CapacityBot started version=V02 telegram=connected supabase=%s commands=%d "
-        "proactive_cadence=08:00/13:00/20:00 Australia/Brisbane",
+        "proactive_cadence=08:00/13:00/20:00 Australia/Melbourne",
         "connected" if _get_supabase() else "unavailable", len(_BOT_COMMANDS),
     )
 

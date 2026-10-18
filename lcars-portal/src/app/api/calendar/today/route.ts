@@ -12,6 +12,7 @@
 
 import { NextResponse } from 'next/server';
 import { requireSession } from '@/lib/supabase-server';
+import { todayLocal } from '@/lib/timezone';
 import { fetchTodayEvents, GoogleCalendarDisconnectedError, type CalendarEvent } from '@/lib/google-calendar';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -19,7 +20,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 let cache: { day: string; events: CalendarEvent[]; cachedAt: number } | null = null;
 
 function todayKey(): string {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
+  return todayLocal();
 }
 
 export async function GET() {

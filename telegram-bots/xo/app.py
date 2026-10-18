@@ -27,7 +27,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-_TZ = ZoneInfo("Australia/Brisbane")
+_TZ = ZoneInfo("Australia/Melbourne")
 
 from dotenv import load_dotenv
 
@@ -2323,7 +2323,7 @@ async def _post_init(app) -> None:
         return
     meds.schedule(app.job_queue, TELEGRAM_CHAT_ID)
     await meds.resume_if_due(app.bot, app.job_queue, TELEGRAM_CHAT_ID)
-    log.info("[startup] medication reminder scheduled 07:00 Australia/Brisbane, every %d min until confirmed",
+    log.info("[startup] medication reminder scheduled 07:00 Australia/Melbourne, every %d min until confirmed",
              meds.INTERVAL_MINUTES)
 
 

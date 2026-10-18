@@ -225,7 +225,7 @@ def compute_readiness_score(
     try:
         from datetime import datetime as _dt
         from zoneinfo import ZoneInfo as _ZI
-        today_str = _dt.now(_ZI("Australia/Brisbane")).date().isoformat()
+        today_str = _dt.now(_ZI("Australia/Melbourne")).date().isoformat()
     except Exception:  # noqa: BLE001 - zoneinfo unavailable fallback to system-local date; handled by the except body itself
         from datetime import datetime as _dt2
         today_str = _dt2.now().astimezone().date().isoformat()
