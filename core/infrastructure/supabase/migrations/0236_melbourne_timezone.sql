@@ -11,17 +11,24 @@
 --
 -- What changes (new rows / live views only):
 --   * capacity_checkins.log_date default       -> Melbourne calendar date
---   * debrief_logs.log_date default            -> Melbourne calendar date
 --   * view capacity_checkins_today             -> "today" is the Melbourne date
 --     (same columns, same order, same grants as migration 0169; only the zone differs)
 --
 -- What does NOT change:
+--   * debrief_logs.log_date. Migration 0206 says its default is Brisbane, but the
+--     live default is CURRENT_DATE (checked read-only against the live catalog on
+--     2026-10-18). Left as is; the repo and the live database disagree there.
 --   * Existing rows. Historical log_date values were computed in Brisbane time and
 --     are left as recorded. Rows captured between 00:00 and 01:00 Melbourne time
 --     during daylight saving may carry the previous calendar date.
 --   * recovery_pulses and its views (recovery_confidence_today,
 --     recovery_pulse_adherence_7d). That domain was retired in 0181; nothing writes
 --     to it. Their remaining readers are tracked in the pain-consolidation plan.
+--
+-- Checked against the live catalog (2026-10-18, schema only): the live
+-- capacity_checkins_today view has 7 Brisbane references and the same 12 columns
+-- in the same order as migration 0169, and capacity_checkins.log_date defaults to
+-- the Brisbane date, so this replaces exactly what 0169 and 0148 created.
 --
 -- Cutover: deploy the code first, then apply this. Between the two, bots that set
 -- log_date explicitly already use Melbourne; only rows that rely on the database
@@ -31,9 +38,6 @@
 -- Idempotent: ALTER ... SET DEFAULT and CREATE OR REPLACE VIEW.
 
 alter table public.capacity_checkins
-  alter column log_date set default (now() at time zone 'Australia/Melbourne')::date;
-
-alter table public.debrief_logs
   alter column log_date set default (now() at time zone 'Australia/Melbourne')::date;
 
 create or replace view public.capacity_checkins_today as
