@@ -9,9 +9,11 @@ not a decision helper; aggregation, trends and alerts on problems belong in HQ a
 link between the two. Until then, gating on a missing or thin signal holds things back for no good reason.
 
 **What changed.** `core/health/capacity_enforcement.py` is a single switch (`CAPACITY_ENFORCEMENT`,
-default `advisory`). It is read in three places: the follow-through engine's `_apply_capacity_gate`, the
-D-055 `CapacityGate` (emits one advisory notice instead of defer / limit / recovery actions), and the
-improvement budget (sized as Green, Red does not block). Reported values (`capacity_status`, the governance
+default `advisory`). It is read in five places: the follow-through engine's `_apply_capacity_gate`, the
+D-055 `CapacityGate` (emits one advisory notice instead of defer / limit / recovery actions), the
+improvement budget (sized as Green, Red does not block), Number One's `get_health_adjusted_queue`
+(the mission workbench queue: no DEFERRED / P0-only marks, normal focus list), and the recommendation
+engine (no Red score reduction; health notes become pacing notes, never a defer instruction). Reported values (`capacity_status`, the governance
 statement) are unchanged apart from saying "advisory".
 
 **How to reverse it.** Set `CAPACITY_ENFORCEMENT=enforce`. That restores the original D-055 behaviour exactly

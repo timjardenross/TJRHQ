@@ -33,6 +33,14 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+import sys
+from pathlib import Path
+
+_REPO_ROOT_FOR_ENFORCEMENT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT_FOR_ENFORCEMENT) not in sys.path:  # this module is also imported by bare name
+    sys.path.insert(0, str(_REPO_ROOT_FOR_ENFORCEMENT))
+from core.health.capacity_enforcement import enforcing  # noqa: E402
+
 log = logging.getLogger(__name__)
 
 try:
@@ -383,6 +391,12 @@ class NumberOne:
         """
         base_queue = self.get_work_queue(missions, routing_results)
 
+        # Advisory mode (owner decision 2026-10-18; see core/health/capacity_enforcement.py):
+        # capacity is reported but nothing is marked deferred or P0-only. The Red/Amber text and
+        # focus list below are the original enforcing behaviour, kept unchanged under
+        # CAPACITY_ENFORCEMENT=enforce.
+        advisory_only = capacity_status in ("Red", "Amber") and not enforcing()
+
         annotated = []
         for item in base_queue:
             d = {
@@ -396,7 +410,9 @@ class NumberOne:
                 "capacity_note": "",
             }
             pri = d["priority"]
-            if capacity_status == "Red":
+            if advisory_only:
+                d["capacity_note"] = f"Capacity is {capacity_status} today (advisory only, nothing deferred)"
+            elif capacity_status == "Red":
                 if pri == "P0":
                     d["capacity_note"] = "CRITICAL — proceed regardless of capacity"
                 else:
@@ -411,7 +427,17 @@ class NumberOne:
             annotated.append(d)
 
         # Advisory statement
-        if capacity_status == "Red":
+        if advisory_only:
+            advisory = (
+                f"Captain's capacity is {capacity_status.upper()} today. Capacity gating is advisory "
+                "for now: nothing is deferred or limited, and normal prioritisation applies. "
+                "Pace yourself as you see fit."
+            )
+            recommended_focus = [
+                m["title"] for m in annotated
+                if "BLOCKED" not in m["status"].upper()
+            ][:3]
+        elif capacity_status == "Red":
             advisory = (
                 "Captain is at RED capacity today. "
                 "Number One recommends P0 missions only. "

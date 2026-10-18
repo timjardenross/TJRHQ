@@ -96,3 +96,90 @@ def test_improvement_budget_still_closed_by_red_when_enforcing(enforce, monkeypa
     monkeypatch.setattr(engine, "_count_active_improvement_missions", lambda: 0)
     monkeypatch.setattr(engine, "_log_budget_state", lambda b: None)
     assert engine.get_budget("Red").can_create is False
+
+
+# --- Number One work queue and the context-service path (Codex P1 on this PR) ---
+
+QUEUE_MISSIONS = [
+    {"id": "M-P0", "mission_id": "M-P0", "title": "Critical thing", "priority": "P0", "status": "ACTIVE"},
+    {"id": "M-P1", "mission_id": "M-P1", "title": "Important thing", "priority": "P1", "status": "ACTIVE"},
+    {"id": "M-P2", "mission_id": "M-P2", "title": "Nice thing", "priority": "P2", "status": "ACTIVE"},
+]
+
+
+def _number_one():
+    import importlib
+
+    return importlib.import_module("core.coordination.number_one").NumberOne()
+
+
+@pytest.mark.parametrize("status", ["Red", "Amber"])
+def test_number_one_queue_defers_nothing_in_advisory(advisory, status):
+    out = _number_one().get_health_adjusted_queue(QUEUE_MISSIONS, status)
+    text = " ".join([n["capacity_note"] for n in out["queue"]] + [out["advisory"]] + out["recommended_focus"])
+    assert "DEFERRED" not in text and "P0 only" not in text and "P0 missions only" not in text
+    assert "advisory" in out["advisory"].lower()
+    assert out["capacity_status"] == status  # still reported
+    assert len(out["recommended_focus"]) == 3  # normal focus, not narrowed to P0/P1
+
+
+def test_number_one_queue_red_still_defers_when_enforcing(enforce):
+    out = _number_one().get_health_adjusted_queue(QUEUE_MISSIONS, "Red")
+    notes = {n["priority"]: n["capacity_note"] for n in out["queue"]}
+    assert notes["P2"].startswith("DEFERRED") and notes["P0"].startswith("CRITICAL")
+    assert out["recommended_focus"] == ["Critical thing"]
+
+
+def test_number_one_queue_amber_still_narrows_when_enforcing(enforce):
+    out = _number_one().get_health_adjusted_queue(QUEUE_MISSIONS, "Amber")
+    assert out["recommended_focus"] == ["Critical thing", "Important thing"]
+
+
+def test_context_service_queue_path_is_advisory(advisory, monkeypatch):
+    """The live path the mission workbench uses: context_service -> NumberOne.get_health_adjusted_queue."""
+    import importlib.util
+    import sys
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[1] / "core" / "context-assembly" / "context_service.py"
+    spec = importlib.util.spec_from_file_location("context_service_under_test", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    monkeypatch.setattr(mod, "_load_live_missions_for_number_one", lambda: list(QUEUE_MISSIONS))
+    monkeypatch.setattr(mod, "_capacity_status_for_today", lambda: "Red")
+    import engineering_handoff_reader  # imported by the function from core/coordination
+
+    monkeypatch.setattr(engineering_handoff_reader, "load_engineering_handoffs", lambda: [])
+    out = mod._http_health_adjusted_queue()
+    blob = str(out)
+    assert "DEFERRED" not in blob and "P0 only" not in blob
+
+
+# --- Recommendation engine: ranking and notes ---
+
+def _rec():
+    import importlib
+
+    return importlib.import_module("core.coordination.recommendation_engine")
+
+
+def test_recommendation_note_is_not_a_defer_instruction_in_advisory(advisory):
+    rec = _rec()
+
+    class Health:
+        capacity_status = "Red"
+        workload_constraint = "normal"
+
+    note = rec.check_health_constraints({"priority": "P3", "domain": "engineering"}, Health())
+    assert note and "Defer" not in note and "nothing is deferred" in note
+
+
+def test_recommendation_note_still_says_defer_when_enforcing(enforce):
+    rec = _rec()
+
+    class Health:
+        capacity_status = "Red"
+        workload_constraint = "normal"
+
+    assert rec.check_health_constraints({"priority": "P3", "domain": "x"}, Health()).startswith("Defer")
