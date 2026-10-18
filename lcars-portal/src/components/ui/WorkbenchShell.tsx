@@ -102,14 +102,14 @@ export function WorkbenchShell({
    * reachable (never trap the Captain), QuickCapture/MobileCommandBar
    * stay mounted. */
   minimal?: boolean;
-  /** Endeavour 27 (USS-TJR-MSN-0394): 'command' and 'focus' share the dark
-   * Command/Focus surface (differ by density/layout, not colour — mission
-   * §1.1), 'read' switches to the light reading surface via
-   * [data-wb-mode='read'] in globals.css. Defaults to 'focus' — the
-   * majority of existing action/execution workbenches — so unclassified
-   * pages don't silently go light. Set explicitly per mission §1.8's
-   * classification when migrating a page. */
-  mode?: 'command' | 'focus' | 'read';
+  /** Surface and density classification. The default surface is light
+   * (design uplift Stage A): 'command', 'focus' and 'read' all use the light
+   * token set and differ by density, layout and reading typography only
+   * ('read' adds the `.wb-mode-read` reading rules). 'dark' opts the whole
+   * content surface into the dark navy set (no page uses it today). The
+   * sidebar and mobile bottom bar are dark navy chrome in every mode.
+   * Defaults to 'focus'. */
+  mode?: 'command' | 'focus' | 'read' | 'dark';
   children: ReactNode;
 }) {
   const shellWidth = wide ? 'max-w-7xl' : 'max-w-4xl';
@@ -184,15 +184,15 @@ export function WorkbenchShell({
             <div className={`mx-auto flex ${shellWidth} flex-wrap items-center gap-3 px-6 py-4`}>
               {/* Brand mark (TJR HQ identity, Stage 2). Replaces the triangle glyph
                   in the same 36 px slot. The link carries the accessible name; the
-                  mark is decorative. Read mode puts this header on the light
-                  surface, so it gets the navy tile; every other mode is dark chrome
-                  and gets the inverted tile. */}
+                  mark is decorative. The header sits on the content surface, which is
+                  light unless mode="dark", so it gets the navy tile (inverted tile only
+                  on a dark surface). */}
               <Link
                 href={GLOBAL_HOME}
                 className="flex h-9 w-9 shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink xl:hidden"
                 aria-label="Workbenches home"
               >
-                <BrandMark surface={mode === 'read' ? 'light' : 'dark'} size={36} />
+                <BrandMark surface={mode === 'dark' ? 'dark' : 'light'} size={36} />
               </Link>
               <div className="leading-tight">
                 <h1 className="font-serif text-[17px]">{title}</h1>

@@ -80,6 +80,7 @@ export function Sidebar() {
   return (
     <aside
       aria-label="Primary"
+      data-wb-chrome="dark"
       className="sticky top-0 hidden h-[100dvh] w-64 shrink-0 flex-col justify-between overflow-y-auto border-r border-wb-line bg-wb-surface px-3 py-6 xl:flex"
     >
       <div className="flex flex-col gap-5">

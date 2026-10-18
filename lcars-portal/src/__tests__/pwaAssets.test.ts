@@ -42,9 +42,9 @@ describe('PWA manifest and icons (brand Stage 1)', () => {
     }
   });
 
-  it('keeps theme and background colours unchanged until the light re-theme (owner decision)', () => {
-    expect(manifest.theme_color).toBe('#05070e');
-    expect(manifest.background_color).toBe('#05070e');
+  it('theme and background colours follow the light default surface (mist), so first paint and splash match', () => {
+    expect(manifest.theme_color).toBe('#F5F7FA');
+    expect(manifest.background_color).toBe('#F5F7FA');
   });
 
   it('the description no longer uses the retired "Captain\'s Chair" wording', () => {

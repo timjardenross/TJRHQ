@@ -4,10 +4,10 @@
 // asserts on the actual bytes (sha256) the page receives for ALL five
 // precached assets:
 //   1. installed OLD: cache v1, old icon + manifest bytes
-//   2. upgrade to NEW: cache v2 only, new icon + manifest bytes
+//   2. upgrade to NEW: the new cache name only, new icon + manifest bytes
 //   3. FAILED upgrade (one new asset returns 500): the old worker and its v1
-//      cache stay in place, old bytes still served, no stray v2 cache
-//   4. documented rollback (old files + cache name v3): old bytes again
+//      cache stay in place, old bytes still served, no stray new cache
+//   4. documented rollback (old files + a further cache name bump): old bytes again
 // Usage (from lcars-portal/): node scripts/brand/check-sw-migration.mjs <git-ref-of-old-version>
 //   e.g. node scripts/brand/check-sw-migration.mjs origin/main
 import { chromium } from 'playwright';
@@ -26,6 +26,7 @@ const OLD = { sw: oldFile('/sw.js').toString('utf8'), files: Object.fromEntries(
 const NEW = { sw: fs.readFileSync('public/sw.js', 'utf8'), files: Object.fromEntries(ASSETS.map((a) => [a, fs.readFileSync('public' + a)])) };
 if (sha(OLD.files['/icon-192.png']) === sha(NEW.files['/icon-192.png'])) throw new Error('old and new icon-192.png are identical: nothing to test');
 
+const CUR = NEW.sw.match(/const CACHE = '([^']+)'/)[1];
 let cur = OLD, fail500 = null;
 const srv = http.createServer((q, r) => {
   const u = q.url.split('?')[0];
@@ -70,17 +71,17 @@ await page.reload(); await page.waitForTimeout(600);
 const oldCache = (await state()).caches[0];
 check('installed OLD (real bytes)', await state(), oldCache, OLD);
 cur = NEW; await update();
-check('upgraded to NEW (real bytes, long max-age)', await state(), 'lcars-static-v2', NEW);
+check('upgraded to NEW (real bytes, long max-age)', await state(), CUR, NEW);
 // Failed upgrade: go back to a state with only OLD installed, then publish a NEW whose precache fails.
 cur = OLD; await update();
-cur = { sw: NEW.sw.replace('lcars-static-v2', 'lcars-static-v4'), files: NEW.files }; fail500 = '/icon-512.png'; await update(); fail500 = null;
+cur = { sw: NEW.sw.replace(CUR, CUR + '-failing'), files: NEW.files }; fail500 = '/icon-512.png'; await update(); fail500 = null;
 {
   const s = await state();
-  const ok = !s.caches.includes('lcars-static-v4') && s.caches.length === 1;
+  const ok = !s.caches.includes(CUR + '-failing') && s.caches.length === 1;
   console.log(`${ok ? 'PASS' : 'FAIL'}  failed precache leaves the previous cache in place and no partial cache  caches=${JSON.stringify(s.caches)}`);
   if (!ok) failed++;
 }
-cur = { sw: NEW.sw.replace('lcars-static-v2', 'lcars-static-v3'), files: OLD.files }; await update();
-check('documented rollback (old files + cache v3)', await state(), 'lcars-static-v3', OLD);
+cur = { sw: NEW.sw.replace(CUR, CUR + '-rollback'), files: OLD.files }; await update();
+check('documented rollback (old files + further cache bump)', await state(), CUR + '-rollback', OLD);
 await browser.close(); srv.close();
 process.exit(failed ? 1 : 0);

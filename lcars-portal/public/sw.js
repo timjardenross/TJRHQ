@@ -8,9 +8,8 @@
 
 // Bump this whenever any file in STATIC_ASSETS changes: the activate handler
 // below deletes every other cache, and a changed name is what makes installed
-// copies fetch the new icons/manifest (cache-first never revalidates). v2:
-// TJR HQ brand icons (brand identity Stage 1).
-const CACHE = 'lcars-static-v2';
+// copies fetch the new icons/manifest (cache-first never revalidates). v2: TJR HQ brand icons (brand identity Stage 1). v3: manifest theme and background colours (design uplift Stage A).
+const CACHE = 'lcars-static-v3';
 const STATIC_ASSETS = [
   '/icon-192.png',
   '/icon-512.png',

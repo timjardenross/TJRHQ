@@ -151,9 +151,9 @@ export default function LoginPage() {
 
         {/* Header */}
         <div className="mb-6 flex items-center gap-3">
-          {/* TJR HQ identity (Stage 2). Login sits on the dark surface, so the
-              inverted tile; decorative, the heading below names the page. */}
-          <BrandMark surface="dark" size={48} />
+          {/* TJR HQ identity (Stage 2). Login sits on the default light surface,
+              so the navy tile; decorative, the heading below names the page. */}
+          <BrandMark surface="light" size={48} />
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-wb-ink2">
               TJR HQ

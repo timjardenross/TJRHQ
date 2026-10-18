@@ -27,16 +27,17 @@ describe('TJR HQ brand mark in the app chrome (brand Stage 2)', () => {
     expect(link.textContent).toBe('');
   });
 
-  it('header: dark modes use the inverted tile, Read mode the navy tile', () => {
-    const tile = (mode: 'focus' | 'command' | 'read') => {
+  it('header: the default light surface (every mode but dark) uses the navy tile; mode="dark" the inverted tile', () => {
+    const tile = (mode: 'focus' | 'command' | 'read' | 'dark') => {
       const { unmount } = render(<WorkbenchShell title="T" tagline="t" mode={mode}><p>c</p></WorkbenchShell>);
       const s = screen.getByRole('link', { name: 'Workbenches home' }).querySelector('img')!.getAttribute('src');
       unmount();
       return s;
     };
-    expect(tile('focus')).toBe('/brand/hq-icon-dark.svg');
-    expect(tile('command')).toBe('/brand/hq-icon-dark.svg');
+    expect(tile('focus')).toBe('/brand/hq-icon-light.svg');
+    expect(tile('command')).toBe('/brand/hq-icon-light.svg');
     expect(tile('read')).toBe('/brand/hq-icon-light.svg');
+    expect(tile('dark')).toBe('/brand/hq-icon-dark.svg');
   });
 
   it('sidebar: inverted-tile mark and the name "TJR HQ" with no "Endeavour 27" sub-label', () => {
@@ -44,6 +45,7 @@ describe('TJR HQ brand mark in the app chrome (brand Stage 2)', () => {
     const link = screen.getByRole('link', { name: 'TJR HQ home' });
     expect(link).toHaveAttribute('href', '/hub');
     expect(link.querySelector('img')).toHaveAttribute('src', '/brand/hq-icon-dark.svg');
+    expect(link.closest('aside')).toHaveAttribute('data-wb-chrome', 'dark');
     expect(link.querySelector('img')).toHaveAttribute('alt', '');
     expect(link.textContent).toBe('TJR HQ');
     expect(screen.queryByText(/endeavour 27/i)).toBeNull();
