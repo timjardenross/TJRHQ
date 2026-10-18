@@ -4,7 +4,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 
 // Executes the real public/sw.js in a minimal ServiceWorker-like sandbox.
-function load() {
+function load(opts: { addAllFails?: boolean } = {}) {
   const listeners: Record<string, (e: unknown) => void> = {};
   const opened: string[] = [];
   const added: unknown[][] = [];
@@ -16,7 +16,7 @@ function load() {
     method = 'GET';
   }
   const caches = {
-    open: async (name: string) => { opened.push(name); return { addAll: async (r: unknown[]) => { added.push(r); }, put: async () => {} }; },
+    open: async (name: string) => { opened.push(name); return { addAll: async (r: unknown[]) => { added.push(r); if (opts.addAllFails) throw new Error('precache failed'); }, put: async () => {} }; },
     keys: async () => keys,
     delete: async (k: string) => { deleted.push(k); keys = keys.filter((x) => x !== k); return true; },
     match: async () => undefined,
@@ -63,6 +63,14 @@ describe('public/sw.js (brand Stage 1)', () => {
     const b = waitUntil(); listeners.activate(b.e); await b.done();
     expect(self.skipWaiting).toHaveBeenCalled();
     expect(self.clients.claim).toHaveBeenCalled();
+  });
+
+  it('failure path: a failed precache rejects the install, does not skip waiting, and removes the partial v2 cache (the working v1 cache is untouched)', async () => {
+    const { listeners, self, deleted } = load({ addAllFails: true });
+    const w = waitUntil(); listeners.install(w.e);
+    await expect(w.done()).rejects.toThrow('precache failed');
+    expect(self.skipWaiting).not.toHaveBeenCalled();
+    expect(deleted).toEqual(['lcars-static-v2']);
   });
 
   it('does not intercept navigations or API requests', () => {

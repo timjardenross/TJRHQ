@@ -46,6 +46,7 @@ Use the components, not raw paths: `import { BrandMark, BrandWordmark } from '@/
 - `src/app/icon.svg` is the adaptive HQ favicon; `src/app/favicon.ico` holds 16/32/48 px images. `public/icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png` are rendered from `hq-app-icon-fullbleed.svg` (opaque navy, no own corner radius). Regenerate with `node scripts/brand/build-icons.mjs`; verify with `node scripts/brand/check-icons.mjs` (opaque, navy corner, white mark, maskable mark inside the 40% safe zone).
 - `public/sw.js` cache is `lcars-static-v2` and precaches with `cache: 'reload'`. Any change to a precached file needs a new cache name, or installed apps keep the old copy (cache-first never revalidates).
 - Manifest `theme_color` and `background_color` are deliberately unchanged until the light re-theme.
-- **Upgrade check:** `git show <base>:lcars-portal/public/sw.js > /tmp/old-sw.js; node scripts/brand/check-sw-migration.mjs /tmp/old-sw.js`.
+- **Upgrade check (real files, real bytes):** `node scripts/brand/check-sw-migration.mjs <git-ref-of-old-version>`. It covers install, upgrade, a failed precache (the previous worker and cache must stay) and the documented rollback.
+- **Failed precache:** the worker installs only if every precached file is fetched; otherwise the install is rejected, the previous worker and its cache stay, and the partial cache is removed.
 - **Rollback:** revert the files AND bump the cache name again (v3), keeping `cache: 'reload'`. A plain revert to `v1` can re-serve the new icons from the HTTP cache where assets carry a long `max-age`.
 - **iOS:** an existing home-screen icon will not update until the app is removed and re-added to the Home Screen.

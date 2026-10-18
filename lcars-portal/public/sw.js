@@ -20,8 +20,18 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(STATIC_ASSETS.map((u) => new Request(u, { cache: 'reload' })))).catch(() => {}));
-  self.skipWaiting();
+  // The precache must fully succeed before this worker takes over: activation
+  // deletes every other cache, so a half-filled v2 must never replace a
+  // working v1. On any failure the install is rejected (the previous worker and
+  // its cache stay in place and the browser retries on its next update check)
+  // and the partial cache is removed.
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((c) => c.addAll(STATIC_ASSETS.map((u) => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+      .catch((err) => caches.delete(CACHE).then(() => { throw err; })),
+  );
 });
 
 self.addEventListener('activate', (event) => {
