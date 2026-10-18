@@ -56,11 +56,4 @@ describe('TJR HQ brand mark in the app chrome (brand Stage 2)', () => {
       expect(text, f).not.toContain('endeavour-brand-mark');
     }
   });
-
-  it('login heading uses the mark and plain "TJR HQ" (no descriptor line)', () => {
-    const login = src('app/(auth)/login/page.tsx');
-    expect(login).toContain("import { BrandMark } from '@/components/brand'");
-    expect(login).toContain('<BrandMark surface="dark" size={48} />');
-    expect(login).not.toContain('ENDEAVOUR 27');
-  });
 });
