@@ -85,7 +85,7 @@ export default function DecisionsPage() {
     <WorkbenchShell
       title="Decisions"
       eyebrow="Executive command surface"
-      tagline="TJR HQ · Decisions Inbox · Engineering approvals + flagged intelligence recommendations, one queue"
+      tagline="TJR HQ · Decisions · Engineering approvals, flagged intelligence recommendations and approved handoffs"
       back={{ href: '/captains-chair-workbench', label: "Today" }}
       mode="command"
       tabs={<DomainToggle value={tab} onChange={changeTab} options={TAB_OPTIONS} ariaLabel="Decisions views" />}

@@ -14,7 +14,7 @@ export function LegacyFrame({ children }: { children: ReactNode }) {
   return (
     <WorkbenchShell
       title="TJR HQ"
-      eyebrow="Moved or retired page"
+      eyebrow="Older page"
       tagline="TJR HQ · retained for bookmarks — use the linked workbench for current workflows"
       mode="command"
       quiet
