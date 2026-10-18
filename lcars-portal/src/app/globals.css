@@ -393,9 +393,9 @@
   input:is([type='text'], [type='search'], [type='email'], [type='password'], [type='url'], [type='number'], [type='date'], [type='time'], [type='datetime-local'], [type='tel'], :not([type])):not([data-wb-dense]) {
     min-height: 44px;
   }
-  button:not([data-wb-dense]):empty,
-  button:not([data-wb-dense]):has(> svg:only-child),
-  [role='button']:not([data-wb-dense]):has(> svg:only-child) {
+  /* Width too: icon-only, glyph ("✕") and wrapped-icon buttons have no text to size them. */
+  button:not([data-wb-dense]),
+  [role='button']:not([data-wb-dense]) {
     min-width: 44px;
   }
   input[type='checkbox']:not([data-wb-dense]),
