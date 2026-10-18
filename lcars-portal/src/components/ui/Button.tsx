@@ -16,7 +16,7 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   ghost: 'text-wb-sage-deep hover:underline active:underline disabled:hover:no-underline disabled:active:no-underline',
   // Quiet inline action that reads as a link (e.g. "Forgot password?", "Retry"): muted, underlined,
   // no padding of its own. Added in Stage B follow-up; ~20 hand-built buttons share this look.
-  link: 'text-wb-ink2 underline underline-offset-2 hover:text-wb-ink disabled:opacity-40',
+  link: 'text-wb-ink2 underline underline-offset-2 hover:text-wb-ink',
 };
 
 // 2026-08-09 mobile/iPad review (P1): sm was ~24-26px tall (px-2.5 py-1,
@@ -49,12 +49,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button
       ref={ref}
       type={type}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-md font-medium
+      className={`inline-flex items-center justify-center gap-1.5 rounded-md ${caps ? 'font-bold' : variant === 'link' ? 'font-normal' : 'font-medium'}
         transition-colors focus-visible:outline focus-visible:outline-2
         focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep
-        disabled:cursor-not-allowed disabled:opacity-50
+        disabled:cursor-not-allowed ${variant === 'link' ? 'disabled:opacity-40' : 'disabled:opacity-50'}
         ${VARIANT_CLASSES[variant]} ${variant === 'link' ? 'self-start text-wb-label' : SIZE_CLASSES[size]}
-        ${caps ? 'font-bold uppercase tracking-[0.2em]' : ''} ${fullWidth ? 'w-full' : ''} ${className}`}
+        ${caps ? 'uppercase tracking-[0.2em]' : ''} ${fullWidth ? 'w-full' : ''} ${className}`}
       {...props}
     />
   );

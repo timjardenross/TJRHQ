@@ -14,6 +14,27 @@ describe('Button variants (auth-screen styles)', () => {
     expect(cls).toMatch(/\bfont-bold\b/);
   });
 
+  // Tailwind orders conflicting utilities by its own stylesheet, not by class-attribute
+  // order, so a second weight/opacity class silently wins. Guard against emitting two.
+  it.each([
+    ['primary caps', { caps: true }],
+    ['link', { variant: 'link' as const }],
+    ['secondary', { variant: 'secondary' as const }],
+  ])('%s emits exactly one font-weight and one disabled-opacity class', (_n, props) => {
+    render(<Button {...props}>x</Button>);
+    const cls = screen.getByRole('button').className.split(/\s+/);
+    expect(cls.filter((c) => /^font-(normal|medium|semibold|bold)$/.test(c))).toHaveLength(1);
+    expect(cls.filter((c) => /^disabled:opacity-/.test(c))).toHaveLength(1);
+  });
+
+  it('caps is bold, link is normal weight with 0.4 disabled opacity', () => {
+    render(<><Button caps>a</Button><Button variant="link">b</Button></>);
+    const [a, b] = screen.getAllByRole('button').map((e) => e.className);
+    expect(a).toMatch(/\bfont-bold\b/);
+    expect(b).toMatch(/\bfont-normal\b/);
+    expect(b).toMatch(/disabled:opacity-40/);
+  });
+
   it('fullWidth fills the container', () => {
     render(<Button fullWidth>Send</Button>);
     expect(screen.getByRole('button').className).toMatch(/\bw-full\b/);
