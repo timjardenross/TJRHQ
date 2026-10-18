@@ -3,6 +3,8 @@
 A **LCARS-style command dashboard** for **USS TJR — Starship Endeavour
 (NCC-170230)**, built with **Next.js + React + TypeScript + Tailwind CSS**.
 
+> **Brand (2026-10-18):** the TJR HQ identity ("Connected H") is in `public/brand/` (assets, usage and the Stage 1 to 3 notes) and `src/components/brand/` (`BrandMark`, `BrandWordmark`). Specification and review history: TJR-Ecosystem `architecture/design-system/brand/TJR-BRAND-FAMILY-AND-HQ-IDENTITY.md`. The share image is generated from the shipped lockup (`node scripts/brand/gen-og-lockup.mjs`).
+
 > **2026-09-26 correction:** this README described a pre-activation "Phase 1,
 > placeholder-data-only" state, a port that hasn't been current since
 > 2026-08-11, and dependencies (Dashy, a Slack bot) that have since been

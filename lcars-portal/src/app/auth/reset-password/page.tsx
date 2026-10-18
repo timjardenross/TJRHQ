@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { BrandMark } from '@/components/brand';
 
 // Landing page for Supabase password-recovery links. Lives under /auth so
 // middleware lets it through without a session (the session is exactly
@@ -102,10 +103,12 @@ export default function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-wb-bg px-4 font-sans antialiased">
       <div className="w-full max-w-md">
         <div className="mb-6 flex items-center gap-3">
-          <div className="h-12 w-1 rounded-full bg-wb-sage-deep shadow-[0_0_18px_rgba(126,220,190,0.35)]" aria-hidden="true" />
+          {/* TJR HQ identity (Stage 3), same heading treatment as login: dark
+              surface, decorative mark, plain name. */}
+          <BrandMark surface="dark" size={48} />
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-wb-ink2">
-              TJR HQ · ENDEAVOUR 27
+              TJR HQ
             </p>
             <h1 className="font-serif text-2xl text-wb-ink">
               Reset password
