@@ -208,8 +208,8 @@ const config: Config = {
         }
             }),
       fontFamily: {
-        sans:  ['"Inter"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-        mono:  ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+        sans:  ['var(--font-sans)', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+        mono:  ['var(--font-mono)', 'ui-monospace', 'monospace'],
         // TJR Design System — locked serif for wb.* headings (Card/Shell titles).
         // Loaded via next/font/google in src/app/layout.tsx as --font-serif.
         serif: ['var(--font-serif)', 'ui-serif', 'Georgia', 'serif'],

@@ -19,4 +19,10 @@ packages the upstream fonts with their original `LICENSE`).
   must travel with them.
 - Modified versions may not use a Reserved Font Name. HQ does not modify the fonts.
 
+## How the fonts are served
+
+All three app fonts load through `next/font/google` in `src/app/layout.tsx`. Next downloads the font
+files at build time and serves them from HQ's own origin, so visitors' browsers make no request to
+Google. (Until 2026-10-18 Inter and JetBrains Mono came from a Google Fonts CSS `@import`.)
+
 Nothing here needs a purchase or a separate agreement. This is a licence reading, not legal advice.
