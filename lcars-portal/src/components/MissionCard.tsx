@@ -36,7 +36,7 @@ export function MissionCard({ mission }: MissionCardProps) {
           {mission.mission_id}
         </span>
         <span
-          className={`rounded-md border px-1.5 py-0.5 font-mono text-[11px] font-bold ${
+          className={`rounded-md border px-1.5 py-0.5 font-mono text-[12px] font-bold ${
             PRIORITY_TONE[mission.priority] ?? PRIORITY_TONE['—']
           }`}
         >
@@ -46,7 +46,7 @@ export function MissionCard({ mission }: MissionCardProps) {
       <h3 className="text-sm font-semibold normal-case tracking-normal text-wb-ink">
         {mission.title}
       </h3>
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-wb-ink2">
+      <div className="flex flex-wrap items-center gap-2 text-[12px] text-wb-ink2">
         <StatusBadge label={mission.status} status={mission.status} />
         {mission.owner && <span>· {mission.owner}</span>}
         {mission.specialist && <span>· {mission.specialist}</span>}

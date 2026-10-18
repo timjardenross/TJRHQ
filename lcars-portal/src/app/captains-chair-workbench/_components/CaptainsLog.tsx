@@ -53,7 +53,7 @@ export function CaptainsLog() {
   return (
     <WorkbenchPanel
       title="Journal"
-      actions={<Link href="/captains-chair-workbench/notebook" className="text-[10px] uppercase tracking-[0.15em] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Open Log →</Link>}
+      actions={<Link href="/captains-chair-workbench/notebook" className="text-[12px] uppercase tracking-[0.15em] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Open Log →</Link>}
     >
       <div className="flex items-center gap-2">
         <input
@@ -75,7 +75,7 @@ export function CaptainsLog() {
           +
         </button>
       </div>
-      <p className="mt-2 min-h-[1lh] text-[11px]" role="status" aria-live="polite">
+      <p className="mt-2 min-h-[1lh] text-[12px]" role="status" aria-live="polite">
         {flash && <span className="text-wb-ok-on">{flash}</span>}
         {error && <span className="text-wb-crit-on">{error}</span>}
       </p>

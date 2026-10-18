@@ -17,8 +17,8 @@ import type { CouncilAdvisor, Msg } from './types';
 
 const LS_CONSULT_KEY = 'lcars-council-consult-history';
 
-const actionBtn = 'rounded-md border border-wb-line px-3 py-1 text-[10px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
-const chipBase = 'rounded-md border px-3 py-1 text-[10px] uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
+const actionBtn = 'rounded-md border border-wb-line px-3 py-1 text-[12px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
+const chipBase = 'rounded-md border px-3 py-1 text-[12px] uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep';
 const chipOff  = 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink';
 const chipOn   = 'border-wb-sage-deep bg-wb-sage-deep/15 text-wb-sage-deep';
 const voiceOff = 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40';
@@ -146,7 +146,7 @@ export function ConsultView({ initialAdvisorId }: { initialAdvisorId?: string } 
 
         {/* Group selector — horizontal chips, mirrors Perspectives category row */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Group</span>
+          <span className="text-[12px] uppercase tracking-[0.15em] text-wb-ink2">Group</span>
           {Object.entries(groups).map(([group, advisors]) => {
             const isOpen = openGroup === group;
             const hasHistory = groupHasHistory(advisors);
@@ -164,7 +164,7 @@ export function ConsultView({ initialAdvisorId }: { initialAdvisorId?: string } 
         {/* Officer pills within selected group — mirrors Perspectives voice pills */}
         {openGroup && (
           <div>
-            <p className="mb-2 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">
+            <p className="mb-2 text-[12px] uppercase tracking-[0.15em] text-wb-ink2">
               Active: <span className="text-wb-ink">{activeAdvisor.label}</span>
             </p>
             <div className="flex flex-wrap gap-2">
@@ -175,7 +175,7 @@ export function ConsultView({ initialAdvisorId }: { initialAdvisorId?: string } 
                   <button key={a.id} onClick={() => { setActiveAdvisor(a); setStreamBuffer(''); }}
                     className={`rounded-md border px-3 py-1.5 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${isActive ? accentOn : voiceOff}`}>
                     <p className="text-xs uppercase tracking-wider">{a.label}</p>
-                    <p className="mt-0.5 text-[9px] leading-tight text-wb-ink2">{a.subtitle}</p>
+                    <p className="mt-0.5 text-[12px] leading-tight text-wb-ink2">{a.subtitle}</p>
                   </button>
                 );
               })}
@@ -186,7 +186,7 @@ export function ConsultView({ initialAdvisorId }: { initialAdvisorId?: string } 
         {/* Model selector — only for non-XO advisors */}
         {!activeAdvisor.useXoEndpoint && (
           <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2">Model</span>
+            <span className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2">Model</span>
             <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}
               className="rounded-md border border-wb-line bg-wb-bg px-2 py-1 text-xs text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
               {AI_MODELS.filter((m) => m.available).map((m) => (
@@ -225,7 +225,7 @@ export function ConsultView({ initialAdvisorId }: { initialAdvisorId?: string } 
               if (m.role === 'user') {
                 return (
                   <div key={m.id} className="rounded-md border border-wb-line bg-wb-bg px-4 py-3">
-                    <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">You</p>
+                    <p className="mb-1 text-[12px] uppercase tracking-[0.15em] text-wb-ink2">You</p>
                     <p className="whitespace-pre-wrap text-sm text-wb-ink">{m.content}</p>
                   </div>
                 );
@@ -235,7 +235,7 @@ export function ConsultView({ initialAdvisorId }: { initialAdvisorId?: string } 
               return (
                 <div key={m.id} className={`rounded-md border bg-wb-surface ${m.error ? 'border-wb-crit/40' : borderAccent}`}>
                   <div className={`border-b px-4 py-2.5 ${m.error ? 'border-wb-crit/30' : 'border-wb-sage-deep/30'}`}>
-                    <p className={`text-[11px] font-semibold uppercase tracking-widest ${m.error ? 'text-wb-crit-on' : accent}`}>
+                    <p className={`text-[12px] font-semibold uppercase tracking-widest ${m.error ? 'text-wb-crit-on' : accent}`}>
                       {activeAdvisor.label}
                     </p>
                   </div>
@@ -257,7 +257,7 @@ export function ConsultView({ initialAdvisorId }: { initialAdvisorId?: string } 
             {loading && streamBuffer && (
               <div className={`rounded-md border bg-wb-surface ${activeAdvisor.dissent ? 'border-wb-crit/40' : 'border-wb-sage-deep/40'}`}>
                 <div className={`border-b px-4 py-2.5 ${activeAdvisor.dissent ? 'border-wb-crit/30' : 'border-wb-sage-deep/30'}`}>
-                  <p className={`text-[11px] font-semibold uppercase tracking-widest ${activeAdvisor.dissent ? 'text-wb-crit-on' : 'text-wb-sage-deep'}`}>
+                  <p className={`text-[12px] font-semibold uppercase tracking-widest ${activeAdvisor.dissent ? 'text-wb-crit-on' : 'text-wb-sage-deep'}`}>
                     {activeAdvisor.label}
                   </p>
                 </div>

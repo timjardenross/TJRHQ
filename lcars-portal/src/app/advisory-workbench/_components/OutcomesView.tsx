@@ -82,24 +82,24 @@ function WhatHqHasLearned() {
 
   return (
     <div className="space-y-2 rounded-md border border-wb-sage-deep/30 bg-wb-sage-deep/5 px-4 py-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-wb-sage-deep">What HQ has learned</p>
+      <p className="text-[12px] font-semibold uppercase tracking-[0.15em] text-wb-sage-deep">What HQ has learned</p>
       <p className="text-sm text-wb-ink">
         {top.officer} has tracked well across recorded outcomes ({Math.round((top.accuracy ?? 0) * 100)}% success).
       </p>
-      <p className="text-[11px] text-wb-ink2">{top.samples} recorded outcomes support this pattern — treat it as a useful pattern, not a rule.</p>
+      <p className="text-[12px] text-wb-ink2">{top.samples} recorded outcomes support this pattern — treat it as a useful pattern, not a rule.</p>
       <button onClick={() => setShowEvidence((v) => !v)}
-        className="text-[10px] uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
+        className="text-[12px] uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">
         {showEvidence ? '▲ Hide evidence' : '▼ See evidence'}
       </button>
       {showEvidence && (
         <ul className="space-y-1 border-t border-wb-sage-deep/20 pt-2">
           {report.officer_ranking.filter((o) => o.samples >= 1).slice(0, 8).map((o) => (
-            <li key={o.officer} className="flex justify-between text-[11px] text-wb-ink/80">
+            <li key={o.officer} className="flex justify-between text-[12px] text-wb-ink/80">
               <span>{o.officer}</span>
               <span className="text-wb-ink2">{o.accuracy !== null ? `${Math.round(o.accuracy * 100)}%` : '—'} ({o.samples})</span>
             </li>
           ))}
-          <li className="pt-1 text-[10px] text-wb-ink2">Overall accuracy: {report.overall_accuracy !== null ? `${Math.round((report.overall_accuracy ?? 0) * 100)}%` : '—'} across {report.total_outcomes} recorded outcomes.</li>
+          <li className="pt-1 text-[12px] text-wb-ink2">Overall accuracy: {report.overall_accuracy !== null ? `${Math.round((report.overall_accuracy ?? 0) * 100)}%` : '—'} across {report.total_outcomes} recorded outcomes.</li>
         </ul>
       )}
     </div>
@@ -182,7 +182,7 @@ export function OutcomesView() {
           </div>
         )}
 
-        <p className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Advice awaiting an outcome</p>
+        <p className="text-[12px] uppercase tracking-[0.15em] text-wb-ink2">Advice awaiting an outcome</p>
 
         {visible.length === 0 && (
           <div className="rounded-md border border-wb-line bg-wb-bg px-4 py-10 text-center">
@@ -198,23 +198,23 @@ export function OutcomesView() {
             <div key={loop.advisory_id} className="rounded-md border border-wb-line bg-wb-surface">
               <div className="border-b border-wb-line px-4 py-2.5">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="font-mono text-[10px] text-wb-ink2">{loop.advisory_id}</p>
-                  <p className="text-[10px] text-wb-ink2">{fmt(loop.recorded_at)}</p>
+                  <p className="font-mono text-[12px] text-wb-ink2">{loop.advisory_id}</p>
+                  <p className="text-[12px] text-wb-ink2">{fmt(loop.recorded_at)}</p>
                 </div>
               </div>
               <div className="space-y-3 px-4 py-3">
                 <div>
-                  <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Question asked</p>
+                  <p className="mb-1 text-[12px] uppercase tracking-[0.15em] text-wb-ink2">Question asked</p>
                   <p className="text-sm text-wb-ink">{loop.question}</p>
                 </div>
                 {loop.recommendation && (
                   <div>
-                    <p className="mb-1 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">Recommendation given</p>
+                    <p className="mb-1 text-[12px] uppercase tracking-[0.15em] text-wb-ink2">Recommendation given</p>
                     <p className="line-clamp-3 text-sm text-wb-ink/80">{loop.recommendation}</p>
                   </div>
                 )}
                 <div>
-                  <p className="mb-1.5 text-[10px] uppercase tracking-[0.15em] text-wb-ink2">What did HQ miss? (optional)</p>
+                  <p className="mb-1.5 text-[12px] uppercase tracking-[0.15em] text-wb-ink2">What did HQ miss? (optional)</p>
                   <input
                     type="text"
                     aria-label="What did HQ miss? (optional)"
@@ -248,7 +248,7 @@ export function OutcomesView() {
           );
         })}
 
-        <p className="text-[10px] text-wb-ink2">
+        <p className="text-[12px] text-wb-ink2">
           {visible.length} awaiting an outcome · Recording improves advisory calibration. This grants no authority — you decide what happens next.
         </p>
       </div>

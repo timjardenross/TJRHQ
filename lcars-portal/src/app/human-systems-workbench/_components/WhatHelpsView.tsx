@@ -37,7 +37,7 @@ function CurrentExperimentCard({ experiment: e }: { experiment: CapacityExperime
   return (
     <div className="rounded-md border border-wb-line bg-wb-bg p-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Current Experiment</div>
+        <div className="text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Current Experiment</div>
         <Badge status={e.status === 'active' ? 'info' : 'neutral'}>{EXPERIMENT_STATUS_LABEL[e.status]}</Badge>
       </div>
       {days !== null && (
@@ -57,7 +57,7 @@ function CurrentExperimentCard({ experiment: e }: { experiment: CapacityExperime
           {e.notes}
         </p>
       )}
-      <p className="mt-3 text-[11px] italic text-wb-ink2">
+      <p className="mt-3 text-[12px] italic text-wb-ink2">
         Worth testing, not a commitment — stop it anytime with /experiment on the Capacity Bot if it makes things worse.
       </p>
     </div>

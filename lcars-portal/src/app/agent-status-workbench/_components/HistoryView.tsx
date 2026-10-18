@@ -79,7 +79,7 @@ function HistoryRow({ event }: { event: HistoryEvent }) {
           <span className="text-[13px] text-wb-ink">{narrativeText(event)}</span>
         </div>
         {event.detail && (
-          <p className="mt-0.5 truncate text-[11px] text-wb-ink2" title={event.detail}>
+          <p className="mt-0.5 truncate text-[12px] text-wb-ink2" title={event.detail}>
             {event.detail}
           </p>
         )}
@@ -131,7 +131,7 @@ export function HistoryView() {
 
   return (
     <Card>
-      <p className="mb-3 text-[11px] text-wb-ink2">
+      <p className="mb-3 text-[12px] text-wb-ink2">
         Recent operational changes — last {data.windowHours} hours
       </p>
 
@@ -144,7 +144,7 @@ export function HistoryView() {
           {dayGroups.map((group) => (
             <div key={group.dayLabel}>
               {showDayHeaders && (
-                <p className="mt-3 border-b border-wb-line pb-1 text-[10px] uppercase tracking-wider text-wb-ink2 first:mt-0">
+                <p className="mt-3 border-b border-wb-line pb-1 text-[12px] uppercase tracking-wider text-wb-ink2 first:mt-0">
                   {group.dayLabel}
                 </p>
               )}

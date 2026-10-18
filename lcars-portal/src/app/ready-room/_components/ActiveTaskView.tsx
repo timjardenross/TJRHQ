@@ -109,14 +109,14 @@ export function ActiveTaskView({
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4 rounded-md border border-wb-line bg-wb-surface p-6">
       <div>
-        <p className="text-[11px] uppercase tracking-wide text-wb-ink2">You&apos;re doing</p>
+        <p className="text-[12px] uppercase tracking-wide text-wb-ink2">You&apos;re doing</p>
         <h2 className="font-serif text-[18px] text-wb-ink">{task.title}</h2>
       </div>
 
       {!stopping && (
         <>
           <div className="rounded-md bg-wb-sage/10 p-3">
-            <p className="text-[11px] uppercase tracking-wide text-wb-sage-deep">Start here</p>
+            <p className="text-[12px] uppercase tracking-wide text-wb-sage-deep">Start here</p>
             <p className="mt-1 text-[14px] text-wb-ink">{startHere}</p>
           </div>
 
@@ -134,7 +134,7 @@ export function ActiveTaskView({
               maps near 1:1 to Mission 4's decomposition/overload/regulation
               support, already built). */}
           <div className="border-t border-wb-line pt-3">
-            <p className="mb-2 text-[11px] uppercase tracking-wide text-wb-ink2">Feeling stuck?</p>
+            <p className="mb-2 text-[12px] uppercase tracking-wide text-wb-ink2">Feeling stuck?</p>
             <div className="flex flex-wrap gap-2">
               {/* Mockup shows "Break it down" and "Help me start" as two
                   separate options; this app has one real capability behind

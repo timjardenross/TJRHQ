@@ -25,7 +25,7 @@ import { CollapsibleSection } from './CollapsibleSection';
 
 function GroupHeading({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-wb-ink2 md:col-span-2">
+    <div className="mt-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-wb-ink2 md:col-span-2">
       {children}
     </div>
   );

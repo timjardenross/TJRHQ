@@ -196,7 +196,7 @@ export function WorkbenchShell({
               </Link>
               <div className="leading-tight">
                 <h1 className="font-serif text-[17px]">{title}</h1>
-                <div className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">{eyebrow}</div>
+                <div className="text-[12px] uppercase tracking-[0.14em] text-wb-ink2">{eyebrow}</div>
               </div>
               {/* Mission 7 item 1 (Phase 15): flex-wrap here is the second
                   layer of the mobile-overflow fix — even with both <select>s
@@ -232,7 +232,7 @@ export function WorkbenchShell({
             {!minimal && primaryAction && <div className="mb-4"><Link href={primaryAction.href} onClick={() => trackTaskEvent(`${pathname}:primary`, 'started', { label: primaryAction.label })} className="inline-flex min-h-11 items-center rounded-md bg-wb-sage-deep px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">{primaryAction.label} →</Link></div>}
             {!minimal && <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><AttentionControls label="Attention" /><ActionHistoryPanel /></div>}
             {originLabel && pathname !== originHref && (
-              <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-wb-line bg-wb-surface px-3 py-2 text-[11px] text-wb-ink2" role="status">
+              <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-wb-line bg-wb-surface px-3 py-2 text-[12px] text-wb-ink2" role="status">
                 <span>Opened from {originLabel}{item ? ` · item ${item}` : ''}</span>
                 {originHref && <Link href={originHref} className="font-semibold text-wb-sage underline underline-offset-2">Return to source →</Link>}
               </div>
@@ -247,7 +247,7 @@ export function WorkbenchShell({
             )}
             {children}
             {!minimal && (
-              <p className="mt-8 text-center text-[11px] text-wb-ink2">
+              <p className="mt-8 text-center text-[12px] text-wb-ink2">
                 {tagline}
               </p>
             )}

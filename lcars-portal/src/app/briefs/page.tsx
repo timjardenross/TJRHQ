@@ -113,14 +113,14 @@ function LatestView({ latest, loading }: { latest: BriefListItem | null; loading
 
       {view.executiveRead && (
         <div className="mb-4">
-          <h3 className="mb-1 text-[11px] uppercase tracking-wider text-wb-ink2">Executive Read</h3>
+          <h3 className="mb-1 text-[12px] uppercase tracking-wider text-wb-ink2">Executive Read</h3>
           <p className="text-sm text-wb-ink">{view.executiveRead}</p>
         </div>
       )}
 
       {view.whatMatters.length > 0 && (
         <div className="mb-4">
-          <h3 className="mb-2 text-[11px] uppercase tracking-wider text-wb-ink2">What Matters</h3>
+          <h3 className="mb-2 text-[12px] uppercase tracking-wider text-wb-ink2">What Matters</h3>
           <ol className="space-y-2">
             {view.whatMatters.map((item, i) => (
               <li key={`${item.title}-${i}`} className="flex gap-2.5 text-sm">
@@ -137,7 +137,7 @@ function LatestView({ latest, loading }: { latest: BriefListItem | null; loading
 
       {view.changed && (
         <div className="mb-4">
-          <h3 className="mb-1.5 text-[11px] uppercase tracking-wider text-wb-ink2">What Changed</h3>
+          <h3 className="mb-1.5 text-[12px] uppercase tracking-wider text-wb-ink2">What Changed</h3>
           <div className="space-y-1 text-[13px]">
             {view.changed.new.map((t, i) => <p key={`n${i}`}><span className="font-medium">New —</span> {t}</p>)}
             {view.changed.escalated.map((t, i) => <p key={`e${i}`}><span className="font-medium text-wb-crit-on">Escalated —</span> {t}</p>)}
@@ -148,7 +148,7 @@ function LatestView({ latest, loading }: { latest: BriefListItem | null; loading
 
       {view.watch.length > 0 && (
         <div className="mb-4">
-          <h3 className="mb-1.5 text-[11px] uppercase tracking-wider text-wb-ink2">Watch</h3>
+          <h3 className="mb-1.5 text-[12px] uppercase tracking-wider text-wb-ink2">Watch</h3>
           <ul className="list-disc space-y-0.5 pl-5 text-[13px] text-wb-ink2">
             {view.watch.map((w, i) => <li key={i}>{w}</li>)}
           </ul>
@@ -266,7 +266,7 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
           </Collapsible.Trigger>
           <Collapsible.Content>
             <div className="mt-3 border-t border-wb-line pt-3">
-              <p className="mb-2 text-[11px] uppercase tracking-wider text-wb-ink2">
+              <p className="mb-2 text-[12px] uppercase tracking-wider text-wb-ink2">
                 Historical publication state (legacy — every brief since 2026-08-22 auto-publishes)
               </p>
               <div className="flex flex-wrap gap-2">
@@ -305,11 +305,11 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <RiskPill value={b.overall_risk} />
-                    <span className="text-[10px] uppercase tracking-wider text-wb-ink2">
+                    <span className="text-[12px] uppercase tracking-wider text-wb-ink2">
                       {b.approval_status ? STATUS_LABEL[b.approval_status] : 'Unknown'}
                     </span>
                   </div>
-                  <span className="whitespace-nowrap text-[10px] text-wb-ink2/70">
+                  <span className="whitespace-nowrap text-[12px] text-wb-ink2/70">
                     {b.published_at
                       ? `Published ${new Date(b.published_at).toLocaleDateString()}`
                       : `Generated ${new Date(b.generated_at).toLocaleDateString()}`}

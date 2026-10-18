@@ -59,7 +59,7 @@ export function CapacityTrendCard() {
 
   return (
     <Card title="Capacity Trend" className="md:col-span-2">
-      <p className="-mt-2 mb-3 text-[11px] uppercase tracking-[0.1em] text-wb-ink2">Last {WINDOW_DAYS} days</p>
+      <p className="-mt-2 mb-3 text-[12px] uppercase tracking-[0.1em] text-wb-ink2">Last {WINDOW_DAYS} days</p>
       {loadError && <p className="text-[13px] text-wb-crit-on">Couldn&rsquo;t load the capacity trend: {loadError}</p>}
       {!loadError && trends === null && <p className="text-[13px] text-wb-ink2">Loading…</p>}
       {!loadError && trends !== null && days.length < 2 && (
@@ -70,7 +70,7 @@ export function CapacityTrendCard() {
           <CapacityTrendBars days={days} />
           <div className="mt-2 flex flex-wrap gap-3">
             {LEGEND.map((l) => (
-              <span key={l.key} className="inline-flex items-center gap-1.5 text-[11px] text-wb-ink2">
+              <span key={l.key} className="inline-flex items-center gap-1.5 text-[12px] text-wb-ink2">
                 <span className={`h-2 w-2 rounded-full ${l.dot}`} />
                 {l.label}
               </span>

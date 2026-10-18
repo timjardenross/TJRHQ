@@ -148,11 +148,11 @@ export default function MissionWorkbenchPage() {
                 {stats.map(s => (
                   <div key={s.label} className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
                     <p className="text-2xl font-bold text-wb-ink">{s.value}</p>
-                    <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{s.label}</p>
+                    <p className="text-[12px] uppercase tracking-wider text-wb-ink2">{s.label}</p>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-wb-ink2">
+              <div className="mt-4 flex flex-wrap gap-2 text-[12px] text-wb-ink2">
                 {(['P0', 'P1', 'P2', 'P3'] as const).map(p => (
                   <span key={p} className="rounded-md border border-wb-line px-2 py-1 font-mono">
                     {p}: {summary.by_priority[p] ?? 0}
@@ -192,7 +192,7 @@ export default function MissionWorkbenchPage() {
             {/* D-055 capacity filter */}
             <div className="flex flex-col justify-between gap-3 rounded-lg border border-wb-line bg-wb-surface px-4 py-3 sm:flex-row sm:items-center">
               <div>
-                <p className="mb-1 text-[10px] uppercase tracking-wider text-wb-ink2">
+                <p className="mb-1 text-[12px] uppercase tracking-wider text-wb-ink2">
                   D-055 · Today&apos;s posture: <span className="text-wb-sage-deep">{currentPosture}</span>
                 </p>
                 <p className="text-[12px] text-wb-ink">
@@ -235,7 +235,7 @@ export default function MissionWorkbenchPage() {
               <h2 className="font-serif text-lg text-wb-ink">
                 {view === 'closed' ? 'Closed Missions' : filter === 'today' ? 'Suitable for Today' : 'Open / In Progress Missions'}
               </h2>
-              <p className="text-[11px] uppercase tracking-wide text-wb-ink2">
+              <p className="text-[12px] uppercase tracking-wide text-wb-ink2">
                 {view === 'closed'
                   ? 'Closed or archived · most recently closed first'
                   : filter === 'today' ? `${currentPosture} posture · capacity-matched` : 'Sorted by priority'}

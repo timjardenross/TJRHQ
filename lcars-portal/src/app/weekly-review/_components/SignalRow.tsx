@@ -55,13 +55,13 @@ export function ItemRow({
         {meta && <span className="ml-1.5 text-wb-ink2">· {meta}</span>}
       </span>
       {sent ? (
-        <span className="shrink-0 text-[11px] text-wb-ok-on">Sent ✓</span>
+        <span className="shrink-0 text-[12px] text-wb-ok-on">Sent ✓</span>
       ) : (
         <button
           type="button"
           disabled={busy}
           onClick={sendToReadyRoom}
-          className="shrink-0 text-[11px] text-wb-sage-deep hover:underline disabled:opacity-40"
+          className="shrink-0 text-[12px] text-wb-sage-deep hover:underline disabled:opacity-40"
         >
           → Ready Room
         </button>
@@ -91,7 +91,7 @@ export function SignalRow({ signal, sourceLabel }: { signal: Signal; sourceLabel
         <span className="shrink-0 text-wb-ink2">
           {signal.unavailable ? 'unavailable' : signal.count}
         </span>
-        {hasItems && <span className="shrink-0 text-[10px] text-wb-ink2">{expanded ? '▲' : '▼'}</span>}
+        {hasItems && <span className="shrink-0 text-[12px] text-wb-ink2">{expanded ? '▲' : '▼'}</span>}
       </button>
       {expanded && hasItems && (
         <ul className="ml-4 border-l border-wb-line pl-3">

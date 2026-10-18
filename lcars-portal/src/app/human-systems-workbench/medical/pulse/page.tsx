@@ -78,19 +78,19 @@ export default function RecoveryPulsePage() {
           {!loading && latest && (
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-                <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Capacity</div>
+                <div className="text-[12px] uppercase tracking-wide text-wb-ink2">Capacity</div>
                 <div className="mt-1">
                   <Badge status="info">{latest.capacity_state ?? 'Not recorded'}</Badge>
                 </div>
               </div>
               <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-                <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Regulation</div>
+                <div className="text-[12px] uppercase tracking-wide text-wb-ink2">Regulation</div>
                 <div className="mt-1 text-[14px] capitalize text-wb-ink">
                   {latest.regulation_state ?? 'Not recorded'}
                 </div>
               </div>
               <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-                <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Pain</div>
+                <div className="text-[12px] uppercase tracking-wide text-wb-ink2">Pain</div>
                 <div className="mt-1 text-[14px] text-wb-ink">
                   {describePain(latest.pain_state, latest.pain_score) ?? 'Not recorded'}
                 </div>

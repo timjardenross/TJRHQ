@@ -110,7 +110,7 @@ export function TaskRow({
             <span aria-hidden className="shrink-0 text-wb-ink2">{meta.glyph}</span>
             <span className="break-words text-[14px] font-medium text-wb-ink">{task.title}</span>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-wb-ink2">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-wb-ink2">
             {due && <span>{due}</span>}
             {task.work_state === 'blocked' && <span>Waiting on: {task.waiting_on || 'not noted yet'}</span>}
           </div>

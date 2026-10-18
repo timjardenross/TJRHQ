@@ -62,8 +62,8 @@ export function InboxView({
   return (
     <Card>
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2">Capture Inbox</p>
-        {!loading && <span className="text-[10px] text-wb-ink2">{items.length} item{items.length !== 1 ? 's' : ''}</span>}
+        <p className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2">Capture Inbox</p>
+        {!loading && <span className="text-[12px] text-wb-ink2">{items.length} item{items.length !== 1 ? 's' : ''}</span>}
       </div>
 
       <div className="mb-3 flex flex-wrap gap-1.5">
@@ -88,7 +88,7 @@ export function InboxView({
       {!loading && !error && items.length === 0 && (
         <div className="rounded-md border border-wb-line bg-wb-bg px-4 py-8 text-center">
           <p className="text-sm text-wb-ink2">{activeFilter === 'routed' ? 'No routed captures' : 'No pending captures'}</p>
-          <p className="mt-1 text-[11px] text-wb-ink2">
+          <p className="mt-1 text-[12px] text-wb-ink2">
             {activeFilter === 'all'
               ? 'All clear. Use the Capture tab or Telegram to add one.'
               : activeFilter === 'routed'

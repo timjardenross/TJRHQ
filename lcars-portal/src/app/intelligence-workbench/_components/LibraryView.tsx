@@ -105,7 +105,7 @@ export function LibraryView() {
                   ) : (
                     <p className="truncate text-[13px] font-medium text-wb-ink">{it.title}</p>
                   )}
-                  <p className="text-[11px] text-wb-ink2">
+                  <p className="text-[12px] text-wb-ink2">
                     {it.sector ? it.sector.replace(/_/g, ' ') : 'Unknown sector'}
                     {it.geography ? ` · ${it.geography}` : ''}
                     {it.published_at ? ` · ${new Date(it.published_at).toLocaleDateString()}` : ''}
@@ -115,7 +115,7 @@ export function LibraryView() {
                 <div className="flex shrink-0 items-center gap-2">
                   {dispositionBadge(it.disposition)}
                   {it.brief_id && (
-                    <Link href={`/intelligence-workbench/brief/${it.brief_id}`} className="text-[11.5px] text-wb-sage-deep hover:underline">
+                    <Link href={`/intelligence-workbench/brief/${it.brief_id}`} className="text-[12px] text-wb-sage-deep hover:underline">
                       Evidence →
                     </Link>
                   )}

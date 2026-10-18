@@ -25,7 +25,7 @@ export function KpiStat({ label, value, onClick, tone = 'ink' }: KpiStatProps) {
   const body = (
     <>
       <div className={`font-serif text-2xl ${TONE_TEXT[tone]}`}>{value}</div>
-      <div className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">{label}</div>
+      <div className="text-[12px] uppercase tracking-[0.14em] text-wb-ink2">{label}</div>
     </>
   );
 
@@ -57,7 +57,7 @@ export interface KpiCardProps {
 export function KpiCard({ label, value, sub, badge }: KpiCardProps) {
   return (
     <div className="rounded-lg border border-wb-line bg-wb-surface p-4">
-      <div className="text-[11px] uppercase tracking-[0.12em] text-wb-ink2">{label}</div>
+      <div className="text-[12px] uppercase tracking-[0.12em] text-wb-ink2">{label}</div>
       <div className="mt-1.5 flex items-center gap-2">
         {badge ?? <span className="font-serif text-[20px] leading-none text-wb-ink">{value}</span>}
       </div>

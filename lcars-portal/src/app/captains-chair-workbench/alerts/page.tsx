@@ -42,10 +42,10 @@ function AlertCard({ alert }: { alert: MobileAlert }) {
           className={`h-2 w-2 shrink-0 rounded-full ${c.dot} ${alert.severity === 'critical' ? 'animate-pulse' : ''}`}
           aria-hidden
         />
-        <span className={`text-[10px] font-bold uppercase tracking-[0.2em] ${c.text}`}>
+        <span className={`text-[12px] font-bold uppercase tracking-[0.2em] ${c.text}`}>
           {SEVERITY_LABEL[alert.severity]}
         </span>
-        <span className="text-[10px] uppercase tracking-[0.15em] text-wb-ink2">
+        <span className="text-[12px] uppercase tracking-[0.15em] text-wb-ink2">
           · {ALERT_KIND_LABEL[alert.kind]}
         </span>
       </div>
@@ -91,7 +91,7 @@ function NotificationControl() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-semibold text-wb-ink">Push notifications</p>
-          <p className="text-[11px] text-wb-ink2">
+          <p className="text-[12px] text-wb-ink2">
             {perm === 'granted'
               ? enabled
                 ? 'On — banners for critical & high alerts only.'
@@ -129,7 +129,7 @@ export default function CaptainsChairAlertsPage() {
 
   const right = (
     <div className="flex items-center gap-2">
-      <span className="text-[11px] text-wb-ink2">
+      <span className="text-[12px] text-wb-ink2">
         {lastUpdated
           ? `Updated ${lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false })}`
           : ''}

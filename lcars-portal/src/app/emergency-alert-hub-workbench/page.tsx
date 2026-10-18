@@ -134,7 +134,7 @@ function SeverityBadge({ alert }: { alert: EmergencyAlertEntry }) {
       <Badge status={toneToStatus(emergencyAlertTierToTone(alert.severity))}>{severityLabel(alert)}</Badge>
       {alert.severity === 'unknown' && isBomSource(alert.sourceKey) && (
         <span
-          className="text-[10px] uppercase tracking-wide text-wb-ink2"
+          className="text-[12px] uppercase tracking-wide text-wb-ink2"
           title="BOM does not provide an Advice / Watch and Act / Emergency Warning tier for this feed."
         >
           BOM
@@ -172,7 +172,7 @@ function relativeTime(isoTimestamp: string | null): string {
 function MutedBadge() {
   return (
     <span
-      className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-wb-ink2"
+      className="inline-flex items-center gap-1 text-[12px] uppercase tracking-wide text-wb-ink2"
       title="An active silence is currently suppressing notifications for this alert."
     >
       🔇 Muted
@@ -231,7 +231,7 @@ function HighSeverityCard({ alert, isMuted, onSelect }: { alert: EmergencyAlertE
           scroll. `break-words` lets it wrap mid-word as a last resort. */}
       <h3 className="break-words font-serif text-base text-wb-ink">{alert.headline}</h3>
       {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
-      <p className="mt-1 text-[11px] text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
+      <p className="mt-1 text-[12px] text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
       <div className="mt-3 flex flex-wrap gap-3">
         <button
           onClick={onSelect}
@@ -267,7 +267,7 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
           <h2 className="break-words font-serif text-lg text-wb-ink">{alert.headline}</h2>
           {alert.location && <p className="text-[12px] text-wb-ink2">{alert.location}</p>}
           {alert.severity === 'unknown' && isBomSource(alert.sourceKey) && (
-            <p className="mt-1 text-[11px] italic text-wb-ink2">
+            <p className="mt-1 text-[12px] italic text-wb-ink2">
               BOM does not provide an Advice / Watch and Act / Emergency Warning tier for this feed.
             </p>
           )}
@@ -275,10 +275,10 @@ function AlertDetailPanel({ alert, onClose }: { alert: EmergencyAlertEntry; onCl
         <button onClick={onClose} className="rounded-md px-3 py-2 text-[12px] text-wb-ink2 hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Close</button>
       </div>
       <div className="grid grid-cols-2 gap-3 text-[12px] text-wb-ink2 sm:grid-cols-4">
-        <div><span className="uppercase tracking-wide text-[10px]">Issued</span><div className="text-wb-ink">{alert.issuedAt ? new Date(alert.issuedAt).toLocaleString() : '—'}</div></div>
-        <div><span className="uppercase tracking-wide text-[10px]">Source updated</span><div className="text-wb-ink">{alert.updatedAtSrc ? new Date(alert.updatedAtSrc).toLocaleString() : '—'}</div></div>
-        <div><span className="uppercase tracking-wide text-[10px]">Expiry</span><div className="text-wb-ink">{alert.expiry ? new Date(alert.expiry).toLocaleString() : '—'}</div></div>
-        <div><span className="uppercase tracking-wide text-[10px]">Last seen</span><div className="text-wb-ink">{relativeTime(alert.lastSeenAt)}</div></div>
+        <div><span className="uppercase tracking-wide text-[12px]">Issued</span><div className="text-wb-ink">{alert.issuedAt ? new Date(alert.issuedAt).toLocaleString() : '—'}</div></div>
+        <div><span className="uppercase tracking-wide text-[12px]">Source updated</span><div className="text-wb-ink">{alert.updatedAtSrc ? new Date(alert.updatedAtSrc).toLocaleString() : '—'}</div></div>
+        <div><span className="uppercase tracking-wide text-[12px]">Expiry</span><div className="text-wb-ink">{alert.expiry ? new Date(alert.expiry).toLocaleString() : '—'}</div></div>
+        <div><span className="uppercase tracking-wide text-[12px]">Last seen</span><div className="text-wb-ink">{relativeTime(alert.lastSeenAt)}</div></div>
       </div>
       {alert.rawText && (
         <p className="mt-4 whitespace-pre-wrap text-[13px] text-wb-ink2">{alert.rawText}</p>
@@ -328,7 +328,7 @@ function CoveragePanel({ sources, latestCheckedAt }: { sources: EmergencyAlertSo
           {state === 'unknown' && (
             <p className="text-[12px] text-wb-ink2">Source health could not be determined.</p>
           )}
-          <p className="mt-1 text-[11px] text-wb-ink2">
+          <p className="mt-1 text-[12px] text-wb-ink2">
             {latestCheckedAt ? `Last checked ${relativeTime(latestCheckedAt)}.` : 'No collection recorded yet.'}
           </p>
           <EvidenceMeta
@@ -514,7 +514,7 @@ function SilenceRow({ silence, onExpired }: { silence: AlertSilenceEntry; onExpi
           </Badge>
           <span className="text-[13px] font-medium text-wb-ink">{silence.reason}</span>
         </div>
-        <p className="mt-1 text-[11px] text-wb-ink2">
+        <p className="mt-1 text-[12px] text-wb-ink2">
           Scope: {describeSilenceScope(silence)} · {silence.isActive ? `Ends ${relativeTime(silence.endsAt)}` : isUpcoming ? `Starts ${relativeTime(silence.startsAt)}` : `Ended ${relativeTime(silence.endsAt)}`}
           {silence.isActive && ` · Currently matching ${silence.matchingActiveAlertCount} active alert${silence.matchingActiveAlertCount === 1 ? '' : 's'}`}
         </p>
@@ -811,12 +811,12 @@ export default function EmergencyAlertsWorkbench() {
                     <p className="mt-1 text-[12px] text-wb-ink2">Personal relevance unavailable — showing national alerts.</p>
                     <button
                       onClick={() => setShowRelevanceInfo((v) => !v)}
-                      className="mt-2 text-[11px] font-semibold text-wb-sage-deep underline"
+                      className="mt-2 text-[12px] font-semibold text-wb-sage-deep underline"
                     >
                       {showRelevanceInfo ? 'Hide' : 'How relevance works'}
                     </button>
                     {showRelevanceInfo && (
-                      <p className="mt-2 text-[11px] italic text-wb-ink2">
+                      <p className="mt-2 text-[12px] italic text-wb-ink2">
                         HQ does not yet have a configured location or area of interest to match against alert
                         locations. Without a reliable match, alerts are shown nationally rather than guessing
                         at relevance.
@@ -887,11 +887,11 @@ export default function EmergencyAlertsWorkbench() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-wb-line">
-                          <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Jurisdiction</th>
-                          <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Severity</th>
-                          <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Headline</th>
-                          <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Location</th>
-                          <th className="pb-2 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Last Seen</th>
+                          <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Jurisdiction</th>
+                          <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Severity</th>
+                          <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Headline</th>
+                          <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Location</th>
+                          <th className="pb-2 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Last Seen</th>
                         </tr>
                       </thead>
                       <tbody>

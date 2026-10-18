@@ -55,7 +55,7 @@ export function HqBehaviourSection() {
               />
               <span>
                 Only things that need me or are worth knowing
-                <span className="ml-1.5 text-[11px] uppercase tracking-[0.08em] text-wb-ink2">Default</span>
+                <span className="ml-1.5 text-[12px] uppercase tracking-[0.08em] text-wb-ink2">Default</span>
               </span>
             </label>
             <label className="flex cursor-pointer items-start gap-2 text-[13px] text-wb-ink">

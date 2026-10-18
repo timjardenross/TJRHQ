@@ -58,7 +58,7 @@ export function CommandStatus({
           <div className="flex items-baseline gap-3">
             <span className={`text-2xl font-bold ${toneClasses.text}`}>{posture.headline}</span>
             {status.hasUrgentException && (
-              <span className={`rounded-full ${stateToneClasses('crit').bg} px-2 py-0.5 text-[11px] font-semibold ${stateToneClasses('crit').on}`}>
+              <span className={`rounded-full ${stateToneClasses('crit').bg} px-2 py-0.5 text-[12px] font-semibold ${stateToneClasses('crit').on}`}>
                 Needs attention now
               </span>
             )}
@@ -82,7 +82,7 @@ export function CommandStatus({
                 <Link
                   key={s.label}
                   href={s.href}
-                  className={`rounded-full border ${c.border} ${c.bg} px-2.5 py-1 text-[11px] font-medium ${c.text} transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep`}
+                  className={`rounded-full border ${c.border} ${c.bg} px-2.5 py-1 text-[12px] font-medium ${c.text} transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep`}
                 >
                   {s.label}: {s.value}
                 </Link>

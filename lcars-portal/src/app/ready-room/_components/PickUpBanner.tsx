@@ -26,7 +26,7 @@ export function PickUpBanner({ tasks, onResume }: { tasks: PersonalTask[]; onRes
   if (tasks.length === 0) return null;
   return (
     <div className="flex flex-col gap-2 rounded-md border border-wb-sage/40 bg-wb-sage/10 p-3">
-      <p className="text-[11px] uppercase tracking-wide text-wb-sage-deep">Pick up where you left off</p>
+      <p className="text-[12px] uppercase tracking-wide text-wb-sage-deep">Pick up where you left off</p>
       {tasks.map((t) => (
         <div key={t.id} className="flex items-center justify-between gap-2">
           <div>

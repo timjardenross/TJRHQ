@@ -20,7 +20,7 @@ export function SourceDetail({ summary, sections }: { summary: SystemSummary; se
         aria-expanded={open}
       >
         Source Detail
-        <span className="text-[11px] text-wb-ink2">{open ? 'Hide ▲' : 'Show ▼'}</span>
+        <span className="text-[12px] text-wb-ink2">{open ? 'Hide ▲' : 'Show ▼'}</span>
       </button>
       {open && (
         <div className="flex flex-col gap-4 border-t border-wb-line px-4 py-4">

@@ -25,9 +25,9 @@ export function ConfidenceMeter({ score, label }: { score: number | null; label?
   return (
     <div className="flex w-full flex-col gap-1.5">
       <div className={`flex items-center gap-3 ${label ? 'justify-between' : 'justify-end'}`}>
-        {label && <p className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">{label}</p>}
+        {label && <p className="text-[12px] uppercase tracking-[0.14em] text-wb-ink2">{label}</p>}
         <span
-          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${c.text} ${c.border} ${c.bg}`}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-wider ${c.text} ${c.border} ${c.bg}`}
         >
           <span className={`h-1.5 w-1.5 rounded-full ${c.bar}`} />
           {valueText}
@@ -80,17 +80,17 @@ export function RecCard({
       <div className="flex items-start justify-between gap-3">
         <p className="text-[13px] font-medium text-wb-ink">{action}</p>
         {confidence && (
-          <span className="shrink-0 rounded-full border border-wb-line px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-wb-ink2">
+          <span className="shrink-0 rounded-full border border-wb-line px-2 py-0.5 text-[12px] font-semibold uppercase tracking-wider text-wb-ink2">
             {confidence}
           </span>
         )}
       </div>
       {why && <p className="mt-1 text-[12px] text-wb-ink2">{why}</p>}
       {source && (
-        <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-wb-sage-deep">{source}</p>
+        <p className="mt-1 text-[12px] uppercase tracking-[0.14em] text-wb-sage-deep">{source}</p>
       )}
       {evidence && evidence.length > 0 && (
-        <ul className="mt-1.5 list-disc pl-4 text-[11px] text-wb-ink2/90">
+        <ul className="mt-1.5 list-disc pl-4 text-[12px] text-wb-ink2/90">
           {evidence.map((e, i) => (
             <li key={i}>{e}</li>
           ))}

@@ -29,7 +29,7 @@ function Field({ label, value, mono }: { label: string; value?: string | null; m
   if (!value) return null;
   return (
     <div className="flex flex-col gap-0.5">
-      <p className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2">{label}</p>
+      <p className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2">{label}</p>
       <p className={`break-all text-[13px] text-wb-ink ${mono ? 'font-mono text-[12px]' : ''}`}>{value}</p>
     </div>
   );
@@ -176,7 +176,7 @@ export default function MissionWorkbenchDetailPage() {
               <Field label="Branch" value={mission.branch_name} mono />
               {mission.pr_url && (
                 <div className="flex flex-col gap-0.5">
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2">Pull Request</p>
+                  <p className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2">Pull Request</p>
                   <a
                     href={mission.pr_url}
                     target="_blank"
@@ -194,7 +194,7 @@ export default function MissionWorkbenchDetailPage() {
         <Card title="Update Status">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-wb-ink2">New status</p>
+              <p className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2">New status</p>
               <div className="flex flex-wrap gap-2">
                 {STATUS_OPTIONS.map(s => (
                   <button

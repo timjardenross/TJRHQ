@@ -100,7 +100,7 @@ export function CaptureBox({ onCaptured, onDevelop }: { onCaptured: () => void; 
       <div className="p-4">
         <div className="mb-2 flex items-center gap-2">
           <span className="grid h-6 w-6 place-items-center rounded-full bg-wb-sage-deep text-[12px] text-white" aria-hidden>+</span>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-wb-ink2">New content idea</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-wb-ink2">New content idea</p>
         </div>
         <textarea
           ref={inputRef}
@@ -118,7 +118,7 @@ export function CaptureBox({ onCaptured, onDevelop }: { onCaptured: () => void; 
           <Button onClick={submit} disabled={saving || !text.trim()}>
             {saving ? 'Capturing…' : 'Capture & Score'}
           </Button>
-          <span className="rounded border border-wb-line bg-wb-bg px-1.5 py-0.5 text-[10px] font-medium text-wb-ink2">
+          <span className="rounded border border-wb-line bg-wb-bg px-1.5 py-0.5 text-[12px] font-medium text-wb-ink2">
             ⌘/Ctrl + Enter
           </span>
         </div>
@@ -128,13 +128,13 @@ export function CaptureBox({ onCaptured, onDevelop }: { onCaptured: () => void; 
         {result && (
           <div className="mt-3 space-y-2 rounded-lg border border-wb-ok/40 bg-wb-ok/5 p-3">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="rounded-full bg-wb-ok/15 px-2 py-0.5 text-[11px] font-semibold text-wb-ok-on">✓ Opportunity Created</span>
+              <span className="rounded-full bg-wb-ok/15 px-2 py-0.5 text-[12px] font-semibold text-wb-ok-on">✓ Opportunity Created</span>
               <span className="text-[12px] font-semibold text-wb-ink">{result.rank_score.toFixed(0)} / 100 — {scoreTier(result.rank_score)}</span>
-              {result.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-[10.5px] font-semibold text-wb-warn-on">★ Captain Focus</span>}
+              {result.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-[12px] font-semibold text-wb-warn-on">★ Captain Focus</span>}
             </div>
             <p className="text-[12px] text-wb-ink2">Pillar: <span className="text-wb-ink">{result.pillar_name}</span></p>
             {result.reasons.length > 0 && (
-              <ul className="list-inside list-disc text-[11.5px] leading-relaxed text-wb-ink2">
+              <ul className="list-inside list-disc text-[12px] leading-relaxed text-wb-ink2">
                 {result.reasons.map((r, i) => (<li key={i}>{r}</li>))}
               </ul>
             )}

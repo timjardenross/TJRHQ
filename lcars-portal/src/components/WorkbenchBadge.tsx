@@ -19,7 +19,7 @@ export function WorkbenchBadge({ label, tone, status }: WorkbenchBadgeProps) {
   const c = toneClasses(resolved);
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${c.text} ${c.border} ${c.bg}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-wider ${c.text} ${c.border} ${c.bg}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
       {label}

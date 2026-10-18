@@ -42,18 +42,18 @@ function ChangeCard({ item }: { item: EvidenceItem }) {
     : 'New finding recorded';
   return (
     <div className="space-y-1.5 rounded-xl border border-wb-line bg-wb-surface p-3">
-      <p className="text-[10.5px] font-semibold uppercase tracking-wide text-wb-ink2">{item.topic_label}</p>
+      <p className="text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">{item.topic_label}</p>
       <p className="text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>
       <p className="text-[12px] text-wb-ink2">
         <span className="font-medium text-wb-sage-deep">{whatChanged}.</span>{' '}
         {item.summary || 'No summary available yet.'}
       </p>
       <EvidenceMeta source={item.source_name} observedAt={item.collected_at} />
-      <p className="text-[11.5px] italic text-wb-ink2">
+      <p className="text-[12px] italic text-wb-ink2">
         You need to: {item.actionable_recommendation || 'Nothing — this is informational.'}
       </p>
       {item.source_url && (
-        <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-wb-sage-deep underline decoration-dotted">
+        <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="text-[12px] text-wb-sage-deep underline decoration-dotted">
           {item.source_name}
         </a>
       )}
@@ -167,7 +167,7 @@ export function TodayView() {
       {/* NEEDS YOUR REVIEW — curation folded in, ambiguous-only subset. */}
       {data.needs_review.length > 0 && (
         <CollapsibleSection title={`Needs Your Review · ${data.needs_review.length}`} defaultOpen={false}>
-          <p className="mb-3 text-[11.5px] text-wb-ink2">
+          <p className="mb-3 text-[12px] text-wb-ink2">
             The system is not confident these are relevant — everything else it already handled automatically.
           </p>
           <div className="space-y-3">
@@ -219,7 +219,7 @@ export function TodayView() {
             ))}
           </div>
           {data.needs_review_total_pending > data.needs_review.length && (
-            <p className="mt-3 text-[11px] text-wb-ink2">
+            <p className="mt-3 text-[12px] text-wb-ink2">
               <Link href="/health-osint-curation" className="text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">See the full queue →</Link>
             </p>
           )}

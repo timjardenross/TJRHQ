@@ -152,7 +152,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
                   className="rounded-lg border border-wb-line p-3.5 text-left transition-colors hover:border-wb-sage-deep
                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                   <h4 className="mb-2 text-[13.5px] font-semibold leading-snug">{s.raw_title}</h4>
-                  <p className="mb-2 text-[11.5px] text-wb-ink2">
+                  <p className="mb-2 text-[12px] text-wb-ink2">
                     {s.sector ?? '—'} · {s.geography ?? '—'} · {s.source_tier ? `Tier ${s.source_tier}` : '—'}
                   </p>
                   <div className="flex items-center gap-2">
@@ -160,7 +160,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
                     <span className="font-serif text-[15px]">{s.rank_score != null ? Math.round(s.rank_score) : '—'}/50</span>
                   </div>
                   {(s.confidence_level || s.cluster_similarity != null) && (
-                    <p className="mt-2 text-[11px] text-wb-sage-deep">
+                    <p className="mt-2 text-[12px] text-wb-sage-deep">
                       {s.confidence_level ?? ''}{s.cluster_similarity != null ? ` · sim ${s.cluster_similarity}` : ''}
                     </p>
                   )}
@@ -176,11 +176,11 @@ export default function BriefReview({ params }: { params: { id: string } }) {
               workflow above. */}
           <Card title="Approval gate">
             <div className="flex items-center gap-3 border-b border-wb-line py-2.5 text-[13.5px] last:border-0">
-              <span className={`grid h-5 w-5 place-items-center rounded text-[11px] text-white ${gatePassed('qa') ? 'bg-wb-ok' : 'bg-wb-line'}`}>
+              <span className={`grid h-5 w-5 place-items-center rounded text-[12px] text-white ${gatePassed('qa') ? 'bg-wb-ok' : 'bg-wb-line'}`}>
                 {gatePassed('qa') ? '✓' : ''}
               </span>
               <span className="flex-1">QA</span>
-              {audit?.qa?.approved_by && <span className="text-[11.5px] text-wb-ink2">{audit.qa.approved_by}</span>}
+              {audit?.qa?.approved_by && <span className="text-[12px] text-wb-ink2">{audit.qa.approved_by}</span>}
               {!gatePassed('qa') && (
                 <button disabled={!!busy} onClick={() => act('brief.qa_pass', {}, 'QA pass')}
                   className="rounded-md border border-wb-sage px-2.5 py-1 text-[12px] text-wb-sage-deep hover:bg-wb-sage/10 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep">
@@ -282,7 +282,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
                 </dl>
 
                 {openSignal.score_breakdown && (
-                  <pre className="overflow-x-auto rounded-md bg-wb-line/30 p-2.5 text-[11px] text-wb-ink2">
+                  <pre className="overflow-x-auto rounded-md bg-wb-line/30 p-2.5 text-[12px] text-wb-ink2">
                     {JSON.stringify(openSignal.score_breakdown, null, 2)}
                   </pre>
                 )}

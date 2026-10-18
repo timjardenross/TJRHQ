@@ -41,7 +41,7 @@ export function KpiDashboard({
   if (loading && !stats) {
     return (
       <Card className="mb-6">
-        <p className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">Capture · last 7 days</p>
+        <p className="text-[12px] uppercase tracking-[0.14em] text-wb-ink2">Capture · last 7 days</p>
         <p className="mt-2 text-[13px] text-wb-ink2">Loading…</p>
       </Card>
     );
@@ -51,7 +51,7 @@ export function KpiDashboard({
     // (MSN-LCARS-003: load failure must never render identically to empty).
     return (
       <Card className="mb-6 border-wb-crit/40 bg-wb-crit/10">
-        <p className="text-[11px] uppercase tracking-[0.14em] text-wb-ink2">Capture · last 7 days</p>
+        <p className="text-[12px] uppercase tracking-[0.14em] text-wb-ink2">Capture · last 7 days</p>
         <p className="mt-2 text-[13px] text-wb-crit-on">{loadError} This is a load failure, not a real zero-capture week.</p>
       </Card>
     );
@@ -63,7 +63,7 @@ export function KpiDashboard({
 
   return (
     <Card className="mb-6">
-      <p className="mb-3 text-[11px] uppercase tracking-[0.14em] text-wb-ink2">Capture · last 7 days</p>
+      <p className="mb-3 text-[12px] uppercase tracking-[0.14em] text-wb-ink2">Capture · last 7 days</p>
       <div className="grid grid-cols-3 gap-3">
         <KpiStat label="Today" value={stats.today} />
         <KpiStat label="This week" value={stats.this_week} />
@@ -72,7 +72,7 @@ export function KpiDashboard({
 
       {topSources.length > 0 && (
         <div className="mt-4">
-          <p className="mb-1.5 text-[10px] uppercase tracking-[0.14em] text-wb-ink2">By source</p>
+          <p className="mb-1.5 text-[12px] uppercase tracking-[0.14em] text-wb-ink2">By source</p>
           <div className="flex flex-wrap gap-2">
             {topSources.map(([ch, n]) => {
               const filter = SOURCE_TO_FILTER[ch];
@@ -82,7 +82,7 @@ export function KpiDashboard({
                   type="button"
                   onClick={() => filter && onFilter(filter)}
                   disabled={!filter}
-                  className={`flex items-center gap-1 text-[11px] ${filter ? 'text-wb-ink2 transition hover:text-wb-ink' : 'cursor-default text-wb-ink2'}`}
+                  className={`flex items-center gap-1 text-[12px] ${filter ? 'text-wb-ink2 transition hover:text-wb-ink' : 'cursor-default text-wb-ink2'}`}
                 >
                   <span className="font-semibold text-wb-ink">{n}</span>
                   {SOURCE_BADGE[ch]?.label ?? ch}
@@ -95,7 +95,7 @@ export function KpiDashboard({
 
       {topClasses.length > 0 && (
         <div className="mt-3">
-          <p className="mb-1.5 text-[10px] uppercase tracking-[0.14em] text-wb-ink2">By classification</p>
+          <p className="mb-1.5 text-[12px] uppercase tracking-[0.14em] text-wb-ink2">By classification</p>
           <div className="flex flex-wrap gap-2">
             {topClasses.map(([cl, n]) => {
               const filter = CLASS_TO_FILTER[cl];
@@ -105,7 +105,7 @@ export function KpiDashboard({
                   type="button"
                   onClick={() => filter && onFilter(filter)}
                   disabled={!filter}
-                  className={`flex items-center gap-1 text-[11px] ${filter ? 'text-wb-ink2 transition hover:text-wb-ink' : 'cursor-default text-wb-ink2'}`}
+                  className={`flex items-center gap-1 text-[12px] ${filter ? 'text-wb-ink2 transition hover:text-wb-ink' : 'cursor-default text-wb-ink2'}`}
                 >
                   <span className="font-semibold text-wb-ink">{n}</span>
                   {CLASS_LABELS[cl] ?? cl}

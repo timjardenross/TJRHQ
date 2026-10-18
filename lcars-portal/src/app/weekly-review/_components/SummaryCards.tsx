@@ -10,7 +10,7 @@ function Stat({ label, value, tone }: { label: string; value: number; tone: 'ok'
   return (
     <div className="rounded-md border border-wb-line bg-wb-surface px-4 py-3 text-center">
       <div className={`font-serif text-[18px] ${toneClass}`}>{value}</div>
-      <div className="text-[11px] text-wb-ink2">{label}</div>
+      <div className="text-[12px] text-wb-ink2">{label}</div>
     </div>
   );
 }
@@ -34,7 +34,7 @@ export function SummaryCards({ summary }: { summary: SystemSummary }) {
         <Stat label="Waiting on" value={summary.waitingOn} tone={summary.waitingOn > 0 ? 'warn' : 'ok'} />
         <Stat label="Urgent this week" value={summary.urgentThisWeek} tone={summary.urgentThisWeek > 0 ? 'crit' : 'ok'} />
       </div>
-      <p className="mt-2 text-center text-[11px] text-wb-ink2">{debtLabel}</p>
+      <p className="mt-2 text-center text-[12px] text-wb-ink2">{debtLabel}</p>
       <EvidenceMeta
         source="Weekly Review summary (live workbench queries)"
         observedAt={summary.weekEnd}

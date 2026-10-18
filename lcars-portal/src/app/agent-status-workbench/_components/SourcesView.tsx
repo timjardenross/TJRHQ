@@ -106,11 +106,11 @@ export function SourcesView() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-wb-line">
-                <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Source</th>
-                <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Category</th>
-                <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Status</th>
-                <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Last Success</th>
-                <th className="pb-2 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Error</th>
+                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Source</th>
+                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Category</th>
+                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Status</th>
+                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Last Success</th>
+                <th className="pb-2 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Error</th>
               </tr>
             </thead>
             <tbody>
@@ -128,7 +128,7 @@ export function SourcesView() {
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-[11px] text-wb-ink2">No per-source cadence metadata exists for technical sources (only source_type/priority) — &ldquo;Last Success&rdquo; is shown without an expected-cadence comparison.</p>
+        <p className="mt-2 text-[12px] text-wb-ink2">No per-source cadence metadata exists for technical sources (only source_type/priority) — &ldquo;Last Success&rdquo; is shown without an expected-cadence comparison.</p>
         <EvidenceMeta
           source="Technical OSINT source registry"
           observedAt={mostRecent(technical.map((s) => s.lastCheckedAt))}
@@ -142,11 +142,11 @@ export function SourcesView() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-wb-line">
-                <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Source</th>
-                <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Cadence</th>
-                <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Status</th>
-                <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Last Fetch</th>
-                <th className="pb-2 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Parser / fetch error</th>
+                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Source</th>
+                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Cadence</th>
+                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Status</th>
+                <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Last Fetch</th>
+                <th className="pb-2 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Parser / fetch error</th>
               </tr>
             </thead>
             <tbody>
@@ -164,7 +164,7 @@ export function SourcesView() {
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-[11px] text-wb-ink2">{data.note}</p>
+        <p className="mt-2 text-[12px] text-wb-ink2">{data.note}</p>
         <EvidenceMeta
           source="Health OSINT source registry (auto-fetched)"
           observedAt={mostRecent(health.map((s) => s.lastFetch))}

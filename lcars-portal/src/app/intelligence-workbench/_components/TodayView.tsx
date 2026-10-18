@@ -32,7 +32,7 @@ function DevelopmentCard({ item, tone }: { item: Development; tone: 'needs-you' 
   const border = tone === 'needs-you' ? 'border-wb-crit/40 bg-wb-crit/5' : 'border-wb-line bg-wb-surface';
   return (
     <div className={`space-y-1.5 rounded-xl border p-4 ${border}`}>
-      <p className="text-[10.5px] font-semibold uppercase tracking-wide text-wb-ink2">
+      <p className="text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">
         {tone === 'needs-you' ? 'Needs you' : 'Worth knowing'}
       </p>
       {item.canonical_url ? (
@@ -48,11 +48,11 @@ function DevelopmentCard({ item, tone }: { item: Development; tone: 'needs-you' 
         <p className="text-[14px] font-medium leading-snug text-wb-ink">{item.title}</p>
       )}
       {item.published_at && (
-        <p className="text-[11px] text-wb-ink2">{new Date(item.published_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+        <p className="text-[12px] text-wb-ink2">{new Date(item.published_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</p>
       )}
       <p className="text-[12.5px] text-wb-ink2">{item.what_happened}</p>
       <p className="text-[12.5px] text-wb-ink2">{item.why_you_care}</p>
-      <p className="text-[11.5px] italic text-wb-ink2">{item.assessment}</p>
+      <p className="text-[12px] italic text-wb-ink2">{item.assessment}</p>
       <p className="text-[12.5px] font-medium text-wb-ink">{item.you_need_to}</p>
       <EvidenceMeta observedAt={item.published_at} confidence={item.confidence_level} />
       <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -116,7 +116,7 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
 
       {needsYou.length > 0 && (
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-wb-ink2">Needs you</p>
+          <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">Needs you</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {needsYou.map((d) => <DevelopmentCard key={d.event_id} item={d} tone="needs-you" />)}
           </div>
@@ -125,7 +125,7 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
 
       {worthKnowing.length > 0 && (
         <div>
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-wb-ink2">Worth knowing</p>
+          <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">Worth knowing</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {worthKnowing.map((d) => <DevelopmentCard key={d.event_id} item={d} tone="worth-knowing" />)}
           </div>
@@ -148,7 +148,7 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
 
       {/* What we don't know yet. */}
       <div className="rounded-xl border border-wb-line bg-wb-surface p-4">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-wb-ink2">What we don&apos;t know yet</p>
+        <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">What we don&apos;t know yet</p>
         <div className="space-y-2">
           {unknowns.map((u) => (
             <div key={u.title} className="text-[12.5px] text-wb-ink2">

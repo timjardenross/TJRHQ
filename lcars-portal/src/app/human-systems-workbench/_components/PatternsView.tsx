@@ -27,7 +27,7 @@ function CapacityDebtNote({ debt }: { debt: MedicalPayload['capacity_debt'] }) {
   if (debt.days_total === 0) return null;
   return (
     <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-      <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Capacity Debt</div>
+      <div className="text-[12px] uppercase tracking-wide text-wb-ink2">Capacity Debt</div>
       <p className="mt-1 text-[13px] leading-relaxed text-wb-ink">
         {debt.days_with_debt} of {debt.days_total} evening reflections in the last {debt.window_days} days flagged
         possible next-day debt. On days like that, tomorrow&rsquo;s capacity may already be partly spoken for before
@@ -44,7 +44,7 @@ function RecurringLoadsNote({ candidates }: { candidates: MedicalPayload['redesi
   if (candidates.length === 0) return null;
   return (
     <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-      <div className="text-[11px] uppercase tracking-wide text-wb-ink2">Recurring Loads</div>
+      <div className="text-[12px] uppercase tracking-wide text-wb-ink2">Recurring Loads</div>
       <div className="mt-2 flex flex-col gap-2">
         {candidates.map((r) => (
           <div key={r.load} className="flex items-center justify-between gap-2">
@@ -73,7 +73,7 @@ export function PatternsView({ recovery, medical }: { recovery: RecoveryPayload;
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <SystemLearningSection data={recovery} className="md:col-span-2" />
       {hasNarrativePattern && (
-        <p className="text-[11px] italic text-wb-ink2 md:col-span-2">
+        <p className="text-[12px] italic text-wb-ink2 md:col-span-2">
           Possible Pattern above is an association, not a cause — a co-occurrence worth watching, not a diagnosis.
         </p>
       )}

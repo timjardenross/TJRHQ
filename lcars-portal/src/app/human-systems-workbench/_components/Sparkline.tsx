@@ -79,7 +79,7 @@ export function CapacityTrendBars({ days }: { days: CapacityTrendBarDay[] }) {
           return <rect key={d.date} x={x} y={y} width={barW} height={barH} className={fillClass} rx={1} />;
         })}
       </svg>
-      <p className="mt-2 text-[11px] text-wb-ink2">
+      <p className="mt-2 text-[12px] text-wb-ink2">
         {recorded} of {days.length} day{days.length === 1 ? '' : 's'} have a recorded capacity check-in.
       </p>
     </div>

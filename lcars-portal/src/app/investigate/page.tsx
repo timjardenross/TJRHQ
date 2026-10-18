@@ -71,7 +71,7 @@ function InvestigatePageInner() {
         {result && result !== 'loading' && result !== 'missing-params' && (
           <div className="flex flex-col gap-6">
             <div>
-              <span className="inline-block text-[11px] uppercase tracking-[0.14em] text-[#5A6875] border border-[rgba(147,161,176,0.25)] rounded-full px-2.5 py-1 mb-4">
+              <span className="inline-block text-[12px] uppercase tracking-[0.14em] text-[#5A6875] border border-[rgba(147,161,176,0.25)] rounded-full px-2.5 py-1 mb-4">
                 {result.label} · {result.owner}
               </span>
               <p className="text-[15px] text-[#93A1B0] leading-relaxed">{result.triggerDescription}</p>

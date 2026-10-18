@@ -56,11 +56,11 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
         <div>
           <div className="flex items-center gap-2">
             <h3 className="font-serif text-base text-wb-ink">{domain.label}</h3>
-            <span className="rounded-full border border-wb-line px-2 py-0.5 text-[10px] uppercase tracking-wider text-wb-ink2">
+            <span className="rounded-full border border-wb-line px-2 py-0.5 text-[12px] uppercase tracking-wider text-wb-ink2">
               {SOURCE_LABEL[domain.source]}
             </span>
           </div>
-          <p className="mt-0.5 text-[11px] text-wb-ink2">As of {relativeTime(domain.as_of)}</p>
+          <p className="mt-0.5 text-[12px] text-wb-ink2">As of {relativeTime(domain.as_of)}</p>
           <EvidenceMeta
             source={SOURCE_LABEL[domain.source]}
             observedAt={domain.as_of}
@@ -69,7 +69,7 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
         </div>
         <div className="flex items-center gap-2">
           {domain.availability !== 'ok' && (
-            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${availabilityTone.border} ${availabilityTone.bg} ${availabilityTone.text}`}>
+            <span className={`rounded-full border px-2 py-0.5 text-[12px] font-medium uppercase tracking-wider ${availabilityTone.border} ${availabilityTone.bg} ${availabilityTone.text}`}>
               {AVAILABILITY_LABEL[domain.availability]}
             </span>
           )}
@@ -83,14 +83,14 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
 
       {domain.what_changed && (
         <div>
-          <h4 className="mb-1 text-[11px] uppercase tracking-wider text-wb-ink2">What Changed</h4>
+          <h4 className="mb-1 text-[12px] uppercase tracking-wider text-wb-ink2">What Changed</h4>
           <p className="text-[13px] text-wb-ink">{domain.what_changed}</p>
         </div>
       )}
 
       {domain.what_matters.length > 0 && (
         <div>
-          <h4 className="mb-1 text-[11px] uppercase tracking-wider text-wb-ink2">What Matters</h4>
+          <h4 className="mb-1 text-[12px] uppercase tracking-wider text-wb-ink2">What Matters</h4>
           <ul className="list-disc space-y-0.5 pl-5 text-[13px] text-wb-ink">
             {domain.what_matters.map((m, i) => <li key={i}>{m}</li>)}
           </ul>
@@ -99,7 +99,7 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
 
       {domain.watch_conditions.length > 0 && (
         <div>
-          <h4 className="mb-1 text-[11px] uppercase tracking-wider text-wb-ink2">Watch</h4>
+          <h4 className="mb-1 text-[12px] uppercase tracking-wider text-wb-ink2">Watch</h4>
           <ul className="list-disc space-y-0.5 pl-5 text-[13px] text-wb-ink2">
             {domain.watch_conditions.map((w, i) => <li key={i}>{w}</li>)}
           </ul>
@@ -108,7 +108,7 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
 
       {domain.constraints.length > 0 && (
         <div>
-          <h4 className="mb-1 text-[11px] uppercase tracking-wider text-wb-ink2">Coverage Notes</h4>
+          <h4 className="mb-1 text-[12px] uppercase tracking-wider text-wb-ink2">Coverage Notes</h4>
           <ul className="list-disc space-y-0.5 pl-5 text-[12.5px] italic text-wb-ink2">
             {domain.constraints.map((c, i) => <li key={i}>{c}</li>)}
           </ul>
@@ -122,7 +122,7 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
           <Collapsible.Trigger asChild>
             <button
               type="button"
-              className="self-start rounded-md border border-wb-line px-2.5 py-1 text-[11.5px] text-wb-ink2 hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+              className="self-start rounded-md border border-wb-line px-2.5 py-1 text-[12px] text-wb-ink2 hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
             >
               Evidence ({domain.evidence_count})
             </button>
@@ -139,7 +139,7 @@ export function DomainCard({ domain }: { domain: DomainSummary }) {
                 </li>
               ))}
               {domain.evidence.length < domain.evidence_count && (
-                <li className="text-[11.5px] text-wb-ink2">
+                <li className="text-[12px] text-wb-ink2">
                   +{domain.evidence_count - domain.evidence.length} more — see full detail.
                 </li>
               )}
@@ -161,7 +161,7 @@ function DomainGroup({ title, domains }: { title: string; domains: DomainSummary
   if (domains.length === 0) return null;
   return (
     <div>
-      <h3 className="mb-2 text-[11px] uppercase tracking-wider text-wb-ink2">{title}</h3>
+      <h3 className="mb-2 text-[12px] uppercase tracking-wider text-wb-ink2">{title}</h3>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {domains.map((d) => <DomainCard key={d.key} domain={d} />)}
       </div>

@@ -90,7 +90,7 @@ function TodaysFocus() {
   if (loadError) {
     return (
       <Card className="border-wb-crit/40 bg-wb-crit/10">
-        <p className="text-[11px] uppercase tracking-wider text-wb-ink2">Number One · Today&apos;s Focus</p>
+        <p className="text-[12px] uppercase tracking-wider text-wb-ink2">Number One · Today&apos;s Focus</p>
         <p className="mt-1 text-[13px] text-wb-crit-on">
           {loadError} This is a load failure, not a Green capacity reading.
         </p>
@@ -103,7 +103,7 @@ function TodaysFocus() {
   return (
     <Card>
       <div className="flex items-center gap-2">
-        <p className="text-[11px] uppercase tracking-wider text-wb-ink2">Number One · Today&apos;s Focus</p>
+        <p className="text-[12px] uppercase tracking-wider text-wb-ink2">Number One · Today&apos;s Focus</p>
         <Badge status={CAPACITY_BADGE[queue.capacity_status] ?? 'neutral'}>{queue.capacity_status}</Badge>
       </div>
       <p className="mt-1 text-[13px] text-wb-ink">{queue.advisory}</p>
@@ -151,7 +151,7 @@ export function NumberOneCoordination() {
       <>
         <TodaysFocus />
         <Card className="border-wb-crit/40 bg-wb-crit/10">
-          <p className="text-[11px] uppercase tracking-wider text-wb-ink2">Number One · Coordination</p>
+          <p className="text-[12px] uppercase tracking-wider text-wb-ink2">Number One · Coordination</p>
           <p className="mt-1 text-[13px] text-wb-crit-on">
             {loadError} This is a load failure, not confirmation nothing needs attention.
           </p>
@@ -167,7 +167,7 @@ export function NumberOneCoordination() {
       <>
         <TodaysFocus />
         <Card>
-          <p className="text-[11px] uppercase tracking-wider text-wb-ink2">Number One · Coordination</p>
+          <p className="text-[12px] uppercase tracking-wider text-wb-ink2">Number One · Coordination</p>
           <p className="mt-1 text-[13px] text-wb-ink2">
             Nothing needs escalation right now — no blockers or stale follow-ups found.
           </p>
@@ -180,13 +180,13 @@ export function NumberOneCoordination() {
     <>
       <TodaysFocus />
       <Card>
-        <p className="mb-2 text-[11px] uppercase tracking-wider text-wb-ink2">Number One · Coordination</p>
+        <p className="mb-2 text-[12px] uppercase tracking-wider text-wb-ink2">Number One · Coordination</p>
         <div className="flex flex-col gap-2">
           {escalations.map((e, i) => (
             <div key={`esc-${i}`} className="flex flex-col gap-1 rounded-md border border-wb-line bg-wb-bg p-3">
               <div className="flex items-center gap-2">
                 <Badge status={LEVEL_BADGE[e.level] ?? 'neutral'}>{e.level}</Badge>
-                <span className="font-mono text-[11px] text-wb-ink2">{e.mission_id}</span>
+                <span className="font-mono text-[12px] text-wb-ink2">{e.mission_id}</span>
               </div>
               <p className="text-[13px] text-wb-ink">{e.reason}</p>
               <p className="text-[12px] text-wb-ink2">→ {e.recommendation}</p>
@@ -196,7 +196,7 @@ export function NumberOneCoordination() {
             <div key={`fu-${i}`} className="flex flex-col gap-1 rounded-md border border-wb-line bg-wb-bg p-3">
               <div className="flex items-center gap-2">
                 <Badge status="warning">{f.type.replace(/_/g, ' ')}</Badge>
-                <span className="font-mono text-[11px] text-wb-ink2">{f.mission_id}</span>
+                <span className="font-mono text-[12px] text-wb-ink2">{f.mission_id}</span>
               </div>
               <p className="text-[13px] text-wb-ink">{f.reason}</p>
               <p className="text-[12px] text-wb-ink2">→ {f.recommendation}</p>

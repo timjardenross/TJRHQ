@@ -23,7 +23,7 @@ export function SituationBadge({
   const c = stateToneClasses(tone);
   const content = (
     <>
-      <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{label}</p>
+      <p className="text-[12px] uppercase tracking-wider text-wb-ink2">{label}</p>
       <p className={`mt-0.5 text-lg font-bold ${c.text}`}>{value}</p>
       {sublabel && <p className="mt-0.5 text-xs text-wb-ink/80">{sublabel}</p>}
     </>

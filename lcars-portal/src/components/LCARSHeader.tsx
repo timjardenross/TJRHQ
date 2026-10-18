@@ -50,7 +50,7 @@ export function LCARSHeader({ ship, registry, stardate, pageTitle }: LCARSHeader
 
         <div className="flex shrink-0 items-center gap-3">
           <div className="text-right">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#61718c]">Stardate</p>
+            <p className="text-[12px] uppercase tracking-[0.2em] text-[#61718c]">Stardate</p>
             <p className="ml-2 font-semibold tabular-nums text-[#18223a]">{stardate}</p>
           </div>
           <Link

@@ -38,7 +38,7 @@ function OverloadView({
       </p>
       {onlyTask ? (
         <div className="rounded-md bg-wb-sage/10 p-3">
-          <p className="text-[11px] uppercase tracking-wide text-wb-sage-deep">One thing, if you want it</p>
+          <p className="text-[12px] uppercase tracking-wide text-wb-sage-deep">One thing, if you want it</p>
           <p className="mt-1 text-[14px] text-wb-ink">{onlyTask.title}</p>
           <Button size="sm" className="mt-2" onClick={() => onStart(onlyTask)}>Start this</Button>
         </div>
@@ -166,7 +166,7 @@ function CollapsedSection({
       <div className="flex items-center justify-between rounded-md border border-wb-line bg-wb-surface px-3 py-2">
         <div>
           <p className="text-[13px] font-medium text-wb-ink">{title} {count}</p>
-          <p className="text-[11px] text-wb-ink2">{reassurance}</p>
+          <p className="text-[12px] text-wb-ink2">{reassurance}</p>
         </div>
         <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>
           {open ? 'Hide' : 'Show'}
@@ -361,7 +361,7 @@ export function TodayStream({
             {pickUp.map((t) => (
               <div key={t.id} className="rounded-md border border-wb-sage/40 bg-wb-sage/10 p-3">
                 <p className="text-[14px] font-medium text-wb-ink">{t.title}</p>
-                <p className="mt-1 text-[11px] uppercase tracking-wide text-wb-sage-deep">You left off here</p>
+                <p className="mt-1 text-[12px] uppercase tracking-wide text-wb-sage-deep">You left off here</p>
                 <p className="text-[13px] text-wb-ink">{t.restart_cue}</p>
                 <div className="mt-2 flex gap-2">
                   <Button size="sm" onClick={() => setActiveTask(t)}>Continue</Button>

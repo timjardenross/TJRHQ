@@ -30,11 +30,11 @@ export function MissionCard({ mission }: MissionCardProps) {
         style={{ borderLeftColor: dept.hex }}
       >
         <div className="flex items-start justify-between gap-2">
-          <span className="font-mono text-[11px] text-wb-ink2">{mission.mission_id}</span>
+          <span className="font-mono text-[12px] text-wb-ink2">{mission.mission_id}</span>
           <Badge status={PRIORITY_BADGE[mission.priority] ?? 'neutral'}>{mission.priority}</Badge>
         </div>
         <h3 className="text-[13px] font-medium text-wb-ink">{mission.title}</h3>
-        <div className="flex flex-wrap items-center gap-2 text-[11px] text-wb-ink2">
+        <div className="flex flex-wrap items-center gap-2 text-[12px] text-wb-ink2">
           <Badge status={statusToBadge(mission.status)}>{mission.status}</Badge>
           {mission.owner && <span>· {mission.owner}</span>}
           {mission.specialist && <span>· {mission.specialist}</span>}

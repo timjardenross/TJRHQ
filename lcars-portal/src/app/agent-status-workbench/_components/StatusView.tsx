@@ -128,7 +128,7 @@ function CapabilityRow({ cap }: { cap: CapabilityResult }) {
   };
   return (
     <li className="flex items-start gap-2.5 py-2" title={cap.reason}>
-      <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${TONE_DOT_CLASS[cap.tone]}`} aria-hidden>
+      <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${TONE_DOT_CLASS[cap.tone]}`} aria-hidden>
         {TONE_GLYPH[cap.tone]}
       </span>
       <div className="min-w-0">
@@ -137,7 +137,7 @@ function CapabilityRow({ cap }: { cap: CapabilityResult }) {
           <span className="sr-only"> — {cap.tone}</span>
         </p>
         {cap.tone !== 'healthy' && <p className="mt-0.5 text-[12px] text-wb-ink2">{cap.reason}</p>}
-        {cap.tone !== 'healthy' && <p className="mt-1 text-[11px] text-wb-ink2">Affected workbench: <Link href={recovery.href} className="font-semibold text-wb-sage-deep hover:underline">{recovery.workbench}</Link> · <Link href={recovery.href} className="text-wb-sage-deep hover:underline">{recovery.action} →</Link></p>}
+        {cap.tone !== 'healthy' && <p className="mt-1 text-[12px] text-wb-ink2">Affected workbench: <Link href={recovery.href} className="font-semibold text-wb-sage-deep hover:underline">{recovery.workbench}</Link> · <Link href={recovery.href} className="text-wb-sage-deep hover:underline">{recovery.action} →</Link></p>}
       </div>
     </li>
   );
@@ -244,7 +244,7 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
           {narrative.actionRequired ? '⚠ ' : ''}{narrative.actionNote}
         </p>
 
-        <p className="mt-2 text-[11px] text-wb-ink2">
+        <p className="mt-2 text-[12px] text-wb-ink2">
           Updated {new Date(data.fetchedAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })} · covers all monitored capabilities, jobs, and governed sources.
         </p>
       </Card>
@@ -259,7 +259,7 @@ export function StatusView({ onNavigate }: { onNavigate: (tab: 'automations' | '
         </ul>
         {supportingCaps.length > 0 && (
           <>
-            <h3 className="mb-1 mt-3 text-[11px] font-semibold uppercase tracking-wide text-wb-ink2">Supporting (does not affect HQ posture)</h3>
+            <h3 className="mb-1 mt-3 text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">Supporting (does not affect HQ posture)</h3>
             <ul className="divide-y divide-wb-line">
               {supportingCaps.map((cap) => <CapabilityRow key={cap.key} cap={cap} />)}
             </ul>

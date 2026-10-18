@@ -92,7 +92,7 @@ export function CaptureStageBody({ item, onChanged }: { item: ContentItem; onCha
   return (
     <div className="space-y-3">
       <div>
-        <p className="mb-1 text-[10px] uppercase tracking-wide text-wb-ink2">Framing angle</p>
+        <p className="mb-1 text-[12px] uppercase tracking-wide text-wb-ink2">Framing angle</p>
         <input
           aria-label="Framing angle"
           value={angle}
@@ -102,12 +102,12 @@ export function CaptureStageBody({ item, onChanged }: { item: ContentItem; onCha
         />
       </div>
       <div>
-        <p className="mb-1 text-[10px] uppercase tracking-wide text-wb-ink2">Research notes</p>
+        <p className="mb-1 text-[12px] uppercase tracking-wide text-wb-ink2">Research notes</p>
         <Textarea rows={7} value={notes} onChange={(e) => setNotes(e.target.value)} className="text-[13.5px] leading-relaxed"
           aria-label={`Research notes for ${item.title}`} />
       </div>
       <div>
-        <p className="mb-1 text-[10px] uppercase tracking-wide text-wb-ink2">Sources (one per line)</p>
+        <p className="mb-1 text-[12px] uppercase tracking-wide text-wb-ink2">Sources (one per line)</p>
         <Textarea rows={3} value={sourcesText} onChange={(e) => setSourcesText(e.target.value)} className="text-[13px] font-mono"
           aria-label={`Sources for ${item.title}`} />
       </div>
@@ -155,19 +155,19 @@ export function ResearchStageBody({ item, onChanged }: { item: ContentItem; onCh
     <div className="space-y-3 text-[13.5px]">
       {item.research_angle && (
         <div>
-          <p className="mb-0.5 text-[10px] uppercase tracking-wide text-wb-ink2">Angle</p>
+          <p className="mb-0.5 text-[12px] uppercase tracking-wide text-wb-ink2">Angle</p>
           <p className="italic leading-relaxed text-wb-ink">{item.research_angle}</p>
         </div>
       )}
       {item.research_notes && (
         <div>
-          <p className="mb-0.5 text-[10px] uppercase tracking-wide text-wb-ink2">Research notes</p>
+          <p className="mb-0.5 text-[12px] uppercase tracking-wide text-wb-ink2">Research notes</p>
           <p className="whitespace-pre-wrap leading-relaxed text-wb-ink">{item.research_notes}</p>
         </div>
       )}
       {item.research_sources && item.research_sources.length > 0 && (
         <div>
-          <p className="mb-0.5 text-[10px] uppercase tracking-wide text-wb-ink2">Sources</p>
+          <p className="mb-0.5 text-[12px] uppercase tracking-wide text-wb-ink2">Sources</p>
           <ul className="list-inside list-disc leading-relaxed text-wb-ink">
             {item.research_sources.map((s, i) => (
               <li key={i}>{s.url ?? s.label}</li>
@@ -250,7 +250,7 @@ export function ContentPrepStageBody({ item, onChanged }: { item: ContentItem; o
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between text-[11px] text-wb-ink2">
+      <div className="flex items-center justify-between text-[12px] text-wb-ink2">
         <span>{words} word{words === 1 ? '' : 's'}</span>
       </div>
       <Textarea rows={16} value={body} onChange={(e) => setBody(e.target.value)} className="font-mono text-[13.5px] leading-relaxed"
@@ -534,14 +534,14 @@ export function ProofingStageBody({ item, onChanged }: { item: ContentItem; onCh
         </div>
       ) : (
         <div className="space-y-2 rounded-lg border border-wb-warn/50 bg-wb-warn/5 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-wb-warn-on">AI Proposes — You Decide</p>
+          <p className="text-[12px] font-semibold uppercase tracking-wide text-wb-warn-on">AI Proposes — You Decide</p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div>
-              <p className="mb-1 text-[10px] uppercase tracking-wide text-wb-ink2">Current Draft</p>
+              <p className="mb-1 text-[12px] uppercase tracking-wide text-wb-ink2">Current Draft</p>
               <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md border border-wb-line bg-wb-bg p-3 leading-relaxed text-wb-ink">{item.body}</div>
             </div>
             <div>
-              <p className="mb-1 text-[10px] uppercase tracking-wide text-wb-ink2">AI Proposal</p>
+              <p className="mb-1 text-[12px] uppercase tracking-wide text-wb-ink2">AI Proposal</p>
               <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md border border-wb-line bg-wb-surface p-3 leading-relaxed text-wb-ink">{suggestedBody}</div>
             </div>
           </div>
@@ -567,7 +567,7 @@ export function ProofingStageBody({ item, onChanged }: { item: ContentItem; onCh
                   className="h-4 w-4 rounded border-wb-line text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
                 {c.label}
               </label>
-              {note && <p className="ml-6 mt-0.5 text-[11.5px] italic text-wb-ink2">AI · {note}</p>}
+              {note && <p className="ml-6 mt-0.5 text-[12px] italic text-wb-ink2">AI · {note}</p>}
             </div>
           );
         })}

@@ -62,15 +62,15 @@ function ByModelTable({ rows }: { rows: ModelUsageRow[] }) {
       <table className="w-full">
         <thead>
           <tr className="border-b border-wb-line">
-            <th className="pb-2 pr-3 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Provider</th>
-            <th className="pb-2 pr-3 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Model</th>
-            <th className="pb-2 pr-3 text-right text-[10px] uppercase tracking-wider text-wb-ink2">Calls</th>
-            <th className="pb-2 pr-3 text-right text-[10px] uppercase tracking-wider text-wb-ink2">Success</th>
-            <th className="pb-2 pr-3 text-right text-[10px] uppercase tracking-wider text-wb-ink2">Input tok</th>
-            <th className="pb-2 pr-3 text-right text-[10px] uppercase tracking-wider text-wb-ink2">Output tok</th>
-            <th className="pb-2 pr-3 text-right text-[10px] uppercase tracking-wider text-wb-ink2">Cost</th>
-            <th className="pb-2 pr-3 text-right text-[10px] uppercase tracking-wider text-wb-ink2">Avg latency</th>
-            <th className="pb-2 text-right text-[10px] uppercase tracking-wider text-wb-ink2">Last call</th>
+            <th className="pb-2 pr-3 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Provider</th>
+            <th className="pb-2 pr-3 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Model</th>
+            <th className="pb-2 pr-3 text-right text-[12px] uppercase tracking-wider text-wb-ink2">Calls</th>
+            <th className="pb-2 pr-3 text-right text-[12px] uppercase tracking-wider text-wb-ink2">Success</th>
+            <th className="pb-2 pr-3 text-right text-[12px] uppercase tracking-wider text-wb-ink2">Input tok</th>
+            <th className="pb-2 pr-3 text-right text-[12px] uppercase tracking-wider text-wb-ink2">Output tok</th>
+            <th className="pb-2 pr-3 text-right text-[12px] uppercase tracking-wider text-wb-ink2">Cost</th>
+            <th className="pb-2 pr-3 text-right text-[12px] uppercase tracking-wider text-wb-ink2">Avg latency</th>
+            <th className="pb-2 text-right text-[12px] uppercase tracking-wider text-wb-ink2">Last call</th>
           </tr>
         </thead>
         <tbody>
@@ -102,11 +102,11 @@ function DailyTotalsTable({ rows }: { rows: DailyTotalRow[] }) {
       <table className="w-full">
         <thead>
           <tr className="border-b border-wb-line">
-            <th className="pb-2 pr-3 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Day</th>
-            <th className="pb-2 pr-3 text-right text-[10px] uppercase tracking-wider text-wb-ink2">Calls</th>
-            <th className="pb-2 pr-3 text-right text-[10px] uppercase tracking-wider text-wb-ink2">Successful</th>
-            <th className="pb-2 pr-3 text-right text-[10px] uppercase tracking-wider text-wb-ink2">Failed</th>
-            <th className="pb-2 text-right text-[10px] uppercase tracking-wider text-wb-ink2">Cost</th>
+            <th className="pb-2 pr-3 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Day</th>
+            <th className="pb-2 pr-3 text-right text-[12px] uppercase tracking-wider text-wb-ink2">Calls</th>
+            <th className="pb-2 pr-3 text-right text-[12px] uppercase tracking-wider text-wb-ink2">Successful</th>
+            <th className="pb-2 pr-3 text-right text-[12px] uppercase tracking-wider text-wb-ink2">Failed</th>
+            <th className="pb-2 text-right text-[12px] uppercase tracking-wider text-wb-ink2">Cost</th>
           </tr>
         </thead>
         <tbody>
@@ -175,7 +175,7 @@ export function UsageView() {
         <DailyTotalsTable rows={data.dailyTotals} />
       </Card>
 
-      <p className="text-[11px] text-wb-ink2">{data.note}</p>
+      <p className="text-[12px] text-wb-ink2">{data.note}</p>
     </div>
   );
 }

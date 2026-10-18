@@ -146,10 +146,10 @@ function ArtifactViewer({ path }: { path: string }) {
             <p className="text-[12px] text-wb-crit-on">{error}</p>
           ) : (
             <>
-              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-wb-ink">
+              <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-[12px] text-wb-ink">
                 {content}
               </pre>
-              <p className="mt-2 border-t border-wb-line pt-2 text-[11px] italic text-wb-ink2">
+              <p className="mt-2 border-t border-wb-line pt-2 text-[12px] italic text-wb-ink2">
                 This edit touches an existing file, so it was deliberately held back from an
                 automatic PR (a whole-file rewrite can silently drop code) — it was never opened,
                 so there is nothing here to merge yet. To progress it: apply the change yourself
@@ -172,13 +172,13 @@ function HandoffCard({ handoff }: { handoff: Handoff }) {
     <div className="rounded-lg border border-wb-line bg-wb-bg p-4">
       <div className="mb-2 flex items-start justify-between gap-3">
         <h3 className="min-w-0 flex-1 break-words font-serif text-[15px] text-wb-ink">{displayTitle(handoff.title)}</h3>
-        <span className="shrink-0 rounded-md border border-wb-line px-2 py-0.5 font-mono text-[11px] text-wb-ink2">
+        <span className="shrink-0 rounded-md border border-wb-line px-2 py-0.5 font-mono text-[12px] text-wb-ink2">
           {handoff.priority}
         </span>
       </div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Badge status={badgeStatus}>{metadata.engineering_status}</Badge>
-        <span className="text-[11px] uppercase tracking-wide text-wb-ink2">
+        <span className="text-[12px] uppercase tracking-wide text-wb-ink2">
           batch: {metadata.batch_status}
         </span>
       </div>
@@ -215,7 +215,7 @@ function HandoffCard({ handoff }: { handoff: Handoff }) {
       ) : metadata.batch_artifact ? (
         <ArtifactViewer path={metadata.batch_artifact} />
       ) : (
-        <p className="text-[11px] italic text-wb-ink2">No PR or artifact yet.</p>
+        <p className="text-[12px] italic text-wb-ink2">No PR or artifact yet.</p>
       )}
     </div>
   );
@@ -292,7 +292,7 @@ export default function EngineeringHandoffsPage() {
               {ALL_STAGES.map(s => (
                 <div key={s} className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
                   <p className="text-2xl font-bold text-wb-ink">{byStatus[s] ?? 0}</p>
-                  <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{s}</p>
+                  <p className="text-[12px] uppercase tracking-wider text-wb-ink2">{s}</p>
                 </div>
               ))}
             </div>
@@ -311,8 +311,8 @@ export default function EngineeringHandoffsPage() {
             <Card key={queue}>
               <div className="mb-3">
                 <h2 className="font-serif text-lg text-wb-ink">{QUEUE_META[queue].title}</h2>
-                <p className="mt-1 text-[11px] text-wb-ink2">{QUEUE_META[queue].description}</p>
-                <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-wb-sage-deep">{queues[queue].length} handoff{queues[queue].length === 1 ? '' : 's'}</p>
+                <p className="mt-1 text-[12px] text-wb-ink2">{QUEUE_META[queue].description}</p>
+                <p className="mt-2 text-[12px] font-semibold uppercase tracking-wide text-wb-sage-deep">{queues[queue].length} handoff{queues[queue].length === 1 ? '' : 's'}</p>
               </div>
           {isLoading ? (
             <p className="text-[13px] italic text-wb-ink2">Loading engineering handoffs…</p>

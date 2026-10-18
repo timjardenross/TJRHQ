@@ -97,7 +97,7 @@ function revsStatusText(key: RevsKey, active: RevsKey): string {
 function StateTile({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-      <div className="text-[11px] uppercase tracking-wide text-wb-ink2">{label}</div>
+      <div className="text-[12px] uppercase tracking-wide text-wb-ink2">{label}</div>
       <div className="mt-1 text-[13px] text-wb-ink">{value ?? 'Not recorded'}</div>
     </div>
   );
@@ -116,7 +116,7 @@ function NoCurrentCheckinMessage({ data }: { data: RecoveryPayload }) {
   const insufficientHistory = data.system_trajectory === 'insufficient_data';
   return (
     <Card className="md:col-span-2">
-      <div className="text-[11px] uppercase tracking-[0.12em] text-wb-ink2">Capacity Today</div>
+      <div className="text-[12px] uppercase tracking-[0.12em] text-wb-ink2">Capacity Today</div>
       <p className="mt-2 text-[14px] leading-relaxed text-wb-ink">
         No current check-in.{' '}
         {insufficientHistory
@@ -142,7 +142,7 @@ export function CapacityTodayCard({ data }: { data: RecoveryPayload }) {
     <Card className="md:col-span-2">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[11px] uppercase tracking-[0.12em] text-wb-ink2">Capacity Today</div>
+          <div className="text-[12px] uppercase tracking-[0.12em] text-wb-ink2">Capacity Today</div>
           <div className="mt-1 font-serif text-3xl text-wb-ink">
             {data.latest_capacity_state ? CAPACITY_LABEL[data.latest_capacity_state] ?? data.latest_capacity_state : 'No data'}
           </div>
@@ -172,7 +172,7 @@ export function BurnoutRecoveryCard({ data }: { data: RecoveryPayload }) {
   return (
     <Card className="md:col-span-2">
       <div className="flex items-start justify-between gap-3">
-        <div className="text-[11px] uppercase tracking-[0.12em] text-wb-ink2">Burnout &amp; Recovery</div>
+        <div className="text-[12px] uppercase tracking-[0.12em] text-wb-ink2">Burnout &amp; Recovery</div>
         <Badge status={strategicPostureStatus(data.strategic_posture)}>
           {STRATEGIC_POSTURE_LABEL[data.strategic_posture]}
         </Badge>
@@ -336,7 +336,7 @@ export function WhatIsDrivingItCard({ data }: { data: RecoveryPayload }) {
         <div className="mt-3 flex flex-col gap-2">
           {contextNotes.map((n) => (
             <div key={n.key} className="rounded-md border border-wb-line bg-wb-bg p-3">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-wb-ink2">{n.title}</div>
+              <div className="text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">{n.title}</div>
               <p className="mt-1 text-[13px] leading-relaxed text-wb-ink">{n.text}</p>
             </div>
           ))}
@@ -374,7 +374,7 @@ export function MyNextMoveCard({ data }: { data: RecoveryPayload }) {
       ) : (
         <>
           {nm.lever && (
-            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-wb-ink2">{LEVER_LABEL[nm.lever] ?? nm.lever}</div>
+            <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-wb-ink2">{LEVER_LABEL[nm.lever] ?? nm.lever}</div>
           )}
           <p className="mt-1 text-[15px] leading-relaxed text-wb-ink">{nm.intervention_description ?? nm.intervention_title}</p>
           {nm.accepted_at && (
@@ -412,7 +412,7 @@ export function SystemLearningSection({ data, className = 'md:col-span-2' }: { d
     <CollapsibleSection title="Patterns" className={className}>
       <div className="flex flex-col gap-3">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">What I Know</div>
+          <div className="text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">What I Know</div>
           <p className="mt-1 text-[13px] text-wb-ink">
             {data.checkins_last_7d} check-in{data.checkins_last_7d === 1 ? '' : 's'} recorded in the last 7 days.
           </p>
@@ -420,7 +420,7 @@ export function SystemLearningSection({ data, className = 'md:col-span-2' }: { d
 
         {(data.wellness.narrative || data.wellness.risk_flags.length > 0 || data.wellness.positive_flags.length > 0) && (
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Possible Pattern</div>
+            <div className="text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Possible Pattern</div>
             {data.wellness.narrative && (
               <p className="mt-1 text-[13px] leading-relaxed text-wb-ink2">{data.wellness.narrative}</p>
             )}
@@ -446,7 +446,7 @@ export function SystemLearningSection({ data, className = 'md:col-span-2' }: { d
             when real wins exist. */}
         {data.wellness.wins.length > 0 && (
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Wins This Week</div>
+            <div className="text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Wins This Week</div>
             <div className="mt-1 flex flex-col gap-1">
               {data.wellness.wins.map((w, i) => (
                 <div key={i} className="rounded-md border border-wb-line bg-wb-bg p-2 text-[13px] text-wb-ink">
@@ -460,7 +460,7 @@ export function SystemLearningSection({ data, className = 'md:col-span-2' }: { d
         {currentExperiment && (
           <div>
             <div className="flex items-center justify-between gap-2">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Worth Testing</div>
+              <div className="text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Worth Testing</div>
               <Badge status={currentExperiment.status === 'active' ? 'info' : 'neutral'}>
                 {EXPERIMENT_STATUS_LABEL[currentExperiment.status]}
               </Badge>
@@ -471,7 +471,7 @@ export function SystemLearningSection({ data, className = 'md:col-span-2' }: { d
 
         {!currentExperiment && testingSuggestion && (
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Worth Testing</div>
+            <div className="text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Worth Testing</div>
             <p className="mt-1 text-[13px] leading-relaxed text-wb-ink2">{testingSuggestion}</p>
           </div>
         )}
@@ -480,7 +480,7 @@ export function SystemLearningSection({ data, className = 'md:col-span-2' }: { d
             finished and left a result behind. */}
         {changedExperiment && (
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">What Changed</div>
+            <div className="text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">What Changed</div>
             <p className="mt-1 text-[13px] leading-relaxed text-wb-ink">{changedExperiment.hypothesis}</p>
             <p className="mt-1 text-[13px] leading-relaxed text-wb-ink2">{changedExperiment.result}</p>
             <p className="mt-1 text-[12px] text-wb-ink2">
@@ -518,7 +518,7 @@ export function RevsPositionSection({ data, className = 'md:col-span-2' }: { dat
                   : 'rounded-md border border-wb-line bg-wb-bg p-3 text-center'
               }
             >
-              <div className={isCurrent ? 'text-[11px] font-semibold uppercase tracking-wide text-wb-sage-deep' : 'text-[11px] uppercase tracking-wide text-wb-ink2'}>
+              <div className={isCurrent ? 'text-[12px] font-semibold uppercase tracking-wide text-wb-sage-deep' : 'text-[12px] uppercase tracking-wide text-wb-ink2'}>
                 {label}
               </div>
               <div className={isCurrent ? 'mt-1 text-[12px] font-medium text-wb-ink' : 'mt-1 text-[12px] text-wb-ink2'}>
@@ -589,7 +589,7 @@ function ExperimentCard({ experiment: e }: { experiment: CapacityExperiment }) {
           </div>
         </div>
       )}
-      <p className="mt-3 text-[11px] italic text-wb-ink2">
+      <p className="mt-3 text-[12px] italic text-wb-ink2">
         Worth testing, not a commitment — stop it anytime with /experiment on the Capacity Bot if it makes things worse.
       </p>
     </div>

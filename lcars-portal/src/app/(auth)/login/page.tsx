@@ -171,7 +171,7 @@ export default function LoginPage() {
           <div className="mb-5 flex rounded-lg border border-wb-line overflow-hidden">
             <button
               onClick={() => switchMode('password')}
-              className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+              className={`flex-1 py-1.5 text-[12px] font-bold uppercase tracking-wider transition-colors ${
                 mode === 'password'
                   ? 'bg-wb-sage-deep text-white'
                   : 'text-wb-ink2 hover:text-wb-ink'
@@ -181,7 +181,7 @@ export default function LoginPage() {
             </button>
             <button
               onClick={() => switchMode('magic')}
-              className={`flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wider transition-colors ${
+              className={`flex-1 py-1.5 text-[12px] font-bold uppercase tracking-wider transition-colors ${
                 mode === 'magic'
                   ? 'bg-wb-sage-deep text-white'
                   : 'text-wb-ink2 hover:text-wb-ink'
@@ -194,7 +194,7 @@ export default function LoginPage() {
           {/* Password form */}
           {mode === 'password' && (
             <form onSubmit={handlePassword} method="post" action="#" aria-label="Password authentication">
-              <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-wb-ink2">
+              <p className="mb-1 text-[12px] uppercase tracking-[0.25em] text-wb-ink2">
                 Authentication required
               </p>
               <h2 className="mb-4 font-serif text-lg text-wb-ink">
@@ -265,7 +265,7 @@ export default function LoginPage() {
           {/* Magic link form */}
           {mode === 'magic' && !sent && (
             <form onSubmit={handleMagicLink} method="post" action="#" aria-label="Magic link authentication">
-              <p className="mb-1 text-[10px] uppercase tracking-[0.25em] text-wb-ink2">
+              <p className="mb-1 text-[12px] uppercase tracking-[0.25em] text-wb-ink2">
                 Authentication required
               </p>
               <h2 className="mb-4 font-serif text-lg text-wb-ink">
@@ -324,7 +324,7 @@ export default function LoginPage() {
           )}
         </div>
 
-        <p className="mt-4 text-center text-[10px] uppercase tracking-[0.2em] text-wb-ink2">
+        <p className="mt-4 text-center text-[12px] uppercase tracking-[0.2em] text-wb-ink2">
           Starfleet Command · Secure Access · ROS-001 v1.1
         </p>
       </div>

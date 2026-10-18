@@ -173,33 +173,33 @@ export default function ModelCrewPage() {
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
         <Card>
-          <div className="text-[10px] uppercase tracking-wider text-wb-ink2">Ollama</div>
+          <div className="text-[12px] uppercase tracking-wider text-wb-ink2">Ollama</div>
           <div className="mt-1">
             <Badge status={reachable ? 'success' : 'error'}>{reachable ? 'Online' : 'Offline'}</Badge>
           </div>
-          <div className="mt-1 truncate text-[11px] text-wb-ink2">{status?.ollama_url ?? '—'}</div>
+          <div className="mt-1 truncate text-[12px] text-wb-ink2">{status?.ollama_url ?? '—'}</div>
         </Card>
 
         <Card>
-          <div className="text-[10px] uppercase tracking-wider text-wb-ink2">Loaded</div>
+          <div className="text-[12px] uppercase tracking-wider text-wb-ink2">Loaded</div>
           <div className="mt-1 text-lg font-semibold text-wb-ink">{loaded.length}</div>
-          <div className="text-[11px] text-wb-ink2">{loaded.map((m) => MODEL_SHORT[m.name] ?? m.name).join(', ') || 'none'}</div>
+          <div className="text-[12px] text-wb-ink2">{loaded.map((m) => MODEL_SHORT[m.name] ?? m.name).join(', ') || 'none'}</div>
         </Card>
 
         <Card>
-          <div className="text-[10px] uppercase tracking-wider text-wb-ink2">Avg Response</div>
+          <div className="text-[12px] uppercase tracking-wider text-wb-ink2">Avg Response</div>
           <div className="mt-1 text-lg font-semibold text-wb-ink">{avgMs != null ? `${avgMs}ms` : '—'}</div>
-          <div className="text-[11px] text-wb-ink2">last {successCalls.length} calls</div>
+          <div className="text-[12px] text-wb-ink2">last {successCalls.length} calls</div>
         </Card>
 
         <Card>
-          <div className="text-[10px] uppercase tracking-wider text-wb-ink2">Failed / Escalated</div>
+          <div className="text-[12px] uppercase tracking-wider text-wb-ink2">Failed / Escalated</div>
           <div className="mt-1 text-lg font-semibold">
             <span className={failedCount > 0 ? 'text-wb-crit-on' : 'text-wb-ink2'}>{failedCount}</span>
             <span className="mx-1 text-wb-ink2">/</span>
             <span className={escalatedCount > 0 ? 'text-wb-warn-on' : 'text-wb-ink2'}>{escalatedCount}</span>
           </div>
-          <div className="text-[11px] text-wb-ink2">recent {calls.length} calls</div>
+          <div className="text-[12px] text-wb-ink2">recent {calls.length} calls</div>
         </Card>
       </div>
 
@@ -209,7 +209,7 @@ export default function ModelCrewPage() {
             {loaded.map((m) => (
               <div key={m.name} className="flex items-center justify-between text-[13px]">
                 <span className="font-mono text-wb-ink">{m.name}</span>
-                <div className="flex items-center gap-4 text-[11px] text-wb-ink2">
+                <div className="flex items-center gap-4 text-[12px] text-wb-ink2">
                   {m.size_vram != null && <span>VRAM: {fmtBytes(m.size_vram)}</span>}
                   {m.expires_at && <span>expires: {fmt(m.expires_at)}</span>}
                 </div>
@@ -223,7 +223,7 @@ export default function ModelCrewPage() {
         <Card title="Available Models" className="mb-6">
           <div className="flex flex-wrap gap-2">
             {available.map((m) => (
-              <span key={m} className="rounded-md border border-wb-line bg-wb-surface-raised px-2 py-1 font-mono text-[11px] text-wb-ink2">
+              <span key={m} className="rounded-md border border-wb-line bg-wb-surface-raised px-2 py-1 font-mono text-[12px] text-wb-ink2">
                 {m}
               </span>
             ))}
@@ -260,12 +260,12 @@ export default function ModelCrewPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-wb-line">
-                  <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Time</th>
-                  <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Task</th>
-                  <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Model</th>
-                  <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Duration</th>
-                  <th className="pb-2 pr-4 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Status</th>
-                  <th className="pb-2 text-left text-[10px] uppercase tracking-wider text-wb-ink2">Notes</th>
+                  <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Time</th>
+                  <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Task</th>
+                  <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Model</th>
+                  <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Duration</th>
+                  <th className="pb-2 pr-4 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Status</th>
+                  <th className="pb-2 text-left text-[12px] uppercase tracking-wider text-wb-ink2">Notes</th>
                 </tr>
               </thead>
               <tbody>

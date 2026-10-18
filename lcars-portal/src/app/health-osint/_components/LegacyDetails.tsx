@@ -112,11 +112,11 @@ export function LegacyDetails() {
       <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
         {s.source_url ? (
           <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-sage-deep">
-            <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[10px] font-medium uppercase tracking-wide text-wb-ink2 no-underline" /> {s.title}
+            <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[12px] font-medium uppercase tracking-wide text-wb-ink2 no-underline" /> {s.title}
           </a>
         ) : (
           <div className="font-semibold text-wb-ink">
-            <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[10px] font-medium uppercase tracking-wide text-wb-ink2" /> {s.title}
+            <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[12px] font-medium uppercase tracking-wide text-wb-ink2" /> {s.title}
           </div>
         )}
         <div>
@@ -127,7 +127,7 @@ export function LegacyDetails() {
           {typeof s.rank_score === 'number' && <> • Score: {s.rank_score.toFixed(1)}</>}
           {s.published_at && <> • Published {new Date(s.published_at).toLocaleDateString()}</>}
           {discoveredNote && (
-            <span className="ml-1 rounded-full bg-wb-warn/15 px-1.5 py-0.5 text-[10px] font-medium text-wb-warn-on">{discoveredNote}</span>
+            <span className="ml-1 rounded-full bg-wb-warn/15 px-1.5 py-0.5 text-[12px] font-medium text-wb-warn-on">{discoveredNote}</span>
           )}
         </div>
         {s.summary && <div className="mt-1 max-w-[70ch] text-wb-ink2">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
@@ -169,11 +169,11 @@ export function LegacyDetails() {
                 <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                   {s.source_url ? (
                     <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-sage-deep">
-                      <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[10px] font-medium uppercase tracking-wide text-wb-ink2 no-underline" /> {s.title}
+                      <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[12px] font-medium uppercase tracking-wide text-wb-ink2 no-underline" /> {s.title}
                     </a>
                   ) : (
                     <div className="font-semibold text-wb-ink">
-                      <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[10px] font-medium uppercase tracking-wide text-wb-ink2" /> {s.title}
+                      <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[12px] font-medium uppercase tracking-wide text-wb-ink2" /> {s.title}
                     </div>
                   )}
                   <div>{s.category} • {s.confidence_level.toUpperCase()} • {s.source_name} • Score: {s.rank_score?.toFixed?.(1) ?? s.rank_score}</div>
@@ -241,7 +241,7 @@ export function LegacyDetails() {
                 <div key={t.source}>{t.source} → SRS {t.srs_to}</div>
               ))}
             </div>
-            {data.note && <p className="mt-2 max-w-[70ch] text-[11px] italic text-wb-ink2">{data.note}</p>}
+            {data.note && <p className="mt-2 max-w-[70ch] text-[12px] italic text-wb-ink2">{data.note}</p>}
           </Card>
         </div>
       )}
@@ -254,7 +254,7 @@ export function LegacyDetails() {
                 <div key={t.threat} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                   <div className="font-semibold text-wb-ink">
                     {t.threat}
-                    {t.fda_flagged && <StateTag tone="crit" label="FDA-flagged" className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-state-crit" />}
+                    {t.fda_flagged && <StateTag tone="crit" label="FDA-flagged" className="ml-1.5 text-[12px] font-semibold uppercase tracking-wide text-state-crit" />}
                   </div>
                   <div>{t.probability}/{t.impact}/{t.confidence} → {t.escalation.toUpperCase()} {t.frequency_reported ? `• ${t.frequency_reported} reports` : ''}</div>
                   <div className="max-w-[70ch] italic">{t.recommendation}</div>

@@ -16,12 +16,12 @@ export function NextWeekPosture({
   return (
     <Card>
       <h2 className="mb-1 font-serif text-[15px] uppercase tracking-[0.1em] text-wb-ink">Next Week</h2>
-      <p className="mb-1 text-[11px] uppercase tracking-[0.1em] text-wb-ink2">Recommended posture</p>
+      <p className="mb-1 text-[12px] uppercase tracking-[0.1em] text-wb-ink2">Recommended posture</p>
       <p className="mb-3 font-serif text-[20px] text-wb-ink">{data.posture}</p>
       <p className="mb-3 text-[13px] text-wb-ink2">{data.message}</p>
       {data.priorities.length > 0 && (
         <div className="mb-3">
-          <p className="mb-1 text-[11px] uppercase tracking-[0.08em] text-wb-ink2">Priority</p>
+          <p className="mb-1 text-[12px] uppercase tracking-[0.08em] text-wb-ink2">Priority</p>
           <ol className="flex flex-col gap-1 text-[13px] text-wb-ink">
             {data.priorities.map((p, i) => <li key={i}>{i + 1}. {p}</li>)}
           </ol>

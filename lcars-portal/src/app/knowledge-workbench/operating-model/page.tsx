@@ -135,7 +135,7 @@ export default function OperatingModelPage() {
           {loadError && (
             <div className="mb-3 rounded-md border border-state-crit/50 bg-state-crit/10 px-3 py-2 text-xs text-state-crit-on">
               Couldn&rsquo;t load live data — the tiles below may be blank because of a connection error, not because there is nothing to show.
-              <span className="mt-1 block font-mono text-[10px] text-wb-ink2">{loadError}</span>
+              <span className="mt-1 block font-mono text-[12px] text-wb-ink2">{loadError}</span>
             </div>
           )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -157,7 +157,7 @@ export default function OperatingModelPage() {
         </Card>
 
         <Card title="Domains & Capacity Allocation">
-          <p className="mb-3 text-[11px] uppercase tracking-wide text-wb-ink2">Reference · Operational focus (authored doctrine, not live data)</p>
+          <p className="mb-3 text-[12px] uppercase tracking-wide text-wb-ink2">Reference · Operational focus (authored doctrine, not live data)</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {DOMAINS.map((d) => (
               <div key={d.name} className="flex flex-col gap-2 rounded-md border border-wb-line bg-wb-bg p-4">
@@ -173,7 +173,7 @@ export default function OperatingModelPage() {
         </Card>
 
         <Card title="Operating Principles">
-          <p className="mb-3 text-[11px] uppercase tracking-wide text-wb-ink2">Reference · Decision framework (authored doctrine, not live data)</p>
+          <p className="mb-3 text-[12px] uppercase tracking-wide text-wb-ink2">Reference · Decision framework (authored doctrine, not live data)</p>
           <ol className="space-y-3">
             {PRINCIPLES.map((p) => (
               <li key={p.num} className="flex items-start gap-4 rounded-md border border-wb-line bg-wb-bg px-4 py-3">
@@ -188,7 +188,7 @@ export default function OperatingModelPage() {
         </Card>
 
         <Card title="Current Priorities">
-          <p className="mb-3 text-[11px] uppercase tracking-wide text-wb-ink2">This week</p>
+          <p className="mb-3 text-[12px] uppercase tracking-wide text-wb-ink2">This week</p>
           {loading ? (
             <div className="text-sm text-wb-ink2">Loading…</div>
           ) : lastLog?.tomorrows_priority ? (

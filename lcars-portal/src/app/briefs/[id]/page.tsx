@@ -88,7 +88,7 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
               {brief.morning_cycle_id ? ` · Morning cycle ${brief.morning_cycle_id}` : ''}
             </p>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] uppercase tracking-wider text-wb-ink2">Intelligence posture</span>
+              <span className="text-[12px] uppercase tracking-wider text-wb-ink2">Intelligence posture</span>
               <RiskPill value={brief.overall_risk} />
             </div>
           </Card>
@@ -148,7 +148,7 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
                   </div>
                 ))}
               </div>
-              <p className="mt-3 text-[11px] text-wb-ink2">
+              <p className="mt-3 text-[12px] text-wb-ink2">
                 Reflects domains actually assessed in this brief&rsquo;s evidence base. Health OSINT and Emergency
                 Alert Hub are separate systems not yet fused into this synthesis — see{' '}
                 <a href="/agent-job-status-workbench" className="underline">Agent &amp; Job Status</a>.
@@ -219,7 +219,7 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
                     className="rounded-lg border border-wb-line p-3.5 text-left transition-colors hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
                   >
                     <h4 className="mb-2 text-[13.5px] font-semibold leading-snug">{s.raw_title}</h4>
-                    <p className="mb-2 text-[11.5px] text-wb-ink2">
+                    <p className="mb-2 text-[12px] text-wb-ink2">
                       {s.sector ?? '—'} · {s.geography ?? '—'} · {s.source_tier ? `Tier ${s.source_tier}` : '—'}
                     </p>
                     <RiskPill value={s.risk_rating} />

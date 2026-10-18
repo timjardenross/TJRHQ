@@ -64,7 +64,7 @@ function StateBadge({ label, tone }: { label: string; tone: StateTone }) {
   const c = stateToneClasses(tone);
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${c.text} ${c.border} ${c.bg}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-wider ${c.text} ${c.border} ${c.bg}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
       {label}
@@ -89,7 +89,7 @@ function RecoveryPostureBlock({ posture }: { posture: RecoveryPosture }) {
           <p className="mt-2 text-sm text-wb-ink/90 leading-relaxed">{posture.posture_message}</p>
         </div>
         <div className="rounded-lg border border-wb-line bg-wb-bg/60 p-4 flex flex-col gap-1">
-          <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{posture.capacity_band}</p>
+          <p className="text-[12px] uppercase tracking-wider text-wb-ink2">{posture.capacity_band}</p>
           <p className="text-sm text-wb-ink/90 leading-relaxed">{posture.capacity_message}</p>
           {posture.best_window && (
             <p className="text-xs text-wb-ink2 mt-1">Best window: <span className="text-wb-ink">{posture.best_window}</span></p>
@@ -123,7 +123,7 @@ function BodyContextBlock({ ctx }: { ctx: BodyContext }) {
           const c = stateToneClasses(s.tone);
           return (
             <div key={s.label} className={`rounded-lg border ${c.border} ${c.bg} p-3`}>
-              <p className="text-[10px] uppercase tracking-wider text-wb-ink2">{s.label}</p>
+              <p className="text-[12px] uppercase tracking-wider text-wb-ink2">{s.label}</p>
               <p className={`mt-1 text-sm font-semibold ${c.text}`}>{s.value}</p>
             </div>
           );

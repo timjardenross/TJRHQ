@@ -97,7 +97,7 @@ export function DomainToggle<T extends string>({
           >
             {o.label}
             {o.badge != null && o.badge !== '' && o.badge !== 0 && (
-              <span className={`ml-1 text-[11px] ${active ? 'text-white/80' : 'text-wb-ink2'}`}>{o.badge}</span>
+              <span className={`ml-1 text-[12px] ${active ? 'text-white/80' : 'text-wb-ink2'}`}>{o.badge}</span>
             )}
           </button>
         );
