@@ -19,17 +19,25 @@ export const WORDMARK_MIN_WIDTH: Record<WordmarkLayout, number> = {
   compact: 72,
 };
 
-export interface BrandWordmarkProps {
-  layout?: WordmarkLayout;
+interface BrandWordmarkBaseProps {
   surface?: BrandSurface;
-  /** Single-colour lockup without a tile (navy on light, white on dark). */
-  mono?: boolean;
   /** Rendered width in px; clamped up to the layout's minimum. */
   width?: number;
   /** Accessible name. Default "TJR HQ"; pass '' when a sibling already names it. */
   label?: string;
   className?: string;
 }
+
+/**
+ * Mono exists only in the horizontal footprint (bare mark + TJR | HQ), so the
+ * type forbids combining `mono` with the primary or compact layouts instead of
+ * silently substituting a different footprint.
+ */
+export type BrandWordmarkProps = BrandWordmarkBaseProps &
+  (
+    | { layout?: WordmarkLayout; mono?: false }
+    | { layout?: 'horizontal'; /** Single-colour lockup without a tile (navy on light, white on dark). */ mono: true }
+  );
 
 export function brandWordmarkSrc(layout: WordmarkLayout, surface: BrandSurface, mono: boolean): string {
   if (mono) {

@@ -73,6 +73,15 @@ describe('BrandWordmark', () => {
     expect(Number(img.getAttribute('width')) / Number(img.getAttribute('height'))).toBeCloseTo(686.32 / 180, 1);
   });
 
+  it('mono is a horizontal-footprint lockup: its own file, its own aspect, and the type rejects other layouts', () => {
+    const { container } = render(<BrandWordmark mono width={582} />);
+    const img = container.querySelector('img')!;
+    expect(Number(img.getAttribute('width')) / Number(img.getAttribute('height'))).toBeCloseTo(582.88 / 180, 1);
+    // @ts-expect-error the component props reject mono with a non-horizontal layout
+    const bad = <BrandWordmark layout="compact" mono />;
+    expect(bad).toBeTruthy();
+  });
+
   it('maps layout, surface and mono to the shipped files', () => {
     expect(brandWordmarkSrc('primary', 'light', false)).toBe('/brand/hq-wordmark-primary-light.svg');
     expect(brandWordmarkSrc('compact', 'dark', false)).toBe('/brand/hq-wordmark-compact-dark.svg');

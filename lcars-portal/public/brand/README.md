@@ -32,3 +32,11 @@ Use the components, not raw paths: `import { BrandMark, BrandWordmark } from '@/
 - **Stage 0 changes nothing visible.** The components and files are not used by any page yet.
 - **First paint, manifest and theme colours are unchanged** (`manifest.webmanifest`, both `themeColor` values). They change once, from the re-themed tokens, when the light-default re-theme ships. Icons only change in Stage 1 (with a service-worker cache bump and `cache: 'reload'`).
 - `--brand-*` tokens are additive; no `--wb-*` value changes or maps to them yet.
+
+## Gates carried to later stages (independent review of Stage 0, 2026-10-18)
+
+- **Dark surface below 24 px:** no heavier-stroke dark cut exists. Add one before any dark-surface use under 24 px (Stage 2 uses 36 px).
+- **Rendered checks:** the unit tests check constants, files and viewBox ratios only. Descriptor size, raster legibility and optical distinction at 16/32/64 px are rendered-output gates for the implementation stage, not proven here.
+- **Forced colours:** `scripts/brand/check-forced-colours.mjs` is evidence for Chromium on this harness only. Windows High Contrast, other browsers, screen readers and devices are validated at the component release gate.
+- **Release record:** before closing Stage 0, record the owner decision and re-check that no page imports these components and no `--wb-*` value changed.
+- `mono` wordmark is horizontal-only; the component type rejects other layouts.
