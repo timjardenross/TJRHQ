@@ -47,6 +47,13 @@
    Every pairing is contrast-computed in `src/__tests__/tokenContrast.test.ts`
    (WCAG relative luminance, parsed from this file, so values cannot drift
    unnoticed). `--wb-gold` stays fills/borders only (fails AA as text).
+
+   Supported text pairings (all guarded): ink, ink2, sage and sand-deep on
+   bg, surface and surface-raised in BOTH sets; sage-deep as text on the
+   light set only. Not text colours, by design: `--wb-sage-deep` in the dark
+   set (fill-only on dark, with white text on top) and the status `-on`
+   colours (light-surface-only text, so status pills are not supported under
+   a dark scope; fix before any page opts into mode="dark").
    `--wb-ok/--wb-warn/--wb-crit` and state-* stay theme-invariant, with
    mandatory bg/border-paired `-on` usage per `stateToneClasses()`
    (lib/departments.ts). */

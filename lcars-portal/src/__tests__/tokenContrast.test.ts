@@ -52,31 +52,30 @@ describe.each([
     }
   });
 
-  it('the interactive blue passes 4.5:1 as text on bg and surface', () => {
-    for (const bg of ['bg', 'surface']) expect(ratio(t.sage, t[bg]), `sage on ${bg}`).toBeGreaterThanOrEqual(4.5);
+  it('the interactive blue and the text-safe sand pass 4.5:1 as text on bg, surface and raised surfaces', () => {
+    for (const fg of ['sage', 'sand-deep']) {
+      for (const bg of ['bg', 'surface', 'surface-raised']) {
+        expect(ratio(t[fg], t[bg]), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
   });
 
   it('white text on the fill blue (sage-deep) passes 4.5:1, so buttons stay legible', () => {
     expect(ratio('#FFFFFF', t['sage-deep'])).toBeGreaterThanOrEqual(4.5);
   });
-
-  it('the text-safe sand passes 4.5:1 on bg', () => {
-    expect(ratio(t['sand-deep'], t.bg)).toBeGreaterThanOrEqual(4.5);
-  });
 });
 
 describe('light set specifics', () => {
-  it('sage-deep is also text-safe on the light surfaces (links, pressed state)', () => {
-    for (const bg of ['bg', 'surface']) expect(ratio(light['sage-deep'], light[bg])).toBeGreaterThanOrEqual(4.5);
+  it('sage-deep is also text-safe on every light surface (links, pressed state)', () => {
+    for (const bg of ['bg', 'surface', 'surface-raised']) expect(ratio(light['sage-deep'], light[bg]), bg).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('the status text colours (-on) stay legible on the light bg and surface', () => {
+  it('the status text colours (-on) stay legible on every light surface', () => {
     // status tokens live in a later :root block; read them directly
     const m = [...noComments.matchAll(/--wb-(ok|warn|crit)-on:\s*(#[0-9A-Fa-f]{6})/g)];
     expect(m.length).toBe(3);
     for (const [, , hex] of m) {
-      expect(ratio(hex, light.bg), hex).toBeGreaterThanOrEqual(4.5);
-      expect(ratio(hex, light.surface), hex).toBeGreaterThanOrEqual(4.5);
+      for (const bg of ['bg', 'surface', 'surface-raised']) expect(ratio(hex, light[bg]), `${hex} on ${bg}`).toBeGreaterThanOrEqual(4.5);
     }
   });
 });
@@ -92,5 +91,13 @@ describe('dark scopes', () => {
     const m = noComments.match(/\[data-wb-chrome='dark'\],\s*\[data-wb-mode='dark'\]\s*\{([^}]*)\}/);
     expect(m).not.toBeNull();
     expect(m![1]).toMatch(/color:\s*var\(--wb-ink\)/);
+  });
+});
+
+describe('documented non-text tokens', () => {
+  it('records that dark sage-deep and the status -on colours are not text colours on dark surfaces', () => {
+    expect(css).toMatch(/Not text colours, by design/);
+    expect(css).toMatch(/`--wb-sage-deep` in the dark\s+set \(fill-only on dark/);
+    expect(css).toMatch(/status `-on`\s+colours \(light-surface-only text/);
   });
 });
