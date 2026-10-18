@@ -147,7 +147,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-wb-bg px-4 font-sans antialiased">
+    <main className="flex min-h-screen items-center justify-center bg-wb-bg px-4 font-sans antialiased">
       <div className="w-full max-w-md">
 
         {/* Header */}
@@ -331,6 +331,6 @@ export default function LoginPage() {
           Starfleet Command · Secure Access · ROS-001 v1.1
         </p>
       </div>
-    </div>
+    </main>
   );
 }
