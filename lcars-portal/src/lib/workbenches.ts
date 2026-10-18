@@ -77,7 +77,7 @@ export const WORKBENCH_GROUP_META: Record<WorkbenchGroup, { label: string; hint:
   operations: { label: 'Operations', hint: 'Move work through: missions, content and capture' },
   assurance: { label: 'Assurance', hint: 'Is HQ healthy, and what is awaiting review' },
   insights: { label: 'Insights', hint: 'Look back, learn, and think through decisions' },
-  personal: { label: 'Moving to TJR Life', hint: 'Personal features that are moving out of HQ into TJR Life' },
+  personal: { label: 'Personal', hint: 'Health, journal and personal data that HQ aggregates' },
 };
 
 export interface WorkbenchEntry {
