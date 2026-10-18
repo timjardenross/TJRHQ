@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Settings, HelpCircle, type LucideIcon } from 'lucide-react';
 import { BrandMark } from '@/components/brand';
+import { SignOutButton } from '@/components/SignOutButton';
 import { LIVE_WORKBENCHES, WORKBENCH_GROUP_META, type WorkbenchGroup } from '@/lib/workbenches';
 
 const GROUP_ORDER = Object.keys(WORKBENCH_GROUP_META) as WorkbenchGroup[];
@@ -118,6 +119,7 @@ export function Sidebar() {
             active={!link.disabled && isActive(link.href)}
           />
         ))}
+        <SignOutButton className="w-full" />
         {/* Mission §1.1: mockups show this motto in every sidebar footer —
             real copy from the source brief, not fabricated here, but not
             yet Captain-confirmed as final (see mission doc §1.1). */}
