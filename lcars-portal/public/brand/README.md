@@ -50,3 +50,9 @@ Use the components, not raw paths: `import { BrandMark, BrandWordmark } from '@/
 - **Failed precache:** the worker installs only if every precached file is fetched; otherwise the install is rejected, the previous worker and its cache stay, and the partial cache is removed.
 - **Rollback:** revert the files AND bump the cache name again (v3), keeping `cache: 'reload'`. A plain revert to `v1` can re-serve the new icons from the HTTP cache where assets carry a long `max-age`.
 - **iOS:** an existing home-screen icon will not update until the app is removed and re-added to the Home Screen.
+
+## Stage 3: share image, reset page, wording
+
+- `src/app/opengraph-image.tsx` renders the primary lockup on mist (1200x630). The edge renderer cannot read files, so `src/app/ogLockup.ts` embeds the SVG as a data URI; regenerate with `node scripts/brand/gen-og-lockup.mjs` after any lockup change (a test fails if they drift).
+- `auth/reset-password` has the same heading as login: dark-surface mark, plain "TJR HQ".
+- "Endeavour 27" is gone from visible strings and page metadata (`(auth)/layout.tsx`, `(app)/layout.tsx`, the OG image). Code comments that cite the old mission are history and stay.

@@ -10,7 +10,7 @@ import { SHIP } from '@/lib/mockData';
 export const metadata: Metadata = {
   title: 'TJR HQ',
   description:
-    "Private TJR HQ command centre for Endeavour 27 — missions, intelligence, and recovery operations.",
+    "Private TJR HQ command centre — missions, intelligence, and recovery operations.",
   robots: {
     index: false,
     follow: false,
@@ -54,7 +54,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           className="mt-3 rounded-md border border-[#b7c5dc] bg-white px-3 py-2 text-xs text-[#61718c]"
           role="note"
         >
-          Compatibility route: this older command-centre surface is retained for bookmarks only. Use the linked Endeavour 27 workbench destination for current workflows.
+          Compatibility route: this older command-centre surface is retained for bookmarks only. Use the linked workbench destination for current workflows.
         </aside>
         <div className="mt-4 flex flex-1 flex-col gap-4 lg:flex-row">
           <LCARSNav />
@@ -68,7 +68,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </span>
           <div className="flex items-center gap-4">
             <span className="uppercase tracking-[0.2em]">
-              TJR HQ · Endeavour 27
+              TJR HQ
             </span>
             <SignOutButton />
           </div>
