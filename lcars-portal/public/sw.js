@@ -6,7 +6,11 @@
  * and to back Web Notifications fired by the app.
  */
 
-const CACHE = 'lcars-static-v1';
+// Bump this whenever any file in STATIC_ASSETS changes: the activate handler
+// below deletes every other cache, and a changed name is what makes installed
+// copies fetch the new icons/manifest (cache-first never revalidates). v2:
+// TJR HQ brand icons (brand identity Stage 1).
+const CACHE = 'lcars-static-v2';
 const STATIC_ASSETS = [
   '/icon-192.png',
   '/icon-512.png',
@@ -16,8 +20,18 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(STATIC_ASSETS)).catch(() => {}));
-  self.skipWaiting();
+  // The precache must fully succeed before this worker takes over: activation
+  // deletes every other cache, so a half-filled v2 must never replace a
+  // working v1. On any failure the install is rejected (the previous worker and
+  // its cache stay in place and the browser retries on its next update check)
+  // and the partial cache is removed.
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((c) => c.addAll(STATIC_ASSETS.map((u) => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+      .catch((err) => caches.delete(CACHE).then(() => { throw err; })),
+  );
 });
 
 self.addEventListener('activate', (event) => {
