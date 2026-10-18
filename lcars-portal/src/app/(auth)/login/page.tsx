@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 import { BrandMark } from '@/components/brand';
+import { Button } from '@/components/ui/Button';
 
 type Mode = 'password' | 'magic';
 
@@ -234,22 +235,23 @@ export default function LoginPage() {
                   required
                   disabled={loading}
                 />
-                <button
+                <Button
                   type="submit"
+                  caps
+                  fullWidth
                   disabled={loading}
-                  className="w-full rounded-md bg-wb-sage-deep px-4 py-2 text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   aria-busy={loading}
                 >
                   {loading ? 'Authenticating…' : 'Access Bridge'}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="link"
                   onClick={handleForgotPassword}
                   disabled={loading}
-                  className="self-start text-xs text-wb-ink2 underline underline-offset-2 hover:text-wb-ink disabled:opacity-40"
                 >
                   Forgot password?
-                </button>
+                </Button>
                 {resetSent && (
                   <p role="status" className="rounded border border-state-ok/50 bg-state-ok/10 px-2 py-1 text-xs text-state-ok-on">
                     If an account exists for that email, a reset link is on its way. It works once and expires in 1 hour.
@@ -292,14 +294,15 @@ export default function LoginPage() {
                     aria-describedby={error ? 'login-error' : undefined}
                   />
                 </div>
-                <button
+                <Button
                   type="submit"
+                  caps
+                  fullWidth
                   disabled={loading || !email.trim()}
-                  className="w-full rounded-md bg-wb-sage-deep px-4 py-2 text-sm font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   aria-busy={loading}
                 >
                   {loading ? 'Sending…' : 'Send Access Link'}
-                </button>
+                </Button>
                 {error && (
                   <p id="login-error" role="alert" className="rounded border border-state-crit/50 bg-state-crit/10 px-2 py-1 text-xs text-state-crit-on">{error}</p>
                 )}
