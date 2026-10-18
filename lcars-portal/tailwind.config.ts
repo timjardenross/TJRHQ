@@ -127,6 +127,9 @@ const config: Config = {
           'ok-on':   'var(--wb-ok-on)',
           'warn-on': 'var(--wb-warn-on)',
           'crit-on': 'var(--wb-crit-on)',
+          'ok-fill':   'var(--wb-ok-fill)',
+          'warn-fill': 'var(--wb-warn-fill)',
+          'crit-fill': 'var(--wb-crit-fill)',
           // Gradient endpoint for the escalation "critical incident" banner
           // (white text on top — high contrast preserved at both ends).
           'crit-deep': 'var(--wb-crit-deep)',

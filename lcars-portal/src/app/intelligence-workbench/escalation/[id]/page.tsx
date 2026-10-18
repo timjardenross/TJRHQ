@@ -99,7 +99,7 @@ export default function Escalation({ params }: { params: { id: string } }) {
         <p className="text-[13px] text-wb-ink2">Brief not found.</p>
       ) : (
         <>
-          <div className="mb-6 flex items-center gap-3.5 rounded-lg bg-gradient-to-r from-wb-crit-on to-wb-crit-deep px-5 py-4 text-white">
+          <div className="mb-6 flex items-center gap-3.5 rounded-lg bg-gradient-to-r from-wb-crit-fill to-wb-crit-deep px-5 py-4 text-white">
             <span className="h-3 w-3 animate-pulse rounded-full bg-white" aria-hidden />
             <div>
               <div className="font-serif text-[20px]" role="status" aria-live="assertive">
@@ -133,7 +133,7 @@ export default function Escalation({ params }: { params: { id: string } }) {
                 Send Telegram Alert
               </button>
               <button disabled={!!busy} onClick={() => act('brief.escalate', {}, 'Escalate to Captain')}
-                className="rounded-md border border-wb-warn-on bg-wb-warn-on px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-warn-on">
+                className="rounded-md border border-wb-warn-fill bg-wb-warn-fill px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-warn-on">
                 Escalate to Captain
               </button>
             </div>
