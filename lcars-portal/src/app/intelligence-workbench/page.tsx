@@ -343,7 +343,7 @@ function Workbench() {
 
   return (
     <WorkbenchShell
-      title="Technical OSINT Workbench"
+      title="Technical OSINT"
       eyebrow="Cyber & Infrastructure Intelligence"
       tagline="TJR HQ · Your daily technical intelligence briefing"
       tabs={!showAnalyst ? <DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Technical OSINT sections" /> : undefined}

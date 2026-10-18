@@ -103,7 +103,7 @@ function Workbench() {
 
   return (
     <WorkbenchShell
-      title="Content Workbench"
+      title="Content"
       eyebrow="Your personal AI-assisted content desk"
       tagline="TJR HQ · Content Workbench · Capture to publish, AI prepares, you decide"
       right={!selectedContentId ? captureBar : null}
