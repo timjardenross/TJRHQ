@@ -168,10 +168,6 @@
 }
 
 @layer components {
-  .endeavour-brand-mark {
-    @apply grid place-items-center rounded-xl border border-wb-sand bg-wb-bg text-wb-sand shadow-[0_0_0_1px_rgba(214,184,140,0.12),0_8px_24px_rgba(0,0,0,0.22)];
-  }
-
   .endeavour-command-hero {
     @apply relative overflow-hidden rounded-2xl border border-wb-line bg-wb-surface px-5 py-6 shadow-[0_18px_50px_rgba(0,0,0,0.18)] sm:px-7 sm:py-8;
     background-image:

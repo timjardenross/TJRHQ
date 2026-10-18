@@ -35,6 +35,7 @@ import { MobileCommandBar } from '@/components/MobileCommandBar';
 import { NumberOne } from './NumberOne';
 import { QuickCapture } from './QuickCapture';
 import { Sidebar } from './Sidebar';
+import { BrandMark } from '@/components/brand';
 import { AttentionControls } from '@/components/AttentionControls';
 import { ActionHistoryPanel } from '@/components/FocusLane';
 import { trackTaskEvent } from '@/lib/taskTelemetry';
@@ -181,12 +182,17 @@ export function WorkbenchShell({
               underneath it. Solid bg-wb-bg is the correct, simpler fix. */}
           <header className="border-b border-wb-line bg-wb-bg">
             <div className={`mx-auto flex ${shellWidth} flex-wrap items-center gap-3 px-6 py-4`}>
+              {/* Brand mark (TJR HQ identity, Stage 2). Replaces the triangle glyph
+                  in the same 36 px slot. The link carries the accessible name; the
+                  mark is decorative. Read mode puts this header on the light
+                  surface, so it gets the navy tile; every other mode is dark chrome
+                  and gets the inverted tile. */}
               <Link
                 href={GLOBAL_HOME}
-                className="endeavour-brand-mark h-9 w-9 shrink-0 text-[13px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink xl:hidden"
+                className="flex h-9 w-9 shrink-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink xl:hidden"
                 aria-label="Workbenches home"
               >
-                △
+                <BrandMark surface={mode === 'read' ? 'light' : 'dark'} size={36} />
               </Link>
               <div className="leading-tight">
                 <h1 className="font-serif text-[17px]">{title}</h1>
