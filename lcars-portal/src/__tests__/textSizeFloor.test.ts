@@ -22,24 +22,62 @@ function walk(dir: string, out: string[] = []): string[] {
 const files = walk(root);
 const rel = (p: string) => path.relative(process.cwd(), p);
 
-// Tailwind arbitrary sizes in px or rem (1rem = 16px), e.g. text-[11px], sm:text-[0.7rem]
-const ARBITRARY = /text-\[(\d+(?:\.\d+)?)(px|rem)\]/g;
+// Bounds of this guard: it enforces the floor on SOURCE (typed, rem, em, clamp/min/max,
+// CSS and inline forms). CSS generated at build time or set at runtime is not
+// inspected here; that stays a visual/release gate.
+//
+// A length in px, rem or em. em is relative to the parent, so it is judged
+// against a 16 px parent (conservative: flags em values below 0.75).
+const toPx = (n: string, unit: string) => (unit === 'px' ? Number(n) : Number(n) * 16);
+const LEN = /(\d+(?:\.\d+)?)(px|rem|em)\b/g;
+
+// Tailwind arbitrary text sizes: text-[11px], text-[0.7rem], typed
+// text-[length:11px], and function forms such as text-[clamp(10px,1vw,14px)] or
+// text-[max(9px,1em)]. Colour forms (text-[#fff], text-[color:...], text-[var(--x)])
+// are not sizes and are skipped.
+const ARBITRARY = /text-\[([^\]]+)\]/g;
+function arbitraryOffences(src: string): string[] {
+  const out: string[] = [];
+  for (const m of src.matchAll(ARBITRARY)) {
+    const body = m[1];
+    if (/^(#|color:|rgb|hsl|var\(--[a-z0-9-]*(color|ink|text)[a-z0-9-]*\))/i.test(body)) continue;
+    const typed = body.replace(/^length:/, '');
+    // any length literal inside the arbitrary value (covers clamp/min/max): every literal must meet the floor
+    for (const l of typed.matchAll(LEN)) {
+      if (toPx(l[1], l[2]) < FLOOR_PX) out.push(m[0]);
+    }
+    // a size built only from a variable or calc() cannot be judged statically
+    if (/^(length:)?(var\(|calc\()/.test(body) && !LEN.test(typed)) out.push(`${m[0]} (unresolvable size)`);
+    LEN.lastIndex = 0;
+  }
+  return out;
+}
+
+// Plain CSS font-size declarations and inline-style font sizes (numbers or strings).
+function declarationOffences(src: string): string[] {
+  const out: string[] = [];
+  for (const m of src.matchAll(/font-size:\s*([^;}]+)/g)) {
+    const v = m[1];
+    for (const l of v.matchAll(LEN)) if (toPx(l[1], l[2]) < FLOOR_PX) out.push(`font-size ${v.trim()}`);
+    if (/^(var\(|calc\()/.test(v.trim()) && !/(\d+(?:\.\d+)?)(px|rem|em)/.test(v)) out.push(`font-size ${v.trim()} (unresolvable size)`);
+    LEN.lastIndex = 0;
+  }
+  for (const m of src.matchAll(/fontSize:\s*(?:(\d+(?:\.\d+)?)\b(?!\s*\*)|['"]([^'"]+)['"])/g)) {
+    if (m[1] !== undefined) {
+      if (Number(m[1]) < FLOOR_PX) out.push(`fontSize ${m[1]}`);
+    } else {
+      for (const l of m[2].matchAll(LEN)) if (toPx(l[1], l[2]) < FLOOR_PX) out.push(`fontSize '${m[2]}'`);
+    }
+    LEN.lastIndex = 0;
+  }
+  return out;
+}
 
 function offenders(): string[] {
   const out: string[] = [];
   for (const f of files) {
     const src = readFileSync(f, 'utf8');
-    for (const m of src.matchAll(ARBITRARY)) {
-      const px = m[2] === 'rem' ? Number(m[1]) * 16 : Number(m[1]);
-      if (px < FLOOR_PX) out.push(`${rel(f)}: ${m[0]}`);
-    }
-    // plain CSS and inline-style font sizes
-    for (const m of src.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)) {
-      if (Number(m[1]) < FLOOR_PX) out.push(`${rel(f)}: font-size ${m[1]}px`);
-    }
-    for (const m of src.matchAll(/fontSize:\s*(\d+(?:\.\d+)?)\b(?!\s*\*)/g)) {
-      if (Number(m[1]) < FLOOR_PX) out.push(`${rel(f)}: fontSize ${m[1]}`);
-    }
+    for (const o of [...arbitraryOffences(src), ...declarationOffences(src)]) out.push(`${rel(f)}: ${o}`);
   }
   return out;
 }
@@ -58,13 +96,25 @@ describe('text size floor (design uplift Stage A2a)', () => {
     expect(cfg).not.toMatch(/fontSize:\s*\{[^}]*['"]?(2xs|3xs)['"]?\s*:/);
   });
 
-  it('the matcher itself works: it flags 11px, 0.7rem and 11.5px, and accepts 12px, 12.5px and 0.75rem', () => {
-    const flagged = (s: string) => [...s.matchAll(ARBITRARY)].some((m) => (m[2] === 'rem' ? Number(m[1]) * 16 : Number(m[1])) < FLOOR_PX);
-    expect(flagged('text-[11px]')).toBe(true);
-    expect(flagged('sm:text-[0.7rem]')).toBe(true);
-    expect(flagged('text-[11.5px]')).toBe(true);
-    expect(flagged('text-[12px]')).toBe(false);
-    expect(flagged('text-[12.5px]')).toBe(false);
-    expect(flagged('text-[0.75rem]')).toBe(false);
+  it('the matcher flags every supported way to write a sub-12 px size, and accepts 12 px and above', () => {
+    const bad = [
+      'text-[11px]', 'sm:text-[0.7rem]', 'text-[11.5px]', 'text-[length:11px]', 'text-[0.5em]',
+      'text-[clamp(10px,1vw,14px)]', 'text-[max(9px,1em)]', 'text-[length:var(--x)]',
+    ];
+    for (const c of bad) expect(arbitraryOffences(`className="${c}"`).length, c).toBeGreaterThan(0);
+    const good = [
+      'text-[12px]', 'text-[12.5px]', 'text-[0.75rem]', 'text-[length:13px]', 'text-[clamp(12px,1vw,14px)]',
+      'text-[#fff]', 'text-[color:#102B46]', 'text-[var(--wb-ink)]', 'text-[1em]',
+    ];
+    for (const c of good) expect(arbitraryOffences(`className="${c}"`), c).toEqual([]);
+  });
+
+  it('the declaration matcher flags sub-12 px CSS and inline sizes in every unit and form', () => {
+    for (const c of ['font-size: 11px', 'font-size: 0.7rem', 'font-size: 0.5em', 'font-size: clamp(10px, 1vw, 14px)', 'font-size: var(--tiny)', "fontSize: '11px'", "fontSize: '0.7rem'", 'fontSize: 11']) {
+      expect(declarationOffences(c).length, c).toBeGreaterThan(0);
+    }
+    for (const c of ['font-size: 12px', 'font-size: 1rem', 'font-size: 16px', "fontSize: '12px'", 'fontSize: 12', 'fontSize: 28']) {
+      expect(declarationOffences(c), c).toEqual([]);
+    }
   });
 });
