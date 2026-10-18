@@ -1,0 +1,115 @@
+'use client';
+
+// Exercise catalogue (physical_exercises), moved into Knowledge on 2026-10-18 from the retired
+// Physical Readiness area (was /physical-readiness/library). Shown as the Exercises tab of the
+// Knowledge workbench.
+
+import { useEffect, useState } from 'react';
+import { stateToneClasses } from '@/lib/departments';
+import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { youtubeSearchUrl, type ExerciseRow } from '@/lib/physical-readiness';
+import type { StateTone } from '@/lib/types';
+
+const STATUS_TONE: Record<string, StateTone> = {
+  active: 'ok',
+  avoid: 'crit',
+  needs_review: 'warn',
+};
+
+function groupByEquipment(exercises: ExerciseRow[]): [string, ExerciseRow[]][] {
+  const groups = new Map<string, ExerciseRow[]>();
+  for (const ex of exercises) {
+    const list = groups.get(ex.equipment) ?? [];
+    list.push(ex);
+    groups.set(ex.equipment, list);
+  }
+  return Array.from(groups.entries());
+}
+
+export function ExerciseLibraryView({ onCount }: { onCount?: (n: number) => void } = {}) {
+  const [exercises, setExercises] = useState<ExerciseRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    (async () => {
+      const { data } = await supabase.from('physical_exercises').select('*').order('equipment').order('name');
+      const rows = (data as ExerciseRow[]) ?? [];
+      setExercises(rows);
+      onCount?.(rows.length);
+      setLoading(false);
+    })();
+  }, []);
+
+  const groups = groupByEquipment(exercises);
+
+  return (
+    <>
+      {loading ? (
+        <p className="text-xs text-wb-ink2 animate-pulse">Loading exercise library…</p>
+      ) : (
+        <div className="space-y-4">
+          <div className="rounded-lg border border-wb-line bg-white p-4">
+            <p className="text-xs text-wb-ink2">
+              The personal exercise catalogue. Status shows which exercises are active, which to avoid, and which
+              still need review.
+            </p>
+          </div>
+
+          {groups.map(([equipment, group]) => (
+            <div key={equipment} className="rounded-lg border border-wb-line bg-white p-4">
+              <h2 className="mb-1 text-sm font-semibold text-wb-ink">{equipment}</h2>
+              <p className="mb-3 text-wb-label text-wb-ink2">{group.length} exercise{group.length === 1 ? '' : 's'}</p>
+              <div className="space-y-2">
+                {group.map((ex) => {
+                  const expanded = expandedId === ex.id;
+                  const tone = STATUS_TONE[ex.status] ?? 'unknown';
+                  const c = stateToneClasses(tone);
+                  return (
+                    <div key={ex.id} className="rounded-lg border border-wb-line bg-wb-bg">
+                      <button
+                        onClick={() => setExpandedId(expanded ? null : ex.id)}
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-wb-ink">{ex.name}</p>
+                          <p className="text-wb-label capitalize text-wb-ink2">{ex.movement_pattern} · {ex.difficulty}</p>
+                        </div>
+                        <span className={`rounded-full border px-2.5 py-0.5 text-wb-label font-semibold uppercase tracking-wider ${c.border} ${c.bg} ${c.text}`}>
+                          {ex.status.replace('_', ' ')}
+                        </span>
+                      </button>
+                      {expanded && (
+                        <div className="space-y-2 border-t border-wb-line px-3 py-3 text-xs">
+                          <p><span className="uppercase tracking-wider text-wb-ink2">Muscles: </span>{ex.primary_muscles_json.join(', ')}</p>
+                          <p><span className="uppercase tracking-wider text-wb-ink2">Default: </span>{ex.default_sets} x {ex.default_reps || '—'}{ex.default_duration_minutes ? ` (~${ex.default_duration_minutes} min)` : ''}</p>
+                          {Object.keys(ex.pain_cautions_json ?? {}).length > 0 && (
+                            <p className="text-wb-warn-on">
+                              <span className="uppercase tracking-wider text-wb-ink2">Pain caution: </span>
+                              {Object.entries(ex.pain_cautions_json).map(([k, v]) => `${k.replace('_', ' ')} ≥ ${v}/10`).join(', ')}
+                            </p>
+                          )}
+                          {ex.regression && <p><span className="uppercase tracking-wider text-wb-ink2">Regression: </span>{ex.regression}</p>}
+                          {ex.progression && <p><span className="uppercase tracking-wider text-wb-ink2">Progression: </span>{ex.progression}</p>}
+                          <a
+                            href={ex.preferred_video_url || youtubeSearchUrl(ex.video_search_query)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 inline-block w-fit rounded-lg border border-wb-line px-3 py-1.5 text-wb-label font-semibold uppercase tracking-wider text-wb-ink2 hover:border-wb-sage-deep/60"
+                          >
+                            Find Guide Video ↗
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}

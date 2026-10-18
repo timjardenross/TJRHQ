@@ -7,10 +7,11 @@
 // /workbenches; not promoted into the LCARS navigation model. The two domains
 // are views over organisational decisions and personal documents.
 
-import { Suspense } from 'react';
-import { useRouter } from 'next/navigation';
-import { WorkbenchShell } from '@/components/ui';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { DomainToggle, WorkbenchShell } from '@/components/ui';
 import { MemoryView } from './_components/MemoryView';
+import { ExerciseLibraryView } from './_components/ExerciseLibraryView';
 
 // Library (document cataloguing/review, MSN-0331) pulled back to draft
 // 2026-08-22, Captain directive — mid-setup, not fully operational, hidden
@@ -20,10 +21,26 @@ import { MemoryView } from './_components/MemoryView';
 
 const OPERATING_MODEL_HREF = '/knowledge-workbench/operating-model';
 
+type KnowledgeTab = 'memory' | 'exercises';
+const TAB_OPTIONS: { key: KnowledgeTab; label: string }[] = [
+  { key: 'memory', label: 'Memory' },
+  { key: 'exercises', label: 'Exercises' },
+];
+
 function Workbench() {
   const router = useRouter();
+  const params = useSearchParams();
+  // ?tab=exercises is where the retired /physical-readiness/library redirects.
+  const [tab, setTab] = useState<KnowledgeTab>(params.get('tab') === 'exercises' ? 'exercises' : 'memory');
+  const changeTab = (next: KnowledgeTab) => {
+    setTab(next);
+    const url = new URL(window.location.href);
+    if (next === 'exercises') url.searchParams.set('tab', 'exercises');
+    else url.searchParams.delete('tab');
+    window.history.replaceState(null, '', url);
+  };
 
-  const tabsRow = (
+  const operatingModel = (
     // "Real navigation, not a tab" (same treatment as Human Systems'
     // TRENDS/REPORT/WEIGHT buttons) — Operating Model relocated here
     // (Mission 7 deferred-register item 11, closed by Captain direction)
@@ -36,17 +53,27 @@ function Workbench() {
       OPERATING MODEL →
     </button>
   );
+  const tabsRow = (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <DomainToggle value={tab} onChange={changeTab} options={TAB_OPTIONS} ariaLabel="Knowledge views" />
+      {operatingModel}
+    </div>
+  );
 
   return (
-    <WorkbenchShell wide title="Knowledge" eyebrow="Command Memory"
-      tagline="TJR HQ · Knowledge · Memory · Organisational decisions"
+    <WorkbenchShell wide title="Knowledge" eyebrow={tab === 'exercises' ? 'Exercise catalogue' : 'Command Memory'}
+      tagline={tab === 'exercises' ? 'TJR HQ · Knowledge · Exercises' : 'TJR HQ · Knowledge · Memory · Organisational decisions'}
       tabs={tabsRow}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       mode="command">
-      <div className="risk-reference-surface risk-reference-read">
-        <div className="risk-reference-kicker">Read / discovery · memory with provenance</div>
-        <MemoryView />
-      </div>
+      {tab === 'exercises' ? (
+        <ExerciseLibraryView />
+      ) : (
+        <div className="risk-reference-surface risk-reference-read">
+          <div className="risk-reference-kicker">Read / discovery · memory with provenance</div>
+          <MemoryView />
+        </div>
+      )}
     </WorkbenchShell>
   );
 }

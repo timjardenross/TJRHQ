@@ -25,10 +25,10 @@ describe('workbench navigation groups (Stage C)', () => {
     expect(g('/engineering-handoffs')).toBeUndefined();
   });
 
-  it('keeps the six personal features together', () => {
+  it('keeps the remaining personal features together (Focus and Physical Readiness are retired)', () => {
     const personal = LIVE_WORKBENCHES.filter((w) => w.group === 'personal').map((w) => w.href).sort();
     expect(personal).toEqual(
-      ['/focus-workbench', '/hub', '/human-systems-workbench', '/physical-readiness', '/ready-room', '/shopping-list-workbench'].sort(),
+      ['/hub', '/human-systems-workbench', '/ready-room', '/shopping-list-workbench'].sort(),
     );
   });
 });

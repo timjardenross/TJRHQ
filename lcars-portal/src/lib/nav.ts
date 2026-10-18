@@ -27,7 +27,7 @@ const VALID_NAV_HREFS = [
   '/engineering-queue', '/intelligence', '/comms', '/alerts', '/missions',
   '/medical', '/operations', '/captains-log', '/captains-notebook',
   '/captains-brief', '/captains-brief-workbench', '/briefs', '/delivery', '/automation-centre', '/model-crew',
-  '/physical-readiness',
+  '/ready-room',
   // MSN-0344: found missing here despite being live in NAV_SECTIONS since
   // MSN-0328 (WP-B) — this list had silently drifted from the real nav.
   '/human-systems', '/recovery-brief', '/stage-progression', '/engineering',
