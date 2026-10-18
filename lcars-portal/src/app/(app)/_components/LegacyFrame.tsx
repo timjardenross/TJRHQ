@@ -6,7 +6,7 @@ import { WorkbenchShell } from '@/components/ui/WorkbenchShell';
 
 // Pages that already render their own WorkbenchShell; wrapping them again would nest two
 // shells (two sidebars, two headers).
-const OWN_SHELL = new Set(['/medical', '/decisions']);
+export const OWN_SHELL = new Set(['/decisions']);
 
 export function LegacyFrame({ children }: { children: ReactNode }) {
   const pathname = (usePathname() ?? '').replace(/\/$/, '');
