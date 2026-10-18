@@ -240,7 +240,7 @@ export default function ModelCrewPage() {
                 <span className="text-wb-ink2">
                   → {MODEL_SHORT[row.model] ?? row.model} [{row.keep_alive === '0' ? '—' : row.keep_alive}]
                 </span>
-                {ROUTING_NOTES[row.task_type] && <span className="text-wb-ink2/70">{ROUTING_NOTES[row.task_type]}</span>}
+                {ROUTING_NOTES[row.task_type] && <span className="text-wb-ink2">{ROUTING_NOTES[row.task_type]}</span>}
               </div>
             ))}
           </div>
@@ -286,7 +286,7 @@ export default function ModelCrewPage() {
                             ⬆ escalated
                           </span>
                         )}
-                        {c.error && <span className="block max-w-xs truncate text-wb-crit-on/80">{c.error}</span>}
+                        {c.error && <span className="block max-w-xs truncate text-wb-crit-on">{c.error}</span>}
                       </td>
                     </tr>
                   );

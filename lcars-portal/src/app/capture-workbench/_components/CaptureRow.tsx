@@ -113,7 +113,7 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-wb-ink2">{preview}</p>
               {fullContent.length > 300 && (
                 <button type="button" onClick={() => setShowFullContent((v) => !v)}
-                  className="mt-1 text-[12px] uppercase tracking-wider text-wb-sage-deep transition-colors hover:text-wb-sage-deep/70">
+                  className="mt-1 text-[12px] uppercase tracking-wider text-wb-sage-deep transition-colors hover:text-wb-sage-deep">
                   {showFullContent ? '▲ Show less' : `▼ Show full content (${fullContent.length} chars)`}
                 </button>
               )}
@@ -124,7 +124,7 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
             <div className="mb-2">
               <ActionOutcome message={flash} tone="success" taskId={`capture:${item.id}`} startedAt={actionStartedAtRef.current ?? undefined} />
               {routedDest && (
-                <Link href={routedDest.href} className="mt-1 inline-block text-[12px] uppercase tracking-wider text-wb-sage-deep hover:text-wb-sage-deep/70">
+                <Link href={routedDest.href} className="mt-1 inline-block text-[12px] uppercase tracking-wider text-wb-sage-deep hover:text-wb-sage-deep">
                   View in {routedDest.label} →
                 </Link>
               )}

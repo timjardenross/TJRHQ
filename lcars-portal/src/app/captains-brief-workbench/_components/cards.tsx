@@ -54,7 +54,7 @@ export function WarningBanner({ level, message }: { level: EscalationLevel; mess
         <span className={`shrink-0 text-xs font-bold uppercase tracking-widest ${c.text} ${level === 3 ? 'animate-pulse' : ''}`}>
           {level === 3 ? `⚠ ${headline}` : headline}
         </span>
-        <span className="text-xs text-wb-ink/80">{message}</span>
+        <span className="text-xs text-wb-ink">{message}</span>
       </div>
     </div>
   );
@@ -90,7 +90,7 @@ export function RecCard({
         <p className="mt-1 text-[12px] uppercase tracking-[0.14em] text-wb-sage-deep">{source}</p>
       )}
       {evidence && evidence.length > 0 && (
-        <ul className="mt-1.5 list-disc pl-4 text-[12px] text-wb-ink2/90">
+        <ul className="mt-1.5 list-disc pl-4 text-[12px] text-wb-ink2">
           {evidence.map((e, i) => (
             <li key={i}>{e}</li>
           ))}

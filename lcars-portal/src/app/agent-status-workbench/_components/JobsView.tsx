@@ -64,7 +64,7 @@ function JobRow({ job }: { job: AgentStatusEntry }) {
           <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${classes.dot}`} aria-hidden />
           <div>
             <span className="text-[13px] font-medium text-wb-ink">{job.label}</span>
-            <div className="text-[12px] text-wb-ink2/70">
+            <div className="text-[12px] text-wb-ink2">
               {CAPABILITY_LABEL_BY_KEY.get(job.capability) ?? job.capability} · {CRITICALITY_LABEL[job.criticality]}
             </div>
           </div>
@@ -75,7 +75,7 @@ function JobRow({ job }: { job: AgentStatusEntry }) {
       </td>
       <td className="py-3 pr-4 text-[12px] tabular-nums text-wb-ink2">
         <div>{relativeTime(job.lastRun)}</div>
-        <div className="text-[12px] normal-case tracking-normal text-wb-ink2/70">{job.cadenceLabel}</div>
+        <div className="text-[12px] normal-case tracking-normal text-wb-ink2">{job.cadenceLabel}</div>
       </td>
       <td className="py-3 text-[12px] text-wb-ink2 max-w-[260px] truncate" title={job.lastAction ?? undefined}>
         {job.lastAction ?? <span className="italic">—</span>}

@@ -259,7 +259,7 @@ function PipelineOverview({
                 {chip}
               </button>
             ) : chip}
-            {i < STAGES.length - 1 && <span className="text-wb-ink2/40" aria-hidden>→</span>}
+            {i < STAGES.length - 1 && <span className="text-wb-ink2" aria-hidden>→</span>}
           </div>
         );
       })}

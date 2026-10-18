@@ -309,7 +309,7 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
                       {b.approval_status ? STATUS_LABEL[b.approval_status] : 'Unknown'}
                     </span>
                   </div>
-                  <span className="whitespace-nowrap text-[12px] text-wb-ink2/70">
+                  <span className="whitespace-nowrap text-[12px] text-wb-ink2">
                     {b.published_at
                       ? `Published ${new Date(b.published_at).toLocaleDateString()}`
                       : `Generated ${new Date(b.generated_at).toLocaleDateString()}`}

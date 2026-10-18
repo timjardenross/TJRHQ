@@ -325,7 +325,7 @@ export default function LifeOSHub() {
               <p className={`text-4xl font-bold tracking-tight ${POSTURE_TONE_CLASS[commandPosture.posture]}`}>
                 {commandPosture.headline} TODAY
               </p>
-              <p className="mx-auto mt-2 max-w-md text-sm text-wb-ink/80">{commandPosture.explanation}</p>
+              <p className="mx-auto mt-2 max-w-md text-sm text-wb-ink">{commandPosture.explanation}</p>
               {/* HQ V1 Integration QA §24: "Stable/Steady" must never
                   silently mean "we stopped checking alerts a while ago" —
                   surface the stale collection check rather than hide it. */}

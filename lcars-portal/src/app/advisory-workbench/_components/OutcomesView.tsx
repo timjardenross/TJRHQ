@@ -94,7 +94,7 @@ function WhatHqHasLearned() {
       {showEvidence && (
         <ul className="space-y-1 border-t border-wb-sage-deep/20 pt-2">
           {report.officer_ranking.filter((o) => o.samples >= 1).slice(0, 8).map((o) => (
-            <li key={o.officer} className="flex justify-between text-[12px] text-wb-ink/80">
+            <li key={o.officer} className="flex justify-between text-[12px] text-wb-ink">
               <span>{o.officer}</span>
               <span className="text-wb-ink2">{o.accuracy !== null ? `${Math.round(o.accuracy * 100)}%` : '—'} ({o.samples})</span>
             </li>
@@ -210,7 +210,7 @@ export function OutcomesView() {
                 {loop.recommendation && (
                   <div>
                     <p className="mb-1 text-[12px] uppercase tracking-[0.15em] text-wb-ink2">Recommendation given</p>
-                    <p className="line-clamp-3 text-sm text-wb-ink/80">{loop.recommendation}</p>
+                    <p className="line-clamp-3 text-sm text-wb-ink">{loop.recommendation}</p>
                   </div>
                 )}
                 <div>

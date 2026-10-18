@@ -276,7 +276,7 @@ export function ConsultView({ initialAdvisorId }: { initialAdvisorId?: string } 
         {isOffline && (
           <div className="rounded-md border border-wb-line bg-wb-bg px-4 py-6 text-center">
             <p className="text-sm text-wb-ink2">{activeAdvisor.label} is offline (AI model not configured).</p>
-            <p className="mt-1 text-xs text-wb-ink/60">Use <span className="font-semibold text-wb-sage-deep">Think</span> for advisory via the intelligence runtime.</p>
+            <p className="mt-1 text-xs text-wb-ink">Use <span className="font-semibold text-wb-sage-deep">Think</span> for advisory via the intelligence runtime.</p>
           </div>
         )}
       </div>

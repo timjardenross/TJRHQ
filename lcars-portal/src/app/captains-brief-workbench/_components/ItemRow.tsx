@@ -53,7 +53,7 @@ function MetricsLine({ metrics }: { metrics?: Record<string, unknown> }) {
     .filter(([k, v]) => k !== 'priority_score' && v !== null && v !== undefined && v !== '')
     .map(([k, v]) => `${METRIC_LABELS[k] ?? k}: ${formatMetricValue(v)}`);
   if (!parts.length) return null;
-  return <p className="mt-0.5 text-[12px] text-wb-ink2/80">{parts.join(' · ')}</p>;
+  return <p className="mt-0.5 text-[12px] text-wb-ink2">{parts.join(' · ')}</p>;
 }
 
 // Priority Engine detail. Prefers the item's own priority_score/risk_score/
@@ -73,11 +73,11 @@ function PriorityLine({ item }: { item: CaptainBriefItem }) {
   if (score == null && risk == null && !explanation) return null;
 
   return (
-    <p className="mt-0.5 text-[12px] text-wb-ink2/80">
+    <p className="mt-0.5 text-[12px] text-wb-ink2">
       {score != null && <span>Priority {Math.round(score)}</span>}
       {risk != null && <span>{score != null ? ' · ' : ''}Risk {Math.round(risk)}</span>}
       {dimension && <span> · {dimension}</span>}
-      {explanation && <span className="block text-wb-ink2/70">{explanation}</span>}
+      {explanation && <span className="block text-wb-ink2">{explanation}</span>}
     </p>
   );
 }
@@ -94,8 +94,8 @@ export function ItemRow({ item }: { item: CaptainBriefItem }) {
       <p className="text-[12px] uppercase tracking-[0.14em] text-wb-ink2">
         {item.domain} · {item.event_type}
       </p>
-      <p className="mt-0.5 text-xs text-wb-ink/90">{headline}</p>
-      {showReasonCaption && <p className="mt-0.5 text-[12px] text-wb-ink2/70">{item.reason}</p>}
+      <p className="mt-0.5 text-xs text-wb-ink">{headline}</p>
+      {showReasonCaption && <p className="mt-0.5 text-[12px] text-wb-ink2">{item.reason}</p>}
       <PriorityLine item={item} />
       <MetricsLine metrics={item.metrics} />
     </li>

@@ -162,7 +162,7 @@ export function ThinkView({
       {error && (
         <div className="rounded-md border border-wb-crit/40 bg-wb-crit/10 px-4 py-3 text-sm text-wb-crit-on">
           <p className="mb-1 font-semibold">Advisory runtime offline</p>
-          <p className="text-xs text-wb-crit-on/80">{error}</p>
+          <p className="text-xs text-wb-crit-on">{error}</p>
         </div>
       )}
 
@@ -187,7 +187,7 @@ export function ThinkView({
               ) : challenge ? (
                 <>
                   {challenge.reviewer && <p className="text-[12px] text-wb-ink2">Reviewed by {challenge.reviewer}</p>}
-                  <p className="text-sm leading-relaxed text-wb-ink/85">{challenge.disagreement || 'No material disagreement was raised on review.'}</p>
+                  <p className="text-sm leading-relaxed text-wb-ink">{challenge.disagreement || 'No material disagreement was raised on review.'}</p>
                 </>
               ) : (
                 <p className="text-xs text-wb-ink2">The adversarial review could not be reached — the standing risks and challenge above still apply.</p>
@@ -235,7 +235,7 @@ export function ThinkView({
               {log.map((s) => (
                 <div key={s.id} className="flex items-start justify-between gap-2 border-b border-wb-line pb-2 last:border-0">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs text-wb-ink/80">{s.question}</p>
+                    <p className="truncate text-xs text-wb-ink">{s.question}</p>
                     <p className="text-[12px] text-wb-ink2">{new Date(s.ts).toLocaleString()}</p>
                   </div>
                   <button onClick={() => { setSummary(s.result); setInput(s.question); setShowLog(false); setShowPullApart(false); setOpenGroup(null); setChallenge(null); }}

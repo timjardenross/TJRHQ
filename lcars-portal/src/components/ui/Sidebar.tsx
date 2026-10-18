@@ -96,7 +96,7 @@ export function Sidebar() {
           const meta = WORKBENCH_GROUP_META[group];
           return (
             <nav key={group} className="flex flex-col gap-1" aria-label={meta.label}>
-              <p className="px-3 pb-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-wb-ink2/70">
+              <p className="px-3 pb-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-wb-ink2">
                 {meta.label}
               </p>
               {entries.map((entry) => (
@@ -121,7 +121,7 @@ export function Sidebar() {
         {/* Mission §1.1: mockups show this motto in every sidebar footer —
             real copy from the source brief, not fabricated here, but not
             yet Captain-confirmed as final (see mission doc §1.1). */}
-        <p className="mt-4 px-3 text-[12px] uppercase leading-relaxed tracking-[0.18em] text-wb-ink2/50">
+        <p className="mt-4 px-3 text-[12px] uppercase leading-relaxed tracking-[0.18em] text-wb-ink2">
           Discipline<br />Clarity<br />Progress<br />Freedom
         </p>
       </nav>

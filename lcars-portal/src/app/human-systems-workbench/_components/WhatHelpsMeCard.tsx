@@ -51,7 +51,7 @@ export function WhatHelpsMeCard({ data }: { data: InterventionEffectiveness[] })
                    *  rows until a human reviews them) so this doesn't read as "checked,
                    *  found nothing" on every row. */}
                   {r.evidence_strength !== 'unknown' && (
-                    <div className="mt-0.5 text-[12px] italic text-wb-ink2/70" title={r.evidence_basis ?? undefined}>
+                    <div className="mt-0.5 text-[12px] italic text-wb-ink2" title={r.evidence_basis ?? undefined}>
                       {EVIDENCE_LABEL[r.evidence_strength]}
                     </div>
                   )}

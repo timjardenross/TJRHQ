@@ -25,7 +25,7 @@ export function SituationBadge({
     <>
       <p className="text-[12px] uppercase tracking-wider text-wb-ink2">{label}</p>
       <p className={`mt-0.5 text-lg font-bold ${c.text}`}>{value}</p>
-      {sublabel && <p className="mt-0.5 text-xs text-wb-ink/80">{sublabel}</p>}
+      {sublabel && <p className="mt-0.5 text-xs text-wb-ink">{sublabel}</p>}
     </>
   );
   const className = `flex-1 rounded-lg border ${c.border} ${c.bg} px-4 py-3`;

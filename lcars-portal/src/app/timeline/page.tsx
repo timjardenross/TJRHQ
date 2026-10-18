@@ -383,7 +383,7 @@ export default function TimelinePage() {
                 {e.detail && (
                   <p className="mt-0.5 truncate text-xs text-wb-ink2">{e.detail}</p>
                 )}
-                <span className="mt-1 block text-[12px] uppercase tracking-[0.15em] text-wb-ink2/70">
+                <span className="mt-1 block text-[12px] uppercase tracking-[0.15em] text-wb-ink2">
                   {SOURCE_META[e.source]?.label ?? e.source}
                 </span>
                 <EvidenceMeta source={SOURCE_META[e.source]?.label ?? e.source} observedAt={e.timestamp} />
