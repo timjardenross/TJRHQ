@@ -109,7 +109,7 @@ export const PRIMARY_ACTIONS: Record<string, PrimaryActionContract> = {
   '/search': { label: 'Search HQ', href: '/search' },
   '/timeline': { label: 'Review timeline', href: '/timeline' },
   '/agent-status-workbench': { label: 'Check HQ status', href: '/agent-status-workbench' },
-  '/self-improvement-findings': { label: 'Review HQ evolution', href: '/self-improvement-findings' },
+  '/self-improvement-findings': { label: 'Review improvements', href: '/self-improvement-findings' },
   '/decisions': { label: 'Review pending decisions', href: '/decisions' },
 };
 
@@ -279,7 +279,7 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     // just bounded remediation findings). Route kept for compatibility;
     // see docs/self-improvement/HQ-EVOLUTION.md.
     href: '/self-improvement-findings',
-    title: 'HQ Evolution',
+    title: 'Improvements',
     description: 'Continuous improvement for TJR HQ — overnight discovery, research and investigation of new capabilities, open-source opportunities, cost reductions, reliability improvements and better ways for HQ to work.',
     icon: Lightbulb,
     group: 'insights',

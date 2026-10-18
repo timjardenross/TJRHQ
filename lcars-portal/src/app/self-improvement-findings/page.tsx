@@ -154,7 +154,7 @@ export default function HqEvolutionPage() {
       }
     } catch (err) {
       console.error('[HQ Evolution] load failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load HQ Evolution data');
+      setError(err instanceof Error ? err.message : 'Failed to load improvements data');
       setLoading(false);
     }
   }
@@ -286,7 +286,7 @@ export default function HqEvolutionPage() {
 
   if (loading) {
     return (
-      <WorkbenchShell title="HQ Evolution" eyebrow="HQ works on HQ while you're away" tagline="TJR HQ · HQ Evolution · Continuous discovery, investigation, and improvement" mode="command">
+      <WorkbenchShell title="Improvements" eyebrow="HQ works on HQ while you're away" tagline="TJR HQ · Improvements · Continuous discovery, investigation, and improvement" mode="command">
         <div className="text-center py-8 text-wb-ink2">Checking overnight discoveries…</div>
       </WorkbenchShell>
     );
@@ -294,14 +294,14 @@ export default function HqEvolutionPage() {
 
   return (
     <WorkbenchShell
-      title="HQ Evolution"
+      title="Improvements"
       eyebrow="HQ works on HQ while you're away"
-      tagline="TJR HQ · HQ Evolution · Discover, investigate, improve, learn — nothing changes production without your say"
+      tagline="TJR HQ · Improvements · Discover, investigate, improve, learn — nothing changes production without your say"
       mode="command"
       wide
       tabs={
         <Tabs
-          ariaLabel="HQ Evolution sections"
+          ariaLabel="Improvements sections"
           active={tab}
           onChange={setTab}
           tabs={[
@@ -338,7 +338,7 @@ export default function HqEvolutionPage() {
           </div>
           <span className="text-wb-label text-wb-ink2">{opportunities.length} total</span>
         </div>
-        <ol aria-label="HQ Evolution lifecycle states" className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:grid-cols-10">
+        <ol aria-label="Improvements lifecycle states" className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:grid-cols-10">
           {LIFECYCLE_STAGES.map(({ key, label }) => (
             <li key={key}>
               <button
@@ -450,7 +450,7 @@ function DiscoverTab({
     <div className="space-y-6">
       <Card>
         {!summary || !summary.has_run_yet ? (
-          <p className="text-sm text-wb-ink2">HQ Evolution has not completed an overnight cycle yet — nothing to show.</p>
+          <p className="text-sm text-wb-ink2">No overnight improvement cycle has completed yet — nothing to show.</p>
         ) : summary.nothing_worth_changing ? (
           <>
             <p className="text-lg font-serif text-wb-ink">Nothing worth changing today.</p>
@@ -654,9 +654,9 @@ const MEASUREMENT_TYPE_BY_CLASS: Record<string, string> = {
 };
 const OBSERVATION_WINDOW_BY_CLASS: Record<string, string> = {
   maintenance: 'Immediate verification', configuration: 'Immediate verification',
-  reliability: '5 completed HQ Evolution cycles', cost_optimisation: '7 completed HQ Evolution cycles',
-  capability: '7 completed HQ Evolution cycles', product_improvement: '7 completed HQ Evolution cycles',
-  architecture: '14 completed HQ Evolution cycles',
+  reliability: '5 completed improvement cycles', cost_optimisation: '7 completed improvement cycles',
+  capability: '7 completed improvement cycles', product_improvement: '7 completed improvement cycles',
+  architecture: '14 completed improvement cycles',
 };
 
 function ApprovalPreview({ opportunity }: { opportunity: Opportunity }) {
@@ -701,7 +701,7 @@ function ImproveTab({
   return (
     <div className="space-y-10">
       <div>
-        <h2 className="text-sm font-semibold text-wb-ink mb-3">Needs your decision — HQ Evolution opportunities</h2>
+        <h2 className="text-sm font-semibold text-wb-ink mb-3">Needs your decision — improvement opportunities</h2>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <div className="col-span-1">
             <Card title="Proposed">
@@ -763,7 +763,7 @@ function ImproveTab({
         <h2 className="text-sm font-semibold text-wb-ink mb-1">Bounded remediation queue</h2>
         <p className="text-xs text-wb-ink2 mb-3">
           The existing evidence/PolicyEngine/remediation pipeline — unchanged. Approving here authorises real, tested,
-          rollback-guarded changes for low-risk findings only; nothing here is new HQ Evolution behaviour.
+          rollback-guarded changes for low-risk findings only; nothing here is new improvement behaviour.
         </p>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           <div className="col-span-1">

@@ -112,7 +112,7 @@ const CAPABILITY_RECOVERY: Record<string, { workbench: string; href: string; act
   emergency_monitoring: { workbench: 'Emergency Alerts', href: '/emergency-alert-hub-workbench', action: 'Check active alerts' },
   technical_intelligence: { workbench: 'Technical OSINT', href: '/intelligence-workbench', action: 'Review intelligence' },
   health_intelligence: { workbench: 'Health OSINT', href: '/health-osint', action: 'Review health evidence' },
-  hq_evolution: { workbench: 'HQ Evolution', href: '/self-improvement-findings', action: 'Review HQ evolution' },
+  hq_evolution: { workbench: 'Improvements', href: '/self-improvement-findings', action: 'Review improvements' },
   weekly_review: { workbench: 'Weekly Review', href: '/weekly-review', action: 'Start weekly review' },
   ready_room: { workbench: 'Ready Room', href: '/ready-room', action: 'Choose what to do next' },
   human_systems: { workbench: 'Human Systems', href: '/human-systems-workbench', action: 'Check current capacity' },

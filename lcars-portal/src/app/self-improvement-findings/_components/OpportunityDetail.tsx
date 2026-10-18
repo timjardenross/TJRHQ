@@ -37,7 +37,7 @@ function observationWindowText(window: { type: string; count: number } | undefin
   if (!window) return null;
   switch (window.type) {
     case 'immediate': return 'Immediate verification';
-    case 'cycles': return `${window.count} completed HQ Evolution cycles`;
+    case 'cycles': return `${window.count} completed improvement cycles`;
     case 'events': return `${window.count} events`;
     case 'days': return `${window.count} days`;
     default: return null;
@@ -343,7 +343,7 @@ export function OpportunityDetail({
 
       {isMissionOnly && (
         <p className="mb-5 rounded-lg border border-wb-warn/40 bg-wb-warn/10 p-3 text-xs text-wb-ink">
-          {CHANGE_CLASS_LABEL[opportunity.change_class]} changes are Mission-only — HQ Evolution never applies these
+          {CHANGE_CLASS_LABEL[opportunity.change_class]} changes are Mission-only — Improvements never applies these
           directly, however high its confidence. A Mission hands this off for controlled implementation; it does not
           modify production by itself.
         </p>

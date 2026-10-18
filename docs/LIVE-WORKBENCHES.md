@@ -24,7 +24,7 @@
 | `/search` | Search | Cross-domain search — missions, Captain\ |
 | `/timeline` | Timeline | One chronological feed across missions, health, log, events, and captures — filterable by source. |
 | `/agent-status-workbench` | HQ Status | Is HQ working properly? Interpreted platform health across capabilities, automations, sources, and machinery — not just a wall of job rows. |
-| `/self-improvement-findings` | HQ Evolution | Continuous improvement for TJR HQ — overnight discovery, research and investigation of new capabilities, open-source opportunities, cost reductions, reliability improvements and better ways for HQ to work. |
+| `/self-improvement-findings` | Improvements | Continuous improvement for TJR HQ — overnight discovery, research and investigation of new capabilities, open-source opportunities, cost reductions, reliability improvements and better ways for HQ to work. |
 | `/engineering-handoffs` | Engineering Handoffs | Approved engineering handoffs awaiting triage, delivery, or your review — with a direct link to every draft PR so nothing sits waiting on a bare ID. |
 
 Regenerate after changing `LIVE_WORKBENCHES`: `python3 tools/generate_workbench_doc.py`.

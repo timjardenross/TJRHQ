@@ -538,7 +538,7 @@ export function useEvolutionSignal(): { pendingCount: number | null; highestValu
         setPendingCount(body.pending_decisions_count ?? 0);
         setHighestValueTitle(body.highest_value_opportunity?.title ?? null);
       })
-      .catch((e) => { if (!cancelled) { console.error('[captainsChairData] HQ Evolution summary failed:', e); setError('HQ Evolution'); } });
+      .catch((e) => { if (!cancelled) { console.error('[captainsChairData] HQ Evolution summary failed:', e); setError('Improvements'); } });
     return () => { cancelled = true; };
   }, []);
 
