@@ -54,7 +54,7 @@ export function Ahead({
       ) : (
         <div className="space-y-3">
           <div>
-            <p className="mb-1 text-[12px] font-semibold uppercase tracking-wider text-wb-ink2">Calendar</p>
+            <p className="mb-1 text-wb-label font-semibold uppercase tracking-wider text-wb-ink2">Calendar</p>
             {calendarStatus === 'disconnected' ? (
               <p className="text-xs text-wb-ink2">
                 Google Calendar isn&apos;t connected. <a href="/api/auth/google-calendar/connect" className="text-wb-sage-deep hover:underline">Connect it</a>.
@@ -69,7 +69,7 @@ export function Ahead({
           </div>
 
           <div>
-            <p className="mb-1 text-[12px] font-semibold uppercase tracking-wider text-wb-ink2">Reminders</p>
+            <p className="mb-1 text-wb-label font-semibold uppercase tracking-wider text-wb-ink2">Reminders</p>
             {reminders.length === 0 ? (
               <p className="text-xs text-wb-ink2">Nothing requires attention.</p>
             ) : (
@@ -89,7 +89,7 @@ export function Ahead({
 
           {comingUp.length > 0 && upcomingStatus === 'ok' && (
             <div>
-              <p className="mb-1 text-[12px] font-semibold uppercase tracking-wider text-wb-ink2">Coming Up</p>
+              <p className="mb-1 text-wb-label font-semibold uppercase tracking-wider text-wb-ink2">Coming Up</p>
               <ul className="space-y-1.5">
                 {comingUp.slice(0, 5).map((e, i) => (
                   <li key={i} className="flex items-baseline gap-2 text-xs">
@@ -104,7 +104,7 @@ export function Ahead({
           )}
 
           <div className="pt-1">
-            <Link href="/ready-room" className="text-[12px] text-wb-sage-deep hover:underline">Ready Room →</Link>
+            <Link href="/ready-room" className="text-wb-label text-wb-sage-deep hover:underline">Ready Room →</Link>
           </div>
         </div>
       )}

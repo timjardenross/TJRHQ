@@ -43,20 +43,20 @@ export default function RecoveryBriefPage() {
       back={{ href: '/human-systems-workbench', label: 'Human Systems' }}
     >
       <Card className="max-w-2xl">
-        <div className="text-[12px] uppercase tracking-[0.12em] text-wb-ink2">Recovery Brief has moved</div>
-        <p className="mt-2 text-[14px] leading-relaxed text-wb-ink">
+        <div className="text-wb-label uppercase tracking-[0.12em] text-wb-ink2">Recovery Brief has moved</div>
+        <p className="mt-2 text-wb-body leading-relaxed text-wb-ink">
           What this page used to show — capacity today, what&rsquo;s driving it, what your system needs,
           and your recovery trajectory — now lives on the Human Systems Workbench&rsquo;s{' '}
           <span className="font-medium">NOW</span> tab, kept up to date from the same live check-in data.
           Recent wins are on the <span className="font-medium">PATTERNS</span> tab.
         </p>
-        <p className="mt-2 text-[13px] text-wb-ink2">
+        <p className="mt-2 text-wb-body text-wb-ink2">
           Nothing real was dropped — this page is kept as a pointer, not deleted, since other parts of the
           platform still link to it.
         </p>
         <Link
           href="/human-systems-workbench"
-          className="mt-4 inline-block rounded-md bg-wb-sage-deep px-4 py-2 text-[12px] font-bold uppercase tracking-[0.15em] text-white transition hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          className="mt-4 inline-block rounded-md bg-wb-sage-deep px-4 py-2 text-wb-label font-bold uppercase tracking-[0.15em] text-white transition hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         >
           Go to Human Systems — NOW →
         </Link>

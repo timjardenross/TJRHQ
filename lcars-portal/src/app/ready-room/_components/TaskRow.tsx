@@ -108,14 +108,14 @@ export function TaskRow({
         <div className="min-w-0">
           <div className="flex items-start gap-2">
             <span aria-hidden className="shrink-0 text-wb-ink2">{meta.glyph}</span>
-            <span className="break-words text-[14px] font-medium text-wb-ink">{task.title}</span>
+            <span className="break-words text-wb-body font-medium text-wb-ink">{task.title}</span>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-wb-ink2">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-wb-label text-wb-ink2">
             {due && <span>{due}</span>}
             {task.work_state === 'blocked' && <span>Waiting on: {task.waiting_on || 'not noted yet'}</span>}
           </div>
           {task.context && (
-            <p className="mt-1.5 break-words text-[12px] text-wb-ink2">{renderContext(task.context)}</p>
+            <p className="mt-1.5 break-words text-wb-label text-wb-ink2">{renderContext(task.context)}</p>
           )}
         </div>
 
@@ -141,7 +141,7 @@ export function TaskRow({
             onClick={() => setShowDetails((v) => !v)}
             aria-expanded={showDetails}
             aria-label="More options"
-            className="ml-auto rounded px-2.5 py-2.5 text-[13px] text-wb-ink2 opacity-70 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+            className="ml-auto rounded px-2.5 py-2.5 text-wb-body text-wb-ink2 opacity-70 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           >
             •••
           </button>
@@ -156,10 +156,10 @@ export function TaskRow({
               </span>
             </div>
             {task.micro_action && task.work_state !== 'completed' && (
-              <p className="text-[12px] text-wb-ink2">First step: {task.micro_action}</p>
+              <p className="text-wb-label text-wb-ink2">First step: {task.micro_action}</p>
             )}
             {task.mvp_note && (
-              <p className="text-[12px] text-wb-ink2">Good enough: {task.mvp_note}</p>
+              <p className="text-wb-label text-wb-ink2">Good enough: {task.mvp_note}</p>
             )}
             <div className="flex flex-wrap items-center gap-1.5">
               {task.work_state !== 'blocked' && task.work_state !== 'completed' && (
@@ -172,10 +172,10 @@ export function TaskRow({
                   No longer waiting
                 </Button>
               )}
-              <label className="ml-1 flex items-center gap-1 text-[12px] text-wb-ink2">
+              <label className="ml-1 flex items-center gap-1 text-wb-label text-wb-ink2">
                 Remind me:
                 <select
-                  className="rounded border border-wb-line bg-wb-surface px-1 py-0.5 text-[12px]"
+                  className="rounded border border-wb-line bg-wb-surface px-1 py-0.5 text-wb-label"
                   value={task.follow_through_mode}
                   disabled={busy}
                   onChange={(e) => changeMode(e.target.value as FollowThroughMode)}
@@ -189,7 +189,7 @@ export function TaskRow({
                 onClick={togglePause}
                 title={task.follow_through_paused ? 'Reminders muted — click to unmute' : 'Mute reminders for this item'}
                 aria-label={task.follow_through_paused ? 'Reminders muted — click to unmute' : 'Mute reminders for this item'}
-                className="p-2 text-[13px] text-wb-ink2 opacity-60 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                className="p-2 text-wb-body text-wb-ink2 opacity-60 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
               >
                 {task.follow_through_paused ? '🔕' : '🔔'}
               </button>
@@ -201,7 +201,7 @@ export function TaskRow({
                   title={task.pinned_today ? 'Keeping this in Today regardless of capacity — click to unpin' : 'Keep this in Today even on a constrained day'}
                   aria-label={task.pinned_today ? 'Unpin from Today' : 'Pin to Today'}
                   aria-pressed={task.pinned_today}
-                  className={`p-2 text-[13px] opacity-60 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${task.pinned_today ? 'text-wb-sage-deep opacity-100' : 'text-wb-ink2'}`}
+                  className={`p-2 text-wb-body opacity-60 hover:opacity-100 disabled:opacity-30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${task.pinned_today ? 'text-wb-sage-deep opacity-100' : 'text-wb-ink2'}`}
                 >
                   {task.pinned_today ? '📌 Pinned' : '📌 Keep in Today'}
                 </button>

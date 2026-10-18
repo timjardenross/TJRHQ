@@ -97,8 +97,8 @@ function revsStatusText(key: RevsKey, active: RevsKey): string {
 function StateTile({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-      <div className="text-[12px] uppercase tracking-wide text-wb-ink2">{label}</div>
-      <div className="mt-1 text-[13px] text-wb-ink">{value ?? 'Not recorded'}</div>
+      <div className="text-wb-label uppercase tracking-wide text-wb-ink2">{label}</div>
+      <div className="mt-1 text-wb-body text-wb-ink">{value ?? 'Not recorded'}</div>
     </div>
   );
 }
@@ -116,14 +116,14 @@ function NoCurrentCheckinMessage({ data }: { data: RecoveryPayload }) {
   const insufficientHistory = data.system_trajectory === 'insufficient_data';
   return (
     <Card className="md:col-span-2">
-      <div className="text-[12px] uppercase tracking-[0.12em] text-wb-ink2">Capacity Today</div>
-      <p className="mt-2 text-[14px] leading-relaxed text-wb-ink">
+      <div className="text-wb-label uppercase tracking-[0.12em] text-wb-ink2">Capacity Today</div>
+      <p className="mt-2 text-wb-body leading-relaxed text-wb-ink">
         No current check-in.{' '}
         {insufficientHistory
           ? "There isn't enough recent history yet to infer a pattern either — this is an early-data gap, not a settled read."
           : `Your recent pattern still suggests: ${data.strategic_posture_message} HQ will not assume you are recovered simply because you have not checked in today.`}
       </p>
-      <p className="mt-2 text-[13px] text-wb-ink2">
+      <p className="mt-2 text-wb-body text-wb-ink2">
         Want a current read? Use <span className="font-medium text-wb-ink">/capacity</span> in Telegram.
       </p>
     </Card>
@@ -142,7 +142,7 @@ export function CapacityTodayCard({ data }: { data: RecoveryPayload }) {
     <Card className="md:col-span-2">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[12px] uppercase tracking-[0.12em] text-wb-ink2">Capacity Today</div>
+          <div className="text-wb-label uppercase tracking-[0.12em] text-wb-ink2">Capacity Today</div>
           <div className="mt-1 font-serif text-3xl text-wb-ink">
             {data.latest_capacity_state ? CAPACITY_LABEL[data.latest_capacity_state] ?? data.latest_capacity_state : 'No data'}
           </div>
@@ -151,7 +151,7 @@ export function CapacityTodayCard({ data }: { data: RecoveryPayload }) {
           <Badge status={capacityStateStatus(data.latest_capacity_state)}>{data.latest_capacity_state.toUpperCase()}</Badge>
         )}
       </div>
-      <p className="mt-3 text-[14px] leading-relaxed text-wb-ink2">{data.system_posture_message}</p>
+      <p className="mt-3 text-wb-body leading-relaxed text-wb-ink2">{data.system_posture_message}</p>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <StateTile label="Stimulation" value={data.stimulation_state ? STIMULATION_LABEL[data.stimulation_state] ?? data.stimulation_state : null} />
@@ -172,14 +172,14 @@ export function BurnoutRecoveryCard({ data }: { data: RecoveryPayload }) {
   return (
     <Card className="md:col-span-2">
       <div className="flex items-start justify-between gap-3">
-        <div className="text-[12px] uppercase tracking-[0.12em] text-wb-ink2">Burnout &amp; Recovery</div>
+        <div className="text-wb-label uppercase tracking-[0.12em] text-wb-ink2">Burnout &amp; Recovery</div>
         <Badge status={strategicPostureStatus(data.strategic_posture)}>
           {STRATEGIC_POSTURE_LABEL[data.strategic_posture]}
         </Badge>
       </div>
 
       {data.user_burnout_framing && (
-        <p className="mt-2 text-[13px] text-wb-ink2">
+        <p className="mt-2 text-wb-body text-wb-ink2">
           <span className="font-medium text-wb-ink">User framing — </span>
           {USER_BURNOUT_FRAMING_LABEL[data.user_burnout_framing]}
         </p>
@@ -190,22 +190,22 @@ export function BurnoutRecoveryCard({ data }: { data: RecoveryPayload }) {
           visually blur into one claim (V3 doc §5.1: "the system must never
           silently convert its observation into a diagnosis"). */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="text-[13px] font-medium text-wb-ink">HQ observation —</span>
+        <span className="text-wb-body font-medium text-wb-ink">HQ observation —</span>
         <Badge status={systemTrajectoryStatus(data.system_trajectory)}>
           {SYSTEM_TRAJECTORY_LABEL[data.system_trajectory]}
         </Badge>
         {data.current_recovery_stage && (
-          <span className="text-[12px] text-wb-ink2">
+          <span className="text-wb-label text-wb-ink2">
             Recovery stage: {RECOVERY_STAGE_LABEL[data.current_recovery_stage]}
           </span>
         )}
       </div>
 
-      <p className="mt-3 text-[14px] leading-relaxed text-wb-ink">{data.strategic_posture_message}</p>
+      <p className="mt-3 text-wb-body leading-relaxed text-wb-ink">{data.strategic_posture_message}</p>
 
       {/* Rule F — say "insufficient data" explicitly rather than hiding
           the card or fabricating confidence. */}
-      <p className="mt-3 text-[12px] text-wb-ink2">
+      <p className="mt-3 text-wb-label text-wb-ink2">
         Confidence — {data.trajectory_confidence === 'low' ? 'Low' : data.trajectory_confidence === 'moderate' ? 'Moderate' : 'High'}
         {data.system_trajectory === 'insufficient_data'
           ? '. Not enough recent check-ins yet to read a sustained-strain trend.'
@@ -233,7 +233,7 @@ const CAPACITY_BALANCE_DETAIL: Record<CapacityBalance, string> = {
 export function CapacityBalanceCard({ data }: { data: RecoveryPayload }) {
   return (
     <Card title="Capacity Balance">
-      <div className="flex items-center justify-between gap-2 text-[12px] font-medium uppercase tracking-wide">
+      <div className="flex items-center justify-between gap-2 text-wb-label font-medium uppercase tracking-wide">
         <span className={data.capacity_balance === 'too_much' ? 'text-wb-crit-on' : 'text-wb-ink2'}>Too Much</span>
         <span className={data.capacity_balance === 'sustainable' ? 'font-semibold text-wb-ok-on' : 'text-wb-ink2'}>Sustainable</span>
         <span className={data.capacity_balance === 'not_enough' ? 'text-wb-warn-on' : 'text-wb-ink2'}>Not Enough</span>
@@ -247,7 +247,7 @@ export function CapacityBalanceCard({ data }: { data: RecoveryPayload }) {
           }`}
         />
       </div>
-      <p className="mt-3 text-[12px] text-wb-ink2">
+      <p className="mt-3 text-wb-label text-wb-ink2">
         {CAPACITY_BALANCE_LABEL[data.capacity_balance]} — {CAPACITY_BALANCE_DETAIL[data.capacity_balance]}
       </p>
     </Card>
@@ -322,7 +322,7 @@ export function WhatIsDrivingItCard({ data }: { data: RecoveryPayload }) {
   return (
     <Card title="What Is Driving It">
       {data.active_loads_today.length === 0 ? (
-        <p className="text-[13px] text-wb-ink2">No active loads recorded today.</p>
+        <p className="text-wb-body text-wb-ink2">No active loads recorded today.</p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {data.active_loads_today.map((l, i) => (
@@ -336,8 +336,8 @@ export function WhatIsDrivingItCard({ data }: { data: RecoveryPayload }) {
         <div className="mt-3 flex flex-col gap-2">
           {contextNotes.map((n) => (
             <div key={n.key} className="rounded-md border border-wb-line bg-wb-bg p-3">
-              <div className="text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">{n.title}</div>
-              <p className="mt-1 text-[13px] leading-relaxed text-wb-ink">{n.text}</p>
+              <div className="text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">{n.title}</div>
+              <p className="mt-1 text-wb-body leading-relaxed text-wb-ink">{n.text}</p>
             </div>
           ))}
         </div>
@@ -351,7 +351,7 @@ export function WhatMySystemNeedsCard({ data }: { data: RecoveryPayload }) {
   return (
     <Card title="What My System Needs">
       {data.identified_needs_latest.length === 0 ? (
-        <p className="text-[13px] text-wb-ink2">No current need recorded.</p>
+        <p className="text-wb-body text-wb-ink2">No current need recorded.</p>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {data.identified_needs_latest.map((n) => (
@@ -370,15 +370,15 @@ export function MyNextMoveCard({ data }: { data: RecoveryPayload }) {
   return (
     <Card title="My Next Move">
       {!hasNextMove ? (
-        <p className="text-[13px] text-wb-ink2">No action logged yet today. Use /capacity or /helpme on the Capacity Bot to get one.</p>
+        <p className="text-wb-body text-wb-ink2">No action logged yet today. Use /capacity or /helpme on the Capacity Bot to get one.</p>
       ) : (
         <>
           {nm.lever && (
-            <div className="text-[12px] font-semibold uppercase tracking-[0.12em] text-wb-ink2">{LEVER_LABEL[nm.lever] ?? nm.lever}</div>
+            <div className="text-wb-label font-semibold uppercase tracking-[0.12em] text-wb-ink2">{LEVER_LABEL[nm.lever] ?? nm.lever}</div>
           )}
-          <p className="mt-1 text-[15px] leading-relaxed text-wb-ink">{nm.intervention_description ?? nm.intervention_title}</p>
+          <p className="mt-1 text-wb-lead leading-relaxed text-wb-ink">{nm.intervention_description ?? nm.intervention_title}</p>
           {nm.accepted_at && (
-            <p className="mt-2 text-[12px] text-wb-ink2">
+            <p className="mt-2 text-wb-label text-wb-ink2">
               Last tried {new Date(nm.accepted_at).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
               {nm.outcome && nm.outcome !== 'unknown' && (
                 <> — <span className="font-medium capitalize text-wb-ink">{nm.outcome.replace('_', ' ')}</span></>
@@ -412,17 +412,17 @@ export function SystemLearningSection({ data, className = 'md:col-span-2' }: { d
     <CollapsibleSection title="Patterns" className={className}>
       <div className="flex flex-col gap-3">
         <div>
-          <div className="text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">What I Know</div>
-          <p className="mt-1 text-[13px] text-wb-ink">
+          <div className="text-wb-label font-semibold uppercase tracking-[0.1em] text-wb-ink2">What I Know</div>
+          <p className="mt-1 text-wb-body text-wb-ink">
             {data.checkins_last_7d} check-in{data.checkins_last_7d === 1 ? '' : 's'} recorded in the last 7 days.
           </p>
         </div>
 
         {(data.wellness.narrative || data.wellness.risk_flags.length > 0 || data.wellness.positive_flags.length > 0) && (
           <div>
-            <div className="text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Possible Pattern</div>
+            <div className="text-wb-label font-semibold uppercase tracking-[0.1em] text-wb-ink2">Possible Pattern</div>
             {data.wellness.narrative && (
-              <p className="mt-1 text-[13px] leading-relaxed text-wb-ink2">{data.wellness.narrative}</p>
+              <p className="mt-1 text-wb-body leading-relaxed text-wb-ink2">{data.wellness.narrative}</p>
             )}
             {(data.wellness.risk_flags.length > 0 || data.wellness.positive_flags.length > 0) && (
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -446,10 +446,10 @@ export function SystemLearningSection({ data, className = 'md:col-span-2' }: { d
             when real wins exist. */}
         {data.wellness.wins.length > 0 && (
           <div>
-            <div className="text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Wins This Week</div>
+            <div className="text-wb-label font-semibold uppercase tracking-[0.1em] text-wb-ink2">Wins This Week</div>
             <div className="mt-1 flex flex-col gap-1">
               {data.wellness.wins.map((w, i) => (
-                <div key={i} className="rounded-md border border-wb-line bg-wb-bg p-2 text-[13px] text-wb-ink">
+                <div key={i} className="rounded-md border border-wb-line bg-wb-bg p-2 text-wb-body text-wb-ink">
                   {w}
                 </div>
               ))}
@@ -460,7 +460,7 @@ export function SystemLearningSection({ data, className = 'md:col-span-2' }: { d
         {currentExperiment && (
           <div>
             <div className="flex items-center justify-between gap-2">
-              <div className="text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Worth Testing</div>
+              <div className="text-wb-label font-semibold uppercase tracking-[0.1em] text-wb-ink2">Worth Testing</div>
               <Badge status={currentExperiment.status === 'active' ? 'info' : 'neutral'}>
                 {EXPERIMENT_STATUS_LABEL[currentExperiment.status]}
               </Badge>
@@ -471,8 +471,8 @@ export function SystemLearningSection({ data, className = 'md:col-span-2' }: { d
 
         {!currentExperiment && testingSuggestion && (
           <div>
-            <div className="text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Worth Testing</div>
-            <p className="mt-1 text-[13px] leading-relaxed text-wb-ink2">{testingSuggestion}</p>
+            <div className="text-wb-label font-semibold uppercase tracking-[0.1em] text-wb-ink2">Worth Testing</div>
+            <p className="mt-1 text-wb-body leading-relaxed text-wb-ink2">{testingSuggestion}</p>
           </div>
         )}
 
@@ -480,10 +480,10 @@ export function SystemLearningSection({ data, className = 'md:col-span-2' }: { d
             finished and left a result behind. */}
         {changedExperiment && (
           <div>
-            <div className="text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">What Changed</div>
-            <p className="mt-1 text-[13px] leading-relaxed text-wb-ink">{changedExperiment.hypothesis}</p>
-            <p className="mt-1 text-[13px] leading-relaxed text-wb-ink2">{changedExperiment.result}</p>
-            <p className="mt-1 text-[12px] text-wb-ink2">
+            <div className="text-wb-label font-semibold uppercase tracking-[0.1em] text-wb-ink2">What Changed</div>
+            <p className="mt-1 text-wb-body leading-relaxed text-wb-ink">{changedExperiment.hypothesis}</p>
+            <p className="mt-1 text-wb-body leading-relaxed text-wb-ink2">{changedExperiment.result}</p>
+            <p className="mt-1 text-wb-label text-wb-ink2">
               {changedExperiment.status === 'stopped' ? 'Stopped' : 'Completed'}
               {changedExperiment.confidence ? ` · Confidence — ${changedExperiment.confidence}` : ''}
               {changedExperiment.completed_at
@@ -518,20 +518,20 @@ export function RevsPositionSection({ data, className = 'md:col-span-2' }: { dat
                   : 'rounded-md border border-wb-line bg-wb-bg p-3 text-center'
               }
             >
-              <div className={isCurrent ? 'text-[12px] font-semibold uppercase tracking-wide text-wb-sage-deep' : 'text-[12px] uppercase tracking-wide text-wb-ink2'}>
+              <div className={isCurrent ? 'text-wb-label font-semibold uppercase tracking-wide text-wb-sage-deep' : 'text-wb-label uppercase tracking-wide text-wb-ink2'}>
                 {label}
               </div>
-              <div className={isCurrent ? 'mt-1 text-[12px] font-medium text-wb-ink' : 'mt-1 text-[12px] text-wb-ink2'}>
+              <div className={isCurrent ? 'mt-1 text-wb-label font-medium text-wb-ink' : 'mt-1 text-wb-label text-wb-ink2'}>
                 {status}
               </div>
             </div>
           );
         })}
       </div>
-      <p className="mt-3 text-[12px] text-wb-ink2">
+      <p className="mt-3 text-wb-label text-wb-ink2">
         This isn&rsquo;t a completion score or a ladder to climb — stages can overlap, and you may move between them in either direction as things change day to day. The highlighted tile is today&rsquo;s emphasis, not a milestone you&rsquo;ve reached or a rank you&rsquo;ve earned.
       </p>
-      <p className="mt-2 text-[12px] text-wb-ink2">
+      <p className="mt-2 text-wb-label text-wb-ink2">
         Redesign-stage thinking (see &ldquo;What May Need to Change&rdquo;) isn&rsquo;t locked behind reaching Regulate, Recover, or Rebuild first — it can be relevant at any time, independent of which orientation is current right now.
       </p>
     </CollapsibleSection>
@@ -559,29 +559,29 @@ export function RevsPositionSection({ data, className = 'md:col-span-2' }: { dat
 function ExperimentCard({ experiment: e }: { experiment: CapacityExperiment }) {
   return (
     <div className="mt-2 rounded-md border border-wb-line bg-wb-bg p-3">
-      <p className="text-[13px] leading-relaxed text-wb-ink">
+      <p className="text-wb-body leading-relaxed text-wb-ink">
         <span className="font-medium">Hypothesis — </span>
         {e.hypothesis}
       </p>
-      <p className="mt-2 text-[13px] leading-relaxed text-wb-ink2">
+      <p className="mt-2 text-wb-body leading-relaxed text-wb-ink2">
         <span className="font-medium text-wb-ink">Trying — </span>
         {e.proposed_change}
       </p>
       {e.baseline_window && (
-        <p className="mt-2 text-[12px] leading-relaxed text-wb-ink2">
+        <p className="mt-2 text-wb-label leading-relaxed text-wb-ink2">
           <span className="font-medium text-wb-ink">Baseline — </span>
           {e.baseline_window}
         </p>
       )}
       {e.trial_window && (
-        <p className="mt-2 text-[12px] leading-relaxed text-wb-ink2">
+        <p className="mt-2 text-wb-label leading-relaxed text-wb-ink2">
           <span className="font-medium text-wb-ink">Trial — </span>
           {e.trial_window}
         </p>
       )}
       {e.outcome_measures.length > 0 && (
         <div className="mt-2">
-          <div className="text-[12px] font-medium text-wb-ink">Watching:</div>
+          <div className="text-wb-label font-medium text-wb-ink">Watching:</div>
           <div className="mt-1 flex flex-wrap gap-1.5">
             {e.outcome_measures.map((m) => (
               <Badge key={m} status="neutral">{m}</Badge>
@@ -589,7 +589,7 @@ function ExperimentCard({ experiment: e }: { experiment: CapacityExperiment }) {
           </div>
         </div>
       )}
-      <p className="mt-3 text-[12px] italic text-wb-ink2">
+      <p className="mt-3 text-wb-label italic text-wb-ink2">
         Worth testing, not a commitment — stop it anytime with /experiment on the Capacity Bot if it makes things worse.
       </p>
     </div>

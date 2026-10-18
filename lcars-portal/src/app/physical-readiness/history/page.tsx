@@ -57,7 +57,7 @@ function StatusPill({ status }: { status: string }) {
   const tone = SESSION_STATUS_TONE[status] ?? 'unknown';
   const c = stateToneClasses(tone);
   return (
-    <span className={`rounded-full border px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-wider ${c.border} ${c.bg} ${c.text}`}>
+    <span className={`rounded-full border px-2.5 py-0.5 text-wb-label font-semibold uppercase tracking-wider ${c.border} ${c.bg} ${c.text}`}>
       {status.replace('_', ' ')}
     </span>
   );
@@ -191,14 +191,14 @@ export default function WorkoutHistoryPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg border border-wb-line bg-white p-4">
-              <p className="text-[12px] uppercase tracking-wider text-wb-ink2">This Week</p>
+              <p className="text-wb-label uppercase tracking-wider text-wb-ink2">This Week</p>
               <p className="mt-0.5 text-2xl font-bold text-wb-ink">{weeklyCompleted.length}</p>
-              <p className="text-[12px] text-wb-ink2">completed sessions</p>
+              <p className="text-wb-label text-wb-ink2">completed sessions</p>
             </div>
             <div className="rounded-lg border border-wb-line bg-white p-4">
-              <p className="text-[12px] uppercase tracking-wider text-wb-ink2">Avg Duration</p>
+              <p className="text-wb-label uppercase tracking-wider text-wb-ink2">Avg Duration</p>
               <p className="mt-0.5 text-2xl font-bold text-wb-ink">{avgDuration ?? '—'}</p>
-              <p className="text-[12px] text-wb-ink2">minutes</p>
+              <p className="text-wb-label text-wb-ink2">minutes</p>
             </div>
           </div>
 
@@ -217,16 +217,16 @@ export default function WorkoutHistoryPage() {
           <div className="rounded-lg border border-wb-line bg-white p-4">
             <h2 className="mb-3 text-sm font-semibold text-wb-ink">Energy: Before vs After</h2>
             <div className="grid grid-cols-3 gap-2 text-center text-sm">
-              <div><p className="text-xl font-bold text-wb-ok-on">{energyImproved}</p><p className="text-[12px] uppercase text-wb-ink2">Improved</p></div>
-              <div><p className="text-xl font-bold text-wb-ink2">{energySame}</p><p className="text-[12px] uppercase text-wb-ink2">Same</p></div>
-              <div><p className="text-xl font-bold text-wb-warn-on">{energyWorse}</p><p className="text-[12px] uppercase text-wb-ink2">Lower</p></div>
+              <div><p className="text-xl font-bold text-wb-ok-on">{energyImproved}</p><p className="text-wb-label uppercase text-wb-ink2">Improved</p></div>
+              <div><p className="text-xl font-bold text-wb-ink2">{energySame}</p><p className="text-wb-label uppercase text-wb-ink2">Same</p></div>
+              <div><p className="text-xl font-bold text-wb-warn-on">{energyWorse}</p><p className="text-wb-label uppercase text-wb-ink2">Lower</p></div>
             </div>
           </div>
 
           {(cardioInsight || durationInsight) && (
             <div className="rounded-lg border border-wb-line bg-white p-4">
               <h2 className="mb-2 text-sm font-semibold text-wb-ink">Patterns</h2>
-              <p className="mb-2 text-[12px] text-wb-ink2">Observed, not prescribed</p>
+              <p className="mb-2 text-wb-label text-wb-ink2">Observed, not prescribed</p>
               <ul className="space-y-2 text-xs text-wb-ink2">
                 {cardioInsight && <li>{cardioInsight}</li>}
                 {durationInsight && <li>{durationInsight}</li>}
@@ -267,12 +267,12 @@ export default function WorkoutHistoryPage() {
           {painFlagged.length > 0 && (
             <div className="rounded-lg border border-wb-line bg-white p-4">
               <h2 className="mb-1 text-sm font-semibold text-wb-ink">Exercises Trending Higher Pain</h2>
-              <p className="mb-3 text-[12px] text-wb-ink2">Avg pain during ≥ 5/10</p>
+              <p className="mb-3 text-wb-label text-wb-ink2">Avg pain during ≥ 5/10</p>
               <ul className="space-y-1.5">
                 {painFlagged.map((e) => (
                   <li key={e.name} className="flex items-center justify-between text-sm">
                     <span className="text-wb-ink">{e.name}</span>
-                    <span className={`rounded-full border px-2.5 py-0.5 text-[12px] font-semibold ${stateToneClasses('warn').border} ${stateToneClasses('warn').bg} ${stateToneClasses('warn').text}`}>
+                    <span className={`rounded-full border px-2.5 py-0.5 text-wb-label font-semibold ${stateToneClasses('warn').border} ${stateToneClasses('warn').bg} ${stateToneClasses('warn').text}`}>
                       {e.avgPain.toFixed(1)}/10
                     </span>
                   </li>
@@ -288,7 +288,7 @@ export default function WorkoutHistoryPage() {
                 <li key={s.id} className="flex items-center justify-between rounded-lg border border-wb-line bg-wb-bg px-3 py-2 text-sm">
                   <div>
                     <p className="font-semibold text-wb-ink">{SESSION_TYPE_LABELS[s.session_type] ?? s.session_type}</p>
-                    <p className="text-[12px] text-wb-ink2">
+                    <p className="text-wb-label text-wb-ink2">
                       {fmtDate(s.started_at)}{s.duration_minutes ? ` · ${s.duration_minutes} min` : ''}
                     </p>
                   </div>

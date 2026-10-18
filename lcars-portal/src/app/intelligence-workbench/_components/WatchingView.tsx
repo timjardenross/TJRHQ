@@ -41,42 +41,42 @@ export function WatchingView() {
       .finally(() => { if (alive()) setLoading(false); });
   }, []);
 
-  if (loading) return <p className="text-[13px] text-wb-ink2">Loading watching list…</p>;
+  if (loading) return <p className="text-wb-body text-wb-ink2">Loading watching list…</p>;
   if (error) return (
-    <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-[13px] text-wb-crit-on">
+    <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-wb-body text-wb-crit-on">
       Unavailable: {error}. <Link href="/agent-status-workbench?tab=pipeline" className="underline">Check pipeline health →</Link>
     </p>
   );
 
   if (items.length === 0) {
-    return <p className="text-[13px] text-wb-ink2">Nothing is currently being monitored automatically.</p>;
+    return <p className="text-wb-body text-wb-ink2">Nothing is currently being monitored automatically.</p>;
   }
 
   return (
     <div className="space-y-3">
-      <p className="text-[12px] text-wb-ink2">
+      <p className="text-wb-label text-wb-ink2">
         {items.length} development{items.length === 1 ? '' : 's'} being monitored automatically. Nothing required from you unless one moves to Worth Knowing.
       </p>
       {items.map((w) => (
         <div key={w.event_id} className="space-y-1.5 rounded-xl border border-wb-line bg-wb-surface p-4">
           <div className="flex items-start justify-between gap-2">
             {w.canonical_url ? (
-              <a href={w.canonical_url} target="_blank" rel="noopener noreferrer" className="text-[13.5px] font-medium text-wb-ink underline decoration-dotted hover:text-wb-sage-deep">
+              <a href={w.canonical_url} target="_blank" rel="noopener noreferrer" className="text-wb-body font-medium text-wb-ink underline decoration-dotted hover:text-wb-sage-deep">
                 {w.title}
               </a>
             ) : (
-              <p className="text-[13.5px] font-medium text-wb-ink">{w.title}</p>
+              <p className="text-wb-body font-medium text-wb-ink">{w.title}</p>
             )}
             <RiskPill value={w.significance} />
           </div>
-          <p className="text-[12px] text-wb-ink2">{w.why_watched}</p>
-          <p className="text-[12px] text-wb-ink2">
+          <p className="text-wb-label text-wb-ink2">{w.why_watched}</p>
+          <p className="text-wb-label text-wb-ink2">
             {w.confidence_level} confidence{w.geography ? ` · ${w.geography}` : ''}
             {w.corroboration > 0 ? ` · ${w.corroboration} corroborating source${w.corroboration === 1 ? '' : 's'}` : ''}
           </p>
-          <p className="text-[12px] italic text-wb-ink2">What would change this: {w.what_would_change_this}</p>
+          <p className="text-wb-label italic text-wb-ink2">What would change this: {w.what_would_change_this}</p>
           {w.last_update && (
-            <p className="text-[12px] text-wb-ink2">Last update: {new Date(w.last_update).toLocaleDateString()}</p>
+            <p className="text-wb-label text-wb-ink2">Last update: {new Date(w.last_update).toLocaleDateString()}</p>
           )}
         </div>
       ))}

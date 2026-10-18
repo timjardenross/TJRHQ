@@ -71,31 +71,31 @@ export default function RecoveryPulsePage() {
         </Card>
 
         <Card title="Most recent check-in">
-          {loading && <p className="text-[13px] text-wb-ink2">Loading…</p>}
+          {loading && <p className="text-wb-body text-wb-ink2">Loading…</p>}
           {!loading && !latest && (
-            <p className="text-[13px] text-wb-ink2">No capacity check-ins recorded yet.</p>
+            <p className="text-wb-body text-wb-ink2">No capacity check-ins recorded yet.</p>
           )}
           {!loading && latest && (
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-                <div className="text-[12px] uppercase tracking-wide text-wb-ink2">Capacity</div>
+                <div className="text-wb-label uppercase tracking-wide text-wb-ink2">Capacity</div>
                 <div className="mt-1">
                   <Badge status="info">{latest.capacity_state ?? 'Not recorded'}</Badge>
                 </div>
               </div>
               <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-                <div className="text-[12px] uppercase tracking-wide text-wb-ink2">Regulation</div>
-                <div className="mt-1 text-[14px] capitalize text-wb-ink">
+                <div className="text-wb-label uppercase tracking-wide text-wb-ink2">Regulation</div>
+                <div className="mt-1 text-wb-body capitalize text-wb-ink">
                   {latest.regulation_state ?? 'Not recorded'}
                 </div>
               </div>
               <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-                <div className="text-[12px] uppercase tracking-wide text-wb-ink2">Pain</div>
-                <div className="mt-1 text-[14px] text-wb-ink">
+                <div className="text-wb-label uppercase tracking-wide text-wb-ink2">Pain</div>
+                <div className="mt-1 text-wb-body text-wb-ink">
                   {describePain(latest.pain_state, latest.pain_score) ?? 'Not recorded'}
                 </div>
               </div>
-              <div className="sm:col-span-3 text-[12px] text-wb-ink2">
+              <div className="sm:col-span-3 text-wb-label text-wb-ink2">
                 Captured {new Date(latest.captured_at).toLocaleString('en-AU', {
                   weekday: 'long',
                   day: 'numeric',

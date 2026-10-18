@@ -152,7 +152,7 @@ export function MobileCommandBar() {
                   <span className="relative text-xl leading-none" aria-hidden>
                     {tab.glyph}
                   </span>
-                  <span className="text-[12px] font-bold uppercase tracking-[0.12em]">
+                  <span className="text-wb-label font-bold uppercase tracking-[0.12em]">
                     {tab.label}
                   </span>
                   {isActive && (
@@ -175,7 +175,7 @@ export function MobileCommandBar() {
               <span className="relative text-xl leading-none" aria-hidden>
                 ✦
               </span>
-              <span className="text-[12px] font-bold uppercase tracking-[0.12em]">Ask</span>
+              <span className="text-wb-label font-bold uppercase tracking-[0.12em]">Ask</span>
               {isAskActive && (
                 <span className="absolute inset-x-3 top-0 h-0.5 rounded-full bg-current" aria-hidden />
               )}
@@ -196,7 +196,7 @@ export function MobileCommandBar() {
               <span className="relative text-xl leading-none" aria-hidden>
                 ⋯
               </span>
-              <span className="text-[12px] font-bold uppercase tracking-[0.12em]">More</span>
+              <span className="text-wb-label font-bold uppercase tracking-[0.12em]">More</span>
               {isMoreActive && (
                 <span className="absolute inset-x-3 top-0 h-0.5 rounded-full bg-current" aria-hidden />
               )}

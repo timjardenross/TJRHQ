@@ -59,7 +59,7 @@ export interface BadgeProps {
 export function Badge({ status = 'neutral', children, className = '' }: BadgeProps) {
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${STATUS_CLASSES[status]} ${className}`}
+      className={`inline-flex rounded-full px-2.5 py-0.5 text-wb-label font-semibold ${STATUS_CLASSES[status]} ${className}`}
     >
       {children}
     </span>

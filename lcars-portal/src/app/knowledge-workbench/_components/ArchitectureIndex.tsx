@@ -35,8 +35,8 @@ export function ArchitectureIndex() {
   return (
     <Card className="border-wb-line bg-wb-bg/30 p-4 space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <p className="text-[13px] font-sans font-semibold text-wb-ink">ADR Index</p>
-        <span className="text-[12px] px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
+        <p className="text-wb-body font-sans font-semibold text-wb-ink">ADR Index</p>
+        <span className="text-wb-label px-1.5 py-0.5 rounded border border-wb-line text-wb-ink2">
           Static reference · not live
         </span>
       </div>

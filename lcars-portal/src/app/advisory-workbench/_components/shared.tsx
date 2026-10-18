@@ -162,12 +162,12 @@ export function EvidencePanel({
   if (!hasRecommendations && !investigation && !hasHistorical) return null;
   return (
     <div className="space-y-3 rounded-md border border-wb-line bg-wb-bg p-3">
-      <p className="text-[12px] uppercase tracking-[0.15em] text-wb-ink2">
+      <p className="text-wb-label uppercase tracking-[0.15em] text-wb-ink2">
         Evidence — sourced directly from the canonical engines, not an officer&apos;s interpretation
       </p>
       {hasHistorical && (
         <div>
-          <p className="mb-1 text-[12px] uppercase tracking-widest text-wb-sage-deep">Historical Evidence</p>
+          <p className="mb-1 text-wb-label uppercase tracking-widest text-wb-sage-deep">Historical Evidence</p>
           <ul className="space-y-1">
             {historicalEvidence!.map((e, i) => (
               <li key={i} className="text-xs text-wb-ink">
@@ -181,7 +181,7 @@ export function EvidencePanel({
       )}
       {hasRecommendations && (
         <div>
-          <p className="mb-1 text-[12px] uppercase tracking-widest text-wb-sage-deep">Recommendation Engine</p>
+          <p className="mb-1 text-wb-label uppercase tracking-widest text-wb-sage-deep">Recommendation Engine</p>
           <ul className="space-y-1">
             {recommendations!.recommendations.slice(0, 3).map((r) => (
               <li key={r.mission_id} className="text-xs text-wb-ink">
@@ -194,7 +194,7 @@ export function EvidencePanel({
       )}
       {investigation && (
         <div>
-          <p className="mb-1 text-[12px] uppercase tracking-widest text-wb-sage-deep">
+          <p className="mb-1 text-wb-label uppercase tracking-widest text-wb-sage-deep">
             Investigation Engine — {investigation.label}
           </p>
           <p className="text-xs text-wb-ink">{investigation.triggerDescription}</p>
@@ -215,7 +215,7 @@ export function EvidencePanel({
 function ResultSection({ label, children }: { label: string; children: ReactNode }) {
   return (
     <section aria-labelledby={`think-${label}`} className="[overflow-wrap:anywhere] rounded-md border border-wb-line bg-wb-surface px-4 py-3">
-      <h3 id={`think-${label}`} className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.15em] text-wb-sage-deep">{label}</h3>
+      <h3 id={`think-${label}`} className="mb-1.5 text-wb-label font-semibold uppercase tracking-[0.15em] text-wb-sage-deep">{label}</h3>
       {children}
     </section>
   );
@@ -313,14 +313,14 @@ export function ThinkResult({ data }: { data: AdvisoryResult }) {
       )}
 
       {conf && (
-        <p className="text-[12px] text-wb-ink2">
+        <p className="text-wb-label text-wb-ink2">
           Confidence: {conf.band ?? ''} ({Math.round((conf.value ?? 0) * 100)}%)
           {conf.basis ? ` — ${conf.basis}` : ''}
           {data.learning_note ? ` · ${data.learning_note}` : ''}
         </p>
       )}
 
-      <p className="text-[12px] italic text-wb-ink2">Advisory only. You decide what happens next.</p>
+      <p className="text-wb-label italic text-wb-ink2">Advisory only. You decide what happens next.</p>
     </div>
   );
 }
@@ -358,7 +358,7 @@ export function PullApartReasoning({
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Reasoning groups">
         {tabs.map((g) => (
           <button key={g} role="tab" aria-selected={active === g} onClick={() => onOpenGroup(g)}
-            className={`rounded-md border px-3 py-1 text-[12px] uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${active === g ? 'border-wb-sage-deep bg-wb-sage-deep/15 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'}`}>
+            className={`rounded-md border px-3 py-1 text-wb-label uppercase tracking-wider transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${active === g ? 'border-wb-sage-deep bg-wb-sage-deep/15 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:border-wb-sage-deep/40 hover:text-wb-ink'}`}>
             {g}
           </button>
         ))}
@@ -376,11 +376,11 @@ export function PullApartReasoning({
             return (
               <div key={i} className="space-y-1.5 rounded-md border border-wb-line bg-wb-bg px-4 py-3">
                 <div className="flex items-center justify-between gap-2">
-                  <p className={`text-[12px] font-semibold uppercase tracking-wider ${accentClass}`}>{op.officer}</p>
-                  {stance && <span className={`text-[12px] uppercase tracking-widest ${stanceColor}`}>{stance}</span>}
+                  <p className={`text-wb-label font-semibold uppercase tracking-wider ${accentClass}`}>{op.officer}</p>
+                  {stance && <span className={`text-wb-label uppercase tracking-widest ${stanceColor}`}>{stance}</span>}
                 </div>
                 <p className="text-sm leading-relaxed text-wb-ink">{op.recommendation}</p>
-                {op.confidence !== undefined && <p className="text-[12px] text-wb-ink2">Confidence: {op.confidence}%</p>}
+                {op.confidence !== undefined && <p className="text-wb-label text-wb-ink2">Confidence: {op.confidence}%</p>}
               </div>
             );
           })}

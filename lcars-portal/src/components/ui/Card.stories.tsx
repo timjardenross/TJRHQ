@@ -24,7 +24,7 @@ export const Outlined: Story = {
 export const WithAction: Story = {
   render: () => (
     <Card title="Approval gate">
-      <p className="mb-4 text-[13px] text-wb-ink2">3 of 4 QA checks passed.</p>
+      <p className="mb-4 text-wb-body text-wb-ink2">3 of 4 QA checks passed.</p>
       <Button variant="primary">Pass remaining gate</Button>
     </Card>
   ),

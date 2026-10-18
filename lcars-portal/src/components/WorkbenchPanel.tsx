@@ -31,7 +31,7 @@ export function WorkbenchPanel({
       <div className="flex items-center gap-3 border-b border-wb-line px-4 py-3.5">
         <div className="flex flex-1 flex-col">
           {eyebrow && (
-            <span className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2">
+            <span className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2">
               {eyebrow}
             </span>
           )}

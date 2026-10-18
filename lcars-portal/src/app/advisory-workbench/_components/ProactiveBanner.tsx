@@ -49,19 +49,19 @@ export function ProactiveBanner({ onThinkItThrough }: { onThinkItThrough: (text:
         {isUrgent ? '▲' : '●'}
       </span>
       <div className="min-w-0 flex-1">
-        <p className={`text-[12px] font-semibold uppercase tracking-[0.15em] ${isUrgent ? 'text-wb-warn-on' : 'text-wb-sage-deep'}`}>Something worth considering</p>
-        <p className="mt-0.5 text-[13px] text-wb-ink">{observation}</p>
+        <p className={`text-wb-label font-semibold uppercase tracking-[0.15em] ${isUrgent ? 'text-wb-warn-on' : 'text-wb-sage-deep'}`}>Something worth considering</p>
+        <p className="mt-0.5 text-wb-body text-wb-ink">{observation}</p>
         {triggerList.length > 1 && (
-          <p className="mt-0.5 text-[12px] text-wb-ink2">{triggerList.slice(1, 3).join(' · ')}{triggerList.length > 3 ? ` +${triggerList.length - 3} more` : ''}</p>
+          <p className="mt-0.5 text-wb-label text-wb-ink2">{triggerList.slice(1, 3).join(' · ')}{triggerList.length > 3 ? ` +${triggerList.length - 3} more` : ''}</p>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-3">
         <button onClick={() => { onThinkItThrough(observation); setDismissed(true); }}
-          className="text-[12px] font-semibold uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+          className="text-wb-label font-semibold uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
           Think it through
         </button>
         <button onClick={() => setDismissed(true)}
-          className="text-[12px] uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+          className="text-wb-label uppercase tracking-widest text-wb-ink2 transition-colors hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
           Not useful
         </button>
       </div>

@@ -30,13 +30,13 @@ function QueueRow({ item, onOpen }: { item: ContentItem; onOpen: () => void }) {
       {item.rank_score !== null && <Badge status={rankBadgeStatus(item.rank_score)}>{item.rank_score.toFixed(0)}</Badge>}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          {item.pillar && <span className="text-[12px] font-medium uppercase tracking-wide text-wb-ink2">{PILLAR_LABEL[item.pillar] ?? item.pillar}</span>}
-          <span className="text-[12px] text-wb-ink2">· {STAGE_LABEL[item.stage]}</span>
-          {item.captain_focus && <span className="rounded-full bg-wb-warn/15 px-1.5 py-0.5 text-[12px] font-semibold text-wb-warn-on">★</span>}
+          {item.pillar && <span className="text-wb-label font-medium uppercase tracking-wide text-wb-ink2">{PILLAR_LABEL[item.pillar] ?? item.pillar}</span>}
+          <span className="text-wb-label text-wb-ink2">· {STAGE_LABEL[item.stage]}</span>
+          {item.captain_focus && <span className="rounded-full bg-wb-warn/15 px-1.5 py-0.5 text-wb-label font-semibold text-wb-warn-on">★</span>}
         </div>
-        <p className="truncate text-[13.5px] font-medium text-wb-ink">{item.title}</p>
+        <p className="truncate text-wb-body font-medium text-wb-ink">{item.title}</p>
       </div>
-      <span aria-hidden className="text-[13px] text-wb-ink2">→</span>
+      <span aria-hidden className="text-wb-body text-wb-ink2">→</span>
     </button>
   );
 }

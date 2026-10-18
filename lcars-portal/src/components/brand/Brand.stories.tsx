@@ -15,7 +15,7 @@ function Marks() {
     <div className="space-y-4">
       {SURFACES.map((s) => (
         <div key={s.name} style={{ background: s.bg }} className="flex flex-wrap items-center gap-6 rounded-lg p-4">
-          <span className="w-36 text-[12px]" style={{ color: s.surface === 'dark' ? '#B7C6D4' : '#4A5F75' }}>{s.name}</span>
+          <span className="w-36 text-wb-label" style={{ color: s.surface === 'dark' ? '#B7C6D4' : '#4A5F75' }}>{s.name}</span>
           {[16, 24, 32, 36, 48, 64].map((n) => (
             <BrandMark key={n} surface={s.surface} size={n} />
           ))}

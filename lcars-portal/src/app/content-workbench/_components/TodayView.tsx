@@ -25,9 +25,9 @@ function ReviewCard({ item, onOpen }: { item: ContentItem; onOpen: () => void })
   const outstanding = (['accuracy', 'brand_voice', 'compliance', 'links_checked'] as const).filter((k) => checklist[k] !== true).length;
   return (
     <div className="space-y-1.5 rounded-xl border border-wb-warn/40 bg-wb-warn/5 p-3">
-      <p className="text-[12px] font-semibold uppercase tracking-wide text-wb-warn-on">Review</p>
-      <p className="text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>
-      <p className="text-[12px] text-wb-ink2">
+      <p className="text-wb-label font-semibold uppercase tracking-wide text-wb-warn-on">Review</p>
+      <p className="text-wb-body font-medium leading-snug text-wb-ink">{item.title}</p>
+      <p className="text-wb-label text-wb-ink2">
         {item.body ? 'Draft ready.' : 'Awaiting draft.'} {outstanding > 0 ? `${outstanding} QA item${outstanding === 1 ? '' : 's'} need attention.` : 'QA complete.'}
       </p>
       <Button size="sm" onClick={onOpen}>Review →</Button>
@@ -38,15 +38,15 @@ function ReviewCard({ item, onOpen }: { item: ContentItem; onOpen: () => void })
 function DecideCard({ item, onOpen, kind }: { item: ContentItem; onOpen: () => void; kind: 'pursue' | 'publish' }) {
   return (
     <div className="space-y-1.5 rounded-xl border border-wb-sage/40 bg-wb-sage/5 p-3">
-      <p className="text-[12px] font-semibold uppercase tracking-wide text-wb-sage-deep">Decide</p>
-      <p className="text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>
+      <p className="text-wb-label font-semibold uppercase tracking-wide text-wb-sage-deep">Decide</p>
+      <p className="text-wb-body font-medium leading-snug text-wb-ink">{item.title}</p>
       {kind === 'pursue' ? (
-        <p className="text-[12px] text-wb-ink2">
+        <p className="text-wb-label text-wb-ink2">
           Opportunity score: {item.rank_score !== null ? item.rank_score.toFixed(0) : '—'} / 100
           {item.pillar && <> · {PILLAR_LABEL[item.pillar] ?? item.pillar}</>}
         </p>
       ) : (
-        <p className="text-[12px] text-wb-ink2">Approved — ready to publish now or schedule.</p>
+        <p className="text-wb-label text-wb-ink2">Approved — ready to publish now or schedule.</p>
       )}
       <Button size="sm" onClick={onOpen}>Decide →</Button>
     </div>
@@ -106,14 +106,14 @@ export function TodayView({ onOpenStudio, onOpenPipeline, refreshSignal }: Props
   return (
     <div className="space-y-6">
       {needsCount === 0 && (
-        <p className="rounded-xl border border-wb-line bg-wb-surface p-4 text-[13px] text-wb-ink2">
+        <p className="rounded-xl border border-wb-line bg-wb-surface p-4 text-wb-body text-wb-ink2">
           Nothing needs you right now. Capture a new idea, or check Pipeline for in-progress work.
         </p>
       )}
 
       {needsCount > 0 && (
         <div>
-          <p className="mb-2 text-[13px] font-semibold text-wb-ink">
+          <p className="mb-2 text-wb-body font-semibold text-wb-ink">
             {needsCount} thing{needsCount === 1 ? '' : 's'} need{needsCount === 1 ? 's' : ''} you
           </p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -126,10 +126,10 @@ export function TodayView({ onOpenStudio, onOpenPipeline, refreshSignal }: Props
 
       {scheduled.length > 0 && (
         <div>
-          <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">Coming Up</p>
+          <p className="mb-2 text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">Coming Up</p>
           <div className="space-y-1.5 rounded-xl border border-wb-line bg-wb-surface p-3">
             {scheduled.slice(0, 5).map((i) => (
-              <div key={i.id} className="flex items-center justify-between gap-2 text-[12.5px]">
+              <div key={i.id} className="flex items-center justify-between gap-2 text-wb-label">
                 <span className="text-wb-ink">{i.title}</span>
                 <span className="text-wb-ink2">
                   {new Date(i.scheduled_for!).toLocaleString('en-AU', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -141,8 +141,8 @@ export function TodayView({ onOpenStudio, onOpenPipeline, refreshSignal }: Props
       )}
 
       <div>
-        <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">Pipeline Snapshot</p>
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-wb-line bg-wb-surface p-3 text-[12.5px] text-wb-ink2">
+        <p className="mb-2 text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">Pipeline Snapshot</p>
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-wb-line bg-wb-surface p-3 text-wb-label text-wb-ink2">
           <span>Ideas <Badge status={rankBadgeStatus(null)}>{counts.capture}</Badge></span>
           <span>Developing <Badge status={rankBadgeStatus(null)}>{counts.research + counts.content_prep}</Badge></span>
           <span>Review <Badge status={rankBadgeStatus(null)}>{counts.proofing}</Badge></span>

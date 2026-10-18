@@ -37,27 +37,27 @@ function CurrentExperimentCard({ experiment: e }: { experiment: CapacityExperime
   return (
     <div className="rounded-md border border-wb-line bg-wb-bg p-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-[12px] font-semibold uppercase tracking-[0.1em] text-wb-ink2">Current Experiment</div>
+        <div className="text-wb-label font-semibold uppercase tracking-[0.1em] text-wb-ink2">Current Experiment</div>
         <Badge status={e.status === 'active' ? 'info' : 'neutral'}>{EXPERIMENT_STATUS_LABEL[e.status]}</Badge>
       </div>
       {days !== null && (
-        <p className="mt-1 text-[12px] text-wb-ink2">Day {days + 1} since starting.</p>
+        <p className="mt-1 text-wb-label text-wb-ink2">Day {days + 1} since starting.</p>
       )}
-      <p className="mt-2 text-[13px] leading-relaxed text-wb-ink">
+      <p className="mt-2 text-wb-body leading-relaxed text-wb-ink">
         <span className="font-medium">Hypothesis — </span>
         {e.hypothesis}
       </p>
-      <p className="mt-2 text-[13px] leading-relaxed text-wb-ink2">
+      <p className="mt-2 text-wb-body leading-relaxed text-wb-ink2">
         <span className="font-medium text-wb-ink">Trying — </span>
         {e.proposed_change}
       </p>
       {e.notes && (
-        <p className="mt-2 text-[12px] leading-relaxed text-wb-ink2">
+        <p className="mt-2 text-wb-label leading-relaxed text-wb-ink2">
           <span className="font-medium text-wb-ink">Observations so far — </span>
           {e.notes}
         </p>
       )}
-      <p className="mt-3 text-[12px] italic text-wb-ink2">
+      <p className="mt-3 text-wb-label italic text-wb-ink2">
         Worth testing, not a commitment — stop it anytime with /experiment on the Capacity Bot if it makes things worse.
       </p>
     </div>
@@ -69,7 +69,7 @@ export function WhatHelpsView({ recovery, medical }: { recovery: RecoveryPayload
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-[12px] leading-relaxed text-wb-ink2">
+      <p className="text-wb-label leading-relaxed text-wb-ink2">
         Based only on your own recorded experience — what you&rsquo;ve tried and what happened afterward, not
         general or published evidence. Any general-evidence context shown alongside a strategy below is kept
         separate from your own personal track record.

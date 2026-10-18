@@ -99,8 +99,8 @@ export function CaptureBox({ onCaptured, onDevelop }: { onCaptured: () => void; 
     >
       <div className="p-4">
         <div className="mb-2 flex items-center gap-2">
-          <span className="grid h-6 w-6 place-items-center rounded-full bg-wb-sage-deep text-[12px] text-white" aria-hidden>+</span>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-wb-ink2">New content idea</p>
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-wb-sage-deep text-wb-label text-white" aria-hidden>+</span>
+          <p className="text-wb-label font-semibold uppercase tracking-[0.14em] text-wb-ink2">New content idea</p>
         </div>
         <textarea
           ref={inputRef}
@@ -112,34 +112,34 @@ export function CaptureBox({ onCaptured, onDevelop }: { onCaptured: () => void; 
           rows={3}
           placeholder="Capture a content idea or topic — it's scored and pillar-classified automatically."
           aria-label="Capture content idea"
-          className="w-full resize-none rounded-lg border border-wb-line bg-wb-bg px-3 py-3 text-[14px] leading-snug text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          className="w-full resize-none rounded-lg border border-wb-line bg-wb-bg px-3 py-3 text-wb-body leading-snug text-wb-ink placeholder:text-wb-ink2 focus:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         />
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <Button onClick={submit} disabled={saving || !text.trim()}>
             {saving ? 'Capturing…' : 'Capture & Score'}
           </Button>
-          <span className="rounded border border-wb-line bg-wb-bg px-1.5 py-0.5 text-[12px] font-medium text-wb-ink2">
+          <span className="rounded border border-wb-line bg-wb-bg px-1.5 py-0.5 text-wb-label font-medium text-wb-ink2">
             ⌘/Ctrl + Enter
           </span>
         </div>
 
-        {!result && <p className="mt-3 min-h-[1lh] text-[12px] text-wb-crit-on">{error}</p>}
+        {!result && <p className="mt-3 min-h-[1lh] text-wb-label text-wb-crit-on">{error}</p>}
 
         {result && (
           <div className="mt-3 space-y-2 rounded-lg border border-wb-ok/40 bg-wb-ok/5 p-3">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="rounded-full bg-wb-ok/15 px-2 py-0.5 text-[12px] font-semibold text-wb-ok-on">✓ Opportunity Created</span>
-              <span className="text-[12px] font-semibold text-wb-ink">{result.rank_score.toFixed(0)} / 100 — {scoreTier(result.rank_score)}</span>
-              {result.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-[12px] font-semibold text-wb-warn-on">★ Captain Focus</span>}
+              <span className="rounded-full bg-wb-ok/15 px-2 py-0.5 text-wb-label font-semibold text-wb-ok-on">✓ Opportunity Created</span>
+              <span className="text-wb-label font-semibold text-wb-ink">{result.rank_score.toFixed(0)} / 100 — {scoreTier(result.rank_score)}</span>
+              {result.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-wb-label font-semibold text-wb-warn-on">★ Captain Focus</span>}
             </div>
-            <p className="text-[12px] text-wb-ink2">Pillar: <span className="text-wb-ink">{result.pillar_name}</span></p>
+            <p className="text-wb-label text-wb-ink2">Pillar: <span className="text-wb-ink">{result.pillar_name}</span></p>
             {result.reasons.length > 0 && (
-              <ul className="list-inside list-disc text-[12px] leading-relaxed text-wb-ink2">
+              <ul className="list-inside list-disc text-wb-label leading-relaxed text-wb-ink2">
                 {result.reasons.map((r, i) => (<li key={i}>{r}</li>))}
               </ul>
             )}
             {result.suggested_angle && (
-              <p className="text-[12.5px] italic leading-relaxed text-wb-ink">&ldquo;{result.suggested_angle}&rdquo;</p>
+              <p className="text-wb-label italic leading-relaxed text-wb-ink">&ldquo;{result.suggested_angle}&rdquo;</p>
             )}
             <div className="flex flex-wrap gap-2 pt-1">
               <Button size="sm" onClick={() => { onDevelop?.(result.content_id); setResult(null); }}>

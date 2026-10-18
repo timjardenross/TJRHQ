@@ -56,17 +56,17 @@ export default function WeightPage() {
     >
       <div className="flex flex-col gap-4">
         <Card>
-          <p className="text-[13px] leading-relaxed text-wb-ink2">
+          <p className="text-wb-body leading-relaxed text-wb-ink2">
             Manual weight logging has been retired. Recovery Pulse (via the Telegram XO bot) is now the
             Captain&rsquo;s single manual health-data capture mechanism — this page shows history only.
           </p>
         </Card>
 
-        {loading && <div className="py-10 text-center text-[13px] text-wb-ink2">Loading…</div>}
+        {loading && <div className="py-10 text-center text-wb-body text-wb-ink2">Loading…</div>}
 
         {!loading && trend.length === 0 && (
           <Card>
-            <p className="text-[13px] text-wb-ink2">No weight entries recorded yet.</p>
+            <p className="text-wb-body text-wb-ink2">No weight entries recorded yet.</p>
           </Card>
         )}
 
@@ -75,25 +75,25 @@ export default function WeightPage() {
             <div className="grid grid-cols-3 gap-3">
               {avgW !== null && (
                 <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
-                  <p className="text-[12px] uppercase tracking-wider text-wb-ink2">Avg</p>
+                  <p className="text-wb-label uppercase tracking-wider text-wb-ink2">Avg</p>
                   <p className="mt-0.5 font-serif text-lg text-wb-ink">{avgW.toFixed(1)}</p>
-                  <p className="text-[12px] text-wb-ink2">kg</p>
+                  <p className="text-wb-label text-wb-ink2">kg</p>
                 </div>
               )}
               {minW !== null && maxW !== null && (
                 <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
-                  <p className="text-[12px] uppercase tracking-wider text-wb-ink2">Range</p>
+                  <p className="text-wb-label uppercase tracking-wider text-wb-ink2">Range</p>
                   <p className="mt-0.5 font-serif text-sm text-wb-ink">{minW}–{maxW}</p>
-                  <p className="text-[12px] text-wb-ink2">kg</p>
+                  <p className="text-wb-label text-wb-ink2">kg</p>
                 </div>
               )}
               {change !== null && (
                 <div className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
-                  <p className="text-[12px] uppercase tracking-wider text-wb-ink2">Change</p>
+                  <p className="text-wb-label uppercase tracking-wider text-wb-ink2">Change</p>
                   <p className="mt-0.5 font-serif text-lg text-wb-ink">
                     {parseFloat(change) > 0 ? '+' : ''}{change}
                   </p>
-                  <p className="text-[12px] text-wb-ink2">kg vs 30d ago</p>
+                  <p className="text-wb-label text-wb-ink2">kg vs 30d ago</p>
                 </div>
               )}
             </div>
@@ -105,11 +105,11 @@ export default function WeightPage() {
                   const pct = ((r.weight_kg - minW) / span) * 100;
                   return (
                     <div key={r.log_date} className="flex items-center gap-2">
-                      <span className="w-14 shrink-0 font-mono text-[12px] text-wb-ink2">{r.log_date.slice(5)}</span>
+                      <span className="w-14 shrink-0 font-mono text-wb-label text-wb-ink2">{r.log_date.slice(5)}</span>
                       <div className="h-2 flex-1 overflow-hidden rounded-full bg-wb-line/50">
                         <div className="h-full rounded-full bg-wb-sage-deep transition-all" style={{ width: `${pct}%` }} />
                       </div>
-                      <span className="w-12 text-right font-mono text-[12px] text-wb-ink2">{r.weight_kg}</span>
+                      <span className="w-12 text-right font-mono text-wb-label text-wb-ink2">{r.weight_kg}</span>
                     </div>
                   );
                 })}

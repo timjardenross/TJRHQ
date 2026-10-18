@@ -15,20 +15,20 @@ export function NextWeekPosture({
 }) {
   return (
     <Card>
-      <h2 className="mb-1 font-serif text-[15px] uppercase tracking-[0.1em] text-wb-ink">Next Week</h2>
-      <p className="mb-1 text-[12px] uppercase tracking-[0.1em] text-wb-ink2">Recommended posture</p>
+      <h2 className="mb-1 font-serif text-wb-lead uppercase tracking-[0.1em] text-wb-ink">Next Week</h2>
+      <p className="mb-1 text-wb-label uppercase tracking-[0.1em] text-wb-ink2">Recommended posture</p>
       <p className="mb-3 font-serif text-[20px] text-wb-ink">{data.posture}</p>
-      <p className="mb-3 text-[13px] text-wb-ink2">{data.message}</p>
+      <p className="mb-3 text-wb-body text-wb-ink2">{data.message}</p>
       {data.priorities.length > 0 && (
         <div className="mb-3">
-          <p className="mb-1 text-[12px] uppercase tracking-[0.08em] text-wb-ink2">Priority</p>
-          <ol className="flex flex-col gap-1 text-[13px] text-wb-ink">
+          <p className="mb-1 text-wb-label uppercase tracking-[0.08em] text-wb-ink2">Priority</p>
+          <ol className="flex flex-col gap-1 text-wb-body text-wb-ink">
             {data.priorities.map((p, i) => <li key={i}>{i + 1}. {p}</li>)}
           </ol>
         </div>
       )}
       {data.avoid && (
-        <p className="mb-3 text-[12px] text-wb-ink2"><span className="font-medium text-wb-ink">Avoid:</span> {data.avoid}</p>
+        <p className="mb-3 text-wb-label text-wb-ink2"><span className="font-medium text-wb-ink">Avoid:</span> {data.avoid}</p>
       )}
       <Button variant={accepted ? 'secondary' : 'primary'} disabled={accepted} onClick={onAccept}>
         {accepted ? 'Posture accepted ✓' : 'Accept Next-Week Posture →'}

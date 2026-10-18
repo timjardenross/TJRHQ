@@ -10,15 +10,15 @@ import { GLYPH_SYMBOL, GLYPH_CLASS } from './glyph';
 export function WhatChanged({ items }: { items: ChangeItem[] }) {
   return (
     <Card>
-      <h2 className="mb-3 font-serif text-[15px] uppercase tracking-[0.1em] text-wb-ink">What Changed</h2>
+      <h2 className="mb-3 font-serif text-wb-lead uppercase tracking-[0.1em] text-wb-ink">What Changed</h2>
       <ul className="flex flex-col gap-2.5">
         {items.map((item) => (
-          <li key={item.key} className="flex items-start gap-2 text-[13px]">
+          <li key={item.key} className="flex items-start gap-2 text-wb-body">
             <span className={`mt-0.5 ${GLYPH_CLASS[item.glyph]}`} aria-hidden>{GLYPH_SYMBOL[item.glyph]}</span>
             <span>
               <span className="font-medium text-wb-ink">{item.label}</span>
               <span className="text-wb-ink2"> — {item.detail}</span>
-              {item.noHistory && <span className="ml-1 text-[12px] uppercase tracking-[0.08em] text-wb-ink2">no history</span>}
+              {item.noHistory && <span className="ml-1 text-wb-label uppercase tracking-[0.08em] text-wb-ink2">no history</span>}
             </span>
           </li>
         ))}

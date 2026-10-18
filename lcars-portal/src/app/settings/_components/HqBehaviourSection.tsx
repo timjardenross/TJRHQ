@@ -37,14 +37,14 @@ export function HqBehaviourSection() {
         </SettingRow>
 
         <div className="py-4">
-          <p className="text-[13px] font-medium text-wb-ink">What should HQ put in front of you?</p>
-          <p className="mt-0.5 text-[12px] text-wb-ink2">
+          <p className="text-wb-body font-medium text-wb-ink">What should HQ put in front of you?</p>
+          <p className="mt-0.5 text-wb-label text-wb-ink2">
             Underlying workbenches map this to their own terms (e.g. Needs you / Worth knowing / Watching) — this is the one
             shared threshold, not a scoring formula.
           </p>
           <fieldset className="mt-3 flex flex-col gap-2">
             <legend className="sr-only">Attention preference</legend>
-            <label className="flex cursor-pointer items-start gap-2 text-[13px] text-wb-ink">
+            <label className="flex cursor-pointer items-start gap-2 text-wb-body text-wb-ink">
               <input
                 type="radio"
                 name="attention-preference"
@@ -55,10 +55,10 @@ export function HqBehaviourSection() {
               />
               <span>
                 Only things that need me or are worth knowing
-                <span className="ml-1.5 text-[12px] uppercase tracking-[0.08em] text-wb-ink2">Default</span>
+                <span className="ml-1.5 text-wb-label uppercase tracking-[0.08em] text-wb-ink2">Default</span>
               </span>
             </label>
-            <label className="flex cursor-pointer items-start gap-2 text-[13px] text-wb-ink">
+            <label className="flex cursor-pointer items-start gap-2 text-wb-body text-wb-ink">
               <input
                 type="radio"
                 name="attention-preference"

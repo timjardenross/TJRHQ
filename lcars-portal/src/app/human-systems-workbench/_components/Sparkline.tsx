@@ -6,7 +6,7 @@
  *  beneath wherever this is used. */
 export function Sparkline({ values }: { values: (number | null)[] }) {
   const pts = values.map((v, i) => ({ v, i })).filter((p) => p.v != null) as { v: number; i: number }[];
-  if (pts.length < 2) return <span className="text-[12px] text-wb-ink2">Not enough data</span>;
+  if (pts.length < 2) return <span className="text-wb-label text-wb-ink2">Not enough data</span>;
   const max = Math.max(...pts.map((p) => p.v));
   const min = Math.min(...pts.map((p) => p.v));
   const span = max - min || 1;
@@ -79,7 +79,7 @@ export function CapacityTrendBars({ days }: { days: CapacityTrendBarDay[] }) {
           return <rect key={d.date} x={x} y={y} width={barW} height={barH} className={fillClass} rx={1} />;
         })}
       </svg>
-      <p className="mt-2 text-[12px] text-wb-ink2">
+      <p className="mt-2 text-wb-label text-wb-ink2">
         {recorded} of {days.length} day{days.length === 1 ? '' : 's'} have a recorded capacity check-in.
       </p>
     </div>

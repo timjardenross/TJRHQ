@@ -32,7 +32,7 @@ interface TopicDetailPayload {
 
 function ItemRow({ item }: { item: EvidenceItem }) {
   return (
-    <div className="border-b border-wb-line pb-2 text-[12.5px] last:border-0">
+    <div className="border-b border-wb-line pb-2 text-wb-label last:border-0">
       <div className="font-semibold text-wb-ink">
         {item.source_url ? (
           <a href={item.source_url} target="_blank" rel="noreferrer" className="hover:underline">{item.title}</a>
@@ -78,12 +78,12 @@ export function TopicDetail({ topicKey, onBack }: { topicKey: string; onBack: ()
 
       <Card>
         <h2 className="mb-2 font-serif text-lg text-wb-ink">{data.topic_label}</h2>
-        <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-wb-ink2">
+        <div className="flex flex-wrap items-center gap-2 text-wb-label text-wb-ink2">
           <Badge status={toneToStatus(strengthTone(data.strength))}>{STRENGTH_LABEL[data.strength]} evidence</Badge>
           <span>{TREND_LABEL[data.trend]}</span>
           {data.last_changed && <span>· Last changed {new Date(data.last_changed).toLocaleDateString()}</span>}
         </div>
-        <p className="mt-3 max-w-[70ch] text-[12.5px] text-wb-ink2">
+        <p className="mt-3 max-w-[70ch] text-wb-label text-wb-ink2">
           {data.composition.high > 0
             ? `Current understanding is grounded primarily in ${data.composition.high} high-confidence finding${data.composition.high === 1 ? '' : 's'}, corroborated by ${data.composition.medium} moderate-confidence source${data.composition.medium === 1 ? '' : 's'}.`
             : data.composition.medium > 0
@@ -99,13 +99,13 @@ export function TopicDetail({ topicKey, onBack }: { topicKey: string; onBack: ()
       )}
 
       <Card title="Evidence Base">
-        <div className="grid grid-cols-2 gap-3 text-[12.5px] text-wb-ink2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 text-wb-label text-wb-ink2 sm:grid-cols-4">
           <div><div className="text-lg font-semibold text-wb-ink">{data.composition.high}</div>Strong</div>
           <div><div className="text-lg font-semibold text-wb-ink">{data.composition.medium}</div>Moderate</div>
           <div><div className="text-lg font-semibold text-wb-ink">{data.composition.low}</div>Emerging</div>
           <div><div className="text-lg font-semibold text-wb-ink">{data.composition.unknown}</div>Unclear</div>
         </div>
-        <p className="mt-2 text-[12px] text-wb-ink2">{total} sources considered in this topic over the last year.</p>
+        <p className="mt-2 text-wb-label text-wb-ink2">{total} sources considered in this topic over the last year.</p>
       </Card>
 
       {(data.supports.length > 0 || data.challenges.length > 0) && (
@@ -125,7 +125,7 @@ export function TopicDetail({ topicKey, onBack }: { topicKey: string; onBack: ()
 
       {data.what_we_dont_know_yet.length > 0 && (
         <Card title="What We Don't Know Yet">
-          <ul className="list-inside list-disc space-y-1 text-[12.5px] text-wb-ink2">
+          <ul className="list-inside list-disc space-y-1 text-wb-label text-wb-ink2">
             {data.what_we_dont_know_yet.map((g, idx) => (<li key={idx}>{g}</li>))}
           </ul>
         </Card>
@@ -137,18 +137,18 @@ export function TopicDetail({ topicKey, onBack }: { topicKey: string; onBack: ()
           Safety Note
         </h2>
         {data.safety.clear ? (
-          <p className="text-[13px] text-wb-ink2">✓ Nothing new requires attention in this topic.</p>
+          <p className="text-wb-body text-wb-ink2">✓ Nothing new requires attention in this topic.</p>
         ) : (
           <div className="space-y-2">{data.safety.items.map((i) => (<ItemRow key={i.signal_id} item={i} />))}</div>
         )}
       </Card>
 
-      <details className="rounded-xl border border-wb-line bg-wb-surface p-3 text-[12px] text-wb-ink2">
+      <details className="rounded-xl border border-wb-line bg-wb-surface p-3 text-wb-label text-wb-ink2">
         <summary className="cursor-pointer font-medium text-wb-ink">All recent items in this topic ({data.recent_items.length})</summary>
         <div className="mt-3 space-y-2">{data.recent_items.map((i) => (<ItemRow key={i.signal_id} item={i} />))}</div>
       </details>
 
-      <p className="max-w-[70ch] text-[12px] italic text-wb-ink2">
+      <p className="max-w-[70ch] text-wb-label italic text-wb-ink2">
         {data.gaps.evidence_contribution_coverage} {data.gaps.history_over_time}
       </p>
     </div>

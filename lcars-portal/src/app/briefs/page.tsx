@@ -65,7 +65,7 @@ function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void 
           role="tab"
           aria-selected={active === t.key}
           onClick={() => onChange(t.key)}
-          className={`shrink-0 snap-start rounded-full border px-4 py-1.5 text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+          className={`shrink-0 snap-start rounded-full border px-4 py-1.5 text-wb-body font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
             active === t.key
               ? 'border-wb-sage-deep bg-wb-sage-deep text-white'
               : 'border-wb-line text-wb-ink2 hover:bg-wb-bg'
@@ -100,27 +100,27 @@ function LatestView({ latest, loading }: { latest: BriefListItem | null; loading
   return (
     <Card title={isFromToday ? "Today's Brief" : 'Latest Brief'}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[13px] text-wb-ink2">{new Date(label).toLocaleString()}</span>
+        <span className="text-wb-body text-wb-ink2">{new Date(label).toLocaleString()}</span>
         <RiskPill value={latest.overall_risk} />
       </div>
       <EvidenceMeta source="HQ brief pipeline" observedAt={latest.coverage?.latest_included_at ?? label} />
 
       {view.coverageDegraded && view.coverageNote && (
-        <p className="mb-4 rounded-md border border-wb-crit/30 bg-wb-crit/10 p-2.5 text-[12.5px] text-wb-crit-on">
+        <p className="mb-4 rounded-md border border-wb-crit/30 bg-wb-crit/10 p-2.5 text-wb-label text-wb-crit-on">
           ⚠️ {view.coverageNote} Assessment may be incomplete in that domain.
         </p>
       )}
 
       {view.executiveRead && (
         <div className="mb-4">
-          <h3 className="mb-1 text-[12px] uppercase tracking-wider text-wb-ink2">Executive Read</h3>
+          <h3 className="mb-1 text-wb-label uppercase tracking-wider text-wb-ink2">Executive Read</h3>
           <p className="text-sm text-wb-ink">{view.executiveRead}</p>
         </div>
       )}
 
       {view.whatMatters.length > 0 && (
         <div className="mb-4">
-          <h3 className="mb-2 text-[12px] uppercase tracking-wider text-wb-ink2">What Matters</h3>
+          <h3 className="mb-2 text-wb-label uppercase tracking-wider text-wb-ink2">What Matters</h3>
           <ol className="space-y-2">
             {view.whatMatters.map((item, i) => (
               <li key={`${item.title}-${i}`} className="flex gap-2.5 text-sm">
@@ -137,8 +137,8 @@ function LatestView({ latest, loading }: { latest: BriefListItem | null; loading
 
       {view.changed && (
         <div className="mb-4">
-          <h3 className="mb-1.5 text-[12px] uppercase tracking-wider text-wb-ink2">What Changed</h3>
-          <div className="space-y-1 text-[13px]">
+          <h3 className="mb-1.5 text-wb-label uppercase tracking-wider text-wb-ink2">What Changed</h3>
+          <div className="space-y-1 text-wb-body">
             {view.changed.new.map((t, i) => <p key={`n${i}`}><span className="font-medium">New —</span> {t}</p>)}
             {view.changed.escalated.map((t, i) => <p key={`e${i}`}><span className="font-medium text-wb-crit-on">Escalated —</span> {t}</p>)}
             {view.changed.improved.map((t, i) => <p key={`i${i}`}><span className="font-medium text-wb-ok">Improved —</span> {t}</p>)}
@@ -148,21 +148,21 @@ function LatestView({ latest, loading }: { latest: BriefListItem | null; loading
 
       {view.watch.length > 0 && (
         <div className="mb-4">
-          <h3 className="mb-1.5 text-[12px] uppercase tracking-wider text-wb-ink2">Watch</h3>
-          <ul className="list-disc space-y-0.5 pl-5 text-[13px] text-wb-ink2">
+          <h3 className="mb-1.5 text-wb-label uppercase tracking-wider text-wb-ink2">Watch</h3>
+          <ul className="list-disc space-y-0.5 pl-5 text-wb-body text-wb-ink2">
             {view.watch.map((w, i) => <li key={i}>{w}</li>)}
           </ul>
         </div>
       )}
 
       {latest.coverage && (
-        <p className="mb-4 text-[12px] text-wb-ink2">
+        <p className="mb-4 text-wb-label text-wb-ink2">
           {latest.coverage.completed ?? '—'}/{latest.coverage.expected ?? '—'} sources successful
           {latest.coverage.latest_included_at ? ` · Current through ${new Date(latest.coverage.latest_included_at).toLocaleTimeString()}` : ''}
         </p>
       )}
 
-      <Link href={`/briefs/${encodeURIComponent(latest.brief_id)}`} className="text-[13px] text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+      <Link href={`/briefs/${encodeURIComponent(latest.brief_id)}`} className="text-wb-body text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
         Read full brief →
       </Link>
     </Card>
@@ -195,7 +195,7 @@ function TimelineView({ briefs, loading }: { briefs: BriefListItem[]; loading: b
                 className="block rounded-lg border border-wb-line/60 bg-wb-bg/60 p-3 text-sm hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
               >
                 <div className="flex items-center gap-3">
-                  <span className="w-16 shrink-0 text-[12px] uppercase tracking-wide text-wb-ink2">
+                  <span className="w-16 shrink-0 text-wb-label uppercase tracking-wide text-wb-ink2">
                     {new Date(b.published_at ?? b.generated_at).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })}
                   </span>
                   <RiskPill value={b.overall_risk} />
@@ -240,12 +240,12 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search briefs…"
-            className="min-w-[200px] flex-1 rounded-md border border-wb-line bg-wb-bg px-3 py-1.5 text-[13px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+            className="min-w-[200px] flex-1 rounded-md border border-wb-line bg-wb-bg px-3 py-1.5 text-wb-body focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
           />
           <select
             value={riskFilter}
             onChange={(e) => setRiskFilter(e.target.value)}
-            className="rounded-md border border-wb-line bg-wb-bg px-2 py-1.5 text-[13px]"
+            className="rounded-md border border-wb-line bg-wb-bg px-2 py-1.5 text-wb-body"
           >
             <option value="all">All postures</option>
             <option value="RED">Red</option>
@@ -259,14 +259,14 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
           <Collapsible.Trigger asChild>
             <button
               type="button"
-              className="rounded-md border border-wb-line px-3 py-1.5 text-[13px] text-wb-ink2 hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+              className="rounded-md border border-wb-line px-3 py-1.5 text-wb-body text-wb-ink2 hover:bg-wb-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
             >
               {showAdvanced ? 'Hide' : 'Show'} advanced filters
             </button>
           </Collapsible.Trigger>
           <Collapsible.Content>
             <div className="mt-3 border-t border-wb-line pt-3">
-              <p className="mb-2 text-[12px] uppercase tracking-wider text-wb-ink2">
+              <p className="mb-2 text-wb-label uppercase tracking-wider text-wb-ink2">
                 Historical publication state (legacy — every brief since 2026-08-22 auto-publishes)
               </p>
               <div className="flex flex-wrap gap-2">
@@ -276,7 +276,7 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
                     type="button"
                     onClick={() => setStatusFilter(s)}
                     aria-pressed={statusFilter === s}
-                    className={`rounded-full border px-3 py-1 text-[12px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
+                    className={`rounded-full border px-3 py-1 text-wb-label focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
                       statusFilter === s ? 'border-wb-sage-deep bg-wb-sage-deep text-white' : 'border-wb-line text-wb-ink2'
                     }`}
                   >
@@ -305,11 +305,11 @@ function ExploreView({ briefs, loading }: { briefs: BriefListItem[]; loading: bo
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <RiskPill value={b.overall_risk} />
-                    <span className="text-[12px] uppercase tracking-wider text-wb-ink2">
+                    <span className="text-wb-label uppercase tracking-wider text-wb-ink2">
                       {b.approval_status ? STATUS_LABEL[b.approval_status] : 'Unknown'}
                     </span>
                   </div>
-                  <span className="whitespace-nowrap text-[12px] text-wb-ink2">
+                  <span className="whitespace-nowrap text-wb-label text-wb-ink2">
                     {b.published_at
                       ? `Published ${new Date(b.published_at).toLocaleDateString()}`
                       : `Generated ${new Date(b.generated_at).toLocaleDateString()}`}

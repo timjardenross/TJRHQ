@@ -124,7 +124,7 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
   useEffect(() => () => loadControllerRef.current?.abort(), []);
 
   const renderSignal = (s: any) => (
-    <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+    <div key={s.event_id} className="text-wb-label text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
       {s.canonical_url ? (
         <a href={s.canonical_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-sage-deep">
           {s.raw_title}
@@ -146,18 +146,18 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[12px] text-wb-ink2">Technical view — full analyst console (Signal Confidence, Source Trust, Threat Assessment).</p>
+        <p className="text-wb-label text-wb-ink2">Technical view — full analyst console (Signal Confidence, Source Trust, Threat Assessment).</p>
         <Button size="sm" variant="secondary" onClick={onClose}>← Back to briefing</Button>
       </div>
       <DomainToggle value={domain} onChange={setDomain} options={ANALYST_DOMAIN_OPTIONS} ariaLabel="OSINT analyst view" />
 
-      {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Technical OSINT…</div>}
+      {loading && !data && <div className="py-16 text-center text-wb-body text-wb-ink2">Loading Technical OSINT…</div>}
       {error && <p className="mb-4 rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">Error: {error}</p>}
 
       {domain === 'confidence-matrix' && data && (
         <div className="space-y-6">
           <Card title="Signal Distribution by Category & Confidence">
-            <div className="grid grid-cols-1 gap-4 text-[12px] text-wb-ink2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 text-wb-label text-wb-ink2 sm:grid-cols-2">
               {Object.entries(data.matrix || {}).map(([cat, conf]: any) => (
                 <div key={cat}>
                   <div className="font-semibold text-wb-ink mb-1">{cat}</div>
@@ -169,7 +169,7 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
             </div>
           </Card>
           <Card title="Coverage Assessment">
-            <p className="text-[12px] text-wb-ink2">Total signals: {data.signals?.length || 0}</p>
+            <p className="text-wb-label text-wb-ink2">Total signals: {data.signals?.length || 0}</p>
           </Card>
         </div>
       )}
@@ -199,7 +199,7 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
               <CardTitleWithDot tone="unknown" label="KNOWN UNKNOWNS" />
               <div className="space-y-2">
                 {data.unknowns.map((u: any) => (
-                  <div key={u.title} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+                  <div key={u.title} className="text-wb-label text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                     <div className="font-semibold text-wb-ink">{u.title}</div>
                     <div>{u.impact}</div>
                     {u.need && <div className="italic">Need: {u.need}</div>}
@@ -214,7 +214,7 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
       {domain === 'source-network' && data && (
         <div className="space-y-6">
           <Card title="Cross-Source Corroboration">
-            <div className="text-[12px] text-wb-ink2 space-y-1">
+            <div className="text-wb-label text-wb-ink2 space-y-1">
               {Object.entries(data.correlations || {})
                 .sort((a: any, b: any) => b[1].signal_count - a[1].signal_count)
                 .slice(0, 8)
@@ -226,14 +226,14 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
             </div>
           </Card>
           <Card title="Source Trending (30-day)">
-            <div className="text-[12px] text-wb-ink2 space-y-1">
+            <div className="text-wb-label text-wb-ink2 space-y-1">
               {data.trending?.map((t: any) => (
                 <div key={t.source}>
                   {t.source} {t.direction === 'up' ? '↗' : t.direction === 'down' ? '↘' : t.direction === 'stable' ? '→' : '—'} {t.from ?? '?'} → {t.to ?? '?'}
                 </div>
               ))}
             </div>
-            {data.note && <p className="mt-2 text-[12px] italic text-wb-ink2">{data.note}</p>}
+            {data.note && <p className="mt-2 text-wb-label italic text-wb-ink2">{data.note}</p>}
           </Card>
         </div>
       )}
@@ -243,7 +243,7 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
           <Card title="Escalation Matrix">
             <div className="space-y-2">
               {data.threats?.slice(0, 5).map((t: any) => (
-                <div key={t.threat} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+                <div key={t.threat} className="text-wb-label text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                   <div className="font-semibold text-wb-ink">{t.threat}</div>
                   <div>{t.probability}/{t.impact}/{t.confidence} → {t.escalation.toUpperCase()}</div>
                   <div className="italic">{t.recommendation}</div>
@@ -254,7 +254,7 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
           </Card>
           {data.gaps?.length > 0 && (
             <Card title="Coverage Gaps">
-              <div className="text-[12px] text-wb-ink2 space-y-1">
+              <div className="text-wb-label text-wb-ink2 space-y-1">
                 {data.gaps.map((g: any) => (
                   <div key={g.area}>{g.area}: {g.risk} — {g.blind_spot}</div>
                 ))}
@@ -268,7 +268,7 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
         <div className="space-y-6">
           <Card title="Latest Published Brief">
             {data.brief?.brief_id ? (
-              <div className="text-[12px] text-wb-ink2 space-y-1">
+              <div className="text-wb-label text-wb-ink2 space-y-1">
                 <div>Overall risk: <span className="font-semibold text-wb-ink">{data.brief.overall_risk ?? 'unknown'}</span></div>
                 <div>Generated: {data.brief.generated_at ? new Date(data.brief.generated_at).toLocaleString() : '—'}</div>
                 {data.brief.executive_snapshot && <div className="mt-2 italic">{data.brief.executive_snapshot}</div>}
@@ -282,11 +282,11 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
             ) : (
-              <p className="text-[12px] text-wb-ink2">No published brief in this window.</p>
+              <p className="text-wb-label text-wb-ink2">No published brief in this window.</p>
             )}
           </Card>
           <Card title="Brief Composition by Source Tier">
-            <div className="text-[12px] text-wb-ink2 space-y-1">
+            <div className="text-wb-label text-wb-ink2 space-y-1">
               <div>TIER_1: {data.brief?.tier_counts?.TIER_1 ?? 0} ({data.brief?.composition?.tier1_pct ?? 0}%)</div>
               <div>TIER_2: {data.brief?.tier_counts?.TIER_2 ?? 0} ({data.brief?.composition?.tier2_pct ?? 0}%)</div>
               <div>TIER_3: {data.brief?.tier_counts?.TIER_3 ?? 0} ({data.brief?.composition?.tier3_pct ?? 0}%)</div>
@@ -297,7 +297,7 @@ function AnalystConsole({ onClose }: { onClose: () => void }) {
           <Card title="High-Confidence Signals">
             <div className="space-y-2">
               {data.signals?.slice(0, 10).map((s: any) => (
-                <div key={s.event_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+                <div key={s.event_id} className="text-wb-label text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                   <div className="font-semibold text-wb-ink">{s.raw_title}</div>
                   <div>{s.source.source_name} ({s.source.tier}, srs={s.source.srs}) • {s.confidence_level} confidence • {s.corroboration} corroborating • Score: {s.rank_score?.toFixed?.(1) ?? s.rank_score}</div>
                 </div>
@@ -367,7 +367,7 @@ function Workbench() {
                 <button
                   type="button"
                   onClick={openAnalyst}
-                  className="text-[12px] text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                  className="text-wb-label text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
                 >
                   Technical view (analyst console) →
                 </button>

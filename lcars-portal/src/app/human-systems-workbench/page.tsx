@@ -120,7 +120,7 @@ function Workbench() {
   });
 
   const right = (
-    <span className="hidden text-[12px] text-wb-ink2 sm:inline">
+    <span className="hidden text-wb-label text-wb-ink2 sm:inline">
       {live ? '● Live' : lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}` : ''}
     </span>
   );
@@ -136,7 +136,7 @@ function Workbench() {
       <button
         type="button"
         onClick={() => router.push(TRENDS_HREF)}
-        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13px] font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
+        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-wb-body font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
       >
         TRENDS →
       </button>
@@ -147,7 +147,7 @@ function Workbench() {
       <button
         type="button"
         onClick={() => router.push(REPORT_HREF)}
-        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13px] font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
+        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-wb-body font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
       >
         REPORT →
       </button>
@@ -157,7 +157,7 @@ function Workbench() {
       <button
         type="button"
         onClick={() => router.push(WEIGHT_HREF)}
-        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13px] font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
+        className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-wb-body font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
       >
         WEIGHT →
       </button>
@@ -182,7 +182,7 @@ function Workbench() {
 
       <div className="focus-reference-surface">
         <div className="focus-reference-kicker">Focus / insight · interpret before measuring</div>
-        {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Human Systems…</div>}
+        {loading && !data && <div className="py-16 text-center text-wb-body text-wb-ink2">Loading Human Systems…</div>}
 
         {data?.recovery && (
           <>
@@ -193,7 +193,7 @@ function Workbench() {
         )}
 
         {loadError && !data?.recovery && (
-          <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4 text-[13px] text-wb-crit-on">
+          <div className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-4 text-wb-body text-wb-crit-on">
             {loadError} The workbench stays read-only and safe; try again shortly.
           </div>
         )}

@@ -46,7 +46,7 @@ export function LCARSBottomNav() {
             <span className="text-base leading-none" aria-hidden>
               {tab.glyph}
             </span>
-            <span className="text-[12px] font-bold uppercase tracking-[0.15em]">
+            <span className="text-wb-label font-bold uppercase tracking-[0.15em]">
               {tab.label}
             </span>
           </Link>

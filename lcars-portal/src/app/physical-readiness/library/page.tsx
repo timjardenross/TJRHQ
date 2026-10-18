@@ -57,7 +57,7 @@ export default function ExerciseLibraryPage() {
           {groups.map(([equipment, group]) => (
             <div key={equipment} className="rounded-lg border border-wb-line bg-white p-4">
               <h2 className="mb-1 text-sm font-semibold text-wb-ink">{equipment}</h2>
-              <p className="mb-3 text-[12px] text-wb-ink2">{group.length} exercise{group.length === 1 ? '' : 's'}</p>
+              <p className="mb-3 text-wb-label text-wb-ink2">{group.length} exercise{group.length === 1 ? '' : 's'}</p>
               <div className="space-y-2">
                 {group.map((ex) => {
                   const expanded = expandedId === ex.id;
@@ -71,9 +71,9 @@ export default function ExerciseLibraryPage() {
                       >
                         <div>
                           <p className="text-sm font-semibold text-wb-ink">{ex.name}</p>
-                          <p className="text-[12px] capitalize text-wb-ink2">{ex.movement_pattern} · {ex.difficulty}</p>
+                          <p className="text-wb-label capitalize text-wb-ink2">{ex.movement_pattern} · {ex.difficulty}</p>
                         </div>
-                        <span className={`rounded-full border px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-wider ${c.border} ${c.bg} ${c.text}`}>
+                        <span className={`rounded-full border px-2.5 py-0.5 text-wb-label font-semibold uppercase tracking-wider ${c.border} ${c.bg} ${c.text}`}>
                           {ex.status.replace('_', ' ')}
                         </span>
                       </button>
@@ -93,7 +93,7 @@ export default function ExerciseLibraryPage() {
                             href={ex.preferred_video_url || youtubeSearchUrl(ex.video_search_query)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mt-1 inline-block w-fit rounded-lg border border-wb-line px-3 py-1.5 text-[12px] font-semibold uppercase tracking-wider text-wb-ink2 hover:border-wb-sage-deep/60"
+                            className="mt-1 inline-block w-fit rounded-lg border border-wb-line px-3 py-1.5 text-wb-label font-semibold uppercase tracking-wider text-wb-ink2 hover:border-wb-sage-deep/60"
                           >
                             Find Guide Video ↗
                           </a>
