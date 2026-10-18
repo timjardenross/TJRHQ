@@ -62,10 +62,10 @@ try:
 except Exception:  # pragma: no cover — import-time guard, not a runtime path  # noqa: BLE001 - guarded import — a problem in the LLM provider chain must degrade the exec-summary sections only, never the whole brief (see comment above)
     call_gemini = call_mistral = call_ollama = None  # type: ignore[assignment]
 
-# Timezone — ZoneInfo available Python 3.9+; fall back to fixed UTC+10 if absent
+# Timezone — ZoneInfo available Python 3.9+; fall back to fixed UTC+10 if absent (approximation: ignores daylight saving)
 try:
     from zoneinfo import ZoneInfo
-    _AEST = ZoneInfo("Australia/Brisbane")
+    _AEST = ZoneInfo("Australia/Melbourne")
 except ImportError:
     from datetime import timezone as _tz
     _AEST = _tz(timedelta(hours=10))
@@ -765,8 +765,8 @@ def _now_aest() -> datetime:
 def _clock_label(now: datetime) -> str:
     """"HH:MM ZZZZ" in the zone the brief jobs are scheduled in (OR_INTEL_SCHEDULE_TZ, default
     Australia/Melbourne), so the header shows AEDT in daylight saving and matches the clock the job
-    fired on. `_AEST` is Brisbane (no DST), so formatting `now` directly printed 06:00 AEST for a job
-    that ran at 07:00 AEDT. Dates and day windows still use `_AEST`; only the displayed label changes."""
+    fired on. `_AEST` was Brisbane (no DST) until 2026-10, so formatting `now` directly printed 06:00 AEST for a
+    job that ran at 07:00 AEDT. It is now Melbourne, but the label still follows the schedule setting. Dates and day windows still use `_AEST`; only the displayed label changes."""
     try:
         local = now.astimezone(ZoneInfo(os.getenv("OR_INTEL_SCHEDULE_TZ", "Australia/Melbourne")))
         return local.strftime("%H:%M %Z")

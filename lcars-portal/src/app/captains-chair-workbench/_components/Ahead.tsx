@@ -8,6 +8,7 @@
 
 import Link from 'next/link';
 import { WorkbenchPanel } from '@/components/WorkbenchPanel';
+import { todayLocal } from '@/lib/timezone';
 import { categoryMeta, type PersonalTask } from '@/lib/personalTasks';
 import type { CalendarTodayEvent, CalendarTodayStatus, UpcomingCalendarEvent } from '@/lib/captainsChairData';
 
@@ -40,7 +41,7 @@ export function Ahead({
   remindersLoading: boolean;
 }) {
   const loading = calendarLoading || upcomingLoading || remindersLoading;
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' });
+  const today = todayLocal();
   const comingUp = upcoming.filter((e) => e.dateISO !== today);
   const isBusy = calendarEvents.length > 0 || reminders.length > 0 || comingUp.length > 0;
 

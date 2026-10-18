@@ -30,7 +30,7 @@ from zoneinfo import ZoneInfo
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-_TZ = ZoneInfo("Australia/Brisbane")
+_TZ = ZoneInfo("Australia/Melbourne")
 log = logging.getLogger(__name__)
 
 TABLE = "capacity_checkins"

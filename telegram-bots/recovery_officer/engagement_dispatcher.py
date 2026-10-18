@@ -42,13 +42,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 
-def _brisbane_today() -> str:
-    """Return today's date string in Australia/Brisbane time."""
+def _local_today() -> str:
+    """Return today's date string in Australia/Melbourne time."""
     try:
         from zoneinfo import ZoneInfo
-        return datetime.now(ZoneInfo("Australia/Brisbane")).date().isoformat()
+        return datetime.now(ZoneInfo("Australia/Melbourne")).date().isoformat()
     except Exception as exc:  # noqa: BLE001 - zoneinfo lookup failure is an environment quirk; falls back to aware UTC rather than crashing a reminder-dispatch job
-        log.debug("Brisbane zoneinfo lookup failed, falling back to UTC date: %s", exc)
+        log.debug("Melbourne zoneinfo lookup failed, falling back to UTC date: %s", exc)
         return datetime.now(timezone.utc).date().isoformat()
 from pathlib import Path
 from typing import Any
@@ -214,7 +214,7 @@ def build_pulse_reminder(status: RecoveryStatus, pulse_type: str | None = None) 
     ])
 
     lines = [
-        f"📡 *Recovery Pulse — {_brisbane_today()}*",
+        f"📡 *Recovery Pulse — {_local_today()}*",
         "",
         f"Confidence: `{_bar(status.recovery_confidence)}` {status.recovery_confidence}%",
         f"Pulses: {done_str}  ({status.pulses_completed}/3 complete)",
@@ -232,7 +232,7 @@ def build_pulse_reminder(status: RecoveryStatus, pulse_type: str | None = None) 
 
 def build_escalation_message(status: RecoveryStatus, level: int) -> str:
     """Build a calm, caring check-in for L2/L3 — a nudge, not a warning."""
-    today = _brisbane_today()
+    today = _local_today()
 
     if level == 3:
         header = "🫂 *Recovery Officer — Checking In*"
@@ -263,7 +263,7 @@ def build_escalation_message(status: RecoveryStatus, level: int) -> str:
 
 def build_daily_summary(status: RecoveryStatus) -> str:
     """Build an end-of-day confidence summary message."""
-    today = _brisbane_today()
+    today = _local_today()
     done_str = " ".join([
         "✅" if status.morning_done else "❌",
         "✅" if status.midday_done  else "❌",
@@ -293,7 +293,7 @@ def build_daily_summary(status: RecoveryStatus) -> str:
 #
 # run_dispatch_check() is a pure function of *current* pulse state — nothing
 # below this line changes that. What changes is that every send is now gated
-# on "has this exact (Brisbane day, pulse window, action) already gone out?",
+# on "has this exact (Melbourne day, pulse window, action) already gone out?",
 # persisted to Supabase (wellness_reminder_log, migration 0118) rather than
 # in-memory, so the guarantee survives scheduler restarts. See module
 # docstring: this is what makes it safe to call run_dispatch_check() on a
@@ -302,22 +302,22 @@ def build_daily_summary(status: RecoveryStatus) -> str:
 _REMINDER_LOG_TABLE = "wellness_reminder_log"
 
 
-def _brisbane_now() -> datetime:
-    """Brisbane-local now(), matching pulse_time.py's and
+def _local_now() -> datetime:
+    """Melbourne-local now(), matching pulse_time.py's and
     wellness_officer/intelligence.py::escalation_level()'s own tz handling
     (MSN-0305 fixed escalation_level's naive-local-time drift risk; the hour
     used for this module's own should_remind gating had the identical bug
     and is fixed the same way here)."""
     try:
         from zoneinfo import ZoneInfo
-        return datetime.now(ZoneInfo("Australia/Brisbane"))
+        return datetime.now(ZoneInfo("Australia/Melbourne"))
     except Exception as exc:  # noqa: BLE001 - zoneinfo lookup failure is an environment quirk; falls back to aware UTC rather than crashing a reminder-dispatch job
-        log.debug("Brisbane zoneinfo lookup failed, falling back to UTC now(): %s", exc)
+        log.debug("Melbourne zoneinfo lookup failed, falling back to UTC now(): %s", exc)
         return datetime.now(timezone.utc)
 
 
 def _current_pulse_window(hour: int) -> str:
-    """Canonical morning/midday/evening bucket for the given Brisbane hour —
+    """Canonical morning/midday/evening bucket for the given Melbourne hour —
     reuses telegram_bots.xo.pulse_time.pulse_type_for_hour(), the single
     source of truth for the 3x/day pulse schedule (Captain directive
     2026-08-10), rather than a second, drifting copy of the same split.
@@ -451,7 +451,7 @@ def run_dispatch_check(
     client = supabase_client or _get_supabase_client()
     status = get_recovery_status(client)
     level  = status.escalation_level
-    now    = _brisbane_now()
+    now    = _local_now()
     hour   = now.hour
     window_date  = now.date().isoformat()
     pulse_window = _current_pulse_window(hour)

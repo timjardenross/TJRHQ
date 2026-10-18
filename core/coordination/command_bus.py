@@ -18,7 +18,7 @@ Routing rules (applied every COMMAND_BUS_INTERVAL seconds, default 300):
                             blocked P0 missions, etc. that the Captain wouldn't otherwise
                             see until asked. MEDIUM-level escalations and follow-ups are
                             deliberately NOT pushed — visible on Mission Workbench, not
-                            paged. Suppressed during quiet hours (7pm-7am Brisbane,
+                            paged. Suppressed during quiet hours (7pm-7am Melbourne,
                             NUMBER_ONE_QUIET_HOURS_START/_END) — an escalation still open
                             when quiet hours end fires on the next cycle, never dropped.
 
@@ -99,9 +99,9 @@ _NOTIFY_COOLDOWN_H  = int(_env("COMMAND_BUS_NOTIFY_COOLDOWN_H", "4")) # hours be
 # this one rule only, not the other alerts in this file (executor_stuck/
 # service_health/new_missions predate this and nobody asked for their
 # behaviour to change — a genuine service outage at 2am should still page).
-_QUIET_HOURS_START = int(_env("NUMBER_ONE_QUIET_HOURS_START", "19"))  # 24h, Australia/Brisbane
+_QUIET_HOURS_START = int(_env("NUMBER_ONE_QUIET_HOURS_START", "19"))  # 24h, Australia/Melbourne
 _QUIET_HOURS_END   = int(_env("NUMBER_ONE_QUIET_HOURS_END", "7"))
-_NUMBER_ONE_TZ      = ZoneInfo("Australia/Brisbane")                  # matches wellness_officer/intelligence.py's convention
+_NUMBER_ONE_TZ      = ZoneInfo("Australia/Melbourne")                  # matches wellness_officer/intelligence.py's convention
 
 _TG_TOKEN           = _env("TELEGRAM_BOT_TOKEN")
 _TG_CHAT_ID         = (_env("TELEGRAM_ALLOWED_CHAT_IDS") or "").split(",")[0].strip()
@@ -306,7 +306,7 @@ def _capacity_status(client) -> str:
 
 def _in_number_one_quiet_hours() -> bool:
     """True during the Captain's quiet hours for Number One's escalation
-    push (USS-TJR-MSN-0362 candidate A, 7pm-7am Brisbane by default).
+    push (USS-TJR-MSN-0362 candidate A, 7pm-7am Melbourne by default).
     Handles the overnight wrap (start > end) the same way as a same-day
     window would — e.g. 19 <= hour or hour < 7."""
     hour = datetime.now(_NUMBER_ONE_TZ).hour

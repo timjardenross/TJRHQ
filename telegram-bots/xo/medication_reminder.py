@@ -4,7 +4,7 @@ Daily medication reminder — XO nags until the Captain confirms.
 Captain request 2026-09-24: "daily alert via the XO bot at 7am to tell me to
 take my medicines — message every 15 mins till I say I've taken them."
 
-Cadence (all Australia/Brisbane, same fixed TZ as every other XO/capacitybot
+Cadence (all Australia/Melbourne, same TZ as every other XO/capacitybot
 schedule):
   - 07:00 first reminder (python-telegram-bot JobQueue.run_daily — the same
     in-process mechanism capacitybot already uses for its 08:00/13:00/20:00
@@ -40,7 +40,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 log = logging.getLogger("xo-bot.meds")
 
-TZ = ZoneInfo("Australia/Brisbane")
+TZ = ZoneInfo("Australia/Melbourne")
 
 START_TIME       = dtime(7, 0)
 INTERVAL_MINUTES = 15
