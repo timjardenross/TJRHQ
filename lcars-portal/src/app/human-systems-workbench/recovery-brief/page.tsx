@@ -39,7 +39,7 @@ export default function RecoveryBriefPage() {
     <WorkbenchShell
       title="Recovery Brief"
       eyebrow="Human Systems"
-      tagline="USS TJR · This page has moved into Human Systems — NOW"
+      tagline="TJR HQ · This page has moved into Human Systems — NOW"
       back={{ href: '/human-systems-workbench', label: 'Human Systems' }}
     >
       <Card className="max-w-2xl">

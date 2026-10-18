@@ -105,7 +105,7 @@ function Workbench() {
     <WorkbenchShell
       title="Content Workbench"
       eyebrow="Your personal AI-assisted content desk"
-      tagline="USS TJR · Content Workbench · Capture to publish, AI prepares, you decide"
+      tagline="TJR HQ · Content Workbench · Capture to publish, AI prepares, you decide"
       right={!selectedContentId ? captureBar : null}
       tabs={!selectedContentId ? (
         <DomainToggle value={tab} onChange={setTab} options={TAB_OPTIONS} ariaLabel="Content Workbench sections" />

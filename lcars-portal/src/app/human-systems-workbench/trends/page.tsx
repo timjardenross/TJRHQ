@@ -246,7 +246,7 @@ export default function TrendsPage() {
     <WorkbenchShell
       title="Human Systems — Trends"
       eyebrow="Capacity, Regulation & Recovery"
-      tagline="USS TJR · How things have been moving over time, not just today"
+      tagline="TJR HQ · How things have been moving over time, not just today"
       back={{ href: '/human-systems-workbench', label: 'Human Systems' }}
     >
       {/* Single-page print target (Captain-directed 2026-08-27): tight

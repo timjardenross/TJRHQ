@@ -89,7 +89,7 @@ async function searchLog(q: string): Promise<SearchOutcome> {
   const results = (data ?? []).map(r => ({
     type:      'log' as const,
     id:        r.log_date,
-    title:     `Captain's Log — ${r.log_date}`,
+    title:     `Journal — ${r.log_date}`,
     detail:    (r.tomorrows_priority ?? r.overall_note ?? '').slice(0, 100),
     timestamp: r.log_date,
     // /timeline renders past log entries chronologically — the real
@@ -147,7 +147,7 @@ async function searchEvents(q: string): Promise<SearchOutcome> {
 // Pair each searcher with its display label so failures can be named.
 const SEARCHERS: { source: string; run: (q: string) => Promise<SearchOutcome> }[] = [
   { source: 'Missions',      run: searchMissions },
-  { source: "Captain's Log", run: searchLog },
+  { source: "Journal", run: searchLog },
   { source: 'Captures',      run: searchCaptures },
   { source: 'Events',        run: searchEvents },
 ];
@@ -156,7 +156,7 @@ const SEARCHERS: { source: string; run: (q: string) => Promise<SearchOutcome> }[
 
 const TYPE_LABEL: Record<string, string> = {
   mission: 'Missions',
-  log:     "Captain's Log",
+  log:     "Journal",
   capture: 'Captures',
   event:   'Events',
 };
@@ -281,7 +281,7 @@ export default function SearchPage() {
     <WorkbenchShell
       title="Search"
       eyebrow="Cross-domain"
-      tagline="USS TJR · Search · Missions, Captain's Log, Captures, Events"
+      tagline="TJR HQ · Search · Missions, Journal, Captures, Events"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       mode="focus"
     >

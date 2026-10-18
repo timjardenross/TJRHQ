@@ -52,7 +52,7 @@ export function CaptainsLog() {
 
   return (
     <WorkbenchPanel
-      title="Captain's Log"
+      title="Journal"
       actions={<Link href="/captains-chair-workbench/notebook" className="text-[10px] uppercase tracking-[0.15em] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Open Log →</Link>}
     >
       <div className="flex items-center gap-2">

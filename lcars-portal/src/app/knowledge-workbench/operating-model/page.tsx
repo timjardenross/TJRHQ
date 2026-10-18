@@ -41,7 +41,7 @@ interface LiveData {
 
 const DOMAINS = [
   { icon: '🏥', name: 'Health', description: 'Recovery-led operations. Pain management, CPAP adherence, fatigue mapping.', priority: 'P0' },
-  { icon: '🚀', name: 'USS TJR', description: 'Command Centre build, intelligence systems, operational excellence.', priority: 'P1' },
+  { icon: '🚀', name: 'TJR HQ', description: 'Command Centre build, intelligence systems, operational excellence.', priority: 'P1' },
   { icon: '💼', name: 'Career', description: 'Strategic positioning and professional development.', priority: 'P2' },
   { icon: '📚', name: 'Learning', description: 'AI/ML, systems thinking, leadership frameworks.', priority: 'P2' },
   { icon: '🤝', name: 'Relationships', description: 'Family, crew, professional network maintenance.', priority: 'P2' },
@@ -127,7 +127,7 @@ export default function OperatingModelPage() {
     <WorkbenchShell
       title="Operating Model"
       eyebrow="Captain TJR — Personal Operating Model"
-      tagline="USS TJR · A unified view of how command is exercised, capacity allocated, and systems maintained"
+      tagline="TJR HQ · A unified view of how command is exercised, capacity allocated, and systems maintained"
       back={{ href: '/knowledge-workbench', label: 'Knowledge Workbench' }}
     >
       <div className="flex flex-col gap-4">

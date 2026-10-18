@@ -5,6 +5,9 @@ describe('design-system governance', () => {
   it('keeps legacy labels mapped to canonical terms', () => {
     expect(LEGACY_TERM_REPLACEMENTS.Home).toBe(CANONICAL_TERMS.hub);
     expect(LEGACY_TERM_REPLACEMENTS["Captain's Brief"]).toBe(CANONICAL_TERMS.briefs);
+    expect(LEGACY_TERM_REPLACEMENTS["Captain's Chair"]).toBe(CANONICAL_TERMS.today);
+    expect(LEGACY_TERM_REPLACEMENTS["Captain's Log"]).toBe(CANONICAL_TERMS.journal);
+    expect(LEGACY_TERM_REPLACEMENTS['USS TJR']).toBe(CANONICAL_TERMS.product);
   });
 
   it('defines an explicit density scale', () => {

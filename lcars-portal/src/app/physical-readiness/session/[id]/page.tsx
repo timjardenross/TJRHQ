@@ -15,7 +15,7 @@ import Link from 'next/link';
 
 export default function LegacyReadinessSessionPage() {
   return (
-    <WorkbenchShell title="Session logging moved" eyebrow="Physical Readiness" tagline="USS TJR · Physical Readiness" back={{ href: '/physical-readiness', label: 'Physical Readiness' }}>
+    <WorkbenchShell title="Session logging moved" eyebrow="Physical Readiness" tagline="TJR HQ · Physical Readiness" back={{ href: '/physical-readiness', label: 'Physical Readiness' }}>
       <div className="rounded-lg border border-wb-line bg-white p-4">
         <p className="text-sm leading-relaxed text-wb-ink2">
           This legacy session-logging link no longer tracks sessions — see workout history instead.

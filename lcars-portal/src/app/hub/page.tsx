@@ -286,7 +286,7 @@ export default function LifeOSHub() {
       // affordance that goes nowhere on tap. The real path to the
       // directory is the header logo (and desktop Sidebar's own
       // Workbenches entry) — this is now honestly just a footer label.
-      tagline="USS TJR · LifeOS Hub"
+      tagline="TJR HQ · LifeOS Hub"
       mode="command"
       wide
     >

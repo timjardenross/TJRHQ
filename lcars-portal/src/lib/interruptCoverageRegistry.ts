@@ -137,7 +137,7 @@ export const INTERRUPT_COVERAGE_REGISTRY: InterruptContractEntry[] = [
   },
   {
     capability: 'captains-brief',
-    label: "Captain's Brief",
+    label: "Briefs",
     canInterrupt: 'yes',
     conditions: 'warnings[] where risk_score >= 60 (importance x inverse-confidence).',
     evidenceSource: 'core_events via core/platform/event_bus.py, scored by priority_engine.py',

@@ -84,7 +84,7 @@ export default function Escalation({ params }: { params: { id: string } }) {
 
   return (
     <WorkbenchShell wide title="RED Escalation" eyebrow="Crisis mode"
-           tagline="USS TJR · Operational Resilience Intelligence · Phase B"
+           tagline="TJR HQ · Operational Resilience Intelligence · Phase B"
            back={{ href: `/intelligence-workbench/brief/${id}`, label: 'Brief' }}>
       {fromTelegram && (
         <p className="mb-4 rounded border-l-[3px] border-wb-sage bg-wb-sage/10 px-3 py-2 text-[12px] text-wb-ink2">

@@ -25,7 +25,7 @@ import { SourceBadge, ClassBadge, AiBadge, VoiceMeta, AiSuggestion, parseSummary
 import { ActionOutcome } from '@/components/ActionOutcome';
 
 const ROUTE_DEST: Record<string, { label: string; href: string }> = {
-  personal:  { label: "Captain's Log", href: '/captains-log' },
+  personal:  { label: "Journal", href: '/captains-log' },
   reference: { label: 'Knowledge Hub', href: '/knowledge-workbench?domain=memory' },
   decision:  { label: 'Decisions', href: '/knowledge-workbench?domain=memory&innerTab=decisions' },
   mission:   { label: 'Missions', href: '/missions' },
@@ -193,7 +193,7 @@ export function CaptureRow({ item, onRefresh }: { item: InboxCapture; onRefresh:
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2">
             <ActionBtn disabled={busy} tone="ok" label="Mark reviewed" onClick={() => act(() => markCaptureReviewed(item.id), 'Marked reviewed')} />
-            <ActionBtn disabled={busy} tone="neutral" label="Route as Health log" onClick={() => { setRoutedDest(ROUTE_DEST.personal); act(() => routeCapture(item.id, 'personal'), "Routed → Captain's Log"); }} />
+            <ActionBtn disabled={busy} tone="neutral" label="Route as Health log" onClick={() => { setRoutedDest(ROUTE_DEST.personal); act(() => routeCapture(item.id, 'personal'), "Routed → Journal"); }} />
             <ActionBtn disabled={busy} tone="neutral" label="Route as Note" onClick={() => { setRoutedDest(ROUTE_DEST.reference); act(() => routeCapture(item.id, 'reference'), 'Routed → Note'); }} />
             <ActionBtn disabled={busy} tone="neutral" label="Route as Decision" onClick={() => { setRoutedDest(ROUTE_DEST.decision); act(() => routeCapture(item.id, 'decision'), 'Routed → Decision queue'); }} />
             <ActionBtn disabled={busy} tone="sage" label="→ Promote to Mission" onClick={() => act(() => promoteCaptureToMission(item.id), 'Mission candidate created')} />

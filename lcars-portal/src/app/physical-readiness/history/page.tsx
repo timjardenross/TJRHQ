@@ -178,7 +178,7 @@ export default function WorkoutHistoryPage() {
   const durationInsight = bucketRanked.length ? `You are most consistent with ${bucketRanked[0].minutes}-minute sessions (highest completion rate).` : null;
 
   return (
-    <WorkbenchShell title="Workout History" eyebrow={`${sessions.length} recent session${sessions.length === 1 ? '' : 's'}`} tagline="USS TJR · Physical Readiness · History" back={{ href: '/physical-readiness', label: 'Physical Readiness' }} wide>
+    <WorkbenchShell title="Workout History" eyebrow={`${sessions.length} recent session${sessions.length === 1 ? '' : 's'}`} tagline="TJR HQ · Physical Readiness · History" back={{ href: '/physical-readiness', label: 'Physical Readiness' }} wide>
       {loading ? (
         <p className="text-xs text-wb-ink2 animate-pulse">Loading history…</p>
       ) : (
