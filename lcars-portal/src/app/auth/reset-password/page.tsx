@@ -103,9 +103,9 @@ export default function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-wb-bg px-4 font-sans antialiased">
       <div className="w-full max-w-md">
         <div className="mb-6 flex items-center gap-3">
-          {/* TJR HQ identity (Stage 3), same heading treatment as login: dark
-              surface, decorative mark, plain name. */}
-          <BrandMark surface="dark" size={48} />
+          {/* TJR HQ identity (Stage 3), same heading treatment as login: light
+              surface, navy tile, decorative mark, plain name. */}
+          <BrandMark surface="light" size={48} />
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-wb-ink2">
               TJR HQ

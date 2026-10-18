@@ -8,7 +8,7 @@ function load(opts: { addAllFails?: boolean } = {}) {
   const listeners: Record<string, (e: unknown) => void> = {};
   const opened: string[] = [];
   const added: unknown[][] = [];
-  let keys = ['lcars-static-v1', 'unrelated-cache'];
+  let keys = ['lcars-static-v1', 'lcars-static-v2', 'unrelated-cache'];
   const deleted: string[] = [];
   class FakeRequest {
     constructor(public url: string, public init?: { cache?: string }) {}
@@ -35,10 +35,10 @@ function load(opts: { addAllFails?: boolean } = {}) {
 const waitUntil = () => { const p: Promise<unknown>[] = []; return { e: { waitUntil: (x: Promise<unknown>) => p.push(x) }, done: () => Promise.all(p) }; };
 
 describe('public/sw.js (brand Stage 1)', () => {
-  it('uses cache v2, so installed v1 copies are replaced', async () => {
+  it('uses cache v3, so installed v1 and v2 copies are replaced', async () => {
     const { listeners, opened } = load();
     const w = waitUntil(); listeners.install(w.e); await w.done();
-    expect(opened).toEqual(['lcars-static-v2']);
+    expect(opened).toEqual(['lcars-static-v3']);
   });
 
   it('precaches every static asset with cache: "reload" so a long HTTP max-age cannot serve old icons', async () => {
@@ -51,10 +51,10 @@ describe('public/sw.js (brand Stage 1)', () => {
     expect(reqs.every((r) => r.cache === 'reload')).toBe(true);
   });
 
-  it('on activate deletes the old v1 cache and every other cache, keeping only v2', async () => {
+  it('on activate deletes the old v1 and v2 caches and every other cache, keeping only v3', async () => {
     const { listeners, deleted } = load();
     const w = waitUntil(); listeners.activate(w.e); await w.done();
-    expect(deleted.sort()).toEqual(['lcars-static-v1', 'unrelated-cache']);
+    expect(deleted.sort()).toEqual(['lcars-static-v1', 'lcars-static-v2', 'unrelated-cache']);
   });
 
   it('skips waiting and claims clients so the update applies promptly', async () => {
@@ -65,12 +65,12 @@ describe('public/sw.js (brand Stage 1)', () => {
     expect(self.clients.claim).toHaveBeenCalled();
   });
 
-  it('failure path: a failed precache rejects the install, does not skip waiting, and removes the partial v2 cache (the working v1 cache is untouched)', async () => {
+  it('failure path: a failed precache rejects the install, does not skip waiting, and removes the partial v3 cache (the working v1 cache is untouched)', async () => {
     const { listeners, self, deleted } = load({ addAllFails: true });
     const w = waitUntil(); listeners.install(w.e);
     await expect(w.done()).rejects.toThrow('precache failed');
     expect(self.skipWaiting).not.toHaveBeenCalled();
-    expect(deleted).toEqual(['lcars-static-v2']);
+    expect(deleted).toEqual(['lcars-static-v3']);
   });
 
   it('does not intercept navigations or API requests', () => {

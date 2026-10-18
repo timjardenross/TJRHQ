@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 /* TJR family brand palette (brand identity Stage 0). Additive only: no
@@ -21,87 +21,75 @@
   --brand-deep: #0B1E2E;
 }
 
-/* ── Endeavour 27 visual system (USS-TJR-MSN-0394, 2026-09-20) ───────────
-   REPLACES the 5-theme adaptive system (Archive/Command/Midnight/Horizon/
-   Sanctuary, 2026-09-05) entirely — Captain-confirmed decision, mission §2:
-   "One fixed dark Command/Focus identity + Read as a contextual light
-   surface within the same system — not 5 independently-selectable
-   whole-app palettes." `lib/theme.ts`/`ThemeSelector.tsx` are retired, not
-   repurposed.
+/* ── HQ visual system: light by default, dark navy chrome (design uplift
+   Stage A, 2026-10-18) ──────────────────────────────────────────────────
+   Supersedes the Endeavour 27 "one fixed dark default" (USS-TJR-MSN-0394)
+   by owner decision: the default surface is now light (brand family mist
+   and white), with dark navy chrome. Every `--wb-*` NAME is unchanged, so no
+   call site needed to change; only values moved.
 
-   Two real surface lightnesses now, not five:
-   - Command/Focus (dark navy) — the default, on bare :root. Command (Hub)
-     and Focus (Ready Room, Human Systems, most action/execution surfaces)
-     share this one dark Surface, differentiated by density/layout, not by
-     colour identity (mission §1.1).
-   - Read (warm light) — scoped to [data-wb-mode='read'], set by
-     WorkbenchShell's `mode` prop on pages whose primary content is reading
-     dense text/synthesis (Briefs, Captain's Chair, Knowledge Workbench,
-     etc. — mission §1.8's classification). A real surface-lightness swap,
-     not just "calmer" within the dark shell.
+   Two token sets:
+   - :root (light, the default): mist page, white cards, navy ink, slate
+     interactive blue. Used by every page's reading and working surface.
+   - [data-wb-chrome='dark'] / [data-wb-mode='dark'] (dark navy): the sidebar
+     and the mobile bottom bar carry `data-wb-chrome="dark"`; a page may opt
+     its whole surface into dark with WorkbenchShell mode="dark" (no page
+     does today). `data-wb-mode='read'` keeps its reading typography (see
+     `.wb-mode-read` below) but no longer swaps colours: the default is
+     already light.
 
-   Hex values are Image 3's named footer legend (mission §1.1/§2) —
-   authoritative over any colour-picked estimate. All pairings below are
-   WCAG relative-luminance contrast-computed (not eyeballed — same method
-   Mission 7 Phase 8 used), text >=4.5:1, UI-component/large-text >=3:1:
-   dark bg vs ink 14.90:1, dark bg vs ink2 8.43:1, dark bg vs accent
-   4.61:1, dark bg vs sand 8.95:1, dark bg vs gold 7.41:1; read bg vs ink
-   13.32:1, read bg vs ink2 5.49:1, read bg vs accent-deep 6.88:1, read bg
-   vs sand-deep 5.18:1. Plain `--wb-sage`/`accent` fails AA text on the
-   *read* surface only (3.24:1) — same two-tier fills-vs-text-safe pattern
-   `wb-sage`/`wb-sage-deep` already used pre-Endeavour-27 (tailwind.config.ts
-   §"sage" comment), just now driven by mode instead of theme. `--wb-gold`
-   fails AA text on both surfaces (2.01:1 read, and was already
-   decorative-only pre-Endeavour-27 per that same tailwind.config.ts
-   comment) — fills/borders/icons only, never bare text, unchanged rule.
+   Blue family: the old saturated interactive blue (#3B82F6, 3.96:1 on dark
+   cards, below the 4.5:1 text minimum) is replaced by the brand slate on
+   light and sky on dark. `--wb-sage` is the text/link colour, `--wb-sage-deep`
+   the fill-with-white-text and pressed colour; both pass 4.5:1 as text on
+   their own set's bg and surface and white-on-fill passes 4.5:1.
 
-   `--wb-ok/--wb-warn/--wb-crit` and state-* (tailwind.config.ts) stay
-   exactly as they were: deliberately theme-invariant, mandatory
-   bg/border-paired `-on` usage per `stateToneClasses()`'s doc comment
-   (lib/departments.ts) — that constraint predates and is unaffected by
-   this token replacement, not re-derived here. */
+   Every pairing is contrast-computed in `src/__tests__/tokenContrast.test.ts`
+   (WCAG relative luminance, parsed from this file, so values cannot drift
+   unnoticed). `--wb-gold` stays fills/borders only (fails AA as text).
+   `--wb-ok/--wb-warn/--wb-crit` and state-* stay theme-invariant, with
+   mandatory bg/border-paired `-on` usage per `stateToneClasses()`
+   (lib/departments.ts). */
 :root {
-  --wb-bg: #0B1E2E;
-  --wb-surface: #142B3D;
-  --wb-surface-raised: #1B3347;
-  --wb-line: #24405A;
-  --wb-ink: #ECF1F5;
-  --wb-ink2: #A9B9C7;
-  /* Accent TJR Blue — interactive/link colour (mission §1.1: distinct from
-     the celebratory/brand gold below). Passes AA text on the dark surface
-     directly; `-deep` is the read-surface-safe variant (see [data-wb-mode
-     ='read'] below) and the general hover/pressed-state shade on dark. */
-  --wb-sage: #3B82F6;
-  --wb-sage-deep: #2F68C9;
-  /* Sand Warm Accent (mission §1.1) — new token, warm heritage accent for
-     decorative fills/highlights (avatar rings, card accents), same
-     fills-only discipline as gold. `-deep` is the read-surface text-safe
-     variant. */
-  --wb-sand: #D6B88C;
+  --wb-bg: #F5F7FA;
+  --wb-surface: #FFFFFF;
+  --wb-surface-raised: #EAEFF5;
+  --wb-line: #D3DCE6;
+  --wb-ink: #102B46;
+  --wb-ink2: #4A5F75;
+  /* Interactive blue: brand slate. `-deep` is the fill-with-white-text and
+     pressed shade. */
+  --wb-sage: #416B8C;
+  --wb-sage-deep: #35607F;
+  /* Sand warm accent: decorative fills and highlights only; `-deep` is the
+     text-safe shade. */
+  --wb-sand: #D7C5AE;
   --wb-sand-deep: #7D5F37;
 }
 
-/* Read (light) surface — WorkbenchShell mode="read" sets this attribute on
-   its own wrapper div, not <html>; CSS custom properties cascade normally
-   from there, so no pre-hydration anti-flash script is needed the way the
-   old theme system required (mode is a static per-route design
-   classification, known at render time, never a client-toggled
-   preference). Reusing `sanctuary`'s former warm-cream values (mission
-   §1.1: "close to the existing sanctuary theme... no named hex given for
-   this either") as the starting point, re-contrast-checked above rather
-   than assumed still valid under the new pairing set. */
+/* Dark navy set: sidebar and mobile bottom bar (data-wb-chrome) and an
+   optional whole-surface dark mode (data-wb-mode='dark'). */
+[data-wb-chrome='dark'],
+[data-wb-mode='dark'] {
+  color-scheme: dark;
+  /* Text inside a dark scope must not inherit the page's (light-set) ink. */
+  color: var(--wb-ink);
+  --wb-bg: #0B1E2E;
+  --wb-surface: #102B46;
+  --wb-surface-raised: #1B3A5C;
+  --wb-line: #2B4A68;
+  --wb-ink: #F5F7FA;
+  --wb-ink2: #B7C6D4;
+  --wb-sage: #76A9C8;
+  --wb-sage-deep: #416B8C;
+  --wb-sand: #D7C5AE;
+  --wb-sand-deep: #D7C5AE;
+}
+
+/* Read mode: reading typography only (see `.wb-mode-read` rules); colours
+   come from the default light set. */
 [data-wb-mode='read'] {
   color-scheme: light;
-  --wb-bg: #F4F0E8;
-  --wb-surface: #FAF8F3;
-  --wb-surface-raised: #FFFFFF;
-  --wb-line: #DDD8CE;
-  --wb-ink: #1C2733;
-  --wb-ink2: #56626D;
-  --wb-sage: #1F4FA0;
-  --wb-sage-deep: #173D80;
-  --wb-sand: #D6B88C;
-  --wb-sand-deep: #7D5F37;
 }
 
 /* Status/constant tokens — theme/mode-invariant, defined once on :root.
@@ -141,9 +129,8 @@
      overscroll on *-workbench routes despite neither route group actually
      depending on it (design-audit finding, advisory-workbench). */
   body {
-    /* Endeavour 27: was bg-white — wrong once the default surface became
-       dark navy (see [data-wb-mode] block above); this is what the
-       overscroll gutter actually shows now. */
+    /* The default surface is light (see the token block above); this is
+       what the overscroll gutter shows. */
     @apply bg-wb-bg text-wb-ink font-sans antialiased;
     min-height: 100dvh; /* dvh tracks mobile browser chrome correctly */
     transition: background-color 180ms ease, color 180ms ease;

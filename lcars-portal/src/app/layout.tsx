@@ -68,9 +68,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Endeavour 27: was #F7F4EE (the old Archive theme's bg) — the app's
-  // default surface is now the dark Command/Focus navy.
-  themeColor: '#0B1E2E',
+  // Design uplift Stage A: the default surface is light (brand mist), so the
+  // browser UI colour follows it.
+  themeColor: '#F5F7FA',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',

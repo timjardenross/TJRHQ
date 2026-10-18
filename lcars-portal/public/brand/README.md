@@ -20,7 +20,7 @@ Do not hand-edit them; regenerate and replace.
 
 Use the components, not raw paths: `import { BrandMark, BrandWordmark } from '@/components/brand'`.
 
-- Tile follows the surface: `surface="light"` navy tile, `surface="dark"` inverted tile. The dark sidebar uses the inverted tile; the header uses the navy tile in light Read mode.
+- Tile follows the surface: `surface="light"` navy tile, `surface="dark"` inverted tile. The dark navy sidebar uses the inverted tile; the header and login sit on the default light surface and use the navy tile (the header uses the inverted tile only under `WorkbenchShell mode="dark"`).
 - Render as `<img>` (the components do). HQ's global `forced-color-adjust: auto` hides an inline SVG mark in forced-colours mode. Check: `node scripts/brand/check-forced-colours.mjs`.
 - The mark is decorative by default (`alt=""`); name the parent link or button. Give `label` only when it stands alone.
 - Minimum sizes: mark 16 px (use the favicon cuts below 32 px on light); primary lockup 310 px wide (descriptor stays 12 px or more); horizontal 160 px; compact 72 px. Show the descriptor in the primary lockup only, not in the sidebar or login heading.
@@ -30,7 +30,7 @@ Use the components, not raw paths: `import { BrandMark, BrandWordmark } from '@/
 ## Decisions recorded for this stage
 
 - **Stage 0 changes nothing visible.** The components and files are not used by any page yet.
-- **First paint, manifest and theme colours are unchanged** (`manifest.webmanifest`, both `themeColor` values). They change once, from the re-themed tokens, when the light-default re-theme ships. Icons only change in Stage 1 (with a service-worker cache bump and `cache: 'reload'`).
+- **First paint, manifest and theme colours** were left unchanged in Stages 0 to 3 and now follow the light default (design uplift Stage A: `theme_color`, `background_color` and `themeColor` are `#F5F7FA`, with a service-worker cache bump to v3).
 - `--brand-*` tokens are additive; no `--wb-*` value changes or maps to them yet.
 
 ## Gates carried to later stages (independent review of Stage 0, 2026-10-18)
@@ -45,7 +45,7 @@ Use the components, not raw paths: `import { BrandMark, BrandWordmark } from '@/
 
 - `src/app/icon.svg` is the adaptive HQ favicon; `src/app/favicon.ico` holds 16/32/48 px images. `public/icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png` are rendered from `hq-app-icon-fullbleed.svg` (opaque navy, no own corner radius). Regenerate with `node scripts/brand/build-icons.mjs`; verify with `node scripts/brand/check-icons.mjs` (opaque, navy corner, white mark, maskable mark inside the 40% safe zone).
 - `public/sw.js` cache is `lcars-static-v2` and precaches with `cache: 'reload'`. Any change to a precached file needs a new cache name, or installed apps keep the old copy (cache-first never revalidates).
-- Manifest `theme_color` and `background_color` are deliberately unchanged until the light re-theme.
+- Manifest `theme_color` and `background_color` follow the light default (see above). Installed apps keep their old splash and title-bar colours until the manifest refreshes or the app is reinstalled.
 - **Upgrade check (real files, real bytes):** `node scripts/brand/check-sw-migration.mjs <git-ref-of-old-version>`. It covers install, upgrade, a failed precache (the previous worker and cache must stay) and the documented rollback.
 - **Failed precache:** the worker installs only if every precached file is fetched; otherwise the install is rejected, the previous worker and its cache stay, and the partial cache is removed.
 - **Rollback:** revert the files AND bump the cache name again (v3), keeping `cache: 'reload'`. A plain revert to `v1` can re-serve the new icons from the HTTP cache where assets carry a long `max-age`.

@@ -20,11 +20,11 @@ vi.mock('@/lib/supabase-browser', () => ({
 afterEach(cleanup);
 
 describe('reset-password heading brand (brand Stage 3), rendered', () => {
-  it('shows the dark-surface mark as a decorative image beside plain "TJR HQ" and the page heading', () => {
+  it('shows the light-surface (navy tile) mark as a decorative image beside plain "TJR HQ" and the page heading', () => {
     const { container } = render(<ResetPasswordPage />);
     const img = container.querySelector('img');
     expect(img).not.toBeNull();
-    expect(img).toHaveAttribute('src', '/brand/hq-icon-dark.svg');
+    expect(img).toHaveAttribute('src', '/brand/hq-icon-light.svg');
     expect(img).toHaveAttribute('alt', '');
     expect(img).toHaveAttribute('width', '48');
     expect(screen.getByText('TJR HQ')).toBeInTheDocument();

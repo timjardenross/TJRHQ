@@ -3,6 +3,8 @@
 A **LCARS-style command dashboard** for **USS TJR — Starship Endeavour
 (NCC-170230)**, built with **Next.js + React + TypeScript + Tailwind CSS**.
 
+> **Colour (design uplift Stage A, 2026-10-18):** HQ is light by default with dark navy chrome (sidebar, mobile bar). Tokens and their rules are documented at the top of `src/app/globals.css`; every text pairing is checked by `src/__tests__/tokenContrast.test.ts`.
+>
 > **Brand (2026-10-18):** the TJR HQ identity ("Connected H") is in `public/brand/` (assets, usage and the Stage 1 to 3 notes) and `src/components/brand/` (`BrandMark`, `BrandWordmark`). Specification and review history: TJR-Ecosystem `architecture/design-system/brand/TJR-BRAND-FAMILY-AND-HQ-IDENTITY.md`. The share image is generated from the shipped lockup (`node scripts/brand/gen-og-lockup.mjs`).
 
 > **2026-09-26 correction:** this README described a pre-activation "Phase 1,
