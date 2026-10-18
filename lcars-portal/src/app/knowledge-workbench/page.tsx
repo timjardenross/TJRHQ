@@ -38,7 +38,7 @@ function Workbench() {
   );
 
   return (
-    <WorkbenchShell wide title="Knowledge Workbench" eyebrow="Command Memory"
+    <WorkbenchShell wide title="Knowledge" eyebrow="Command Memory"
       tagline="TJR HQ · Knowledge · Memory · Organisational decisions"
       tabs={tabsRow}
       back={{ href: '/workbenches', label: 'Workbenches' }}

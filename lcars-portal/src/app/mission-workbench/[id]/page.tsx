@@ -101,7 +101,7 @@ export default function MissionWorkbenchDetailPage() {
 
   if (loadState === 'loading') {
     return (
-      <WorkbenchShell wide title="Mission Workbench" eyebrow="Loading" tagline="TJR HQ · Mission Workbench · Registry — capacity-aware filtering">
+      <WorkbenchShell wide title="Missions" eyebrow="Loading" tagline="TJR HQ · Mission Workbench · Registry — capacity-aware filtering">
         <p className="py-16 text-center text-wb-body text-wb-ink2">Loading mission…</p>
       </WorkbenchShell>
     );

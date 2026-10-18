@@ -47,6 +47,7 @@ _EXCLUDED_ROUTES: dict[str, str] = {
     "health-osint-curation": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
     "knowledge-workbench": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
     "mission-workbench": "reachable via secondary in-app link, not orphaned but not hub-listed (2026-08-29 handoff, Finding 4)",
+    "engineering-handoffs": "consolidated into /decisions (Approved handoffs tab, Stage C 2026-10-18); the route is a redirect kept for bookmarks",
     "privacy": "public unauthenticated policy page required for Google OAuth consent-screen verification, not a workbench (see page's own header comment)",
     "terms": "public unauthenticated policy page required for Google OAuth consent-screen verification, not a workbench (see page's own header comment)",
     "settings": "index/nav page listing SETTINGS_SECTIONS (settings/page.tsx) — same category as the workbenches hub page itself, not a workbench of its own",

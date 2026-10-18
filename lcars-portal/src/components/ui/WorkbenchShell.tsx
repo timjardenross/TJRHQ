@@ -77,6 +77,7 @@ export function WorkbenchShell({
   back,
   wide = false,
   minimal = false,
+  quiet = false,
   mode = 'focus',
   children,
 }: {
@@ -102,6 +103,10 @@ export function WorkbenchShell({
    * reachable (never trap the Captain), QuickCapture/MobileCommandBar
    * stay mounted. */
   minimal?: boolean;
+  /** Keeps the Sidebar, header and switcher but drops the per-page extras (primary
+   * action, Attention controls, Recent actions, footer tagline). For notice pages such as
+   * the retired "this page moved" routes, where those controls mean nothing. Off by default. */
+  quiet?: boolean;
   /** Surface and density classification. The default surface is light
    * (design uplift Stage A): 'command', 'focus' and 'read' all use the light
    * token set and differ by density, layout and reading typography only
@@ -229,8 +234,8 @@ export function WorkbenchShell({
             )}
           </header>
           <main id="wb-main" tabIndex={-1} className={`mx-auto ${shellWidth} px-4 py-6 pb-28 outline-none sm:px-6 sm:py-8 sm:pb-28 xl:pb-8`}>
-            {!minimal && primaryAction && <div className="mb-4"><Link href={primaryAction.href} onClick={() => trackTaskEvent(`${pathname}:primary`, 'started', { label: primaryAction.label })} className="inline-flex min-h-11 items-center rounded-md bg-wb-sage-deep px-4 py-2.5 text-wb-body font-semibold text-white transition hover:bg-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">{primaryAction.label} →</Link></div>}
-            {!minimal && <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><AttentionControls label="Attention" /><ActionHistoryPanel /></div>}
+            {!minimal && !quiet && primaryAction && <div className="mb-4"><Link href={primaryAction.href} onClick={() => trackTaskEvent(`${pathname}:primary`, 'started', { label: primaryAction.label })} className="inline-flex min-h-11 items-center rounded-md bg-wb-sage-deep px-4 py-2.5 text-wb-body font-semibold text-white transition hover:bg-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">{primaryAction.label} →</Link></div>}
+            {!minimal && !quiet && <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><AttentionControls label="Attention" /><ActionHistoryPanel /></div>}
             {originLabel && pathname !== originHref && (
               <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-wb-line bg-wb-surface px-3 py-2 text-wb-label text-wb-ink2" role="status">
                 <span>Opened from {originLabel}{item ? ` · item ${item}` : ''}</span>
@@ -246,7 +251,7 @@ export function WorkbenchShell({
               </Link>
             )}
             {children}
-            {!minimal && (
+            {!minimal && !quiet && (
               <p className="mt-8 text-center text-wb-label text-wb-ink2">
                 {tagline}
               </p>

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { WorkbenchShell } from '@/components/ui';
+import { DomainToggle, WorkbenchShell } from '@/components/ui';
+import { HandoffsView } from '@/app/engineering-handoffs/_components/HandoffsView';
 import { ApprovalQueue } from '@/components/ApprovalQueue';
 import {
   fetchDecisionsInbox,
@@ -23,7 +24,26 @@ import {
 // — this page is where that action now lives, one click away via Needs
 // You (commandState.ts's engineering-approvals item), not folded back
 // into Captain's Chair.
+type DecisionsTab = 'awaiting' | 'handoffs';
+const TAB_OPTIONS: { key: DecisionsTab; label: string }[] = [
+  { key: 'awaiting', label: 'Awaiting you' },
+  { key: 'handoffs', label: 'Approved handoffs' },
+];
+
 export default function DecisionsPage() {
+  const [tab, setTab] = useState<DecisionsTab>('awaiting');
+  // ?tab=handoffs is where /engineering-handoffs now redirects. Read after mount so the
+  // server-rendered HTML and the first client render agree.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tab') === 'handoffs') setTab('handoffs');
+  }, []);
+  const changeTab = (next: DecisionsTab) => {
+    setTab(next);
+    const url = new URL(window.location.href);
+    if (next === 'handoffs') url.searchParams.set('tab', 'handoffs');
+    else url.searchParams.delete('tab');
+    window.history.replaceState(null, '', url);
+  };
   const [actionable, setActionable] = useState<DecisionItem[]>([]);
   const [intelligence, setIntelligence] = useState<IntelligenceDecisionItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,12 +83,14 @@ export default function DecisionsPage() {
 
   return (
     <WorkbenchShell
-      title="Decisions Inbox"
+      title="Decisions"
       eyebrow="Executive command surface"
-      tagline="TJR HQ · Decisions Inbox · Engineering approvals + flagged intelligence recommendations, one queue"
+      tagline="TJR HQ · Decisions · Engineering approvals, flagged intelligence recommendations and approved handoffs"
       back={{ href: '/captains-chair-workbench', label: "Today" }}
       mode="command"
+      tabs={<DomainToggle value={tab} onChange={changeTab} options={TAB_OPTIONS} ariaLabel="Decisions views" />}
     >
+      {tab === 'handoffs' ? <HandoffsView /> : (
       <div className="space-y-4">
         <ApprovalQueue
           title="Awaiting Your Decision"
@@ -117,6 +139,7 @@ export default function DecisionsPage() {
           )}
         </div>
       </div>
+      )}
     </WorkbenchShell>
   );
 }
