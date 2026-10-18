@@ -375,3 +375,27 @@
     font-size: 16px;
   }
 }
+
+/* A2c touch targets: on touch-primary devices every button, select and text-like
+   input is at least 44 x 44 CSS px (WCAG 2.5.5 / Apple HIG), whatever padding the
+   call site chose. Inline links in running text are not affected. Opt out of the
+   height for a deliberately dense control with data-wb-dense. */
+@media (pointer: coarse) {
+  button:not([data-wb-dense]),
+  select:not([data-wb-dense]),
+  summary:not([data-wb-dense]),
+  [role='button']:not([data-wb-dense]),
+  input:is([type='text'], [type='search'], [type='email'], [type='password'], [type='url'], [type='number'], [type='date'], [type='time'], [type='datetime-local'], [type='tel'], :not([type])):not([data-wb-dense]) {
+    min-height: 44px;
+  }
+  button:not([data-wb-dense]):empty,
+  button:not([data-wb-dense]):has(> svg:only-child),
+  [role='button']:not([data-wb-dense]):has(> svg:only-child) {
+    min-width: 44px;
+  }
+  input[type='checkbox']:not([data-wb-dense]),
+  input[type='radio']:not([data-wb-dense]) {
+    min-height: 24px;
+    min-width: 24px;
+  }
+}
