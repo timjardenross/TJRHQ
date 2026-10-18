@@ -183,3 +183,80 @@ def test_recommendation_note_still_says_defer_when_enforcing(enforce):
         workload_constraint = "normal"
 
     assert rec.check_health_constraints({"priority": "P3", "domain": "x"}, Health()).startswith("Defer")
+
+
+# --- Consumers found by G7 review of PR #434 (attention state, command bus, Remember) ---
+
+
+def _attention_note(status):
+    from core.coordination.attention_state import (
+        AttentionCategory,
+        _capacity_note_and_category,
+    )
+
+    return _capacity_note_and_category(AttentionCategory.IMPORTANT_NOT_IMMEDIATE, False, False, status)
+
+
+def test_attention_state_red_does_not_demote_in_advisory(advisory):
+    from core.coordination.attention_state import AttentionCategory
+
+    category, note = _attention_note("Red")
+    assert category == AttentionCategory.IMPORTANT_NOT_IMMEDIATE
+    assert note.startswith("Advisory")
+
+
+def test_attention_state_red_still_demotes_when_enforcing(enforce):
+    from core.coordination.attention_state import AttentionCategory
+
+    category, note = _attention_note("Red")
+    assert category == AttentionCategory.CAN_WAIT
+    assert note.startswith("DEFERRED")
+
+
+def _run_high_escalation(capacity):
+    import sqlite3
+    from unittest import mock
+
+    import core.coordination.command_bus as cb
+
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    cb._init_db(conn)
+    brief = {"escalations": [{"escalation_type": "BLOCKED_P0", "mission_id": "MSN-1",
+                              "level": "HIGH", "reason": "r", "recommendation": ""}]}
+    with mock.patch.object(cb, "_get_number_one_brief", return_value=brief), \
+         mock.patch.object(cb, "_capacity_status", return_value=capacity), \
+         mock.patch.object(cb, "_in_number_one_quiet_hours", return_value=False), \
+         mock.patch.object(cb, "_route", return_value=True) as route:
+        cb._rule_number_one_escalations(conn, client=None)
+    return route
+
+
+def test_command_bus_high_on_red_is_sent_in_advisory(advisory):
+    _run_high_escalation("Red").assert_called_once()
+
+
+def test_command_bus_high_on_red_is_held_when_enforcing(enforce):
+    _run_high_escalation("Red").assert_not_called()
+
+
+def _remember_limit(status):
+    import importlib.util
+    import pathlib
+
+    path = pathlib.Path(__file__).resolve().parents[1] / "core" / "context-assembly" / "context_service.py"
+    spec = importlib.util.spec_from_file_location("context_service_under_test", path)
+    mod = importlib.util.module_from_spec(spec)
+    import sys
+
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    return mod._remember_capture_limit(status)
+
+
+def test_remember_limit_is_common_in_advisory(advisory):
+    assert {_remember_limit(s) for s in ("Red", "Amber", "Green", "Unknown", None)} == {30}
+
+
+def test_remember_limit_follows_band_when_enforcing(enforce):
+    assert (_remember_limit("Red"), _remember_limit("Amber"), _remember_limit("Green")) == (3, 10, 30)

@@ -62,6 +62,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from core.health.capacity_enforcement import enforcing
 from core.platform.notification_service import Severity, Transport
 from core.platform.notification_service import notify as _notify
 
@@ -610,7 +611,7 @@ def _rule_number_one_escalations(conn: sqlite3.Connection, client=None) -> None:
             continue
 
         level = str(e.get("level", "")).upper()
-        if level == "HIGH" and capacity_status == "Red":
+        if level == "HIGH" and capacity_status == "Red" and enforcing():
             # Deferred, not dropped — same mechanism as the quiet-hours
             # continue above: never marked notified, so _should_notify()
             # is still True next cycle (Mission 2, USS-TJR-MSN-2).
