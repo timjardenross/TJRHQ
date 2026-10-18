@@ -428,8 +428,8 @@ export default function CaptainsNotebookWorkbenchPage() {
     <WorkbenchShell
       title="Captain's Notebook"
       eyebrow="Intelligence Intake & Refinement"
-      tagline="USS TJR · Captain's Notebook · Intelligence Intake & Refinement"
-      back={{ href: '/captains-chair-workbench', label: "Captain's Chair" }}
+      tagline="TJR HQ · Captain's Notebook · Intelligence Intake & Refinement"
+      back={{ href: '/captains-chair-workbench', label: "Today" }}
     >
       <div className="flex flex-col gap-4">
         {/* Header */}

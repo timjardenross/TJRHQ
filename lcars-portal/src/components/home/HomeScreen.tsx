@@ -53,7 +53,7 @@ const EXPLORE_LINKS: { href: string; label: string; description: string }[] = [ 
   { href: '/missions', label: 'Missions', description: 'The full mission registry' },
   { href: '/briefs', label: 'Briefs', description: 'The canonical briefing — daily intelligence and the cross-domain Domains picture' },
   { href: '/content-workbench', label: 'Communications Pipeline', description: 'Review, edit, and publish drafted communications' },
-  { href: '/captains-chair-workbench', label: "Captain's Chair", description: 'The full operational dashboard' },
+  { href: '/captains-chair-workbench', label: "Today", description: 'The full operational dashboard' },
 ];
 
 export function HomeScreen({

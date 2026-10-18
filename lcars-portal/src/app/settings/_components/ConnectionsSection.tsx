@@ -104,7 +104,7 @@ export function ConnectionsSection() {
       <div className="flex flex-col gap-4">
         <ConnectionCard
           title="Google Calendar"
-          usedBy="Used by the Hub, Captain's Chair, and Content Workbench scheduling."
+          usedBy="Used by the Hub, Today, and Content Workbench scheduling."
           state={stateFor('google_calendar')}
           connectHref="/api/auth/google-calendar/connect"
         />

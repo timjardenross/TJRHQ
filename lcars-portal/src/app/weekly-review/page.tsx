@@ -45,7 +45,7 @@ function Workbench() {
     <WorkbenchShell wide
       title="Weekly Review"
       eyebrow="Scan · Synthesise · Learn · Adapt"
-      tagline="USS TJR · Weekly Review · What happened, what mattered, what HQ learned — one calm pass."
+      tagline="TJR HQ · Weekly Review · What happened, what mattered, what HQ learned — one calm pass."
       back={{ href: '/workbenches', label: 'Workbenches' }}
       mode="command"
     >

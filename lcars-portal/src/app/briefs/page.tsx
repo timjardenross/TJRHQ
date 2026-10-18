@@ -376,7 +376,7 @@ export default function BriefsPage() {
     <WorkbenchShell
       title="Briefs"
       eyebrow="Canonical Intelligence Record"
-      tagline="USS TJR · HQ's canonical daily synthesis of the intelligence picture — one assessment, multiple delivery formats"
+      tagline="TJR HQ · HQ's canonical daily synthesis of the intelligence picture — one assessment, multiple delivery formats"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       tabs={<TabBar active={tab} onChange={setTab} />}
       mode="command"

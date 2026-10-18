@@ -10,7 +10,7 @@ import { WorkbenchShell } from '@/components/ui';
 
 export default function ReadinessCheckInPage() {
   return (
-    <WorkbenchShell title="Readiness check-in removed" eyebrow="Today's Readiness" tagline="USS TJR · Physical Readiness" back={{ href: '/physical-readiness', label: 'Physical Readiness' }}>
+    <WorkbenchShell title="Readiness check-in removed" eyebrow="Today's Readiness" tagline="TJR HQ · Physical Readiness" back={{ href: '/physical-readiness', label: 'Physical Readiness' }}>
       <div className="rounded-lg border border-wb-line bg-white p-4">
         <p className="text-sm leading-relaxed text-wb-ink2">
           Manual readiness check-in has been removed. Recovery Pulse (via the Telegram XO bot) is now

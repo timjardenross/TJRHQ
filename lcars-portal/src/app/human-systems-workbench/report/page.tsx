@@ -81,7 +81,7 @@ export default function HumanSystemsReportPage() {
     <WorkbenchShell
       title="Human Systems — Report"
       eyebrow="14-Day Summary"
-      tagline="USS TJR · Built only from what was actually recorded — never a value it doesn't have"
+      tagline="TJR HQ · Built only from what was actually recorded — never a value it doesn't have"
       back={{ href: '/human-systems-workbench/trends', label: 'Trends' }}
     >
       {/* Print-first target: everything but this page's own content is

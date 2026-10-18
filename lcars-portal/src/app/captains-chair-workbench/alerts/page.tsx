@@ -146,9 +146,9 @@ export default function CaptainsChairAlertsPage() {
   return (
     <WorkbenchShell wide
       title="Push Alerts"
-      eyebrow="Captain's Chair"
-      tagline="USS TJR · Push Alerts · gated: decision · escalation · blocked · review · wellness — nothing surfaces here unless it genuinely needs you."
-      back={{ href: '/captains-chair-workbench', label: "Captain's Chair" }}
+      eyebrow="Today"
+      tagline="TJR HQ · Push Alerts · gated: decision · escalation · blocked · review · wellness — nothing surfaces here unless it genuinely needs you."
+      back={{ href: '/captains-chair-workbench', label: "Today" }}
       right={right}
     >
       <div className="flex flex-col gap-4">

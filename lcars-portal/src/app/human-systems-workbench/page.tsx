@@ -166,7 +166,7 @@ function Workbench() {
 
   return (
     <WorkbenchShell wide title="Human Systems" eyebrow="Capacity, regulation, recovery & sustainability."
-      tagline="USS TJR · A live view of how my body, nervous system, mind, environment and demands are interacting today · Evidence-informed, non-diagnostic"
+      tagline="TJR HQ · A live view of how my body, nervous system, mind, environment and demands are interacting today · Evidence-informed, non-diagnostic"
       right={right}
       tabs={tabsRow}
       mode="focus"

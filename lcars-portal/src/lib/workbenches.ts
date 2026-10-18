@@ -136,7 +136,7 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
   },
   {
     href: '/captains-chair-workbench',
-    title: "Captain's Chair",
+    title: "Today",
     description: 'Operational dashboard — recovery posture, mission overview, alerts, and intelligence at a glance.',
     icon: Compass,
     group: 'orient',

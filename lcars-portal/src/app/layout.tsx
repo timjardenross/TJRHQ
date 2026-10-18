@@ -9,7 +9,7 @@ import { SITE_URL } from '@/lib/site';
 // imported PUBLIC_SITE_NAME et al., so every authenticated page (including
 // /home) showed "TJR Mind & Body" in the tab title and favicon.
 const OPS_PORTAL_NAME = 'TJR HQ';
-const OPS_PORTAL_DESCRIPTION = 'USS TJR — Command Centre for missions, intelligence, and recovery operations.';
+const OPS_PORTAL_DESCRIPTION = 'TJR HQ — Command Centre for missions, intelligence, and recovery operations.';
 
 const sourceSerif = Source_Serif_4({
   subsets: ['latin'],

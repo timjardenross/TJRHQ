@@ -286,7 +286,7 @@ export default function HqEvolutionPage() {
 
   if (loading) {
     return (
-      <WorkbenchShell title="HQ Evolution" eyebrow="HQ works on HQ while you're away" tagline="USS TJR · HQ Evolution · Continuous discovery, investigation, and improvement" mode="command">
+      <WorkbenchShell title="HQ Evolution" eyebrow="HQ works on HQ while you're away" tagline="TJR HQ · HQ Evolution · Continuous discovery, investigation, and improvement" mode="command">
         <div className="text-center py-8 text-wb-ink2">Checking overnight discoveries…</div>
       </WorkbenchShell>
     );
@@ -296,7 +296,7 @@ export default function HqEvolutionPage() {
     <WorkbenchShell
       title="HQ Evolution"
       eyebrow="HQ works on HQ while you're away"
-      tagline="USS TJR · HQ Evolution · Discover, investigate, improve, learn — nothing changes production without your say"
+      tagline="TJR HQ · HQ Evolution · Discover, investigate, improve, learn — nothing changes production without your say"
       mode="command"
       wide
       tabs={

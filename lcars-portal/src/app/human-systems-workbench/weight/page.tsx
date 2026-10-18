@@ -51,7 +51,7 @@ export default function WeightPage() {
     <WorkbenchShell
       title="Human Systems — Weight"
       eyebrow="30-Day History"
-      tagline="USS TJR · History only — manual entry retired in favour of Recovery Pulse"
+      tagline="TJR HQ · History only — manual entry retired in favour of Recovery Pulse"
       back={{ href: '/human-systems-workbench', label: 'Human Systems' }}
     >
       <div className="flex flex-col gap-4">

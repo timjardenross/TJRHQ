@@ -177,9 +177,9 @@ export default function CaptainsChairWorkbench() {
 
   return (
     <WorkbenchShell
-      title="Captain's Chair"
+      title="Today"
       eyebrow="Executive command surface"
-      tagline="USS TJR · Captain's Chair · Today, Needs You, intelligence, ahead, capacity, evolution, status"
+      tagline="TJR HQ · Today · Needs You, intelligence, ahead, capacity, evolution, status"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       wide
       mode="command"
