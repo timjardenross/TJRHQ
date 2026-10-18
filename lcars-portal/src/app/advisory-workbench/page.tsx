@@ -73,7 +73,7 @@ function Workbench() {
     <WorkbenchShell wide
       title="Advisory"
       eyebrow={EYEBROW[domain]}
-      tagline="USS TJR · Advisory · Clarify the decision, compare the options, and choose what happens next."
+      tagline="TJR HQ · Advisory · Clarify the decision, compare the options, and choose what happens next."
       tabs={<DomainToggle value={domain} onChange={changeDomain} options={DOMAIN_OPTIONS} ariaLabel="Advisory task" />}
       back={{ href: '/workbenches', label: 'Workbenches' }}
       mode="command"

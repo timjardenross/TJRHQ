@@ -96,7 +96,7 @@ export default function HealthOsintCurationPage() {
     <WorkbenchShell wide
       title="Health OSINT Curation"
       eyebrow="Sunday Night Review"
-      tagline="USS TJR · Auto-ingested signals pending approval — nothing publishes without a human decision"
+      tagline="TJR HQ · Auto-ingested signals pending approval — nothing publishes without a human decision"
       back={{ href: '/health-osint', label: 'Health OSINT' }}
     >
       {error && (

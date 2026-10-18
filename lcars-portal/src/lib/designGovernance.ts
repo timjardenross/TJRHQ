@@ -4,6 +4,9 @@ import type { StateTone } from '@/lib/types';
 /** Governance registry: new UI copy and tokens must use these canonical terms. */
 export const CANONICAL_TERMS = {
   hub: 'LifeOS Hub',
+  product: 'TJR HQ',
+  today: 'Today',
+  journal: 'Journal',
   briefs: 'Briefs',
   emergencyAlerts: 'Emergency Alerts',
   humanSystems: 'Human Systems',
@@ -17,6 +20,9 @@ export const CANONICAL_TERMS = {
 export const LEGACY_TERM_REPLACEMENTS: Record<string, string> = {
   Home: CANONICAL_TERMS.hub,
   "Captain's Brief": CANONICAL_TERMS.briefs,
+  "Captain's Chair": CANONICAL_TERMS.today,
+  "Captain's Log": CANONICAL_TERMS.journal,
+  'USS TJR': CANONICAL_TERMS.product,
   Medical: CANONICAL_TERMS.humanSystems,
   Alerts: CANONICAL_TERMS.emergencyAlerts,
 };

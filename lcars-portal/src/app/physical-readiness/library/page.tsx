@@ -42,7 +42,7 @@ export default function ExerciseLibraryPage() {
   const groups = groupByEquipment(exercises);
 
   return (
-    <WorkbenchShell title="Exercise Library" eyebrow={`${exercises.length} exercises`} tagline="USS TJR · Physical Readiness · Library" back={{ href: '/physical-readiness', label: 'Physical Readiness' }} wide>
+    <WorkbenchShell title="Exercise Library" eyebrow={`${exercises.length} exercises`} tagline="TJR HQ · Physical Readiness · Library" back={{ href: '/physical-readiness', label: 'Physical Readiness' }} wide>
       {loading ? (
         <p className="text-xs text-wb-ink2 animate-pulse">Loading exercise library…</p>
       ) : (

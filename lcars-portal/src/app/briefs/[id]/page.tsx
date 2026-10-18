@@ -69,7 +69,7 @@ export default function BriefDetailPage({ params }: { params: { id: string } }) 
     <WorkbenchShell
       title="Daily Intelligence Brief"
       eyebrow="Briefs · Canonical Record"
-      tagline="USS TJR · HQ's canonical daily synthesis of the intelligence picture — an immutable historical record"
+      tagline="TJR HQ · HQ's canonical daily synthesis of the intelligence picture — an immutable historical record"
       back={{ href: '/briefs', label: 'Briefs' }}
       right={brief ? <RiskPill value={brief.overall_risk} /> : ''}
     >

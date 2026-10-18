@@ -108,7 +108,7 @@ async function fetchLogEntries(days: number): Promise<SourceResult> {
   const events = (data ?? []).map(r => ({
     id:        `log-${r.log_date}`,
     source:    'log' as const,
-    title:     `Captain's Log filed — ${r.log_date}`,
+    title:     `Journal entry filed — ${r.log_date}`,
     detail:    r.tomorrows_priority?.slice(0, 100),
     timestamp: `${r.log_date}T00:00:00Z`,
     metadata:  { capacity: r.captain_capacity_rating },
@@ -343,7 +343,7 @@ export default function TimelinePage() {
     <WorkbenchShell
       title="Timeline"
       eyebrow="Cross-domain"
-      tagline="USS TJR · Timeline · Missions, health, log, events, captures"
+      tagline="TJR HQ · Timeline · Missions, health, log, events, captures"
       back={{ href: '/workbenches', label: 'Workbenches' }}
       right={daySelector}
       tabs={<div className="flex flex-col gap-2">{attentionFilters}{sourceFilters}</div>}

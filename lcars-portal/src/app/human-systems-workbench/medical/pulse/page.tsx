@@ -57,7 +57,7 @@ export default function RecoveryPulsePage() {
     <WorkbenchShell
       title="Recovery Pulse"
       eyebrow="Health Tracking"
-      tagline="USS TJR · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
+      tagline="TJR HQ · Human Systems · Recovery · Medical · Readiness · Evidence-informed, non-diagnostic"
       back={{ href: '/human-systems-workbench', label: 'Human Systems' }}
     >
       <div className="flex flex-col gap-4">

@@ -65,8 +65,8 @@ export default function DecisionsPage() {
     <WorkbenchShell
       title="Decisions Inbox"
       eyebrow="Executive command surface"
-      tagline="USS TJR · Decisions Inbox · Engineering approvals + flagged intelligence recommendations, one queue"
-      back={{ href: '/captains-chair-workbench', label: "Captain's Chair" }}
+      tagline="TJR HQ · Decisions Inbox · Engineering approvals + flagged intelligence recommendations, one queue"
+      back={{ href: '/captains-chair-workbench', label: "Today" }}
       mode="command"
     >
       <div className="space-y-4">

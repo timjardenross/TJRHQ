@@ -96,7 +96,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
 
   return (
     <WorkbenchShell wide title="Brief Review"
-           tagline="USS TJR · Operational Resilience Intelligence · Phase B"
+           tagline="TJR HQ · Operational Resilience Intelligence · Phase B"
            back={{ href: '/intelligence-workbench', label: 'Overview' }}
            right={brief ? <RiskPill value={brief.overall_risk} /> : ''}>
       {loading ? (

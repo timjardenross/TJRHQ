@@ -8,7 +8,7 @@ import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 import { SHIP } from '@/lib/mockData';
 
 export const metadata: Metadata = {
-  title: 'USS TJR Command Centre',
+  title: 'TJR HQ',
   description:
     "Private TJR HQ command centre for Endeavour 27 — missions, intelligence, and recovery operations.",
   robots: {
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     follow: false,
   },
   manifest: '/manifest.webmanifest',
-  applicationName: 'USS TJR Command Centre',
+  applicationName: 'TJR HQ',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -47,7 +47,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           ship={SHIP.name}
           registry={SHIP.registry}
           stardate={computeStardate()}
-          pageTitle="USS TJR — Starship Endeavour"
+          pageTitle="TJR HQ"
         />
         <aside
           data-route-family="legacy-compatibility"

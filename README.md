@@ -1,6 +1,6 @@
 # TJRHQ
 
-TJR HQ — the operational platform repository for USS TJR.
+TJR HQ — the operational workbench and evidence-control system for the TJR ecosystem.
 
 Everything required to run the internal operational platform lives here: workbenches, bots,
 Telegram/Slack integrations, cron jobs, systemd services, background workers, AI processing
@@ -14,9 +14,13 @@ so file history predating the split is preserved.
 
 ## Repository relationships
 
-- **TJRHQ** (this repo) — operational platform. Runtime code, bots, workbenches, infrastructure.
-- **tjrmindbody_public** — the public-facing website and digital experience.
-- **USSTJROS** — mission, governance, architecture, and institutional-knowledge repository.
+One job per repo:
+
+- **TJRHQ** (this repo) — TJR HQ: operational workbench and evidence-control system. Runtime code, bots, workbenches, database, infrastructure.
+- **TJR-Library** — TJR Library: evidence-governed activity and support library. Research records; no code, no personal data.
+- **TJR-Life-iOS** — TJR Life: the personal iOS command centre.
+- **TJR-website-public** — TJR Mind & Body: the public-facing website and digital experience.
+- **TJR-Ecosystem** (formerly USSTJROS) — the ecosystem charter: vision, decision log, cross-product architecture and data contracts, plus mission, governance and institutional-knowledge records.
   Governs and documents capabilities implemented here, but is not itself a home for
   operational code. Design/implementation-notes docs for several TJRHQ components (context
   assembly, coordination, health, command-centre, infrastructure integrations) live there
@@ -28,7 +32,7 @@ so file history predating the split is preserved.
 ## Interfaces & runtime components
 
 - **`lcars-portal/`** — An LCARS-style web command dashboard (Next.js + React + TypeScript +
-  Tailwind), branded "Starship Endeavour" (NCC-170230). Additive to (not a replacement for)
+  Tailwind), branded "TJR HQ" (formerly "Starship Endeavour"). Additive to (not a replacement for)
   the Commander runtime, Command Centre backend, Context Assembly, and Supabase. Pages
   include Captain's Chair, Missions, Engineering, Number One, XO Brief, Medical/Wellness,
   Operations, and Knowledge Base.
