@@ -95,3 +95,11 @@ def _no_real_embedding_calls(request):
     # *different* module instance would silently miss the one actually in
     # use. Left applied for the rest of the session once set, matching the
     # advisory pipeline's own module-caching behavior.
+
+
+@pytest.fixture(autouse=True)
+def _capacity_enforcement_on_for_legacy_tests(monkeypatch):
+    """Capacity gating is advisory by default in production (owner decision 2026-10-18; see
+    core/health/capacity_enforcement.py). The pre-existing gate tests assert the original D-055
+    behaviour, so they run with enforcement on. Tests of the advisory default clear the variable."""
+    monkeypatch.setenv("CAPACITY_ENFORCEMENT", "enforce")
