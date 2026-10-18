@@ -41,6 +41,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // TJR family brand palette — fixed values, additive (Stage 0).
+        brand: {
+          navy: 'var(--brand-navy)',
+          slate: 'var(--brand-slate)',
+          sky: 'var(--brand-sky)',
+          sand: 'var(--brand-sand)',
+          mist: 'var(--brand-mist)',
+          deep: 'var(--brand-deep)',
+        },
         // ── Phase B Intelligence Workbench — warm brand palette ────────
         // 2026-08-09: re-pulled from the live TJR Mind & Body site
         // (tjrmindbody.com/about's actual compiled CSS, not guessed) —

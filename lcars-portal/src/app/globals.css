@@ -8,6 +8,19 @@
   color-scheme: dark;
 }
 
+/* TJR family brand palette (brand identity Stage 0). Additive only: no
+   --wb-* value is derived from or changed by these. Each blue is
+   surface-specific (see public/brand/README.md); mapping into --wb-* belongs
+   to the separate light-default re-theme. */
+:root {
+  --brand-navy: #102B46;
+  --brand-slate: #416B8C;
+  --brand-sky: #76A9C8;
+  --brand-sand: #D7C5AE;
+  --brand-mist: #F5F7FA;
+  --brand-deep: #0B1E2E;
+}
+
 /* ── Endeavour 27 visual system (USS-TJR-MSN-0394, 2026-09-20) ───────────
    REPLACES the 5-theme adaptive system (Archive/Command/Midnight/Horizon/
    Sanctuary, 2026-09-05) entirely — Captain-confirmed decision, mission §2:
