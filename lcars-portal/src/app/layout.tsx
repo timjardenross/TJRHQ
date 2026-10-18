@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Source_Serif_4 } from 'next/font/google';
+import { Inter, JetBrains_Mono, Source_Serif_4 } from 'next/font/google';
 import './globals.css';
 import { SITE_URL } from '@/lib/site';
 
@@ -10,6 +10,23 @@ import { SITE_URL } from '@/lib/site';
 // /home) showed "TJR Mind & Body" in the tab title and favicon.
 const OPS_PORTAL_NAME = 'TJR HQ';
 const OPS_PORTAL_DESCRIPTION = 'TJR HQ — Command Centre for missions, intelligence, and recovery operations.';
+
+// Inter and JetBrains Mono used to come from a Google Fonts CSS @import in globals.css, which sent
+// every visitor's request to Google. next/font downloads the files at build time and serves them
+// from this origin instead (same as Source Serif 4 below). Licences: docs/FONT-LICENCES.md.
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-sans',
+  display: 'swap',
+});
+
+const jetBrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-mono',
+  display: 'swap',
+});
 
 const sourceSerif = Source_Serif_4({
   subsets: ['latin'],
@@ -101,7 +118,7 @@ const MOTION_INIT_SCRIPT = `
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={sourceSerif.variable}>
+    <html lang="en" className={`${inter.variable} ${jetBrainsMono.variable} ${sourceSerif.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: MOTION_INIT_SCRIPT }} />
       </head>
