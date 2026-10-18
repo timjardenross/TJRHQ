@@ -23,6 +23,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Settings, HelpCircle, type LucideIcon } from 'lucide-react';
+import { BrandMark } from '@/components/brand';
 import { LIVE_WORKBENCHES, WORKBENCH_GROUP_META, type WorkbenchGroup } from '@/lib/workbenches';
 
 const GROUP_ORDER = Object.keys(WORKBENCH_GROUP_META) as WorkbenchGroup[];
@@ -83,11 +84,10 @@ export function Sidebar() {
     >
       <div className="flex flex-col gap-5">
         <Link href="/hub" className="flex items-center gap-2 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep" aria-label="TJR HQ home">
-          <span className="endeavour-brand-mark h-9 w-9 shrink-0 text-[15px] font-semibold">△</span>
-          <span className="leading-tight">
-            <span className="block text-[13px] font-semibold text-wb-ink">TJR HQ</span>
-            <span className="block text-[10px] uppercase tracking-[0.14em] text-wb-ink2">Endeavour 27</span>
-          </span>
+          {/* TJR HQ identity (Stage 2): the sidebar is always dark chrome, so the
+              inverted tile. Name only: the descriptor does not fit at this size. */}
+          <BrandMark surface="dark" size={36} />
+          <span className="text-[13px] font-semibold leading-tight text-wb-ink">TJR HQ</span>
         </Link>
         {GROUP_ORDER.map((group) => {
           const entries = LIVE_WORKBENCHES.filter((e) => e.group === group);

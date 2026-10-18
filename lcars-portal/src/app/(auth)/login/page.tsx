@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { BrandMark } from '@/components/brand';
 
 type Mode = 'password' | 'magic';
 
@@ -150,10 +151,12 @@ export default function LoginPage() {
 
         {/* Header */}
         <div className="mb-6 flex items-center gap-3">
-          <div className="h-12 w-1 rounded-full bg-wb-sage-deep shadow-[0_0_18px_rgba(126,220,190,0.35)]" aria-hidden="true" />
+          {/* TJR HQ identity (Stage 2). Login sits on the dark surface, so the
+              inverted tile; decorative, the heading below names the page. */}
+          <BrandMark surface="dark" size={48} />
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-wb-ink2">
-              TJR HQ · ENDEAVOUR 27
+              TJR HQ
             </p>
             <h1 className="font-serif text-2xl text-wb-ink">
               Command access
