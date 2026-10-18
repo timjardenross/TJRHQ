@@ -104,7 +104,7 @@ surfaces — **Captain's Chair**, **Quick Capture** (`/capture`), **XO Chat**
 (`/alerts`) — all reusing the existing Supabase data, XO/Ollama context,
 Engineering lifecycle and notification patterns (no parallel backend). A
 mobile-only bottom command bar links the five surfaces; the desktop portal is
-unchanged. Re-generate PWA icons with `node scripts/gen-icons.mjs`.
+unchanged. Re-generate PWA icons and `favicon.ico` with `node scripts/brand/build-icons.mjs`, then verify with `node scripts/brand/check-icons.mjs`.
 
 - [`docs/MOBILE-MVP.md`](docs/MOBILE-MVP.md) — strategy, reuse/API mapping, alert rules, future native phase.
 - [`docs/MOBILE-MVP-VALIDATION.md`](docs/MOBILE-MVP-VALIDATION.md) — WP8 validation & test evidence.
