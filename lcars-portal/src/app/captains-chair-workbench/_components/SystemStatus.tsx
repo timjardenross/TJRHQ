@@ -47,7 +47,7 @@ export function SystemStatus({ data, loading, error }: { data: HqStatusSummary |
         <div className="flex flex-wrap items-center gap-2"><OperationalStateBadge state="attention" /><p className={`text-sm font-semibold ${stateToneClasses('crit').text}`}>HQ NEEDS YOU</p></div>
         <p className="mt-1 text-sm text-wb-ink2">{data.summary}</p>
         <EvidenceMeta source="Agent status overview" observedAt={data.observedAt} />
-        <Link href="/agent-status-workbench" className="mt-2 inline-block text-[12px] text-wb-sage-deep hover:underline">Review →</Link>
+        <Link href="/agent-status-workbench" className="mt-2 inline-block text-wb-label text-wb-sage-deep hover:underline">Review →</Link>
       </WorkbenchPanel>
     );
   }
@@ -56,7 +56,7 @@ export function SystemStatus({ data, loading, error }: { data: HqStatusSummary |
   return (
     <WorkbenchPanel title="System Status">
       <div className="flex flex-wrap items-center gap-2"><OperationalStateBadge state="degraded" /><p className={`text-sm font-medium ${stateToneClasses('warn').text}`}>{data.summary}</p></div>
-      <p className="mt-1 text-[12.5px] text-wb-ink2">No action required yet.</p>
+      <p className="mt-1 text-wb-label text-wb-ink2">No action required yet.</p>
       <EvidenceMeta source="Agent status overview" observedAt={data.observedAt} state={data.posture === 'UNKNOWN' ? 'unavailable' : undefined} />
     </WorkbenchPanel>
   );

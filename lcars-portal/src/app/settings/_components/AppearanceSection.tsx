@@ -53,11 +53,11 @@ export function AppearanceSection() {
                 </option>
               ))}
             </Select>
-            {savedFlash === 'motion' && <span className="text-[12px] font-medium text-wb-ok-on">Saved ✓</span>}
+            {savedFlash === 'motion' && <span className="text-wb-label font-medium text-wb-ok-on">Saved ✓</span>}
           </div>
         </SettingRow>
       </div>
-      <p className="mt-3 text-[12px] text-wb-ink2">
+      <p className="mt-3 text-wb-label text-wb-ink2">
         Interface density (Calm / Comfortable / Compact) isn&apos;t available yet — HQ doesn&apos;t have a shared density system to
         plug into today, so this stays off Settings rather than offering a control that wouldn&apos;t do anything.
       </p>

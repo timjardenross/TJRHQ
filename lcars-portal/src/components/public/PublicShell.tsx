@@ -52,7 +52,7 @@ export function PublicShell({
                   </ol>
                 </nav>
               )}
-              <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.24em] text-[#52627f]">
+              <p className="mb-2 text-wb-label font-semibold uppercase tracking-[0.24em] text-[#52627f]">
                 {eyebrow}
               </p>
               <h1 className="text-3xl font-semibold normal-case tracking-[-0.03em] text-[#18223a] sm:text-4xl">

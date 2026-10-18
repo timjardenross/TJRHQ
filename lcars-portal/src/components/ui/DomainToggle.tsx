@@ -91,13 +91,13 @@ export function DomainToggle<T extends string>({
             // py-2 (was py-1.5, ~30px tall) brings this closer to the
             // 44px touch-target minimum; shrink-0 + snap-start so the
             // scroll container above doesn't compress/reflow tabs.
-            className={`shrink-0 snap-start rounded px-3 py-2 text-[13px] font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${
+            className={`shrink-0 snap-start rounded px-3 py-2 text-wb-body font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep ${
               active ? 'bg-wb-sage-deep text-white' : 'text-wb-ink2 hover:bg-wb-line active:bg-wb-line'
             }`}
           >
             {o.label}
             {o.badge != null && o.badge !== '' && o.badge !== 0 && (
-              <span className={`ml-1 text-[12px] ${active ? 'text-white/80' : 'text-wb-ink2'}`}>{o.badge}</span>
+              <span className={`ml-1 text-wb-label ${active ? 'text-white/80' : 'text-wb-ink2'}`}>{o.badge}</span>
             )}
           </button>
         );

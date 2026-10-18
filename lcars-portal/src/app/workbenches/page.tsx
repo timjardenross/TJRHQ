@@ -70,7 +70,7 @@ function WorkbenchesContent() {
         <div className="min-w-0 flex-1">
           <main className="mx-auto max-w-6xl px-6 py-10">
             <h1 className="mb-1 font-serif text-2xl text-wb-ink">Welcome, TJR</h1>
-            <p className="mb-6 text-[13px] text-wb-ink2">
+            <p className="mb-6 text-wb-body text-wb-ink2">
               Choose a workbench or surface to navigate to. Every real experience is reachable from here.
             </p>
 
@@ -82,7 +82,7 @@ function WorkbenchesContent() {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search workbenches…"
                 aria-label="Search workbenches"
-                className="w-full rounded-md border border-wb-line bg-wb-surface py-2 pl-9 pr-3 text-[13px] text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                className="w-full rounded-md border border-wb-line bg-wb-surface py-2 pl-9 pr-3 text-wb-body text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
               />
             </div>
 
@@ -100,8 +100,8 @@ function WorkbenchesContent() {
               <div className="space-y-8">
                 {!selectedGroup && (
                   <section aria-label="Task families">
-                    <h2 className="mb-0.5 text-[12px] font-semibold uppercase tracking-wider text-wb-ink">Choose how you want to work</h2>
-                    <p className="mb-3 text-[12px] text-wb-ink2">Start with your intent, then choose the workbench that supports it.</p>
+                    <h2 className="mb-0.5 text-wb-label font-semibold uppercase tracking-wider text-wb-ink">Choose how you want to work</h2>
+                    <p className="mb-3 text-wb-label text-wb-ink2">Start with your intent, then choose the workbench that supports it.</p>
                     <div className="grid gap-4 sm:grid-cols-2">
                       {GROUP_ORDER.map((group) => {
                         const meta = WORKBENCH_GROUP_META[group];
@@ -109,8 +109,8 @@ function WorkbenchesContent() {
                         return (
                           <a key={group} href={`/workbenches?group=${group}`} className="rounded-xl border border-wb-line bg-wb-surface p-5 transition hover:border-wb-sage-deep/60 hover:bg-wb-surface-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                             <h3 className="font-serif text-lg text-wb-ink">{meta.label}</h3>
-                            <p className="mt-1 text-[12px] leading-relaxed text-wb-ink2">{meta.hint}</p>
-                            <p className="mt-3 text-[12px] font-semibold uppercase tracking-wider text-wb-sage-deep">{count} workbenches →</p>
+                            <p className="mt-1 text-wb-label leading-relaxed text-wb-ink2">{meta.hint}</p>
+                            <p className="mt-3 text-wb-label font-semibold uppercase tracking-wider text-wb-sage-deep">{count} workbenches →</p>
                           </a>
                         );
                       })}
@@ -118,7 +118,7 @@ function WorkbenchesContent() {
                   </section>
                 )}
                 {selectedGroup && (
-                  <p><a href="/workbenches" className="text-[12px] font-semibold text-wb-sage-deep hover:underline">← All task families</a></p>
+                  <p><a href="/workbenches" className="text-wb-label font-semibold text-wb-sage-deep hover:underline">← All task families</a></p>
                 )}
                 {selectedGroup && GROUP_ORDER.filter((group) => group === selectedGroup).map((group) => {
                   const entries = LIVE_WORKBENCHES.filter((e) => e.group === group);
@@ -126,10 +126,10 @@ function WorkbenchesContent() {
                   const meta = WORKBENCH_GROUP_META[group];
                   return (
                     <section key={group} aria-label={meta.label}>
-                      <h2 className="mb-0.5 text-[12px] font-semibold uppercase tracking-wider text-wb-ink">
+                      <h2 className="mb-0.5 text-wb-label font-semibold uppercase tracking-wider text-wb-ink">
                         {meta.label}
                       </h2>
-                      <p className="mb-3 text-[12px] text-wb-ink2">{meta.hint}</p>
+                      <p className="mb-3 text-wb-label text-wb-ink2">{meta.hint}</p>
                       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                         {entries.map((entry) => (
                           <WorkbenchCard key={entry.href} entry={entry} />

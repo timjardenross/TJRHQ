@@ -105,17 +105,17 @@ export function TodaysBriefPanel() {
       ) : (
         <div className="rounded-lg border border-wb-line/60 bg-wb-bg/60 p-3 text-sm">
           <div className="mb-1.5 flex items-center gap-2">
-            <span className="rounded bg-wb-bg px-1.5 py-0.5 text-[12px] font-semibold uppercase tracking-wider text-wb-ink2">
+            <span className="rounded bg-wb-bg px-1.5 py-0.5 text-wb-label font-semibold uppercase tracking-wider text-wb-ink2">
               {BRIEF_TYPE_LABEL[brief.brief_type]}
             </span>
-            <span className="text-[12px] uppercase tracking-wider text-wb-ink2">
+            <span className="text-wb-label uppercase tracking-wider text-wb-ink2">
               {new Date(brief.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
             <button
               type="button"
               onClick={speakBriefAloud}
               disabled={speakState === 'generating' || speakState === 'playing'}
-              className="ml-auto text-[12px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:opacity-60 disabled:no-underline"
+              className="ml-auto text-wb-label text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:opacity-60 disabled:no-underline"
             >
               {speakState === 'generating' ? 'Generating…' : speakState === 'playing' ? '🔊 Playing…' : speakState === 'error' ? '⚠️ Failed — retry' : '🔊 Read aloud'}
             </button>
@@ -132,7 +132,7 @@ export function TodaysBriefPanel() {
               }
               if (line.type === 'subtitle') {
                 return (
-                  <p key={i} className="text-[12px] italic text-wb-ink2">
+                  <p key={i} className="text-wb-label italic text-wb-ink2">
                     {line.text}
                   </p>
                 );

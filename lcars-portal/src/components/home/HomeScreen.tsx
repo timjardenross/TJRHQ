@@ -106,7 +106,7 @@ export function HomeScreen({
           <h1 className="text-[28px] sm:text-[36px] leading-[1.2] font-semibold tracking-[-0.02em] text-[#18223a] mb-5">
             {copy.headline}
           </h1>
-          <div className="flex items-center gap-3 text-[#4d5d77] text-[15px]">
+          <div className="flex items-center gap-3 text-[#4d5d77] text-wb-lead">
             <VerificationRing color={copy.ringColor} />
             <span>{copy.verifyText}</span>
             {copy.showVerifiedTime && verifiedTime && (
@@ -117,7 +117,7 @@ export function HomeScreen({
             )}
           </div>
           {copy.coverage && (
-            <p className="mt-2 pl-[24px] text-[13px] tabular-nums text-[#61718c]">
+            <p className="mt-2 pl-[24px] text-wb-body tabular-nums text-[#61718c]">
               {copy.coverage}
             </p>
           )}
@@ -128,12 +128,12 @@ export function HomeScreen({
           {needsYou.status === 'ok' && needsYou.count > 0 ? (
             <Link
               href="/workbenches"
-              className="text-[18px] font-normal text-[#18223a] leading-relaxed underline underline-offset-4 decoration-[#c3cee3] hover:decoration-[#243b7a]"
+              className="text-wb-title font-normal text-[#18223a] leading-relaxed underline underline-offset-4 decoration-[#c3cee3] hover:decoration-[#243b7a]"
             >
               {needsYouText(needsYou)}
             </Link>
           ) : (
-            <p className="text-[18px] font-normal text-[#18223a] leading-relaxed">
+            <p className="text-wb-title font-normal text-[#18223a] leading-relaxed">
               {needsYouText(needsYou)}
             </p>
           )}
@@ -141,7 +141,7 @@ export function HomeScreen({
 
         {/* 3 · Since yesterday */}
         <Section eyebrow={changeEyebrow(session)} ringColor={copy.ringColor}>
-          <p className="text-[15.5px] text-[#4d5d77] leading-relaxed">
+          <p className="text-wb-lead text-[#4d5d77] leading-relaxed">
             {changeText}
           </p>
         </Section>
@@ -149,12 +149,12 @@ export function HomeScreen({
         {/* 4 · Worth knowing */}
         <Section eyebrow="Worth knowing" ringColor={copy.ringColor}>
           <p
-            className="text-[17px] leading-relaxed px-6 py-5 rounded-2xl border border-[#d9e1f0] bg-white/92 text-[#18223a]"
+            className="text-wb-lead leading-relaxed px-6 py-5 rounded-2xl border border-[#d9e1f0] bg-white/92 text-[#18223a]"
             style={{ borderLeft: `3px solid ${copy.ringColor}` }}
           >
             {worthKnowingText}
             {primaryInterrupt && (
-              <span className="block mt-2 text-[13px] text-[#61718c]">
+              <span className="block mt-2 text-wb-body text-[#61718c]">
                 {primaryInterrupt.domain}
               </span>
             )}
@@ -171,14 +171,14 @@ export function HomeScreen({
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 pl-1">
               <Link
                 href="/briefs"
-                className="text-[12.5px] text-[#61718c] hover:text-[#243b7a] underline underline-offset-2"
+                className="text-wb-label text-[#61718c] hover:text-[#243b7a] underline underline-offset-2"
               >
                 See the full picture
               </Link>
               {investigationTypeForDomain(primaryInterrupt.domain) && (
                 <Link
                   href={`/investigate?type=${encodeURIComponent(investigationTypeForDomain(primaryInterrupt.domain)!)}&reason=${encodeURIComponent(primaryInterrupt.text)}`}
-                  className="text-[12.5px] text-[#61718c] hover:text-[#243b7a] underline underline-offset-2"
+                  className="text-wb-label text-[#61718c] hover:text-[#243b7a] underline underline-offset-2"
                 >
                   Investigate
                 </Link>
@@ -199,10 +199,10 @@ export function HomeScreen({
                 href={item.href}
                 className="group rounded-2xl border border-[#d9e1f0] bg-white/92 px-4 py-3.5 transition hover:border-[#243b7a] hover:shadow-[0_8px_24px_rgba(23,32,51,0.08)]"
               >
-                <p className="text-[15px] font-semibold text-[#18223a] group-hover:text-[#243b7a]">
+                <p className="text-wb-lead font-semibold text-[#18223a] group-hover:text-[#243b7a]">
                   {item.label}
                 </p>
-                <p className="mt-0.5 text-[13px] text-[#61718c] leading-snug">
+                <p className="mt-0.5 text-wb-body text-[#61718c] leading-snug">
                   {item.description}
                 </p>
               </Link>
@@ -210,7 +210,7 @@ export function HomeScreen({
           </div>
         </Section>
 
-        <footer className="mt-10 pt-6 border-t border-[#d9e1f0] text-[12.5px] text-[#61718c] flex items-center gap-2">
+        <footer className="mt-10 pt-6 border-t border-[#d9e1f0] text-wb-label text-[#61718c] flex items-center gap-2">
           <span
             className="w-[5px] h-[5px] rounded-full inline-block"
             style={{ background: copy.ringColor, opacity: 0.7 }}

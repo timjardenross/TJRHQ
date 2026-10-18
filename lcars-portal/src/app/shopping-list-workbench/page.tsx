@@ -213,8 +213,8 @@ export default function ShoppingListWorkbench() {
           <Card className="flex items-center gap-3 p-4">
             <ShoppingCart className="h-5 w-5 shrink-0 text-wb-sage-deep" aria-hidden />
             <div>
-              <div className="text-[13px] font-semibold text-wb-ink">{items.length} item{items.length === 1 ? '' : 's'}</div>
-              <div className="text-[12px] text-wb-ink2">
+              <div className="text-wb-body font-semibold text-wb-ink">{items.length} item{items.length === 1 ? '' : 's'}</div>
+              <div className="text-wb-label text-wb-ink2">
                 {subtotals.length > 0
                   ? subtotals.map((s) => `${s.currency} ${s.total.toFixed(2)}`).join(' · ')
                   : 'No cost recorded yet'}
@@ -224,10 +224,10 @@ export default function ShoppingListWorkbench() {
           <Card className="flex items-center gap-3 p-4">
             <Receipt className="h-5 w-5 shrink-0 text-state-ok-on" aria-hidden />
             <div>
-              <div className="text-[13px] font-semibold text-wb-ink">
+              <div className="text-wb-body font-semibold text-wb-ink">
                 {items.filter((i) => i.status === 'purchased').length} purchased
               </div>
-              <div className="text-[12px] text-wb-ink2">
+              <div className="text-wb-label text-wb-ink2">
                 {purchasedSubtotals.length > 0
                   ? purchasedSubtotals.map((s) => `${s.currency} ${s.total.toFixed(2)}`).join(' · ')
                   : 'Nothing purchased yet'}
@@ -237,8 +237,8 @@ export default function ShoppingListWorkbench() {
           <Card className="flex items-center gap-3 p-4">
             <Heart className="h-5 w-5 shrink-0 text-wb-sand-deep" aria-hidden />
             <div>
-              <div className="text-[13px] font-semibold text-wb-ink">{wishlistedCount} wishlisted</div>
-              <div className="text-[12px] text-wb-ink2">Not yet saving or purchased</div>
+              <div className="text-wb-body font-semibold text-wb-ink">{wishlistedCount} wishlisted</div>
+              <div className="text-wb-label text-wb-ink2">Not yet saving or purchased</div>
             </div>
           </Card>
         </div>
@@ -271,7 +271,7 @@ export default function ShoppingListWorkbench() {
               </Select>
               <div className="flex flex-wrap items-center gap-2 border-l border-wb-line pl-2">
                 {savedViewsUnavailable ? (
-                  <span className="text-[12px] text-state-crit-on">Saved views unavailable — backend unreachable.</span>
+                  <span className="text-wb-label text-state-crit-on">Saved views unavailable — backend unreachable.</span>
                 ) : (
                   <>
                     <select
@@ -294,9 +294,9 @@ export default function ShoppingListWorkbench() {
             </div>
 
             {loading ? (
-              <p className="text-[13px] text-wb-ink2">Loading…</p>
+              <p className="text-wb-body text-wb-ink2">Loading…</p>
             ) : filtered.length === 0 ? (
-              <p className="text-[13px] text-wb-ink2">Nothing here yet. Add an item to get started.</p>
+              <p className="text-wb-body text-wb-ink2">Nothing here yet. Add an item to get started.</p>
             ) : (
               <div className="flex flex-col gap-2">
                 {filtered.map((item, index) => (

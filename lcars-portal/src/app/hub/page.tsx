@@ -344,23 +344,23 @@ export default function LifeOSHub() {
         {!stillLoading && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="endeavour-status-tile">
-              <p className="text-[12px] uppercase tracking-wider text-wb-ink2">Capacity</p>
+              <p className="text-wb-label uppercase tracking-wider text-wb-ink2">Capacity</p>
               <p className={`mt-0.5 text-sm font-semibold ${postureTone.text}`}>{capacityLabel}</p>
             </div>
             <div className="endeavour-status-tile">
-              <p className="text-[12px] uppercase tracking-wider text-wb-ink2">Focus</p>
+              <p className="text-wb-label uppercase tracking-wider text-wb-ink2">Focus</p>
               <p className="mt-0.5 text-sm font-semibold text-wb-ink">
                 {needsYouItems.length} {needsYouItems.length === 1 ? 'priority' : 'priorities'}
               </p>
             </div>
             <div className="endeavour-status-tile">
-              <p className="text-[12px] uppercase tracking-wider text-wb-ink2">In Progress</p>
+              <p className="text-wb-label uppercase tracking-wider text-wb-ink2">In Progress</p>
               <p className="mt-0.5 text-sm font-semibold text-wb-ink">
                 {inProgressCount === null ? '—' : `${inProgressCount} ${inProgressCount === 1 ? 'task' : 'tasks'}`}
               </p>
             </div>
             <div className="endeavour-status-tile">
-              <p className="text-[12px] uppercase tracking-wider text-wb-ink2">Wellbeing</p>
+              <p className="text-wb-label uppercase tracking-wider text-wb-ink2">Wellbeing</p>
               <p className={`mt-0.5 text-sm font-semibold ${postureTone.text}`}>{wellbeingLabel}</p>
             </div>
           </div>
@@ -378,7 +378,7 @@ export default function LifeOSHub() {
             {/* ── 3. Next commitments — only meaningful upcoming Calendar items ── */}
             {!sanctuary && (
               <div className="rounded-lg border border-wb-line bg-wb-surface p-4">
-                <h2 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-wb-ink2">Next</h2>
+                <h2 className="mb-2 text-wb-label font-semibold uppercase tracking-wider text-wb-ink2">Next</h2>
                 {calendarStatus === 'disconnected' ? (
                   <p className="text-sm text-wb-ink2">
                     Calendar isn&apos;t connected.{' '}
@@ -411,7 +411,7 @@ export default function LifeOSHub() {
                 button-styled affordance, still the item's one canonical href —
                 no second engine, no invented action, just made visible. */}
             <div className="rounded-lg border border-wb-line bg-wb-surface p-4">
-              <h2 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-wb-ink2">Needs You</h2>
+              <h2 className="mb-2 text-wb-label font-semibold uppercase tracking-wider text-wb-ink2">Needs You</h2>
               {needsYouItems.length === 0 ? (
                 <p className="text-sm font-medium text-wb-ink2">✓ Nothing needs your attention.</p>
               ) : (
@@ -426,7 +426,7 @@ export default function LifeOSHub() {
                           <span className="font-semibold text-wb-ink group-hover:underline">{item.title}</span>
                           <span className="text-wb-ink2"> — {item.detail}</span>
                         </span>
-                        <span className="shrink-0 rounded-md bg-wb-sage-deep px-2.5 py-1 text-[12px] font-semibold text-white">
+                        <span className="shrink-0 rounded-md bg-wb-sage-deep px-2.5 py-1 text-wb-label font-semibold text-white">
                           {item.actionLabel}
                         </span>
                       </Link>
@@ -436,7 +436,7 @@ export default function LifeOSHub() {
                       {item.helpMeStartHref && (
                         <Link
                           href={item.helpMeStartHref}
-                          className="mt-1 inline-block rounded-md border border-wb-line px-2.5 py-1 text-[12px] font-semibold text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                          className="mt-1 inline-block rounded-md border border-wb-line px-2.5 py-1 text-wb-label font-semibold text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
                         >
                           Help me start
                         </Link>
@@ -458,7 +458,7 @@ export default function LifeOSHub() {
                 resuming, not something newly requiring attention) ── */}
             {pickUpCandidate && (
               <div className="rounded-lg border border-wb-sage/40 bg-wb-sage/10 p-4">
-                <h2 className="mb-1 text-[12px] font-semibold uppercase tracking-wider text-wb-sage-deep">Pick up where you left off</h2>
+                <h2 className="mb-1 text-wb-label font-semibold uppercase tracking-wider text-wb-sage-deep">Pick up where you left off</h2>
                 <Link
                   href={`/ready-room?task=${encodeURIComponent(pickUpCandidate.id)}`}
                   className="group focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
@@ -474,18 +474,18 @@ export default function LifeOSHub() {
             {/* ── 4c. Quick Access — mission §1.1's peer card, every link an
                 existing real destination, no new capability. ── */}
             <div className="rounded-lg border border-wb-line bg-wb-surface p-4">
-              <h2 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-wb-ink2">Quick Access</h2>
+              <h2 className="mb-2 text-wb-label font-semibold uppercase tracking-wider text-wb-ink2">Quick Access</h2>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <Link href="/capture-workbench" className="rounded-md border border-wb-line px-2.5 py-2 text-center text-[12px] font-medium text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                <Link href="/capture-workbench" className="rounded-md border border-wb-line px-2.5 py-2 text-center text-wb-label font-medium text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                   Capture a thought
                 </Link>
-                <Link href="/ready-room" className="rounded-md border border-wb-line px-2.5 py-2 text-center text-[12px] font-medium text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                <Link href="/ready-room" className="rounded-md border border-wb-line px-2.5 py-2 text-center text-wb-label font-medium text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                   Open Ready Room
                 </Link>
-                <Link href="/ready-room?domain=do" className="rounded-md border border-wb-line px-2.5 py-2 text-center text-[12px] font-medium text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                <Link href="/ready-room?domain=do" className="rounded-md border border-wb-line px-2.5 py-2 text-center text-wb-label font-medium text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                   View Today Stream
                 </Link>
-                <Link href="/advisory-workbench?advisor=number_one" className="rounded-md border border-wb-line px-2.5 py-2 text-center text-[12px] font-medium text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+                <Link href="/advisory-workbench?advisor=number_one" className="rounded-md border border-wb-line px-2.5 py-2 text-center text-wb-label font-medium text-wb-ink2 hover:border-wb-sage-deep hover:text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
                   Ask Number One
                 </Link>
               </div>
@@ -494,7 +494,7 @@ export default function LifeOSHub() {
             {/* ── 5. World / intelligence — one headline or honest unknown ── */}
             {!hideWorldSection && (
               <div className="rounded-lg border border-wb-line bg-wb-surface p-4">
-                <h2 className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-wb-ink2">World</h2>
+                <h2 className="mb-2 text-wb-label font-semibold uppercase tracking-wider text-wb-ink2">World</h2>
                 <p className="text-sm font-medium text-wb-ink">{intelligenceHeadline.headline === 'NO MATERIAL CHANGE' ? 'No material change' : intelligenceHeadline.headline}</p>
                 <p className="mt-0.5 text-xs text-wb-ink2">{intelligenceHeadline.detail}</p>
               </div>
@@ -546,7 +546,7 @@ export default function LifeOSHub() {
                   navigation for the same one (mission §17). */}
               <Link
                 href="/advisory-workbench?advisor=number_one"
-                className="text-[12px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                className="text-wb-label text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
               >
                 Open a full Number One session
               </Link>
@@ -554,7 +554,7 @@ export default function LifeOSHub() {
                 type="button"
                 onClick={speakCommandPicture}
                 disabled={speakState === 'generating' || speakState === 'playing'}
-                className="text-[12px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-60 disabled:no-underline"
+                className="text-wb-label text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-60 disabled:no-underline"
               >
                 {speakState === 'generating' ? 'Generating…' : speakState === 'playing' ? '🔊 Playing…' : speakState === 'error' ? '⚠️ Failed — retry' : '🔊 Read aloud'}
               </button>

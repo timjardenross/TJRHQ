@@ -42,7 +42,7 @@ function ExportMenu({ item }: { item: PublishedItem }) {
       <Button size="sm" variant="secondary" onClick={() => copy('markdown')}>Copy markdown</Button>
       <Button size="sm" variant="secondary" onClick={() => exportFile('text')}>⬇ .txt</Button>
       <Button size="sm" variant="secondary" onClick={() => exportFile('markdown')}>⬇ .md</Button>
-      <span className="min-h-[1lh] text-[12px] text-wb-ok-on" role="status">{copied && `Copied ${copied}`}</span>
+      <span className="min-h-[1lh] text-wb-label text-wb-ok-on" role="status">{copied && `Copied ${copied}`}</span>
     </div>
   );
 }
@@ -80,7 +80,7 @@ function ReuseIdeaButton({ item }: { item: PublishedItem }) {
       <Button size="sm" variant="secondary" onClick={reuse} disabled={busy}>
         {busy ? 'Creating…' : 'Reuse Idea'}
       </Button>
-      {msg && <span className="text-[12px] text-wb-ink2">{msg}</span>}
+      {msg && <span className="text-wb-label text-wb-ink2">{msg}</span>}
     </div>
   );
 }
@@ -98,22 +98,22 @@ function PortfolioCard({ item }: { item: PublishedItem }) {
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge status="success">✓ Published</Badge>
           {item.pillar && (
-            <span className="rounded-full bg-wb-line px-2 py-0.5 text-[12px] font-medium text-wb-ink2">
+            <span className="rounded-full bg-wb-line px-2 py-0.5 text-wb-label font-medium text-wb-ink2">
               {PILLAR_LABEL[item.pillar] ?? item.pillar}
             </span>
           )}
-          <span className="text-[12px] text-wb-ink2">{item.updated_at.slice(0, 10)}</span>
-          <span className="ml-auto text-[12px] text-wb-ink2">{open ? '▲' : '▼'}</span>
+          <span className="text-wb-label text-wb-ink2">{item.updated_at.slice(0, 10)}</span>
+          <span className="ml-auto text-wb-label text-wb-ink2">{open ? '▲' : '▼'}</span>
         </div>
-        <p className="text-[13.5px] font-medium leading-snug text-wb-ink">{item.title}</p>
+        <p className="text-wb-body font-medium leading-snug text-wb-ink">{item.title}</p>
       </button>
 
       {open && item.body && (
-        <div className="whitespace-pre-wrap rounded-md border border-wb-line bg-wb-bg p-3 text-[13px] leading-relaxed text-wb-ink">
+        <div className="whitespace-pre-wrap rounded-md border border-wb-line bg-wb-bg p-3 text-wb-body leading-relaxed text-wb-ink">
           {item.body}
         </div>
       )}
-      {open && !item.body && <p className="text-[12px] text-wb-ink2">No stored body for this item.</p>}
+      {open && !item.body && <p className="text-wb-label text-wb-ink2">No stored body for this item.</p>}
 
       <div className="flex flex-wrap items-center gap-2">
         <ExportMenu item={item} />

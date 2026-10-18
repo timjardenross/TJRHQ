@@ -109,7 +109,7 @@ export function CaptureView({ onCaptured }: { onCaptured: () => void }) {
           ) : (
             <div className="flex flex-col gap-2">
               <TypeChips selected={type} onChange={setType} />
-              <p className="text-[12px] italic text-wb-ink2">{meta.hint}</p>
+              <p className="text-wb-label italic text-wb-ink2">{meta.hint}</p>
             </div>
           )}
 
@@ -121,7 +121,7 @@ export function CaptureView({ onCaptured }: { onCaptured: () => void }) {
           >
             {saving ? 'Capturing…' : `Capture ${meta.label}`}
           </button>
-          <p className="text-center text-[12px] uppercase tracking-[0.14em] text-wb-ink2">⌘/Ctrl + Enter to capture</p>
+          <p className="text-center text-wb-label uppercase tracking-[0.14em] text-wb-ink2">⌘/Ctrl + Enter to capture</p>
         </div>
       </Card>
 

@@ -36,7 +36,7 @@ export function SourcesTabView() {
       {/* Secondary, in-tab toggle — deliberately smaller/quieter than the
           primary DomainToggle in page.tsx's tab bar so it reads as a
           nested control, not another top-level nav. */}
-      <div className="mb-3 flex text-[12px] [&_[role=tablist]]:py-0.5 [&_[role=tab]]:px-2 [&_[role=tab]]:py-1 [&_[role=tab]]:text-[12px]">
+      <div className="mb-3 flex text-wb-label [&_[role=tablist]]:py-0.5 [&_[role=tab]]:px-2 [&_[role=tab]]:py-1 [&_[role=tab]]:text-wb-label">
         <DomainToggle
           value={subTab}
           onChange={setSubTab}

@@ -31,7 +31,7 @@ function Workbench() {
     <button
       type="button"
       onClick={() => router.push(OPERATING_MODEL_HREF)}
-      className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13px] font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
+      className="shrink-0 rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-wb-body font-medium text-wb-ink2 transition hover:border-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep"
     >
       OPERATING MODEL →
     </button>

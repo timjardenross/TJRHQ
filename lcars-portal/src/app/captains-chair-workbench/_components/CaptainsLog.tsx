@@ -53,7 +53,7 @@ export function CaptainsLog() {
   return (
     <WorkbenchPanel
       title="Journal"
-      actions={<Link href="/captains-chair-workbench/notebook" className="text-[12px] uppercase tracking-[0.15em] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Open Log →</Link>}
+      actions={<Link href="/captains-chair-workbench/notebook" className="text-wb-label uppercase tracking-[0.15em] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">Open Log →</Link>}
     >
       <div className="flex items-center gap-2">
         <input
@@ -63,19 +63,19 @@ export function CaptainsLog() {
           onKeyDown={onKeyDown}
           placeholder="Capture a thought, decision or instruction…"
           aria-label="Capture a thought, decision or instruction"
-          className="w-full rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-[13.5px] text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+          className="w-full rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-wb-body text-wb-ink placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
         />
         <button
           type="button"
           onClick={submit}
           disabled={saving || !text.trim()}
           aria-label="Capture"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-wb-sage-deep text-[16px] font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-wb-sage-deep text-wb-lead font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink"
         >
           +
         </button>
       </div>
-      <p className="mt-2 min-h-[1lh] text-[12px]" role="status" aria-live="polite">
+      <p className="mt-2 min-h-[1lh] text-wb-label" role="status" aria-live="polite">
         {flash && <span className="text-wb-ok-on">{flash}</span>}
         {error && <span className="text-wb-crit-on">{error}</span>}
       </p>

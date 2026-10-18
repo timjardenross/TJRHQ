@@ -23,7 +23,7 @@ export default function CommsPage() {
       <h1 className="font-sans text-lg font-bold uppercase tracking-wider text-wb-ink">
         Communications Pipeline
       </h1>
-      <p className="mt-3 text-[13px] leading-relaxed text-wb-ink2">
+      <p className="mt-3 text-wb-body leading-relaxed text-wb-ink2">
         This page moved.{' '}
         <Link href="/content-workbench" className="text-wb-sage-deep underline hover:no-underline">
           Go to Content Workbench →

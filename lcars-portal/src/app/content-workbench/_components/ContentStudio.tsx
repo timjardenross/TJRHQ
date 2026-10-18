@@ -78,14 +78,14 @@ function ScheduleControl({ item, onChanged }: { item: ContentItem; onChanged: ()
 
   return (
     <div className="space-y-2 rounded-lg border border-wb-line bg-wb-surface p-3">
-      <p className="text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">Schedule</p>
+      <p className="text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">Schedule</p>
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="datetime-local"
           aria-label="Schedule"
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          className="rounded-md border border-wb-line bg-wb-bg px-2 py-1.5 text-[12.5px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
+          className="rounded-md border border-wb-line bg-wb-bg px-2 py-1.5 text-wb-label text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
         />
         <Button size="sm" variant="secondary" onClick={() => save(value ? new Date(value).toISOString() : null)} disabled={saving || !value}>
           {saving ? 'Saving…' : 'Use This Time'}
@@ -96,7 +96,7 @@ function ScheduleControl({ item, onChanged }: { item: ContentItem; onChanged: ()
           </Button>
         )}
       </div>
-      <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>
+      <p className="min-h-[1lh] text-wb-label text-wb-ink2" role="status" aria-live="polite">{msg}</p>
     </div>
   );
 }
@@ -119,18 +119,18 @@ export function ContentStudio({ item, onChanged, onClose }: { item: ContentItem;
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={onClose}>← Back</Button>
-        <h2 className="min-w-0 flex-1 break-words text-[15px] font-semibold text-wb-ink">{item.title}</h2>
+        <h2 className="min-w-0 flex-1 break-words text-wb-lead font-semibold text-wb-ink">{item.title}</h2>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         {item.rank_score !== null && <Badge status={rankBadgeStatus(item.rank_score)}>{item.rank_score.toFixed(0)} / 100</Badge>}
         {item.pillar && (
-          <span className="rounded-full bg-wb-line px-2 py-0.5 text-[12px] font-medium text-wb-ink2">
+          <span className="rounded-full bg-wb-line px-2 py-0.5 text-wb-label font-medium text-wb-ink2">
             {PILLAR_LABEL[item.pillar] ?? item.pillar}
           </span>
         )}
-        {item.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-[12px] font-semibold text-wb-warn-on">★ Captain Focus</span>}
-        <span className="text-[12px] text-wb-ink2">{stageStatusLine(item)}</span>
+        {item.captain_focus && <span className="rounded-full bg-wb-warn/15 px-2 py-0.5 text-wb-label font-semibold text-wb-warn-on">★ Captain Focus</span>}
+        <span className="text-wb-label text-wb-ink2">{stageStatusLine(item)}</span>
       </div>
 
       <ProgressSteps steps={progressSteps(item)} />
@@ -144,22 +144,22 @@ export function ContentStudio({ item, onChanged, onClose }: { item: ContentItem;
         </div>
 
         <div className="space-y-3">
-          <div className="space-y-1.5 rounded-lg border border-wb-line bg-wb-surface p-3 text-[12px]">
-            <p className="text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">Content Intelligence</p>
+          <div className="space-y-1.5 rounded-lg border border-wb-line bg-wb-surface p-3 text-wb-label">
+            <p className="text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">Content Intelligence</p>
             <p className="text-wb-ink2">Stage <span className="text-wb-ink">{STAGE_LABEL[item.stage]}</span></p>
             <p className="text-wb-ink2">Source <span className="text-wb-ink">{item.source_kind?.replace(/_/g, ' ') ?? '—'}</span></p>
           </div>
 
-          <div className="space-y-1.5 rounded-lg border border-wb-line bg-wb-surface p-3 text-[12px]">
-            <p className="text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">Research</p>
+          <div className="space-y-1.5 rounded-lg border border-wb-line bg-wb-surface p-3 text-wb-label">
+            <p className="text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">Research</p>
             <p className="text-wb-ink2">
               {(item.research_sources ?? []).length} source{(item.research_sources ?? []).length === 1 ? '' : 's'}
               {item.research_completed_at ? ' · Complete ✓' : ' · Not complete'}
             </p>
           </div>
 
-          <div className="space-y-1.5 rounded-lg border border-wb-line bg-wb-surface p-3 text-[12px]">
-            <p className="text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">Governance</p>
+          <div className="space-y-1.5 rounded-lg border border-wb-line bg-wb-surface p-3 text-wb-label">
+            <p className="text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">Governance</p>
             {(['accuracy', 'brand_voice', 'compliance', 'links_checked'] as const).map((k) => {
               const checked = (item.qa_checklist as Record<string, unknown> | null)?.[k] === true;
               return (
@@ -175,12 +175,12 @@ export function ContentStudio({ item, onChanged, onClose }: { item: ContentItem;
 
           <div className="border-t border-wb-line pt-3">
             {!pendingDiscard ? (
-              <button type="button" onClick={() => setPendingDiscard(true)} className="text-[12px] text-wb-crit-on hover:underline">
+              <button type="button" onClick={() => setPendingDiscard(true)} className="text-wb-label text-wb-crit-on hover:underline">
                 Discard this item
               </button>
             ) : (
               <div className="flex items-center gap-2 rounded-md border border-wb-crit/40 bg-wb-crit/5 p-2">
-                <p className="flex-1 text-[12px] text-wb-crit-on">Archive — reversible, not deleted.</p>
+                <p className="flex-1 text-wb-label text-wb-crit-on">Archive — reversible, not deleted.</p>
                 <Button size="sm" variant="secondary" onClick={confirmDiscard} disabled={discarding}>
                   {discarding ? 'Archiving…' : 'Confirm'}
                 </Button>

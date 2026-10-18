@@ -12,7 +12,7 @@ export default function DeliveryPage() {
   return (
     <div className="flex flex-col gap-4">
       <header>
-        <p className="text-[12px] uppercase tracking-[0.3em] text-wb-ink2">
+        <p className="text-wb-label uppercase tracking-[0.3em] text-wb-ink2">
           MSN-EDO-001 · Engineering & Delivery
         </p>
         {/* text-engineering-on kept: real department identity (this is Engineering's
@@ -33,7 +33,7 @@ export default function DeliveryPage() {
           analyses, reuses first, plans, executes on a branch, validates, reports real state, updates
           Command Memory, registers capability, and surfaces the change to the XO.
         </p>
-        <p className="mt-2 text-[12px] text-wb-ink2">
+        <p className="mt-2 text-wb-label text-wb-ink2">
           See <code>governance/ENGINEERING-DELIVERY-OFFICER-CHARTER.md</code> and{' '}
           <code>Missions/MSN-EDO-001/</code>.
         </p>

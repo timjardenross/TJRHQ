@@ -39,10 +39,10 @@ function OvercommitmentWarning({ posture, activeCount }: { posture: RecoveryPost
     <div className="flex items-start gap-3 rounded-lg border border-wb-warn/50 bg-wb-warn/10 px-4 py-3">
       <span className="shrink-0 text-wb-warn-on">▲</span>
       <div>
-        <p className="text-[13px] font-semibold text-wb-warn-on">
+        <p className="text-wb-body font-semibold text-wb-warn-on">
           Overcommitment risk — {activeCount} active missions on a {posture} posture day
         </p>
-        <p className="mt-0.5 text-[12px] text-wb-ink2">
+        <p className="mt-0.5 text-wb-label text-wb-ink2">
           {posture === 'REST'
             ? 'Rest posture: limit to 1 essential mission maximum. Defer the rest.'
             : 'FRAGILE posture: recommend no more than 3 active missions. Defer lower-priority work.'}
@@ -133,11 +133,11 @@ export default function MissionWorkbenchPage() {
       <div className="flex flex-col gap-4">
         <Card>
           {isLoading ? (
-            <p className="text-[13px] italic text-wb-ink2">Loading missions…</p>
+            <p className="text-wb-body italic text-wb-ink2">Loading missions…</p>
           ) : loadError ? (
             <div className="rounded-md border border-wb-crit/40 bg-wb-crit/10 px-4 py-3">
-              <p className="text-[13px] font-semibold text-wb-crit-on">{loadError}</p>
-              <p className="mt-1 text-[12px] text-wb-ink2">
+              <p className="text-wb-body font-semibold text-wb-crit-on">{loadError}</p>
+              <p className="mt-1 text-wb-label text-wb-ink2">
                 These counts could not be read from the registry — this is a load failure, not an
                 empty registry. Retry shortly.
               </p>
@@ -148,11 +148,11 @@ export default function MissionWorkbenchPage() {
                 {stats.map(s => (
                   <div key={s.label} className="rounded-md border border-wb-line bg-wb-bg p-3 text-center">
                     <p className="text-2xl font-bold text-wb-ink">{s.value}</p>
-                    <p className="text-[12px] uppercase tracking-wider text-wb-ink2">{s.label}</p>
+                    <p className="text-wb-label uppercase tracking-wider text-wb-ink2">{s.label}</p>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 flex flex-wrap gap-2 text-[12px] text-wb-ink2">
+              <div className="mt-4 flex flex-wrap gap-2 text-wb-label text-wb-ink2">
                 {(['P0', 'P1', 'P2', 'P3'] as const).map(p => (
                   <span key={p} className="rounded-md border border-wb-line px-2 py-1 font-mono">
                     {p}: {summary.by_priority[p] ?? 0}
@@ -168,7 +168,7 @@ export default function MissionWorkbenchPage() {
           <button
             type="button"
             onClick={() => setView('open')}
-            className={`border-b-2 px-3 py-2 text-[12px] font-semibold transition-colors focus-visible:outline
+            className={`border-b-2 px-3 py-2 text-wb-label font-semibold transition-colors focus-visible:outline
               focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
               view === 'open' ? 'border-wb-sage-deep text-wb-sage-deep' : 'border-transparent text-wb-ink2 hover:text-wb-ink'
             }`}
@@ -178,7 +178,7 @@ export default function MissionWorkbenchPage() {
           <button
             type="button"
             onClick={() => setView('closed')}
-            className={`border-b-2 px-3 py-2 text-[12px] font-semibold transition-colors focus-visible:outline
+            className={`border-b-2 px-3 py-2 text-wb-label font-semibold transition-colors focus-visible:outline
               focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
               view === 'closed' ? 'border-wb-sage-deep text-wb-sage-deep' : 'border-transparent text-wb-ink2 hover:text-wb-ink'
             }`}
@@ -192,10 +192,10 @@ export default function MissionWorkbenchPage() {
             {/* D-055 capacity filter */}
             <div className="flex flex-col justify-between gap-3 rounded-lg border border-wb-line bg-wb-surface px-4 py-3 sm:flex-row sm:items-center">
               <div>
-                <p className="mb-1 text-[12px] uppercase tracking-wider text-wb-ink2">
+                <p className="mb-1 text-wb-label uppercase tracking-wider text-wb-ink2">
                   D-055 · Today&apos;s posture: <span className="text-wb-sage-deep">{currentPosture}</span>
                 </p>
-                <p className="text-[12px] text-wb-ink">
+                <p className="text-wb-label text-wb-ink">
                   {suitableCount} of {activeMissions.length} active missions suitable for today&apos;s capacity.
                 </p>
               </div>
@@ -203,7 +203,7 @@ export default function MissionWorkbenchPage() {
                 <button
                   type="button"
                   onClick={() => setFilter('all')}
-                  className={`rounded-md border px-3 py-1.5 text-[12px] font-semibold transition-colors focus-visible:outline
+                  className={`rounded-md border px-3 py-1.5 text-wb-label font-semibold transition-colors focus-visible:outline
                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
                     filter === 'all' ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'
                   }`}
@@ -213,7 +213,7 @@ export default function MissionWorkbenchPage() {
                 <button
                   type="button"
                   onClick={() => setFilter('today')}
-                  className={`rounded-md border px-3 py-1.5 text-[12px] font-semibold transition-colors focus-visible:outline
+                  className={`rounded-md border px-3 py-1.5 text-wb-label font-semibold transition-colors focus-visible:outline
                     focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${
                     filter === 'today' ? 'border-wb-sage-deep bg-wb-sage-deep/10 text-wb-sage-deep' : 'border-wb-line text-wb-ink2 hover:text-wb-ink'
                   }`}
@@ -235,7 +235,7 @@ export default function MissionWorkbenchPage() {
               <h2 className="font-serif text-lg text-wb-ink">
                 {view === 'closed' ? 'Closed Missions' : filter === 'today' ? 'Suitable for Today' : 'Open / In Progress Missions'}
               </h2>
-              <p className="text-[12px] uppercase tracking-wide text-wb-ink2">
+              <p className="text-wb-label uppercase tracking-wide text-wb-ink2">
                 {view === 'closed'
                   ? 'Closed or archived · most recently closed first'
                   : filter === 'today' ? `${currentPosture} posture · capacity-matched` : 'Sorted by priority'}
@@ -245,11 +245,11 @@ export default function MissionWorkbenchPage() {
           </div>
 
           {isLoading ? (
-            <p className="text-[13px] italic text-wb-ink2">Loading missions…</p>
+            <p className="text-wb-body italic text-wb-ink2">Loading missions…</p>
           ) : loadError ? (
-            <p className="text-[13px] text-wb-crit-on">{loadError} No list to show — this is a load failure, not an empty registry.</p>
+            <p className="text-wb-body text-wb-crit-on">{loadError} No list to show — this is a load failure, not an empty registry.</p>
           ) : displayMissions.length === 0 ? (
-            <p className="text-[13px] italic text-wb-ink2">No missions match the current filter.</p>
+            <p className="text-wb-body italic text-wb-ink2">No missions match the current filter.</p>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {displayMissions.map(m => (

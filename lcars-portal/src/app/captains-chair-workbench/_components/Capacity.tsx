@@ -33,7 +33,7 @@ export function Capacity({
     return (
       <WorkbenchPanel title="Capacity" eyebrow="Human Systems assessed context">
         <p className={`text-sm font-semibold ${stateToneClasses('unknown').text}`}>UNKNOWN — Human Systems unavailable</p>
-        <Link href="/human-systems-workbench" className="mt-2 inline-block text-[12px] text-wb-sage-deep hover:underline">Open Human Systems →</Link>
+        <Link href="/human-systems-workbench" className="mt-2 inline-block text-wb-label text-wb-sage-deep hover:underline">Open Human Systems →</Link>
       </WorkbenchPanel>
     );
   }
@@ -62,7 +62,7 @@ export function Capacity({
           <p className="mt-2 text-sm text-wb-ink">{context?.posture_message}</p>
         </>
       )}
-      <Link href="/human-systems-workbench" className="mt-2 inline-block text-[12px] text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+      <Link href="/human-systems-workbench" className="mt-2 inline-block text-wb-label text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
         Open Human Systems →
       </Link>
     </WorkbenchPanel>

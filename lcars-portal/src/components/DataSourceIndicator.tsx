@@ -28,7 +28,7 @@ export function DataSourceIndicator({
   loadingLabel = 'Loading…',
 }: DataSourceIndicatorProps) {
   if (loading) {
-    return <span className="text-[12px] uppercase tracking-wider text-wb-ink2 animate-pulse">{loadingLabel}</span>;
+    return <span className="text-wb-label uppercase tracking-wider text-wb-ink2 animate-pulse">{loadingLabel}</span>;
   }
 
   const tone = live ? 'ok' : 'unknown';
@@ -37,7 +37,7 @@ export function DataSourceIndicator({
 
   if (variant === 'inline') {
     return (
-      <span className="inline-flex items-center gap-1.5 text-[12px] uppercase tracking-wide text-wb-ink2">
+      <span className="inline-flex items-center gap-1.5 text-wb-label uppercase tracking-wide text-wb-ink2">
         <span className={`h-2 w-2 rounded-full ${c.dot} ${live ? 'animate-pulse' : ''}`} />
         {label}
       </span>
@@ -46,7 +46,7 @@ export function DataSourceIndicator({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-wider ${c.text} ${c.border} ${c.bg}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-wb-label font-semibold uppercase tracking-wider ${c.text} ${c.border} ${c.bg}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${c.dot} ${live ? 'animate-pulse' : ''}`} />
       {label}

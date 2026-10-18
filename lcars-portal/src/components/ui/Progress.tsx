@@ -11,7 +11,7 @@ export interface ProgressBarProps {
 export function ProgressBar({ value, max = 100, label }: ProgressBarProps) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
-    <div className="flex items-center gap-2 text-[12.5px]">
+    <div className="flex items-center gap-2 text-wb-label">
       {label && <span className="w-[130px] text-wb-ink">{label}</span>}
       <span
         role="progressbar"
@@ -46,10 +46,10 @@ export function ProgressSteps({ steps }: ProgressStepsProps) {
     <ol className="flex flex-wrap items-center gap-3" aria-label="Progress">
       {steps.map((s, i) => (
         <Fragment key={s.key}>
-          <li className="flex items-center gap-2 text-[12px]">
+          <li className="flex items-center gap-2 text-wb-label">
             <span
               aria-hidden
-              className={`grid h-5 w-5 place-items-center rounded text-[12px] text-white ${
+              className={`grid h-5 w-5 place-items-center rounded text-wb-label text-white ${
                 s.complete ? 'bg-wb-ok' : 'bg-wb-line'
               }`}
             >

@@ -167,12 +167,12 @@ function NoteCard({
           <div className="flex items-center gap-2 flex-wrap">
             <WorkbenchBadge label={statusLabel(note.status)} tone={statusTone(note.status)} />
             {note.classification && (
-              <span className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2 border border-wb-line rounded px-1.5 py-0.5">
+              <span className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2 border border-wb-line rounded px-1.5 py-0.5">
                 {note.classification}
               </span>
             )}
             {canRoute && (
-              <span className="text-[12px] uppercase tracking-[0.2em] text-wb-sage-deep">
+              <span className="text-wb-label uppercase tracking-[0.2em] text-wb-sage-deep">
                 {routeLabel(note.recommended_route)}
               </span>
             )}
@@ -180,7 +180,7 @@ function NoteCard({
           <p className="text-sm font-semibold text-wb-ink truncate w-full">
             {note.title || note.raw_content.slice(0, 60) + (note.raw_content.length > 60 ? '…' : '')}
           </p>
-          <div className="flex flex-wrap items-center gap-3 text-[12px] text-wb-ink2">
+          <div className="flex flex-wrap items-center gap-3 text-wb-label text-wb-ink2">
             <span>{relativeAge(note.created_at)}</span>
             {note.tags.length > 0 && (
               <span>{note.tags.slice(0, 3).join(' · ')}</span>
@@ -196,24 +196,24 @@ function NoteCard({
       {expanded && (
         <div className="border-t border-wb-line px-3 pb-3 pt-3 flex flex-col gap-3">
           <div>
-            <p className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2 mb-1">Raw Content</p>
+            <p className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2 mb-1">Raw Content</p>
             <p className="text-sm text-wb-ink leading-relaxed whitespace-pre-wrap">{note.raw_content}</p>
           </div>
 
           {note.triage_summary && (
             <div>
-              <p className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2 mb-1">Triage Summary</p>
+              <p className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2 mb-1">Triage Summary</p>
               <p className="text-sm text-wb-ink2 leading-relaxed">{note.triage_summary}</p>
             </div>
           )}
 
           {Object.keys(note.officer_findings).length > 0 && (
             <div>
-              <p className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2 mb-1">Officer Findings</p>
+              <p className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2 mb-1">Officer Findings</p>
               <div className="flex flex-col gap-1.5">
                 {Object.entries(note.officer_findings).map(([officer, finding]) => (
                   <div key={officer} className="rounded border border-wb-sage-deep bg-wb-surface-raised px-2 py-1.5">
-                    <p className="text-[12px] font-semibold uppercase tracking-wider text-wb-sage-deep mb-0.5">{officer}</p>
+                    <p className="text-wb-label font-semibold uppercase tracking-wider text-wb-sage-deep mb-0.5">{officer}</p>
                     <p className="text-xs text-wb-ink2">
                       {typeof finding === 'object' && finding !== null
                         ? (finding as Record<string, unknown>).recommendation as string ?? JSON.stringify(finding)
@@ -229,7 +229,7 @@ function NoteCard({
             <div className="grid grid-cols-3 gap-2">
               {note.strategic_alignment_score !== null && (
                 <div className="rounded border border-wb-line bg-wb-surface-raised px-2 py-1.5 text-center">
-                  <p className="text-[12px] uppercase tracking-wider text-wb-ink2">Strategic</p>
+                  <p className="text-wb-label uppercase tracking-wider text-wb-ink2">Strategic</p>
                   <p className="font-sans text-base font-bold text-wb-sage-deep">
                     {Math.round(note.strategic_alignment_score * 100)}
                   </p>
@@ -237,7 +237,7 @@ function NoteCard({
               )}
               {note.confidence_score !== null && (
                 <div className="rounded border border-wb-line bg-wb-surface-raised px-2 py-1.5 text-center">
-                  <p className="text-[12px] uppercase tracking-wider text-wb-ink2">Confidence</p>
+                  <p className="text-wb-label uppercase tracking-wider text-wb-ink2">Confidence</p>
                   <p className="font-sans text-base font-bold text-wb-ink">
                     {Math.round(note.confidence_score * 100)}
                   </p>
@@ -248,14 +248,14 @@ function NoteCard({
 
           {note.routed_to_id && (
             <div>
-              <p className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2 mb-1">Artefact Created</p>
+              <p className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2 mb-1">Artefact Created</p>
               <div className="rounded border border-wb-ok bg-wb-surface-raised px-2 py-1.5 flex flex-col gap-0.5">
                 {note.routed_entity_type && (
-                  <p className="text-[12px] uppercase tracking-wider text-wb-ok-on font-semibold">{note.routed_entity_type.replace(/_/g, ' ')}</p>
+                  <p className="text-wb-label uppercase tracking-wider text-wb-ok-on font-semibold">{note.routed_entity_type.replace(/_/g, ' ')}</p>
                 )}
                 <ArtefactLink entityType={note.routed_entity_type} artefactId={note.routed_to_id} />
                 {note.routed_by && (
-                  <p className="text-[12px] text-wb-ink2">via {note.routed_by}{note.routed_at ? ` · ${relativeAge(note.routed_at)}` : ''}</p>
+                  <p className="text-wb-label text-wb-ink2">via {note.routed_by}{note.routed_at ? ` · ${relativeAge(note.routed_at)}` : ''}</p>
                 )}
               </div>
             </div>
@@ -274,7 +274,7 @@ function NoteCard({
                   type="button"
                   onClick={onApproveRoute}
                   disabled={routing}
-                  className="rounded-lg border border-wb-sage-deep bg-wb-surface-raised px-3 py-1.5 text-[12px] uppercase tracking-[0.2em] text-wb-sage-deep hover:bg-wb-surface transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                  className="rounded-lg border border-wb-sage-deep bg-wb-surface-raised px-3 py-1.5 text-wb-label uppercase tracking-[0.2em] text-wb-sage-deep hover:bg-wb-surface transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
                 >
                   {routing ? 'Routing…' : `Approve ${routeLabel(note.recommended_route)}`}
                 </button>
@@ -283,7 +283,7 @@ function NoteCard({
                 type="button"
                 onClick={onArchive}
                 disabled={archiving}
-                className="rounded-lg border border-wb-line px-3 py-1.5 text-[12px] uppercase tracking-[0.2em] text-wb-ink2 hover:border-wb-ink2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                className="rounded-lg border border-wb-line px-3 py-1.5 text-wb-label uppercase tracking-[0.2em] text-wb-ink2 hover:border-wb-ink2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
               >
                 {archiving ? 'Archiving…' : 'Archive'}
               </button>
@@ -452,7 +452,7 @@ export default function CaptainsNotebookWorkbenchPage() {
             <button
               type="button"
               onClick={() => setQuickMode(!quickMode)}
-              className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2 hover:text-wb-sage-deep transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+              className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2 hover:text-wb-sage-deep transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
             >
               {quickMode ? 'Full form' : 'Quick mode'}
             </button>
@@ -485,13 +485,13 @@ export default function CaptainsNotebookWorkbenchPage() {
               >
                 {captureSuccess ? (<><span aria-hidden="true">✓ </span>Captured</>) : capturing ? 'Capturing…' : 'Capture'}
               </button>
-              <p className="text-[12px] text-wb-ink2 text-center">⌘↵ or Ctrl↵ to capture</p>
+              <p className="text-wb-label text-wb-ink2 text-center">⌘↵ or Ctrl↵ to capture</p>
             </div>
           ) : (
             /* ── Full form ──────────────────────────────────────────── */
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
-                <p className="text-[12px] uppercase tracking-[0.25em] text-wb-ink2">Title (optional)</p>
+                <p className="text-wb-label uppercase tracking-[0.25em] text-wb-ink2">Title (optional)</p>
                 <input
                   type="text"
                   aria-label="Title (optional)"
@@ -502,7 +502,7 @@ export default function CaptainsNotebookWorkbenchPage() {
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <p className="text-[12px] uppercase tracking-[0.25em] text-wb-ink2">Thought or intelligence</p>
+                <p className="text-wb-label uppercase tracking-[0.25em] text-wb-ink2">Thought or intelligence</p>
                 <textarea
                   aria-label="Thought or intelligence"
                   value={captureContent}
@@ -513,7 +513,7 @@ export default function CaptainsNotebookWorkbenchPage() {
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <p className="text-[12px] uppercase tracking-[0.25em] text-wb-ink2">Tags (comma-separated, optional)</p>
+                <p className="text-wb-label uppercase tracking-[0.25em] text-wb-ink2">Tags (comma-separated, optional)</p>
                 <input
                   type="text"
                   aria-label="Tags (comma-separated, optional)"
@@ -544,7 +544,7 @@ export default function CaptainsNotebookWorkbenchPage() {
             <button
               type="button"
               onClick={loadNotes}
-              className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2 hover:text-wb-sage-deep transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+              className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2 hover:text-wb-sage-deep transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
             >
               Refresh
             </button>
@@ -562,7 +562,7 @@ export default function CaptainsNotebookWorkbenchPage() {
                   type="button"
                   onClick={() => setFilter(tab.key)}
                   className={[
-                    'rounded-lg border px-2.5 py-1 text-[12px] uppercase tracking-[0.2em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep',
+                    'rounded-lg border px-2.5 py-1 text-wb-label uppercase tracking-[0.2em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep',
                     filter === tab.key
                       ? 'border-wb-sage-deep bg-wb-surface-raised text-wb-sage-deep'
                       : 'border-wb-line text-wb-ink2 hover:border-wb-ink2'

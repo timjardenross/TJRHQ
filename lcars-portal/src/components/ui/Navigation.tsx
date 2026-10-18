@@ -46,7 +46,7 @@ export function BackLink({ href, label }: BackLinkProps) {
   return (
     <Link
       href={href}
-      className="mb-4 inline-block text-[13px] text-wb-sage-deep hover:underline focus-visible:outline
+      className="mb-4 inline-block text-wb-body text-wb-sage-deep hover:underline focus-visible:outline
         focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
     >
       ← {label}

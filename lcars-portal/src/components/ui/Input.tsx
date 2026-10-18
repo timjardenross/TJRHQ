@@ -1,7 +1,7 @@
 import { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, forwardRef, useId } from 'react';
 
 const FIELD_CLASSES =
-  'w-full rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13px] text-wb-ink ' +
+  'w-full rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-wb-body text-wb-ink ' +
   'placeholder:text-wb-ink2 focus-visible:outline focus-visible:outline-2 ' +
   'focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep disabled:cursor-not-allowed disabled:opacity-50';
 
@@ -9,12 +9,12 @@ function FieldWrapper({ id, label, hint, children }: { id: string; label?: strin
   return (
     <div className="flex flex-col gap-1">
       {label && (
-        <label htmlFor={id} className="text-[12px] font-medium text-wb-ink2">
+        <label htmlFor={id} className="text-wb-label font-medium text-wb-ink2">
           {label}
         </label>
       )}
       {children}
-      {hint && <span className="text-[12px] text-wb-ink2">{hint}</span>}
+      {hint && <span className="text-wb-label text-wb-ink2">{hint}</span>}
     </div>
   );
 }
@@ -96,7 +96,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
           focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep ${className}`}
         {...props}
       />
-      <label htmlFor={fieldId} className="text-[13px] text-wb-ink">
+      <label htmlFor={fieldId} className="text-wb-body text-wb-ink">
         {label}
       </label>
     </div>

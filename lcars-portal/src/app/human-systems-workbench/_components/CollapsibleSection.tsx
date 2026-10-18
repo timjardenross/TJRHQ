@@ -48,7 +48,7 @@ export function CollapsibleSection({
       <summary className="cursor-pointer list-none rounded-lg p-6 pb-3 font-serif text-lg text-wb-ink marker:content-none [&::-webkit-details-marker]:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
         <span className="flex items-center justify-between">
           {title}
-          <span className="text-[12px] font-sans font-normal uppercase tracking-wide text-wb-ink2">{open ? 'Hide' : 'Show'}</span>
+          <span className="text-wb-label font-sans font-normal uppercase tracking-wide text-wb-ink2">{open ? 'Hide' : 'Show'}</span>
         </span>
       </summary>
       <div className="border-t border-wb-line px-6 pb-6 pt-3">{children}</div>

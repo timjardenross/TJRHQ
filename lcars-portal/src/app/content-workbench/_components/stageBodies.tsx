@@ -92,23 +92,23 @@ export function CaptureStageBody({ item, onChanged }: { item: ContentItem; onCha
   return (
     <div className="space-y-3">
       <div>
-        <p className="mb-1 text-[12px] uppercase tracking-wide text-wb-ink2">Framing angle</p>
+        <p className="mb-1 text-wb-label uppercase tracking-wide text-wb-ink2">Framing angle</p>
         <input
           aria-label="Framing angle"
           value={angle}
           onChange={(e) => setAngle(e.target.value)}
           placeholder="Suggested angle — confirm or rewrite"
-          className="w-full rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-[13.5px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
+          className="w-full rounded-md border border-wb-line bg-wb-surface px-3 py-2 text-wb-body text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep"
         />
       </div>
       <div>
-        <p className="mb-1 text-[12px] uppercase tracking-wide text-wb-ink2">Research notes</p>
-        <Textarea rows={7} value={notes} onChange={(e) => setNotes(e.target.value)} className="text-[13.5px] leading-relaxed"
+        <p className="mb-1 text-wb-label uppercase tracking-wide text-wb-ink2">Research notes</p>
+        <Textarea rows={7} value={notes} onChange={(e) => setNotes(e.target.value)} className="text-wb-body leading-relaxed"
           aria-label={`Research notes for ${item.title}`} />
       </div>
       <div>
-        <p className="mb-1 text-[12px] uppercase tracking-wide text-wb-ink2">Sources (one per line)</p>
-        <Textarea rows={3} value={sourcesText} onChange={(e) => setSourcesText(e.target.value)} className="text-[13px] font-mono"
+        <p className="mb-1 text-wb-label uppercase tracking-wide text-wb-ink2">Sources (one per line)</p>
+        <Textarea rows={3} value={sourcesText} onChange={(e) => setSourcesText(e.target.value)} className="text-wb-body font-mono"
           aria-label={`Sources for ${item.title}`} />
       </div>
       <div className="flex flex-wrap gap-2">
@@ -119,7 +119,7 @@ export function CaptureStageBody({ item, onChanged }: { item: ContentItem; onCha
           Mark Research Complete →
         </Button>
       </div>
-      <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>
+      <p className="min-h-[1lh] text-wb-label text-wb-ink2" role="status" aria-live="polite">{msg}</p>
     </div>
   );
 }
@@ -152,22 +152,22 @@ export function ResearchStageBody({ item, onChanged }: { item: ContentItem; onCh
   }
 
   return (
-    <div className="space-y-3 text-[13.5px]">
+    <div className="space-y-3 text-wb-body">
       {item.research_angle && (
         <div>
-          <p className="mb-0.5 text-[12px] uppercase tracking-wide text-wb-ink2">Angle</p>
+          <p className="mb-0.5 text-wb-label uppercase tracking-wide text-wb-ink2">Angle</p>
           <p className="italic leading-relaxed text-wb-ink">{item.research_angle}</p>
         </div>
       )}
       {item.research_notes && (
         <div>
-          <p className="mb-0.5 text-[12px] uppercase tracking-wide text-wb-ink2">Research notes</p>
+          <p className="mb-0.5 text-wb-label uppercase tracking-wide text-wb-ink2">Research notes</p>
           <p className="whitespace-pre-wrap leading-relaxed text-wb-ink">{item.research_notes}</p>
         </div>
       )}
       {item.research_sources && item.research_sources.length > 0 && (
         <div>
-          <p className="mb-0.5 text-[12px] uppercase tracking-wide text-wb-ink2">Sources</p>
+          <p className="mb-0.5 text-wb-label uppercase tracking-wide text-wb-ink2">Sources</p>
           <ul className="list-inside list-disc leading-relaxed text-wb-ink">
             {item.research_sources.map((s, i) => (
               <li key={i}>{s.url ?? s.label}</li>
@@ -183,7 +183,7 @@ export function ResearchStageBody({ item, onChanged }: { item: ContentItem; onCh
           {generating ? 'Generating…' : '✍ Generate Draft →'}
         </Button>
       </div>
-      <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>
+      <p className="min-h-[1lh] text-wb-label text-wb-ink2" role="status" aria-live="polite">{msg}</p>
     </div>
   );
 }
@@ -250,10 +250,10 @@ export function ContentPrepStageBody({ item, onChanged }: { item: ContentItem; o
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between text-[12px] text-wb-ink2">
+      <div className="flex items-center justify-between text-wb-label text-wb-ink2">
         <span>{words} word{words === 1 ? '' : 's'}</span>
       </div>
-      <Textarea rows={16} value={body} onChange={(e) => setBody(e.target.value)} className="font-mono text-[13.5px] leading-relaxed"
+      <Textarea rows={16} value={body} onChange={(e) => setBody(e.target.value)} className="font-mono text-wb-body leading-relaxed"
         aria-label={`Draft body for ${item.title}`} />
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="secondary" onClick={saveEdit} disabled={saving}>
@@ -268,16 +268,16 @@ export function ContentPrepStageBody({ item, onChanged }: { item: ContentItem; o
       </div>
       {showHistory && (
         <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border border-wb-line bg-wb-bg p-3">
-          {revisions.length === 0 && <p className="text-[12px] text-wb-ink2">No revisions yet.</p>}
+          {revisions.length === 0 && <p className="text-wb-label text-wb-ink2">No revisions yet.</p>}
           {revisions.map((r) => (
-            <div key={r.id} className="border-b border-wb-line/60 pb-2 text-[12px] last:border-0">
+            <div key={r.id} className="border-b border-wb-line/60 pb-2 text-wb-label last:border-0">
               <p className="text-wb-ink2">{new Date(r.created_at).toLocaleString('en-AU')} · {r.edited_by ?? '—'}</p>
               <p className="line-clamp-3 text-wb-ink">{r.body}</p>
             </div>
           ))}
         </div>
       )}
-      <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>
+      <p className="min-h-[1lh] text-wb-label text-wb-ink2" role="status" aria-live="polite">{msg}</p>
     </div>
   );
 }
@@ -491,7 +491,7 @@ export function ProofingStageBody({ item, onChanged }: { item: ContentItem; onCh
 
   if (item.status === 'approved' || item.status === 'ready_to_publish') {
     return (
-      <div className="space-y-2 text-[13.5px]">
+      <div className="space-y-2 text-wb-body">
         <p className="flex flex-wrap items-center gap-1.5 text-wb-ok-on">
           <span className="rounded-full bg-wb-ok/15 px-2 py-0.5 font-semibold">✓ Approved</span>
           <span className="text-wb-ink2">
@@ -501,28 +501,28 @@ export function ProofingStageBody({ item, onChanged }: { item: ContentItem; onCh
         <Button size="sm" onClick={publish} disabled={publishBusy} className="w-full">
           {publishBusy ? 'Publishing…' : 'Publish →'}
         </Button>
-        <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>
+        <p className="min-h-[1lh] text-wb-label text-wb-ink2" role="status" aria-live="polite">{publishMsg}</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3 text-[13.5px]">
+    <div className="space-y-3 text-wb-body">
       <div className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-lg border border-wb-line bg-wb-bg p-3 leading-relaxed text-wb-ink">{item.body}</div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-wb-sage/50 bg-wb-sage/5 p-2.5">
-        <p className="text-[12px] text-wb-ink2">AI can take a first pass at the checklist below — you review and confirm.</p>
+        <p className="text-wb-label text-wb-ink2">AI can take a first pass at the checklist below — you review and confirm.</p>
         <Button size="sm" variant="secondary" onClick={runAiReview} disabled={aiBusy} className="ml-auto">
           {aiBusy ? 'Reviewing…' : 'Run AI Review →'}
         </Button>
       </div>
-      <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{aiMsg}</p>
+      <p className="min-h-[1lh] text-wb-label text-wb-ink2" role="status" aria-live="polite">{aiMsg}</p>
 
       {!suggestedBody ? (
         <div className="space-y-1.5 rounded-lg border border-dashed border-wb-warn/50 bg-wb-warn/5 p-2.5">
           <div className="flex flex-wrap items-center gap-2">
-            <span aria-hidden className="text-[13px]">✎</span>
-            <p className="text-[12px] text-wb-ink2">Or have AI propose a revised draft that addresses the concerns above.</p>
+            <span aria-hidden className="text-wb-body">✎</span>
+            <p className="text-wb-label text-wb-ink2">Or have AI propose a revised draft that addresses the concerns above.</p>
             <Button size="sm" variant="secondary" onClick={requestPolish} disabled={polishBusy} className="ml-auto">
               {polishBusy ? 'Revising…' : 'Ask AI to Revise Draft →'}
             </Button>
@@ -530,18 +530,18 @@ export function ProofingStageBody({ item, onChanged }: { item: ContentItem; onCh
           <input value={polishInstructions} onChange={(e) => setPolishInstructions(e.target.value)}
             aria-label="Instructions for the AI-revised draft"
             placeholder="Optional: steer it — e.g. ‘tighten the close’, ‘cut the stat in paragraph 2’"
-            className="w-full rounded-md border border-wb-line bg-wb-surface px-3 py-1.5 text-[12.5px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
+            className="w-full rounded-md border border-wb-line bg-wb-surface px-3 py-1.5 text-wb-label text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
         </div>
       ) : (
         <div className="space-y-2 rounded-lg border border-wb-warn/50 bg-wb-warn/5 p-3">
-          <p className="text-[12px] font-semibold uppercase tracking-wide text-wb-warn-on">AI Proposes — You Decide</p>
+          <p className="text-wb-label font-semibold uppercase tracking-wide text-wb-warn-on">AI Proposes — You Decide</p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div>
-              <p className="mb-1 text-[12px] uppercase tracking-wide text-wb-ink2">Current Draft</p>
+              <p className="mb-1 text-wb-label uppercase tracking-wide text-wb-ink2">Current Draft</p>
               <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md border border-wb-line bg-wb-bg p-3 leading-relaxed text-wb-ink">{item.body}</div>
             </div>
             <div>
-              <p className="mb-1 text-[12px] uppercase tracking-wide text-wb-ink2">AI Proposal</p>
+              <p className="mb-1 text-wb-label uppercase tracking-wide text-wb-ink2">AI Proposal</p>
               <div className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md border border-wb-line bg-wb-surface p-3 leading-relaxed text-wb-ink">{suggestedBody}</div>
             </div>
           </div>
@@ -555,7 +555,7 @@ export function ProofingStageBody({ item, onChanged }: { item: ContentItem; onCh
           </div>
         </div>
       )}
-      <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{polishMsg}</p>
+      <p className="min-h-[1lh] text-wb-label text-wb-ink2" role="status" aria-live="polite">{polishMsg}</p>
 
       <div className="space-y-2 rounded-md border border-wb-line bg-wb-surface p-3">
         {QA_CHECKLIST_ITEMS.map((c) => {
@@ -567,12 +567,12 @@ export function ProofingStageBody({ item, onChanged }: { item: ContentItem; onCh
                   className="h-4 w-4 rounded border-wb-line text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
                 {c.label}
               </label>
-              {note && <p className="ml-6 mt-0.5 text-[12px] italic text-wb-ink2">AI · {note}</p>}
+              {note && <p className="ml-6 mt-0.5 text-wb-label italic text-wb-ink2">AI · {note}</p>}
             </div>
           );
         })}
         <input value={qaNotes} onChange={(e) => setQaNotes(e.target.value)} aria-label="QA notes" placeholder="QA notes (optional)"
-          className="w-full rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-[13px] text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
+          className="w-full rounded-md border border-wb-line bg-wb-bg px-3 py-2 text-wb-body text-wb-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep" />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={saveQa} disabled={saving}>
@@ -585,7 +585,7 @@ export function ProofingStageBody({ item, onChanged }: { item: ContentItem; onCh
         )}
         {qaStatus === 'qa_failed' && <Badge status="warning">QA incomplete</Badge>}
       </div>
-      <p className="min-h-[1lh] text-[12px] text-wb-ink2" role="status" aria-live="polite">{msg}</p>
+      <p className="min-h-[1lh] text-wb-label text-wb-ink2" role="status" aria-live="polite">{msg}</p>
     </div>
   );
 }

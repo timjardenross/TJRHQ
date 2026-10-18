@@ -100,11 +100,11 @@ export default function BriefReview({ params }: { params: { id: string } }) {
            back={{ href: '/intelligence-workbench', label: 'Overview' }}
            right={brief ? <RiskPill value={brief.overall_risk} /> : ''}>
       {loading ? (
-        <p className="text-[13px] text-wb-ink2">Loading…</p>
+        <p className="text-wb-body text-wb-ink2">Loading…</p>
       ) : error ? (
         <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">{error}</p>
       ) : !brief ? (
-        <p className="text-[13px] text-wb-ink2">Brief not found.</p>
+        <p className="text-wb-body text-wb-ink2">Brief not found.</p>
       ) : (
         <>
           <Card title={title}>
@@ -115,7 +115,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
                 signals" next to a populated 5-signal grid. Both counts now
                 read the same signals array the grid renders, so they can't
                 disagree. */}
-            <p className="mb-2 text-[13px] text-wb-ink2">
+            <p className="mb-2 text-wb-body text-wb-ink2">
               {brief.period_start} → {brief.period_end} · {signals.length} signals
             </p>
             <p className="text-sm">{brief.executive_snapshot ?? brief.bottom_line ?? '—'}</p>
@@ -125,14 +125,14 @@ export default function BriefReview({ params }: { params: { id: string } }) {
                 signal for the reviewer. Only rendered when there's
                 something to flag, so a fully-clean brief stays uncluttered. */}
             {((brief.sources_failed ?? 0) > 0 || (brief.sources_stale ?? 0) > 0) && (
-              <p className="mt-1 text-[12px] text-wb-warn-on">
+              <p className="mt-1 text-wb-label text-wb-warn-on">
                 Coverage: {brief.sources_checked ?? '—'} of {brief.sources_available ?? '—'} sources checked
                 {(brief.sources_failed ?? 0) > 0 ? ` · ${brief.sources_failed} failed` : ''}
                 {(brief.sources_stale ?? 0) > 0 ? ` · ${brief.sources_stale} stale` : ''} — this brief may be missing recent signals.
               </p>
             )}
             {/* gate progress */}
-            <div className="mt-5 flex flex-wrap items-center gap-1.5 text-[12px]">
+            <div className="mt-5 flex flex-wrap items-center gap-1.5 text-wb-label">
               {GATE_FLOW.map((g, i) => (
                 <span key={g}
                   className={`rounded-full border px-2.5 py-1 ${
@@ -151,22 +151,22 @@ export default function BriefReview({ params }: { params: { id: string } }) {
                 <button key={s.event_id} type="button" onClick={() => setOpenSignal(s)}
                   className="rounded-lg border border-wb-line p-3.5 text-left transition-colors hover:border-wb-sage-deep
                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
-                  <h4 className="mb-2 text-[13.5px] font-semibold leading-snug">{s.raw_title}</h4>
-                  <p className="mb-2 text-[12px] text-wb-ink2">
+                  <h4 className="mb-2 text-wb-body font-semibold leading-snug">{s.raw_title}</h4>
+                  <p className="mb-2 text-wb-label text-wb-ink2">
                     {s.sector ?? '—'} · {s.geography ?? '—'} · {s.source_tier ? `Tier ${s.source_tier}` : '—'}
                   </p>
                   <div className="flex items-center gap-2">
                     <RiskPill value={s.risk_rating} />
-                    <span className="font-serif text-[15px]">{s.rank_score != null ? Math.round(s.rank_score) : '—'}/50</span>
+                    <span className="font-serif text-wb-lead">{s.rank_score != null ? Math.round(s.rank_score) : '—'}/50</span>
                   </div>
                   {(s.confidence_level || s.cluster_similarity != null) && (
-                    <p className="mt-2 text-[12px] text-wb-sage-deep">
+                    <p className="mt-2 text-wb-label text-wb-sage-deep">
                       {s.confidence_level ?? ''}{s.cluster_similarity != null ? ` · sim ${s.cluster_similarity}` : ''}
                     </p>
                   )}
                 </button>
               ))}
-              {signals.length === 0 && <p className="text-[13px] text-wb-ink2">No linked signals.</p>}
+              {signals.length === 0 && <p className="text-wb-body text-wb-ink2">No linked signals.</p>}
             </div>
           </Card>
 
@@ -175,34 +175,34 @@ export default function BriefReview({ params }: { params: { id: string } }) {
               Ready" step into one QA row + Publish, matching the 3-state
               workflow above. */}
           <Card title="Approval gate">
-            <div className="flex items-center gap-3 border-b border-wb-line py-2.5 text-[13.5px] last:border-0">
-              <span className={`grid h-5 w-5 place-items-center rounded text-[12px] text-white ${gatePassed('qa') ? 'bg-wb-ok' : 'bg-wb-line'}`}>
+            <div className="flex items-center gap-3 border-b border-wb-line py-2.5 text-wb-body last:border-0">
+              <span className={`grid h-5 w-5 place-items-center rounded text-wb-label text-white ${gatePassed('qa') ? 'bg-wb-ok' : 'bg-wb-line'}`}>
                 {gatePassed('qa') ? '✓' : ''}
               </span>
               <span className="flex-1">QA</span>
-              {audit?.qa?.approved_by && <span className="text-[12px] text-wb-ink2">{audit.qa.approved_by}</span>}
+              {audit?.qa?.approved_by && <span className="text-wb-label text-wb-ink2">{audit.qa.approved_by}</span>}
               {!gatePassed('qa') && (
                 <button disabled={!!busy} onClick={() => act('brief.qa_pass', {}, 'QA pass')}
-                  className="rounded-md border border-wb-sage px-2.5 py-1 text-[12px] text-wb-sage-deep hover:bg-wb-sage/10 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep">
+                  className="rounded-md border border-wb-sage px-2.5 py-1 text-wb-label text-wb-sage-deep hover:bg-wb-sage/10 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-wb-sage-deep">
                   Pass
                 </button>
               )}
             </div>
             <div className="mt-4 flex flex-wrap gap-2.5">
               <button disabled={!!busy} onClick={() => act('brief.publish', {}, 'Publish')}
-                className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
+                className="rounded-md border border-wb-sage-deep bg-wb-sage-deep px-3.5 py-2 text-wb-body text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-ink">
                 Publish
               </button>
               <button disabled={!!busy} onClick={() => act('brief.escalate', {}, 'Escalate to RED')}
-                className="rounded-md border border-wb-crit-fill bg-wb-crit-fill px-3.5 py-2 text-[13px] text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-crit-on">
+                className="rounded-md border border-wb-crit-fill bg-wb-crit-fill px-3.5 py-2 text-wb-body text-white transition hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-crit-on">
                 Escalate to RED
               </button>
               <a href={`/intelligence-workbench/escalation/${id}`}
-                 className="rounded-md border border-wb-line px-3.5 py-2 text-[13px] text-wb-ink2 hover:bg-wb-line/40">
+                 className="rounded-md border border-wb-line px-3.5 py-2 text-wb-body text-wb-ink2 hover:bg-wb-line/40">
                 Open escalation →
               </a>
             </div>
-            {busy && <p className="mt-3 text-[12px] text-wb-ink2" aria-live="polite">Working: {busy}…</p>}
+            {busy && <p className="mt-3 text-wb-label text-wb-ink2" aria-live="polite">Working: {busy}…</p>}
                   <ActionOutcome message={msg} tone={msg?.startsWith('✓') ? 'success' : 'error'} />
           </Card>
 
@@ -213,7 +213,7 @@ export default function BriefReview({ params }: { params: { id: string } }) {
             <Card title="Audit trail">
               <div className="flex flex-col gap-2.5">
                 {auditTrail.map((a) => (
-                  <div key={a.id} className="flex flex-col gap-0.5 border-b border-wb-line py-2 text-[12.5px] last:border-0 sm:flex-row sm:items-start sm:gap-3">
+                  <div key={a.id} className="flex flex-col gap-0.5 border-b border-wb-line py-2 text-wb-label last:border-0 sm:flex-row sm:items-start sm:gap-3">
                     <span className="shrink-0 text-wb-ink2 sm:w-[140px]">
                       {new Date(a.created_at).toLocaleString()}
                     </span>
@@ -238,10 +238,10 @@ export default function BriefReview({ params }: { params: { id: string } }) {
           <Modal open={!!openSignal} onClose={() => setOpenSignal(null)}
                  title={openSignal?.raw_title ?? 'Signal'} variant="preview">
             {openSignal && (
-              <div className="flex flex-col gap-3 text-[13px]">
+              <div className="flex flex-col gap-3 text-wb-body">
                 <div className="flex flex-wrap items-center gap-2">
                   <RiskPill value={openSignal.risk_rating} />
-                  <span className="font-serif text-[15px]">
+                  <span className="font-serif text-wb-lead">
                     {openSignal.rank_score != null ? Math.round(openSignal.rank_score) : '—'}/50
                   </span>
                   <span className="text-wb-ink2">
@@ -252,17 +252,17 @@ export default function BriefReview({ params }: { params: { id: string } }) {
                 {openSignal.raw_summary ? (
                   <p className="text-wb-ink">{openSignal.raw_summary}</p>
                 ) : (
-                  <p className="text-[12px] italic text-wb-ink2">
+                  <p className="text-wb-label italic text-wb-ink2">
                     Source provides title only — no summary available.
                   </p>
                 )}
                 {openSignal.analysis_summary && (
-                  <p className="rounded-md bg-wb-line/30 p-2.5 text-[12.5px] text-wb-ink2">
+                  <p className="rounded-md bg-wb-line/30 p-2.5 text-wb-label text-wb-ink2">
                     {openSignal.analysis_summary}
                   </p>
                 )}
 
-                <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 text-[12px] sm:grid-cols-2">
+                <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 text-wb-label sm:grid-cols-2">
                   <dt className="text-wb-ink2">Operational relevance</dt>
                   <dd>{openSignal.operational_relevance != null ? openSignal.operational_relevance : '—'}</dd>
                   <dt className="text-wb-ink2">Customer impact</dt>
@@ -282,14 +282,14 @@ export default function BriefReview({ params }: { params: { id: string } }) {
                 </dl>
 
                 {openSignal.score_breakdown && (
-                  <pre className="overflow-x-auto rounded-md bg-wb-line/30 p-2.5 text-[12px] text-wb-ink2">
+                  <pre className="overflow-x-auto rounded-md bg-wb-line/30 p-2.5 text-wb-label text-wb-ink2">
                     {JSON.stringify(openSignal.score_breakdown, null, 2)}
                   </pre>
                 )}
 
                 {openSignal.canonical_url && (
                   <a href={openSignal.canonical_url} target="_blank" rel="noopener noreferrer"
-                     className="text-[12.5px] text-wb-sage-deep underline">
+                     className="text-wb-label text-wb-sage-deep underline">
                     Open source →
                   </a>
                 )}

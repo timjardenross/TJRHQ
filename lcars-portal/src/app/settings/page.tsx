@@ -23,8 +23,8 @@ export default function SettingsIndexPage() {
           >
             <Icon className="h-4 w-4 shrink-0 text-wb-ink2" aria-hidden />
             <span className="min-w-0 flex-1">
-              <span className="block text-[14px] font-medium">{section.title}</span>
-              <span className="block text-[12px] text-wb-ink2">{section.description}</span>
+              <span className="block text-wb-body font-medium">{section.title}</span>
+              <span className="block text-wb-label text-wb-ink2">{section.description}</span>
             </span>
             <ChevronRight className="h-4 w-4 shrink-0 text-wb-ink2" aria-hidden />
           </Link>

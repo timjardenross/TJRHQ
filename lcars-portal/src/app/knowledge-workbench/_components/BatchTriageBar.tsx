@@ -31,7 +31,7 @@ export function BatchTriageBar({
 
   return (
     <Card className="lg:w-[340px] p-4">
-      <h3 className="mb-3 font-serif text-[14px] uppercase tracking-wide text-wb-ink">
+      <h3 className="mb-3 font-serif text-wb-body uppercase tracking-wide text-wb-ink">
         Batch Decide ({checkedIds.size} selected)
       </h3>
       {flash && (
@@ -52,7 +52,7 @@ export function BatchTriageBar({
             <button
               disabled={!batchReasonDraft.trim() || batchActing}
               onClick={() => batchDecide(batchReasonFor, batchReasonDraft.trim())}
-              className="flex-1 rounded border border-wb-crit/60 bg-wb-crit/10 px-3 py-1.5 text-[12px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/20 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex-1 rounded border border-wb-crit/60 bg-wb-crit/10 px-3 py-1.5 text-wb-label uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/20 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
             >
               {batchActing ? 'Working…' : `Confirm ${DECISION_LABELS[batchReasonFor]}`}
             </button>
@@ -61,7 +61,7 @@ export function BatchTriageBar({
                 setBatchReasonFor(null);
                 setBatchReasonDraft('');
               }}
-              className="rounded border border-wb-line px-3 py-1.5 text-[12px] uppercase tracking-[0.15em] text-wb-ink2 hover:text-wb-ink transition-colors"
+              className="rounded border border-wb-line px-3 py-1.5 text-wb-label uppercase tracking-[0.15em] text-wb-ink2 hover:text-wb-ink transition-colors"
             >
               Cancel
             </button>
@@ -69,20 +69,20 @@ export function BatchTriageBar({
         </div>
       ) : (
         <div className="flex flex-col gap-1.5">
-          <p className="mb-1 text-[12px] text-wb-ink2">
+          <p className="mb-1 text-wb-label text-wb-ink2">
             Applies one decision to all {checkedIds.size} selected documents. Each is still checked individually server-side (idempotent, terminal-status guarded) — only genuinely eligible ones are decided.
           </p>
           <button
             disabled={batchActing}
             onClick={() => batchDecide('approved_chunks')}
-            className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-[12px] uppercase tracking-[0.15em] text-wb-ok-on transition-colors hover:bg-wb-ok/20 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-wb-label uppercase tracking-[0.15em] text-wb-ok-on transition-colors hover:bg-wb-ok/20 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {batchActing ? 'Working…' : 'Approve'}
           </button>
           <button
             disabled={batchActing}
             onClick={() => batchDecide('approved_metadata')}
-            className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-[12px] uppercase tracking-[0.15em] text-wb-ok-on hover:bg-wb-ok/20 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-wb-label uppercase tracking-[0.15em] text-wb-ok-on hover:bg-wb-ok/20 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
           >
             {DECISION_LABELS.approved_metadata}
           </button>
@@ -90,21 +90,21 @@ export function BatchTriageBar({
             <button
               disabled={batchActing}
               onClick={() => setBatchReasonFor('needs_review')}
-              className="flex-1 rounded border border-wb-warn/40 bg-wb-warn/5 px-3 py-1.5 text-[12px] uppercase tracking-[0.15em] text-wb-warn-on hover:bg-wb-warn/10 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex-1 rounded border border-wb-warn/40 bg-wb-warn/5 px-3 py-1.5 text-wb-label uppercase tracking-[0.15em] text-wb-warn-on hover:bg-wb-warn/10 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
             >
               Needs Review
             </button>
             <button
               disabled={batchActing}
               onClick={() => setBatchReasonFor('rejected')}
-              className="flex-1 rounded border border-wb-crit/40 bg-wb-crit/5 px-3 py-1.5 text-[12px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/10 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex-1 rounded border border-wb-crit/40 bg-wb-crit/5 px-3 py-1.5 text-wb-label uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/10 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
             >
               Reject
             </button>
           </div>
           <button
             onClick={() => setCheckedIds(new Set())}
-            className="mt-2 text-[12px] uppercase tracking-[0.2em] text-wb-ink2 hover:text-wb-ink transition-colors"
+            className="mt-2 text-wb-label uppercase tracking-[0.2em] text-wb-ink2 hover:text-wb-ink transition-colors"
           >
             Clear selection
           </button>

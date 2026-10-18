@@ -109,14 +109,14 @@ export function LegacyDetails() {
       }
     }
     return (
-      <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+      <div key={s.signal_id} className="text-wb-label text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
         {s.source_url ? (
           <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-sage-deep">
-            <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[12px] font-medium uppercase tracking-wide text-wb-ink2 no-underline" /> {s.title}
+            <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-wb-label font-medium uppercase tracking-wide text-wb-ink2 no-underline" /> {s.title}
           </a>
         ) : (
           <div className="font-semibold text-wb-ink">
-            <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[12px] font-medium uppercase tracking-wide text-wb-ink2" /> {s.title}
+            <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-wb-label font-medium uppercase tracking-wide text-wb-ink2" /> {s.title}
           </div>
         )}
         <div>
@@ -127,7 +127,7 @@ export function LegacyDetails() {
           {typeof s.rank_score === 'number' && <> • Score: {s.rank_score.toFixed(1)}</>}
           {s.published_at && <> • Published {new Date(s.published_at).toLocaleDateString()}</>}
           {discoveredNote && (
-            <span className="ml-1 rounded-full bg-wb-warn/15 px-1.5 py-0.5 text-[12px] font-medium text-wb-warn-on">{discoveredNote}</span>
+            <span className="ml-1 rounded-full bg-wb-warn/15 px-1.5 py-0.5 text-wb-label font-medium text-wb-warn-on">{discoveredNote}</span>
           )}
         </div>
         {s.summary && <div className="mt-1 max-w-[70ch] text-wb-ink2">{s.summary}{s.summary.length >= 220 ? '…' : ''}</div>}
@@ -142,7 +142,7 @@ export function LegacyDetails() {
         <DomainToggle value={domain} onChange={(d) => setDomain(d as Domain)} options={DOMAIN_OPTIONS} ariaLabel="Health OSINT technical view" />
       </div>
 
-      {loading && !data && <div className="py-16 text-center text-[13px] text-wb-ink2">Loading Health OSINT…</div>}
+      {loading && !data && <div className="py-16 text-center text-wb-body text-wb-ink2">Loading Health OSINT…</div>}
       <div className="mb-4 min-h-[1lh]">
         {error && <p className="rounded-lg border border-wb-crit/40 bg-wb-crit/10 p-3 text-sm text-wb-crit-on">Error: {error}</p>}
       </div>
@@ -150,7 +150,7 @@ export function LegacyDetails() {
       {domain === 'confidence-matrix' && data && (
         <div className="space-y-6">
           <Card title="Signal Distribution by Health Category & Confidence">
-            <div className="grid grid-cols-1 gap-4 text-[12px] text-wb-ink2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 text-wb-label text-wb-ink2 sm:grid-cols-2">
               {Object.entries(data.matrix || {}).map(([cat, conf]: any) => (
                 <div key={cat}>
                   <div className="font-semibold text-wb-ink mb-1">{cat}</div>
@@ -163,17 +163,17 @@ export function LegacyDetails() {
             </div>
           </Card>
           <Card title="Coverage Assessment">
-            <p className="text-[12px] text-wb-ink2">Total signals: {data.signals?.length || 0}</p>
+            <p className="text-wb-label text-wb-ink2">Total signals: {data.signals?.length || 0}</p>
             <div className="mt-3 space-y-2">
               {data.signals?.slice(0, 10).map((s: any) => (
-                <div key={s.signal_id} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+                <div key={s.signal_id} className="text-wb-label text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                   {s.source_url ? (
                     <a href={s.source_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-wb-ink underline decoration-dotted hover:text-wb-sage-deep">
-                      <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[12px] font-medium uppercase tracking-wide text-wb-ink2 no-underline" /> {s.title}
+                      <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-wb-label font-medium uppercase tracking-wide text-wb-ink2 no-underline" /> {s.title}
                     </a>
                   ) : (
                     <div className="font-semibold text-wb-ink">
-                      <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-[12px] font-medium uppercase tracking-wide text-wb-ink2" /> {s.title}
+                      <StateTag tone="unknown" label={domainLabel(s.health_domain)} className="mr-1.5 text-wb-label font-medium uppercase tracking-wide text-wb-ink2" /> {s.title}
                     </div>
                   )}
                   <div>{s.category} • {s.confidence_level.toUpperCase()} • {s.source_name} • Score: {s.rank_score?.toFixed?.(1) ?? s.rank_score}</div>
@@ -209,7 +209,7 @@ export function LegacyDetails() {
               <CardTitleWithDot tone="unknown">KNOWN UNKNOWNS</CardTitleWithDot>
               <div className="space-y-2">
                 {data.unknowns.map((u: any) => (
-                  <div key={u.title} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+                  <div key={u.title} className="text-wb-label text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                     <div className="font-semibold text-wb-ink">{u.title}</div>
                     <div>{u.impact}</div>
                     <div className="italic">Need: {u.need}</div>
@@ -224,7 +224,7 @@ export function LegacyDetails() {
       {domain === 'source-network' && data && (
         <div className="space-y-6">
           <Card title="Cross-Source Corroboration">
-            <div className="text-[12px] text-wb-ink2 space-y-1">
+            <div className="text-wb-label text-wb-ink2 space-y-1">
               {Object.entries(data.correlations || {})
                 .sort((a: any, b: any) => b[1].signal_count - a[1].signal_count)
                 .slice(0, 10)
@@ -236,12 +236,12 @@ export function LegacyDetails() {
             </div>
           </Card>
           <Card title="Source Reliability (current snapshot)">
-            <div className="text-[12px] text-wb-ink2 space-y-1">
+            <div className="text-wb-label text-wb-ink2 space-y-1">
               {data.trending?.map((t: any) => (
                 <div key={t.source}>{t.source} → SRS {t.srs_to}</div>
               ))}
             </div>
-            {data.note && <p className="mt-2 max-w-[70ch] text-[12px] italic text-wb-ink2">{data.note}</p>}
+            {data.note && <p className="mt-2 max-w-[70ch] text-wb-label italic text-wb-ink2">{data.note}</p>}
           </Card>
         </div>
       )}
@@ -251,10 +251,10 @@ export function LegacyDetails() {
           <Card title="Safety Escalation Matrix">
             <div className="space-y-2">
               {data.threats?.map((t: any) => (
-                <div key={t.threat} className="text-[12px] text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
+                <div key={t.threat} className="text-wb-label text-wb-ink2 pb-2 border-b border-wb-line last:border-0">
                   <div className="font-semibold text-wb-ink">
                     {t.threat}
-                    {t.fda_flagged && <StateTag tone="crit" label="FDA-flagged" className="ml-1.5 text-[12px] font-semibold uppercase tracking-wide text-state-crit" />}
+                    {t.fda_flagged && <StateTag tone="crit" label="FDA-flagged" className="ml-1.5 text-wb-label font-semibold uppercase tracking-wide text-state-crit" />}
                   </div>
                   <div>{t.probability}/{t.impact}/{t.confidence} → {t.escalation.toUpperCase()} {t.frequency_reported ? `• ${t.frequency_reported} reports` : ''}</div>
                   <div className="max-w-[70ch] italic">{t.recommendation}</div>
@@ -265,7 +265,7 @@ export function LegacyDetails() {
           </Card>
           {data.gaps?.length > 0 && (
             <Card title="Evidence Gaps">
-              <div className="text-[12px] text-wb-ink2 space-y-1">
+              <div className="text-wb-label text-wb-ink2 space-y-1">
                 {data.gaps.map((g: any) => (
                   <div key={g.area} className="max-w-[70ch]">{g.area}: {g.risk} — {g.evidence_gap}</div>
                 ))}

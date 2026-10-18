@@ -31,7 +31,7 @@ export function DataAvailabilityNotice({
       <p className="mt-1 text-xs leading-relaxed text-wb-ink2">
             {copy.detail}
           </p>
-          <p className="mt-2 text-[12px] text-wb-ink2">
+          <p className="mt-2 text-wb-label text-wb-ink2">
             Affected: {uniqueSources.join(' · ')}
           </p>
         </div>

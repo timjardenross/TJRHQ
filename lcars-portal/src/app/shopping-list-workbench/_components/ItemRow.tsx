@@ -61,12 +61,12 @@ export function ItemRow({
 
       <div className="min-w-0 flex-1 basis-40">
         <div className="flex items-start justify-between gap-2">
-          <span className="break-words text-[14px] font-medium text-wb-ink">{item.product_name}</span>
-          <span className="shrink-0 text-[13px] font-medium text-wb-ink">
+          <span className="break-words text-wb-body font-medium text-wb-ink">{item.product_name}</span>
+          <span className="shrink-0 text-wb-body font-medium text-wb-ink">
             {item.currency} {item.cost.toFixed(2)}
           </span>
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-wb-ink2">
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-wb-label text-wb-ink2">
           {item.vendor && <span>{item.vendor}</span>}
           <span>{item.category}</span>
           {item.recipient && <span>For: {item.recipient}</span>}

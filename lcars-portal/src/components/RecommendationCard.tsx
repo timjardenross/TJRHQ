@@ -47,7 +47,7 @@ export function RecommendationCard({
   return (
     <div className="rounded-lg border border-wb-sage-deep/40 bg-wb-sage-deep/5 p-3">
       <div className="mb-1.5 flex items-center justify-between">
-        <p className="text-[12px] font-bold uppercase tracking-[0.25em] text-wb-ink2">{title}</p>
+        <p className="text-wb-label font-bold uppercase tracking-[0.25em] text-wb-ink2">{title}</p>
         {!compact && isLive !== undefined && <DataSourceIndicator live={isLive} variant="inline" />}
       </div>
 
@@ -56,19 +56,19 @@ export function RecommendationCard({
           <p className={`text-sm font-semibold leading-snug ${compact ? 'text-wb-sage-deep' : 'text-wb-ink'}`}>
             {recommendation.action}
           </p>
-          {!compact && recommendation.why && <p className="text-[12px] text-wb-ink">{recommendation.why}</p>}
+          {!compact && recommendation.why && <p className="text-wb-label text-wb-ink">{recommendation.why}</p>}
           {compact ? (
-            <p className="text-[12px] text-wb-ink2">
+            <p className="text-wb-label text-wb-ink2">
               {recommendation.sourceOfficer} · {recommendation.confidence}
             </p>
           ) : (
-            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] uppercase tracking-wide">
+            <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-wb-label uppercase tracking-wide">
               <span className="text-wb-sage-deep">{recommendation.sourceOfficer}</span>
               <span className="text-wb-ink2">Confidence · {recommendation.confidence}</span>
             </div>
           )}
           {recommendation.evidence && recommendation.evidence.length > 0 && (
-            <details className="mt-1 text-[12px]">
+            <details className="mt-1 text-wb-label">
               <summary className="cursor-pointer text-wb-ink2 hover:text-wb-ink">
                 Evidence ({recommendation.evidence.length})
               </summary>
@@ -81,7 +81,7 @@ export function RecommendationCard({
           )}
         </div>
       ) : (
-        <p className="text-[12px] text-wb-ink2">{isLoading ? loadingMessage : emptyMessage}</p>
+        <p className="text-wb-label text-wb-ink2">{isLoading ? loadingMessage : emptyMessage}</p>
       )}
     </div>
   );

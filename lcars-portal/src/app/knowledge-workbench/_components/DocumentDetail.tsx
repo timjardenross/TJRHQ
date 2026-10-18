@@ -43,16 +43,16 @@ export function DocumentDetail({
     <Card className="lg:w-[420px] p-4">
       <div className="mb-3 flex items-start justify-between">
         <div>
-          <h3 className="font-serif text-[14px] uppercase tracking-wide text-wb-ink">
+          <h3 className="font-serif text-wb-body uppercase tracking-wide text-wb-ink">
             Document Detail
           </h3>
-          <p className="mt-1 text-[12px] uppercase tracking-[0.2em] text-wb-ink2">
+          <p className="mt-1 text-wb-label uppercase tracking-[0.2em] text-wb-ink2">
             j/k or ↓/↑ next-prev · a approve · m metadata-only
           </p>
         </div>
         <button
           onClick={onClose}
-          className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2 hover:text-wb-ink transition-colors"
+          className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2 hover:text-wb-ink transition-colors"
         >
           Close
         </button>
@@ -76,7 +76,7 @@ export function DocumentDetail({
         <div className="flex flex-col gap-3">
           <div>
             <p className="break-words text-sm font-semibold text-wb-ink">{detail.filename}</p>
-            <p className="mt-0.5 break-all text-[12px] text-wb-ink2">{detail.source_path}</p>
+            <p className="mt-0.5 break-all text-wb-label text-wb-ink2">{detail.source_path}</p>
           </div>
 
           <div className="flex flex-wrap gap-1.5">
@@ -95,12 +95,12 @@ export function DocumentDetail({
           </div>
 
           {(detail.sensitivity === 'sensitive' || detail.sensitivity === 'restricted') && (
-            <div className="rounded border border-wb-crit/40 bg-wb-crit/10 px-3 py-2 text-[12px] text-wb-crit-on">
+            <div className="rounded border border-wb-crit/40 bg-wb-crit/10 px-3 py-2 text-wb-label text-wb-crit-on">
               Flagged {detail.sensitivity} — review carefully before approving into memory.
             </div>
           )}
 
-          <dl className="grid grid-cols-1 gap-x-3 gap-y-1 text-[12px] sm:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-3 gap-y-1 text-wb-label sm:grid-cols-2">
             <dt className="text-wb-ink2">OCR status</dt>
             <dd className="text-wb-ink">
               {detail.ocr_used ? `OCR (${detail.ocr_engine ?? 'unknown engine'})` : detail.status === 'ocr_required' ? 'Required — pending' : 'Not required'}
@@ -119,25 +119,25 @@ export function DocumentDetail({
 
           {detail.summary && (
             <div>
-              <p className="text-[12px] uppercase tracking-[0.2em] text-wb-ink2">Summary</p>
+              <p className="text-wb-label uppercase tracking-[0.2em] text-wb-ink2">Summary</p>
               <p className="mt-1 text-xs text-wb-ink">{detail.summary}</p>
             </div>
           )}
 
           {detail.failure_reason && (
-            <div className="rounded border border-wb-crit/40 bg-wb-crit/10 px-3 py-2 text-[12px] text-wb-crit-on">
+            <div className="rounded border border-wb-crit/40 bg-wb-crit/10 px-3 py-2 text-wb-label text-wb-crit-on">
               Failed: {detail.failure_reason}
             </div>
           )}
 
           {chunkPreview.length > 0 && (
             <details className="text-xs">
-              <summary className="cursor-pointer text-[12px] uppercase tracking-[0.2em] text-wb-ink2">
+              <summary className="cursor-pointer text-wb-label uppercase tracking-[0.2em] text-wb-ink2">
                 Chunk preview ({chunkPreview.length} of {detail.chunk_count})
               </summary>
               <ul className="mt-2 flex flex-col gap-2">
                 {chunkPreview.map((c) => (
-                  <li key={c.id} className="rounded border border-wb-line bg-wb-surface-raised/60 p-2 text-[12px] text-wb-ink2">
+                  <li key={c.id} className="rounded border border-wb-line bg-wb-surface-raised/60 p-2 text-wb-label text-wb-ink2">
                     #{c.chunk_index}: {c.chunk_text.slice(0, 160)}
                     {c.chunk_text.length > 160 ? '…' : ''}
                   </li>
@@ -153,13 +153,13 @@ export function DocumentDetail({
           )}
 
           {detail.review_status === 'resolved' || detail.review_status === 'rejected' ? (
-            <div className="rounded border border-wb-line bg-wb-surface-raised/60 px-3 py-2 text-[12px] text-wb-ink2">
+            <div className="rounded border border-wb-line bg-wb-surface-raised/60 px-3 py-2 text-wb-label text-wb-ink2">
               {REVIEW_STATUS_LABELS[detail.review_status]}: {detail.review_decision ? DECISION_LABELS[detail.review_decision] : '—'}
               {detail.review_decided_by ? ` by ${detail.review_decided_by}` : ''}
               {detail.review_reason ? ` — "${detail.review_reason}"` : ''}
             </div>
           ) : detail.status !== 'awaiting_review' ? (
-            <p className="text-[12px] text-wb-ink2">
+            <p className="text-wb-label text-wb-ink2">
               Not yet ready for review — still in the processing pipeline ({detail.status}).
             </p>
           ) : reasonFor ? (
@@ -175,7 +175,7 @@ export function DocumentDetail({
                 <button
                   disabled={!reasonDraft.trim() || acting === detail.id}
                   onClick={() => onDecide(detail.id, reasonFor, reasonDraft.trim())}
-                  className="flex-1 rounded border border-wb-crit/60 bg-wb-crit/10 px-3 py-1.5 text-[12px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/20 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex-1 rounded border border-wb-crit/60 bg-wb-crit/10 px-3 py-1.5 text-wb-label uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/20 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {acting === detail.id ? 'Working…' : `Confirm ${DECISION_LABELS[reasonFor]}`}
                 </button>
@@ -184,7 +184,7 @@ export function DocumentDetail({
                     onSetReasonFor(null);
                     onSetReasonDraft('');
                   }}
-                  className="rounded border border-wb-line px-3 py-1.5 text-[12px] uppercase tracking-[0.15em] text-wb-ink2 hover:text-wb-ink transition-colors"
+                  className="rounded border border-wb-line px-3 py-1.5 text-wb-label uppercase tracking-[0.15em] text-wb-ink2 hover:text-wb-ink transition-colors"
                 >
                   Cancel
                 </button>
@@ -193,12 +193,12 @@ export function DocumentDetail({
           ) : (
             <div className="flex flex-col gap-1.5">
               {detail.review_status === 'awaiting_followup' && (
-                <div className="rounded border border-wb-warn/40 bg-wb-warn/10 px-3 py-2 text-[12px] text-wb-warn-on">
+                <div className="rounded border border-wb-warn/40 bg-wb-warn/10 px-3 py-2 text-wb-label text-wb-warn-on">
                   Awaiting follow-up — previously marked &ldquo;Needs Review&rdquo;
                   {detail.review_reason ? `: "${detail.review_reason}"` : ''}. Choose a decision below to resolve it.
                 </div>
               )}
-              <p className="mb-1 text-[12px] text-wb-ink2">
+              <p className="mb-1 text-wb-label text-wb-ink2">
                 Approve writes {detail.summary ? 'the summary above' : `a metadata-only stub ("${detail.filename}")`} as
                 the memory content, plus full chunk/embedding copy either way — same searchable content regardless of
                 which Approve button, only the readable text differs. Approve — Metadata Only always uses the stub,
@@ -207,14 +207,14 @@ export function DocumentDetail({
               <button
                 disabled={acting === detail.id}
                 onClick={() => onDecide(detail.id, 'approved_chunks')}
-                className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-[12px] uppercase tracking-[0.15em] text-wb-ok-on hover:bg-wb-ok/20 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-wb-label uppercase tracking-[0.15em] text-wb-ok-on hover:bg-wb-ok/20 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Approve
               </button>
               <button
                 disabled={acting === detail.id}
                 onClick={() => onDecide(detail.id, 'approved_metadata')}
-                className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-[12px] uppercase tracking-[0.15em] text-wb-ok-on hover:bg-wb-ok/20 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded border border-wb-ok/60 bg-wb-ok/10 px-3 py-1.5 text-wb-label uppercase tracking-[0.15em] text-wb-ok-on hover:bg-wb-ok/20 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {DECISION_LABELS.approved_metadata}
               </button>
@@ -222,14 +222,14 @@ export function DocumentDetail({
                 <button
                   disabled={acting === detail.id}
                   onClick={() => onSetReasonFor('needs_review')}
-                  className="flex-1 rounded border border-wb-warn/40 bg-wb-warn/5 px-3 py-1.5 text-[12px] uppercase tracking-[0.15em] text-wb-warn-on hover:bg-wb-warn/10 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex-1 rounded border border-wb-warn/40 bg-wb-warn/5 px-3 py-1.5 text-wb-label uppercase tracking-[0.15em] text-wb-warn-on hover:bg-wb-warn/10 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Needs Review
                 </button>
                 <button
                   disabled={acting === detail.id}
                   onClick={() => onSetReasonFor('rejected')}
-                  className="flex-1 rounded border border-wb-crit/40 bg-wb-crit/5 px-3 py-1.5 text-[12px] uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/10 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex-1 rounded border border-wb-crit/40 bg-wb-crit/5 px-3 py-1.5 text-wb-label uppercase tracking-[0.15em] text-wb-crit-on hover:bg-wb-crit/10 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Reject
                 </button>
@@ -239,12 +239,12 @@ export function DocumentDetail({
 
           {detail.review_history && detail.review_history.length > 0 && (
             <details className="text-xs">
-              <summary className="cursor-pointer text-[12px] uppercase tracking-[0.2em] text-wb-ink2">
+              <summary className="cursor-pointer text-wb-label uppercase tracking-[0.2em] text-wb-ink2">
                 Review history ({detail.review_history.length})
               </summary>
               <ul className="mt-2 flex flex-col gap-1.5">
                 {detail.review_history.map((h, i) => (
-                  <li key={i} className="rounded border border-wb-line bg-wb-surface-raised/60 p-2 text-[12px] text-wb-ink2">
+                  <li key={i} className="rounded border border-wb-line bg-wb-surface-raised/60 p-2 text-wb-label text-wb-ink2">
                     {DECISION_LABELS[h.decision]} by {h.decided_by} — {new Date(h.at).toLocaleString()}
                     {h.reason ? ` — "${h.reason}"` : ''}
                   </li>

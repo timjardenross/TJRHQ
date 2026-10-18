@@ -58,7 +58,7 @@ export function CommandStatus({
           <div className="flex items-baseline gap-3">
             <span className={`text-2xl font-bold ${toneClasses.text}`}>{posture.headline}</span>
             {status.hasUrgentException && (
-              <span className={`rounded-full ${stateToneClasses('crit').bg} px-2 py-0.5 text-[12px] font-semibold ${stateToneClasses('crit').on}`}>
+              <span className={`rounded-full ${stateToneClasses('crit').bg} px-2 py-0.5 text-wb-label font-semibold ${stateToneClasses('crit').on}`}>
                 Needs attention now
               </span>
             )}
@@ -66,10 +66,10 @@ export function CommandStatus({
           <p className="text-sm leading-relaxed text-wb-ink">{posture.explanation}</p>
 
           <details className="group">
-            <summary className="cursor-pointer text-[12.5px] font-medium text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
+            <summary className="cursor-pointer text-wb-label font-medium text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep">
               Why?
             </summary>
-            <div className="mt-2 grid grid-cols-1 gap-1.5 rounded-lg border border-wb-line bg-wb-surface-raised p-3 text-[12.5px] sm:grid-cols-2">
+            <div className="mt-2 grid grid-cols-1 gap-1.5 rounded-lg border border-wb-line bg-wb-surface-raised p-3 text-wb-label sm:grid-cols-2">
               <p className="text-wb-ink2"><span className="font-semibold text-wb-ink">Human Systems:</span> {status.personalLine}</p>
               <p className="text-wb-ink2"><span className="font-semibold text-wb-ink">Environment:</span> {status.environmentLine}</p>
             </div>
@@ -82,7 +82,7 @@ export function CommandStatus({
                 <Link
                   key={s.label}
                   href={s.href}
-                  className={`rounded-full border ${c.border} ${c.bg} px-2.5 py-1 text-[12px] font-medium ${c.text} transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep`}
+                  className={`rounded-full border ${c.border} ${c.bg} px-2.5 py-1 text-wb-label font-medium ${c.text} transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep`}
                 >
                   {s.label}: {s.value}
                 </Link>

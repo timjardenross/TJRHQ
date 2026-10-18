@@ -300,7 +300,7 @@ export function DecomposeView({
         <PickUpBanner tasks={pickUp} onResume={resumePickUp} />
       )}
       {existingTask && stage === 'input' && (
-        <p className="text-[12px] uppercase tracking-wide text-wb-sage-deep">
+        <p className="text-wb-label uppercase tracking-wide text-wb-sage-deep">
           Helping you start &ldquo;{existingTask.title}&rdquo; — from your Needs You list
         </p>
       )}
@@ -315,7 +315,7 @@ export function DecomposeView({
           disabled={stage === 'thinking'}
         />
         {stage === 'input' && (
-          <p className="mt-1 text-[12px] text-wb-ink2">e.g. {EXAMPLES.join(' · ')}</p>
+          <p className="mt-1 text-wb-label text-wb-ink2">e.g. {EXAMPLES.join(' · ')}</p>
         )}
       </div>
 
@@ -324,16 +324,16 @@ export function DecomposeView({
       )}
 
       {stage === 'thinking' && (
-        <p className="text-[13px] text-wb-ink2">Finding a tiny first step…</p>
+        <p className="text-wb-body text-wb-ink2">Finding a tiny first step…</p>
       )}
 
       {stage === 'result' && regulateSuggestion && (
         <div className="flex flex-col gap-3 rounded-md border border-wb-sage/40 bg-wb-sage/10 p-4">
-          <p className="text-[13px] text-wb-ink">{regulateSuggestion}</p>
+          <p className="text-wb-body text-wb-ink">{regulateSuggestion}</p>
           <div className="flex flex-wrap gap-2">
             <a
               href="/human-systems-workbench?domain=recovery"
-              className="inline-flex items-center rounded-md border border-wb-line bg-wb-surface px-3 py-1.5 text-[13px] text-wb-ink hover:bg-wb-surface-raised"
+              className="inline-flex items-center rounded-md border border-wb-line bg-wb-surface px-3 py-1.5 text-wb-body text-wb-ink hover:bg-wb-surface-raised"
             >
               Take a break instead
             </a>
@@ -355,10 +355,10 @@ export function DecomposeView({
 
       {stage === 'result' && !regulateSuggestion && !clarifyQuestion && (
         <div className="flex flex-col gap-4 rounded-md border border-wb-line bg-wb-surface p-4">
-          {decomposeError && <p className="text-[12px] text-wb-warn-on">{decomposeError}</p>}
+          {decomposeError && <p className="text-wb-label text-wb-warn-on">{decomposeError}</p>}
 
           <div>
-            <p className="text-[12px] uppercase tracking-wide text-wb-sage-deep">Start here</p>
+            <p className="text-wb-label uppercase tracking-wide text-wb-sage-deep">Start here</p>
             <Textarea rows={2} value={microAction} onChange={(e) => setMicroAction(e.target.value)} />
           </div>
 
@@ -402,7 +402,7 @@ export function DecomposeView({
           {smallerCount >= 2 && !showMissionPrompt && (
             <button
               type="button"
-              className="self-start text-[12px] text-wb-ink2 underline-offset-2 hover:underline"
+              className="self-start text-wb-label text-wb-ink2 underline-offset-2 hover:underline"
               onClick={() => setShowMissionPrompt(true)}
             >
               This looks bigger than a task
@@ -410,7 +410,7 @@ export function DecomposeView({
           )}
           {showMissionPrompt && (
             <div className="rounded-md border border-wb-line bg-wb-bg p-3">
-              <p className="text-[13px] text-wb-ink">This looks bigger than a task.</p>
+              <p className="text-wb-body text-wb-ink">This looks bigger than a task.</p>
               <div className="mt-2 flex gap-2">
                 <Button size="sm" onClick={turnIntoMission} disabled={busy}>Turn into a Mission</Button>
                 <Button size="sm" variant="ghost" onClick={() => setShowMissionPrompt(false)}>Keep it simple</Button>
@@ -439,7 +439,7 @@ function ClarifyPrompt({
   const [answer, setAnswer] = useState('');
   return (
     <div className="flex flex-col gap-3 rounded-md border border-wb-line bg-wb-surface p-4">
-      <p className="text-[13px] text-wb-ink">{question}</p>
+      <p className="text-wb-body text-wb-ink">{question}</p>
       <Textarea rows={2} value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="One or two words is fine" />
       <div className="flex flex-wrap gap-2">
         <Button disabled={!answer.trim() || busy} onClick={() => onAnswer(answer)}>Continue</Button>

@@ -211,7 +211,7 @@ export function OpportunityDetail({
                 <span className="text-wb-ink2"> ({IMPLEMENTATION_SOURCE_LABEL[outcome.implementation_source]})</span>
               )}
             </div>
-            <Badge status={toneToStatus(outcomeResultToTone(outcome.outcome_result))} className="text-[12px] px-3 py-1">
+            <Badge status={toneToStatus(outcomeResultToTone(outcome.outcome_result))} className="text-wb-label px-3 py-1">
               {OUTCOME_RESULT_LABEL[outcome.outcome_result as string] ?? outcome.outcome_result}
             </Badge>
           </div>

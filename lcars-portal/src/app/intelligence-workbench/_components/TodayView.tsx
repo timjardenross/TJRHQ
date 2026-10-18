@@ -32,7 +32,7 @@ function DevelopmentCard({ item, tone }: { item: Development; tone: 'needs-you' 
   const border = tone === 'needs-you' ? 'border-wb-crit/40 bg-wb-crit/5' : 'border-wb-line bg-wb-surface';
   return (
     <div className={`space-y-1.5 rounded-xl border p-4 ${border}`}>
-      <p className="text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">
+      <p className="text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">
         {tone === 'needs-you' ? 'Needs you' : 'Worth knowing'}
       </p>
       {item.canonical_url ? (
@@ -40,27 +40,27 @@ function DevelopmentCard({ item, tone }: { item: Development; tone: 'needs-you' 
           href={item.canonical_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="block text-[14px] font-medium leading-snug text-wb-ink underline decoration-dotted hover:text-wb-sage-deep"
+          className="block text-wb-body font-medium leading-snug text-wb-ink underline decoration-dotted hover:text-wb-sage-deep"
         >
           {item.title}
         </a>
       ) : (
-        <p className="text-[14px] font-medium leading-snug text-wb-ink">{item.title}</p>
+        <p className="text-wb-body font-medium leading-snug text-wb-ink">{item.title}</p>
       )}
       {item.published_at && (
-        <p className="text-[12px] text-wb-ink2">{new Date(item.published_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+        <p className="text-wb-label text-wb-ink2">{new Date(item.published_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</p>
       )}
-      <p className="text-[12.5px] text-wb-ink2">{item.what_happened}</p>
-      <p className="text-[12.5px] text-wb-ink2">{item.why_you_care}</p>
-      <p className="text-[12px] italic text-wb-ink2">{item.assessment}</p>
-      <p className="text-[12.5px] font-medium text-wb-ink">{item.you_need_to}</p>
+      <p className="text-wb-label text-wb-ink2">{item.what_happened}</p>
+      <p className="text-wb-label text-wb-ink2">{item.why_you_care}</p>
+      <p className="text-wb-label italic text-wb-ink2">{item.assessment}</p>
+      <p className="text-wb-label font-medium text-wb-ink">{item.you_need_to}</p>
       <EvidenceMeta observedAt={item.published_at} confidence={item.confidence_level} />
       <div className="flex flex-wrap items-center gap-2 pt-1">
         {item.confidence_level && (
           <Badge status={riskToStatus(item.confidence_level)}>{item.confidence_level} confidence</Badge>
         )}
         {item.canonical_url && (
-          <a href={item.canonical_url} target="_blank" rel="noopener noreferrer" className="inline-block text-[12px] text-wb-sage-deep hover:underline">
+          <a href={item.canonical_url} target="_blank" rel="noopener noreferrer" className="inline-block text-wb-label text-wb-sage-deep hover:underline">
             Why it matters →
           </a>
         )}
@@ -86,7 +86,7 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
       .finally(() => { if (alive()) setLoading(false); });
   }, []);
 
-  if (loading) return <p className="text-[13px] text-wb-ink2">Loading today&apos;s briefing…</p>;
+  if (loading) return <p className="text-wb-body text-wb-ink2">Loading today&apos;s briefing…</p>;
   if (error) return (
     <DataAvailabilityNotice sources={[`Technical OSINT: ${error}`]} />
   );
@@ -102,13 +102,13 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
           conflated with "no data available" (mission §25: clear/empty/
           unavailable/loading are distinct states, this is the "clear" one). */}
       <div className="rounded-xl border border-wb-line bg-wb-surface p-4">
-        <p className="text-[15px] font-medium text-wb-ink">
+        <p className="text-wb-lead font-medium text-wb-ink">
           {needsYou.length === 0
             ? 'ALL CLEAR — nothing currently requires your attention.'
             : `${needsYou.length} development${needsYou.length === 1 ? '' : 's'} need${needsYou.length === 1 ? 's' : ''} your attention.`}
         </p>
         {worthKnowing.length > 0 && needsYou.length === 0 && (
-          <p className="mt-1 text-[13px] text-wb-ink2">
+          <p className="mt-1 text-wb-body text-wb-ink2">
             {worthKnowing.length} development{worthKnowing.length === 1 ? ' is' : 's are'} worth knowing about — no action needed.
           </p>
         )}
@@ -116,7 +116,7 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
 
       {needsYou.length > 0 && (
         <div>
-          <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">Needs you</p>
+          <p className="mb-2 text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">Needs you</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {needsYou.map((d) => <DevelopmentCard key={d.event_id} item={d} tone="needs-you" />)}
           </div>
@@ -125,7 +125,7 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
 
       {worthKnowing.length > 0 && (
         <div>
-          <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">Worth knowing</p>
+          <p className="mb-2 text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">Worth knowing</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {worthKnowing.map((d) => <DevelopmentCard key={d.event_id} item={d} tone="worth-knowing" />)}
           </div>
@@ -133,11 +133,11 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
       )}
 
       {needsYou.length === 0 && worthKnowing.length === 0 && (
-        <p className="text-[13px] text-wb-ink2">Nothing worth knowing about in the last 7 days.</p>
+        <p className="text-wb-body text-wb-ink2">Nothing worth knowing about in the last 7 days.</p>
       )}
 
       {/* Watching summary — count only, never a raw item dump (mission §18). */}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-wb-line bg-wb-surface p-4 text-[13px] text-wb-ink2">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-wb-line bg-wb-surface p-4 text-wb-body text-wb-ink2">
         <span>
           {data.watching_count > 0
             ? `${data.watching_count} development${data.watching_count === 1 ? ' is' : 's are'} being monitored automatically. Nothing required from you.`
@@ -148,10 +148,10 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
 
       {/* What we don't know yet. */}
       <div className="rounded-xl border border-wb-line bg-wb-surface p-4">
-        <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-wb-ink2">What we don&apos;t know yet</p>
+        <p className="mb-2 text-wb-label font-semibold uppercase tracking-wide text-wb-ink2">What we don&apos;t know yet</p>
         <div className="space-y-2">
           {unknowns.map((u) => (
-            <div key={u.title} className="text-[12.5px] text-wb-ink2">
+            <div key={u.title} className="text-wb-label text-wb-ink2">
               <span className="font-medium text-wb-ink">{u.title}:</span> {u.impact}
               {u.need && <span className="italic"> — need: {u.need}</span>}
             </div>
@@ -162,7 +162,7 @@ export function TodayView({ onOpenWatching, onOpenTechnical }: Props) {
       <button
         type="button"
         onClick={onOpenTechnical}
-        className="text-[12px] text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+        className="text-wb-label text-wb-ink2 underline decoration-dotted hover:text-wb-sage-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
       >
         Technical view (analyst console) →
       </button>
