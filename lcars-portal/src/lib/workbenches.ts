@@ -90,7 +90,6 @@ export interface WorkbenchEntry {
 
 export const PRIMARY_ACTIONS: Record<string, PrimaryActionContract> = {
   '/hub': { label: 'Open Captain’s Chair', href: '/captains-chair-workbench' },
-  '/focus-workbench': { label: 'Start a focus session', href: '/focus-workbench' },
   '/captains-chair-workbench': { label: 'Review what needs you', href: '/captains-chair-workbench' },
   '/capture-workbench': { label: 'Capture an item', href: '/capture-workbench' },
   '/mission-workbench': { label: 'Review missions', href: '/mission-workbench' },
@@ -100,7 +99,6 @@ export const PRIMARY_ACTIONS: Record<string, PrimaryActionContract> = {
   '/health-osint': { label: 'Review health evidence', href: '/health-osint' },
   '/emergency-alert-hub-workbench': { label: 'Check active alerts', href: '/emergency-alert-hub-workbench' },
   '/human-systems-workbench': { label: 'Check current capacity', href: '/human-systems-workbench' },
-  '/physical-readiness': { label: 'Review movement record', href: '/physical-readiness' },
   '/shopping-list-workbench': { label: 'Review shopping list', href: '/shopping-list-workbench' },
   '/content-workbench': { label: 'Review content queue', href: '/content-workbench' },
   '/advisory-workbench': { label: 'Start a decision', href: '/advisory-workbench' },
@@ -118,13 +116,6 @@ export const PRIMARY_ACTIONS: Record<string, PrimaryActionContract> = {
 // pipelines, then the archive, then platform-ops/meta last (2026-08-31 —
 // switcher/hub order previously had no discernible grouping).
 export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
-  {
-    href: '/focus-workbench',
-    title: 'Focus',
-    description: 'ADHD-friendly execution — one next step, a clear time-box, and a calm way back when you get stuck.',
-    icon: Timer,
-    group: 'personal',
-  },
   {
     href: '/hub',
     title: 'LifeOS Hub',
@@ -193,13 +184,6 @@ export const LIVE_WORKBENCHES: WorkbenchEntry[] = [
     title: 'Human Systems',
     description: "Personal capacity intelligence — understand your current state, what's consuming capacity, what appears to help, and what may need to change.",
     icon: Users,
-    group: 'personal',
-  },
-  {
-    href: '/physical-readiness',
-    title: 'Physical Readiness',
-    description: 'Exercise library and workout history — a read-only record of what you\'ve done. Session generation and readiness check-in were retired (Captain directive, 2026-08-10/11); Recovery Pulse is the single source for capacity/stats now.',
-    icon: Dumbbell,
     group: 'personal',
   },
   {

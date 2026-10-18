@@ -6,7 +6,6 @@
 
 | Route | Title | Description |
 |---|---|---|
-| `/focus-workbench` | Focus Workbench | ADHD-friendly execution — one next step, a clear time-box, and a calm way back when you get stuck. |
 | `/hub` | LifeOS Hub | Always-on glance view — situation strip, live alerts, calendar, reminders, and today\ |
 | `/capture-workbench` | Capture Workbench | Quick capture and inbox triage — everything that comes in via Telegram/Slack/API, live, in one place. |
 | `/mission-workbench` | Mission Workbench | Every active and completed mission — capacity-cost aware, filtered by what fits today\ |
