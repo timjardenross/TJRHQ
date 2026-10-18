@@ -56,7 +56,7 @@ export function RecommendationCard({
           <p className={`text-sm font-semibold leading-snug ${compact ? 'text-wb-sage-deep' : 'text-wb-ink'}`}>
             {recommendation.action}
           </p>
-          {!compact && recommendation.why && <p className="text-[12px] text-wb-ink/70">{recommendation.why}</p>}
+          {!compact && recommendation.why && <p className="text-[12px] text-wb-ink">{recommendation.why}</p>}
           {compact ? (
             <p className="text-[12px] text-wb-ink2">
               {recommendation.sourceOfficer} · {recommendation.confidence}
@@ -74,7 +74,7 @@ export function RecommendationCard({
               </summary>
               <ul className="mt-1 flex flex-col gap-0.5 pl-3">
                 {recommendation.evidence.map((e, i) => (
-                  <li key={i} className="list-disc text-wb-ink/70">{e}</li>
+                  <li key={i} className="list-disc text-wb-ink">{e}</li>
                 ))}
               </ul>
             </details>

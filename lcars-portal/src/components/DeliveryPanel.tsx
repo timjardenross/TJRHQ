@@ -76,10 +76,10 @@ export function DeliveryPanel() {
         ) : (
           <ul className="mt-1 flex flex-col gap-1">
             {bottlenecks.slice(0, 6).map((b, i) => (
-              <li key={i} className="flex items-center gap-2 text-xs text-wb-ink/85">
+              <li key={i} className="flex items-center gap-2 text-xs text-wb-ink">
                 <Badge status={toneToStatus(deliverySeverityToTone(b.severity))}>{b.severity}</Badge>
                 <span className="font-semibold">{b.title}</span>
-                <span className="text-wb-ink/60">— {b.detail}</span>
+                <span className="text-wb-ink">— {b.detail}</span>
               </li>
             ))}
           </ul>
@@ -103,7 +103,7 @@ export function DeliveryPanel() {
         {tower.topRisks.length > 0 && (
           <ul className="mt-2 flex flex-col gap-1">
             {tower.topRisks.slice(0, 4).map((r, i) => (
-              <li key={i} className="flex items-center gap-2 text-xs text-wb-ink/80">
+              <li key={i} className="flex items-center gap-2 text-xs text-wb-ink">
                 <StatusBadge label={String(r.score)} stateTone={r.level === 'high' ? 'crit' : r.level === 'medium' ? 'warn' : 'ok'} />
                 <span>{r.title}</span>
               </li>

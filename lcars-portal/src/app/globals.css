@@ -50,10 +50,10 @@
 
    Supported text pairings (all guarded): ink, ink2, sage and sand-deep on
    bg, surface and surface-raised in BOTH sets; sage-deep as text on the
-   light set only. Not text colours, by design: `--wb-sage-deep` in the dark
-   set (fill-only on dark, with white text on top) and the status `-on`
-   colours (light-surface-only text, so status pills are not supported under
-   a dark scope; fix before any page opts into mode="dark").
+   light set only; the status `-on` text shades on their pills' tints in both
+   sets. Not a text colour, by design: `--wb-sage-deep` in the dark set
+   (fill-only on dark, with white text on top). Opacity modifiers on token
+   classes (`bg-wb-crit/10`) work (tailwind.config.ts `withAlpha`).
    `--wb-ok/--wb-warn/--wb-crit` and state-* stay theme-invariant, with
    mandatory bg/border-paired `-on` usage per `stateToneClasses()`
    (lib/departments.ts). */
@@ -91,6 +91,16 @@
   --wb-sage-deep: #416B8C;
   --wb-sand: #D7C5AE;
   --wb-sand-deep: #D7C5AE;
+  /* Status text shades for dark surfaces (each passes 4.5:1 on the pill's
+     10 to 15% tint over bg, surface and raised; see tokenContrast.test.ts). */
+  --wb-ok-on: #8FD19E;
+  --wb-warn-on: #F0C27A;
+  --wb-crit-on: #F5A3A3;
+  --state-ok-on: #8FD19E;
+  --state-warn-on: #F0C27A;
+  --state-crit-on: #F5A3A3;
+  --state-unknown-on: #BCC5EA;
+  --state-info-on: #8FD6D6;
 }
 
 /* Read mode: reading typography only (see `.wb-mode-read` rules); colours
@@ -112,6 +122,15 @@
   --wb-warn-on: #8A5A1B;
   --wb-crit-on: #A23A34;
   --wb-crit-deep: #8a2f2a;
+
+  /* Operational state colours (state-* in tailwind.config.ts). DEFAULT and
+     soft are theme-invariant fills; the `on` text shade is overridden in the
+     dark scope below so status pills stay legible on dark surfaces. */
+  --state-ok: #278A44;      --state-ok-soft: #cfe8d5;      --state-ok-on: #1B5E20;
+  --state-warn: #9C5D10;    --state-warn-soft: #f0ddc4;    --state-warn-on: #7A4610;
+  --state-crit: #C43030;    --state-crit-soft: #f8dcdc;    --state-crit-on: #7A1616;
+  --state-unknown: #5A6690; --state-unknown-soft: #dfe2ee; --state-unknown-on: #33395C;
+  --state-info: #2E8B8B;    --state-info-soft: #d6ebeb;    --state-info-on: #0F5B5D;
 
   /* Compatibility aliases for the remaining pre-Endeavour primitives.
      Consumers can migrate incrementally without reintroducing a second

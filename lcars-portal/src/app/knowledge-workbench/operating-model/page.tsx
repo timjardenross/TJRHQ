@@ -207,7 +207,7 @@ export default function OperatingModelPage() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <div>
               <div className="mb-3 text-xs uppercase tracking-widest text-wb-ink2">
-                Operating Envelope <span className="normal-case tracking-normal text-wb-ink2/60">· reference</span>
+                Operating Envelope <span className="normal-case tracking-normal text-wb-ink2">· reference</span>
               </div>
               <ul className="space-y-2">
                 {SCHEDULE.map((s) => (
@@ -221,7 +221,7 @@ export default function OperatingModelPage() {
 
             <div>
               <div className="mb-3 text-xs uppercase tracking-widest text-wb-ink2">
-                Last Capacity Check-in <span className="normal-case tracking-normal text-wb-ink2/60">· live</span>
+                Last Capacity Check-in <span className="normal-case tracking-normal text-wb-ink2">· live</span>
               </div>
               {loading ? (
                 <div className="text-sm text-wb-ink2">Loading…</div>

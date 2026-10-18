@@ -170,7 +170,7 @@ export function EvidencePanel({
           <p className="mb-1 text-[12px] uppercase tracking-widest text-wb-sage-deep">Historical Evidence</p>
           <ul className="space-y-1">
             {historicalEvidence!.map((e, i) => (
-              <li key={i} className="text-xs text-wb-ink/80">
+              <li key={i} className="text-xs text-wb-ink">
                 <span className="text-wb-ink">{e.reference}</span>
                 {typeof e.outcome_score === 'number' && <span className="text-wb-ink2"> ({Math.round(e.outcome_score * 100)}%)</span>}
                 {' '}— {e.detail}
@@ -184,7 +184,7 @@ export function EvidencePanel({
           <p className="mb-1 text-[12px] uppercase tracking-widest text-wb-sage-deep">Recommendation Engine</p>
           <ul className="space-y-1">
             {recommendations!.recommendations.slice(0, 3).map((r) => (
-              <li key={r.mission_id} className="text-xs text-wb-ink/80">
+              <li key={r.mission_id} className="text-xs text-wb-ink">
                 <span className="text-wb-ink">{r.title}</span>{' '}
                 <span className="text-wb-ink2">({r.mission_id})</span> — {r.reason}
               </li>
@@ -197,11 +197,11 @@ export function EvidencePanel({
           <p className="mb-1 text-[12px] uppercase tracking-widest text-wb-sage-deep">
             Investigation Engine — {investigation.label}
           </p>
-          <p className="text-xs text-wb-ink/80">{investigation.triggerDescription}</p>
+          <p className="text-xs text-wb-ink">{investigation.triggerDescription}</p>
           {investigation.decisionOptions.length > 0 && (
             <ul className="mt-1 space-y-1">
               {investigation.decisionOptions.map((opt) => (
-                <li key={opt.id} className="text-xs text-wb-ink/70">{opt.label}</li>
+                <li key={opt.id} className="text-xs text-wb-ink">{opt.label}</li>
               ))}
             </ul>
           )}
@@ -242,7 +242,7 @@ export function ThinkResult({ data }: { data: AdvisoryResult }) {
           <span aria-hidden className="mt-0.5 text-xs font-bold text-wb-warn-on">▲</span>
           <div>
             <p className="text-xs font-semibold text-wb-warn-on">Limited advisory</p>
-            <p className="mt-0.5 text-xs text-wb-warn-on/90">
+            <p className="mt-0.5 text-xs text-wb-warn-on">
               Live specialist reasoning was unavailable. This response is based on available historical evidence only.
             </p>
           </div>
@@ -259,13 +259,13 @@ export function ThinkResult({ data }: { data: AdvisoryResult }) {
         <ResultSection label="Why">
           <ul className="space-y-1.5">
             {evidence.slice(0, 3).map((e, i) => (
-              <li key={`e-${i}`} className="flex gap-2 text-wb-ink/85">
+              <li key={`e-${i}`} className="flex gap-2 text-wb-ink">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-sage-deep" />
                 <span>{e.detail}{typeof e.outcome_score === 'number' ? ` (${Math.round(e.outcome_score * 100)}% historical outcome)` : ''}</span>
               </li>
             ))}
             {lessons.slice(0, 2).map((l, i) => (
-              <li key={`l-${i}`} className="flex gap-2 text-wb-ink/85">
+              <li key={`l-${i}`} className="flex gap-2 text-wb-ink">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-sage-deep" />
                 <span><span className="text-wb-ink">{l.title}</span>{l.guidance ? ` — ${l.guidance}` : ''}</span>
               </li>
@@ -278,13 +278,13 @@ export function ThinkResult({ data }: { data: AdvisoryResult }) {
         <ResultSection label="What I'd Challenge">
           <ul className="space-y-1.5">
             {data.disagreement && (
-              <li className="flex gap-2 text-wb-ink/85">
+              <li className="flex gap-2 text-wb-ink">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-crit" />
                 <span>{data.disagreement}</span>
               </li>
             )}
             {risks.map((r, i) => (
-              <li key={i} className="flex gap-2 text-wb-ink/85">
+              <li key={i} className="flex gap-2 text-wb-ink">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-sage-deep" />
                 {String(r)}
               </li>
@@ -297,7 +297,7 @@ export function ThinkResult({ data }: { data: AdvisoryResult }) {
         <ResultSection label="What's Uncertain">
           <ul className="space-y-1.5">
             {uncertainties.map((u, i) => (
-              <li key={i} className="flex gap-2 text-wb-ink/85">
+              <li key={i} className="flex gap-2 text-wb-ink">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-wb-warn" />
                 {u}
               </li>
@@ -379,7 +379,7 @@ export function PullApartReasoning({
                   <p className={`text-[12px] font-semibold uppercase tracking-wider ${accentClass}`}>{op.officer}</p>
                   {stance && <span className={`text-[12px] uppercase tracking-widest ${stanceColor}`}>{stance}</span>}
                 </div>
-                <p className="text-sm leading-relaxed text-wb-ink/85">{op.recommendation}</p>
+                <p className="text-sm leading-relaxed text-wb-ink">{op.recommendation}</p>
                 {op.confidence !== undefined && <p className="text-[12px] text-wb-ink2">Confidence: {op.confidence}%</p>}
               </div>
             );

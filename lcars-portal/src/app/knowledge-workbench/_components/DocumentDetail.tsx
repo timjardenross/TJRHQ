@@ -137,7 +137,7 @@ export function DocumentDetail({
               </summary>
               <ul className="mt-2 flex flex-col gap-2">
                 {chunkPreview.map((c) => (
-                  <li key={c.id} className="rounded border border-wb-line bg-wb-surface-2/60 p-2 text-[12px] text-wb-ink2">
+                  <li key={c.id} className="rounded border border-wb-line bg-wb-surface-raised/60 p-2 text-[12px] text-wb-ink2">
                     #{c.chunk_index}: {c.chunk_text.slice(0, 160)}
                     {c.chunk_text.length > 160 ? '…' : ''}
                   </li>
@@ -153,7 +153,7 @@ export function DocumentDetail({
           )}
 
           {detail.review_status === 'resolved' || detail.review_status === 'rejected' ? (
-            <div className="rounded border border-wb-line bg-wb-surface-2/60 px-3 py-2 text-[12px] text-wb-ink2">
+            <div className="rounded border border-wb-line bg-wb-surface-raised/60 px-3 py-2 text-[12px] text-wb-ink2">
               {REVIEW_STATUS_LABELS[detail.review_status]}: {detail.review_decision ? DECISION_LABELS[detail.review_decision] : '—'}
               {detail.review_decided_by ? ` by ${detail.review_decided_by}` : ''}
               {detail.review_reason ? ` — "${detail.review_reason}"` : ''}
@@ -244,7 +244,7 @@ export function DocumentDetail({
               </summary>
               <ul className="mt-2 flex flex-col gap-1.5">
                 {detail.review_history.map((h, i) => (
-                  <li key={i} className="rounded border border-wb-line bg-wb-surface-2/60 p-2 text-[12px] text-wb-ink2">
+                  <li key={i} className="rounded border border-wb-line bg-wb-surface-raised/60 p-2 text-[12px] text-wb-ink2">
                     {DECISION_LABELS[h.decision]} by {h.decided_by} — {new Date(h.at).toLocaleString()}
                     {h.reason ? ` — "${h.reason}"` : ''}
                   </li>

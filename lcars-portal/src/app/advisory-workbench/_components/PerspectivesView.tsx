@@ -257,7 +257,7 @@ export function PerspectivesView() {
             {log.map((s) => (
               <div key={s.id} className="space-y-1 border-b border-wb-line pb-2 last:border-0">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="flex-1 text-xs text-wb-ink/80">{s.question}</p>
+                  <p className="flex-1 text-xs text-wb-ink">{s.question}</p>
                   <button onClick={() => { setInput(s.question); setShowLog(false); }} className="shrink-0 text-[12px] uppercase tracking-widest text-wb-sage-deep hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-sage-deep">Re-ask</button>
                 </div>
                 <p className="text-[12px] text-wb-ink2">{new Date(s.ts).toLocaleString()} · {s.responses.map((r) => r.label).join(', ')}</p>

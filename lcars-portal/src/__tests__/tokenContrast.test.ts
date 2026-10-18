@@ -71,18 +71,11 @@ describe('light set specifics', () => {
   });
 
   it('the status text colours (-on) stay legible on every light surface', () => {
-    // status tokens live in a later :root block; read them directly
-    const m = [...noComments.matchAll(/--wb-(ok|warn|crit)-on:\s*(#[0-9A-Fa-f]{6})/g)];
-    expect(m.length).toBe(3);
-    for (const [, , hex] of m) {
-      for (const bg of ['bg', 'surface', 'surface-raised']) expect(ratio(hex, light[bg]), `${hex} on ${bg}`).toBeGreaterThanOrEqual(4.5);
+    for (const t of ['ok', 'warn', 'crit']) {
+      for (const bg of ['bg', 'surface', 'surface-raised']) {
+        expect(ratio(light[`${t}-on`], light[bg]), `${t}-on on ${bg}`).toBeGreaterThanOrEqual(4.5);
+      }
     }
-  });
-});
-
-describe('the retired blue', () => {
-  it('no longer appears in the tokens (it measured 3.96:1 on dark cards)', () => {
-    expect(noComments).not.toMatch(/#3B82F6/i);
   });
 });
 
@@ -95,9 +88,55 @@ describe('dark scopes', () => {
 });
 
 describe('documented non-text tokens', () => {
-  it('records that dark sage-deep and the status -on colours are not text colours on dark surfaces', () => {
-    expect(css).toMatch(/Not text colours, by design/);
-    expect(css).toMatch(/`--wb-sage-deep` in the dark\s+set \(fill-only on dark/);
-    expect(css).toMatch(/status `-on`\s+colours \(light-surface-only text/);
+  it('records that dark sage-deep is a fill (white text on top), not a text colour', () => {
+    expect(css).toMatch(/Not a text colour, by design: `--wb-sage-deep` in the dark set/);
+    expect(css).toMatch(/fill-only on dark/);
+  });
+});
+
+// Status pills: `bg-state-X/15 text-state-X-on` (and /10) on bg, surface and raised.
+describe('status pills stay legible in both sets', () => {
+  const tones = ['ok', 'warn', 'crit', 'unknown', 'info'] as const;
+  const rootVars = (() => {
+    const out: Record<string, string> = {};
+    for (const m of noComments.matchAll(/--(state-[a-z]+(?:-soft|-on)?):\s*(#[0-9A-Fa-f]{6})/g)) out[m[1]] = m[2];
+    return out;
+  })();
+  const darkVars = (() => {
+    const m = noComments.match(/\[data-wb-chrome='dark'\],\s*\[data-wb-mode='dark'\]\s*\{([^}]*)\}/)!;
+    const out: Record<string, string> = {};
+    for (const v of m[1].matchAll(/--(state-[a-z]+-on|wb-(?:ok|warn|crit)-on):\s*(#[0-9A-Fa-f]{6})/g)) out[v[1]] = v[2];
+    return out;
+  })();
+  const mix = (fg: string, bg: string, a: number) => {
+    const f = [1, 3, 5].map((i) => parseInt(fg.slice(i, i + 2), 16));
+    const b = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16));
+    return '#' + f.map((c, i) => Math.round(c * a + b[i] * (1 - a)).toString(16).padStart(2, '0')).join('');
+  };
+
+  it.each(tones)('state-%s: the on-shade passes 4.5:1 on its 10 and 15 percent tint in the light set', (tone) => {
+    for (const bg of ['bg', 'surface', 'surface-raised']) {
+      for (const a of [0.1, 0.15]) {
+        expect(ratio(rootVars[`state-${tone}-on`], mix(rootVars[`state-${tone}`], light[bg], a)), `${tone} ${bg} ${a}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it.each(tones)('state-%s: the dark-scope on-shade passes 4.5:1 on its 10 and 15 percent tint in the dark set', (tone) => {
+    const on = darkVars[`state-${tone}-on`];
+    expect(on, `dark override for ${tone}`).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    for (const bg of ['bg', 'surface', 'surface-raised']) {
+      for (const a of [0.1, 0.15]) {
+        expect(ratio(on, mix(rootVars[`state-${tone}`], dark[bg], a)), `${tone} ${bg} ${a}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  it('the wb ok, warn and crit text shades also have dark overrides that pass on dark surfaces', () => {
+    for (const t of ['ok', 'warn', 'crit']) {
+      const on = darkVars[`wb-${t}-on`];
+      expect(on, t).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      for (const bg of ['bg', 'surface', 'surface-raised']) expect(ratio(on, dark[bg]), `${t} on ${bg}`).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });

@@ -1,6 +1,32 @@
 import type { Config } from 'tailwindcss';
 
 /**
+ * Opacity modifiers on token colours (design uplift Stage A2b).
+ *
+ * Every `var(--x)` colour below is rewritten to
+ * `color-mix(in srgb, var(--x) calc(<alpha-value> * 100%), transparent)`.
+ * Tailwind substitutes `<alpha-value>` with the modifier (`bg-wb-crit/10` ->
+ * 0.1) or 1 when there is none, so unmodified classes keep the exact same
+ * colour. Before this, plain `var(--x)` colours could not take a modifier, so
+ * about 437 classes in 104 files (`bg-wb-crit/10`, `border-wb-sage-deep/40`,
+ * `text-wb-ink2/70`, ...) silently generated no CSS. color-mix is already used
+ * by globals.css, so this adds no browser requirement.
+ */
+type ColorTree = { [key: string]: string | ColorTree };
+function withAlpha(tree: ColorTree): ColorTree {
+  const out: ColorTree = {};
+  for (const [key, value] of Object.entries(tree)) {
+    if (typeof value === 'string') {
+      const m = value.match(/^var\((--[a-z0-9-]+)\)$/);
+      out[key] = m ? `color-mix(in srgb, var(${m[1]}) calc(<alpha-value> * 100%), transparent)` : value;
+    } else {
+      out[key] = withAlpha(value);
+    }
+  }
+  return out;
+}
+
+/**
  * LCARS / Starfleet palette.
  *
  * Department colours are the mission-mandated set. Hex values are aligned
@@ -40,7 +66,7 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      colors: {
+      colors: withAlpha({
         // TJR family brand palette — fixed values, additive (Stage 0).
         brand: {
           navy: 'var(--brand-navy)',
@@ -138,23 +164,15 @@ const config: Config = {
         // theme, never guaranteed >=4.5:1 as bare text in every theme — see
         // stateToneClasses()'s own doc comment (lib/departments.ts) for the
         // mandatory pairing rule this requires of every consumer.
+        // Values live in globals.css (--state-*), so the `on` text shade can
+        // differ per surface (light set vs dark scope) while DEFAULT/soft stay
+        // theme-invariant fills. See the status block in globals.css.
         state: {
-          ok:      { DEFAULT: '#278A44', soft: '#cfe8d5', on: '#1B5E20' }, // Healthy / Operational
-          warn:    { DEFAULT: '#9C5D10', soft: '#f0ddc4', on: '#7A4610' }, // Warning / Attention Required
-          crit:    { DEFAULT: '#C43030', soft: '#f8dcdc', on: '#7A1616' }, // Critical / Action Required
-          unknown: { DEFAULT: '#5A6690', soft: '#dfe2ee', on: '#33395C' }, // Unknown / No Data
-          // Added 2026-08-29 (docs/Severity-Vocab-Canonicalization-Plan-
-          // 2026-08-29.md), merging in Badge's independent 'info' status.
-          // Reuses the exact hex values already shipped as wb-sage/
-          // wb-sage-deep (Badge's current info tone) rather than inventing
-          // a new hue, so this doesn't visually change anything already
-          // rendering — just gives the value a canonical home. DEFAULT
-          // computes to ~4.05:1 against white (passes the >=3:1 bar); on
-          // computes to ~7.85:1 against white (passes the >=4.5:1 bar) —
-          // computed here, not re-run through
-          // docs/design-tokens/PHASE-1A-CONTRAST-MATRIX.md's actual
-          // measurement method; re-verify there before treating as final.
-          info:    { DEFAULT: '#2E8B8B', soft: '#d6ebeb', on: '#0F5B5D' }, // Informational / Benign
+          ok:      { DEFAULT: 'var(--state-ok)',      soft: 'var(--state-ok-soft)',      on: 'var(--state-ok-on)' },      // Healthy / Operational
+          warn:    { DEFAULT: 'var(--state-warn)',    soft: 'var(--state-warn-soft)',    on: 'var(--state-warn-on)' },    // Warning / Attention Required
+          crit:    { DEFAULT: 'var(--state-crit)',    soft: 'var(--state-crit-soft)',    on: 'var(--state-crit-on)' },    // Critical / Action Required
+          unknown: { DEFAULT: 'var(--state-unknown)', soft: 'var(--state-unknown-soft)', on: 'var(--state-unknown-on)' }, // Unknown / No Data
+          info:    { DEFAULT: 'var(--state-info)',    soft: 'var(--state-info-soft)',    on: 'var(--state-info-on)' },    // Informational / Benign
         },
 
         // ── LCARS chrome / backgrounds — LCARS light palette ──────────
@@ -177,7 +195,7 @@ const config: Config = {
           'chrome-text': 'var(--legacy-text)',
           'chrome-accent': 'var(--legacy-accent)',
         }
-      },
+            }),
       fontFamily: {
         sans:  ['"Inter"', '"Helvetica Neue"', 'Arial', 'sans-serif'],
         mono:  ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
