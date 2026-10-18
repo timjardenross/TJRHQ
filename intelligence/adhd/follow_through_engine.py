@@ -459,6 +459,14 @@ def _assemble_eligible_candidates(raw_rows: list[dict], now: datetime) -> list[d
     return eligible
 
 
+def _capacity_enforcing() -> bool:
+    try:
+        from core.health.capacity_enforcement import enforcing
+    except Exception:  # noqa: BLE001 - if the switch cannot load, keep the original behaviour
+        return True
+    return enforcing()
+
+
 def _apply_capacity_gate(candidates: list[dict], capacity_status: str, now: datetime) -> list[dict]:
     """Green: fully unrestricted. Amber: trims only the lowest-urgency
     "gentle" mode items not due soon. Red: also trims "normal" mode items
@@ -480,6 +488,10 @@ def _apply_capacity_gate(candidates: list[dict], capacity_status: str, now: date
     function's "restrict to gentle only" branch, exactly what
     Amber/Unknown do here; raw red and Green/canonical-Red are identical.
     """
+    if not _capacity_enforcing():
+        # Advisory mode (owner decision 2026-10-18): capacity is still read and reported, but it
+        # never trims nudges. CAPACITY_ENFORCEMENT=enforce restores the behaviour below.
+        return candidates
     if capacity_status not in ("Amber", "Red", "Unknown"):
         return candidates
     modes_to_trim = ("gentle", "normal") if capacity_status == "Red" else ("gentle",)

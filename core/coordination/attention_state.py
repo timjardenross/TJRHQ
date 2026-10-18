@@ -33,11 +33,18 @@ text); Chair/Hub/Telegram/iPad are Presentation.
 
 from __future__ import annotations
 
+import sys
 from dataclasses import asdict, dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 from number_one import CoordinationBrief, EscalationLevel, Priority
+
+_REPO_ROOT_FOR_ENFORCEMENT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT_FOR_ENFORCEMENT) not in sys.path:  # this module is also imported by bare name
+    sys.path.insert(0, str(_REPO_ROOT_FOR_ENFORCEMENT))
+from core.health.capacity_enforcement import enforcing
 
 
 class AttentionCategory(str, Enum):
@@ -143,6 +150,9 @@ def _capacity_note_and_category(
     if capacity_status == "Red":
         if is_critical:
             return category, "CRITICAL — proceed regardless of capacity"
+        if not enforcing():
+            # Advisory mode (owner decision 2026-10-18): flag, never demote.
+            return category, "Advisory: Red capacity - consider limiting to P0 today"
         # Blocked items stay BLOCKED (already off the Needs You path) --
         # only non-blocked items get demoted, matching get_health_adjusted_
         # queue()'s uniform "P0 only today" note without inventing a

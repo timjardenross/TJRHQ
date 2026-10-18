@@ -44,8 +44,8 @@ function OvercommitmentWarning({ posture, activeCount }: { posture: RecoveryPost
         </p>
         <p className="mt-0.5 text-wb-label text-wb-ink2">
           {posture === 'REST'
-            ? 'Rest posture: limit to 1 essential mission maximum. Defer the rest.'
-            : 'FRAGILE posture: recommend no more than 3 active missions. Defer lower-priority work.'}
+            ? 'Rest posture: consider limiting to 1 essential mission. This is advice only; nothing is held back.'
+            : 'FRAGILE posture: consider no more than 3 active missions. This is advice only; nothing is held back.'}
         </p>
       </div>
     </div>
