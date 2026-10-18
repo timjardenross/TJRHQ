@@ -1,7 +1,8 @@
 // Chromium check of the service-worker upgrade path using the REAL files.
 // Serves the OLD sw.js and OLD assets (from a git ref) and the NEW working-tree
 // sw.js and assets, with a one-year max-age (worst case for cache.addAll), and
-// asserts on the actual bytes (sha256) the page receives:
+// asserts on the actual bytes (sha256) the page receives for ALL five
+// precached assets:
 //   1. installed OLD: cache v1, old icon + manifest bytes
 //   2. upgrade to NEW: cache v2 only, new icon + manifest bytes
 //   3. FAILED upgrade (one new asset returns 500): the old worker and its v1
@@ -45,7 +46,9 @@ const browser = await chromium.launch({ executablePath: exe || undefined, args: 
 const page = await (await browser.newContext()).newPage();
 const state = () => page.evaluate(async () => {
   const hash = async (u) => { const b = await fetch(u).then((r) => r.arrayBuffer()); const d = await crypto.subtle.digest('SHA-256', b); return [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, '0')).join(''); };
-  return { caches: await caches.keys(), icon: await hash('/icon-192.png'), manifest: await hash('/manifest.webmanifest') };
+  const files = {};
+  for (const u of ['/icon-192.png', '/icon-512.png', '/icon-maskable-512.png', '/apple-touch-icon.png', '/manifest.webmanifest']) files[u] = await hash(u);
+  return { caches: await caches.keys(), files, icon: files['/icon-192.png'] };
 });
 const update = async () => {
   await page.evaluate(async () => { const r = await navigator.serviceWorker.getRegistration(); try { await r.update(); } catch (e) {} });
@@ -54,8 +57,10 @@ const update = async () => {
 
 let failed = 0;
 const check = (label, s, cache, v) => {
-  const ok = s.caches.length === 1 && s.caches[0] === cache && s.icon === sha(v.files['/icon-192.png']) && s.manifest === sha(v.files['/manifest.webmanifest']);
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}  caches=${JSON.stringify(s.caches)} iconSha=${s.icon.slice(0, 8)}`);
+  // Every precached asset must be byte-identical to the expected version.
+  const bad = ASSETS.filter((u) => s.files[u] !== sha(v.files[u]));
+  const ok = s.caches.length === 1 && s.caches[0] === cache && bad.length === 0;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}  caches=${JSON.stringify(s.caches)} assets=${ASSETS.length - bad.length}/${ASSETS.length} byte-identical${bad.length ? ' MISMATCH ' + bad.join(',') : ''}`);
   if (!ok) failed++;
 };
 
