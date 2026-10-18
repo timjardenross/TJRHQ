@@ -250,7 +250,7 @@ export function buildNeedsYouItems(inputs: NeedsYouBuildInputs): NeedsYouItem[] 
   if ((inputs.evolutionPendingCount ?? 0) > 0) {
     items.push({
       id: 'hq-evolution', kind: 'review',
-      title: inputs.evolutionHighestValueTitle ?? 'HQ Evolution has opportunities worth considering',
+      title: inputs.evolutionHighestValueTitle ?? 'HQ has improvement opportunities worth considering',
       detail: `${inputs.evolutionPendingCount} opportunit${inputs.evolutionPendingCount === 1 ? 'y' : 'ies'} from overnight research ${inputs.evolutionPendingCount === 1 ? 'needs' : 'need'} your decision.`,
       href: '/self-improvement-findings', actionLabel: 'Review',
     });

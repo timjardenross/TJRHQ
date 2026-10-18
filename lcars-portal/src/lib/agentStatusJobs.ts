@@ -143,7 +143,7 @@ export const SCHEDULER_JOBS: ReadonlyArray<{
   // (deploy/hq-evolution.timer, daily 03:00) has heartbeated since migration
   // 0192 seeded its domain_registry row, but was never added here — HQ
   // Status could never show this job's health.
-  { domainKey: 'hq_evolution_cycle', label: 'HQ Evolution Cycle', domain: 'platform', cadenceLabel: 'Daily · ~03:00', capability: 'hq_evolution', criticality: 'important' },
+  { domainKey: 'hq_evolution_cycle', label: 'Improvements cycle', domain: 'platform', cadenceLabel: 'Daily · ~03:00', capability: 'hq_evolution', criticality: 'important' },
   // Registered late (2026-09-06 registry-drift audit): confirmed live via
   // record_heartbeat() call sites in core/coordination/delivery_reconciler.py
   // and core/health/weekly_synthesis.py respectively — both write heartbeats
