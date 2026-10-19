@@ -394,6 +394,29 @@ else
 fi
 rm -rf "$tmp"
 
+echo "test: service restarted AFTER last commit but .next/BUILD_ID predates it -> rebuilds (2026-10-20 stale-build blind spot)"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+mkdir -p "$tmp/clone/lcars-portal/.next"; echo "oldbuild" > "$tmp/clone/lcars-portal/.next/BUILD_ID"
+touch -d "2000-01-01" "$tmp/clone/lcars-portal/.next/BUILD_ID"
+out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -q "npm run build" "$log" && grep -q "systemctl restart lcars-portal.service" "$log" && echo "$out" | grep -q "built (.next/BUILD_ID) before"; then
+  pass "stale BUILD_ID triggers rebuild + restart"
+else
+  fail "stale BUILD_ID (rc=$rc log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
+echo "test: .next/BUILD_ID newer than last commit -> no rebuild"
+tmp="$(setup_fixture)"; log="$tmp/calls.log"; touch "$log"
+mkdir -p "$tmp/clone/lcars-portal/.next"; echo "newbuild" > "$tmp/clone/lcars-portal/.next/BUILD_ID"
+out="$(run_script "$tmp/clone" "$log" "$tmp/bin" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && ! grep -q "npm" "$log" && ! grep -q "restart lcars-portal.service" "$log"; then
+  pass "fresh BUILD_ID: no rebuild"
+else
+  fail "fresh BUILD_ID (rc=$rc log=$(cat "$log") out=$out)"
+fi
+rm -rf "$tmp"
+
 echo
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

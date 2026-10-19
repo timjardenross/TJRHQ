@@ -14,8 +14,8 @@
 # under lcars-portal/ alone were root-owned and missing group-write at
 # the time this was found.
 #
-# Scoped to lcars-portal/ only (not the whole repo, like repair-git-perms.sh
-# is scoped to .git/ only) — that's the one directory auto-deploy.sh
+# First pass is scoped to lcars-portal/ files+dirs (see the 2026-10-20
+# directories-only second pass at the bottom for the rest of the repo) — that's the one directory auto-deploy.sh
 # actually writes into as `deploy` (git pull writes go through .git/,
 # already covered separately). A full-repo scan every 5-minute cycle
 # would be needlessly expensive (23GB, ~350k files); lcars-portal alone
@@ -61,4 +61,30 @@ fixed="$(
 
 if [ "$fixed" -gt 0 ]; then
   echo "$LOG_PREFIX repaired group ownership/permissions on $fixed path(s) under $TARGET_DIR"
+fi
+
+# 2026-10-20: second pass, DIRECTORIES ONLY, across the rest of the repo.
+# The lcars-portal-only scope above missed docs/r3-planning/ (root:deploy
+# 755, created by a root-run session): `git merge --ff-only` as `deploy`
+# died with "unable to create file ... Permission denied", leaving
+# half-written files that dirtied the tree and blocked auto-deploy AND
+# sync-self-improvement-state for hours. Replacing a tracked file needs
+# write on its DIRECTORY, not on the file, so fixing directories is
+# enough and keeps this scan cheap: heavy trees that auto-deploy never
+# merges into (.git handled by repair-git-perms.sh, node_modules, venvs,
+# build and cache dirs) are pruned, and lcars-portal/ is already covered.
+# Same safety rules as above: find -P never follows symlinks, only plain
+# directories not owned by `deploy` and missing group-write are touched.
+fixed_repo="$(
+  find "$REPO_ROOT" \
+    \( -name .git -o -name node_modules -o -name '.venv*' -o -name venv \
+       -o -name .next -o -name __pycache__ -o -name .ruff_cache \
+       -o -name .pytest_cache -o -name .mypy_cache \
+       -o -path "$TARGET_DIR" \) -prune -o \
+    -type d ! -user deploy ! -perm -020 -print \
+    -exec chgrp "$GROUP" {} \; -exec chmod g+rwxs {} \; | wc -l
+)"
+
+if [ "$fixed_repo" -gt 0 ]; then
+  echo "$LOG_PREFIX repaired group-write on $fixed_repo director(y/ies) elsewhere under $REPO_ROOT"
 fi

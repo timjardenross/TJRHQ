@@ -302,8 +302,26 @@ LP_COMMIT_TS="$(newest_commit_epoch lcars-portal)"
 if unit_is_masked lcars-portal.service; then
   echo "$LOG_PREFIX SKIP lcars-portal.service: unit is masked (deliberately held off) - no rebuild, no restart"
 elif LP_START_TS="$(unit_active_since_epoch lcars-portal.service)"; then
+  # 2026-10-20: service start time alone is not enough. A restart WITHOUT a
+  # rebuild (00:26) moved the start time past the newest commit, so this
+  # check saw "fresh" while .next/ still held a build from before PRs
+  # #441-#449 - the portal served stale code with no signal. .next/BUILD_ID
+  # is rewritten by every `next build`, so its mtime is when the running
+  # bundle was actually produced. Only checked when it exists: a checkout
+  # with no build yet is the unit's own startup problem, not staleness.
+  LP_BUILD_ID_FILE="$REPO_ROOT/lcars-portal/.next/BUILD_ID"
+  LP_BUILD_TS=""
+  if [ -f "$LP_BUILD_ID_FILE" ]; then
+    LP_BUILD_TS="$(stat -c %Y "$LP_BUILD_ID_FILE" 2>/dev/null || true)"
+  fi
+  LP_STALE_REASON=""
   if [ "$LP_COMMIT_TS" -gt "$LP_START_TS" ]; then
-    echo "$LOG_PREFIX lcars-portal.service is stale (running since before the newest lcars-portal/ commit) - rebuilding"
+    LP_STALE_REASON="running since before the newest lcars-portal/ commit"
+  elif [ -n "$LP_BUILD_TS" ] && [ "$LP_COMMIT_TS" -gt "$LP_BUILD_TS" ]; then
+    LP_STALE_REASON="built (.next/BUILD_ID) before the newest lcars-portal/ commit"
+  fi
+  if [ -n "$LP_STALE_REASON" ]; then
+    echo "$LOG_PREFIX lcars-portal.service is stale ($LP_STALE_REASON) - rebuilding"
     ( cd "$REPO_ROOT/lcars-portal" && npm ci --no-audit --no-fund && "$REPO_ROOT/platform-runtime/run-with-infisical.sh" npm run build )
     # 2026-09-21: OLLAMA_MODEL_DEFAULT misconfig (misspelled secret key ->
     # code fell back to a model Ollama doesn't have) silently killed AI
