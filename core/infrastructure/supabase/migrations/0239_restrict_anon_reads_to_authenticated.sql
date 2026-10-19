@@ -1,3 +1,16 @@
+-- APPLIED-STATE NOTE (2026-10-19): this file was NOT run as written on the live
+-- project. Every DROP POLICY (even DROP POLICY IF EXISTS on a policy that does
+-- not exist) hung to the 60 s tool limit on that connection while ALTER TABLE and
+-- ALTER POLICY ran instantly; the cause was not found and each timeout left the
+-- schema unchanged. The same end state was reached by hand with, for each open
+-- read policy, ALTER POLICY <name> ON <table> TO authenticated, plus the REVOKE
+-- SELECT below. Differences from this file on live: the original policy names
+-- were kept (so `anon_read` on architecture_records, commander_decisions,
+-- lessons_learned and intelligence_source_health now means authenticated-only),
+-- no *_authenticated_read policies were created, and no schema_migrations row
+-- exists. Re-running this file on live would add duplicate authenticated read
+-- policies; do not, unless the extra policies are wanted.
+--
 -- Migration 0239: restrict eleven public tables from anon-readable to authenticated-readable
 --
 -- Addresses the owner decision of 2026-10-19 ("Restrict values") after the
