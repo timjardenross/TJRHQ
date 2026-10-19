@@ -8,10 +8,13 @@ discovered by a missed alert (per MSN-0338/MSN-0339's own founding
 incident). Design: `reports/USS-TJR-MSN-0339-WP5-Validation-Suite-Design.md`.
 
 Two case kinds:
-- REAL cases (`_case_*`) query live `intelligence_events` rows by durable
-  content match (title substring), not by event_id — event_id is stable
-  once written, but matching by content keeps cases readable and lets a
-  case still resolve if a row is ever re-collected under a new id.
+- REAL cases (`_case_*`) either query live `intelligence_events` rows by
+  title substring (only where the table always holds fresh matches, e.g.
+  the rolling GCP advisory batch), or replay a frozen verbatim snapshot of
+  a real row (`validation_fixtures.py`). Live lookups of a specific
+  historical row age out under retention pruning (2026-10-11: four cases
+  lost their rows and the suite fell to 4/8 with no pipeline fault), so
+  every case that targets one specific row uses a snapshot.
 - SYNTHETIC REPLAY cases run a real historical incident's genuine public
   text through `classify()`/`rank()` directly, no DB write — for the two
   gaps the design doc named (no live bushfire or AWS-active-incident case
@@ -121,121 +124,105 @@ def _query_events(raw_title_ilike: str, limit: int = 10) -> list[dict]:
     return res.data or []
 
 
-def _row_importance(row: dict) -> int:
-    """Same tiering as intelligence_store._derive_attention_importance, run
-    against a queried DB row instead of a RankedEvent. rank_score itself is
-    NOT a severity signal (2026-08-22/23 fix, intelligence_store.py:768) —
-    it's deliberately deflated by recency_decay/SRS and was documented to
-    never cross 71 on 1000 live real events, so validation cases assert on
-    this derived tier instead of the raw column."""
-    is_red = row.get("customer_impact") == "high" or row.get("banking_relevance") == "high"
-    is_amber = row.get("customer_impact") == "medium" or row.get("banking_relevance") == "medium"
-    if is_red and row.get("cps230_relevance"):
-        return 90
-    if is_red:
-        return 55
-    if is_amber:
-        return 42
-    return 15
+def _snapshot_event(key: str, source_name: str, source_category: str):
+    """Replay one frozen real-row snapshot through the production
+    classify() -> rank() path (no DB read or write) and return
+    (ranked_event, attention_importance)."""
+    from datetime import timedelta
+
+    from intelligence.classification.classifier import classify
+    from intelligence.models import IntelligenceItem
+    from intelligence.persistence.intelligence_store import _derive_attention_importance
+    from intelligence.ranking.ranker import rank
+    from intelligence.validation_fixtures import REAL_ROW_SNAPSHOTS
+
+    snap = REAL_ROW_SNAPSHOTS[key]
+    item = IntelligenceItem(
+        source_id=f"validation-snapshot-{key}",
+        source_name=source_name,
+        source_priority=1,
+        source_confidence_weight=0.9,
+        source_category=source_category,
+        raw_title=snap["raw_title"],
+        raw_summary=snap["raw_summary"],
+        canonical_url=snap["canonical_url"],
+        published_at=datetime.fromisoformat(snap["published_at"]) if snap["published_at"] else None,
+        collected_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+    )
+    ranked = rank([classify(item)])[0]
+    return ranked, _derive_attention_importance(ranked)
 
 
-def _replay_through_attention_engine(row: dict) -> AttentionDecision:  # noqa: F821 — type import below
-    from core.platform.attention_engine import evaluate_event
-
-    return evaluate_event({
-        "event_id": row["event_id"],
-        "event_type": "intelligence.signal.ranked",
-        "domain": "operational-resilience-intelligence",
-        "importance": _row_importance(row),
-        "confidence": round((row["confidence"] or 0) * 100),
-        "relevance": round((row["operational_relevance"] or 0) * 100),
-    })
-
-
-# ─── Real cases (design doc §2a) ────────────────────────────────────────────
+# ─── Real-row snapshot cases (design doc §2a) ───────────────────────────────
 
 def _case_slack_outage() -> CaseResult:
     name = "slack_outage_2026_07_05"
-    kind = "real"
-    rows = _query_events("%Trouble with Slack - General Slack functionality%")
-    if not rows:
-        return _fail(name, kind, "collectible", "no matching row found in intelligence_events")
-    row = rows[0]
-    if row["published_at"] is None:
-        return _fail(name, kind, "content_plausible", "published_at is null on a supposedly real row", {"row": row})
-    if row["event_type"] in ("cross_sector", "other"):
-        return _fail(name, kind, "classified_correctly", f"event_type={row['event_type']}", {"row": row})
-    importance = _row_importance(row)
+    kind = "synthetic_replay"
+    ranked, importance = _snapshot_event("slack_outage", "Slack Status", "cloud_technology")
+    if ranked.published_at is None:
+        return _fail(name, kind, "content_plausible", "published_at is null on a real snapshot")
+    if ranked.event_type in ("cross_sector", "other"):
+        return _fail(name, kind, "classified_correctly", f"event_type={ranked.event_type}", {"event_type": ranked.event_type})
     if importance < 55:
-        return _fail(name, kind, "scored_plausibly", f"importance={importance}, expected >=55 (RED)", {"row": row})
-    decision = _replay_through_attention_engine(row)
-    from core.platform.attention_engine import AttentionCategory
+        return _fail(name, kind, "scored_plausibly", f"importance={importance}, expected >=55 (RED)", {"importance": importance})
+    from core.platform.attention_engine import AttentionCategory, evaluate_event
 
+    decision = evaluate_event({
+        "event_id": ranked.event_id,
+        "event_type": "intelligence.signal.ranked",
+        "domain": "operational-resilience-intelligence",
+        "importance": importance,
+        "confidence": round((ranked.confidence or 0) * 100),
+        "relevance": round((ranked.operational_relevance or 0) * 100),
+    })
     if decision.category in (AttentionCategory.NEVER_INTERRUPT, AttentionCategory.SHOULD_SIMPLY_BE_REMEMBERED):
         return _fail(
             name, kind, "reaches_right_destination",
             f"Attention Engine would silently drop this ({decision.category.value}) — the exact MSN-0338 failure mode",
-            {"row": row, "decision_category": decision.category.value},
+            {"decision_category": decision.category.value},
         )
-    # MSN-0338's own finding: this event never reached the Captain. Replayed
-    # today it correctly does NOT land in NEVER_INTERRUPT/REMEMBERED (the
-    # silent-drop failure mode) — but its real confidence (69) is below the
-    # interrupt_confidence_floor (70), so it correctly lands in
-    # CAN_BE_DELAYED, not INTERRUPT_NOW. That's not a suite failure: MSN-0329
-    # forbids tuning thresholds to make a specific case pass, and
-    # "high-importance-but-unverified never interrupts" is the Attention
-    # Engine's own documented, intentional behaviour. What this case proves
-    # is narrower and real: post-WP2, this event is no longer silently
-    # dropped before rendering (daily_brief.py's fix) — it just isn't
-    # urgent enough to autonomously interrupt, which is honest, not broken.
+    # MSN-0338's own finding: this event never reached the Captain. It must
+    # not land in NEVER_INTERRUPT/REMEMBERED (the silent-drop failure mode).
+    # Landing below INTERRUPT_NOW on confidence is the Attention Engine's
+    # documented behaviour (MSN-0329 forbids tuning thresholds to make a
+    # specific case pass), so that is not a failure here.
     return _pass(
         name, kind,
-        f"real row found, importance={importance}, replay classifies {decision.category.value} "
-        "(not silently dropped; below INTERRUPT_NOW's confidence floor on its real confidence value, "
-        "which is correct behaviour, not a miss)",
-        {"row": row, "decision_category": decision.category.value},
+        f"real Slack outage text classifies {ranked.event_type}, importance={importance}, "
+        f"replay lands {decision.category.value} (not silently dropped)",
+        {"event_type": ranked.event_type, "importance": importance, "decision_category": decision.category.value},
     )
 
 
 def _case_fortinet_alert() -> CaseResult:
-    name = "fortinet_credential_exposure"
-    kind = "real"
-    rows = _query_events("%credential exposure affecting Fortinet%")
-    if not rows:
-        return _fail(name, kind, "collectible", "no matching row found")
-    row = rows[0]
-    if row["published_at"] is None:
-        return _fail(name, kind, "content_plausible", "published_at is null", {"row": row})
-    if row["event_type"] != "cyber":
-        return _fail(name, kind, "classified_correctly", f"event_type={row['event_type']}, expected cyber", {"row": row})
-    importance = _row_importance(row)
-    if importance < 55:
-        return _fail(name, kind, "scored_plausibly", f"importance={importance}, expected >=55 (RED)", {"row": row})
-    decision = _replay_through_attention_engine(row)
-    from core.platform.attention_engine import AttentionCategory
-
-    if decision.category != AttentionCategory.INTERRUPT_NOW:
-        return _fail(
-            name, kind, "reaches_right_destination",
-            f"expected INTERRUPT_NOW, replay gave {decision.category.value}",
-            {"row": row, "decision_category": decision.category.value},
-        )
-    return _pass(name, kind, f"real row, importance={importance}, replay correctly classifies INTERRUPT_NOW", {"row": row})
+    """Replaces the original "credential exposure affecting Fortinet" case
+    (RED -> INTERRUPT_NOW), whose row was pruned by retention and whose text
+    was not saved anywhere. That RED/INTERRUPT_NOW path is NOT covered by
+    this replacement — see KNOWN_GAPS."""
+    name = "fortinet_cve_replay"
+    kind = "synthetic_replay"
+    ranked, importance = _snapshot_event("fortinet_fortimail_cve", "CISA KEV", "cyber_security")
+    if ranked.published_at is None:
+        return _fail(name, kind, "content_plausible", "published_at is null on a real snapshot")
+    if ranked.event_type != "cyber":
+        return _fail(name, kind, "classified_correctly", f"event_type={ranked.event_type}, expected cyber", {"event_type": ranked.event_type})
+    if importance < 42:
+        return _fail(name, kind, "scored_plausibly", f"importance={importance}, expected >=42 (AMBER)", {"importance": importance})
+    return _pass(name, kind, f"real FortiMail CVE text classifies cyber, importance={importance}", {"importance": importance})
 
 
 def _case_cve_dual() -> CaseResult:
-    name = "cve_splunk_oracle_dual"
-    kind = "real"
-    splunk = _query_events("CVE-2026-20253:%")
-    oracle = _query_events("CVE-2026-35273:%")
-    if not splunk or not oracle:
-        return _fail(name, kind, "collectible", f"splunk_found={bool(splunk)} oracle_found={bool(oracle)}")
-    for label, row in (("splunk", splunk[0]), ("oracle", oracle[0])):
-        if row["event_type"] != "cyber":
-            return _fail(name, kind, "classified_correctly", f"{label} event_type={row['event_type']}, expected cyber", {"row": row})
-        if row["sector"] != "cyber_security":
-            return _fail(name, kind, "classified_correctly", f"{label} sector={row['sector']}, expected cyber_security", {"row": row})
-    return _pass(name, kind, "both real CVE rows classify cyber/cyber_security correctly", {"splunk": splunk[0], "oracle": oracle[0]})
+    name = "cve_dual_replay"
+    kind = "synthetic_replay"
+    evidence = {}
+    for label, key in (("fortimail", "fortinet_fortimail_cve"), ("nvd_a", "nvd_cve_a"), ("nvd_b", "nvd_cve_b")):
+        ranked, _ = _snapshot_event(key, "NVD", "cyber_security")
+        evidence[label] = {"event_type": ranked.event_type, "sector": ranked.sector}
+        if ranked.event_type != "cyber":
+            return _fail(name, kind, "classified_correctly", f"{label} event_type={ranked.event_type}, expected cyber", evidence)
+        if ranked.sector != "cyber_security":
+            return _fail(name, kind, "classified_correctly", f"{label} sector={ranked.sector}, expected cyber_security", evidence)
+    return _pass(name, kind, "three real CVE texts classify cyber/cyber_security correctly", evidence)
 
 
 def _case_gcp_advisories() -> CaseResult:
@@ -271,43 +258,40 @@ def _case_gcp_advisories() -> CaseResult:
 
 def _case_copilot_incident() -> CaseResult:
     name = "copilot_availability_incident"
-    kind = "real"
-    rows = _query_events("Incident with Copilot Availability")
-    if not rows:
-        return _fail(name, kind, "collectible", "no matching row found")
-    row = rows[0]
-    if row["event_type"] != "technology_outage":
-        return _fail(name, kind, "classified_correctly", f"event_type={row['event_type']}, expected technology_outage", {"row": row})
-    importance = _row_importance(row)
+    kind = "synthetic_replay"
+    ranked, importance = _snapshot_event("github_copilot_incident", "GitHub Status", "cloud_technology")
+    if ranked.event_type != "technology_outage":
+        return _fail(name, kind, "classified_correctly", f"event_type={ranked.event_type}, expected technology_outage", {"event_type": ranked.event_type})
     if importance < 42:
-        return _fail(name, kind, "scored_plausibly", f"importance={importance}, expected >=42 (AMBER)", {"row": row})
-    return _pass(name, kind, f"real row, importance={importance}, classified technology_outage", {"row": row})
+        return _fail(name, kind, "scored_plausibly", f"importance={importance}, expected >=42 (AMBER)", {"importance": importance})
+    return _pass(name, kind, f"real GitHub Copilot incident text classifies technology_outage, importance={importance}", {"importance": importance})
 
 
 def _case_nbn_junk_negative_control() -> CaseResult:
-    """Negative control — MUST fail content-plausibility to pass this case.
-    These rows predate WP1's scraper fix (collected 2026-06-13); the live
-    source is fixed now (WP1), but these specific historical rows are the
-    exact known-junk signature (published_at always NULL, generic nav-link
-    titles) the suite exists to keep catching if it ever recurs on another
-    source. Matched by row characteristics, not a live source_health
-    lookup — content_valid is a source-health-level signal reflecting
-    TODAY's state, not these historical rows' state at collection time."""
+    """Negative control — the junk guard MUST flag junk to pass this case.
+    The original pre-fix nbn rows (collected 2026-06-13, published_at always
+    NULL, generic nav-link titles) were pruned by retention, and matching
+    them by row characteristics could only ever test old data. This replays
+    the signature through the guard that exists to catch it: a ScrapeAdapter
+    that fell back to generic link extraction must report content_valid=False
+    (scrape_adapter._validate_content). If that guard is ever removed or
+    inverted, this case fails."""
     name = "nbn_pre_fix_junk_negative_control"
     kind = "negative_control"
-    rows = _query_events("%nbn%", limit=20)
-    junk = [r for r in rows if r["published_at"] is None]
-    if not junk:
-        return _fail(name, kind, "collectible", "no known-junk rows found — either fixed retroactively or query drifted")
-    if len(junk) < 3:
-        return _fail(name, kind, "content_plausible", f"only {len(junk)} published_at=null rows, expected several", {"rows": junk})
-    # This IS the pass condition for a negative control: junk correctly
-    # identifiable as content-invalid by its own field values.
+    from intelligence.ingestion.scrape_adapter import ScrapeAdapter
+
+    adapter = object.__new__(ScrapeAdapter)  # no SourceRecord/network needed for this check
+    adapter._sentinel_matched = False
+    adapter._used_narrative = False
+    adapter._used_fallback = True
+    valid, reason = adapter._validate_content([])
+    if valid:
+        return _fail(name, kind, "content_plausible", "fallback link extraction was reported content_valid=True — junk guard is gone", {"reason": reason})
     return _pass(
         name, kind,
-        f"{len(junk)} known-junk rows correctly identifiable (published_at=null) — "
-        "the exact signature this suite exists to keep catching",
-        {"count": len(junk)},
+        "generic-link fallback extraction correctly reported content_valid=False — "
+        "the exact junk signature this suite exists to keep catching",
+        {"reason": reason},
     )
 
 
@@ -441,6 +425,11 @@ CASES = [
 # found APRA/RBA-class events reach briefs correctly, making this the
 # programme's lowest-priority gap to fill.
 KNOWN_GAPS = [
+    ("LOST 2026-10-11 (retention prune): the original fortinet_credential_exposure case (a real RED cyber "
+     "credential-exposure alert replayed to INTERRUPT_NOW) and the Splunk/Oracle CVE pair. Their text was not "
+     "saved, so fortinet_cve_replay / cve_dual_replay only check classification of other real CVE text. "
+     "Nothing in the suite now asserts that a RED cyber alert reaches INTERRUPT_NOW. Add a snapshot of the "
+     "next real one to validation_fixtures.py."),
     "No banking/regulatory negative control case (lowest priority — MSN-0338 §5 already confirmed this path works)",
     ("No LIVE (non-replay) AWS-active-incident or bushfire case exists in production data yet — "
      "both cases above are real historical text replayed offline, not a currently-collectible live row; "
