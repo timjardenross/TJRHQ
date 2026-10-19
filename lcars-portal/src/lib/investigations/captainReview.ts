@@ -40,6 +40,10 @@ interface FetchResult<T> {
 async function fetchRows<T>(
   run: (db: SupabaseClient) => PromiseLike<{ data: T[] | null; error: unknown }>
 ): Promise<FetchResult<T>> {
+  // Same as before when Supabase is not configured at all (dev, bare test run).
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return { rows: [], failed: false };
+  }
   try {
     const db = await createSupabaseServerClient();
     const { data, error } = await run(db);
