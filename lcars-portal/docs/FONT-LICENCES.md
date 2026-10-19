@@ -21,8 +21,12 @@ packages the upstream fonts with their original `LICENSE`).
 
 ## How the fonts are served
 
-All three app fonts load through `next/font/google` in `src/app/layout.tsx`. Next downloads the font
-files at build time and serves them from HQ's own origin, so visitors' browsers make no request to
-Google. (Until 2026-10-18 Inter and JetBrains Mono came from a Google Fonts CSS `@import`.)
+All three app fonts are self-hosted: variable `.woff2` files (latin subset) from `@fontsource-variable/inter`
+5.3.0, `@fontsource-variable/jetbrains-mono` 5.3.0 and `@fontsource-variable/source-serif-4` 5.3.1 are
+committed in `src/app/fonts/` with each package's licence text beside them (`LICENSE-*.txt`), and
+`src/app/layout.tsx` loads them through `next/font/local`. The browser makes no request to Google, and
+neither does the build. (Until 2026-10-19 they came from `next/font/google`, which downloads at build time;
+Vercel builds started failing in that loader. Until 2026-10-18 Inter and JetBrains Mono came from a Google
+Fonts CSS `@import`.)
 
 Nothing here needs a purchase or a separate agreement. This is a licence reading, not legal advice.
