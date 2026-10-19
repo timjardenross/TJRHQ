@@ -9,7 +9,9 @@
 --    rows past RLS. It becomes security_invoker, so the caller's own RLS on
 --    capacity_checkins applies. Existing consumers keep working: the view is
 --    granted to xo_bot and authenticated, both have a SELECT policy on
---    capacity_checkins, and service_role bypasses RLS. anon loses access.
+--    capacity_checkins, and service_role bypasses RLS and keeps an explicit
+--    SELECT grant. anon loses access, and write privileges on the view are
+--    removed from every role.
 --
 -- 2. anon never writes: every write policy in public is service_role or
 --    authenticated. Revoke INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES and
@@ -22,8 +24,12 @@
 --    whether they should stay anon-readable is a separate owner decision.
 
 ALTER VIEW public.capacity_checkins_today SET (security_invoker = true);
-REVOKE ALL ON public.capacity_checkins_today FROM anon, PUBLIC;
-GRANT SELECT ON public.capacity_checkins_today TO xo_bot, authenticated;
+-- The view is read-only aggregate output: no role needs write privileges on it.
+-- Live ACL before this migration (2026-10-19): service_role and authenticated
+-- held arwdDxtm, anon awdDxtm, xo_bot r. service_role BYPASSRLS does not bypass
+-- object privileges, so SELECT is granted to it explicitly.
+REVOKE ALL ON public.capacity_checkins_today FROM anon, authenticated, service_role, xo_bot, PUBLIC;
+GRANT SELECT ON public.capacity_checkins_today TO xo_bot, authenticated, service_role;
 
 DO $$
 DECLARE
