@@ -44,10 +44,10 @@ function makeChain(table: string) {
   return chain;
 }
 
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
+vi.mock('@/lib/supabase-server', () => ({
+  createSupabaseServerClient: async () => ({
     from: (table: string) => makeChain(table),
-  },
+  }),
 }));
 
 import { openInvestigation, resolveInvestigation } from '@/lib/investigationEngine';
