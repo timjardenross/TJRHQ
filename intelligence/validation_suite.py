@@ -124,6 +124,37 @@ def _query_events(raw_title_ilike: str, limit: int = 10) -> list[dict]:
     return res.data or []
 
 
+def _row_importance(row: dict) -> int:
+    """Same tiering as intelligence_store._derive_attention_importance, run
+    against a queried DB row instead of a RankedEvent. rank_score itself is
+    NOT a severity signal (2026-08-22/23 fix, intelligence_store.py:768) —
+    it's deliberately deflated by recency_decay/SRS and was documented to
+    never cross 71 on 1000 live real events, so validation cases assert on
+    this derived tier instead of the raw column."""
+    is_red = row.get("customer_impact") == "high" or row.get("banking_relevance") == "high"
+    is_amber = row.get("customer_impact") == "medium" or row.get("banking_relevance") == "medium"
+    if is_red and row.get("cps230_relevance"):
+        return 90
+    if is_red:
+        return 55
+    if is_amber:
+        return 42
+    return 15
+
+
+def _replay_through_attention_engine(row: dict) -> AttentionDecision:  # noqa: F821 — type import below
+    from core.platform.attention_engine import evaluate_event
+
+    return evaluate_event({
+        "event_id": row["event_id"],
+        "event_type": "intelligence.signal.ranked",
+        "domain": "operational-resilience-intelligence",
+        "importance": _row_importance(row),
+        "confidence": round((row["confidence"] or 0) * 100),
+        "relevance": round((row["operational_relevance"] or 0) * 100),
+    })
+
+
 def _snapshot_event(key: str, source_name: str, source_category: str):
     """Replay one frozen real-row snapshot through the production
     classify() -> rank() path (no DB read or write) and return
