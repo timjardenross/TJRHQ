@@ -98,6 +98,29 @@ describe('POST /api/integrations/tjr-life/v1/captures', () => {
     expect(inserted.filter((i) => i.table === 'audit_events')).toHaveLength(1);
   });
 
+  it('accepts the request the iOS app is tested to build, and answers in the shape the app is tested to accept', async () => {
+    const dir = join(__dirname, '__fixtures__/capture-v1');
+    const requestRaw = readFileSync(join(dir, 'request-two-items.json'), 'utf8');
+    const expectedShape = JSON.parse(readFileSync(join(dir, 'response-accepted.json'), 'utf8'));
+    const request = JSON.parse(requestRaw);
+    // A separate Captain id keeps this request out of the per-user rate window the other tests share.
+    const other = '00000000-0000-4000-8000-00000000c0df';
+    process.env.MOBILE_WRITE_CAPTAIN_USER_ID = other;
+    getUserMock.mockResolvedValue({ data: { user: { id: other } }, error: null });
+    const res = await POST(post(null, { raw: requestRaw }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(Object.keys(json).sort()).toEqual(Object.keys(expectedShape).sort());
+    expect(Object.keys(json.results[0]).sort()).toEqual(Object.keys(expectedShape.results[0]).sort());
+    expect(json.results.map((r: { client_id: string }) => r.client_id)).toEqual(request.captures.map((c: { client_id: string }) => c.client_id));
+    expect(json.results.every((r: { status: string }) => r.status === 'accepted')).toBe(true);
+    const rows = inserted.filter((i) => i.table === 'captured_items').map((i) => i.row);
+    // `commitment` is stored as a task and flagged in summary (owner decision 2026-10-18).
+    expect(rows.map((r) => r.item_type)).toEqual(['task', 'task']);
+    expect(rows.map((r) => r.summary)).toEqual([null, 'Commitment (captured in TJR Life)']);
+    expect(rows.map((r) => r.raw_text)).toEqual(request.captures.map((c: { text: string }) => c.text));
+  });
+
   it('reports a retry as duplicate (200), not an error', async () => {
     uniqueOnFirst = true;
     const res = await POST(post(validBody()));
