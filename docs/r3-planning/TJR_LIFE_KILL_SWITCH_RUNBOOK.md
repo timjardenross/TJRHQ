@@ -64,7 +64,7 @@ Two layers refuse bad callers: `middleware.ts` (layer 1) and `requireCaptainRead
 | W3. Revoke sessions | As D | 401 on the next request | The Captain signs in again |
 
 The read switch and the write switch are independent: neither enables the other. Writes need the service-role key
-(`SUPABASE_SERVICE_ROLE_KEY`) on the server; if it is missing the route answers 503 and writes nothing.
+(`SUPABASE_SERVICE_ROLE_KEY`, or `SUPABASE_SECRET_KEY` as named on the Vercel project) on the server; if it is missing the route answers 503 and writes nothing.
 Test the write path only after the migration has run and `MOBILE_WRITE_CAPTAIN_USER_ID` is set; record every figure as
 NOT VERIFIED until measured. Do not paste tokens, request bodies or capture text into any record.
 

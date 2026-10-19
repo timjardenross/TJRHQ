@@ -11,7 +11,7 @@ product owner runs the test script in the kill-switch runbook.
 |---|---|
 | `MOBILE_WRITE_ENABLED` | Must equal the string `true`, otherwise 403 from both layers. Separate from the read switch. |
 | `MOBILE_WRITE_CAPTAIN_USER_ID` | The one Supabase user allowed to write. Separate from the read id; the write path never falls back to it. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-side only; read in `lib/tjrLifeCaptures.ts` and nowhere else under the TJR Life files (a test pins this). |
+| `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_SECRET_KEY`, the name on the Vercel project) | Server-side only; read in `lib/tjrLifeCaptures.ts` and nowhere else under the TJR Life files (a test pins this). |
 
 ## Request
 

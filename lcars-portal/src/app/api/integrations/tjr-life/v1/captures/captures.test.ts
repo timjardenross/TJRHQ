@@ -166,9 +166,24 @@ describe('POST /api/integrations/tjr-life/v1/captures', () => {
 
   it('answers 503 when the service-role key is missing, without writing', async () => {
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    delete process.env.SUPABASE_SECRET_KEY;
     const res = await POST(post(validBody()));
     expect(res.status).toBe(503);
     expect(inserted).toEqual([]);
+  });
+
+  it('falls back to SUPABASE_SECRET_KEY when SUPABASE_SERVICE_ROLE_KEY is unset', async () => {
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    process.env.SUPABASE_SECRET_KEY = 'service-role-secret';
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 10 * 60_000 }); // clear earlier tests' rate-limit window
+    try {
+      const res = await POST(post(validBody()));
+      expect(res.status).toBe(200);
+      expect(serviceClientsBuilt).toBe(1);
+    } finally {
+      vi.useRealTimers();
+      delete process.env.SUPABASE_SECRET_KEY;
+    }
   });
 
   it('never echoes capture text and never logs anything', async () => {

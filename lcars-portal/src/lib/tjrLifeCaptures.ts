@@ -151,7 +151,8 @@ export class CaptureUnavailableError extends Error {
 /** Service-role client, constructed on demand, server-side only. */
 function createServiceClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // The portal names it SUPABASE_SERVICE_ROLE_KEY; the Vercel project holds the same secret as SUPABASE_SECRET_KEY.
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) throw new CaptureUnavailableError();
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
