@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, JetBrains_Mono, Source_Serif_4 } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import { SITE_URL } from '@/lib/site';
 
@@ -11,26 +11,30 @@ import { SITE_URL } from '@/lib/site';
 const OPS_PORTAL_NAME = 'TJR HQ';
 const OPS_PORTAL_DESCRIPTION = 'TJR HQ — Command Centre for missions, intelligence, and recovery operations.';
 
-// Inter and JetBrains Mono used to come from a Google Fonts CSS @import in globals.css, which sent
-// every visitor's request to Google. next/font downloads the files at build time and serves them
-// from this origin instead (same as Source Serif 4 below). Licences: docs/FONT-LICENCES.md.
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+// Self-hosted variable fonts (latin subset, from @fontsource-variable, SIL OFL 1.1; licence texts sit
+// beside the files in ./fonts). They used to be fetched from Google at build time through
+// the Google loader, which failed on Vercel builds on 2026-10-19 ("An error occurred in next/font") and
+// would block every deploy. Local files make the build independent of Google. Licences: docs/FONT-LICENCES.md.
+const inter = localFont({
+  src: './fonts/inter-latin-wght-normal.woff2',
+  weight: '100 900',
+  style: 'normal',
   variable: '--font-sans',
   display: 'swap',
 });
 
-const jetBrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
+const jetBrainsMono = localFont({
+  src: './fonts/jetbrains-mono-latin-wght-normal.woff2',
+  weight: '100 800',
+  style: 'normal',
   variable: '--font-mono',
   display: 'swap',
 });
 
-const sourceSerif = Source_Serif_4({
-  subsets: ['latin'],
-  weight: ['600', '700'],
+const sourceSerif = localFont({
+  src: './fonts/source-serif-4-latin-wght-normal.woff2',
+  weight: '200 900',
+  style: 'normal',
   variable: '--font-serif',
   display: 'swap',
 });
