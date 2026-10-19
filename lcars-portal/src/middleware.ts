@@ -10,6 +10,11 @@ import {
   parseBearerToken,
   verifyCaptainBearer,
 } from '@/lib/mobileBearerAuth';
+import {
+  MOBILE_BEARER_WRITE_ROUTES,
+  verifyCaptainWriteBearer,
+  writeFailureResponse,
+} from '@/lib/mobileBearerWrite';
 
 // Routes intended for server-to-server calls carrying X-Bot-Secret, not
 // interactive browsing. 2026-09-15 adversarial review: previously any
@@ -76,6 +81,30 @@ export async function middleware(request: NextRequest) {
       return failureResponse(verified);
     }
     // After auth: an unauthenticated caller still gets 401/403 first.
+    if (hasQueryString(request.url)) {
+      return failureResponse(INVALID_REQUEST);
+    }
+    return NextResponse.next({ request });
+  }
+
+  // TJR Life iOS write path (R3 Delivery 2, slice D2-1). Exact-match
+  // allowlist, POST only, its own kill switch (MOBILE_WRITE_ENABLED) and its
+  // own Captain id. Same shape as the read path above: plain JSON failures,
+  // never the /login redirect. The route handler re-verifies via
+  // requireCaptainWrite() (defence in depth).
+  if (MOBILE_BEARER_WRITE_ROUTES.has(pathname)) {
+    const token = parseBearerToken(request.headers.get('authorization'));
+    if (!token) {
+      return failureResponse({ ok: false, status: 401, error: 'Unauthorized' });
+    }
+    const verified = await verifyCaptainWriteBearer(token);
+    if (!verified.ok) {
+      return failureResponse(verified);
+    }
+    // After auth: an unauthenticated caller still gets 401/403 first.
+    if (request.method !== 'POST') {
+      return writeFailureResponse({ ok: false, status: 405, error: 'Method not allowed', allow: 'POST' });
+    }
     if (hasQueryString(request.url)) {
       return failureResponse(INVALID_REQUEST);
     }

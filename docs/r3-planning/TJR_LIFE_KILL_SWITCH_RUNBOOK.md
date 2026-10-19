@@ -51,3 +51,20 @@ Two layers refuse bad callers: `middleware.ts` (layer 1) and `requireCaptainRead
   comparison are one implementation. A bug in `verifyCaptainBearer()` defeats both layers. A
   second, independently written check would be needed to remove that; it is not built.
 - **Not shared:** the rate limit exists only in layer 2; the 405 and `Allow` header only in layer 1.
+
+## Write path (captures): added with R3 Delivery 2, slice D2-1
+
+`POST /api/integrations/tjr-life/v1/captures` has its own switches and is **off by default**. Contract and behaviour:
+`docs/r3-planning/TJR_LIFE_CAPTURE_V1_CONTRACT.md`. Same hosts and steps as switches A to E above, with these variables:
+
+| Switch | Variable | Effect when changed | Rollback |
+|---|---|---|---|
+| W1. Write flag | `MOBILE_WRITE_ENABLED` set to anything other than `true`, or deleted | 403 from middleware and route; redeploy needed (same propagation caveat as A: **NOT VERIFIED**) | Set to `true`, redeploy |
+| W2. Write Captain id | Delete `MOBILE_WRITE_CAPTAIN_USER_ID` | 403 from both layers | Re-add the Captain's full id from the Supabase dashboard |
+| W3. Revoke sessions | As D | 401 on the next request | The Captain signs in again |
+
+The read switch and the write switch are independent: neither enables the other. Writes need the service-role key
+(`SUPABASE_SERVICE_ROLE_KEY`) on the server; if it is missing the route answers 503 and writes nothing.
+Test the write path only after the migration has run and `MOBILE_WRITE_CAPTAIN_USER_ID` is set; record every figure as
+NOT VERIFIED until measured. Do not paste tokens, request bodies or capture text into any record.
+

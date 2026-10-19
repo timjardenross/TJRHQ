@@ -14,6 +14,7 @@ vi.mock('@/lib/public-site', () => ({ PUBLIC_ROUTE_ALLOWLIST: new Set<string>() 
 
 import { middleware } from './middleware';
 import { MOBILE_BEARER_READ_ROUTES } from '@/lib/mobileBearerAuth';
+import { MOBILE_BEARER_WRITE_ROUTES } from '@/lib/mobileBearerWrite';
 
 describe('middleware authentication boundaries', () => {
   beforeEach(() => {
@@ -238,5 +239,93 @@ describe('middleware bearer read path (TJR Life)', () => {
     const logged = JSON.stringify(logSpies.flatMap((spy) => spy.mock.calls));
     expect(logged).not.toContain(TOKEN);
     expect(logged.toLowerCase()).not.toContain('bearer');
+  });
+});
+
+describe('middleware bearer write path (TJR Life captures)', () => {
+  const CAPTURES = 'https://usstjros.vercel.app/api/integrations/tjr-life/v1/captures';
+  const logSpies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((m) =>
+    vi.spyOn(console, m).mockImplementation(() => {}),
+  );
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'public-anon-key';
+    process.env.MOBILE_WRITE_ENABLED = 'true';
+    process.env.MOBILE_WRITE_CAPTAIN_USER_ID = CAPTAIN_ID;
+    delete process.env.MOBILE_BEARER_READ_ENABLED;
+    delete process.env.MOBILE_READ_CAPTAIN_USER_ID;
+    getUserMock.mockResolvedValue({ data: { user: null }, error: null });
+    createServerClientMock.mockReturnValue({ auth: { getUser: getUserMock } });
+    createClientMock.mockReturnValue({ auth: { getUser: bearerGetUserMock } });
+    bearerGetUserMock.mockResolvedValue({ data: { user: { id: CAPTAIN_ID } }, error: null });
+  });
+
+  it('pins the bearer write allowlist to exactly one path, distinct from the read allowlist', () => {
+    expect([...MOBILE_BEARER_WRITE_ROUTES]).toEqual(['/api/integrations/tjr-life/v1/captures']);
+    for (const path of MOBILE_BEARER_WRITE_ROUTES) expect(MOBILE_BEARER_READ_ROUTES.has(path)).toBe(false);
+  });
+
+  it('passes a valid Captain POST through to the route, with no browser redirect', async () => {
+    const response = await middleware(bearerRequest(CAPTURES, { method: 'POST' }));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-middleware-next')).toBe('1');
+    expect(createServerClientMock).not.toHaveBeenCalled();
+  });
+
+  it('answers 401 JSON (not a /login redirect) when the token is missing', async () => {
+    const response = await middleware(bearerRequest(CAPTURES, { method: 'POST', authorization: null }));
+    expect(response.status).toBe(401);
+    expect(response.headers.get('location')).toBeNull();
+  });
+
+  it("refuses another user's valid token with 403 and the write switch is separate from read", async () => {
+    bearerGetUserMock.mockResolvedValue({ data: { user: { id: 'someone-else' } }, error: null });
+    expect((await middleware(bearerRequest(CAPTURES, { method: 'POST' }))).status).toBe(403);
+    bearerGetUserMock.mockResolvedValue({ data: { user: { id: CAPTAIN_ID } }, error: null });
+    process.env.MOBILE_WRITE_ENABLED = 'false';
+    process.env.MOBILE_BEARER_READ_ENABLED = 'true';
+    process.env.MOBILE_READ_CAPTAIN_USER_ID = CAPTAIN_ID;
+    expect((await middleware(bearerRequest(CAPTURES, { method: 'POST' }))).status).toBe(403);
+    // and the write switch does not open the snapshot read path
+    process.env.MOBILE_WRITE_ENABLED = 'true';
+    delete process.env.MOBILE_BEARER_READ_ENABLED;
+    expect((await middleware(bearerRequest(SNAPSHOT))).status).toBe(403);
+  });
+
+  it('refuses GET with 405 and Allow: POST after authentication, and a query string with 400', async () => {
+    const get = await middleware(bearerRequest(CAPTURES));
+    expect(get.status).toBe(405);
+    expect(get.headers.get('Allow')).toBe('POST');
+    expect((await middleware(bearerRequest(`${CAPTURES}?x=1`, { method: 'POST' }))).status).toBe(400);
+  });
+
+  it('gives an unauthenticated request with a query string 401/403 first, never 400', async () => {
+    const unauth = await middleware(bearerRequest(`${CAPTURES}?x=1`, { method: 'POST', authorization: null }));
+    expect(unauth.status).toBe(401);
+    bearerGetUserMock.mockResolvedValue({ data: { user: { id: 'someone-else' } }, error: null });
+    expect((await middleware(bearerRequest(`${CAPTURES}?x=1`, { method: 'POST' }))).status).toBe(403);
+  });
+
+  it('answers an auth-server outage with 503 and sets private no-store on every response', async () => {
+    bearerGetUserMock.mockResolvedValue({ data: { user: null }, error: { name: 'AuthRetryableFetchError', status: 0, message: 'x' } });
+    const down = await middleware(bearerRequest(CAPTURES, { method: 'POST' }));
+    expect(down.status).toBe(503);
+    expect(down.headers.get('Cache-Control')).toBe('private, no-store');
+  });
+
+  it('uses the anon key to verify the token and never logs the token', async () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-secret';
+    await middleware(bearerRequest(CAPTURES, { method: 'POST' }));
+    expect(createClientMock.mock.calls[0][1]).toBe('public-anon-key');
+    expect(JSON.stringify(createClientMock.mock.calls)).not.toContain('service-role-secret');
+    for (const spy of logSpies) expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('ignores a bearer token on any other path and leaves the cookie flow unchanged', async () => {
+    const response = await middleware(bearerRequest('https://usstjros.vercel.app/api/something-else', { method: 'POST' }));
+    expect(createServerClientMock).toHaveBeenCalled();
+    expect(response.status).not.toBe(200);
   });
 });
