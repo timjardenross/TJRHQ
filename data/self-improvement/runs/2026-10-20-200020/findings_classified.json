@@ -1,0 +1,84 @@
+{
+  "findings": [
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 logic and database queries in platform-runtime commands",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "TODO placeholder: 'Query quality_anomalies table'",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/lib/quality_forecasting_service.py"
+        },
+        {
+          "type": "code_reference",
+          "observation": "TODO placeholders for Phase 5 authorization checks and memory integration",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/commands/research_command.py"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement the query logic for quality_anomalies and complete Phase 5 authorization checking and memory integration."
+      },
+      "expected_benefit": "Eliminates empty stub branches and completes Phase 5 command functionality.",
+      "finding_id": "FND-001",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: placeholder_code; Evidence strength: conclusive; Confidence: 0.95; Risk: medium; Automation: needs_signoff; Category reason: Removing/replacing logic is never auto-safe"
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct LLM calls bypassing model router in emergency alert intelligence module",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct invocation via call_gemini using GEMINI_API_KEY environment variable instead of routing through model router",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert_service.py"
+        },
+        {
+          "type": "code_reference",
+          "observation": "Direct invocation via call_mistral using MISTRAL_API_KEY environment variable instead of routing through model router",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert_service.py"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Refactor emergency_alert_service to dispatch LLM requests through the centralized model router endpoint."
+      },
+      "expected_benefit": "Ensures uniform policy enforcement, telemetry, fallback handling, and rate-limiting across all LLM queries.",
+      "finding_id": "FND-002",
+      "evidence_strength": "conclusive",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "medium",
+      "policy_decision_rationale": "Category: router_bypass; Evidence strength: conclusive; Confidence: 0.90; Risk: medium; Automation: needs_signoff; Category reason: Router bypasses must be corrected by design review"
+    },
+    {
+      "category": "observability_gap",
+      "title": "Missing call log file for active model router",
+      "evidence": [
+        {
+          "type": "service_status",
+          "observation": "Model router is reachable and configured for log_file '/opt/starship-endeavour/core/model-router/call_log.jsonl', but call_log_exists is false",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Verify model router write permissions and directory existence for call_log.jsonl to enable call telemetry logging."
+      },
+      "expected_benefit": "Restores visibility and historical call telemetry for model routing operations.",
+      "finding_id": "FND-003",
+      "evidence_strength": "strong",
+      "automation_eligibility": "needs_signoff",
+      "risk_level": "low",
+      "policy_decision_rationale": "Category: observability_gap; Evidence strength: strong; Confidence: 0.85; Risk: low; Automation: needs_signoff; Category reason: Changes to running services require verification"
+    }
+  ],
+  "errors": []
+}
