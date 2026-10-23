@@ -13,7 +13,7 @@ pytz
 # The exact release where acceptance began was not determined.
 # scoped_supabase.py needs supabase.lib.client_options.SyncClientOptions on 2.32.0 (it has the
 # `storage` field the sync client reads; the base ClientOptions does not).
-supabase==2.32.0
+supabase==2.33.0
 # Legacy pin. supabase 2.32.0 uses supabase-auth (pulled in by supabase itself) instead of gotrue, so
 # this line only installs an unused gotrue 2.12.x next to it. Left in place for now; safe to remove in a
 # later change (pip check is clean either way).
@@ -24,4 +24,4 @@ python-dotenv==1.2.4
 httpx<0.29
 pyjwt>=2.15.1
 # edge-tts: Microsoft Edge neural TTS for XO voice replies — no API key required
-edge-tts>=7.2.8
+edge-tts>=7.3.1
