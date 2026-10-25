@@ -1,5 +1,5 @@
 #!/bin/bash
-# Keeps 4 known, mechanically-rewritten tracked state files — plus new
+# Keeps 5 known, mechanically-rewritten tracked state files — plus new
 # data/self-improvement/runs/ directories (see below) — in sync with
 # origin/main so neither ever blocks auto-deploy.sh's dirty-tree guard.
 #
@@ -40,6 +40,7 @@ STATE_FILES=(
   "data/self-improvement/review/evolution_summary.json"
   "data/self-improvement/review/finding_staleness.jsonl"
   "data/self-improvement/review/opportunity_id_counter.txt"
+  "data/self-improvement/review/opportunity_snapshot.json"
 )
 
 # Dirty paths this job neither commits nor lets block it. They are the same
@@ -53,7 +54,7 @@ STATE_FILES=(
 #   - Missions/Engineering-Handoffs/: no job commits handoff edits or
 #     deletions; they are left for a human.
 # Before this list existed, any one of these being dirty made every run exit
-# "leaving for a human" (exit 0, so no alert) and the four STATE_FILES above
+# "leaving for a human" (exit 0, so no alert) and the STATE_FILES above
 # stopped reaching origin/main.
 TOLERATED_DIRTY=(
   "data/self-improvement/review/mission_dispatch_log.jsonl"
@@ -62,6 +63,12 @@ TOLERATED_DIRTY=(
 )
 
 cd "$REPO_ROOT"
+
+# Refresh the tracked snapshot of open opportunities (opportunities.jsonl
+# itself is untracked on purpose) so it rides along with the other state
+# files. Best-effort: a failed export must never stop the sync.
+python3 scripts/self_improvement/export_opportunity_snapshot.py \
+  || echo "$LOG_PREFIX WARNING: opportunity snapshot export failed - continuing." >&2
 
 dirty_tracked="$(git status --porcelain --untracked-files=no)"
 new_run_dirs="$(git status --porcelain --untracked-files=all -- "$RUNS_DIR" | grep '^??' || true)"
@@ -152,7 +159,7 @@ if git diff --cached --quiet; then
 fi
 git commit --quiet -m "chore(self-improvement): auto-sync tracked state files and new run dirs
 
-Automated commit by sync-self-improvement-state.service - the 4 tracked
+Automated commit by sync-self-improvement-state.service - the 5 tracked
 state files are mechanically rewritten every self-improvement cycle, and
 new $RUNS_DIR/*/ directories are written once per cycle. Both would
 otherwise permanently block auto-deploy.sh's dirty-tree guard (state
