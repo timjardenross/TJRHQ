@@ -1,0 +1,1622 @@
+{
+  "counts_by_state": {
+    "implementing": 8,
+    "investigating": 6,
+    "learned": 1,
+    "proposed": 9,
+    "rejected": 114,
+    "resolved_before_research": 4
+  },
+  "open_opportunities": [
+    {
+      "automation_eligibility": "needs_more_evidence",
+      "change_class": "architecture",
+      "complexity": "moderate",
+      "confidence": 0.85,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-20T17:02:56.109487+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "strong",
+      "fingerprint": "32a0a278ee105e28",
+      "fit": "strong",
+      "investigation": {
+        "alternatives": [
+          "Retaining and maintaining HQ's bespoke core/model-router"
+        ],
+        "confidence": 0.85,
+        "cost_impact": "unknown",
+        "fit_with_hq": "strong",
+        "implementation_effort": "moderate",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "Provides OpenAI-compatible endpoints, local versus cloud routing rules, failover, and load balancing",
+          "May reduce the maintenance burden of maintaining an internal bespoke model router",
+          "Includes features for usage accounting and multi-backend orchestration"
+        ],
+        "recommendation": "keep_watching",
+        "recommendation_rationale": "LAMA CARAVAN directly targets HQ's model routing needs, but with an assessed low value and minimal adoption (5 stars, 1 fork), pursuing replacement of HQ's bespoke router is premature until the project matures.",
+        "related_experience": [
+          {
+            "change_class": "architecture",
+            "future_implication": null,
+            "opportunity_id": "EVO-0059",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 24,
+            "resolution_note": null,
+            "title": "Deepa793/python-rerouting-library",
+            "watch_reason": null
+          },
+          {
+            "change_class": "architecture",
+            "future_implication": null,
+            "opportunity_id": "EVO-0021",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 23,
+            "resolution_note": null,
+            "title": "swobuforge/swobu",
+            "watch_reason": null
+          },
+          {
+            "change_class": "architecture",
+            "future_implication": null,
+            "opportunity_id": "EVO-0031",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 23,
+            "resolution_note": null,
+            "title": "wink-run/tokenbank",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0059); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0021); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0031).",
+        "risks": [
+          "Low project maturity and community adoption, with only 5 stars and 1 fork",
+          "Candidate is assessed as having low value despite strong architectural fit",
+          "Prior similar ideas have been rejected at the relevance gate"
+        ],
+        "why_hq_is_looking_at_this": "HQ operates a bespoke Model Router (core/model-router) that self-improvement depends on, and is looking for open-source alternatives to potentially reduce maintenance burden and improve routing quality for local and cloud workloads."
+      },
+      "lifecycle_state": "investigating",
+      "measurement_hint": null,
+      "missing_evidence": [
+        "Needs more evidence before a decision",
+        "Needs more evidence before a decision"
+      ],
+      "mission_id": null,
+      "opportunity_id": "EVO-0065",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: architecture; Evidence strength: strong; Confidence: 0.85; Risk: medium; Automation: needs_more_evidence; Reason: Evidence insufficient (need conclusive); Category reason: Architecture-level change is Mission-only, always — the highest change class HQ Evolution can propose, never remediated directly",
+      "provenance": [
+        {
+          "detail": "{\"license\": \"MIT\", \"stargazers_count\": 5, \"open_issues_count\": 0, \"forks_count\": 1, \"pushed_at\": \"2026-09-21T16:05:07Z\", \"archived\": false, \"watchlist_topic\": \"model-routing\", \"watchlist_gap_hypothesis\": \"core/model-router remains a bespoke, single-service router with no evaluated open-source alternative.\"}",
+          "location": "https://github.com/thepr0metheus/lama-caravan",
+          "retrieved_at": "2026-09-22T03:47:40.600373+00:00",
+          "source": "github"
+        }
+      ],
+      "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+      "relevance_score": 0.545,
+      "risk_level": "medium",
+      "run_id": "2026-09-22-034737",
+      "source_finding_id": null,
+      "summary": "LAMA CARAVAN — Local And Multi-backend Adaptive Computation And Routing Across Various AI Nodes. Self-hosted control plane for llama.cpp fleets and AI agents: hybrid local/cloud token routing with queues & schedules, remote server cells, HF model browser, usage accounting. Stdlib Python.",
+      "title": "thepr0metheus/lama-caravan",
+      "updated_at": "2026-09-25T02:34:34.631823+00:00",
+      "validated_at": "2026-09-22T03:47:40.265402+00:00",
+      "validation_evidence": [
+        "core/model-router/app.py"
+      ],
+      "validation_result": "confirmed",
+      "value": "low",
+      "watch_reason": null,
+      "why_relevant": "HQ already runs a bespoke Model Router that self-improvement's own router_client.py depends on. A more mature open-source router could reduce maintenance burden or improve routing quality for the same workload."
+    },
+    {
+      "automation_eligibility": "needs_more_evidence",
+      "change_class": "cost_optimisation",
+      "complexity": "moderate",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-10-12T16:07:15.665658+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "moderate",
+      "fingerprint": "60b9510d52772ecb",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [],
+        "confidence": null,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "moderate",
+        "method": "template_fallback",
+        "missing_evidence": [
+          "Model-assisted investigation — the Model Router was unreachable or synthesis failed this cycle."
+        ],
+        "potential_benefits": [
+          "Hugging Face model, 2188658 downloads, 4060 likes, license other"
+        ],
+        "recommendation": "needs_more_evidence",
+        "recommendation_rationale": "Initial evidence review completed. Deeper assessment was unavailable overnight.",
+        "related_experience": [
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0136",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 17,
+            "resolution_note": null,
+            "title": "Ask HN: Good Sites for/with AI Enthusiasts?",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0139",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 17,
+            "resolution_note": null,
+            "title": "A verification layer for browser agents: Amazon case study",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0135",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Local LLM inference – impressive but too hard to work with",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0136); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0139); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0135).",
+        "risks": [],
+        "why_hq_is_looking_at_this": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+      },
+      "lifecycle_state": "investigating",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0114",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: cost_optimisation; Evidence strength: moderate; Confidence: 0.50; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong); Category reason: Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority.",
+      "provenance": [
+        {
+          "detail": "{\"downloads\": 2188658, \"likes\": 4060, \"license\": \"other\", \"watchlist_topic\": \"local-inference\", \"watchlist_gap_hypothesis\": \"No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.\"}",
+          "location": "https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-Quantized",
+          "retrieved_at": "2026-10-12T16:01:56.917883+00:00",
+          "source": "huggingface"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.56,
+      "risk_level": "low",
+      "run_id": "2026-10-12-160143",
+      "source_finding_id": null,
+      "summary": "Hugging Face model, 2188658 downloads, 4060 likes, license other",
+      "title": "abenzerps/Qwen-Image-2.1-Uncensored-Quantized",
+      "updated_at": "2026-10-12T16:07:15.696103+00:00",
+      "validated_at": "2026-10-12T16:01:56.856857+00:00",
+      "validation_evidence": [],
+      "validation_result": "confirmed",
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+    },
+    {
+      "automation_eligibility": "manual_only",
+      "change_class": "capability",
+      "complexity": "low",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-10-19T13:25:58.404308+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "strong",
+      "fingerprint": "c84c79327a8007ee",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [],
+        "confidence": null,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "low",
+        "method": "template_fallback",
+        "missing_evidence": [
+          "Model-assisted investigation — the Model Router was unreachable or synthesis failed this cycle."
+        ],
+        "potential_benefits": [
+          "A high-level API to automate web browsers"
+        ],
+        "recommendation": "needs_more_evidence",
+        "recommendation_rationale": "Initial evidence review completed. Deeper assessment was unavailable overnight.",
+        "related_experience": [
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0018",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "FezAreCool/mcp-claude-hackernews",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0079",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "srpipoca504/git-mcp-rs",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0090",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "saworbit/didi",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65), EVO-0018); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0079); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0090).",
+        "risks": [],
+        "why_hq_is_looking_at_this": "HQ already depends on playwright (npm, currently pinned at 1.63.0); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+      },
+      "lifecycle_state": "proposed",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0115",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: capability; Evidence strength: strong; Confidence: 0.50; Risk: medium; Automation: manual_only; Category reason: New capability requires a Mission — never bounded remediation, never auto-applied",
+      "provenance": [
+        {
+          "detail": "{\"ecosystem\": \"npm\", \"package\": \"playwright\", \"pinned_version\": \"1.63.0\", \"latest_version\": \"1.64.1\", \"bump\": \"minor_or_patch\"}",
+          "location": "https://www.npmjs.com/package/playwright",
+          "source": "dependency_release"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.8,
+      "risk_level": "medium",
+      "run_id": "2026-10-19-132455",
+      "source_finding_id": null,
+      "summary": "A high-level API to automate web browsers",
+      "title": "playwright 1.63.0 -> 1.64.1 (npm release)",
+      "updated_at": "2026-10-19T13:25:58.429677+00:00",
+      "validated_at": null,
+      "validation_evidence": [],
+      "validation_result": null,
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "HQ already depends on playwright (npm, currently pinned at 1.63.0); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+    },
+    {
+      "automation_eligibility": "manual_only",
+      "change_class": "capability",
+      "complexity": "low",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-10-19T13:25:58.405053+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "strong",
+      "fingerprint": "2f859e5071d75979",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [],
+        "confidence": null,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "low",
+        "method": "template_fallback",
+        "missing_evidence": [
+          "Model-assisted investigation — the Model Router was unreachable or synthesis failed this cycle."
+        ],
+        "potential_benefits": [
+          "Tool for transforming styles with JS plugins"
+        ],
+        "recommendation": "needs_more_evidence",
+        "recommendation_rationale": "Initial evidence review completed. Deeper assessment was unavailable overnight.",
+        "related_experience": [
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0101",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 4,
+            "resolution_note": null,
+            "title": "getmcpm/cli",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0018",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "FezAreCool/mcp-claude-hackernews",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0029",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "SaadxSalman/nexus-graph-agent",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0101); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65), EVO-0018); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65), EVO-0029).",
+        "risks": [],
+        "why_hq_is_looking_at_this": "HQ already depends on postcss (npm, currently pinned at 8.5.28); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+      },
+      "lifecycle_state": "proposed",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0116",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: capability; Evidence strength: strong; Confidence: 0.50; Risk: medium; Automation: manual_only; Category reason: New capability requires a Mission — never bounded remediation, never auto-applied",
+      "provenance": [
+        {
+          "detail": "{\"ecosystem\": \"npm\", \"package\": \"postcss\", \"pinned_version\": \"8.5.28\", \"latest_version\": \"8.5.31\", \"bump\": \"minor_or_patch\"}",
+          "location": "https://www.npmjs.com/package/postcss",
+          "source": "dependency_release"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.8,
+      "risk_level": "medium",
+      "run_id": "2026-10-19-132455",
+      "source_finding_id": null,
+      "summary": "Tool for transforming styles with JS plugins",
+      "title": "postcss 8.5.28 -> 8.5.31 (npm release)",
+      "updated_at": "2026-10-19T13:25:58.452519+00:00",
+      "validated_at": null,
+      "validation_evidence": [],
+      "validation_result": null,
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "HQ already depends on postcss (npm, currently pinned at 8.5.28); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+    },
+    {
+      "automation_eligibility": "needs_more_evidence",
+      "change_class": "cost_optimisation",
+      "complexity": "low",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-25T23:53:49.548027+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "moderate",
+      "fingerprint": "01aeb1946365443b",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [],
+        "confidence": null,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "low",
+        "method": "template_fallback",
+        "missing_evidence": [
+          "Model-assisted investigation — the Model Router was unreachable or synthesis failed this cycle."
+        ],
+        "potential_benefits": [
+          "Hugging Face model, 275811 downloads, 0 likes, license apache-2.0"
+        ],
+        "recommendation": "needs_more_evidence",
+        "recommendation_rationale": "Initial evidence review completed. Deeper assessment was unavailable overnight.",
+        "related_experience": [
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0135",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Local LLM inference – impressive but too hard to work with",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0136",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Ask HN: Good Sites for/with AI Enthusiasts?",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0137",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Show HN: NotesOllama – I added local LLM support to Apple Notes (through Ollama)",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0135); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0136); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0137).",
+        "risks": [],
+        "why_hq_is_looking_at_this": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+      },
+      "lifecycle_state": "proposed",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0117",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: cost_optimisation; Evidence strength: moderate; Confidence: 0.50; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong); Category reason: Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority.",
+      "provenance": [
+        {
+          "detail": "{\"downloads\": 275811, \"likes\": 0, \"license\": \"apache-2.0\", \"watchlist_topic\": \"local-inference\", \"watchlist_gap_hypothesis\": \"No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.\"}",
+          "location": "https://huggingface.co/nm-testing/SmolLM-1.7B-Instruct-quantized.w4a16",
+          "retrieved_at": "2026-10-18T01:28:22.126368+00:00",
+          "source": "huggingface"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.71,
+      "risk_level": "low",
+      "run_id": "2026-10-18-012753",
+      "source_finding_id": null,
+      "summary": "Hugging Face model, 275811 downloads, 0 likes, license apache-2.0",
+      "title": "nm-testing/SmolLM-1.7B-Instruct-quantized.w4a16",
+      "updated_at": "2026-10-18T01:29:50.796496+00:00",
+      "validated_at": "2026-10-18T01:28:22.086197+00:00",
+      "validation_evidence": [],
+      "validation_result": "confirmed",
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+    },
+    {
+      "automation_eligibility": "needs_more_evidence",
+      "change_class": "cost_optimisation",
+      "complexity": "moderate",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-25T23:53:49.550843+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "moderate",
+      "fingerprint": "fdcf383bf59d3c16",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [],
+        "confidence": null,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "moderate",
+        "method": "template_fallback",
+        "missing_evidence": [
+          "Model-assisted investigation — the Model Router was unreachable or synthesis failed this cycle."
+        ],
+        "potential_benefits": [
+          "Hugging Face model, 168309 downloads, 13 likes, license gemma"
+        ],
+        "recommendation": "needs_more_evidence",
+        "recommendation_rationale": "Initial evidence review completed. Deeper assessment was unavailable overnight.",
+        "related_experience": [
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0135",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Local LLM inference – impressive but too hard to work with",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0136",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Ask HN: Good Sites for/with AI Enthusiasts?",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0137",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Show HN: NotesOllama – I added local LLM support to Apple Notes (through Ollama)",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0135); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0136); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0137).",
+        "risks": [],
+        "why_hq_is_looking_at_this": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+      },
+      "lifecycle_state": "investigating",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0118",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: cost_optimisation; Evidence strength: moderate; Confidence: 0.50; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong); Category reason: Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority.",
+      "provenance": [
+        {
+          "detail": "{\"downloads\": 168309, \"likes\": 13, \"license\": \"gemma\", \"watchlist_topic\": \"local-inference\", \"watchlist_gap_hypothesis\": \"No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.\"}",
+          "location": "https://huggingface.co/RedHatAI/gemma-3-27b-it-quantized.w4a16",
+          "retrieved_at": "2026-10-17T16:00:36.920498+00:00",
+          "source": "huggingface"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.56,
+      "risk_level": "low",
+      "run_id": "2026-10-17-160020",
+      "source_finding_id": null,
+      "summary": "Hugging Face model, 168309 downloads, 13 likes, license gemma",
+      "title": "RedHatAI/gemma-3-27b-it-quantized.w4a16",
+      "updated_at": "2026-10-17T16:04:45.633121+00:00",
+      "validated_at": "2026-10-17T16:00:36.878305+00:00",
+      "validation_evidence": [],
+      "validation_result": "confirmed",
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+    },
+    {
+      "automation_eligibility": "needs_more_evidence",
+      "change_class": "cost_optimisation",
+      "complexity": "low",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-25T23:53:49.552115+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "moderate",
+      "fingerprint": "8b90566d22ea27e9",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [],
+        "confidence": null,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "low",
+        "method": "template_fallback",
+        "missing_evidence": [
+          "Model-assisted investigation — the Model Router was unreachable or synthesis failed this cycle."
+        ],
+        "potential_benefits": [
+          "Hugging Face model, 162970 downloads, 9 likes, license apache-2.0"
+        ],
+        "recommendation": "needs_more_evidence",
+        "recommendation_rationale": "Initial evidence review completed. Deeper assessment was unavailable overnight.",
+        "related_experience": [
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0138",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.33 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 17,
+            "resolution_note": null,
+            "title": "Launch HN: Hyprnote (YC S25) – An open-source AI meeting notetaker",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0135",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Local LLM inference – impressive but too hard to work with",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0136",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Ask HN: Good Sites for/with AI Enthusiasts?",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.33 (investigate>=0.5, surface>=0.65), EVO-0138); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0135); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0136).",
+        "risks": [],
+        "why_hq_is_looking_at_this": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+      },
+      "lifecycle_state": "investigating",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0119",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: cost_optimisation; Evidence strength: moderate; Confidence: 0.50; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong); Category reason: Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority.",
+      "provenance": [
+        {
+          "detail": "{\"downloads\": 162970, \"likes\": 9, \"license\": \"apache-2.0\", \"watchlist_topic\": \"local-inference\", \"watchlist_gap_hypothesis\": \"No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.\"}",
+          "location": "https://huggingface.co/RedHatAI/Qwen3.5-9B-quantized.w4a16",
+          "retrieved_at": "2026-09-25T23:37:49.560352+00:00",
+          "source": "huggingface"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.71,
+      "risk_level": "low",
+      "run_id": "2026-09-25-233744",
+      "source_finding_id": null,
+      "summary": "Hugging Face model, 162970 downloads, 9 likes, license apache-2.0",
+      "title": "RedHatAI/Qwen3.5-9B-quantized.w4a16",
+      "updated_at": "2026-09-25T23:53:49.721641+00:00",
+      "validated_at": "2026-09-25T23:37:49.530814+00:00",
+      "validation_evidence": [],
+      "validation_result": "confirmed",
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+    },
+    {
+      "automation_eligibility": "needs_more_evidence",
+      "change_class": "cost_optimisation",
+      "complexity": "low",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-25T23:53:49.552842+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "moderate",
+      "fingerprint": "c112763881389533",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [],
+        "confidence": null,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "low",
+        "method": "template_fallback",
+        "missing_evidence": [
+          "Model-assisted investigation — the Model Router was unreachable or synthesis failed this cycle."
+        ],
+        "potential_benefits": [
+          "Hugging Face model, 162403 downloads, 4 likes, license apache-2.0"
+        ],
+        "recommendation": "needs_more_evidence",
+        "recommendation_rationale": "Initial evidence review completed. Deeper assessment was unavailable overnight.",
+        "related_experience": [
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0135",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Local LLM inference – impressive but too hard to work with",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0136",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Ask HN: Good Sites for/with AI Enthusiasts?",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0137",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Show HN: NotesOllama – I added local LLM support to Apple Notes (through Ollama)",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0135); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0136); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0137).",
+        "risks": [],
+        "why_hq_is_looking_at_this": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+      },
+      "lifecycle_state": "investigating",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0120",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: cost_optimisation; Evidence strength: moderate; Confidence: 0.50; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong); Category reason: Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority.",
+      "provenance": [
+        {
+          "detail": "{\"downloads\": 162403, \"likes\": 4, \"license\": \"apache-2.0\", \"watchlist_topic\": \"local-inference\", \"watchlist_gap_hypothesis\": \"No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.\"}",
+          "location": "https://huggingface.co/RedHatAI/Qwen2.5-1.5B-quantized.w8a8",
+          "retrieved_at": "2026-09-25T23:37:49.560352+00:00",
+          "source": "huggingface"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.71,
+      "risk_level": "low",
+      "run_id": "2026-09-25-233744",
+      "source_finding_id": null,
+      "summary": "Hugging Face model, 162403 downloads, 4 likes, license apache-2.0",
+      "title": "RedHatAI/Qwen2.5-1.5B-quantized.w8a8",
+      "updated_at": "2026-09-25T23:53:49.729641+00:00",
+      "validated_at": "2026-09-25T23:37:49.530814+00:00",
+      "validation_evidence": [],
+      "validation_result": "confirmed",
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+    },
+    {
+      "automation_eligibility": "needs_more_evidence",
+      "change_class": "cost_optimisation",
+      "complexity": "low",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-25T23:53:49.553497+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "moderate",
+      "fingerprint": "58b71ce7cd80b9e2",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [
+          "Existing paid models currently defined in TASK_POLICY",
+          "Other local inference models evaluated in prior reviews"
+        ],
+        "confidence": 0.7,
+        "cost_impact": "lower",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "low",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "Directly lowers per-call costs by migrating tasks from paid models to a local quantized model under an Apache-2.0 license",
+          "Low implementation complexity as a pre-quantized (w4a16) model for local inference"
+        ],
+        "recommendation": "keep_watching",
+        "recommendation_rationale": "While the low complexity and cost-saving potential of local quantized inference align with cost optimization goals, three similar ideas were previously auto-rejected at the relevance gate (score 0.225) and this specific model has minimal external validation (1 like, 14 downloads). HQ should observe task-type cost/quality tradeoff data before actively pursuing adoption.",
+        "related_experience": [
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0135",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Local LLM inference – impressive but too hard to work with",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0136",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Ask HN: Good Sites for/with AI Enthusiasts?",
+            "watch_reason": null
+          },
+          {
+            "change_class": "cost_optimisation",
+            "future_implication": null,
+            "opportunity_id": "EVO-0137",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 16,
+            "resolution_note": null,
+            "title": "Show HN: NotesOllama – I added local LLM support to Apple Notes (through Ollama)",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0135); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0136); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.225 (investigate>=0.5, surface>=0.65), EVO-0137).",
+        "risks": [
+          "Small 2B parameter quantized model may not maintain required quality for routed tasks",
+          "Low community adoption (1 like, 14 downloads) indicates limited real-world validation",
+          "Three prior similar local inference ideas failed relevance gating with low scores (0.225)"
+        ],
+        "why_hq_is_looking_at_this": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+      },
+      "lifecycle_state": "investigating",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0121",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: cost_optimisation; Evidence strength: moderate; Confidence: 0.50; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong); Category reason: Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority.",
+      "provenance": [
+        {
+          "detail": "{\"downloads\": 58971, \"likes\": 1, \"license\": \"apache-2.0\", \"watchlist_topic\": \"local-inference\", \"watchlist_gap_hypothesis\": \"No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.\"}",
+          "location": "https://huggingface.co/RedHatAI/granite-3.1-2b-instruct-quantized.w4a16",
+          "retrieved_at": "2026-09-26T01:38:31.419840+00:00",
+          "source": "huggingface"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.57,
+      "risk_level": "low",
+      "run_id": "2026-09-26-013824",
+      "source_finding_id": null,
+      "summary": "Hugging Face model, 58971 downloads, 1 likes, license apache-2.0",
+      "title": "RedHatAI/granite-3.1-2b-instruct-quantized.w4a16",
+      "updated_at": "2026-09-26T01:43:54.135843+00:00",
+      "validated_at": "2026-09-26T01:38:31.382651+00:00",
+      "validation_evidence": [],
+      "validation_result": "confirmed",
+      "value": "medium",
+      "watch_reason": null,
+      "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
+    },
+    {
+      "automation_eligibility": "manual_only",
+      "change_class": "capability",
+      "complexity": "moderate",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-25T23:53:49.557834+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "strong",
+      "fingerprint": "0735ba42fb8a5c32",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [
+          "Remain on pinned version 2.17.0"
+        ],
+        "confidence": 0.5,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "moderate",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "Access to new static code checking capabilities from version 4.1.2",
+          "Visibility into deprecations and updates for an existing dependency"
+        ],
+        "recommendation": "keep_watching",
+        "recommendation_rationale": "HQ uses this dependency directly and the update offers high value static checking capabilities, but jumping across major versions from 2.17.0 to 4.1.2 carries moderate complexity, unknown cost impact, and a track record of similar candidates being auto-rejected at the relevance gate.",
+        "related_experience": [
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0018",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "FezAreCool/mcp-claude-hackernews",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0037",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "khleel213/mcp-server-bluesky-py",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0096",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "tjromack/mcp-suite",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65), EVO-0018); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65), EVO-0037); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0096).",
+        "risks": [
+          "Breaking changes and deprecations across multiple major versions (2.17.0 to 4.1.2) affecting existing code checks",
+          "Potential configuration or rule incompatibilities requiring remediation"
+        ],
+        "why_hq_is_looking_at_this": "HQ already depends on pylint pinned at version 2.17.0 on PyPI, and a major version update to 4.1.2 introduces new static checker capabilities and deprecation changes for code HQ already runs."
+      },
+      "lifecycle_state": "proposed",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0126",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: capability; Evidence strength: strong; Confidence: 0.50; Risk: medium; Automation: manual_only; Category reason: New capability requires a Mission — never bounded remediation, never auto-applied",
+      "provenance": [
+        {
+          "detail": "{\"ecosystem\": \"pypi\", \"package\": \"pylint\", \"pinned_version\": \"2.17.0\", \"latest_version\": \"4.1.2\", \"bump\": \"major\"}",
+          "location": "https://pypi.org/project/pylint/",
+          "source": "dependency_release"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.65,
+      "risk_level": "medium",
+      "run_id": "2026-10-06-160025",
+      "source_finding_id": null,
+      "summary": "python code static checker",
+      "title": "pylint 2.17.0 -> 4.1.2 (pypi release)",
+      "updated_at": "2026-10-06T16:07:49.646551+00:00",
+      "validated_at": null,
+      "validation_evidence": [],
+      "validation_result": null,
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "HQ already depends on pylint (pypi, currently pinned at 2.17.0); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+    },
+    {
+      "automation_eligibility": "manual_only",
+      "change_class": "capability",
+      "complexity": "low",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-27T17:08:48.800786+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "strong",
+      "fingerprint": "d6ff453c97349adb",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [
+          "Keep @supabase/ssr pinned at 0.12.0 until a specific requirement or security fix demands an upgrade"
+        ],
+        "confidence": 0.5,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "low",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "Incorporates bug fixes, capability improvements, or deprecation updates for an existing production dependency",
+          "Maintains compatibility and currency with the @supabase/ssr library in server-side rendering frameworks"
+        ],
+        "recommendation": "keep_watching",
+        "recommendation_rationale": "While HQ already runs this code and the implementation effort is low, prior similar candidates were auto-rejected at the relevance gate, and no urgent security or critical feature need is specified in the release evidence to warrant an immediate upgrade over keeping it on watch.",
+        "related_experience": [
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0017",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "mc-agents/mcp-server",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0018",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "FezAreCool/mcp-claude-hackernews",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0019",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "JoshuaRamirez/RoslynMcpServer",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0017); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65), EVO-0018); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0019).",
+        "risks": [
+          "Potential breaking changes or regressions introduced between versions 0.12.0 and 0.12.7",
+          "History of similar dependency updates being auto-rejected at the relevance gate due to low relevance scores (EVO-0017, EVO-0018, EVO-0019)"
+        ],
+        "why_hq_is_looking_at_this": "HQ currently runs and depends on @supabase/ssr pinned at version 0.12.0 in its npm ecosystem, and a minor/patch update to version 0.12.7 has been released."
+      },
+      "lifecycle_state": "proposed",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0141",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: capability; Evidence strength: strong; Confidence: 0.50; Risk: medium; Automation: manual_only; Category reason: New capability requires a Mission — never bounded remediation, never auto-applied",
+      "provenance": [
+        {
+          "detail": "{\"ecosystem\": \"npm\", \"package\": \"@supabase/ssr\", \"pinned_version\": \"0.12.0\", \"latest_version\": \"0.12.7\", \"bump\": \"minor_or_patch\"}",
+          "location": "https://www.npmjs.com/package/@supabase/ssr",
+          "source": "dependency_release"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.8,
+      "risk_level": "medium",
+      "run_id": "2026-09-27-170007",
+      "source_finding_id": null,
+      "summary": "Use the Supabase JavaScript library in popular server-side rendering (SSR) frameworks.",
+      "title": "@supabase/ssr 0.12.0 -> 0.12.7 (npm release)",
+      "updated_at": "2026-09-27T17:09:56.115436+00:00",
+      "validated_at": null,
+      "validation_evidence": [],
+      "validation_result": null,
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "HQ already depends on @supabase/ssr (npm, currently pinned at 0.12.0); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+    },
+    {
+      "automation_eligibility": "manual_only",
+      "change_class": "capability",
+      "complexity": "low",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-27T17:08:48.806190+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "strong",
+      "fingerprint": "1e2826a6a2f7b6af",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [
+          "Remain on currently pinned version 2.116.0"
+        ],
+        "confidence": 0.5,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "low",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "Delivers minor or patch version updates and new capabilities to code HQ is already running",
+          "Maintains alignment with the latest upstream Isomorphic Javascript SDK for Supabase"
+        ],
+        "recommendation": "keep_watching",
+        "recommendation_rationale": "While HQ directly uses @supabase/supabase-js making the update low complexity with moderate fit, similar updates have previously failed relevance thresholds and specific patch release notes are not detailed in the evidence.",
+        "related_experience": [
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0018",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "FezAreCool/mcp-claude-hackernews",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0101",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "getmcpm/cli",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0103",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "tech4242/mcphawk",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65), EVO-0018); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0101); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0103).",
+        "risks": [
+          "Potential breaking changes or unexpected behaviors introduced between minor/patch versions 2.116.0 and 2.117.2",
+          "Three similar dependency update ideas were previously auto-rejected at the relevance gate due to low relevance scores"
+        ],
+        "why_hq_is_looking_at_this": "HQ already depends on @supabase/supabase-js pinned at version 2.116.0, and an update to version 2.117.2 has been released on npm."
+      },
+      "lifecycle_state": "proposed",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0142",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: capability; Evidence strength: strong; Confidence: 0.50; Risk: medium; Automation: manual_only; Category reason: New capability requires a Mission — never bounded remediation, never auto-applied",
+      "provenance": [
+        {
+          "detail": "{\"ecosystem\": \"npm\", \"package\": \"@supabase/supabase-js\", \"pinned_version\": \"2.116.0\", \"latest_version\": \"2.117.2\", \"bump\": \"minor_or_patch\"}",
+          "location": "https://www.npmjs.com/package/@supabase/supabase-js",
+          "source": "dependency_release"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.8,
+      "risk_level": "medium",
+      "run_id": "2026-09-27-170007",
+      "source_finding_id": null,
+      "summary": "Isomorphic Javascript SDK for Supabase",
+      "title": "@supabase/supabase-js 2.116.0 -> 2.117.2 (npm release)",
+      "updated_at": "2026-09-27T17:11:27.031335+00:00",
+      "validated_at": null,
+      "validation_evidence": [],
+      "validation_result": null,
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "HQ already depends on @supabase/supabase-js (npm, currently pinned at 2.116.0); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+    },
+    {
+      "automation_eligibility": "manual_only",
+      "change_class": "capability",
+      "complexity": "moderate",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-27T17:08:48.816571+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "strong",
+      "fingerprint": "5c74c1fff9c3df7a",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [
+          "Remain pinned at version 20.19.43",
+          "Incrementally upgrade through intermediate major versions"
+        ],
+        "confidence": 0.5,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "moderate",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "Provides updated TypeScript type definitions for Node.js",
+          "Surfaces new capabilities and deprecation information for code HQ already runs"
+        ],
+        "recommendation": "keep_watching",
+        "recommendation_rationale": "While HQ depends on @types/node and the update offers high capability value, three similar prior candidates were auto-rejected at the relevance gate, and a major version jump from 20 to 26 carries moderate complexity and unknown cost impact.",
+        "related_experience": [
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0018",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "FezAreCool/mcp-claude-hackernews",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0036",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "Glowboth/skillsync-mcp",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0053",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.42 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "modelcontextprotocol/typescript-sdk",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65), EVO-0018); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0036); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.42 (investigate>=0.5, surface>=0.65), EVO-0053).",
+        "risks": [
+          "Major version upgrade bump (from 20.x to 26.x) introduces moderate complexity and potential breaking type changes",
+          "Three prior similar dependency updates were auto-rejected at the relevance gate (EVO-0018, EVO-0036, EVO-0053)"
+        ],
+        "why_hq_is_looking_at_this": "HQ already depends on @types/node pinned at 20.19.43, and the package has a major release update to 26.6.3 containing new-capability and deprecation information."
+      },
+      "lifecycle_state": "proposed",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0143",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: capability; Evidence strength: strong; Confidence: 0.50; Risk: medium; Automation: manual_only; Category reason: New capability requires a Mission — never bounded remediation, never auto-applied",
+      "provenance": [
+        {
+          "detail": "{\"ecosystem\": \"npm\", \"package\": \"@types/node\", \"pinned_version\": \"20.19.43\", \"latest_version\": \"26.6.3\", \"bump\": \"major\"}",
+          "location": "https://www.npmjs.com/package/@types/node",
+          "source": "dependency_release"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.65,
+      "risk_level": "medium",
+      "run_id": "2026-09-27-170007",
+      "source_finding_id": null,
+      "summary": "TypeScript definitions for node",
+      "title": "@types/node 20.19.43 -> 26.6.3 (npm release)",
+      "updated_at": "2026-09-27T17:13:00.075657+00:00",
+      "validated_at": null,
+      "validation_evidence": [],
+      "validation_result": null,
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "HQ already depends on @types/node (npm, currently pinned at 20.19.43); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+    },
+    {
+      "automation_eligibility": "manual_only",
+      "change_class": "capability",
+      "complexity": "moderate",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-28T17:08:35.463426+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "strong",
+      "fingerprint": "3c642a273760459c",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [
+          "Remain on knip pinned version 5.88.1"
+        ],
+        "confidence": 0.5,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "moderate",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "Find and fix unused dependencies, exports, and files in TypeScript and JavaScript projects",
+          "Gain new capabilities and updates included in the major release 6.38.0 for code HQ already runs"
+        ],
+        "recommendation": "keep_watching",
+        "recommendation_rationale": "While knip is an existing dependency in HQ and the update offers high value for detecting unused code, the major bump brings moderate complexity and breaking change risk. Given that three prior similar ideas were auto-rejected at the relevance gate, we should verify specific upgrade needs and release notes before actively pursuing.",
+        "related_experience": [
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0018",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "FezAreCool/mcp-claude-hackernews",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0053",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.42 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "modelcontextprotocol/typescript-sdk",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0083",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "Marksab001/Agent2Wp",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65), EVO-0018); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.42 (investigate>=0.5, surface>=0.65), EVO-0053); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0083).",
+        "risks": [
+          "Major version upgrade (knip 5.x to 6.x) introduces breaking changes or deprecations requiring migration effort",
+          "Prior similar dependency ideas have repeatedly failed relevance gates (EVO-0018, EVO-0053, and EVO-0055)"
+        ],
+        "why_hq_is_looking_at_this": "HQ already depends on knip pinned at version 5.88.1, and this update represents a major version jump to 6.38.0 bringing new capabilities and potential deprecations for an existing dependency."
+      },
+      "lifecycle_state": "proposed",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0144",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: capability; Evidence strength: strong; Confidence: 0.50; Risk: medium; Automation: manual_only; Category reason: New capability requires a Mission — never bounded remediation, never auto-applied",
+      "provenance": [
+        {
+          "detail": "{\"ecosystem\": \"npm\", \"package\": \"knip\", \"pinned_version\": \"5.88.1\", \"latest_version\": \"6.38.0\", \"bump\": \"major\"}",
+          "location": "https://www.npmjs.com/package/knip",
+          "source": "dependency_release"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.65,
+      "risk_level": "medium",
+      "run_id": "2026-09-28-170153",
+      "source_finding_id": null,
+      "summary": "Find and fix unused dependencies, exports and files in your TypeScript and JavaScript projects",
+      "title": "knip 5.88.1 -> 6.38.0 (npm release)",
+      "updated_at": "2026-09-28T17:09:38.339079+00:00",
+      "validated_at": null,
+      "validation_evidence": [],
+      "validation_result": null,
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "HQ already depends on knip (npm, currently pinned at 5.88.1); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+    },
+    {
+      "automation_eligibility": "manual_only",
+      "change_class": "capability",
+      "complexity": "moderate",
+      "confidence": 0.5,
+      "cost_impact": "unknown",
+      "created_at": "2026-09-28T17:08:35.465439+00:00",
+      "discovery_source": "external",
+      "evidence_strength": "strong",
+      "fingerprint": "b404fb64d4d44e4c",
+      "fit": "moderate",
+      "investigation": {
+        "alternatives": [
+          "Remain on pinned version 14.2.14",
+          "Evaluate incremental updates prior to adopting major release 16.3.6"
+        ],
+        "confidence": 0.5,
+        "cost_impact": "unknown",
+        "fit_with_hq": "moderate",
+        "implementation_effort": "moderate",
+        "method": "model_synthesis",
+        "missing_evidence": [],
+        "potential_benefits": [
+          "Provides new capabilities and framework improvements as part of Next.js release 16.3.6",
+          "Updates HQ's existing core framework dependency beyond the currently pinned version"
+        ],
+        "recommendation": "keep_watching",
+        "recommendation_rationale": "While HQ directly depends on next, this is a major ecosystem jump from 14.2.14 to 16.3.6 with moderate complexity and unknown cost impact. Given that three prior similar ideas were auto-rejected at the relevance gate, HQ should monitor release notes and deprecations rather than immediately pursuing the upgrade.",
+        "related_experience": [
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0018",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "FezAreCool/mcp-claude-hackernews",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0047",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "Dicklesworthstone/fastmcp_rust",
+            "watch_reason": null
+          },
+          {
+            "change_class": "capability",
+            "future_implication": null,
+            "opportunity_id": "EVO-0048",
+            "outcome_confidence": null,
+            "outcome_result": null,
+            "outcome_summary": null,
+            "rejection_reason": "Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65)",
+            "relationship": "rejected",
+            "relevance_score": 3,
+            "resolution_note": null,
+            "title": "nixrajput/mcp-vitest-docs",
+            "watch_reason": null
+          }
+        ],
+        "related_experience_summary": "HQ has relevant prior experience with 3 similar ideas: a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.165 (investigate>=0.5, surface>=0.65), EVO-0018); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0047); a similar idea was rejected previously (reason: Auto-rejected at relevance gate: score=0.315 (investigate>=0.5, surface>=0.65), EVO-0048).",
+        "risks": [
+          "Major version upgrade from 14.2.14 to 16.3.6 may introduce breaking changes or deprecations",
+          "Three prior similar dependency update ideas were rejected at the relevance gate"
+        ],
+        "why_hq_is_looking_at_this": "HQ already depends on next (npm, currently pinned at 14.2.14) and runs this code, making release notes regarding new capabilities and deprecations directly relevant."
+      },
+      "lifecycle_state": "proposed",
+      "measurement_hint": null,
+      "missing_evidence": [],
+      "mission_id": null,
+      "opportunity_id": "EVO-0145",
+      "outcome": {},
+      "outcome_contract": {},
+      "policy_decision_rationale": "Category: capability; Evidence strength: strong; Confidence: 0.50; Risk: medium; Automation: manual_only; Category reason: New capability requires a Mission — never bounded remediation, never auto-applied",
+      "provenance": [
+        {
+          "detail": "{\"ecosystem\": \"npm\", \"package\": \"next\", \"pinned_version\": \"14.2.35\", \"latest_version\": \"16.3.6\", \"bump\": \"major\"}",
+          "location": "https://www.npmjs.com/package/next",
+          "source": "dependency_release"
+        }
+      ],
+      "rejection_reason": null,
+      "relevance_score": 0.65,
+      "risk_level": "medium",
+      "run_id": "2026-09-28-170153",
+      "source_finding_id": null,
+      "summary": "The React Framework",
+      "title": "next 14.2.35 -> 16.3.6 (npm release)",
+      "updated_at": "2026-09-28T17:10:55.502054+00:00",
+      "validated_at": null,
+      "validation_evidence": [],
+      "validation_result": null,
+      "value": "high",
+      "watch_reason": null,
+      "why_relevant": "HQ already depends on next (npm, currently pinned at 14.2.35); its release notes are new-capability/deprecation information relevant regardless of any watchlist topic, because HQ already runs this code."
+    }
+  ]
+}
