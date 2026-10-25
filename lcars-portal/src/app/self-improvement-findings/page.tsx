@@ -58,7 +58,8 @@ const LIFECYCLE_STAGES: Array<{ key: Opportunity['lifecycle_state']; label: stri
 // the tile just pointed at an empty tab.
 const LIFECYCLE_STAGE_TAB: Record<Opportunity['lifecycle_state'], TabKey> = {
   discovered: 'discover',
-  proposed: 'discover',
+  // proposed items are decided in the Improve tab; Discover only lists them.
+  proposed: 'improve',
   investigating: 'investigate',
   watching: 'investigate',
   approved: 'learned',
@@ -278,10 +279,7 @@ export default function HqEvolutionPage() {
 
   function reviewOpportunity(o: Opportunity) {
     setSelectedId(o.opportunity_id);
-    if (o.lifecycle_state === 'proposed') setTab('improve');
-    else if (o.lifecycle_state === 'investigating') setTab('investigate');
-    else if (o.lifecycle_state === 'rejected') setTab('rejected');
-    else setTab('discover');
+    setTab(LIFECYCLE_STAGE_TAB[o.lifecycle_state]);
   }
 
   if (loading) {
@@ -305,7 +303,7 @@ export default function HqEvolutionPage() {
           active={tab}
           onChange={setTab}
           tabs={[
-            { key: 'discover', label: `Discover${proposed.length ? ` (${proposed.length})` : ''}` },
+            { key: 'discover', label: `Discover${discoveredOnly.length ? ` (${discoveredOnly.length})` : ''}` },
             { key: 'investigate', label: `Investigate${investigating.length ? ` (${investigating.length})` : ''}` },
             { key: 'improve', label: `Improve${proposed.length + pendingLegacyCount ? ` (${proposed.length + pendingLegacyCount})` : ''}` },
             { key: 'learned', label: 'Learned' },
