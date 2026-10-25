@@ -1,0 +1,76 @@
+{
+  "findings": [
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 Features in Research Commands",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "TODO comments indicating pending Phase 5 implementation for Supabase authorization checking and decision_to_memory integration",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/commands/research_command.py"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement Phase 5 authorization checking via Supabase and integration with decision_to_memory, or document tracking tickets."
+      },
+      "expected_benefit": "Completes research command security and memory integration workflows."
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Quality Anomalies Query in Forecasting",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Hardcoded empty list with TODO: Query quality_anomalies table",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/lib/quality_forecasting.py"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Replace empty placeholder list with actual query against quality_anomalies table."
+      },
+      "expected_benefit": "Enables accurate quality anomaly tracking in quality forecasting."
+    },
+    {
+      "category": "observability_gap",
+      "title": "Model Router Call Log File Missing",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "router_status configures call_log file at /opt/starship-endeavour/core/model-router/call_log.jsonl but call_log_exists is false",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure model router properly initializes and writes to its configured call log path."
+      },
+      "expected_benefit": "Restores model call logging and observability metrics for model routing."
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct LLM API Key Access in Emergency Alert Module",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct invocation of call_gemini and call_mistral via os.getenv/dict lookup instead of model router",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert.py"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Refactor emergency alert calls to route through the centralized model router instead of direct provider SDK calls."
+      },
+      "expected_benefit": "Centralizes model usage, fallback handling, and latency/cost tracking through the model router."
+    }
+  ]
+}
