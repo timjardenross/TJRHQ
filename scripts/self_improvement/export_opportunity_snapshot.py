@@ -21,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from opportunity_store import OpportunityStore  # noqa: E402
+from opportunity_store import OpportunityStore
 
 OPEN_STATES = ("proposed", "investigating", "watching")
 DEFAULT_DATA_ROOT = Path(__file__).resolve().parents[2] / "data" / "self-improvement"
