@@ -128,10 +128,19 @@ repos:
         # (false-positive) hits after adding the equivalently-anchored
         # runs/ pattern below — dropped the forced leading slash on both
         # so a match at the very start of the path works too.
+        # 2026-10-25: data/self-improvement/review/opportunity_snapshot.json
+        # (written by scripts/self_improvement/export_opportunity_snapshot.py,
+        # committed by sync-self-improvement-state.sh) is a mechanical dump
+        # of opportunity records -- 16-char sha256 fingerprints and external
+        # package/model metadata, never secrets. detect-secrets flagged hex
+        # strings in it ("Hex High Entropy String") and failed the sync
+        # service every cycle, blocking the other state files with it.
+        # gitleaks still scans it.
         exclude: |
           (?x)^(
             .*\.lock|
             .*package-lock\.json|
             .*data/mem0_qdrant/.*|
-            .*data/self-improvement/runs/.*/evidence\.json
+            .*data/self-improvement/runs/.*/evidence\.json|
+            .*data/self-improvement/review/opportunity_snapshot\.json
           )$
