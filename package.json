@@ -1,13 +1,16 @@
 {
-  "name": "starship-endeavour",
+  "name": "your-project-name",
   "version": "1.0.0",
-  "private": true,
-  "description": "Starship Endeavour repository root tooling (governance/ADR build tools; application code lives in lcars-portal/ and elsewhere).",
+  "description": "Your project description",
+  "main": "index.js",
   "scripts": {
-    "adr:build": "log4brains build",
-    "adr:preview": "log4brains preview"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "devDependencies": {
-    "log4brains": "^1.1.0"
-  }
+  "dependencies": {
+    "tailwindcss": "4.3.3"
+  },
+  "devDependencies": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
