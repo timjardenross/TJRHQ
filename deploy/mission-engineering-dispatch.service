@@ -29,7 +29,7 @@ RestartSec=300
 # Generous but bounded — a stuck sync-one subprocess (already internally
 # capped at 180s per Mission) must not hang this unit indefinitely if
 # several Missions are approved at once.
-TimeoutStartSec=1800
+TimeoutStartSec=3600
 
 [Install]
 WantedBy=multi-user.target

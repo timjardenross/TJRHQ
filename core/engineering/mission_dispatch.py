@@ -226,7 +226,7 @@ def dispatch_one(repo_root: Path, mission: dict[str, Any]) -> dict[str, Any]:
         result = subprocess.run(
             [str(venv_python), "-m", "core.engineering.batch_coding", "sync-one",
              "--handoff", str(handoff_path)],
-            cwd=repo_root, capture_output=True, text=True, timeout=180,
+            cwd=repo_root, capture_output=True, text=True, timeout=600,
             check=False,
         )
     except Exception as exc:  # noqa: BLE001 - subprocess failure surfaced to the caller in the returned error dict, not swallowed
