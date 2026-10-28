@@ -648,28 +648,28 @@
       "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
     },
     {
-      "automation_eligibility": "needs_more_evidence",
+      "automation_eligibility": "needs_signoff",
       "change_class": "cost_optimisation",
       "complexity": "low",
-      "confidence": 0.5,
+      "confidence": 0.95,
       "cost_impact": "unknown",
       "created_at": "2026-09-25T23:53:49.552115+00:00",
       "discovery_source": "external",
-      "evidence_strength": "moderate",
-      "fingerprint": "8b90566d22ea27e9",
-      "fit": "moderate",
+      "evidence_strength": "strong",
+      "fingerprint": "97974b5bb94d8876",
+      "fit": "weak",
       "investigation": {
         "alternatives": [],
         "confidence": null,
         "cost_impact": "unknown",
-        "fit_with_hq": "moderate",
+        "fit_with_hq": "weak",
         "implementation_effort": "low",
         "method": "template_fallback",
         "missing_evidence": [
           "Model-assisted investigation — the Model Router was unreachable or synthesis failed this cycle."
         ],
         "potential_benefits": [
-          "Hugging Face model, 162970 downloads, 9 likes, license apache-2.0"
+          "Hugging Face model, 49687 downloads, 3 likes, license apache-2.0"
         ],
         "recommendation": "needs_more_evidence",
         "recommendation_rationale": "Initial evidence review completed. Deeper assessment was unavailable overnight.",
@@ -728,27 +728,27 @@
       "opportunity_id": "EVO-0119",
       "outcome": {},
       "outcome_contract": {},
-      "policy_decision_rationale": "Category: cost_optimisation; Evidence strength: moderate; Confidence: 0.50; Risk: low; Automation: needs_more_evidence; Reason: Evidence insufficient (need strong); Category reason: Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority.",
+      "policy_decision_rationale": "Category: cost_optimisation; Evidence strength: strong; Confidence: 0.95; Risk: low; Automation: needs_signoff; Category reason: Auto-remediation of a cost opportunity is only ever permitted when it is bounded and reversible AND policy explicitly allows it for the specific action; none are pre-approved here. The PolicyEngine, not the model, remains the sole authority.",
       "provenance": [
         {
-          "detail": "{\"downloads\": 162970, \"likes\": 9, \"license\": \"apache-2.0\", \"watchlist_topic\": \"local-inference\", \"watchlist_gap_hypothesis\": \"No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.\"}",
-          "location": "https://huggingface.co/RedHatAI/Qwen3.5-9B-quantized.w4a16",
-          "retrieved_at": "2026-09-25T23:37:49.560352+00:00",
+          "detail": "{\"downloads\": 49687, \"likes\": 3, \"license\": \"apache-2.0\", \"watchlist_topic\": \"local-inference\", \"watchlist_gap_hypothesis\": \"No per-task-type cost/quality tradeoff review has been run against the Model Router's TASK_POLICY.\"}",
+          "location": "https://huggingface.co/RedHatAI/Qwen3-30B-A3B-Instruct-2507-quantized.w4a16",
+          "retrieved_at": "2026-10-27T16:03:09.463369+00:00",
           "source": "huggingface"
         }
       ],
       "rejection_reason": null,
-      "relevance_score": 0.71,
+      "relevance_score": 0.52,
       "risk_level": "low",
-      "run_id": "2026-09-25-233744",
+      "run_id": "2026-10-27-160257",
       "source_finding_id": null,
-      "summary": "Hugging Face model, 162970 downloads, 9 likes, license apache-2.0",
-      "title": "RedHatAI/Qwen3.5-9B-quantized.w4a16",
-      "updated_at": "2026-09-25T23:53:49.721641+00:00",
-      "validated_at": "2026-09-25T23:37:49.530814+00:00",
+      "summary": "Hugging Face model, 49687 downloads, 3 likes, license apache-2.0",
+      "title": "RedHatAI/Qwen3-30B-A3B-Instruct-2507-quantized.w4a16",
+      "updated_at": "2026-10-27T16:07:29.103980+00:00",
+      "validated_at": "2026-10-27T16:03:09.416249+00:00",
       "validation_evidence": [],
       "validation_result": "confirmed",
-      "value": "high",
+      "value": "medium",
       "watch_reason": null,
       "why_relevant": "Any task_type currently routed to a paid model in TASK_POLICY could move to a capable local model if quality holds, directly lowering per-call cost."
     },
