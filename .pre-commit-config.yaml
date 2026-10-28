@@ -128,10 +128,16 @@ repos:
         # (false-positive) hits after adding the equivalently-anchored
         # runs/ pattern below — dropped the forced leading slash on both
         # so a match at the very start of the path works too.
+        # 2026-10-28: data/self-improvement/review/opportunity_snapshot.json
+        # is auto-generated every cycle (sync-self-improvement-state.service)
+        # and every record carries a 16-hex `fingerprint` dedup key that
+        # trips HexHighEntropyString (11+ false positives), so the sync
+        # commit failed on every run. Excluded by exact path only.
         exclude: |
           (?x)^(
             .*\.lock|
             .*package-lock\.json|
             .*data/mem0_qdrant/.*|
-            .*data/self-improvement/runs/.*/evidence\.json
+            .*data/self-improvement/runs/.*/evidence\.json|
+            data/self-improvement/review/opportunity_snapshot\.json
           )$
