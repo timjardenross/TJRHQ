@@ -1,0 +1,76 @@
+{
+  "findings": [
+    {
+      "category": "observability_gap",
+      "title": "Model Router Call Log Missing",
+      "evidence": [
+        {
+          "type": "file_missing",
+          "observation": "Model router is reachable and active, but call_log_exists is false for /opt/starship-endeavour/core/model-router/call_log.jsonl.",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure the model router service creates and writes to call_log.jsonl to maintain call traceability and performance auditing."
+      },
+      "expected_benefit": "Restores visibility into runtime model invocations, latencies, and failure metrics."
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct LLM API Key Invocations in Emergency Alerts",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct calls to call_gemini and call_mistral using environment variables instead of routing through the model router.",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert_<URL>"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Update emergency alert generation to query the centralized model router endpoint rather than bypassing via direct SDK client calls."
+      },
+      "expected_benefit": "Enforces unified rate limiting, observability, failover routing, and cost accounting across all LLM requests."
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 Hooks in Research Commands",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Multiple TODO comments marking pending Phase 5 implementations for authorization checking via Supabase and integration with decision_to_memory.",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/commands/research_<URL>"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement the planned Phase 5 authorization and decision_to_memory integration hooks or track them formally as backlog issues."
+      },
+      "expected_benefit": "Ensures research workflows enforce proper access controls and maintain consistent memory integration."
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Quality Anomalies Query in Forecasting",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Hardcoded empty list with TODO comment: 'recent_anomalies = [] # TODO: Query quality_anomalies table'.",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/lib/quality_forecasting_<URL>"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Query the quality_anomalies table instead of returning a hardcoded empty list in quality_forecasting."
+      },
+      "expected_benefit": "Enables accurate quality anomaly forecasting based on persisted quality events."
+    }
+  ]
+}
