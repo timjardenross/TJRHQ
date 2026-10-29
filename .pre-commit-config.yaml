@@ -133,11 +133,17 @@ repos:
         # and every record carries a 16-hex `fingerprint` dedup key that
         # trips HexHighEntropyString (11+ false positives), so the sync
         # commit failed on every run. Excluded by exact path only.
+        # 2026-10-29: Missions/Engineering-Handoffs/artifacts/*.patch.md are
+        # LLM-written patch text from batch_coding sync-one; they quote
+        # `"api_key_env": "GLM_5_2_CLOUD_API_KEY"`-style env var NAMES, which
+        # trip the Secret Keyword detector (5 false positives). Never real
+        # values; gitleaks still scans them.
         exclude: |
           (?x)^(
             .*\.lock|
             .*package-lock\.json|
             .*data/mem0_qdrant/.*|
             .*data/self-improvement/runs/.*/evidence\.json|
-            data/self-improvement/review/opportunity_snapshot\.json
+            data/self-improvement/review/opportunity_snapshot\.json|
+            Missions/Engineering-Handoffs/artifacts/.*\.patch\.md
           )$
