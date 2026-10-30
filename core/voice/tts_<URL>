@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""
+<ORGANIZATION> — local narration voice service.
+
+<TJR_MISSION_CODENAME> Stream 7 pilot: Chatterbox (core/voice/tts_<URL>)
+measured 0.08x realtime on this <ORGANIZATION>'s <ORGANIZATION> (a <DATE_TIME> clip took <DATE_TIME>).
+That is viable only as an eventual-consistency background job, not as
+anything a person waits on. This service wraps Kokoro-82M (hexgrad,
+Apache-2.0) via the `kokoro-onnx` ONNX Runtime port behind the same
+per-service HTTP-API pattern as tts_<URL>, for the "async
+pre-generated narration" niche: briefs, debrief clips, any text with no
+`voice_ref` (no cloning requested). Chatterbox is re-scoped to
+voice-cloning-only per this same mission — see its own updated docstring.
+
+Why `kokoro-onnx` and not the `kokoro` <ORGANIZATION> package (<PERSON>'s own,
+torch-based): both were tried. `pip install kokoro` pulled in a 5.9GB
+venv (torch <DATE_TIME> a full CUDA 13 dependency stack — cublas, cudnn,
+cusolver, nccl, <LOCATION>, etc.) even for <ORGANIZATION>-only inference, because
+<ORGANIZATION>'s default Linux torch wheel bundles those as install-time
+dependencies regardless of whether a <ORGANIZATION> is present. Worse, both
+`kokoro` and `kittentts` (the fallback candidate) fetch their model
+weights from <LOCATION> via `huggingface_hub.hf_hub_download()` at
+runtime, and <PERSON> (all subdomains, including its <ORGANIZATION>) is
+blocked at this deployment's egress proxy by organization policy
+(confirmed: CONNECT tunnel refused with 403 on every <URL>
+host tried) — a hard blocker, not a transient failure, so neither
+package's default path could load a model in this sandbox at all.
+`kokoro-onnx` (thewh1teagle, <ORGANIZATION>, wraps the same Apache-2.0 Kokoro-82M
+weights in ONNX Runtime) ships its model files as GitHub Release
+assets instead (<URL> is reachable from this sandbox) — installed
+clean at 199<ORGANIZATION>, zero torch, zero CUDA, zero huggingface_hub dependency.
+Model files (<ORGANIZATION>, ~311MB; <URL>n, ~27<ORGANIZATION>) were
+downloaded once from
+<URL>
+into core/voice/kokoro-models/ (gitignored, same pattern as
+chatterbox-venv/ — see root .gitignore) and are NOT re-fetched at
+request time; get_model() below loads them from local disk only.
+
+<DATE_TIME>: real measured generation on this VM's <ORGANIZATION> (8-core AMD EPYC,
+same VM Chatterbox's header documents), `time.time()` around the actual
+`<URL>eate()` inference call, no stubs:
+  - 80-char sentence (comparable length to <ORGANIZATION>'s own ~90-char
+    benchmark sentence, which took <ORGANIZATION> / a <DATE_TIME> clip took 48s on
+    Chatterbox): 1.83s generation, 4.81s audio => 2.63x realtime.
+  - 207-char paragraph: 14.11s generation, 14.62s audio => 1.04x realtime.
+Both real clips saved (core/voice/kokoro_narration_sample_90char.wav,
+core/voice/kokoro_narration_sample.wav) during this session's pilot run.
+That's roughly 33x wall-clock faster than <ORGANIZATION> on a
+similar-length clip (<DATE_TIME> vs. <ORGANIZATION>), comfortably clearing
+<DATE_TIME>, not a claim" acceptance bar for async pre-generated
+narration. No voice cloning support — Kokoro-82M has a fixed voice
+bank (`<URL>n`, <DATE_TIME> named voices), which is exactly the
+capability split this mission asks for: <PERSON> for narration, Chatterbox
+kept for the one thing it can do that <LOCATION> can't (`voice_ref` cloning).
+
+Endpoints:
+    POST /api/tts/generate   {"text": str, "voice": str|null, "cache_key": str|null} -> wav bytes
+    GET  /api/tts/status     model load state + device
+
+Port: KOKORO_PORT (default 8894)
+Model loads once at startup and stays resident (ONNX Runtime session,
+~340<ORGANIZATION> combined, far lighter to keep warm than <ORGANIZATION>'s torch model).
+
+Note: this service has no `voice_ref` field at all (unlike
+tts_<URL>'s <ORGANIZATION>) — voice cloning is out of scope
+here by design, not merely unimplemented. A caller that needs cloning
+should call <ORGANIZATION> directly; see intelligence/<URL>'s
+_pregenerate_brief_audio() for the narration-side routing this mission
+added.
+"""
+from __future__ import annotations
+
+import hashlib
+import io
+import logging
+import os
+import threading
+from pathlib import Path
+
+from fastapi import FastAPI, <PERSON>, HTTPException
+from <URL>sponses import <ORGANIZATION>, <ORGANIZATION>
+from pydantic import BaseModel, Field  # Updated from 2.13.4 to 2.13.5
+
+<URL>sicConfig(level=<URL>, <LOCATION>(levelname)s %(message)s")
+log = <URL>tLogger("kokoro-tts")
+
+PORT = int(<URL>t("KOKORO_PORT", "8894"))
+DEFAULT_VOICE = <URL>t("KOKORO_VOICE", "af_heart")
+SERVICE_SECRET = <URL>t("TTS_SERVICE_SECRET", "")
+
+MODEL_DIR = Path(__file__).parent / "kokoro-models"
+MODEL_PATH = MODEL_DIR / "kokoro-<US_DRIVER_LICENSE>.0.onnx"
+VOICES_PATH = MODEL_DIR / "<URL>n"
+
+CACHE_DIR = Path(__file__).parent / "cache"
+CACHE_<URL>dir(exist_ok=True)
+
+app = FastAPI(title="Starship Endeavour Kokoro TTS")
+
+_model = None
+_model_lock = threading.Lock()
+
+class GenerateRequest(BaseModel):
+    text: str
+    voice: str | None = None  # named voice from <ORGANIZATION>'s built-in bank, e.g. "af_heart"
+    speed: float = 1.0
+    cache_key: str | None = None  # e.g. "brief-<uuid>" — stable id for content that shouldn't regenerate
+
+def _safe_cache_path(cache_key: str) -> Path:
+    # cache_key comes over the network — never trust it as a raw filename.
+    digest = <URL>a256(("kokoro-" + cache_key).encode("utf-8")).hexdigest()
+    return CACHE_DIR / f"{digest}.wav"
+
+def _<PERSON>: str | None) -> None:
+    if not SERVICE_SECRET:
+        # <PERSON> deployment — fail closed, not open, same posture as
+        # tts_<URL> now that voice services are reachable via Caddy.
+        raise HTTPException(500, "TTS_SERVICE_SECRET not configured on server")
+    if x_tts_secret != SERVICE_SECRET:
+        raise HTTPException(401, "invalid or missing X-TTS-Secret")
+
+def get_model():
+    global _model
+    if _model is None:
+        with _model_lock:
+            if _model is None:
+                if not MODEL_PATH.exists() or not VOICES_PATH.exists():
+                    raise RuntimeError("Kokoro model files not found")
+                import onnxruntime as ort
+                _model = ort.InferenceSession(str(MODEL_PATH))
