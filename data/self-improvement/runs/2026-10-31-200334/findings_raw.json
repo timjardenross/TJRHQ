@@ -1,0 +1,76 @@
+{
+  "findings": [
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Phase 5 Features in Research Commands",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "TODO comments indicate Phase 5 features remain unimplemented, including authorization checks via Supabase and integration with decision_to_memory.",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/commands/research_commands.py"
+        }
+      ],
+      "confidence": 0.95,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement Phase 5 authorization checking and integration with memory in research_commands.py or track as formal backlog items."
+      },
+      "expected_benefit": "Completes core research command lifecycle and prevents unauthenticated execution."
+    },
+    {
+      "category": "placeholder_code",
+      "title": "Unimplemented Quality Anomalies Query in Forecasting",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "TODO marker shows recent_anomalies assigned an empty list rather than querying the quality_anomalies table.",
+          "location": "/opt/starship-endeavour-self-improvement/platform-runtime/lib/quality_forecasting_service.py"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "modify",
+        "description": "Implement query against quality_anomalies table to populate recent_anomalies."
+      },
+      "expected_benefit": "Restores accurate forecasting by including real quality anomaly data."
+    },
+    {
+      "category": "router_bypass",
+      "title": "Direct API Key and Provider Invocations Bypassing Model Router",
+      "evidence": [
+        {
+          "type": "code_reference",
+          "observation": "Direct calls to call_gemini and call_mistral using environment API keys instead of routing through the model router service.",
+          "location": "/opt/starship-endeavour-self-improvement/intelligence/emergency_alert_service.py"
+        }
+      ],
+      "confidence": 0.85,
+      "severity": "medium",
+      "proposed_action": {
+        "type": "refactor",
+        "description": "Route emergency alert LLM requests through the model router endpoint to enforce centralized policy, fallback, and tracking."
+      },
+      "expected_benefit": "Provides consistent logging, latency tracking, and resilience under rate limits."
+    },
+    {
+      "category": "observability_gap",
+      "title": "Model Router Call Log Missing",
+      "evidence": [
+        {
+          "type": "service_status",
+          "observation": "Router call_log_exists is false for configured log path /opt/starship-endeavour/core/model-router/call_log.jsonl.",
+          "location": "/opt/starship-endeavour/core/model-router/call_log.jsonl"
+        }
+      ],
+      "confidence": 0.9,
+      "severity": "low",
+      "proposed_action": {
+        "type": "configure",
+        "description": "Ensure model router log directory exists and service has permissions to create and write to call_log.jsonl."
+      },
+      "expected_benefit": "Restores visibility into model usage metrics, request latencies, and failure logs."
+    }
+  ]
+}
