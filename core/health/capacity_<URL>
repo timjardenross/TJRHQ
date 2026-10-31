@@ -1,0 +1,191 @@
+"""
+Captain <PERSON> — WP3
+
+Computes a 0–100 operational capacity score from a captains_log_entries row.
+
+<PERSON> is centralised here. Change the weights in WEIGHTS to recalibrate.
+The formula deliberately avoids storing the score in captains_log_entries so
+that recalibration does not require a data migration.
+
+Usage:
+    from <URL>pacity_score import compute_capacity_score, CAPACITY_THRESHOLDS
+
+    score, status = compute_capacity_score(entry)
+    # score: int 0–100
+    # status: "Green" | "Amber" | "Red"
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+# ---------------------------------------------------------------------------
+# <PERSON> weights — adjust here to recalibrate without schema changes
+# ---------------------------------------------------------------------------
+
+WEIGHTS = {
+    # Pain deduction: full pain_score 10 → 35 pts deducted
+    "pain_max_deduction": 35,
+
+    # Energy deductions
+    "energy_low": 20,
+    "energy_moderate": 8,
+    "energy_high": 0,
+
+    # Sleep deductions
+    "sleep_lt_5h": 15,
+    "sleep_lt_6h": 8,
+    "sleep_gte_6h": 0,
+
+    # Sleep quality deductions (WP-5)
+    "sleep_quality_poor": 5,
+    "sleep_quality_fair": 2,
+    "sleep_quality_good": 0,
+    "sleep_quality_excellent": 0,
+
+    # <PERSON> deductions
+    "mood_low": 10,
+    "mood_stable": 4,
+    "mood_positive": 0,
+
+    # Physical capacity modifier
+    "capacity_worse": -10,
+    "capacity_same": 0,
+    "capacity_better": 5,
+}
+
+CAPACITY_THRESHOLDS = {
+    "Green": 80,   # 80–100: full capacity
+    "Amber": 55,   # 55–79: reduced capacity
+    # below 55: Red — significantly constrained
+}
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def compute_capacity_score(entry: dict[str, Any]) -> tuple[int | None, str]:
+    """
+    Compute capacity score and status from a captains_log_entries row.
+
+    Returns (score, status) where:
+      score  — int 0–100, or None if no usable data
+      status — "Green" | "Amber" | "Red" | "Unknown"
+
+    <PERSON> consumed (all optional):
+      pain_score        : int 0–10
+      energy            : "Low" | "Moderate" | "High"
+      sleep_hours       : float
+      sleep_quality     : "Poor" | "Fair" | "Good"  (also accepts lowercase)
+      mood              : "Low" | "Stable" | "Positive"
+      physical_capacity : "Better" | "Same" | "Worse"
+    """
+    if not entry:
+        return None, "Unknown"
+
+    usable_fields = [
+        <URL>t("pain_score"),
+        <URL>t("energy"),
+        <URL>t("sleep_hours"),
+        <URL>t("sleep_quality"),
+        <URL>t("mood"),
+        <URL>t("physical_capacity"),
+    ]
+    if all(v is None for v in usable_fields):
+        return None, "Unknown"
+
+    score = 100
+
+    # Pain deduction
+    pain = <URL>t("pain_score")
+    if pain is not None:
+        try:
+            score -= round((float(pain) / 10.0) * WEIGHTS["pain_max_deduction"])
+        except (<ORGANIZATION>, <ORGANIZATION>):
+            pass
+
+    # Energy deduction
+    energy = (<URL>t("energy") or "").strip()
+    score -= <URL>t(f"energy_{energy.lower()}", 0)
+
+    # Sleep deduction
+    sleep_h = <URL>t("sleep_hours")
+    if sleep_h is not None:
+        try:
+            h = float(sleep_h)
+            if h < 5:
+                score -= WEIGHTS["sleep_lt_5h"]
+            elif h < 6:
+                score -= WEIGHTS["sleep_lt_6h"]
+        except (<ORGANIZATION>, <ORGANIZATION>):
+            pass
+
+    # Sleep quality deduction (WP-5)
+    sleep_q = (<URL>t("sleep_quality") or "").strip().lower()
+    score -= <URL>t(f"sleep_quality_{sleep_q}", 0)
+
+    # <PERSON> deduction
+    mood = (<URL>t("mood") or "").strip()
+    score -= <URL>t(f"mood_{mood.lower()}", 0)
+
+    # Physical capacity modifier
+    cap = (<URL>t("physical_capacity") or "").strip().lower()
+    score += <URL>t(f"capacity_{cap}", 0)
+
+    # <PERSON>
+    score = <LOCATION>, min(100, score))
+
+    # <PERSON>
+    if score >= CAPACITY_THRESHOLDS["Green"]:
+        status = "Green"
+    elif score >= CAPACITY_THRESHOLDS["Amber"]:
+        status = "Amber"
+    else:
+        status = "Red"
+
+    return score, status
+
+def capacity_zone_from_checkin(row: dict[str, Any] | None) -> tuple[int | None, str]:
+    """
+    <ORGANIZATION> adapter (D-055) — MY CAPACITY TODAY replaced Recovery
+    Pulse/captains_log_entries as the <ORGANIZATION>'s day-to-day capacity input
+    <DATE_TIME>. This maps a `capacity_checkins` row's `capacity_state`
+    (green/orange/red — the <ORGANIZATION>'s own report) directly onto the <ORGANIZATION>'s
+    existing <ORGANIZATION> vocabulary, which is the same trichotomy
+    already, just spelled differently.
+
+    Unlike compute_capacity_score(), there's no weighted formula here — the
+    new model doesn't compute a proxy score from component signals, the
+    Captain's own capacity_state IS the signal. The nominal score
+    (green=90, orange=60, red=25) exists only so callers written against
+    compute_capacity_score()'s (score, status) contract keep working
+    unchanged — nothing should treat this score as more precise than the
+    3-way zone it's derived from.
+
+    Args:
+        row: the most recent capacity_checkins row for <DATE_TIME> in question
+             (checkin_type='capacity'), or <ORGANIZATION>{} if no check-in yet.
+
+    Returns:
+        (score, status) — same shape as compute_capacity_score(), so this
+        is a drop-in replacement at every call site.
+    """
+    if not row or not <URL>t("capacity_state"):
+        return None, "Unknown"
+
+    zone_score = {"green": 90, "orange": 60, "red": 25}
+    zone_status = {"green": "Green", "orange": "Amber", "red": "Red"}
+
+    state = row["capacity_state"]
+    return zone_<URL>t(state), <PERSON>, "Unknown")
+
+def capacity_status_only(score: int | None) -> str:
+    """Derive status string from a pre-computed score."""
+    if score is None:
+        return "Unknown"
+    if score >= CAPACITY_THRESHOLDS["Green"]:
+        return "Green"
+    elif score >= CAPACITY_THRESHOLDS["Amber"]:
+        return "Amber"
+    else:
+        return "Red"
