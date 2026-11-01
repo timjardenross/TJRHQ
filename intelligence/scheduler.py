@@ -1069,7 +1069,9 @@ _PRIORITY_TIERED_SOURCE_NAMES = frozenset({
 # ~224/month already committed, blowing past the 850 safe ceiling. 120 min
 # leaves genuine headroom on both providers' budgets — this constant is the
 # real, math-checked interval, not a placeholder.
-_PRIORITY_TIERED_INTERVAL_MINUTES = 120
+# 2026-11-01: widened 120 -> 240 to cut Firecrawl spend (Telstra+Optus ticks
+# 6/day -> 3/day inside the 12h window; ~360 -> ~180 credits/month).
+_PRIORITY_TIERED_INTERVAL_MINUTES = 240
 _PRIORITY_TIERED_WINDOW_START_HOUR = 7   # inclusive, Melbourne local time (Australia/Melbourne, DST-aware)
 _PRIORITY_TIERED_WINDOW_END_HOUR = 19    # exclusive, Melbourne local time
 
