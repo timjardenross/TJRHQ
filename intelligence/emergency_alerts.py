@@ -188,6 +188,15 @@ def _expire_stale_many(source_keys: list[str], run_started_at: str) -> dict[str,
     return counts
 
 
+def _record_email_failure(alert_id: str) -> None:
+    """Stamp alerts.emergency_email_failed_at (migration 0243) so the workbench
+    shows 'Email failed' rather than 'not sent yet'. Best-effort: never raises."""
+    try:
+        _supabase_request("PATCH", f"alerts?id=eq.{alert_id}", body={"emergency_email_failed_at": datetime.now(timezone.utc).isoformat()})
+    except Exception as exc:  # noqa: BLE001 - recording a failure must never break the ingestion run it is attached to
+        log.warning("[emergency-alerts] could not record email failure for alert %s: %s", alert_id, exc)
+
+
 def _send_emergency_warning_emails(source_key: str) -> int:
     """Email (Resend, core/notifications/resend_email.py) for every
     currently-active severity='emergency_warning' alert on this source that
@@ -250,6 +259,7 @@ def _send_emergency_warning_emails(source_key: str) -> int:
         )
         if not send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=html):
             log.warning("[emergency-alerts] %s: email send failed for alert %s — will retry next run (dedupe flag not set)", source_key, row["id"])
+            _record_email_failure(row["id"])
             continue
         try:
             _supabase_request("PATCH", f"alerts?id=eq.{row['id']}", body={"emergency_email_sent_at": datetime.now(timezone.utc).isoformat()})
@@ -333,6 +343,7 @@ def _send_bom_attention_emails(source_key: str) -> int:
         )
         if not send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=body):
             log.warning("[emergency-alerts] %s: BOM email send failed for alert %s — will retry next run (dedupe flag not set)", source_key, row["id"])
+            _record_email_failure(row["id"])
             continue
         try:
             _supabase_request("PATCH", f"alerts?id=eq.{row['id']}", body={"emergency_email_sent_at": datetime.now(timezone.utc).isoformat()})

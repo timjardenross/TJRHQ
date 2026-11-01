@@ -5,12 +5,13 @@
  * Warnings and for BOM warnings the platform labels "High attention", once per
  * alert (alerts.emergency_email_sent_at). A matching silence skips the send
  * WITHOUT setting that column, so a silenced alert reads "muted", not "sent".
+ * A failed send stamps emailFailedAt (migration 0243) and is retried each run.
  * Watch and Act and lower tiers are never emailed.
  */
 
 import { bomAttentionLevel } from '@/lib/bomAttention';
 
-export type EmailState = 'sent' | 'muted' | 'pending' | 'not_emailed';
+export type EmailState = 'sent' | 'muted' | 'failed' | 'pending' | 'not_emailed';
 
 export interface EmailStatus {
   state: EmailState;
@@ -24,6 +25,7 @@ interface EmailStatusAlert {
   headline: string;
   alertType: string;
   emailSentAt: string | null;
+  emailFailedAt?: string | null;
 }
 
 export function isEmailEligible(alert: Pick<EmailStatusAlert, 'sourceKey' | 'severity' | 'headline' | 'alertType'>): boolean {
@@ -40,6 +42,9 @@ export function alertEmailStatus(alert: EmailStatusAlert, isMuted: boolean, ago:
   }
   if (isMuted) {
     return { state: 'muted', label: 'Email muted by a silence', detail: 'An active silence is holding the email. It sends if the silence ends while the alert is still active.' };
+  }
+  if (alert.emailFailedAt) {
+    return { state: 'failed', label: `Email FAILED ${ago(alert.emailFailedAt)}`, detail: 'The platform could not send the emergency email and retries every 15 minutes. Tell the team yourself until this clears.' };
   }
   return { state: 'pending', label: 'Email not sent yet', detail: 'This alert qualifies for an email and none has gone out. It is picked up on the next 15-minute run; if it stays like this, check the Coverage panel.' };
 }

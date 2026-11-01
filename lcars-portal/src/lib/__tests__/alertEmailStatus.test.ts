@@ -15,6 +15,15 @@ describe('alertEmailStatus', () => {
     expect(alertEmailStatus(alert(), false, ago).state).toBe('pending');
   });
 
+  it('failed when a failure is recorded and nothing has been sent', () => {
+    expect(alertEmailStatus(alert({ emailFailedAt: '2026-11-02T01:00:00Z' }), false, ago)).toMatchObject({ state: 'failed', label: 'Email FAILED at 2026-11-02T01:00:00Z' });
+  });
+
+  it('a later success beats an earlier failure, and a silence beats a stale failure', () => {
+    expect(alertEmailStatus(alert({ emailSentAt: '2026-11-02T02:00:00Z', emailFailedAt: '2026-11-02T01:00:00Z' }), false, ago).state).toBe('sent');
+    expect(alertEmailStatus(alert({ emailFailedAt: '2026-11-02T01:00:00Z' }), true, ago).state).toBe('muted');
+  });
+
   it('eligible alert under a silence reads muted, not sent', () => {
     expect(alertEmailStatus(alert(), true, ago).state).toBe('muted');
   });
