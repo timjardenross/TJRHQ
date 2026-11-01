@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from heartbeat import supabase_get  # noqa: E402
+from heartbeat import supabase_get
 
 # Search radius around an alert point, by severity. Wider for the tiers where
 # a missed site costs more; a fire warning's footprint is far larger than its
@@ -70,7 +70,7 @@ def _alert_text(alert: dict) -> str:
 def _suburb_in_text(suburb: str, text: str) -> bool:
     if len(suburb) < _MIN_SUBURB_LEN:
         return False
-    return re.search(rf"(?<![A-Za-z]){re.escape(suburb)}(?![A-Za-z])", text, re.I) is not None
+    return re.search(rf"(?<![A-Za-z]){re.escape(suburb)}(?![A-Za-z])", text, re.IGNORECASE) is not None
 
 
 def match_alert(alert: dict, sites: list[dict]) -> list[SiteMatch]:

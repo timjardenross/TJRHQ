@@ -35,8 +35,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+import defusedxml.ElementTree as ET  # nosec B314 - defused parser; the workbook is a local internal file but is parsed as untrusted XML anyway
 
 _NOMINATIM = "https://nominatim.openstreetmap.org/search"
 _USER_AGENT = "USS-TJR-EmergencyAlertHub-SiteGeocoder/1.0 (one-off geocode of internal site list)"
@@ -52,8 +53,8 @@ _STATE_NAMES = {
 _AU_LAT = (-44.0, -9.0)
 _AU_LON = (112.0, 154.0)
 
-_UNIT_PART_RE = re.compile(r"^(shop|suite|level|lvl|unit|tenancy|kiosk|lot|ground|g\d|store)\b", re.I)
-_VENUE_WORDS_RE = re.compile(r"\b(centre|center|plaza|mall|arcade|village|square|market|marketplace)\b", re.I)
+_UNIT_PART_RE = re.compile(r"^(shop|suite|level|lvl|unit|tenancy|kiosk|lot|ground|g\d|store)\b", re.IGNORECASE)
+_VENUE_WORDS_RE = re.compile(r"\b(centre|center|plaza|mall|arcade|village|square|market|marketplace)\b", re.IGNORECASE)
 
 
 def read_sites(xlsx_path: Path) -> list[dict]:
@@ -207,7 +208,7 @@ def build(xlsx: Path, out: Path, cache: Path) -> list[dict]:
 def load(sites_json: Path) -> None:
     """Upsert the geocoded file into alert_sites (service-role key)."""
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "core" / "platform"))
-    from heartbeat import _KEY, _URL  # noqa: PLC0415
+    from heartbeat import _KEY, _URL
 
     if not _URL or not _KEY:
         raise SystemExit("Supabase credentials not configured")

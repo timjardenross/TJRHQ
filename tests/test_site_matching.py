@@ -42,7 +42,7 @@ class TestDistanceMatch:
         assert sm.match_alert(_alert(latitude=-33.0, longitude=150.3119), [_site()]) == []
 
     def test_advice_uses_smaller_radius(self):
-        a = dict(latitude=-33.5134, longitude=150.3119)  # ~22 km away
+        a = {"latitude": -33.5134, "longitude": 150.3119}  # ~22 km away
         assert sm.match_alert(_alert(**a), [_site()])
         assert sm.match_alert(_alert(severity="advice", **a), [_site()]) == []
 
