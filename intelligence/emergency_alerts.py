@@ -14,6 +14,7 @@ intelligence/scheduler.py's existing source-collection jobs.
 
 from __future__ import annotations
 
+import html
 import json
 import logging
 import os
@@ -28,6 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "core" / "platform"))
 import alert_silences
+import site_matching
 from heartbeat import _KEY, _URL, record_heartbeats, supabase_get
 from heartbeat import record_heartbeat as _record_heartbeat
 
@@ -184,7 +186,7 @@ def _send_emergency_warning_emails(source_key: str) -> int:
         rows = supabase_get(
             f"alerts?source_key=eq.{source_key}&severity=eq.emergency_warning"
             "&is_active=eq.true&emergency_email_sent_at=is.null"
-            "&select=id,headline,jurisdiction,alert_type,location,description,canonical_url,issued_at"
+            "&select=id,headline,jurisdiction,alert_type,severity,location,description,canonical_url,issued_at,latitude,longitude"
         )
     except Exception as exc:  # noqa: BLE001 - best-effort unnotified-warnings read, already logged; caller treats 0 as 'nothing to notify'
         log.warning("[emergency-alerts] %s: failed to read unnotified emergency warnings: %s", source_key, exc)
@@ -198,6 +200,12 @@ def _send_emergency_warning_emails(source_key: str) -> int:
         log.warning("[emergency-alerts] %s: failed to read active silences (proceeding as if none): %s", source_key, exc)
         active_silences = []
 
+    try:
+        sites = site_matching.list_active_sites()
+    except Exception as exc:  # noqa: BLE001 - a site-register failure must never block a real emergency warning email; degrade to "no site context"
+        log.warning("[emergency-alerts] %s: failed to read alert_sites (sending without site context): %s", source_key, exc)
+        sites = []
+
     sent = 0
     for row in rows:
         silenced = alert_silences.check_silence(
@@ -208,7 +216,10 @@ def _send_emergency_warning_emails(source_key: str) -> int:
             log.info("[emergency-alerts] %s: alert %s silenced (%s) — email suppressed", source_key, row["id"], silenced.get("reason"))
             continue
 
-        subject = f"🚨 EMERGENCY WARNING — {row['jurisdiction']} — {row['headline']}"
+        matches = site_matching.match_alert({**row, "severity": "emergency_warning"}, sites)
+        tier1 = sum(1 for m in matches if m.site.get("priority") == "Tier 1")
+        site_prefix = f"[{len(matches)} site{'s' if len(matches) != 1 else ''} possibly affected{f', {tier1} Tier 1' if tier1 else ''}] " if matches else ""
+        subject = f"🚨 {site_prefix}EMERGENCY WARNING — {row['jurisdiction']} — {row['headline']}"
         html = (
             f"<p><strong>{row['headline']}</strong></p>"
             f"<p>Jurisdiction: {row['jurisdiction']}<br>"
@@ -216,6 +227,7 @@ def _send_emergency_warning_emails(source_key: str) -> int:
             f"Issued: {row.get('issued_at') or '—'}</p>"
             f"<p>{row.get('description') or ''}</p>"
             + (f"<p><a href=\"{row['canonical_url']}\">Official source</a></p>" if row.get("canonical_url") else "")
+            + _sites_html(matches, bool(sites))
         )
         if not send_email(to=_EMERGENCY_EMAIL_TO, subject=subject, html=html):
             log.warning("[emergency-alerts] %s: email send failed for alert %s — will retry next run (dedupe flag not set)", source_key, row["id"])
@@ -226,6 +238,29 @@ def _send_emergency_warning_emails(source_key: str) -> int:
         except Exception as exc:  # noqa: BLE001 - per-alert notification-flag write inside a loop — one bad write must not abort the batch, already logged with the alert id
             log.warning("[emergency-alerts] %s: sent email but failed to mark alert %s notified — may re-send next run: %s", source_key, row["id"], exc)
     return sent
+
+
+_MAX_SITES_IN_EMAIL = 15
+
+
+def _sites_html(matches: list, have_sites: bool) -> str:
+    """Own sites this alert may affect, highest-priority first. States the
+    basis of each match (distance vs named suburb/postcode) and that no match
+    is not proof of safety — regional warnings name a district, not a site.
+    Empty when the site register could not be read."""
+    if not have_sites:
+        return ""
+    if not matches:
+        return ("<p><strong>Sites:</strong> none matched by location. A regional warning may still "
+                "affect sites in this area — check the official source.</p>")
+    items = "".join(
+        f"<li>{html.escape(m.site.get('priority') or '')} · {html.escape(m.site.get('site_type') or '')} · "
+        f"{html.escape(m.site.get('name') or '')}, {html.escape(m.site.get('suburb') or '')} {html.escape(m.site.get('state') or '')} "
+        f"— {html.escape(m.reason)}</li>"
+        for m in matches[:_MAX_SITES_IN_EMAIL]
+    )
+    more = f"<p>…and {len(matches) - _MAX_SITES_IN_EMAIL} more.</p>" if len(matches) > _MAX_SITES_IN_EMAIL else ""
+    return f"<p><strong>Sites possibly affected ({len(matches)}):</strong></p><ul>{items}</ul>{more}"
 
 
 def run_source(source_key: str, run_started_at: str | None = None, heartbeats: list[dict] | None = None) -> dict:

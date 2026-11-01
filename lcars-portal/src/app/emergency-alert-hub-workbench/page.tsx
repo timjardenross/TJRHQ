@@ -46,6 +46,8 @@ import { emergencyAlertTierToTone } from '@/lib/departments';
 import type { EmergencyAlertEntry } from '@/app/api/emergency-alerts/route';
 import type { EmergencyAlertSourceEntry } from '@/app/api/emergency-alerts/sources/route';
 import type { AlertSilenceEntry } from '@/app/api/emergency-alerts/silences/route';
+import type { AlertSiteEntry } from '@/app/api/emergency-alerts/sites/route';
+import { matchAlert, statesWithoutSiteMatch, type SiteMatch } from '@/lib/siteMatching';
 
 const ACTIVE_HOURS_START = 7;  // 07:00 local
 const ACTIVE_HOURS_END = 19;   // 19:00 local
@@ -204,7 +206,7 @@ function AlertRow({ alert, isSelected, isMuted, onSelect }: { alert: EmergencyAl
 
 /** Compact card for a high-severity (Emergency Warning / Watch and Act)
  * alert — readable without opening the dense Browse table. */
-function HighSeverityCard({ alert, isMuted, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; onSelect: () => void }) {
+function HighSeverityCard({ alert, isMuted, siteCount = 0, onSelect }: { alert: EmergencyAlertEntry; isMuted: boolean; siteCount?: number; onSelect: () => void }) {
   const isEmergency = alert.severity === 'emergency_warning';
   return (
     <div
@@ -232,6 +234,11 @@ function HighSeverityCard({ alert, isMuted, onSelect }: { alert: EmergencyAlertE
       <h3 className="break-words font-serif text-base text-wb-ink">{alert.headline}</h3>
       {alert.location && <p className="text-wb-label text-wb-ink2">{alert.location}</p>}
       <p className="mt-1 text-wb-label text-wb-ink2">Updated {relativeTime(alert.lastSeenAt)}</p>
+      {siteCount > 0 && (
+        <p className="mt-1 text-wb-label font-semibold text-state-crit-on">
+          {siteCount} of our site{siteCount === 1 ? '' : 's'} possibly affected
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap gap-3">
         <button
           onClick={onSelect}
@@ -552,10 +559,89 @@ function SilencesPanel({ silences, onRefresh }: { silences: AlertSilenceEntry[];
   );
 }
 
+const MATCH_METHOD_LABEL: Record<string, string> = { distance: 'Near incident point', text: 'Named in alert' };
+
+interface AffectedSite {
+  site: AlertSiteEntry;
+  match: SiteMatch;
+  alert: EmergencyAlertEntry;
+}
+
+/** Own sites that active Emergency Warning / Watch and Act alerts may affect
+ * (lib/siteMatching.ts). "None matched" is never shown as "clear": regional
+ * warnings name a district, not a suburb, so unmatched alerts in states where
+ * we have sites are surfaced as a remainder. */
+function SitesPanel({
+  sites, sitesError, affected, unmatchedByState, onSelectAlert,
+}: {
+  sites: AlertSiteEntry[];
+  sitesError: string | null;
+  affected: AffectedSite[];
+  unmatchedByState: Record<string, number>;
+  onSelectAlert: (id: string) => void;
+}) {
+  const geocoded = sites.filter((s) => s.geocodeQuality === 'address' || s.geocodeQuality === 'street').length;
+  const unmatchedTotal = Object.values(unmatchedByState).reduce((a, b) => a + b, 0);
+  const tier1 = affected.filter((a) => a.site.priority === 'Tier 1').length;
+
+  return (
+    <Card>
+      <h2 className="font-serif text-base text-wb-ink">Your sites</h2>
+      {sitesError ? (
+        <p className="mt-1 text-wb-label text-state-warn-on">Site register could not be loaded ({sitesError}) — showing national alerts only.</p>
+      ) : sites.length === 0 ? (
+        <p className="mt-1 text-wb-label text-wb-ink2">No site register loaded — showing national alerts only.</p>
+      ) : (
+        <>
+          <p className="mt-1 text-wb-label text-wb-ink2">
+            {affected.length === 0
+              ? 'No site matched an active Emergency Warning or Watch and Act.'
+              : `${affected.length} site${affected.length === 1 ? '' : 's'} possibly affected${tier1 > 0 ? ` · ${tier1} Tier 1` : ''}.`}
+          </p>
+          {affected.length > 0 && (
+            <ul className="mt-2 flex flex-col gap-2">
+              {affected.slice(0, 8).map(({ site, match, alert }) => (
+                <li key={`${site.id}-${alert.id}`} className="rounded border border-wb-line px-2 py-1.5 text-wb-label">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge status={site.priority === 'Tier 1' ? 'error' : 'neutral'}>{site.priority}</Badge>
+                    <span className="font-medium text-wb-ink">{site.name}</span>
+                    <span className="text-wb-ink2">{site.suburb} {site.state}</span>
+                  </div>
+                  <p className="mt-1 break-words text-wb-ink2">
+                    {alert.headline} · {MATCH_METHOD_LABEL[match.method]} ({match.reason})
+                  </p>
+                  <button
+                    onClick={() => onSelectAlert(alert.id)}
+                    className="mt-1 text-wb-label font-semibold text-wb-sage-deep underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-sage-deep"
+                  >
+                    View alert
+                  </button>
+                </li>
+              ))}
+              {affected.length > 8 && <li className="text-wb-label italic text-wb-ink2">…and {affected.length - 8} more.</li>}
+            </ul>
+          )}
+          {unmatchedTotal > 0 && (
+            <p className="mt-2 rounded border border-state-warn/50 bg-state-warn/10 px-2 py-1 text-wb-label text-state-warn-on">
+              {unmatchedTotal} active alert{unmatchedTotal === 1 ? '' : 's'} in states where we have sites matched no specific site
+              ({Object.entries(unmatchedByState).map(([st, n]) => `${st} ${n}`).join(', ')}). Regional warnings can still apply — check the alert details.
+            </p>
+          )}
+          <p className="mt-2 text-wb-label text-wb-ink2">
+            {sites.length} sites · {geocoded} located to street level; the rest use suburb or postcode centres, so their matches are approximate.
+          </p>
+        </>
+      )}
+    </Card>
+  );
+}
+
 export default function EmergencyAlertsWorkbench() {
   const [allAlerts, setAllAlerts] = useState<EmergencyAlertEntry[]>([]);
   const [sources, setSources] = useState<EmergencyAlertSourceEntry[]>([]);
   const [silences, setSilences] = useState<AlertSilenceEntry[]>([]);
+  const [sites, setSites] = useState<AlertSiteEntry[]>([]);
+  const [sitesError, setSitesError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [silencesError, setSilencesError] = useState<string | null>(null);
@@ -564,7 +650,6 @@ export default function EmergencyAlertsWorkbench() {
   const [severityFilter, setSeverityFilter] = useState<string>('');
   const [showInactive, setShowInactive] = useState(false);
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
-  const [showRelevanceInfo, setShowRelevanceInfo] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detailPanelRef = useRef<HTMLDivElement | null>(null);
 
@@ -586,6 +671,20 @@ export default function EmergencyAlertsWorkbench() {
     }
   }
 
+  /** Same isolation as silences: a site-register outage must not take down
+   * the alert views — the page degrades to national alerts with a notice. */
+  async function fetchSites() {
+    try {
+      const res = await fetch('/api/emergency-alerts/sites', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Sites HTTP ${res.status}`);
+      const data = await res.json();
+      setSites(data.sites ?? []);
+      setSitesError(null);
+    } catch (err) {
+      setSitesError(err instanceof Error ? err.message : 'Failed to load sites');
+    }
+  }
+
   async function fetchData(withSpinner: boolean) {
     if (withSpinner) setIsLoading(true);
     try {
@@ -593,6 +692,7 @@ export default function EmergencyAlertsWorkbench() {
         fetch('/api/emergency-alerts?activeOnly=false', { cache: 'no-store' }),
         fetch('/api/emergency-alerts/sources', { cache: 'no-store' }),
         fetchSilences(),
+        fetchSites(),
       ]);
       if (!alertsRes.ok) throw new Error(`Alerts HTTP ${alertsRes.status}`);
       if (!sourcesRes.ok) throw new Error(`Sources HTTP ${sourcesRes.status}`);
@@ -653,6 +753,29 @@ export default function EmergencyAlertsWorkbench() {
   const informationalAlerts = useMemo(() => activeAlerts.filter((a) => a.severity !== 'emergency_warning' && a.severity !== 'watch_and_act'), [activeAlerts]);
   const adviceCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'advice').length, [activeAlerts]);
   const unknownCount = useMemo(() => activeAlerts.filter((a) => a.severity === 'unknown').length, [activeAlerts]);
+
+  const siteMatchesByAlert = useMemo(() => {
+    const map = new Map<string, SiteMatch[]>();
+    for (const alert of [...emergencyAlerts, ...watchAlerts]) {
+      const matches = matchAlert(alert, sites);
+      if (matches.length > 0) map.set(alert.id, matches);
+    }
+    return map;
+  }, [emergencyAlerts, watchAlerts, sites]);
+
+  /** One row per site, attached to its most severe alert (emergency first). */
+  const affectedSites = useMemo<AffectedSite[]>(() => {
+    const bySite = new Map<string, AffectedSite>();
+    for (const alert of [...emergencyAlerts, ...watchAlerts]) {
+      for (const match of siteMatchesByAlert.get(alert.id) ?? []) {
+        if (!bySite.has(match.site.id)) bySite.set(match.site.id, { site: match.site, match, alert });
+      }
+    }
+    const order: Record<string, number> = { 'Tier 1': 0, 'Tier 2': 1, 'Tier 3': 2 };
+    return [...bySite.values()].sort((a, b) => (order[a.site.priority] ?? 9) - (order[b.site.priority] ?? 9) || a.site.name.localeCompare(b.site.name));
+  }, [emergencyAlerts, watchAlerts, siteMatchesByAlert]);
+
+  const unmatchedByState = useMemo(() => statesWithoutSiteMatch([...emergencyAlerts, ...watchAlerts], sites), [emergencyAlerts, watchAlerts, sites]);
 
   const browseAlerts = useMemo(() => {
     return allAlerts.filter((a) => {
@@ -771,7 +894,7 @@ export default function EmergencyAlertsWorkbench() {
                     </h2>
                     <div className="flex flex-col gap-3">
                       {emergencyAlerts.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                       ))}
                     </div>
                   </Card>
@@ -787,7 +910,7 @@ export default function EmergencyAlertsWorkbench() {
                     </h2>
                     <div className="flex flex-col gap-3">
                       {watchAlerts.map((alert) => (
-                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />
+                        <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />
                       ))}
                     </div>
                   </Card>
@@ -799,30 +922,20 @@ export default function EmergencyAlertsWorkbench() {
                   <Card>
                     <h2 className="mb-3 inline-block rounded border border-wb-line bg-wb-surface-raised px-2 py-1 text-wb-body font-bold uppercase tracking-wide text-wb-ink2"><span id="alerts-informational">Informational · </span>{informationalAlerts.length} active · no immediate action</h2>
                     <div className="flex flex-col gap-3">
-                      {informationalAlerts.map((alert) => <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
+                      {informationalAlerts.map((alert) => <HighSeverityCard key={alert.id} alert={alert} isMuted={mutedAlertIds.has(alert.id)} siteCount={siteMatchesByAlert.get(alert.id)?.length ?? 0} onSelect={() => selectAndMaybeSwitch(alert.id)} />)}
                     </div>
                   </Card>
                   </section>
                 )}
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  <Card>
-                    <h2 className="font-serif text-base text-wb-ink">Relevant to you</h2>
-                    <p className="mt-1 text-wb-label text-wb-ink2">Personal relevance unavailable — showing national alerts.</p>
-                    <button
-                      onClick={() => setShowRelevanceInfo((v) => !v)}
-                      className="mt-2 text-wb-label font-semibold text-wb-sage-deep underline"
-                    >
-                      {showRelevanceInfo ? 'Hide' : 'How relevance works'}
-                    </button>
-                    {showRelevanceInfo && (
-                      <p className="mt-2 text-wb-label italic text-wb-ink2">
-                        HQ does not yet have a configured location or area of interest to match against alert
-                        locations. Without a reliable match, alerts are shown nationally rather than guessing
-                        at relevance.
-                      </p>
-                    )}
-                  </Card>
+                  <SitesPanel
+                    sites={sites}
+                    sitesError={sitesError}
+                    affected={affectedSites}
+                    unmatchedByState={unmatchedByState}
+                    onSelectAlert={selectAndMaybeSwitch}
+                  />
 
                   {(adviceCount > 0 || unknownCount > 0) && (
                     <Card>
