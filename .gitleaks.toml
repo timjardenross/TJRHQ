@@ -4,7 +4,7 @@ title = "TJRHQ gitleaks config"
 [extend]
 useDefault = true
 
-[allowlist]
+[[allowlists]]
 description = "Paths that legitimately contain high-entropy strings that are not secrets"
 paths = [
   # detect-secrets' baseline stores SHA1 hashes of the strings it flagged,
@@ -24,4 +24,15 @@ paths = [
   # for the matching, much larger (45min+) slowdown that hook hit from
   # the same path.
   '''(^|/)data/self-improvement/runs/.*/evidence\.json$''',
+]
+
+# 2026-11-02: lcars-portal snapshot contract test pins the frozen v1.0 fixture
+# files by SHA-256 (FROZEN_SHA256 map). Those 64-char hex digests are content
+# hashes, not credentials, but trip generic-api-key. Scoped to that one rule and
+# that one file so any other rule firing in the same file still blocks.
+[[allowlists]]
+description = "snapshot.test.ts frozen fixture SHA-256 digests"
+targetRules = ["generic-api-key"]
+paths = [
+  '''(^|/)lcars-portal/src/app/api/integrations/tjr-life/v1/snapshot/snapshot\.test\.ts$''',
 ]
