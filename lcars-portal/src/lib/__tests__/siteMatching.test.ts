@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { matchAlert, statesWithoutSiteMatch, haversineKm } from '@/lib/siteMatching';
+import { matchAlert, statesWithoutSiteMatch, haversineKm, stateSiteSummary } from '@/lib/siteMatching';
 import type { AlertSiteEntry } from '@/app/api/emergency-alerts/sites/route';
 
 const site = (o: Partial<AlertSiteEntry> = {}): AlertSiteEntry => ({
@@ -76,5 +76,12 @@ describe('haversineKm', () => {
     const d = haversineKm(-33.8688, 151.2093, -37.8136, 144.9631);
     expect(d).toBeGreaterThan(700);
     expect(d).toBeLessThan(725);
+  });
+});
+
+describe('stateSiteSummary', () => {
+  it('counts sites and Tier 1 in one state', () => {
+    expect(stateSiteSummary('NSW', [site(), site({ priority: 'Tier 1' }), site({ state: 'VIC' })])).toEqual({ total: 2, tier1: 1 });
+    expect(stateSiteSummary('TAS', [site()])).toEqual({ total: 0, tier1: 0 });
   });
 });
