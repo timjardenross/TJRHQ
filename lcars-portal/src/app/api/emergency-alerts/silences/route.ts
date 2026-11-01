@@ -32,6 +32,10 @@ const SOURCE_KEYS = [
   'bom_nsw', 'bom_nt', 'bom_qld', 'bom_sa', 'bom_tas', 'bom_vic', 'bom_wa', 'bom_act',
 ] as const;
 
+// A silence can never mute these — mirror of UNSILENCEABLE_SEVERITIES in
+// core/platform/alert_silences.py and silenceCoversAlert in the workbench page.
+const UNSILENCEABLE_SEVERITIES: readonly string[] = ['emergency_warning'];
+
 const LIST_LIMIT = 50;
 
 export interface AlertSilenceEntry {
@@ -70,6 +74,7 @@ interface SilenceRow {
 /** Mirrors core/platform/alert_silences.py's _matches(): every non-null
  * match_* field must equal the alert's corresponding field. */
 function silenceMatchesAlert(silence: SilenceRow, alert: AlertRow): boolean {
+  if (UNSILENCEABLE_SEVERITIES.includes(alert.severity)) return false;
   if (silence.match_jurisdiction !== null && silence.match_jurisdiction !== alert.jurisdiction) return false;
   if (silence.match_alert_type !== null && silence.match_alert_type !== alert.alert_type) return false;
   if (silence.match_severity !== null && silence.match_severity !== alert.severity) return false;
@@ -183,6 +188,10 @@ export async function POST(request: NextRequest) {
     resolved.push(value);
   }
   const [jurisdiction, alertType, severity, sourceKey] = resolved;
+  if (severity !== null && UNSILENCEABLE_SEVERITIES.includes(severity)) {
+    await logActionHistory({ action: 'emergency_alert.silence_create', outcome: 'failed', workbench: 'emergency-alerts', details: { reason: 'severity_unsilenceable' } });
+    return NextResponse.json({ error: 'Emergency Warnings cannot be silenced' }, { status: 400 });
+  }
 
   try {
     const sb = await createSupabaseServerClient();

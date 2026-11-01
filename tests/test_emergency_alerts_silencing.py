@@ -39,17 +39,27 @@ class TestSendEmergencyWarningEmails:
         assert sent == 0
         mock_silences.assert_not_called()
 
-    def test_silenced_alert_sends_no_email_and_sets_no_flag(self):
+    def test_silence_never_suppresses_an_emergency_warning(self):
         rows = [_row()]
         silence = {"id": "sil-1", "reason": "planned burn", "match_jurisdiction": "NSW"}
         with patch.object(ea, "supabase_get", return_value=rows), \
              patch.object(ea.alert_silences, "list_active_silences", return_value=[silence]), \
-             patch.object(ea, "send_email") as mock_send, \
+             patch.object(ea, "send_email", return_value=True) as mock_send, \
              patch.object(ea, "_supabase_request") as mock_patch:
             sent = ea._send_emergency_warning_emails("nsw_rfs")
-        assert sent == 0
-        mock_send.assert_not_called()
-        mock_patch.assert_not_called()
+        assert sent == 1
+        mock_send.assert_called_once()
+        mock_patch.assert_called_once()
+
+    def test_everything_silence_does_not_mute_emergency_warnings(self):
+        rows = [_row()]
+        silence = {"id": "sil-all", "reason": "maintenance window"}
+        with patch.object(ea, "supabase_get", return_value=rows), \
+             patch.object(ea.alert_silences, "list_active_silences", return_value=[silence]), \
+             patch.object(ea, "send_email", return_value=True) as mock_send, \
+             patch.object(ea, "_supabase_request"):
+            assert ea._send_emergency_warning_emails("nsw_rfs") == 1
+        mock_send.assert_called_once()
 
     def test_unsilenced_alert_sends_email_as_before(self):
         rows = [_row()]
@@ -61,22 +71,6 @@ class TestSendEmergencyWarningEmails:
         assert sent == 1
         mock_send.assert_called_once()
         mock_patch.assert_called_once()
-
-    def test_mixed_batch_only_silences_matching_alert(self):
-        rows = [
-            _row(id="alert-1", jurisdiction="NSW", alert_type="hazard_reduction"),
-            _row(id="alert-2", jurisdiction="QLD", alert_type="bushfire"),
-        ]
-        silence = {"id": "sil-1", "reason": "burn", "match_jurisdiction": "NSW", "match_alert_type": "hazard_reduction"}
-        with patch.object(ea, "supabase_get", return_value=rows), \
-             patch.object(ea.alert_silences, "list_active_silences", return_value=[silence]), \
-             patch.object(ea, "send_email", return_value=True) as mock_send, \
-             patch.object(ea, "_supabase_request"):
-            sent = ea._send_emergency_warning_emails("nsw_rfs")
-        assert sent == 1
-        assert mock_send.call_count == 1
-        sent_subject = mock_send.call_args.kwargs["subject"]
-        assert "QLD" in sent_subject
 
     def test_silence_lookup_failure_degrades_to_no_silences(self):
         rows = [_row()]
