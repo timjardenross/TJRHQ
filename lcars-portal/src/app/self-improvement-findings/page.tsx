@@ -8,8 +8,10 @@ import { OpportunityDetail } from './_components/OpportunityDetail';
 import {
   CHANGE_CLASS_LABEL,
   MISSION_ONLY_CLASSES,
+  normaliseOpportunity,
   type ChangeClass,
   type EvolutionSummary,
+  type LifecycleStage,
   type Investigation,
   type LegacyFinding,
   type Opportunity,
@@ -28,47 +30,19 @@ import {
 // is an overnight-cycle-fed surface, not a live terminal — with the same
 // hidden-tab pause behaviour, plus a manual refresh action.
 
-type TabKey = 'discover' | 'investigate' | 'improve' | 'learned' | 'rejected';
+type TabKey = 'to_decide' | 'in_progress' | 'done' | 'closed';
 
-const LIFECYCLE_STAGES: Array<{ key: Opportunity['lifecycle_state']; label: string }> = [
-  { key: 'discovered', label: 'Discovered' },
-  { key: 'investigating', label: 'Investigating' },
-  { key: 'proposed', label: 'Proposed' },
-  { key: 'approved', label: 'Approved' },
-  { key: 'implementing', label: 'Implementing' },
-  { key: 'verifying', label: 'Verifying' },
-  { key: 'learned', label: 'Learned' },
-  { key: 'watching', label: 'Watching' },
-  { key: 'rejected', label: 'Rejected' },
-  { key: 'resolved_before_research', label: 'Resolved before research' },
+// The four stages the Captain sees. HQ still tracks finer internal states
+// (discovered, investigating, approved, implementing, verifying, watching, ...)
+// — they survive as `stage_detail` (see _components/types.ts) and show as a
+// small badge inside a stage rather than as stages of their own. Items HQ is
+// still researching are not shown: there is nothing for the Captain to do yet.
+const STAGES: Array<{ key: Exclude<LifecycleStage, 'researching'>; label: string; hint: string; badgeState: string }> = [
+  { key: 'to_decide', label: 'To decide', hint: 'Waiting for your decision', badgeState: 'proposed' },
+  { key: 'in_progress', label: 'In progress', hint: 'Approved, being built or checked', badgeState: 'implementing' },
+  { key: 'done', label: 'Done', hint: 'Finished, outcome recorded', badgeState: 'learned' },
+  { key: 'closed', label: 'Closed', hint: 'Rejected, parked, or already resolved', badgeState: 'rejected' },
 ];
-
-// Which tab actually shows each lifecycle state — mirrors the filters each
-// tab already applies (see `proposed`/`investigating`/`watching`/`learned`/
-// `rejected`/`historical`/`discoveredOnly` useMemo's below). Lets the
-// lifecycle strip's stage tiles jump straight there instead of being a
-// dead-end count display.
-//
-// 2026-09-27: approved/implementing/verifying/resolved_before_research were
-// previously mapped to 'improve', but ImproveTab only ever renders `proposed`
-// — these four states actually render in LearnedTab's `historical` list
-// (a collapsed <details> under "Historical decisions / changes"). Fixed
-// after the Captain reported clicking the "Implementing" tile showed
-// nothing — confirmed live: 7 real implementing-state opportunities existed,
-// the tile just pointed at an empty tab.
-const LIFECYCLE_STAGE_TAB: Record<Opportunity['lifecycle_state'], TabKey> = {
-  discovered: 'discover',
-  // proposed items are decided in the Improve tab; Discover only lists them.
-  proposed: 'improve',
-  investigating: 'investigate',
-  watching: 'investigate',
-  approved: 'learned',
-  implementing: 'learned',
-  verifying: 'learned',
-  resolved_before_research: 'learned',
-  learned: 'learned',
-  rejected: 'rejected',
-};
 
 const REFRESH_MS = 60_000;
 
@@ -87,7 +61,7 @@ function usePolling(load: () => void) {
 }
 
 export default function HqEvolutionPage() {
-  const [tab, setTab] = useState<TabKey>('discover');
+  const [tab, setTab] = useState<TabKey>('to_decide');
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [summary, setSummary] = useState<EvolutionSummary | null>(null);
   const [legacyFindings, setLegacyFindings] = useState<LegacyFinding[]>([]);
@@ -126,7 +100,8 @@ export default function HqEvolutionPage() {
       const findingsBody = await findingsRes.json();
       if (!oppRes.ok) throw new Error(typeof oppBody?.error === 'string' ? oppBody.error : 'Failed to load opportunities');
 
-      const loadedOpportunities: Opportunity[] = oppBody.opportunities || [];
+      // Accept either vocabulary: fine states (old API) or stages + stage_detail (new API).
+      const loadedOpportunities: Opportunity[] = (oppBody.opportunities || []).map(normaliseOpportunity);
       setOpportunities(loadedOpportunities);
       setSummary(summaryRes.ok ? summaryBody : null);
       setLegacyFindings(findingsBody.findings || []);
@@ -244,21 +219,13 @@ export default function HqEvolutionPage() {
     }
   }
 
-  const proposed = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'proposed'), [opportunities]);
-  const investigating = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'investigating'), [opportunities]);
-  const watching = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'watching'), [opportunities]);
-  const learned = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'learned'), [opportunities]);
-  // Rejected gets its own tab (with full OpportunityDetail per item, including
-  // rejection_reason) rather than a one-line row buried in Learned's collapsed
-  // "Historical decisions" section — that gave no room to see why HQ rejected
-  // something without first expanding a <details> and hunting through mixed
-  // approved/implementing/rejected rows.
-  const rejected = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'rejected'), [opportunities]);
-  const historical = useMemo(
-    () => opportunities.filter((o) => ['approved', 'implementing', 'verifying', 'resolved_before_research'].includes(o.lifecycle_state)),
-    [opportunities],
-  );
-  const discoveredOnly = useMemo(() => opportunities.filter((o) => o.lifecycle_state === 'discovered'), [opportunities]);
+  const proposed = useMemo(() => opportunities.filter((o) => o.stage === 'to_decide'), [opportunities]);
+  const inProgress = useMemo(() => opportunities.filter((o) => o.stage === 'in_progress'), [opportunities]);
+  const learned = useMemo(() => opportunities.filter((o) => o.stage === 'done'), [opportunities]);
+  // Closed = rejected + parked ("watching") + resolved before research. One tab
+  // with a reason on each, instead of three places to look.
+  const closed = useMemo(() => opportunities.filter((o) => o.stage === 'closed'), [opportunities]);
+  const researchingCount = useMemo(() => opportunities.filter((o) => o.stage === 'researching').length, [opportunities]);
   const radarCounts = useMemo(() => {
     const counts: Partial<Record<ChangeClass, number>> = {};
     for (const o of opportunities) {
@@ -267,20 +234,15 @@ export default function HqEvolutionPage() {
     }
     return counts;
   }, [opportunities]);
-  const lifecycleCounts = useMemo(() => {
-    const counts = Object.fromEntries(LIFECYCLE_STAGES.map(({ key }) => [key, 0])) as Record<Opportunity['lifecycle_state'], number>;
-    opportunities.forEach((o) => { counts[o.lifecycle_state] = (counts[o.lifecycle_state] ?? 0) + 1; });
+  const stageCounts = useMemo(() => {
+    const counts: Record<string, number> = { to_decide: 0, in_progress: 0, done: 0, closed: 0 };
+    opportunities.forEach((o) => { if (o.stage && o.stage in counts) counts[o.stage] += 1; });
     return counts;
   }, [opportunities]);
 
   const selected = opportunities.find((o) => o.opportunity_id === selectedId) || null;
   const selectedLegacyFinding = legacyFindings.find((f) => f.finding_id === selectedFindingId) || null;
   const pendingLegacyCount = legacyFindings.filter((f) => !f.decision).length;
-
-  function reviewOpportunity(o: Opportunity) {
-    setSelectedId(o.opportunity_id);
-    setTab(LIFECYCLE_STAGE_TAB[o.lifecycle_state]);
-  }
 
   if (loading) {
     return (
@@ -294,7 +256,7 @@ export default function HqEvolutionPage() {
     <WorkbenchShell
       title="Improvements"
       eyebrow="HQ works on HQ while you're away"
-      tagline="TJR HQ · Improvements · Discover, investigate, improve, learn — nothing changes production without your say"
+      tagline="TJR HQ · Improvements · Decide, track, learn — nothing changes production without your say"
       mode="command"
       wide
       tabs={
@@ -303,11 +265,10 @@ export default function HqEvolutionPage() {
           active={tab}
           onChange={setTab}
           tabs={[
-            { key: 'discover', label: `Discover${discoveredOnly.length ? ` (${discoveredOnly.length})` : ''}` },
-            { key: 'investigate', label: `Investigate${investigating.length ? ` (${investigating.length})` : ''}` },
-            { key: 'improve', label: `Improve${proposed.length + pendingLegacyCount ? ` (${proposed.length + pendingLegacyCount})` : ''}` },
-            { key: 'learned', label: 'Learned' },
-            { key: 'rejected', label: `Rejected${rejected.length ? ` (${rejected.length})` : ''}` },
+            { key: 'to_decide', label: `To decide${proposed.length + pendingLegacyCount ? ` (${proposed.length + pendingLegacyCount})` : ''}` },
+            { key: 'in_progress', label: `In progress${inProgress.length ? ` (${inProgress.length})` : ''}` },
+            { key: 'done', label: `Done${learned.length ? ` (${learned.length})` : ''}` },
+            { key: 'closed', label: `Closed${closed.length ? ` (${closed.length})` : ''}` },
           ]}
         />
       }
@@ -331,73 +292,58 @@ export default function HqEvolutionPage() {
       <Card>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           <div>
-            <h2 className="font-serif text-lg text-wb-ink">Evolution lifecycle</h2>
-            <p className="text-xs text-wb-ink2">Every opportunity has one explicit state from discovery through learning or rejection.</p>
+            <h2 className="font-serif text-lg text-wb-ink">Where things stand</h2>
+            <p className="text-xs text-wb-ink2">Four stages: what needs your decision, what is underway, what is finished, and what is closed.</p>
           </div>
-          <span className="text-wb-label text-wb-ink2">{opportunities.length} total</span>
+          <span className="text-wb-label text-wb-ink2">{opportunities.length - researchingCount} shown</span>
         </div>
-        <ol aria-label="Improvements lifecycle states" className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:grid-cols-10">
-          {LIFECYCLE_STAGES.map(({ key, label }) => (
+        <ol aria-label="Improvements stages" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {STAGES.map(({ key, label, hint, badgeState }) => (
             <li key={key}>
               <button
                 type="button"
-                onClick={() => setTab(LIFECYCLE_STAGE_TAB[key])}
-                disabled={lifecycleCounts[key] === 0}
-                title={lifecycleCounts[key] === 0 ? `No opportunities in "${label}"` : `View ${label} in the ${LIFECYCLE_STAGE_TAB[key]} tab`}
-                className="w-full rounded-md border border-wb-line bg-wb-bg p-2 text-left transition-colors enabled:hover:border-wb-sage-deep enabled:hover:bg-wb-sage-deep/10 disabled:cursor-default disabled:opacity-60"
+                onClick={() => setTab(key)}
+                aria-current={tab === key ? 'true' : undefined}
+                title={`${hint} — open ${label}`}
+                className={`w-full rounded-md border bg-wb-bg p-2 text-left transition-colors hover:border-wb-sage-deep hover:bg-wb-sage-deep/10 ${
+                  tab === key ? 'border-wb-sage-deep' : 'border-wb-line'
+                }`}
               >
-                <p className="text-lg font-bold text-wb-ink">{lifecycleCounts[key]}</p>
-                <Badge status={toneToStatus(lifecycleStateToTone(key))}>{label}</Badge>
+                <p className="text-lg font-bold text-wb-ink">{stageCounts[key]}</p>
+                <Badge status={toneToStatus(lifecycleStateToTone(badgeState))}>{label}</Badge>
+                <p className="mt-1 text-xs text-wb-ink2">{hint}</p>
               </button>
             </li>
           ))}
         </ol>
       </Card>
 
-      {tab === 'discover' && (
-        <DiscoverTab
-          summary={summary}
-          proposed={proposed}
-          discoveredOnly={discoveredOnly}
-          radarCounts={radarCounts}
-          onReview={reviewOpportunity}
-        />
+      {tab === 'to_decide' && (
+        <div className="space-y-6">
+          <OvernightSummary summary={summary} researchingCount={researchingCount} radarCounts={radarCounts} />
+          <ImproveTab
+            proposed={proposed}
+            selected={selected}
+            onSelect={setSelectedId}
+            onDecide={decide}
+            onCreateMission={createMissionFor}
+            legacyFindings={legacyFindings}
+            selectedLegacyFinding={selectedLegacyFinding}
+            onSelectLegacyFinding={setSelectedFindingId}
+            reasoning={reasoning}
+            setReasoning={setReasoning}
+            onLegacyDecision={makeLegacyDecision}
+            missionStatuses={missionStatuses}
+            missionDispatch={missionDispatch}
+          />
+        </div>
       )}
 
-      {tab === 'investigate' && (
-        <InvestigateTab
-          investigating={investigating}
-          watching={watching}
-          selected={selected}
-          onSelect={setSelectedId}
-          onDecide={decide}
-          missionStatuses={missionStatuses}
-          missionDispatch={missionDispatch}
-        />
-      )}
-
-      {tab === 'improve' && (
-        <ImproveTab
-          proposed={proposed}
-          selected={selected}
-          onSelect={setSelectedId}
-          onDecide={decide}
-          onCreateMission={createMissionFor}
-          legacyFindings={legacyFindings}
-          selectedLegacyFinding={selectedLegacyFinding}
-          onSelectLegacyFinding={setSelectedFindingId}
-          reasoning={reasoning}
-          setReasoning={setReasoning}
-          onLegacyDecision={makeLegacyDecision}
-          missionStatuses={missionStatuses}
-          missionDispatch={missionDispatch}
-        />
-      )}
-
-      {tab === 'learned' && (
+      {tab === 'in_progress' && (
         <LearnedTab
-          learned={learned}
-          historical={historical}
+          mode="in_progress"
+          learned={[]}
+          historical={inProgress}
           onDecide={decide}
           onCreateMission={createMissionFor}
           missionStatuses={missionStatuses}
@@ -405,11 +351,24 @@ export default function HqEvolutionPage() {
         />
       )}
 
-      {tab === 'rejected' && (
-        <RejectedTab
-          rejected={rejected}
+      {tab === 'done' && (
+        <LearnedTab
+          mode="done"
+          learned={learned}
+          historical={[]}
+          onDecide={decide}
+          onCreateMission={createMissionFor}
+          missionStatuses={missionStatuses}
+          missionDispatch={missionDispatch}
+        />
+      )}
+
+      {tab === 'closed' && (
+        <ClosedTab
+          closed={closed}
           selected={selected}
           onSelect={setSelectedId}
+          onDecide={decide}
           missionStatuses={missionStatuses}
           missionDispatch={missionDispatch}
         />
@@ -425,97 +384,55 @@ export default function HqEvolutionPage() {
 
 // ── Discover ────────────────────────────────────────────────────────────
 
-function DiscoverTab({
-  summary, proposed, discoveredOnly, radarCounts, onReview,
+function OvernightSummary({
+  summary, researchingCount, radarCounts,
 }: {
   summary: EvolutionSummary | null;
-  proposed: Opportunity[];
-  discoveredOnly: Opportunity[];
+  researchingCount: number;
   radarCounts: Partial<Record<ChangeClass, number>>;
-  onReview: (o: Opportunity) => void;
 }) {
-  const grouped = useMemo(() => {
-    const byClass = new Map<ChangeClass, Opportunity[]>();
-    for (const o of proposed) {
-      const list = byClass.get(o.change_class) ?? [];
-      list.push(o);
-      byClass.set(o.change_class, list);
-    }
-    return byClass;
-  }, [proposed]);
-
   return (
-    <div className="space-y-6">
-      <Card>
-        {!summary || !summary.has_run_yet ? (
-          <p className="text-sm text-wb-ink2">No overnight improvement cycle has completed yet — nothing to show.</p>
-        ) : summary.nothing_worth_changing ? (
-          <>
-            <p className="text-lg font-serif text-wb-ink">Nothing worth changing today.</p>
-            <p className="mt-1 text-sm text-wb-ink2">
-              HQ investigated {summary.investigated_count} possibilit{summary.investigated_count === 1 ? 'y' : 'ies'} overnight —
-              none cleared the value/relevance threshold.
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="text-lg font-serif text-wb-ink">
-              HQ investigated {summary.investigated_count} possibilit{summary.investigated_count === 1 ? 'y' : 'ies'} overnight.
-            </p>
-            <p className="mt-1 text-sm text-wb-ink2">
-              {summary.worth_considering_count} {summary.worth_considering_count === 1 ? 'is' : 'are'} worth considering.
-            </p>
-          </>
-        )}
-        {!!summary?.rejected_at_gate_count && summary.rejected_at_gate_count > 0 && (
-          <p className="mt-1 text-xs text-wb-ink2">
-            {summary.rejected_at_gate_count} other candidate{summary.rejected_at_gate_count === 1 ? '' : 's'} didn&apos;t clear
-            the relevance gate — see the Rejected tab to review what HQ filtered out and why, in case anything should
-            have surfaced.
+    <Card>
+      {!summary || !summary.has_run_yet ? (
+        <p className="text-sm text-wb-ink2">No overnight improvement cycle has completed yet — nothing to show.</p>
+      ) : summary.nothing_worth_changing ? (
+        <>
+          <p className="text-lg font-serif text-wb-ink">Nothing worth changing today.</p>
+          <p className="mt-1 text-sm text-wb-ink2">
+            HQ investigated {summary.investigated_count} possibilit{summary.investigated_count === 1 ? 'y' : 'ies'} overnight —
+            none cleared the value/relevance threshold.
           </p>
-        )}
-        {!!summary?.outcomes_completed_count && summary.outcomes_completed_count > 0 && (
-          <p className="mt-1 text-xs text-wb-ink2">
-            {summary.outcomes_completed_count} previous improvement{summary.outcomes_completed_count === 1 ? '' : 's'} verified overnight.
+        </>
+      ) : (
+        <>
+          <p className="text-lg font-serif text-wb-ink">
+            HQ investigated {summary.investigated_count} possibilit{summary.investigated_count === 1 ? 'y' : 'ies'} overnight.
           </p>
-        )}
-      </Card>
-
-      {[...grouped.entries()].map(([changeClass, items]) => (
-        <div key={changeClass}>
-          <h3 className="text-xs uppercase text-wb-ink2 tracking-wider font-semibold mb-2">
-            {CHANGE_CLASS_LABEL[changeClass]}
-          </h3>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {items.map((o) => (
-              <Card key={o.opportunity_id}>
-                <div className="font-semibold text-sm text-wb-ink mb-1">{o.title}</div>
-                {o.value && <div className="text-xs text-wb-ink2 mb-1">Potential value: <span className="capitalize">{o.value}</span></div>}
-                {o.cost_impact && <div className="text-xs text-wb-ink2 mb-1">Cost impact: <span className="capitalize">{o.cost_impact}</span></div>}
-                {o.complexity && <div className="text-xs text-wb-ink2 mb-2">Complexity: <span className="capitalize">{o.complexity}</span></div>}
-                {o.why_relevant && <p className="text-xs text-wb-ink2 mb-3">{o.why_relevant}</p>}
-                <button
-                  onClick={() => onReview(o)}
-                  className="text-xs font-semibold text-wb-sage-deep hover:underline"
-                >
-                  Review →
-                </button>
-              </Card>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {discoveredOnly.length > 0 && (
-        <p className="text-xs text-wb-ink2">
-          {discoveredOnly.length} other candidate{discoveredOnly.length === 1 ? '' : 's'} cleared the relevance gate but
-          didn&apos;t reach deep investigation this cycle — HQ will reconsider {discoveredOnly.length === 1 ? 'it' : 'them'}
-          {' '}alongside new evidence in a future cycle.
+          <p className="mt-1 text-sm text-wb-ink2">
+            {summary.worth_considering_count} {summary.worth_considering_count === 1 ? 'is' : 'are'} worth considering.
+          </p>
+        </>
+      )}
+      {!!summary?.rejected_at_gate_count && summary.rejected_at_gate_count > 0 && (
+        <p className="mt-1 text-xs text-wb-ink2">
+          {summary.rejected_at_gate_count} other candidate{summary.rejected_at_gate_count === 1 ? '' : 's'} didn&apos;t clear
+          the relevance gate — see the Closed tab to review what HQ filtered out and why, in case anything should
+          have surfaced.
         </p>
       )}
-
+      {!!summary?.outcomes_completed_count && summary.outcomes_completed_count > 0 && (
+        <p className="mt-1 text-xs text-wb-ink2">
+          {summary.outcomes_completed_count} previous improvement{summary.outcomes_completed_count === 1 ? '' : 's'} verified overnight.
+        </p>
+      )}
+      {researchingCount > 0 && (
+        <p className="mt-1 text-xs text-wb-ink2">
+          HQ is still researching {researchingCount} other candidate{researchingCount === 1 ? '' : 's'}; {researchingCount === 1 ? 'it appears' : 'they appear'} here
+          once {researchingCount === 1 ? 'it is' : 'they are'} ready for your decision.
+        </p>
+      )}
       {Object.keys(radarCounts).length > 0 && (
-        <details>
+        <details className="mt-3">
           <summary className="cursor-pointer text-xs uppercase text-wb-ink2 tracking-wider font-semibold">HQ Radar</summary>
           <div className="mt-3 flex flex-wrap gap-2">
             {(Object.entries(radarCounts) as [ChangeClass, number][]).map(([changeClass, count]) => (
@@ -526,7 +443,7 @@ function DiscoverTab({
           </div>
         </details>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -569,77 +486,6 @@ function RelatedExperienceBlock({ investigation }: { investigation?: Investigati
 }
 
 // ── Investigate ─────────────────────────────────────────────────────────
-
-function InvestigateTab({
-  investigating, watching, selected, onSelect, onDecide, missionStatuses, missionDispatch,
-}: {
-  investigating: Opportunity[];
-  watching: Opportunity[];
-  selected: Opportunity | null;
-  onSelect: (id: string) => void;
-  onDecide: (id: string, type: OpportunityDecisionType, reasoning?: string) => void;
-  missionStatuses: Record<string, string>;
-  missionDispatch: Record<string, { success: boolean; message: string; pr_url: string | null }>;
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-      <div className="col-span-1 space-y-4">
-        <Card title="Active investigations">
-          {investigating.length === 0 ? (
-            <p className="text-sm text-wb-ink2">Nothing currently being investigated.</p>
-          ) : (
-            <div className="space-y-2">
-              {investigating.map((o) => (
-                <OpportunityCard key={o.opportunity_id} opportunity={o} selected={selected?.opportunity_id === o.opportunity_id} onSelect={() => onSelect(o.opportunity_id)} />
-              ))}
-            </div>
-          )}
-        </Card>
-
-        {watching.length > 0 && (
-          <details>
-            <summary className="cursor-pointer text-xs uppercase text-wb-ink2 tracking-wider font-semibold px-1">
-              Watching ({watching.length})
-            </summary>
-            <div className="mt-2 space-y-2">
-              {watching.map((o) => (
-                <OpportunityCard key={o.opportunity_id} opportunity={o} selected={selected?.opportunity_id === o.opportunity_id} onSelect={() => onSelect(o.opportunity_id)} />
-              ))}
-            </div>
-          </details>
-        )}
-      </div>
-
-      <div className="col-span-2">
-        {selected ? (
-          <OpportunityDetail
-            opportunity={selected}
-            missionStatus={selected.mission_id ? missionStatuses[selected.mission_id] : undefined}
-            missionDispatch={selected.mission_id ? missionDispatch[selected.mission_id] : undefined}
-            actions={
-              <div className="pt-2">
-                <RelatedExperienceBlock investigation={selected.investigation} />
-                <div className="flex gap-2 flex-wrap">
-                  <button onClick={() => onDecide(selected.opportunity_id, 'turn_into_improvement')} className="px-4 py-2 rounded bg-wb-ok text-wb-ok-on font-semibold text-sm hover:opacity-90">
-                    Turn into improvement
-                  </button>
-                  <button onClick={() => onDecide(selected.opportunity_id, 'keep_watching', 'Promising but premature')} className="px-4 py-2 rounded bg-wb-warn text-wb-warn-on font-semibold text-sm hover:opacity-90">
-                    Keep watching
-                  </button>
-                  <button onClick={() => onDecide(selected.opportunity_id, 'not_useful', 'Not useful')} className="px-4 py-2 rounded bg-wb-crit text-wb-crit-on font-semibold text-sm hover:opacity-90">
-                    Not useful
-                  </button>
-                </div>
-              </div>
-            }
-          />
-        ) : (
-          <Card title="Investigation"><div className="text-center py-12 text-wb-ink2">Select an item to review its investigation record.</div></Card>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // Mirrors the Python-side outcome_contract builder — display-only preview of
 // what approval will commit HQ to measuring; the real contract is created
@@ -863,8 +709,10 @@ const LEARNED_FILTERS: { key: string; label: string; result: string | null }[] =
 ];
 
 function LearnedTab({
-  learned, historical, onDecide, onCreateMission, missionStatuses, missionDispatch,
+  mode, learned, historical, onDecide, onCreateMission, missionStatuses, missionDispatch,
 }: {
+  /** 'done' = finished items with outcomes; 'in_progress' = approved/implementing/verifying. */
+  mode: 'done' | 'in_progress';
   learned: Opportunity[];
   historical: Opportunity[];
   onDecide: (id: string, type: OpportunityDecisionType, reasoning?: string) => void;
@@ -881,6 +729,7 @@ function LearnedTab({
 
   return (
     <div className="space-y-6">
+      {mode === 'done' && (
       <div>
         <h2 className="text-sm font-semibold text-wb-ink mb-3">Recent improvements</h2>
         <div className="flex gap-2 flex-wrap mb-4">
@@ -919,15 +768,22 @@ function LearnedTab({
           </div>
         )}
       </div>
+      )}
 
-      {historical.length > 0 && (
+      {mode === 'in_progress' && historical.length === 0 && (
+        <Card>
+          <p className="text-sm text-wb-ink2">Nothing in progress. Approve something under To decide and it appears here.</p>
+        </Card>
+      )}
+
+      {mode === 'in_progress' && historical.length > 0 && (
         // 2026-09-27: open by default — the lifecycle strip's Approved/
         // Implementing/Verifying/Resolved-before-research tiles now route
         // here (LIFECYCLE_STAGE_TAB above), and landing on a collapsed
         // <details> looked identical to the tile being a dead end.
         <details open>
           <summary className="cursor-pointer text-xs uppercase text-wb-ink2 tracking-wider font-semibold">
-            Historical decisions / changes ({historical.length})
+            In progress ({historical.length})
           </summary>
           <div className="mt-3 space-y-2">
             {historical.map((o) => {
@@ -1038,32 +894,41 @@ function LearnedTab({
 
 // ── Rejected ────────────────────────────────────────────────────────────
 
-/** Same master/detail shape as Investigate — a rejected opportunity gets its
- * full OpportunityDetail (including "Why this was rejected"), not a one-line
- * row buried in Learned's collapsed historical list. Covers both a rejected
- * relevance-gate candidate and a fully-investigated opportunity the Captain
- * (or HQ) decided against — both land here as lifecycle_state 'rejected'. */
-function RejectedTab({
-  rejected, selected, onSelect, missionStatuses, missionDispatch,
+/** Everything that is finished with and not "Done": rejected, parked
+ * ("watching") and resolved-before-research. Same master/detail shape as the
+ * other tabs; the reason is shown on each, and a parked item can be moved back
+ * to To decide or rejected for good. */
+const CLOSED_REASON: Record<string, string> = {
+  rejected: 'Rejected',
+  watching: 'Parked — revisit later',
+  resolved_before_research: 'Already resolved — HQ checked before researching',
+};
+
+function ClosedTab({
+  closed, selected, onSelect, onDecide, missionStatuses, missionDispatch,
 }: {
-  rejected: Opportunity[];
+  closed: Opportunity[];
   selected: Opportunity | null;
   onSelect: (id: string) => void;
+  onDecide: (id: string, type: OpportunityDecisionType, reasoning?: string) => void;
   missionStatuses: Record<string, string>;
   missionDispatch: Record<string, { success: boolean; message: string; pr_url: string | null }>;
 }) {
-  const selectedRejected = selected && rejected.some((o) => o.opportunity_id === selected.opportunity_id) ? selected : null;
+  const selectedClosed = selected && closed.some((o) => o.opportunity_id === selected.opportunity_id) ? selected : null;
 
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
       <div className="col-span-1">
-        <Card title="Rejected">
-          {rejected.length === 0 ? (
-            <p className="text-sm text-wb-ink2">Nothing rejected yet.</p>
+        <Card title="Closed">
+          {closed.length === 0 ? (
+            <p className="text-sm text-wb-ink2">Nothing closed yet.</p>
           ) : (
             <div className="space-y-2">
-              {rejected.map((o) => (
-                <OpportunityCard key={o.opportunity_id} opportunity={o} selected={selectedRejected?.opportunity_id === o.opportunity_id} onSelect={() => onSelect(o.opportunity_id)} />
+              {closed.map((o) => (
+                <div key={o.opportunity_id}>
+                  <OpportunityCard opportunity={o} selected={selectedClosed?.opportunity_id === o.opportunity_id} onSelect={() => onSelect(o.opportunity_id)} />
+                  <p className="mt-1 px-1 text-xs text-wb-ink2">{CLOSED_REASON[o.lifecycle_state] ?? 'Closed'}</p>
+                </div>
               ))}
             </div>
           )}
@@ -1071,14 +936,26 @@ function RejectedTab({
       </div>
 
       <div className="col-span-2">
-        {selectedRejected ? (
+        {selectedClosed ? (
           <OpportunityDetail
-            opportunity={selectedRejected}
-            missionStatus={selectedRejected.mission_id ? missionStatuses[selectedRejected.mission_id] : undefined}
-            missionDispatch={selectedRejected.mission_id ? missionDispatch[selectedRejected.mission_id] : undefined}
+            opportunity={selectedClosed}
+            missionStatus={selectedClosed.mission_id ? missionStatuses[selectedClosed.mission_id] : undefined}
+            missionDispatch={selectedClosed.mission_id ? missionDispatch[selectedClosed.mission_id] : undefined}
+            actions={
+              selectedClosed.lifecycle_state === 'watching' ? (
+                <div className="pt-2 flex gap-2 flex-wrap">
+                  <button onClick={() => onDecide(selectedClosed.opportunity_id, 'turn_into_improvement')} className="px-4 py-2 rounded bg-wb-ok text-wb-ok-on font-semibold text-sm hover:opacity-90">
+                    Move back to To decide
+                  </button>
+                  <button onClick={() => onDecide(selectedClosed.opportunity_id, 'not_useful', 'Not useful')} className="px-4 py-2 rounded bg-wb-crit text-wb-crit-on font-semibold text-sm hover:opacity-90">
+                    Reject for good
+                  </button>
+                </div>
+              ) : undefined
+            }
           />
         ) : (
-          <Card title="Rejected opportunity"><div className="text-center py-12 text-wb-ink2">Select a rejected item to see why HQ rejected it.</div></Card>
+          <Card title="Closed item"><div className="text-center py-12 text-wb-ink2">Select an item to see why it was closed.</div></Card>
         )}
       </div>
     </div>
